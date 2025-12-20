@@ -333,9 +333,8 @@ impl Axis {
                             format!("{:.1e}", formatted_data_value)
                         } else {
                             // If it's a major tick (power of 10), display as integer
-                            if (formatted_data_value.log10().round()
-                                - formatted_data_value.log10())
-                            .abs()
+                            if (formatted_data_value.log10().round() - formatted_data_value.log10())
+                                .abs()
                                 < 1e-9
                             {
                                 format!("{:.0}", formatted_data_value)

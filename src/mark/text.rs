@@ -40,8 +40,7 @@ pub struct MarkText {
 ///
 /// The `TextAnchor` enum defines the horizontal alignment of text elements relative
 /// to their anchor point. This controls how text is positioned horizontally when rendered.
-#[derive(Debug, Clone)]
-#[derive(Default)]
+#[derive(Debug, Clone, Default)]
 pub enum TextAnchor {
     /// Left-align text to the anchor point
     Start,
@@ -52,13 +51,11 @@ pub enum TextAnchor {
     End,
 }
 
-
 /// Text baseline options
 ///
 /// The `TextBaseline` enum defines the vertical alignment of text elements relative
 /// to their anchor point. This controls how text is positioned vertically when rendered.
-#[derive(Debug, Clone)]
-#[derive(Default)]
+#[derive(Debug, Clone, Default)]
 pub enum TextBaseline {
     /// Use the default baseline determined by the browser
     #[default]
@@ -68,7 +65,6 @@ pub enum TextBaseline {
     /// Align the top of the text with the anchor point
     Hanging,
 }
-
 
 impl MarkText {
     // Create a new text mark with default properties

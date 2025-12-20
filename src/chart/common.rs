@@ -427,9 +427,10 @@ impl<T: Mark> Chart<T> {
 
         // Add type checking for text charts - text encoding must be String
         if mark.mark_type() == "text"
-            && let Some(text_enc) = &self.encoding.text {
-                expected_types.insert(text_enc.field.as_str(), vec![DataType::String]);
-            }
+            && let Some(text_enc) = &self.encoding.text
+        {
+            expected_types.insert(text_enc.field.as_str(), vec![DataType::String]);
+        }
 
         // Use check_schema to validate columns exist in the dataframe and have correct types
         check_schema(&mut self.data.df, &active_fields, &expected_types).map_err(|e| {
@@ -2632,8 +2633,6 @@ impl LayeredChart {
     /// std::fs::write("chart.svg", svg_string)?;
     /// ```
     pub fn to_svg(&self) -> Result<String, ChartonError> {
-        
-
         self.generate_svg()
     }
 

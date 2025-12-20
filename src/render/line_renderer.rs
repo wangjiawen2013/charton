@@ -2,8 +2,7 @@ use crate::visual::color::SingleColor;
 use std::fmt::Write;
 
 /// Interpolation methods for line paths
-#[derive(Debug, Clone)]
-#[derive(Default)]
+#[derive(Debug, Clone, Default)]
 pub enum PathInterpolation {
     /// Straight line segments between points (default)
     #[default]
@@ -13,7 +12,6 @@ pub enum PathInterpolation {
     /// Step function that jumps to next value immediately
     StepBefore,
 }
-
 
 /// Renders a line as an SVG path element and appends it to the provided SVG string.
 ///

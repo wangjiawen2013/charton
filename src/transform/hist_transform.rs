@@ -134,7 +134,8 @@ impl<T: Mark> Chart<T> {
                 let color_repeated: Vec<String> = color_values
                     .iter()
                     .cycle()
-                    .take(all_bin_labels.len() * color_values.len()).cloned()
+                    .take(all_bin_labels.len() * color_values.len())
+                    .cloned()
                     .collect();
 
                 // Create DataFrame with all combinations
@@ -144,7 +145,6 @@ impl<T: Mark> Chart<T> {
                 ]?;
 
                 // Join with the grouped data to fill in missing combinations
-                
 
                 all_combinations_df
                     .lazy()
@@ -165,7 +165,6 @@ impl<T: Mark> Chart<T> {
                 ]?;
 
                 // Join with the grouped data to include zero counts for empty bins
-                
 
                 all_bins_df
                     .lazy()
