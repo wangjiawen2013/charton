@@ -23,7 +23,7 @@ impl Chart<MarkText> {
     /// # Arguments
     /// * `color` - A `SingleColor` specifying the text color
     pub fn with_text_color(mut self, color: Option<SingleColor>) -> Self {
-        let mut mark = self.mark.unwrap_or_else(MarkText::new);
+        let mut mark = self.mark.unwrap_or_default();
         mark.color = color;
         self.mark = Some(mark);
         self
@@ -37,7 +37,7 @@ impl Chart<MarkText> {
     /// # Arguments
     /// * `size` - A `f64` value representing the font size in pixels
     pub fn with_text_size(mut self, size: f64) -> Self {
-        let mut mark = self.mark.unwrap_or_else(MarkText::new);
+        let mut mark = self.mark.unwrap_or_default();
         mark.size = size;
         self.mark = Some(mark);
         self
@@ -52,7 +52,7 @@ impl Chart<MarkText> {
     /// # Arguments
     /// * `opacity` - A `f64` value between 0.0 and 1.0 representing the text opacity
     pub fn with_text_opacity(mut self, opacity: f64) -> Self {
-        let mut mark = self.mark.unwrap_or_else(MarkText::new);
+        let mut mark = self.mark.unwrap_or_default();
         mark.opacity = opacity;
         self.mark = Some(mark);
         self
@@ -66,7 +66,7 @@ impl Chart<MarkText> {
     /// # Arguments
     /// * `text` - A string slice containing the text to display
     pub fn with_text_content(mut self, text: &str) -> Self {
-        let mut mark = self.mark.unwrap_or_else(MarkText::new);
+        let mut mark = self.mark.unwrap_or_default();
         mark.text = text.to_string();
         self.mark = Some(mark);
         self
@@ -82,7 +82,7 @@ impl Chart<MarkText> {
     ///   - `Middle`: Centered on the anchor point
     ///   - `End`: Right-aligned to the anchor point
     pub fn with_text_anchor(mut self, anchor: TextAnchor) -> Self {
-        let mut mark = self.mark.unwrap_or_else(MarkText::new);
+        let mut mark = self.mark.unwrap_or_default();
         mark.anchor = anchor;
         self.mark = Some(mark);
         self
@@ -98,7 +98,7 @@ impl Chart<MarkText> {
     ///   - `Middle`: Vertically centered on the anchor point
     ///   - `Hanging`: Top of the text aligned with the anchor point
     pub fn with_text_baseline(mut self, baseline: TextBaseline) -> Self {
-        let mut mark = self.mark.unwrap_or_else(MarkText::new);
+        let mut mark = self.mark.unwrap_or_default();
         mark.baseline = baseline;
         self.mark = Some(mark);
         self
@@ -141,7 +141,7 @@ impl Chart<MarkText> {
                 .normalized_sizes
                 .as_ref()
                 .and_then(|sizes| sizes.get(i).copied())
-                .unwrap_or_else(|| mark.size);
+                .unwrap_or(mark.size);
 
             // Determine color for this text based on the scale type
             let fill_color = if let Some((scale_type, color_values)) = &processed_data.color_info {

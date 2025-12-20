@@ -25,7 +25,7 @@ impl Chart<MarkArc> {
     /// # Arguments
     /// * `color` - A `SingleColor` specifying the fill color for all slices
     pub fn with_arc_color(mut self, color: Option<SingleColor>) -> Self {
-        let mut mark = self.mark.unwrap_or_else(MarkArc::new);
+        let mut mark = self.mark.unwrap_or_default();
         mark.color = color;
         self.mark = Some(mark);
         self
@@ -39,7 +39,7 @@ impl Chart<MarkArc> {
     /// # Arguments
     /// * `opacity` - A `f64` value between 0.0 and 1.0 representing the slice opacity
     pub fn with_arc_opacity(mut self, opacity: f64) -> Self {
-        let mut mark = self.mark.unwrap_or_else(MarkArc::new);
+        let mut mark = self.mark.unwrap_or_default();
         mark.opacity = opacity;
         self.mark = Some(mark);
         self
@@ -53,7 +53,7 @@ impl Chart<MarkArc> {
     /// # Arguments
     /// * `stroke` - A `SingleColor` specifying the border color for pie slices
     pub fn with_arc_stroke(mut self, stroke: SingleColor) -> Self {
-        let mut mark = self.mark.unwrap_or_else(MarkArc::new);
+        let mut mark = self.mark.unwrap_or_default();
         mark.stroke = Some(stroke);
         self.mark = Some(mark);
         self
@@ -66,7 +66,7 @@ impl Chart<MarkArc> {
     /// # Arguments
     /// * `stroke_width` - A `f64` value representing the border thickness in pixels
     pub fn with_arc_stroke_width(mut self, stroke_width: f64) -> Self {
-        let mut mark = self.mark.unwrap_or_else(MarkArc::new);
+        let mut mark = self.mark.unwrap_or_default();
         mark.stroke_width = stroke_width;
         self.mark = Some(mark);
         self
@@ -86,7 +86,7 @@ impl Chart<MarkArc> {
     /// # Returns
     /// Returns `Self` with the updated inner radius ratio
     pub fn with_inner_radius_ratio(mut self, ratio: f64) -> Self {
-        let mut mark = self.mark.unwrap_or_else(MarkArc::new);
+        let mut mark = self.mark.unwrap_or_default();
         mark.inner_radius_ratio = ratio.clamp(0.0, 1.0);
         self.mark = Some(mark);
         self

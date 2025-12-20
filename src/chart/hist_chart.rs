@@ -28,7 +28,7 @@ impl Chart<MarkHist> {
     /// # Arguments
     /// * `color` - Optional `SingleColor` specifying the fill color for bars
     pub fn with_hist_color(mut self, color: Option<SingleColor>) -> Self {
-        let mut mark = self.mark.unwrap_or_else(MarkHist::new);
+        let mut mark = self.mark.unwrap_or_default();
         mark.color = color;
         self.mark = Some(mark);
         self
@@ -42,7 +42,7 @@ impl Chart<MarkHist> {
     /// # Arguments
     /// * `opacity` - A `f64` value between 0.0 and 1.0 representing the opacity level
     pub fn with_hist_opacity(mut self, opacity: f64) -> Self {
-        let mut mark = self.mark.unwrap_or_else(MarkHist::new);
+        let mut mark = self.mark.unwrap_or_default();
         mark.opacity = opacity;
         self.mark = Some(mark);
         self
@@ -56,7 +56,7 @@ impl Chart<MarkHist> {
     /// # Arguments
     /// * `stroke` - Optional `SingleColor` specifying the stroke color for bar outlines
     pub fn with_hist_stroke(mut self, stroke: Option<SingleColor>) -> Self {
-        let mut mark = self.mark.unwrap_or_else(MarkHist::new);
+        let mut mark = self.mark.unwrap_or_default();
         mark.stroke = stroke;
         self.mark = Some(mark);
         self
@@ -70,7 +70,7 @@ impl Chart<MarkHist> {
     /// # Arguments
     /// * `stroke_width` - A `f64` value representing the stroke width in pixels
     pub fn with_hist_stroke_width(mut self, stroke_width: f64) -> Self {
-        let mut mark = self.mark.unwrap_or_else(MarkHist::new);
+        let mut mark = self.mark.unwrap_or_default();
         mark.stroke_width = stroke_width;
         self.mark = Some(mark);
         self

@@ -96,17 +96,17 @@ print(chart.to_json())
             .stdin(Stdio::piped())
             .stdout(Stdio::piped())
             .spawn()
-            .map_err(|e| ChartonError::Io(e))?;
+            .map_err(ChartonError::Io)?;
 
         if let Some(mut stdin) = child.stdin.take() {
             let json_data = serde_json::to_string(&self.data)
                 .map_err(|_| ChartonError::Data("Failed to serialize data".to_string()))?;
             stdin
                 .write_all(json_data.as_bytes())
-                .map_err(|e| ChartonError::Io(e))?;
+                .map_err(ChartonError::Io)?;
         }
 
-        let output = child.wait_with_output().map_err(|e| ChartonError::Io(e))?;
+        let output = child.wait_with_output().map_err(ChartonError::Io)?;
 
         if !output.status.success() {
             return Err(ChartonError::Render(format!(
@@ -190,7 +190,7 @@ impl Visualization for Plot<Altair> {
         let output = std::process::Command::new(exe_path_str)
             .arg("--version")
             .output()
-            .map_err(|e| ChartonError::Io(e))?;
+            .map_err(ChartonError::Io)?;
 
         if !output.status.success() {
             return Err(ChartonError::ExecutablePath(format!(
@@ -245,7 +245,7 @@ impl Visualization for Plot<Altair> {
         match ext.as_deref() {
             Some("svg") => {
                 let svg_content = self.to_svg()?;
-                std::fs::write(path_obj, svg_content).map_err(|e| ChartonError::Io(e))?;
+                std::fs::write(path_obj, svg_content).map_err(ChartonError::Io)?;
             }
             Some("png") => {
                 let svg_content = self.to_svg()?;
@@ -279,7 +279,7 @@ impl Visualization for Plot<Altair> {
             }
             Some("json") => {
                 let json_content = self.to_json()?;
-                std::fs::write(path_obj, json_content).map_err(|e| ChartonError::Io(e))?;
+                std::fs::write(path_obj, json_content).map_err(ChartonError::Io)?;
             }
             Some(format) => {
                 return Err(ChartonError::Unimplemented(format!(

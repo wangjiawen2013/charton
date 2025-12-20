@@ -22,10 +22,7 @@ pub(crate) fn render_colorbar<T: Mark>(
     let scale_type = crate::data::determine_scale_for_dtype(color_series.dtype());
 
     // Only render colorbar for continuous scales
-    match scale_type {
-        crate::coord::Scale::Discrete => return Ok(()),
-        _ => {}
-    }
+    if scale_type == crate::coord::Scale::Discrete { return Ok(()) }
 
     // Calculate plot area dimensions for proper alignment
     let plot_h = context.plot_height;

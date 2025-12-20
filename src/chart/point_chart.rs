@@ -33,7 +33,7 @@ impl Chart<MarkPoint> {
     /// # Arguments
     /// * `color` - Optional `SingleColor` specifying the fill color for points
     pub fn with_point_color(mut self, color: Option<SingleColor>) -> Self {
-        let mut mark = self.mark.unwrap_or_else(MarkPoint::new);
+        let mut mark = self.mark.unwrap_or_default();
         mark.color = color;
         self.mark = Some(mark);
         self
@@ -47,7 +47,7 @@ impl Chart<MarkPoint> {
     /// # Arguments
     /// * `shape` - A `PointShape` enum value specifying the point geometry
     pub fn with_point_shape(mut self, shape: PointShape) -> Self {
-        let mut mark = self.mark.unwrap_or_else(MarkPoint::new);
+        let mut mark = self.mark.unwrap_or_default();
         mark.shape = shape;
         self.mark = Some(mark);
         self
@@ -61,7 +61,7 @@ impl Chart<MarkPoint> {
     /// # Arguments
     /// * `size` - A `f64` value representing the point size in pixels
     pub fn with_point_size(mut self, size: f64) -> Self {
-        let mut mark = self.mark.unwrap_or_else(MarkPoint::new);
+        let mut mark = self.mark.unwrap_or_default();
         mark.size = size;
         self.mark = Some(mark);
         self
@@ -75,7 +75,7 @@ impl Chart<MarkPoint> {
     /// # Arguments
     /// * `opacity` - A `f64` value between 0.0 and 1.0 representing the point opacity
     pub fn with_point_opacity(mut self, opacity: f64) -> Self {
-        let mut mark = self.mark.unwrap_or_else(MarkPoint::new);
+        let mut mark = self.mark.unwrap_or_default();
         mark.opacity = opacity;
         self.mark = Some(mark);
         self
@@ -89,7 +89,7 @@ impl Chart<MarkPoint> {
     /// # Arguments
     /// * `stroke` - Optional `SingleColor` specifying the stroke color for point outlines
     pub fn with_point_stroke(mut self, stroke: Option<SingleColor>) -> Self {
-        let mut mark = self.mark.unwrap_or_else(MarkPoint::new);
+        let mut mark = self.mark.unwrap_or_default();
         mark.stroke = stroke;
         self.mark = Some(mark);
         self
@@ -103,7 +103,7 @@ impl Chart<MarkPoint> {
     /// # Arguments
     /// * `stroke_width` - A `f64` value representing the stroke width in pixels
     pub fn with_point_stroke_width(mut self, stroke_width: f64) -> Self {
-        let mut mark = self.mark.unwrap_or_else(MarkPoint::new);
+        let mut mark = self.mark.unwrap_or_default();
         mark.stroke_width = stroke_width;
         self.mark = Some(mark);
         self

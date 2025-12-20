@@ -18,7 +18,7 @@ impl Chart<MarkErrorBar> {
     /// # Parameters
     /// * `color` - The color to apply to the error bars
     pub fn with_errorbar_color(mut self, color: Option<SingleColor>) -> Self {
-        let mut mark = self.mark.unwrap_or_else(MarkErrorBar::new);
+        let mut mark = self.mark.unwrap_or_default();
         mark.color = color;
         self.mark = Some(mark);
         self
@@ -29,7 +29,7 @@ impl Chart<MarkErrorBar> {
     /// # Parameters
     /// * `opacity` - The opacity value (typically between 0.0 and 1.0)
     pub fn with_errorbar_opacity(mut self, opacity: f64) -> Self {
-        let mut mark = self.mark.unwrap_or_else(MarkErrorBar::new);
+        let mut mark = self.mark.unwrap_or_default();
         mark.opacity = opacity;
         self.mark = Some(mark);
         self
@@ -40,7 +40,7 @@ impl Chart<MarkErrorBar> {
     /// # Parameters
     /// * `stroke_width` - The width of the error bar lines
     pub fn with_errorbar_stroke_width(mut self, stroke_width: f64) -> Self {
-        let mut mark = self.mark.unwrap_or_else(MarkErrorBar::new);
+        let mut mark = self.mark.unwrap_or_default();
         mark.stroke_width = stroke_width;
         self.mark = Some(mark);
         self
@@ -51,7 +51,7 @@ impl Chart<MarkErrorBar> {
     /// # Parameters
     /// * `cap_length` - The length of the horizontal caps at the ends of error bars
     pub fn with_errorbar_cap_length(mut self, cap_length: f64) -> Self {
-        let mut mark = self.mark.unwrap_or_else(MarkErrorBar::new);
+        let mut mark = self.mark.unwrap_or_default();
         mark.cap_length = cap_length;
         self.mark = Some(mark);
         self
@@ -62,7 +62,7 @@ impl Chart<MarkErrorBar> {
     /// # Parameters
     /// * `show` - Whether to display a marker at the center of each error bar
     pub fn with_errorbar_center(mut self, show: bool) -> Self {
-        let mut mark = self.mark.unwrap_or_else(MarkErrorBar::new);
+        let mut mark = self.mark.unwrap_or_default();
         mark.show_center = show;
         self.mark = Some(mark);
         self

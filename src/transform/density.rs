@@ -451,7 +451,7 @@ impl<T: Mark> Chart<T> {
                 // Scale by number of observations to get counts
                 density_values
                     .into_iter()
-                    .map(|v| v as f64 * group_vals.len() as f64)
+                    .map(|v| v * group_vals.len() as f64)
                     .collect()
             } else {
                 // Probability density

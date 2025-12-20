@@ -27,7 +27,7 @@ impl Chart<MarkLine> {
     /// # Arguments
     /// * `color` - A `SingleColor` specifying the line color
     pub fn with_line_color(mut self, color: Option<SingleColor>) -> Self {
-        let mut mark = self.mark.unwrap_or_else(MarkLine::new);
+        let mut mark = self.mark.unwrap_or_default();
         mark.color = color;
         self.mark = Some(mark);
         self
@@ -41,7 +41,7 @@ impl Chart<MarkLine> {
     /// # Arguments
     /// * `width` - A `f64` value representing the stroke width in pixels
     pub fn with_line_stroke_width(mut self, width: f64) -> Self {
-        let mut mark = self.mark.unwrap_or_else(MarkLine::new);
+        let mut mark = self.mark.unwrap_or_default();
         mark.stroke_width = width;
         self.mark = Some(mark);
         self
@@ -55,7 +55,7 @@ impl Chart<MarkLine> {
     /// # Arguments
     /// * `opacity` - A `f64` value between 0.0 and 1.0 representing the line opacity
     pub fn with_line_opacity(mut self, opacity: f64) -> Self {
-        let mut mark = self.mark.unwrap_or_else(MarkLine::new);
+        let mut mark = self.mark.unwrap_or_default();
         mark.opacity = opacity;
         self.mark = Some(mark);
         self
@@ -100,7 +100,7 @@ impl Chart<MarkLine> {
     /// allowing for method chaining.
     ///
     pub fn with_interpolation(mut self, interpolation: PathInterpolation) -> Self {
-        let mut mark = self.mark.unwrap_or_else(MarkLine::new);
+        let mut mark = self.mark.unwrap_or_default();
         mark.interpolation = interpolation;
         self.mark = Some(mark);
         self
@@ -130,8 +130,8 @@ impl Chart<MarkLine> {
             // Create a temporary color column with default value to avoid duplication code
             let len = self.data.df.height();
             let default_colors: Vec<&str> = vec!["group"; len];
-            let series = Series::new("color".into(), default_colors);
-            series
+            
+            Series::new("color".into(), default_colors)
         };
 
         // Use Polars' group_by functionality to get indices for each group
