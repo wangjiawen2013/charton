@@ -1,0 +1,53 @@
+<svg width="500" height="400" viewBox="0 0 500 400" xmlns="http://www.w3.org/2000/svg"><rect width="100%" height="100%" fill="white" /><rect x="91.25000000000003" y="248" width="51.99999999999999" height="52.000000000000014" fill="#d6efd1" opacity="1" stroke="white" stroke-width="0" /><rect x="91.25000000000003" y="196.00000000000003" width="51.99999999999999" height="52.000000000000014" fill="#e0f3db" opacity="1" stroke="white" stroke-width="0" /><rect x="91.25000000000003" y="143.99999999999997" width="51.99999999999999" height="52.000000000000014" fill="#f7fcf0" opacity="1" stroke="white" stroke-width="0" /><rect x="91.25000000000003" y="91.99999999999994" width="51.99999999999999" height="52.000000000000014" fill="#f7fcf0" opacity="1" stroke="white" stroke-width="0" /><rect x="91.25000000000003" y="39.999999999999936" width="51.99999999999999" height="52.000000000000014" fill="#f7fcf0" opacity="1" stroke="white" stroke-width="0" /><rect x="143.25" y="248" width="51.99999999999999" height="52.000000000000014" fill="#f7fcf0" opacity="1" stroke="white" stroke-width="0" /><rect x="143.25" y="196.00000000000003" width="51.99999999999999" height="52.000000000000014" fill="#f7fcf0" opacity="1" stroke="white" stroke-width="0" /><rect x="143.25" y="143.99999999999997" width="51.99999999999999" height="52.000000000000014" fill="#b4e1ba" opacity="1" stroke="white" stroke-width="0" /><rect x="143.25" y="91.99999999999994" width="51.99999999999999" height="52.000000000000014" fill="#f7fcf0" opacity="1" stroke="white" stroke-width="0" /><rect x="143.25" y="39.999999999999936" width="51.99999999999999" height="52.000000000000014" fill="#f7fcf0" opacity="1" stroke="white" stroke-width="0" /><rect x="195.25" y="248" width="51.99999999999999" height="52.000000000000014" fill="#f7fcf0" opacity="1" stroke="white" stroke-width="0" /><rect x="195.25" y="196.00000000000003" width="51.99999999999999" height="52.000000000000014" fill="#f7fcf0" opacity="1" stroke="white" stroke-width="0" /><rect x="195.25" y="143.99999999999997" width="51.99999999999999" height="52.000000000000014" fill="#cdebc6" opacity="1" stroke="white" stroke-width="0" /><rect x="195.25" y="91.99999999999994" width="51.99999999999999" height="52.000000000000014" fill="#d2edcb" opacity="1" stroke="white" stroke-width="0" /><rect x="195.25" y="39.999999999999936" width="51.99999999999999" height="52.000000000000014" fill="#f7fcf0" opacity="1" stroke="white" stroke-width="0" /><rect x="247.2499999999999" y="248" width="51.99999999999999" height="52.000000000000014" fill="#f7fcf0" opacity="1" stroke="white" stroke-width="0" /><rect x="247.2499999999999" y="196.00000000000003" width="51.99999999999999" height="52.000000000000014" fill="#f7fcf0" opacity="1" stroke="white" stroke-width="0" /><rect x="247.2499999999999" y="143.99999999999997" width="51.99999999999999" height="52.000000000000014" fill="#f7fcf0" opacity="1" stroke="white" stroke-width="0" /><rect x="247.2499999999999" y="91.99999999999994" width="51.99999999999999" height="52.000000000000014" fill="#c5e8c2" opacity="1" stroke="white" stroke-width="0" /><rect x="247.2499999999999" y="39.999999999999936" width="51.99999999999999" height="52.000000000000014" fill="#f7fcf0" opacity="1" stroke="white" stroke-width="0" /><rect x="299.25" y="248" width="51.99999999999999" height="52.000000000000014" fill="#f7fcf0" opacity="1" stroke="white" stroke-width="0" /><rect x="299.25" y="196.00000000000003" width="51.99999999999999" height="52.000000000000014" fill="#f7fcf0" opacity="1" stroke="white" stroke-width="0" /><rect x="299.25" y="143.99999999999997" width="51.99999999999999" height="52.000000000000014" fill="#f7fcf0" opacity="1" stroke="white" stroke-width="0" /><rect x="299.25" y="91.99999999999994" width="51.99999999999999" height="52.000000000000014" fill="#f7fcf0" opacity="1" stroke="white" stroke-width="0" /><rect x="299.25" y="39.999999999999936" width="51.99999999999999" height="52.000000000000014" fill="#084081" opacity="1" stroke="white" stroke-width="0" /><line x1="75" y1="340" x2="399.99999999999994" y2="340" stroke="black" stroke-width="1"/>
+<line x1="75" y1="340" x2="75" y2="345" stroke="black" stroke-width="1"/>
+<text x="75" y="358" font-size="13" font-family="sans-serif" fill="#333" text-anchor="middle">1.0</text>
+<line x1="156.25" y1="340" x2="156.25" y2="345" stroke="black" stroke-width="1"/>
+<text x="156.25" y="358" font-size="13" font-family="sans-serif" fill="#333" text-anchor="middle">1.5</text>
+<line x1="237.49999999999997" y1="340" x2="237.49999999999997" y2="345" stroke="black" stroke-width="1"/>
+<text x="237.49999999999997" y="358" font-size="13" font-family="sans-serif" fill="#333" text-anchor="middle">2.0</text>
+<line x1="318.74999999999994" y1="340" x2="318.74999999999994" y2="345" stroke="black" stroke-width="1"/>
+<text x="318.74999999999994" y="358" font-size="13" font-family="sans-serif" fill="#333" text-anchor="middle">2.5</text>
+<line x1="399.99999999999994" y1="340" x2="399.99999999999994" y2="345" stroke="black" stroke-width="1"/>
+<text x="399.99999999999994" y="358" font-size="13" font-family="sans-serif" fill="#333" text-anchor="middle">3.0</text>
+<text x="237.49999999999997" y="363" font-size="15" font-family="sans-serif" fill="#333" text-anchor="middle" dominant-baseline="text-before-edge">x</text>
+<line x1="75" y1="40" x2="75" y2="340" stroke="black" stroke-width="1"/>
+<line x1="70" y1="340" x2="75" y2="340" stroke="black" stroke-width="1"/>
+<text x="67" y="340" font-size="13" font-family="sans-serif" fill="#333" text-anchor="end" dominant-baseline="middle">1.0</text>
+<line x1="70" y1="240" x2="75" y2="240" stroke="black" stroke-width="1"/>
+<text x="67" y="240" font-size="13" font-family="sans-serif" fill="#333" text-anchor="end" dominant-baseline="middle">1.5</text>
+<line x1="70" y1="140" x2="75" y2="140" stroke="black" stroke-width="1"/>
+<text x="67" y="140" font-size="13" font-family="sans-serif" fill="#333" text-anchor="end" dominant-baseline="middle">2.0</text>
+<line x1="70" y1="40" x2="75" y2="40" stroke="black" stroke-width="1"/>
+<text x="67" y="40" font-size="13" font-family="sans-serif" fill="#333" text-anchor="end" dominant-baseline="middle">2.5</text>
+<text x="36.8" y="190" font-size="15" font-family="sans-serif" fill="#333" text-anchor="middle" transform="rotate(-90, 36.8, 190)">y</text>
+<text x="414.99999999999994" y="52" font-size="15" font-family="sans-serif" text-anchor="left" font-weight="bold">value</text>
+<defs>
+  <linearGradient id="colorbar-gradient-value" x1="0" y1="0" x2="0" y2="1">
+    <stop offset="0%" stop-color="#084081"/>
+    <stop offset="10%" stop-color="#0860a3"/>
+    <stop offset="20%" stop-color="#1c7db6"/>
+    <stop offset="30%" stop-color="#399bc6"/>
+    <stop offset="40%" stop-color="#57b8d0"/>
+    <stop offset="50%" stop-color="#7bccc4"/>
+    <stop offset="60%" stop-color="#9fd9b8"/>
+    <stop offset="70%" stop-color="#bde5be"/>
+    <stop offset="80%" stop-color="#d4eecd"/>
+    <stop offset="90%" stop-color="#e4f4df"/>
+    <stop offset="100%" stop-color="#f7fcf0"/>
+  </linearGradient>
+</defs>
+<rect x="414.99999999999994" y="60" width="20" height="100" fill="url('#colorbar-gradient-value')"/>
+<rect x="414.99999999999994" y="60" width="20" height="100" fill="none" stroke="black" stroke-width="1"/>
+<line x1="414.99999999999994" y1="75" x2="418.99999999999994" y2="75" stroke="white" stroke-width="1"/>
+<line x1="430.99999999999994" y1="75" x2="434.99999999999994" y2="75" stroke="white" stroke-width="1"/>
+<text x="440.99999999999994" y="75" font-size="13" font-family="sans-serif" fill="#333" dominant-baseline="middle" text-anchor="start">28.05</text>
+<line x1="414.99999999999994" y1="100" x2="418.99999999999994" y2="100" stroke="white" stroke-width="1"/>
+<line x1="430.99999999999994" y1="100" x2="434.99999999999994" y2="100" stroke="white" stroke-width="1"/>
+<text x="440.99999999999994" y="100" font-size="13" font-family="sans-serif" fill="#333" dominant-baseline="middle" text-anchor="start">19.80</text>
+<line x1="414.99999999999994" y1="125" x2="418.99999999999994" y2="125" stroke="white" stroke-width="1"/>
+<line x1="430.99999999999994" y1="125" x2="434.99999999999994" y2="125" stroke="white" stroke-width="1"/>
+<text x="440.99999999999994" y="125" font-size="13" font-family="sans-serif" fill="#333" dominant-baseline="middle" text-anchor="start">11.55</text>
+<line x1="414.99999999999994" y1="150" x2="418.99999999999994" y2="150" stroke="white" stroke-width="1"/>
+<line x1="430.99999999999994" y1="150" x2="434.99999999999994" y2="150" stroke="white" stroke-width="1"/>
+<text x="440.99999999999994" y="150" font-size="13" font-family="sans-serif" fill="#333" dominant-baseline="middle" text-anchor="start">3.30</text>
+</svg>

@@ -1,0 +1,30 @@
+<svg width="600" height="400" viewBox="0 0 600 400" xmlns="http://www.w3.org/2000/svg"><rect width="100%" height="100%" fill="white" /><polyline points="102.32857142857142,188.299390816965 115.6845238095238,165.76353657828582 129.04047619047617,143.6345071523723 142.39642857142857,121.83902829844831 155.75238095238095,100.57259349821726 169.10833333333332,84.5810686506201 182.46428571428572,72.91186446020018 195.8202380952381,66.03019527372629 209.17619047619047,64.21041152530034 222.53214285714284,67.52506225031215 235.88809523809522,75.84200278434102 249.24404761904762,88.82966295391861 262.6,105.97026573301551 275.9559523809524,126.58046937912906 289.31190476190477,149.83861011214756 302.66785714285714,174.81745925635252 316.0238095238095,200.52118892168153 329.37976190476195,225.9250725191872 342.73571428571427,250.01633737642746 356.0916666666667,271.8345407879268 369.447619047619,290.5098598349908 382.80357142857144,305.29776848059043 396.1595238095238,315.6087194729697 409.5154761904762,321.0316477341501 422.8714285714286,321.35035822739803 436.227380952381,316.55214497109665 449.58333333333337,304.44358394083355 462.93928571428575,291.47110285380404 476.2952380952382,278.02901211234615 489.65119047619055,263.9697474654676" fill="none" stroke="#1f77b4" stroke-width="2" opacity="1" stroke-linejoin="round" stroke-linecap="round"/>
+<line x1="90" y1="340" x2="521.5" y2="340" stroke="black" stroke-width="1"/>
+<line x1="102.32857142857142" y1="340" x2="102.32857142857142" y2="345" stroke="black" stroke-width="1"/>
+<text x="102.32857142857142" y="358" font-size="13" font-family="sans-serif" fill="#333" text-anchor="middle">0</text>
+<line x1="169.10833333333332" y1="340" x2="169.10833333333332" y2="345" stroke="black" stroke-width="1"/>
+<text x="169.10833333333332" y="358" font-size="13" font-family="sans-serif" fill="#333" text-anchor="middle">1</text>
+<line x1="235.88809523809522" y1="340" x2="235.88809523809522" y2="345" stroke="black" stroke-width="1"/>
+<text x="235.88809523809522" y="358" font-size="13" font-family="sans-serif" fill="#333" text-anchor="middle">2</text>
+<line x1="302.66785714285714" y1="340" x2="302.66785714285714" y2="345" stroke="black" stroke-width="1"/>
+<text x="302.66785714285714" y="358" font-size="13" font-family="sans-serif" fill="#333" text-anchor="middle">3</text>
+<line x1="369.447619047619" y1="340" x2="369.447619047619" y2="345" stroke="black" stroke-width="1"/>
+<text x="369.447619047619" y="358" font-size="13" font-family="sans-serif" fill="#333" text-anchor="middle">4</text>
+<line x1="436.227380952381" y1="340" x2="436.227380952381" y2="345" stroke="black" stroke-width="1"/>
+<text x="436.227380952381" y="358" font-size="13" font-family="sans-serif" fill="#333" text-anchor="middle">5</text>
+<line x1="503.00714285714287" y1="340" x2="503.00714285714287" y2="345" stroke="black" stroke-width="1"/>
+<text x="503.00714285714287" y="358" font-size="13" font-family="sans-serif" fill="#333" text-anchor="middle">6</text>
+<text x="305.75" y="363" font-size="15" font-family="sans-serif" fill="#333" text-anchor="middle" dominant-baseline="text-before-edge">a</text>
+<line x1="90" y1="40" x2="90" y2="340" stroke="black" stroke-width="1"/>
+<line x1="85" y1="328" x2="90" y2="328" stroke="black" stroke-width="1"/>
+<text x="82" y="328" font-size="13" font-family="sans-serif" fill="#333" text-anchor="end" dominant-baseline="middle">-1.0</text>
+<line x1="85" y1="260.5" x2="90" y2="260.5" stroke="black" stroke-width="1"/>
+<text x="82" y="260.5" font-size="13" font-family="sans-serif" fill="#333" text-anchor="end" dominant-baseline="middle">-0.5</text>
+<line x1="85" y1="193" x2="90" y2="193" stroke="black" stroke-width="1"/>
+<text x="82" y="193" font-size="13" font-family="sans-serif" fill="#333" text-anchor="end" dominant-baseline="middle">0.0</text>
+<line x1="85" y1="125.5" x2="90" y2="125.5" stroke="black" stroke-width="1"/>
+<text x="82" y="125.5" font-size="13" font-family="sans-serif" fill="#333" text-anchor="end" dominant-baseline="middle">0.5</text>
+<line x1="85" y1="58" x2="90" y2="58" stroke="black" stroke-width="1"/>
+<text x="82" y="58" font-size="13" font-family="sans-serif" fill="#333" text-anchor="end" dominant-baseline="middle">1.0</text>
+<text x="47.9" y="190" font-size="15" font-family="sans-serif" fill="#333" text-anchor="middle" transform="rotate(-90, 47.9, 190)">b</text>
+</svg>

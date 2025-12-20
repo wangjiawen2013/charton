@@ -1,0 +1,38 @@
+<svg width="600" height="400" viewBox="0 0 600 400" xmlns="http://www.w3.org/2000/svg"><rect width="100%" height="100%" fill="white" /><text x="300" y="18" font-size="18" font-family="sans-serif" fill="#333" text-anchor="middle">Empirical Cumulative Distribution</text>
+<polyline points="131.30149999999998,324.5 139.94600000000003,308 148.5905,302.5 157.23499999999996,280.5 165.8795,269.5 174.52399999999997,242 183.16850000000002,220 191.813,175.99999999999997 200.45749999999995,132 209.102,115.5 217.74649999999997,110 226.39100000000002,82.5 235.03549999999998,71.5 252.3245,60.5 260.96899999999994,55" fill="none" stroke="#1f77b4" stroke-width="2" opacity="1" stroke-linejoin="round" stroke-linecap="round"/>
+<polyline points="183.16850000000002,324.5 191.813,313.5 200.45749999999995,308 209.102,302.5 226.39100000000002,297 235.03549999999998,269.5 243.67999999999995,242 252.3245,214.5 260.96899999999994,198 269.61350000000004,187 278.258,165 286.9024999999999,143 295.547,132 304.19149999999996,115.5 312.836,104.5 321.4805,99 330.12499999999994,88 338.7695,71.5 347.414,66 356.0585,60.5 364.703,55" fill="none" stroke="#ff7f0e" stroke-width="2" opacity="1" stroke-linejoin="round" stroke-linecap="round"/>
+<polyline points="183.16850000000002,324.5 243.67999999999995,319 252.3245,313.5 260.96899999999994,297 269.61350000000004,291.5 278.258,280.5 286.9024999999999,269.5 295.547,258.5 304.19149999999996,225.5 312.836,198 321.4805,175.99999999999997 338.7695,148.5 347.414,137.5 356.0585,121 373.34749999999997,115.5 381.99199999999996,99 390.63649999999996,93.5 399.281,88 416.56999999999994,82.5 425.2145,60.5 442.5035,55" fill="none" stroke="#2ca02c" stroke-width="2" opacity="1" stroke-linejoin="round" stroke-linecap="round"/>
+<line x1="90" y1="340" x2="474.2" y2="340" stroke="black" stroke-width="1"/>
+<line x1="105.368" y1="340" x2="105.368" y2="345" stroke="black" stroke-width="1"/>
+<text x="105.368" y="358" font-size="13" font-family="sans-serif" fill="#333" text-anchor="middle">4</text>
+<line x1="191.813" y1="340" x2="191.813" y2="345" stroke="black" stroke-width="1"/>
+<text x="191.813" y="358" font-size="13" font-family="sans-serif" fill="#333" text-anchor="middle">5</text>
+<line x1="278.258" y1="340" x2="278.258" y2="345" stroke="black" stroke-width="1"/>
+<text x="278.258" y="358" font-size="13" font-family="sans-serif" fill="#333" text-anchor="middle">6</text>
+<line x1="364.703" y1="340" x2="364.703" y2="345" stroke="black" stroke-width="1"/>
+<text x="364.703" y="358" font-size="13" font-family="sans-serif" fill="#333" text-anchor="middle">7</text>
+<line x1="451.14799999999997" y1="340" x2="451.14799999999997" y2="345" stroke="black" stroke-width="1"/>
+<text x="451.14799999999997" y="358" font-size="13" font-family="sans-serif" fill="#333" text-anchor="middle">8</text>
+<text x="282.1" y="363" font-size="15" font-family="sans-serif" fill="#333" text-anchor="middle" dominant-baseline="text-before-edge">sepal length</text>
+<line x1="90" y1="40" x2="90" y2="340" stroke="black" stroke-width="1"/>
+<line x1="85" y1="330" x2="90" y2="330" stroke="black" stroke-width="1"/>
+<text x="82" y="330" font-size="13" font-family="sans-serif" fill="#333" text-anchor="end" dominant-baseline="middle">0</text>
+<line x1="85" y1="275" x2="90" y2="275" stroke="black" stroke-width="1"/>
+<text x="82" y="275" font-size="13" font-family="sans-serif" fill="#333" text-anchor="end" dominant-baseline="middle">10</text>
+<line x1="85" y1="220" x2="90" y2="220" stroke="black" stroke-width="1"/>
+<text x="82" y="220" font-size="13" font-family="sans-serif" fill="#333" text-anchor="end" dominant-baseline="middle">20</text>
+<line x1="85" y1="165" x2="90" y2="165" stroke="black" stroke-width="1"/>
+<text x="82" y="165" font-size="13" font-family="sans-serif" fill="#333" text-anchor="end" dominant-baseline="middle">30</text>
+<line x1="85" y1="110" x2="90" y2="110" stroke="black" stroke-width="1"/>
+<text x="82" y="110" font-size="13" font-family="sans-serif" fill="#333" text-anchor="end" dominant-baseline="middle">40</text>
+<line x1="85" y1="55" x2="90" y2="55" stroke="black" stroke-width="1"/>
+<text x="82" y="55" font-size="13" font-family="sans-serif" fill="#333" text-anchor="end" dominant-baseline="middle">50</text>
+<text x="55.7" y="190" font-size="15" font-family="sans-serif" fill="#333" text-anchor="middle" transform="rotate(-90, 55.7, 190)">ecdf</text>
+<text x="489.2" y="55" font-size="15" font-family="sans-serif" text-anchor="start" font-weight="bold">class</text>
+<line x1="489.2" y1="75" x2="504.2" y2="75" stroke="#1f77b4" stroke-width="2" stroke-linecap="round" fill-opacity="1"/>
+<text x="509.2" y="75" font-size="13" font-family="sans-serif" dominant-baseline="middle">Iris-setosa</text>
+<line x1="489.2" y1="95" x2="504.2" y2="95" stroke="#ff7f0e" stroke-width="2" stroke-linecap="round" fill-opacity="1"/>
+<text x="509.2" y="95" font-size="13" font-family="sans-serif" dominant-baseline="middle">Iris-versicolor</text>
+<line x1="489.2" y1="115" x2="504.2" y2="115" stroke="#2ca02c" stroke-width="2" stroke-linecap="round" fill-opacity="1"/>
+<text x="509.2" y="115" font-size="13" font-family="sans-serif" dominant-baseline="middle">Iris-virginica</text>
+</svg>

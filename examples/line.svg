@@ -1,0 +1,36 @@
+<svg width="500" height="400" viewBox="0 0 500 400" xmlns="http://www.w3.org/2000/svg"><rect width="100%" height="100%" fill="white" /><path d="M 84.83 193 L 95.4791666667 166.1796403427 L 106.1283333333 140.4285237883 L 116.7775 116.7732660917 L 127.4266666667 96.1569277286 L 138.0758333333 79.4014170509 L 148.725 67.1747233944 L 159.3741666667 59.9642864516 L 170.0233333333 58.0575635894 L 180.6725 61.5305698314 L 191.3216666667 70.2448473785 L 201.9708333333 83.8529854844 L 212.62 101.8124706256 L 223.2691666667 123.4073148041 L 233.9183333333 147.776599729 L 244.5675 173.9487989119 L 255.2166666667 200.8805093627 L 265.8658333333 227.4980487736 L 276.515 252.7402598448 L 287.1641666667 275.6008152773 L 297.8133333333 295.1683368666 L 308.4625 310.6627292758 L 319.1116666667 321.4662799751 L 329.7608333333 327.1482854905 L 340.41 327.4822221928 L 351.0591666667 322.4547770795 L 361.7083333333 312.2663785222 L 372.3575 297.3232058201 L 383.0066666667 278.2209961128 L 393.6558333333 255.7212942209" fill="none" stroke="#1f77b4" stroke-width="2" opacity="1" stroke-linejoin="round" stroke-linecap="round"/>
+<path d="M 84.83 58 L 95.4791666667 60.6910119914 L 106.1283333333 68.6567658096 L 116.7775 81.5796919872 L 127.4266666667 98.9445942381 L 138.0758333333 120.0591887078 L 148.725 144.0817031456 L 159.3741666667 170.0544357085 L 170.0233333333 196.9419355107 L 180.6725 223.6722827836 L 191.3216666667 249.1798229339 L 201.9708333333 272.4476508295 L 212.62 292.5481515981 L 223.2691666667 308.6799817048 L 233.9183333333 320.2000159903 L 244.5675 326.6489870411 L 255.2166666667 327.7697947323 L 265.8658333333 323.5177559982 L 276.515 314.0623862051 L 287.1641666667 299.7806411084 L 297.8133333333 281.2418888166 L 308.4625 259.185210881 L 319.1116666667 234.4899374471 L 329.7608333333 208.1405911362 L 340.41 181.1876372357 L 351.0591666667 154.7056049625 L 361.7083333333 129.7502493744 L 372.3575 107.3164617477 L 383.0066666667 88.2986064011 L 393.6558333333 73.4548652129" fill="none" stroke="#ff7f0e" stroke-width="2" opacity="1" stroke-linejoin="round" stroke-linecap="round"/>
+<line x1="75" y1="340" x2="419.04999999999995" y2="340" stroke="black" stroke-width="1"/>
+<line x1="84.83" y1="340" x2="84.83" y2="345" stroke="black" stroke-width="1"/>
+<text x="87.83" y="358" font-size="13" font-family="sans-serif" fill="#333" text-anchor="end" transform="rotate(45, 84.83, 358)">0</text>
+<line x1="138.07583333333332" y1="340" x2="138.07583333333332" y2="345" stroke="black" stroke-width="1"/>
+<text x="141.07583333333332" y="358" font-size="13" font-family="sans-serif" fill="#333" text-anchor="end" transform="rotate(45, 138.07583333333332, 358)">1</text>
+<line x1="191.32166666666666" y1="340" x2="191.32166666666666" y2="345" stroke="black" stroke-width="1"/>
+<text x="194.32166666666666" y="358" font-size="13" font-family="sans-serif" fill="#333" text-anchor="end" transform="rotate(45, 191.32166666666666, 358)">2</text>
+<line x1="244.5675" y1="340" x2="244.5675" y2="345" stroke="black" stroke-width="1"/>
+<text x="247.5675" y="358" font-size="13" font-family="sans-serif" fill="#333" text-anchor="end" transform="rotate(45, 244.5675, 358)">3</text>
+<line x1="297.8133333333333" y1="340" x2="297.8133333333333" y2="345" stroke="black" stroke-width="1"/>
+<text x="300.8133333333333" y="358" font-size="13" font-family="sans-serif" fill="#333" text-anchor="end" transform="rotate(45, 297.8133333333333, 358)">4</text>
+<line x1="351.0591666666666" y1="340" x2="351.0591666666666" y2="345" stroke="black" stroke-width="1"/>
+<text x="354.0591666666666" y="358" font-size="13" font-family="sans-serif" fill="#333" text-anchor="end" transform="rotate(45, 351.0591666666666, 358)">5</text>
+<line x1="404.30499999999995" y1="340" x2="404.30499999999995" y2="345" stroke="black" stroke-width="1"/>
+<text x="407.30499999999995" y="358" font-size="13" font-family="sans-serif" fill="#333" text-anchor="end" transform="rotate(45, 404.30499999999995, 358)">6</text>
+<text x="247.02499999999998" y="364.2482016409089" font-size="15" font-family="sans-serif" fill="#333" text-anchor="middle" dominant-baseline="text-before-edge">x</text>
+<line x1="75" y1="40" x2="75" y2="340" stroke="black" stroke-width="1"/>
+<line x1="70" y1="328" x2="75" y2="328" stroke="black" stroke-width="1"/>
+<text x="67" y="328" font-size="13" font-family="sans-serif" fill="#333" text-anchor="end" dominant-baseline="middle">-1.0</text>
+<line x1="70" y1="260.5" x2="75" y2="260.5" stroke="black" stroke-width="1"/>
+<text x="67" y="260.5" font-size="13" font-family="sans-serif" fill="#333" text-anchor="end" dominant-baseline="middle">-0.5</text>
+<line x1="70" y1="193" x2="75" y2="193" stroke="black" stroke-width="1"/>
+<text x="67" y="193" font-size="13" font-family="sans-serif" fill="#333" text-anchor="end" dominant-baseline="middle">0.0</text>
+<line x1="70" y1="125.5" x2="75" y2="125.5" stroke="black" stroke-width="1"/>
+<text x="67" y="125.5" font-size="13" font-family="sans-serif" fill="#333" text-anchor="end" dominant-baseline="middle">0.5</text>
+<line x1="70" y1="58" x2="75" y2="58" stroke="black" stroke-width="1"/>
+<text x="67" y="58" font-size="13" font-family="sans-serif" fill="#333" text-anchor="end" dominant-baseline="middle">1.0</text>
+<text x="32.9" y="190" font-size="15" font-family="sans-serif" fill="#333" text-anchor="middle" transform="rotate(-90, 32.9, 190)">y</text>
+<text x="434.04999999999995" y="55" font-size="15" font-family="sans-serif" text-anchor="start" font-weight="bold">category</text>
+<line x1="434.04999999999995" y1="75" x2="449.04999999999995" y2="75" stroke="#1f77b4" stroke-width="2" stroke-linecap="round" fill-opacity="1"/>
+<text x="454.04999999999995" y="75" font-size="13" font-family="sans-serif" dominant-baseline="middle">Sine</text>
+<line x1="434.04999999999995" y1="95" x2="449.04999999999995" y2="95" stroke="#ff7f0e" stroke-width="2" stroke-linecap="round" fill-opacity="1"/>
+<text x="454.04999999999995" y="95" font-size="13" font-family="sans-serif" dominant-baseline="middle">Cosine</text>
+</svg>

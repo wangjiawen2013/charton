@@ -1,0 +1,49 @@
+<svg width="500" height="400" viewBox="0 0 500 400" xmlns="http://www.w3.org/2000/svg"><rect width="100%" height="100%" fill="white" /><text x="250" y="18" font-size="18" font-family="sans-serif" fill="#333" text-anchor="middle">Histogram Example</text>
+<rect x="98.42135238095237" y="340" width="34.66124761904762" height="0" fill="#1f77b4" stroke="black" stroke-width="0" opacity="0.5" />
+<rect x="134.9068761904762" y="340" width="34.66124761904762" height="0" fill="#1f77b4" stroke="black" stroke-width="0" opacity="0.5" />
+<rect x="171.39239999999998" y="320.2" width="34.66124761904762" height="19.80000000000001" fill="#1f77b4" stroke="black" stroke-width="0" opacity="0.5" />
+<rect x="207.8779238095238" y="245.40000000000003" width="34.66124761904762" height="94.59999999999997" fill="#1f77b4" stroke="black" stroke-width="0" opacity="0.5" />
+<rect x="244.3634476190476" y="236.60000000000002" width="34.66124761904762" height="103.39999999999998" fill="#1f77b4" stroke="black" stroke-width="0" opacity="0.5" />
+<rect x="280.8489714285714" y="252" width="34.66124761904762" height="88" fill="#1f77b4" stroke="black" stroke-width="0" opacity="0.5" />
+<rect x="317.3344952380952" y="315.8" width="34.66124761904762" height="24.19999999999999" fill="#1f77b4" stroke="black" stroke-width="0" opacity="0.5" />
+<rect x="98.42135238095237" y="287.2" width="34.66124761904762" height="52.80000000000001" fill="#ff7f0e" stroke="black" stroke-width="0" opacity="0.5" />
+<rect x="134.9068761904762" y="102.40000000000006" width="34.66124761904762" height="237.59999999999994" fill="#ff7f0e" stroke="black" stroke-width="0" opacity="0.5" />
+<rect x="171.39239999999998" y="300.4" width="34.66124761904762" height="39.60000000000002" fill="#ff7f0e" stroke="black" stroke-width="0" opacity="0.5" />
+<rect x="207.8779238095238" y="340" width="34.66124761904762" height="0" fill="#ff7f0e" stroke="black" stroke-width="0" opacity="0.5" />
+<rect x="244.3634476190476" y="340" width="34.66124761904762" height="0" fill="#ff7f0e" stroke="black" stroke-width="0" opacity="0.5" />
+<rect x="280.8489714285714" y="340" width="34.66124761904762" height="0" fill="#ff7f0e" stroke="black" stroke-width="0" opacity="0.5" />
+<rect x="317.3344952380952" y="340" width="34.66124761904762" height="0" fill="#ff7f0e" stroke="black" stroke-width="0" opacity="0.5" />
+<line x1="75" y1="340" x2="383.95" y2="340" stroke="black" stroke-width="1"/>
+<line x1="83.82714285714286" y1="340" x2="83.82714285714286" y2="345" stroke="black" stroke-width="1"/>
+<text x="83.82714285714286" y="358" font-size="13" font-family="sans-serif" fill="#333" text-anchor="middle">2</text>
+<line x1="129.43404761904762" y1="340" x2="129.43404761904762" y2="345" stroke="black" stroke-width="1"/>
+<text x="129.43404761904762" y="358" font-size="13" font-family="sans-serif" fill="#333" text-anchor="middle">3</text>
+<line x1="175.04095238095238" y1="340" x2="175.04095238095238" y2="345" stroke="black" stroke-width="1"/>
+<text x="175.04095238095238" y="358" font-size="13" font-family="sans-serif" fill="#333" text-anchor="middle">4</text>
+<line x1="220.64785714285713" y1="340" x2="220.64785714285713" y2="345" stroke="black" stroke-width="1"/>
+<text x="220.64785714285713" y="358" font-size="13" font-family="sans-serif" fill="#333" text-anchor="middle">5</text>
+<line x1="266.2547619047619" y1="340" x2="266.2547619047619" y2="345" stroke="black" stroke-width="1"/>
+<text x="266.2547619047619" y="358" font-size="13" font-family="sans-serif" fill="#333" text-anchor="middle">6</text>
+<line x1="311.8616666666667" y1="340" x2="311.8616666666667" y2="345" stroke="black" stroke-width="1"/>
+<text x="311.8616666666667" y="358" font-size="13" font-family="sans-serif" fill="#333" text-anchor="middle">7</text>
+<line x1="357.4685714285714" y1="340" x2="357.4685714285714" y2="345" stroke="black" stroke-width="1"/>
+<text x="357.4685714285714" y="358" font-size="13" font-family="sans-serif" fill="#333" text-anchor="middle">8</text>
+<text x="229.475" y="363" font-size="15" font-family="sans-serif" fill="#333" text-anchor="middle" dominant-baseline="text-before-edge">Value</text>
+<line x1="75" y1="40" x2="75" y2="340" stroke="black" stroke-width="1"/>
+<line x1="70" y1="340" x2="75" y2="340" stroke="black" stroke-width="1"/>
+<text x="67" y="340" font-size="13" font-family="sans-serif" fill="#333" text-anchor="end" dominant-baseline="middle">0.0</text>
+<line x1="70" y1="274" x2="75" y2="274" stroke="black" stroke-width="1"/>
+<text x="67" y="274" font-size="13" font-family="sans-serif" fill="#333" text-anchor="end" dominant-baseline="middle">0.2</text>
+<line x1="70" y1="208" x2="75" y2="208" stroke="black" stroke-width="1"/>
+<text x="67" y="208" font-size="13" font-family="sans-serif" fill="#333" text-anchor="end" dominant-baseline="middle">0.4</text>
+<line x1="70" y1="142" x2="75" y2="142" stroke="black" stroke-width="1"/>
+<text x="67" y="142" font-size="13" font-family="sans-serif" fill="#333" text-anchor="end" dominant-baseline="middle">0.6</text>
+<line x1="70" y1="76" x2="75" y2="76" stroke="black" stroke-width="1"/>
+<text x="67" y="76" font-size="13" font-family="sans-serif" fill="#333" text-anchor="end" dominant-baseline="middle">0.8</text>
+<text x="36.8" y="190" font-size="15" font-family="sans-serif" fill="#333" text-anchor="middle" transform="rotate(-90, 36.8, 190)">Frequency</text>
+<text x="398.95" y="55" font-size="15" font-family="sans-serif" text-anchor="start" font-weight="bold">variable</text>
+<rect x="398.95" y="67.5" width="15" height="15" fill="#1f77b4" stroke="black" stroke-width="0.0" fill-opacity="1"/>
+<text x="418.95" y="75" font-size="13" font-family="sans-serif" dominant-baseline="middle">sepal length</text>
+<rect x="398.95" y="87.5" width="15" height="15" fill="#ff7f0e" stroke="black" stroke-width="0.0" fill-opacity="1"/>
+<text x="418.95" y="95" font-size="13" font-family="sans-serif" dominant-baseline="middle">sepal width</text>
+</svg>

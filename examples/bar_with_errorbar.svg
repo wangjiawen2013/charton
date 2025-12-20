@@ -1,0 +1,40 @@
+<svg width="500" height="400" viewBox="0 0 500 400" xmlns="http://www.w3.org/2000/svg"><rect width="100%" height="100%" fill="white" /><line x1="128.57142857142856" y1="188.2" x2="128.57142857142856" y2="168.4" stroke="black" stroke-width="1" opacity="1"/>
+<line x1="125.57142857142856" y1="168.4" x2="131.57142857142856" y2="168.4" stroke="black" stroke-width="1" opacity="1"/>
+<line x1="125.57142857142856" y1="188.2" x2="131.57142857142856" y2="188.2" stroke="black" stroke-width="1" opacity="1"/>
+<line x1="217.85714285714286" y1="177.97" x2="217.85714285714286" y2="152.23000000000002" stroke="black" stroke-width="1" opacity="1"/>
+<line x1="214.85714285714286" y1="152.23000000000002" x2="220.85714285714286" y2="152.23000000000002" stroke="black" stroke-width="1" opacity="1"/>
+<line x1="214.85714285714286" y1="177.97" x2="220.85714285714286" y2="177.97" stroke="black" stroke-width="1" opacity="1"/>
+<line x1="307.1428571428571" y1="169.72" x2="307.1428571428571" y2="147.28" stroke="black" stroke-width="1" opacity="1"/>
+<line x1="304.1428571428571" y1="147.28" x2="310.1428571428571" y2="147.28" stroke="black" stroke-width="1" opacity="1"/>
+<line x1="304.1428571428571" y1="169.72" x2="310.1428571428571" y2="169.72" stroke="black" stroke-width="1" opacity="1"/>
+<line x1="396.4285714285714" y1="132.1" x2="396.4285714285714" y2="118.9" stroke="black" stroke-width="1" opacity="1"/>
+<line x1="393.4285714285714" y1="118.9" x2="399.4285714285714" y2="118.9" stroke="black" stroke-width="1" opacity="1"/>
+<line x1="393.4285714285714" y1="132.1" x2="399.4285714285714" y2="132.1" stroke="black" stroke-width="1" opacity="1"/>
+<rect x="106.24999999999997" y="178.29999999999998" width="44.64285714285717" height="161.70000000000002" fill="steelblue" stroke="black" stroke-width="1" opacity="1" />
+<rect x="195.53571428571428" y="165.1" width="44.64285714285717" height="174.9" fill="steelblue" stroke="black" stroke-width="1" opacity="1" />
+<rect x="284.82142857142856" y="158.5" width="44.64285714285717" height="181.5" fill="steelblue" stroke="black" stroke-width="1" opacity="1" />
+<rect x="374.1071428571428" y="125.5" width="44.64285714285717" height="214.5" fill="steelblue" stroke="black" stroke-width="1" opacity="1" />
+<line x1="75" y1="340" x2="450" y2="340" stroke="black" stroke-dasharray="5,5" />
+<line x1="75" y1="340" x2="450" y2="340" stroke="black" stroke-width="1"/>
+<line x1="128.57142857142856" y1="340" x2="128.57142857142856" y2="345" stroke="black" stroke-width="1"/>
+<text x="128.57142857142856" y="358" font-size="13" font-family="sans-serif" fill="#333" text-anchor="middle">a</text>
+<line x1="217.85714285714286" y1="340" x2="217.85714285714286" y2="345" stroke="black" stroke-width="1"/>
+<text x="217.85714285714286" y="358" font-size="13" font-family="sans-serif" fill="#333" text-anchor="middle">b</text>
+<line x1="307.1428571428571" y1="340" x2="307.1428571428571" y2="345" stroke="black" stroke-width="1"/>
+<text x="307.1428571428571" y="358" font-size="13" font-family="sans-serif" fill="#333" text-anchor="middle">c</text>
+<line x1="396.4285714285714" y1="340" x2="396.4285714285714" y2="345" stroke="black" stroke-width="1"/>
+<text x="396.4285714285714" y="358" font-size="13" font-family="sans-serif" fill="#333" text-anchor="middle">d</text>
+<text x="262.5" y="363" font-size="15" font-family="sans-serif" fill="#333" text-anchor="middle" dominant-baseline="text-before-edge">type</text>
+<line x1="75" y1="40" x2="75" y2="340" stroke="black" stroke-width="1"/>
+<line x1="70" y1="340" x2="75" y2="340" stroke="black" stroke-width="1"/>
+<text x="67" y="340" font-size="13" font-family="sans-serif" fill="#333" text-anchor="end" dominant-baseline="middle">0</text>
+<line x1="70" y1="274" x2="75" y2="274" stroke="black" stroke-width="1"/>
+<text x="67" y="274" font-size="13" font-family="sans-serif" fill="#333" text-anchor="end" dominant-baseline="middle">2</text>
+<line x1="70" y1="208" x2="75" y2="208" stroke="black" stroke-width="1"/>
+<text x="67" y="208" font-size="13" font-family="sans-serif" fill="#333" text-anchor="end" dominant-baseline="middle">4</text>
+<line x1="70" y1="142" x2="75" y2="142" stroke="black" stroke-width="1"/>
+<text x="67" y="142" font-size="13" font-family="sans-serif" fill="#333" text-anchor="end" dominant-baseline="middle">6</text>
+<line x1="70" y1="76" x2="75" y2="76" stroke="black" stroke-width="1"/>
+<text x="67" y="76" font-size="13" font-family="sans-serif" fill="#333" text-anchor="end" dominant-baseline="middle">8</text>
+<text x="47.85" y="190" font-size="15" font-family="sans-serif" fill="#333" text-anchor="middle" transform="rotate(-90, 47.85, 190)">value</text>
+</svg>

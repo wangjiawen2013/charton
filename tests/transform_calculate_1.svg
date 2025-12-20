@@ -1,0 +1,42 @@
+<svg width="500" height="400" viewBox="0 0 500 400" xmlns="http://www.w3.org/2000/svg"><rect width="100%" height="100%" fill="white" /><text x="250" y="18" font-size="18" font-family="sans-serif" fill="#333" text-anchor="middle">Error Bar Chart with Mean and Std Dev</text>
+<line x1="142.49999999999991" y1="322.85714285714283" x2="197.5" y2="322.85714285714283" stroke="blue" stroke-width="2" opacity="1"/>
+<circle cx="169.99999999999994" cy="322.85714285714283" r="3" fill="blue" opacity="1"/>
+<line x1="197.5" y1="317.85714285714283" x2="197.5" y2="327.85714285714283" stroke="blue" stroke-width="2" opacity="1"/>
+<line x1="142.49999999999991" y1="317.85714285714283" x2="142.49999999999991" y2="327.85714285714283" stroke="blue" stroke-width="2" opacity="1"/>
+<line x1="165.87499999999991" y1="237.14285714285714" x2="229.12500000000003" y2="237.14285714285714" stroke="blue" stroke-width="2" opacity="1"/>
+<circle cx="197.5" cy="237.14285714285714" r="3" fill="blue" opacity="1"/>
+<line x1="229.12500000000003" y1="232.14285714285714" x2="229.12500000000003" y2="242.14285714285714" stroke="blue" stroke-width="2" opacity="1"/>
+<line x1="165.87499999999991" y1="232.14285714285714" x2="165.87499999999991" y2="242.14285714285714" stroke="blue" stroke-width="2" opacity="1"/>
+<line x1="233.25000000000009" y1="151.4285714285714" x2="271.75" y2="151.4285714285714" stroke="blue" stroke-width="2" opacity="1"/>
+<circle cx="252.50000000000003" cy="151.4285714285714" r="3" fill="blue" opacity="1"/>
+<line x1="271.75" y1="146.4285714285714" x2="271.75" y2="156.4285714285714" stroke="blue" stroke-width="2" opacity="1"/>
+<line x1="233.25000000000009" y1="146.4285714285714" x2="233.25000000000009" y2="156.4285714285714" stroke="blue" stroke-width="2" opacity="1"/>
+<line x1="328.125" y1="65.71428571428567" x2="396.875" y2="65.71428571428567" stroke="blue" stroke-width="2" opacity="1"/>
+<circle cx="362.5" cy="65.71428571428567" r="3" fill="blue" opacity="1"/>
+<line x1="396.875" y1="60.714285714285666" x2="396.875" y2="70.71428571428567" stroke="blue" stroke-width="2" opacity="1"/>
+<line x1="328.125" y1="60.714285714285666" x2="328.125" y2="70.71428571428567" stroke="blue" stroke-width="2" opacity="1"/>
+<line x1="75" y1="40" x2="75" y2="340" stroke="black" stroke-width="1"/>
+<line x1="70" y1="322.85714285714283" x2="75" y2="322.85714285714283" stroke="black" stroke-width="1"/>
+<text x="67" y="322.85714285714283" font-size="13" font-family="sans-serif" fill="#333" text-anchor="end" dominant-baseline="middle">a</text>
+<line x1="70" y1="237.14285714285714" x2="75" y2="237.14285714285714" stroke="black" stroke-width="1"/>
+<text x="67" y="237.14285714285714" font-size="13" font-family="sans-serif" fill="#333" text-anchor="end" dominant-baseline="middle">b</text>
+<line x1="70" y1="151.4285714285714" x2="75" y2="151.4285714285714" stroke="black" stroke-width="1"/>
+<text x="67" y="151.4285714285714" font-size="13" font-family="sans-serif" fill="#333" text-anchor="end" dominant-baseline="middle">c</text>
+<line x1="70" y1="65.71428571428567" x2="75" y2="65.71428571428567" stroke="black" stroke-width="1"/>
+<text x="67" y="65.71428571428567" font-size="13" font-family="sans-serif" fill="#333" text-anchor="end" dominant-baseline="middle">d</text>
+<text x="47.85" y="190" font-size="15" font-family="sans-serif" fill="#333" text-anchor="middle" dominant-baseline="text-after-edge" transform="rotate(-90, 47.85, 190)">type</text>
+<line x1="75" y1="340" x2="450" y2="340" stroke="black" stroke-width="1"/>
+<line x1="87.5" y1="340" x2="87.5" y2="345" stroke="black" stroke-width="1"/>
+<text x="87.5" y="348" font-size="13" font-family="sans-serif" fill="#333" text-anchor="middle" dominant-baseline="text-before-edge">4.5</text>
+<line x1="156.25" y1="340" x2="156.25" y2="345" stroke="black" stroke-width="1"/>
+<text x="156.25" y="348" font-size="13" font-family="sans-serif" fill="#333" text-anchor="middle" dominant-baseline="text-before-edge">5.0</text>
+<line x1="225" y1="340" x2="225" y2="345" stroke="black" stroke-width="1"/>
+<text x="225" y="348" font-size="13" font-family="sans-serif" fill="#333" text-anchor="middle" dominant-baseline="text-before-edge">5.5</text>
+<line x1="293.75" y1="340" x2="293.75" y2="345" stroke="black" stroke-width="1"/>
+<text x="293.75" y="348" font-size="13" font-family="sans-serif" fill="#333" text-anchor="middle" dominant-baseline="text-before-edge">6.0</text>
+<line x1="362.5" y1="340" x2="362.5" y2="345" stroke="black" stroke-width="1"/>
+<text x="362.5" y="348" font-size="13" font-family="sans-serif" fill="#333" text-anchor="middle" dominant-baseline="text-before-edge">6.5</text>
+<line x1="431.25" y1="340" x2="431.25" y2="345" stroke="black" stroke-width="1"/>
+<text x="431.25" y="348" font-size="13" font-family="sans-serif" fill="#333" text-anchor="middle" dominant-baseline="text-before-edge">7.0</text>
+<text x="262.5" y="363" font-size="15" font-family="sans-serif" fill="#333" text-anchor="middle" dominant-baseline="text-before-edge">value_min</text>
+</svg>

@@ -1,0 +1,32 @@
+<svg width="600" height="400" viewBox="0 0 600 400" xmlns="http://www.w3.org/2000/svg"><rect width="100%" height="100%" fill="white" /><text x="300" y="18" font-size="18" font-family="sans-serif" fill="#333" text-anchor="middle">Chart with Explicit Tick Values</text>
+<circle cx="109.17777777777778" cy="328" r="3" fill="#1f77b4" stroke="none" stroke-width="0" opacity="1"/>
+<circle cx="205.06666666666666" cy="260.5" r="3" fill="#ff7f0e" stroke="none" stroke-width="0" opacity="1"/>
+<circle cx="300.9555555555556" cy="193" r="3" fill="#2ca02c" stroke="none" stroke-width="0" opacity="1"/>
+<circle cx="396.84444444444443" cy="125.5" r="3" fill="#d62728" stroke="none" stroke-width="0" opacity="1"/>
+<circle cx="492.73333333333335" cy="58" r="3" fill="#9467bd" stroke="none" stroke-width="0" opacity="1"/>
+<line x1="90" y1="340" x2="521.5" y2="340" stroke="black" stroke-width="1"/>
+<line x1="109.17777777777778" y1="340" x2="109.17777777777778" y2="345" stroke="black" stroke-width="1"/>
+<text x="109.17777777777778" y="358" font-size="13" font-family="sans-serif" fill="#333" text-anchor="middle">A</text>
+<line x1="396.84444444444443" y1="340" x2="396.84444444444443" y2="345" stroke="black" stroke-width="1"/>
+<text x="396.84444444444443" y="358" font-size="13" font-family="sans-serif" fill="#333" text-anchor="middle">D</text>
+<text x="305.75" y="363" font-size="15" font-family="sans-serif" fill="#333" text-anchor="middle" dominant-baseline="text-before-edge">Catergory</text>
+<line x1="90" y1="40" x2="90" y2="340" stroke="black" stroke-width="1"/>
+<line x1="85" y1="395.5" x2="90" y2="395.5" stroke="black" stroke-width="1"/>
+<text x="82" y="395.5" font-size="13" font-family="sans-serif" fill="#333" text-anchor="end" dominant-baseline="middle">0.0</text>
+<line x1="85" y1="327.325" x2="90" y2="327.325" stroke="black" stroke-width="1"/>
+<text x="82" y="327.325" font-size="13" font-family="sans-serif" fill="#333" text-anchor="end" dominant-baseline="middle">10.1</text>
+<line x1="85" y1="361.75" x2="90" y2="361.75" stroke="black" stroke-width="1"/>
+<text x="82" y="361.75" font-size="13" font-family="sans-serif" fill="#333" text-anchor="end" dominant-baseline="middle">5.0</text>
+<text x="51.150000000000006" y="190" font-size="15" font-family="sans-serif" fill="#333" text-anchor="middle" transform="rotate(-90, 51.150000000000006, 190)">B Values</text>
+<text x="536.5" y="55" font-size="15" font-family="sans-serif" text-anchor="start" font-weight="bold">category</text>
+<circle cx="544" cy="75" r="7.5" fill="#1f77b4" stroke="black" stroke-width="0.0" fill-opacity="1"/>
+<text x="556.5" y="75" font-size="13" font-family="sans-serif" dominant-baseline="middle">A</text>
+<circle cx="544" cy="95" r="7.5" fill="#ff7f0e" stroke="black" stroke-width="0.0" fill-opacity="1"/>
+<text x="556.5" y="95" font-size="13" font-family="sans-serif" dominant-baseline="middle">B</text>
+<circle cx="544" cy="115" r="7.5" fill="#2ca02c" stroke="black" stroke-width="0.0" fill-opacity="1"/>
+<text x="556.5" y="115" font-size="13" font-family="sans-serif" dominant-baseline="middle">C</text>
+<circle cx="544" cy="135" r="7.5" fill="#d62728" stroke="black" stroke-width="0.0" fill-opacity="1"/>
+<text x="556.5" y="135" font-size="13" font-family="sans-serif" dominant-baseline="middle">D</text>
+<circle cx="544" cy="155" r="7.5" fill="#9467bd" stroke="black" stroke-width="0.0" fill-opacity="1"/>
+<text x="556.5" y="155" font-size="13" font-family="sans-serif" dominant-baseline="middle">E</text>
+</svg>

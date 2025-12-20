@@ -1,0 +1,36 @@
+<svg width="500" height="400" viewBox="0 0 500 400" xmlns="http://www.w3.org/2000/svg"><rect width="100%" height="100%" fill="white" /><circle cx="165.9375" cy="310.3125" r="3" fill="red" stroke="black" stroke-width="1" opacity="1"/>
+<circle cx="258.75" cy="305.7083333333333" r="3" fill="red" stroke="black" stroke-width="1" opacity="1"/>
+<circle cx="427.49999999999994" cy="67.70833333333337" r="3" fill="red" stroke="black" stroke-width="1" opacity="1"/>
+<line x1="75" y1="40" x2="75" y2="340" stroke="black" stroke-width="1"/>
+<line x1="70" y1="333.3333333333333" x2="75" y2="333.3333333333333" stroke="black" stroke-width="1"/>
+<text x="67" y="333.3333333333333" font-size="13" font-family="sans-serif" fill="#333" text-anchor="end" dominant-baseline="middle">0</text>
+<line x1="70" y1="297.91666666666663" x2="75" y2="297.91666666666663" stroke="black" stroke-width="1"/>
+<text x="67" y="297.91666666666663" font-size="13" font-family="sans-serif" fill="#333" text-anchor="end" dominant-baseline="middle">200</text>
+<line x1="70" y1="262.5" x2="75" y2="262.5" stroke="black" stroke-width="1"/>
+<text x="67" y="262.5" font-size="13" font-family="sans-serif" fill="#333" text-anchor="end" dominant-baseline="middle">400</text>
+<line x1="70" y1="227.08333333333334" x2="75" y2="227.08333333333334" stroke="black" stroke-width="1"/>
+<text x="67" y="227.08333333333334" font-size="13" font-family="sans-serif" fill="#333" text-anchor="end" dominant-baseline="middle">600</text>
+<line x1="70" y1="191.66666666666666" x2="75" y2="191.66666666666666" stroke="black" stroke-width="1"/>
+<text x="67" y="191.66666666666666" font-size="13" font-family="sans-serif" fill="#333" text-anchor="end" dominant-baseline="middle">800</text>
+<line x1="70" y1="156.25" x2="75" y2="156.25" stroke="black" stroke-width="1"/>
+<text x="67" y="156.25" font-size="13" font-family="sans-serif" fill="#333" text-anchor="end" dominant-baseline="middle">1000</text>
+<line x1="70" y1="120.83333333333337" x2="75" y2="120.83333333333337" stroke="black" stroke-width="1"/>
+<text x="67" y="120.83333333333337" font-size="13" font-family="sans-serif" fill="#333" text-anchor="end" dominant-baseline="middle">1200</text>
+<line x1="70" y1="85.41666666666666" x2="75" y2="85.41666666666666" stroke="black" stroke-width="1"/>
+<text x="67" y="85.41666666666666" font-size="13" font-family="sans-serif" fill="#333" text-anchor="end" dominant-baseline="middle">1400</text>
+<line x1="70" y1="50" x2="75" y2="50" stroke="black" stroke-width="1"/>
+<text x="67" y="50" font-size="13" font-family="sans-serif" fill="#333" text-anchor="end" dominant-baseline="middle">1600</text>
+<text x="29.65" y="190" font-size="15" font-family="sans-serif" fill="#333" text-anchor="middle" dominant-baseline="text-after-edge" transform="rotate(-90, 29.65, 190)">a</text>
+<line x1="75" y1="340" x2="450" y2="340" stroke="black" stroke-width="1"/>
+<line x1="90" y1="340" x2="90" y2="345" stroke="black" stroke-width="1"/>
+<text x="90" y="348" font-size="13" font-family="sans-serif" fill="#333" text-anchor="middle" dominant-baseline="text-before-edge">-0.001</text>
+<line x1="174.375" y1="340" x2="174.375" y2="345" stroke="black" stroke-width="1"/>
+<text x="174.375" y="348" font-size="13" font-family="sans-serif" fill="#333" text-anchor="middle" dominant-baseline="text-before-edge">0.000</text>
+<line x1="258.75" y1="340" x2="258.75" y2="345" stroke="black" stroke-width="1"/>
+<text x="258.75" y="348" font-size="13" font-family="sans-serif" fill="#333" text-anchor="middle" dominant-baseline="text-before-edge">0.001</text>
+<line x1="343.125" y1="340" x2="343.125" y2="345" stroke="black" stroke-width="1"/>
+<text x="343.125" y="348" font-size="13" font-family="sans-serif" fill="#333" text-anchor="middle" dominant-baseline="text-before-edge">0.002</text>
+<line x1="427.5" y1="340" x2="427.5" y2="345" stroke="black" stroke-width="1"/>
+<text x="427.5" y="348" font-size="13" font-family="sans-serif" fill="#333" text-anchor="middle" dominant-baseline="text-before-edge">0.003</text>
+<text x="262.5" y="363" font-size="15" font-family="sans-serif" fill="#333" text-anchor="middle" dominant-baseline="text-before-edge">b</text>
+</svg>

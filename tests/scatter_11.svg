@@ -1,0 +1,48 @@
+<svg width="500" height="300" viewBox="0 0 500 300" xmlns="http://www.w3.org/2000/svg"><rect width="100%" height="100%" fill="white" /><text x="250" y="18" font-size="18" font-family="sans-serif" fill="#333" text-anchor="middle">Chart with Shape Legend</text>
+<circle cx="88.86" cy="210.9375" r="3" fill="#1f77b4" stroke="none" stroke-width="0" opacity="1"/>
+<rect x="163.8225" y="175.125" width="6" height="6" fill="#ff7f0e" stroke="none" stroke-width="0" opacity="1"/>
+<polygon points="244.78499999999997 141.8485 241.78499999999997 147.0445 247.78499999999997 147.0445" fill="#2ca02c" stroke="none" stroke-width="0" opacity="1"/>
+<circle cx="322.7475" cy="112.5" r="3" fill="#1f77b4" stroke="none" stroke-width="0" opacity="1"/>
+<rect x="397.71" y="76.6875" width="6" height="6" fill="#ff7f0e" stroke="none" stroke-width="0" opacity="1"/>
+<polygon points="88.86 191.06725 85.86 196.26325 91.86 196.26325" fill="#2ca02c" stroke="none" stroke-width="0" opacity="1"/>
+<circle cx="166.8225" cy="161.71875" r="3" fill="#1f77b4" stroke="none" stroke-width="0" opacity="1"/>
+<rect x="241.78499999999997" y="125.90625" width="6" height="6" fill="#ff7f0e" stroke="none" stroke-width="0" opacity="1"/>
+<polygon points="322.7475 92.62975 319.7475 97.82575 325.7475 97.82575" fill="#2ca02c" stroke="none" stroke-width="0" opacity="1"/>
+<circle cx="400.71" cy="63.28125" r="3" fill="#1f77b4" stroke="none" stroke-width="0" opacity="1"/>
+<line x1="75" y1="255" x2="421.5" y2="255" stroke="black" stroke-width="1"/>
+<line x1="88.86" y1="255" x2="88.86" y2="260" stroke="black" stroke-width="1"/>
+<text x="88.86" y="273" font-size="13" font-family="sans-serif" fill="#333" text-anchor="middle">1</text>
+<line x1="166.8225" y1="255" x2="166.8225" y2="260" stroke="black" stroke-width="1"/>
+<text x="166.8225" y="273" font-size="13" font-family="sans-serif" fill="#333" text-anchor="middle">2</text>
+<line x1="244.78499999999997" y1="255" x2="244.78499999999997" y2="260" stroke="black" stroke-width="1"/>
+<text x="244.78499999999997" y="273" font-size="13" font-family="sans-serif" fill="#333" text-anchor="middle">3</text>
+<line x1="322.7475" y1="255" x2="322.7475" y2="260" stroke="black" stroke-width="1"/>
+<text x="322.7475" y="273" font-size="13" font-family="sans-serif" fill="#333" text-anchor="middle">4</text>
+<line x1="400.71" y1="255" x2="400.71" y2="260" stroke="black" stroke-width="1"/>
+<text x="400.71" y="273" font-size="13" font-family="sans-serif" fill="#333" text-anchor="middle">5</text>
+<text x="248.25" y="278" font-size="15" font-family="sans-serif" fill="#333" text-anchor="middle" dominant-baseline="text-before-edge">a</text>
+<line x1="75" y1="30" x2="75" y2="255" stroke="black" stroke-width="1"/>
+<line x1="70" y1="243.75" x2="75" y2="243.75" stroke="black" stroke-width="1"/>
+<text x="67" y="243.75" font-size="13" font-family="sans-serif" fill="#333" text-anchor="end" dominant-baseline="middle">0</text>
+<line x1="70" y1="178.125" x2="75" y2="178.125" stroke="black" stroke-width="1"/>
+<text x="67" y="178.125" font-size="13" font-family="sans-serif" fill="#333" text-anchor="end" dominant-baseline="middle">20</text>
+<line x1="70" y1="112.5" x2="75" y2="112.5" stroke="black" stroke-width="1"/>
+<text x="67" y="112.5" font-size="13" font-family="sans-serif" fill="#333" text-anchor="end" dominant-baseline="middle">40</text>
+<line x1="70" y1="46.875" x2="75" y2="46.875" stroke="black" stroke-width="1"/>
+<text x="67" y="46.875" font-size="13" font-family="sans-serif" fill="#333" text-anchor="end" dominant-baseline="middle">60</text>
+<text x="40.7" y="142.5" font-size="15" font-family="sans-serif" fill="#333" text-anchor="middle" transform="rotate(-90, 40.7, 142.5)">b</text>
+<text x="436.5" y="45" font-size="15" font-family="sans-serif" text-anchor="start" font-weight="bold">category</text>
+<circle cx="444" cy="65" r="7.5" fill="#1f77b4" stroke="black" stroke-width="0.0" fill-opacity="1"/>
+<text x="456.5" y="65" font-size="13" font-family="sans-serif" dominant-baseline="middle">A</text>
+<circle cx="444" cy="85" r="7.5" fill="#ff7f0e" stroke="black" stroke-width="0.0" fill-opacity="1"/>
+<text x="456.5" y="85" font-size="13" font-family="sans-serif" dominant-baseline="middle">B</text>
+<circle cx="444" cy="105" r="7.5" fill="#2ca02c" stroke="black" stroke-width="0.0" fill-opacity="1"/>
+<text x="456.5" y="105" font-size="13" font-family="sans-serif" dominant-baseline="middle">C</text>
+<text x="436.5" y="45" font-size="15" font-family="sans-serif" text-anchor="start" font-weight="bold">category</text>
+<circle cx="444" cy="65" r="6" fill="none" stroke="#000000" stroke-width="1" opacity="1"/>
+<text x="456.5" y="65" font-size="13" font-family="sans-serif" dominant-baseline="middle">A</text>
+<rect x="438" y="79" width="12" height="12" fill="none" stroke="#000000" stroke-width="1" opacity="1"/>
+<text x="456.5" y="85" font-size="13" font-family="sans-serif" dominant-baseline="middle">B</text>
+<polygon points="444 98.072 438 108.464 450 108.464" fill="none" stroke="#000000" stroke-width="1" opacity="1"/>
+<text x="456.5" y="105" font-size="13" font-family="sans-serif" dominant-baseline="middle">C</text>
+</svg>

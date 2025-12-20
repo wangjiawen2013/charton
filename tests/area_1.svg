@@ -1,0 +1,38 @@
+<svg width="600" height="400" viewBox="0 0 600 400" xmlns="http://www.w3.org/2000/svg"><rect width="100%" height="100%" fill="white" /><text x="300" y="18" font-size="18" font-family="sans-serif" fill="#333" text-anchor="middle">Iowa Electricity Generation</text>
+<path d="M 135.04565476189728 340 L 135.04565476189728 269.5 L 167.94416666665919 241.3 L 200.84267857142106 156.70000000000002 L 233.741190476183 114.4 L 266.63970238094487 86.20000000000002 L 299.5382142857068 58.00000000000006 L 332.4367261904687 100.30000000000004 L 365.33523809523064 142.60000000000002 L 398.2337499999925 213.10000000000002 L 431.1322619047544 255.40000000000003 L 431.1322619047544 340" fill="#1f77b4" stroke="black" stroke-width="1" fill-opacity="0.3" />
+<path d="M 200.84267857142106 340 L 200.84267857142106 227.2 L 233.741190476183 213.10000000000002 L 266.63970238094487 199.00000000000003 L 299.5382142857068 184.9 L 332.4367261904687 170.80000000000004 L 365.33523809523064 156.70000000000002 L 398.2337499999925 142.60000000000002 L 431.1322619047544 170.80000000000004 L 464.03077380951635 213.10000000000002 L 496.9292857142782 241.3 L 496.9292857142782 340" fill="#ff7f0e" stroke="black" stroke-width="1" fill-opacity="0.3" />
+<line x1="90" y1="340" x2="515.15" y2="340" stroke="black" stroke-dasharray="5,5" />
+<line x1="90" y1="340" x2="515.15" y2="340" stroke="black" stroke-width="1"/>
+<line x1="102.14714285714285" y1="340" x2="102.14714285714285" y2="345" stroke="black" stroke-width="1"/>
+<text x="102.14714285714285" y="358" font-size="13" font-family="sans-serif" fill="#333" text-anchor="middle">2000</text>
+<line x1="167.94416666666666" y1="340" x2="167.94416666666666" y2="345" stroke="black" stroke-width="1"/>
+<text x="167.94416666666666" y="358" font-size="13" font-family="sans-serif" fill="#333" text-anchor="middle">2002</text>
+<line x1="233.74119047619047" y1="340" x2="233.74119047619047" y2="345" stroke="black" stroke-width="1"/>
+<text x="233.74119047619047" y="358" font-size="13" font-family="sans-serif" fill="#333" text-anchor="middle">2004</text>
+<line x1="299.5382142857143" y1="340" x2="299.5382142857143" y2="345" stroke="black" stroke-width="1"/>
+<text x="299.5382142857143" y="358" font-size="13" font-family="sans-serif" fill="#333" text-anchor="middle">2006</text>
+<line x1="365.3352380952381" y1="340" x2="365.3352380952381" y2="345" stroke="black" stroke-width="1"/>
+<text x="365.3352380952381" y="358" font-size="13" font-family="sans-serif" fill="#333" text-anchor="middle">2008</text>
+<line x1="431.1322619047619" y1="340" x2="431.1322619047619" y2="345" stroke="black" stroke-width="1"/>
+<text x="431.1322619047619" y="358" font-size="13" font-family="sans-serif" fill="#333" text-anchor="middle">2010</text>
+<line x1="496.9292857142857" y1="340" x2="496.9292857142857" y2="345" stroke="black" stroke-width="1"/>
+<text x="496.9292857142857" y="358" font-size="13" font-family="sans-serif" fill="#333" text-anchor="middle">2012</text>
+<text x="302.575" y="363" font-size="15" font-family="sans-serif" fill="#333" text-anchor="middle" dominant-baseline="text-before-edge">Year</text>
+<line x1="90" y1="40" x2="90" y2="340" stroke="black" stroke-width="1"/>
+<line x1="85" y1="340" x2="90" y2="340" stroke="black" stroke-width="1"/>
+<text x="82" y="340" font-size="13" font-family="sans-serif" fill="#333" text-anchor="end" dominant-baseline="middle">0</text>
+<line x1="85" y1="269.5" x2="90" y2="269.5" stroke="black" stroke-width="1"/>
+<text x="82" y="269.5" font-size="13" font-family="sans-serif" fill="#333" text-anchor="end" dominant-baseline="middle">50</text>
+<line x1="85" y1="199" x2="90" y2="199" stroke="black" stroke-width="1"/>
+<text x="82" y="199" font-size="13" font-family="sans-serif" fill="#333" text-anchor="end" dominant-baseline="middle">100</text>
+<line x1="85" y1="128.50000000000003" x2="90" y2="128.50000000000003" stroke="black" stroke-width="1"/>
+<text x="82" y="128.50000000000003" font-size="13" font-family="sans-serif" fill="#333" text-anchor="end" dominant-baseline="middle">150</text>
+<line x1="85" y1="58" x2="90" y2="58" stroke="black" stroke-width="1"/>
+<text x="82" y="58" font-size="13" font-family="sans-serif" fill="#333" text-anchor="end" dominant-baseline="middle">200</text>
+<text x="48.55" y="190" font-size="15" font-family="sans-serif" fill="#333" text-anchor="middle" transform="rotate(-90, 48.55, 190)">Net Generation</text>
+<text x="530.15" y="55" font-size="15" font-family="sans-serif" text-anchor="start" font-weight="bold">source</text>
+<rect x="530.15" y="67.5" width="15" height="15" fill="#1f77b4" stroke="black" stroke-width="0.0" fill-opacity="0.3"/>
+<text x="550.15" y="75" font-size="13" font-family="sans-serif" dominant-baseline="middle">Coal</text>
+<rect x="530.15" y="87.5" width="15" height="15" fill="#ff7f0e" stroke="black" stroke-width="0.0" fill-opacity="0.3"/>
+<text x="550.15" y="95" font-size="13" font-family="sans-serif" dominant-baseline="middle">Nuclear</text>
+</svg>

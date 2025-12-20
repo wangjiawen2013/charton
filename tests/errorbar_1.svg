@@ -1,0 +1,40 @@
+<svg width="500" height="400" viewBox="0 0 500 400" xmlns="http://www.w3.org/2000/svg"><rect width="100%" height="100%" fill="white" /><text x="250" y="18" font-size="18" font-family="sans-serif" fill="#333" text-anchor="middle">Error Bar Chart with Mean and Std Dev</text>
+<line x1="96.42857142857143" y1="256.3715906273014" x2="96.42857142857143" y2="215.12840937269868" stroke="blue" stroke-width="2" opacity="1"/>
+<circle cx="96.42857142857143" cy="235.75000000000003" r="3" fill="blue" opacity="1"/>
+<line x1="91.42857142857143" y1="215.12840937269868" x2="101.42857142857143" y2="215.12840937269868" stroke="blue" stroke-width="2" opacity="1"/>
+<line x1="91.42857142857143" y1="256.3715906273014" x2="101.42857142857143" y2="256.3715906273014" stroke="blue" stroke-width="2" opacity="1"/>
+<line x1="203.57142857142858" y1="180.70522094391862" x2="203.57142857142858" y2="133.2947790560813" stroke="blue" stroke-width="2" opacity="1"/>
+<circle cx="203.57142857142858" cy="156.99999999999994" r="3" fill="blue" opacity="1"/>
+<line x1="198.57142857142858" y1="133.2947790560813" x2="208.57142857142858" y2="133.2947790560813" stroke="blue" stroke-width="2" opacity="1"/>
+<line x1="198.57142857142858" y1="180.70522094391862" x2="208.57142857142858" y2="180.70522094391862" stroke="blue" stroke-width="2" opacity="1"/>
+<line x1="310.7142857142858" y1="328" x2="310.7142857142858" y2="301" stroke="blue" stroke-width="2" opacity="1"/>
+<circle cx="310.7142857142858" cy="314.5" r="3" fill="blue" opacity="1"/>
+<line x1="305.7142857142858" y1="301" x2="315.7142857142858" y2="301" stroke="blue" stroke-width="2" opacity="1"/>
+<line x1="305.7142857142858" y1="328" x2="315.7142857142858" y2="328" stroke="blue" stroke-width="2" opacity="1"/>
+<line x1="417.8571428571429" y1="85.00000000000003" x2="417.8571428571429" y2="58" stroke="blue" stroke-width="2" opacity="1"/>
+<circle cx="417.8571428571429" cy="71.5" r="3" fill="blue" opacity="1"/>
+<line x1="412.8571428571429" y1="58" x2="422.8571428571429" y2="58" stroke="blue" stroke-width="2" opacity="1"/>
+<line x1="412.8571428571429" y1="85.00000000000003" x2="422.8571428571429" y2="85.00000000000003" stroke="blue" stroke-width="2" opacity="1"/>
+<line x1="75" y1="340" x2="450" y2="340" stroke="black" stroke-width="1"/>
+<line x1="96.42857142857143" y1="340" x2="96.42857142857143" y2="345" stroke="black" stroke-width="1"/>
+<text x="96.42857142857143" y="358" font-size="13" font-family="sans-serif" fill="#333" text-anchor="middle">a</text>
+<line x1="203.57142857142858" y1="340" x2="203.57142857142858" y2="345" stroke="black" stroke-width="1"/>
+<text x="203.57142857142858" y="358" font-size="13" font-family="sans-serif" fill="#333" text-anchor="middle">b</text>
+<line x1="310.7142857142858" y1="340" x2="310.7142857142858" y2="345" stroke="black" stroke-width="1"/>
+<text x="310.7142857142858" y="358" font-size="13" font-family="sans-serif" fill="#333" text-anchor="middle">c</text>
+<line x1="417.8571428571429" y1="340" x2="417.8571428571429" y2="345" stroke="black" stroke-width="1"/>
+<text x="417.8571428571429" y="358" font-size="13" font-family="sans-serif" fill="#333" text-anchor="middle">d</text>
+<text x="262.5" y="363" font-size="15" font-family="sans-serif" fill="#333" text-anchor="middle" dominant-baseline="text-before-edge">x</text>
+<line x1="75" y1="40" x2="75" y2="340" stroke="black" stroke-width="1"/>
+<line x1="70" y1="328" x2="75" y2="328" stroke="black" stroke-width="1"/>
+<text x="67" y="328" font-size="13" font-family="sans-serif" fill="#333" text-anchor="end" dominant-baseline="middle">4</text>
+<line x1="70" y1="260.5" x2="75" y2="260.5" stroke="black" stroke-width="1"/>
+<text x="67" y="260.5" font-size="13" font-family="sans-serif" fill="#333" text-anchor="end" dominant-baseline="middle">5</text>
+<line x1="70" y1="193" x2="75" y2="193" stroke="black" stroke-width="1"/>
+<text x="67" y="193" font-size="13" font-family="sans-serif" fill="#333" text-anchor="end" dominant-baseline="middle">6</text>
+<line x1="70" y1="125.5" x2="75" y2="125.5" stroke="black" stroke-width="1"/>
+<text x="67" y="125.5" font-size="13" font-family="sans-serif" fill="#333" text-anchor="end" dominant-baseline="middle">7</text>
+<line x1="70" y1="58" x2="75" y2="58" stroke="black" stroke-width="1"/>
+<text x="67" y="58" font-size="13" font-family="sans-serif" fill="#333" text-anchor="end" dominant-baseline="middle">8</text>
+<text x="47.85" y="190" font-size="15" font-family="sans-serif" fill="#333" text-anchor="middle" transform="rotate(-90, 47.85, 190)">y</text>
+</svg>

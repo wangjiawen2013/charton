@@ -1,0 +1,47 @@
+<svg width="500" height="400" viewBox="0 0 500 400" xmlns="http://www.w3.org/2000/svg"><rect width="100%" height="100%" fill="white" /><rect x="75" y="240" width="108.33333333333333" height="100" fill="#440154" opacity="1" stroke="white" stroke-width="0" /><rect x="183.33333333333331" y="240" width="108.33333333333333" height="100" fill="#472c7a" opacity="1" stroke="white" stroke-width="0" /><rect x="291.66666666666663" y="240" width="108.33333333333333" height="100" fill="#3b518a" opacity="1" stroke="white" stroke-width="0" /><rect x="75" y="140" width="108.33333333333333" height="100" fill="#2c728e" opacity="1" stroke="white" stroke-width="0" /><rect x="183.33333333333331" y="140" width="108.33333333333333" height="100" fill="#21908c" opacity="1" stroke="white" stroke-width="0" /><rect x="291.66666666666663" y="140" width="108.33333333333333" height="100" fill="#29ad7f" opacity="1" stroke="white" stroke-width="0" /><rect x="75" y="40" width="108.33333333333333" height="100" fill="#5dc862" opacity="1" stroke="white" stroke-width="0" /><rect x="183.33333333333331" y="40" width="108.33333333333333" height="100" fill="#aadb32" opacity="1" stroke="white" stroke-width="0" /><rect x="291.66666666666663" y="40" width="108.33333333333333" height="100" fill="#fde725" opacity="1" stroke="white" stroke-width="0" /><line x1="75" y1="340" x2="399.99999999999994" y2="340" stroke="black" stroke-width="1"/>
+<line x1="129.16666666666666" y1="340" x2="129.16666666666666" y2="345" stroke="black" stroke-width="1"/>
+<text x="129.16666666666666" y="358" font-size="13" font-family="sans-serif" fill="#333" text-anchor="middle">A</text>
+<line x1="237.49999999999997" y1="340" x2="237.49999999999997" y2="345" stroke="black" stroke-width="1"/>
+<text x="237.49999999999997" y="358" font-size="13" font-family="sans-serif" fill="#333" text-anchor="middle">B</text>
+<line x1="345.8333333333333" y1="340" x2="345.8333333333333" y2="345" stroke="black" stroke-width="1"/>
+<text x="345.8333333333333" y="358" font-size="13" font-family="sans-serif" fill="#333" text-anchor="middle">C</text>
+<text x="237.49999999999997" y="363" font-size="15" font-family="sans-serif" fill="#333" text-anchor="middle" dominant-baseline="text-before-edge">a</text>
+<line x1="75" y1="40" x2="75" y2="340" stroke="black" stroke-width="1"/>
+<line x1="70" y1="290" x2="75" y2="290" stroke="black" stroke-width="1"/>
+<text x="67" y="290" font-size="13" font-family="sans-serif" fill="#333" text-anchor="end" dominant-baseline="middle">X</text>
+<line x1="70" y1="190" x2="75" y2="190" stroke="black" stroke-width="1"/>
+<text x="67" y="190" font-size="13" font-family="sans-serif" fill="#333" text-anchor="end" dominant-baseline="middle">Y</text>
+<line x1="70" y1="90" x2="75" y2="90" stroke="black" stroke-width="1"/>
+<text x="67" y="90" font-size="13" font-family="sans-serif" fill="#333" text-anchor="end" dominant-baseline="middle">Z</text>
+<text x="46.55" y="190" font-size="15" font-family="sans-serif" fill="#333" text-anchor="middle" transform="rotate(-90, 46.55, 190)">b</text>
+<text x="414.99999999999994" y="52" font-size="15" font-family="sans-serif" text-anchor="left" font-weight="bold">value</text>
+<defs>
+  <linearGradient id="colorbar-gradient-value" x1="0" y1="0" x2="0" y2="1">
+    <stop offset="0%" stop-color="#fde725"/>
+    <stop offset="10%" stop-color="#bbde28"/>
+    <stop offset="20%" stop-color="#7ad151"/>
+    <stop offset="30%" stop-color="#44be70"/>
+    <stop offset="40%" stop-color="#22a884"/>
+    <stop offset="50%" stop-color="#21908c"/>
+    <stop offset="60%" stop-color="#2a788e"/>
+    <stop offset="70%" stop-color="#355f8d"/>
+    <stop offset="80%" stop-color="#414387"/>
+    <stop offset="90%" stop-color="#472474"/>
+    <stop offset="100%" stop-color="#440154"/>
+  </linearGradient>
+</defs>
+<rect x="414.99999999999994" y="60" width="20" height="100" fill="url('#colorbar-gradient-value')"/>
+<rect x="414.99999999999994" y="60" width="20" height="100" fill="none" stroke="black" stroke-width="1"/>
+<line x1="414.99999999999994" y1="75" x2="418.99999999999994" y2="75" stroke="white" stroke-width="1"/>
+<line x1="430.99999999999994" y1="75" x2="434.99999999999994" y2="75" stroke="white" stroke-width="1"/>
+<text x="440.99999999999994" y="75" font-size="13" font-family="sans-serif" fill="#333" dominant-baseline="middle" text-anchor="start">7.80</text>
+<line x1="414.99999999999994" y1="100" x2="418.99999999999994" y2="100" stroke="white" stroke-width="1"/>
+<line x1="430.99999999999994" y1="100" x2="434.99999999999994" y2="100" stroke="white" stroke-width="1"/>
+<text x="440.99999999999994" y="100" font-size="13" font-family="sans-serif" fill="#333" dominant-baseline="middle" text-anchor="start">5.80</text>
+<line x1="414.99999999999994" y1="125" x2="418.99999999999994" y2="125" stroke="white" stroke-width="1"/>
+<line x1="430.99999999999994" y1="125" x2="434.99999999999994" y2="125" stroke="white" stroke-width="1"/>
+<text x="440.99999999999994" y="125" font-size="13" font-family="sans-serif" fill="#333" dominant-baseline="middle" text-anchor="start">3.80</text>
+<line x1="414.99999999999994" y1="150" x2="418.99999999999994" y2="150" stroke="white" stroke-width="1"/>
+<line x1="430.99999999999994" y1="150" x2="434.99999999999994" y2="150" stroke="white" stroke-width="1"/>
+<text x="440.99999999999994" y="150" font-size="13" font-family="sans-serif" fill="#333" dominant-baseline="middle" text-anchor="start">1.80</text>
+</svg>

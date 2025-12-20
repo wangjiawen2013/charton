@@ -1,0 +1,49 @@
+<svg width="600" height="400" viewBox="0 0 600 400" xmlns="http://www.w3.org/2000/svg"><rect width="100%" height="100%" fill="white" /><text x="300" y="18" font-size="18" font-family="sans-serif" fill="#333" text-anchor="middle">Histogram Example</text>
+<rect x="90" y="283.6" width="0" height="33.657142857142844" fill="#1f77b4" stroke="black" stroke-width="0" opacity="0.5" />
+<rect x="90" y="248.17142857142858" width="0" height="33.657142857142844" fill="#1f77b4" stroke="black" stroke-width="0" opacity="0.5" />
+<rect x="90" y="212.7428571428572" width="26.000699999999995" height="33.657142857142844" fill="#1f77b4" stroke="black" stroke-width="0" opacity="0.5" />
+<rect x="90" y="177.31428571428575" width="124.22556666666665" height="33.657142857142844" fill="#1f77b4" stroke="black" stroke-width="0" opacity="0.5" />
+<rect x="90" y="141.8857142857143" width="135.7814333333333" height="33.657142857142844" fill="#1f77b4" stroke="black" stroke-width="0" opacity="0.5" />
+<rect x="90" y="106.45714285714288" width="115.55866666666662" height="33.657142857142844" fill="#1f77b4" stroke="black" stroke-width="0" opacity="0.5" />
+<rect x="90" y="71.02857142857147" width="31.778633333333318" height="33.657142857142844" fill="#1f77b4" stroke="black" stroke-width="0" opacity="0.5" />
+<rect x="90" y="283.6" width="69.33519999999999" height="33.657142857142844" fill="#ff7f0e" stroke="black" stroke-width="0" opacity="0.5" />
+<rect x="90" y="248.17142857142858" width="312.00839999999994" height="33.657142857142844" fill="#ff7f0e" stroke="black" stroke-width="0" opacity="0.5" />
+<rect x="90" y="212.7428571428572" width="52.00139999999999" height="33.657142857142844" fill="#ff7f0e" stroke="black" stroke-width="0" opacity="0.5" />
+<rect x="90" y="177.31428571428575" width="0" height="33.657142857142844" fill="#ff7f0e" stroke="black" stroke-width="0" opacity="0.5" />
+<rect x="90" y="141.8857142857143" width="0" height="33.657142857142844" fill="#ff7f0e" stroke="black" stroke-width="0" opacity="0.5" />
+<rect x="90" y="106.45714285714288" width="0" height="33.657142857142844" fill="#ff7f0e" stroke="black" stroke-width="0" opacity="0.5" />
+<rect x="90" y="71.02857142857147" width="0" height="33.657142857142844" fill="#ff7f0e" stroke="black" stroke-width="0" opacity="0.5" />
+<line x1="90" y1="40" x2="90" y2="340" stroke="black" stroke-width="1"/>
+<line x1="85" y1="331.42857142857144" x2="90" y2="331.42857142857144" stroke="black" stroke-width="1"/>
+<text x="82" y="331.42857142857144" font-size="13" font-family="sans-serif" fill="#333" text-anchor="end" dominant-baseline="middle">2</text>
+<line x1="85" y1="287.14285714285717" x2="90" y2="287.14285714285717" stroke="black" stroke-width="1"/>
+<text x="82" y="287.14285714285717" font-size="13" font-family="sans-serif" fill="#333" text-anchor="end" dominant-baseline="middle">3</text>
+<line x1="85" y1="242.8571428571429" x2="90" y2="242.8571428571429" stroke="black" stroke-width="1"/>
+<text x="82" y="242.8571428571429" font-size="13" font-family="sans-serif" fill="#333" text-anchor="end" dominant-baseline="middle">4</text>
+<line x1="85" y1="198.57142857142858" x2="90" y2="198.57142857142858" stroke="black" stroke-width="1"/>
+<text x="82" y="198.57142857142858" font-size="13" font-family="sans-serif" fill="#333" text-anchor="end" dominant-baseline="middle">5</text>
+<line x1="85" y1="154.2857142857143" x2="90" y2="154.2857142857143" stroke="black" stroke-width="1"/>
+<text x="82" y="154.2857142857143" font-size="13" font-family="sans-serif" fill="#333" text-anchor="end" dominant-baseline="middle">6</text>
+<line x1="85" y1="110" x2="90" y2="110" stroke="black" stroke-width="1"/>
+<text x="82" y="110" font-size="13" font-family="sans-serif" fill="#333" text-anchor="end" dominant-baseline="middle">7</text>
+<line x1="85" y1="65.71428571428572" x2="90" y2="65.71428571428572" stroke="black" stroke-width="1"/>
+<text x="82" y="65.71428571428572" font-size="13" font-family="sans-serif" fill="#333" text-anchor="end" dominant-baseline="middle">8</text>
+<text x="62.849999999999994" y="190" font-size="15" font-family="sans-serif" fill="#333" text-anchor="middle" dominant-baseline="text-after-edge" transform="rotate(-90, 62.849999999999994, 190)">Value</text>
+<line x1="90" y1="340" x2="483.95" y2="340" stroke="black" stroke-width="1"/>
+<line x1="90" y1="340" x2="90" y2="345" stroke="black" stroke-width="1"/>
+<text x="90" y="348" font-size="13" font-family="sans-serif" fill="#333" text-anchor="middle" dominant-baseline="text-before-edge">0.0</text>
+<line x1="176.66899999999998" y1="340" x2="176.66899999999998" y2="345" stroke="black" stroke-width="1"/>
+<text x="176.66899999999998" y="348" font-size="13" font-family="sans-serif" fill="#333" text-anchor="middle" dominant-baseline="text-before-edge">0.2</text>
+<line x1="263.33799999999997" y1="340" x2="263.33799999999997" y2="345" stroke="black" stroke-width="1"/>
+<text x="263.33799999999997" y="348" font-size="13" font-family="sans-serif" fill="#333" text-anchor="middle" dominant-baseline="text-before-edge">0.4</text>
+<line x1="350.007" y1="340" x2="350.007" y2="345" stroke="black" stroke-width="1"/>
+<text x="350.007" y="348" font-size="13" font-family="sans-serif" fill="#333" text-anchor="middle" dominant-baseline="text-before-edge">0.6</text>
+<line x1="436.676" y1="340" x2="436.676" y2="345" stroke="black" stroke-width="1"/>
+<text x="436.676" y="348" font-size="13" font-family="sans-serif" fill="#333" text-anchor="middle" dominant-baseline="text-before-edge">0.8</text>
+<text x="286.975" y="363" font-size="15" font-family="sans-serif" fill="#333" text-anchor="middle" dominant-baseline="text-before-edge">Frequency</text>
+<text x="498.95" y="55" font-size="15" font-family="sans-serif" text-anchor="start" font-weight="bold">variable</text>
+<rect x="498.95" y="67.5" width="15" height="15" fill="#1f77b4" stroke="black" stroke-width="0.0" fill-opacity="1"/>
+<text x="518.95" y="75" font-size="13" font-family="sans-serif" dominant-baseline="middle">sepal length</text>
+<rect x="498.95" y="87.5" width="15" height="15" fill="#ff7f0e" stroke="black" stroke-width="0.0" fill-opacity="1"/>
+<text x="518.95" y="95" font-size="13" font-family="sans-serif" dominant-baseline="middle">sepal width</text>
+</svg>

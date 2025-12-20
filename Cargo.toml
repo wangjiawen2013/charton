@@ -1,0 +1,31 @@
+[package]
+name = "charton"
+version = "0.2.0"
+edition = "2024"
+description = "A high-level, layered charting system for Rust, designed for Polars-first data workflows and multi-backend rendering."
+license = "Apache-2.0"
+repository = "https://github.com/wangjiawen2013/charton"
+authors = ["Jiawen Wang <wangjiawen2013@163.com>"]
+
+[dependencies]
+polars = { version="0.49", default-features=false, features = ["lazy", "parquet", "rank", "pivot", "partition_by"] }
+thiserror = "2.0"
+itertools = "0.14"
+chrono = "0.4"
+num-traits = "0.2"
+indexmap = "2.0"
+kernel-density-estimation = "0.2"
+uuid = { version = "1.19", features = ["v7"] }
+ordered-float = "5.1"
+resvg = "0.45"
+
+# --- Conditional Compilation Block ---
+# Only add the 'ipc' feature when the target architecture is not wasm32.
+# 'ipc' feature is used by bridge module and is not compatible with webassembly.
+[target.'cfg(not(target_arch = "wasm32"))'.dependencies]
+# Here, the feature list for polars will "merge" with the list in the [dependencies] section above.
+polars = { version="0.49", features = ["ipc"] }
+serde = { version = "1.0", features = ["derive"] }
+serde_json = { version="1.0" }
+base64 = { version="0.22" }
+regex = { version="1.11" }

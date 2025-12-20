@@ -1,0 +1,33 @@
+<svg width="500" height="400" viewBox="0 0 500 400" xmlns="http://www.w3.org/2000/svg"><rect width="100%" height="100%" fill="white" /><polyline points="84.9,193 95.625,166.17964034266672 106.35000000000001,140.42852378833217 117.07500000000002,116.77326609167022 127.80000000000001,96.15692772856443 138.525,79.40141705093396 149.25,67.17472339442446 159.97500000000002,59.964286451557825 170.7,58.05756358939681 181.425,61.53056983144364 192.15,70.244847378533 202.875,83.85298548435534 213.60000000000002,101.81247062559467 224.32500000000002,123.40731480410233 235.05000000000004,147.77659972895287 245.775,173.94879891191795 256.5,200.88050936272333 267.225,227.49804877362226 277.95,252.74025984480508 288.67500000000007,275.6008152772671 299.4,295.1683368665703 310.125,310.6627292758344 320.85,321.46627997508466 331.57500000000005,327.1482854905177 342.30000000000007,327.4822221928385 353.025,322.4547770795237 363.75,312.2663785222207 374.475,297.32320582005826 385.20000000000005,278.2209961127633 395.92500000000007,255.72129422085715" fill="none" stroke="#1f77b4" stroke-width="2" opacity="1" stroke-linejoin="round" stroke-linecap="round"/>
+<line x1="75" y1="340" x2="421.5" y2="340" stroke="black" stroke-width="1"/>
+<line x1="84.9" y1="340" x2="84.9" y2="345" stroke="black" stroke-width="1"/>
+<text x="84.9" y="358" font-size="13" font-family="sans-serif" fill="#333" text-anchor="middle">0</text>
+<line x1="138.525" y1="340" x2="138.525" y2="345" stroke="black" stroke-width="1"/>
+<text x="138.525" y="358" font-size="13" font-family="sans-serif" fill="#333" text-anchor="middle">1</text>
+<line x1="192.15" y1="340" x2="192.15" y2="345" stroke="black" stroke-width="1"/>
+<text x="192.15" y="358" font-size="13" font-family="sans-serif" fill="#333" text-anchor="middle">2</text>
+<line x1="245.775" y1="340" x2="245.775" y2="345" stroke="black" stroke-width="1"/>
+<text x="245.775" y="358" font-size="13" font-family="sans-serif" fill="#333" text-anchor="middle">3</text>
+<line x1="299.4" y1="340" x2="299.4" y2="345" stroke="black" stroke-width="1"/>
+<text x="299.4" y="358" font-size="13" font-family="sans-serif" fill="#333" text-anchor="middle">4</text>
+<line x1="353.025" y1="340" x2="353.025" y2="345" stroke="black" stroke-width="1"/>
+<text x="353.025" y="358" font-size="13" font-family="sans-serif" fill="#333" text-anchor="middle">5</text>
+<line x1="406.65" y1="340" x2="406.65" y2="345" stroke="black" stroke-width="1"/>
+<text x="406.65" y="358" font-size="13" font-family="sans-serif" fill="#333" text-anchor="middle">6</text>
+<text x="248.25" y="363" font-size="15" font-family="sans-serif" fill="#333" text-anchor="middle" dominant-baseline="text-before-edge">a</text>
+<line x1="75" y1="40" x2="75" y2="340" stroke="black" stroke-width="1"/>
+<line x1="70" y1="328" x2="75" y2="328" stroke="black" stroke-width="1"/>
+<text x="67" y="328" font-size="13" font-family="sans-serif" fill="#333" text-anchor="end" dominant-baseline="middle">-1.0</text>
+<line x1="70" y1="260.5" x2="75" y2="260.5" stroke="black" stroke-width="1"/>
+<text x="67" y="260.5" font-size="13" font-family="sans-serif" fill="#333" text-anchor="end" dominant-baseline="middle">-0.5</text>
+<line x1="70" y1="193" x2="75" y2="193" stroke="black" stroke-width="1"/>
+<text x="67" y="193" font-size="13" font-family="sans-serif" fill="#333" text-anchor="end" dominant-baseline="middle">0.0</text>
+<line x1="70" y1="125.5" x2="75" y2="125.5" stroke="black" stroke-width="1"/>
+<text x="67" y="125.5" font-size="13" font-family="sans-serif" fill="#333" text-anchor="end" dominant-baseline="middle">0.5</text>
+<line x1="70" y1="58" x2="75" y2="58" stroke="black" stroke-width="1"/>
+<text x="67" y="58" font-size="13" font-family="sans-serif" fill="#333" text-anchor="end" dominant-baseline="middle">1.0</text>
+<text x="32.9" y="190" font-size="15" font-family="sans-serif" fill="#333" text-anchor="middle" transform="rotate(-90, 32.9, 190)">b</text>
+<text x="436.5" y="55" font-size="15" font-family="sans-serif" text-anchor="start" font-weight="bold">category</text>
+<line x1="436.5" y1="75" x2="451.5" y2="75" stroke="#1f77b4" stroke-width="2" stroke-linecap="round" fill-opacity="1"/>
+<text x="456.5" y="75" font-size="13" font-family="sans-serif" dominant-baseline="middle">Sine</text>
+</svg>

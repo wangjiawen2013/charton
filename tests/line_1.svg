@@ -1,0 +1,26 @@
+<svg width="500" height="300" viewBox="0 0 500 300" xmlns="http://www.w3.org/2000/svg"><rect width="100%" height="100%" fill="white" /><polyline points="90,246 174.375,195.375 258.75,144.75 343.125,94.125 427.5,43.5" fill="none" stroke="black" stroke-width="2" opacity="1" stroke-linejoin="round" stroke-linecap="round"/>
+<line x1="75" y1="255" x2="450" y2="255" stroke="black" stroke-width="1"/>
+<line x1="90" y1="255" x2="90" y2="260" stroke="black" stroke-width="1"/>
+<text x="90" y="273" font-size="13" font-family="sans-serif" fill="#333" text-anchor="middle">1</text>
+<line x1="174.375" y1="255" x2="174.375" y2="260" stroke="black" stroke-width="1"/>
+<text x="174.375" y="273" font-size="13" font-family="sans-serif" fill="#333" text-anchor="middle">2</text>
+<line x1="258.75" y1="255" x2="258.75" y2="260" stroke="black" stroke-width="1"/>
+<text x="258.75" y="273" font-size="13" font-family="sans-serif" fill="#333" text-anchor="middle">3</text>
+<line x1="343.125" y1="255" x2="343.125" y2="260" stroke="black" stroke-width="1"/>
+<text x="343.125" y="273" font-size="13" font-family="sans-serif" fill="#333" text-anchor="middle">4</text>
+<line x1="427.5" y1="255" x2="427.5" y2="260" stroke="black" stroke-width="1"/>
+<text x="427.5" y="273" font-size="13" font-family="sans-serif" fill="#333" text-anchor="middle">5</text>
+<text x="262.5" y="278" font-size="15" font-family="sans-serif" fill="#333" text-anchor="middle" dominant-baseline="text-before-edge">a</text>
+<line x1="75" y1="30" x2="75" y2="255" stroke="black" stroke-width="1"/>
+<line x1="70" y1="246" x2="75" y2="246" stroke="black" stroke-width="1"/>
+<text x="67" y="246" font-size="13" font-family="sans-serif" fill="#333" text-anchor="end" dominant-baseline="middle">10</text>
+<line x1="70" y1="195.375" x2="75" y2="195.375" stroke="black" stroke-width="1"/>
+<text x="67" y="195.375" font-size="13" font-family="sans-serif" fill="#333" text-anchor="end" dominant-baseline="middle">20</text>
+<line x1="70" y1="144.75" x2="75" y2="144.75" stroke="black" stroke-width="1"/>
+<text x="67" y="144.75" font-size="13" font-family="sans-serif" fill="#333" text-anchor="end" dominant-baseline="middle">30</text>
+<line x1="70" y1="94.125" x2="75" y2="94.125" stroke="black" stroke-width="1"/>
+<text x="67" y="94.125" font-size="13" font-family="sans-serif" fill="#333" text-anchor="end" dominant-baseline="middle">40</text>
+<line x1="70" y1="43.5" x2="75" y2="43.5" stroke="black" stroke-width="1"/>
+<text x="67" y="43.5" font-size="13" font-family="sans-serif" fill="#333" text-anchor="end" dominant-baseline="middle">50</text>
+<text x="40.7" y="142.5" font-size="15" font-family="sans-serif" fill="#333" text-anchor="middle" transform="rotate(-90, 40.7, 142.5)">b</text>
+</svg>

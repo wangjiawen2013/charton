@@ -1,0 +1,46 @@
+<svg width="600" height="400" viewBox="0 0 600 400" xmlns="http://www.w3.org/2000/svg"><rect width="100%" height="100%" fill="white" /><text x="300" y="18" font-size="18" font-family="sans-serif" fill="#333" text-anchor="middle">Colored Bar Chart Example</text>
+<rect x="90" y="236.875" width="230.90224679449466" height="93.75" fill="#1f77b4" stroke="black" stroke-width="1" opacity="1" />
+<rect x="320.90224679449466" y="236.875" width="55.46271968003765" height="93.75" fill="#ff7f0e" stroke="black" stroke-width="1" opacity="1" />
+<rect x="376.3649664745323" y="236.875" width="41.56240442300901" height="93.75" fill="#2ca02c" stroke="black" stroke-width="1" opacity="1" />
+<rect x="417.9273708975413" y="236.875" width="64.65262910245855" height="93.75" fill="#d62728" stroke="black" stroke-width="1" opacity="1" />
+<rect x="90" y="143.125" width="93.8778260869565" height="93.75" fill="#1f77b4" stroke="black" stroke-width="1" opacity="1" />
+<rect x="183.8778260869565" y="143.125" width="110.94652173913036" height="93.75" fill="#ff7f0e" stroke="black" stroke-width="1" opacity="1" />
+<rect x="294.82434782608686" y="143.125" width="85.34347826086957" height="93.75" fill="#2ca02c" stroke="black" stroke-width="1" opacity="1" />
+<rect x="380.16782608695644" y="143.125" width="102.41217391304343" height="93.75" fill="#d62728" stroke="black" stroke-width="1" opacity="1" />
+<rect x="90" y="49.375" width="75.17489361702127" height="93.75" fill="#1f77b4" stroke="black" stroke-width="1" opacity="1" />
+<rect x="165.17489361702127" y="49.375" width="116.93872340425526" height="93.75" fill="#ff7f0e" stroke="black" stroke-width="1" opacity="1" />
+<rect x="282.1136170212765" y="49.375" width="91.88042553191491" height="93.75" fill="#2ca02c" stroke="black" stroke-width="1" opacity="1" />
+<rect x="373.99404255319143" y="49.375" width="108.58595744680844" height="93.75" fill="#d62728" stroke="black" stroke-width="1" opacity="1" />
+<line x1="90" y1="40" x2="90" y2="340" stroke="black" stroke-dasharray="5,5" />
+<line x1="90" y1="40" x2="90" y2="340" stroke="black" stroke-width="1"/>
+<line x1="85" y1="283.75" x2="90" y2="283.75" stroke="black" stroke-width="1"/>
+<text x="82" y="283.75" font-size="13" font-family="sans-serif" fill="#333" text-anchor="end" dominant-baseline="middle">Jan</text>
+<line x1="85" y1="190" x2="90" y2="190" stroke="black" stroke-width="1"/>
+<text x="82" y="190" font-size="13" font-family="sans-serif" fill="#333" text-anchor="end" dominant-baseline="middle">Feb</text>
+<line x1="85" y1="96.25" x2="90" y2="96.25" stroke="black" stroke-width="1"/>
+<text x="82" y="96.25" font-size="13" font-family="sans-serif" fill="#333" text-anchor="end" dominant-baseline="middle">Mar</text>
+<text x="47.25" y="190" font-size="15" font-family="sans-serif" fill="#333" text-anchor="middle" dominant-baseline="text-after-edge" transform="rotate(-90, 47.25, 190)">Month</text>
+<line x1="90" y1="340" x2="526.2" y2="340" stroke="black" stroke-width="1"/>
+<line x1="90" y1="340" x2="90" y2="345" stroke="black" stroke-width="1"/>
+<text x="90" y="348" font-size="13" font-family="sans-serif" fill="#333" text-anchor="middle" dominant-baseline="text-before-edge">0.0</text>
+<line x1="168.516" y1="340" x2="168.516" y2="345" stroke="black" stroke-width="1"/>
+<text x="168.516" y="348" font-size="13" font-family="sans-serif" fill="#333" text-anchor="middle" dominant-baseline="text-before-edge">0.2</text>
+<line x1="247.03199999999998" y1="340" x2="247.03199999999998" y2="345" stroke="black" stroke-width="1"/>
+<text x="247.03199999999998" y="348" font-size="13" font-family="sans-serif" fill="#333" text-anchor="middle" dominant-baseline="text-before-edge">0.4</text>
+<line x1="325.548" y1="340" x2="325.548" y2="345" stroke="black" stroke-width="1"/>
+<text x="325.548" y="348" font-size="13" font-family="sans-serif" fill="#333" text-anchor="middle" dominant-baseline="text-before-edge">0.6</text>
+<line x1="404.06399999999996" y1="340" x2="404.06399999999996" y2="345" stroke="black" stroke-width="1"/>
+<text x="404.06399999999996" y="348" font-size="13" font-family="sans-serif" fill="#333" text-anchor="middle" dominant-baseline="text-before-edge">0.8</text>
+<line x1="482.58" y1="340" x2="482.58" y2="345" stroke="black" stroke-width="1"/>
+<text x="482.58" y="348" font-size="13" font-family="sans-serif" fill="#333" text-anchor="middle" dominant-baseline="text-before-edge">1.0</text>
+<text x="308.1" y="363" font-size="15" font-family="sans-serif" fill="#333" text-anchor="middle" dominant-baseline="text-before-edge">Revenue</text>
+<text x="541.2" y="55" font-size="15" font-family="sans-serif" text-anchor="start" font-weight="bold">Region</text>
+<rect x="541.2" y="67.5" width="15" height="15" fill="#1f77b4" stroke="black" stroke-width="0.0" fill-opacity="1"/>
+<text x="561.2" y="75" font-size="13" font-family="sans-serif" dominant-baseline="middle">North</text>
+<rect x="541.2" y="87.5" width="15" height="15" fill="#ff7f0e" stroke="black" stroke-width="0.0" fill-opacity="1"/>
+<text x="561.2" y="95" font-size="13" font-family="sans-serif" dominant-baseline="middle">South</text>
+<rect x="541.2" y="107.5" width="15" height="15" fill="#2ca02c" stroke="black" stroke-width="0.0" fill-opacity="1"/>
+<text x="561.2" y="115" font-size="13" font-family="sans-serif" dominant-baseline="middle">East</text>
+<rect x="541.2" y="127.5" width="15" height="15" fill="#d62728" stroke="black" stroke-width="0.0" fill-opacity="1"/>
+<text x="561.2" y="135" font-size="13" font-family="sans-serif" dominant-baseline="middle">West</text>
+</svg>

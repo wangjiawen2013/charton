@@ -1,0 +1,37 @@
+<svg width="500" height="400" viewBox="0 0 500 400" xmlns="http://www.w3.org/2000/svg"><rect width="100%" height="100%" fill="white" /><text x="250" y="20" font-size="20" font-family="sans-serif" fill="#333" text-anchor="middle">Data</text>
+<circle cx="255.59999999999994" cy="302.25" r="3" fill="#1f77b4" stroke="none" stroke-width="0" opacity="1"/>
+<circle cx="85.3199999999999" cy="296.125" r="3" fill="#1f77b4" stroke="none" stroke-width="0" opacity="1"/>
+<circle cx="369.11999999999995" cy="297.7" r="3" fill="#ff7f0e" stroke="none" stroke-width="0" opacity="1"/>
+<circle cx="142.0799999999999" cy="62.50000000000006" r="3" fill="#2ca02c" stroke="none" stroke-width="0" opacity="1"/>
+<line x1="75" y1="40" x2="75" y2="340" stroke="black" stroke-width="1"/>
+<line x1="70" y1="325" x2="75" y2="325" stroke="black" stroke-width="1"/>
+<text x="67" y="325" font-size="13" font-family="sans-serif" fill="#333" text-anchor="end" dominant-baseline="middle">0</text>
+<line x1="70" y1="237.5" x2="75" y2="237.5" stroke="black" stroke-width="1"/>
+<text x="67" y="237.5" font-size="13" font-family="sans-serif" fill="#333" text-anchor="end" dominant-baseline="middle">500</text>
+<line x1="70" y1="150" x2="75" y2="150" stroke="black" stroke-width="1"/>
+<text x="67" y="150" font-size="13" font-family="sans-serif" fill="#333" text-anchor="end" dominant-baseline="middle">1000</text>
+<line x1="70" y1="62.5" x2="75" y2="62.5" stroke="black" stroke-width="1"/>
+<text x="67" y="62.5" font-size="13" font-family="sans-serif" fill="#333" text-anchor="end" dominant-baseline="middle">1500</text>
+<text x="29.65" y="190" font-size="36" font-family="serif" fill="steelblue" text-anchor="middle" dominant-baseline="text-after-edge" transform="rotate(-90, 29.65, 190)">A)</text>
+<line x1="75" y1="340" x2="384.59999999999997" y2="340" stroke="black" stroke-width="1"/>
+<line x1="85.32" y1="340" x2="85.32" y2="345" stroke="black" stroke-width="1"/>
+<text x="88.32" y="358" font-size="13" font-family="sans-serif" fill="#333" text-anchor="end" transform="rotate(-45, 85.32, 358)">15.0</text>
+<line x1="142.0799999999999" y1="340" x2="142.0799999999999" y2="345" stroke="black" stroke-width="1"/>
+<text x="145.0799999999999" y="358" font-size="13" font-family="sans-serif" fill="#333" text-anchor="end" transform="rotate(-45, 142.0799999999999, 358)">16.0</text>
+<line x1="198.83999999999992" y1="340" x2="198.83999999999992" y2="345" stroke="black" stroke-width="1"/>
+<text x="201.83999999999992" y="358" font-size="13" font-family="sans-serif" fill="#333" text-anchor="end" transform="rotate(-45, 198.83999999999992, 358)">17.0</text>
+<line x1="255.59999999999994" y1="340" x2="255.59999999999994" y2="345" stroke="black" stroke-width="1"/>
+<text x="258.5999999999999" y="358" font-size="13" font-family="sans-serif" fill="#333" text-anchor="end" transform="rotate(-45, 255.59999999999994, 358)">18.0</text>
+<line x1="312.3599999999999" y1="340" x2="312.3599999999999" y2="345" stroke="black" stroke-width="1"/>
+<text x="315.3599999999999" y="358" font-size="13" font-family="sans-serif" fill="#333" text-anchor="end" transform="rotate(-45, 312.3599999999999, 358)">19.0</text>
+<line x1="369.11999999999995" y1="340" x2="369.11999999999995" y2="345" stroke="black" stroke-width="1"/>
+<text x="372.11999999999995" y="358" font-size="13" font-family="sans-serif" fill="#333" text-anchor="end" transform="rotate(-45, 369.11999999999995, 358)">20.0</text>
+<text x="229.79999999999998" y="377.1175450585041" font-size="36" font-family="serif" fill="steelblue" text-anchor="middle" dominant-baseline="text-before-edge">B</text>
+<text x="399.59999999999997" y="76" font-size="36" font-family="serif" text-anchor="start" font-weight="bold">Origin</text>
+<circle cx="407.09999999999997" cy="96" r="7.5" fill="#1f77b4" stroke="black" stroke-width="0.0" fill-opacity="1"/>
+<text x="419.59999999999997" y="96" font-size="13" font-family="sans-serif" dominant-baseline="middle">USA</text>
+<circle cx="407.09999999999997" cy="116" r="7.5" fill="#ff7f0e" stroke="black" stroke-width="0.0" fill-opacity="1"/>
+<text x="419.59999999999997" y="116" font-size="13" font-family="sans-serif" dominant-baseline="middle">Europe</text>
+<circle cx="407.09999999999997" cy="136" r="7.5" fill="#2ca02c" stroke="black" stroke-width="0.0" fill-opacity="1"/>
+<text x="419.59999999999997" y="136" font-size="13" font-family="sans-serif" dominant-baseline="middle">Japan</text>
+</svg>

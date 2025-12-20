@@ -1,0 +1,89 @@
+<svg width="500" height="400" viewBox="0 0 500 400" xmlns="http://www.w3.org/2000/svg"><rect width="100%" height="100%" fill="white" /><line x1="233.1272" y1="279.4957983193277" x2="247.33919999999998" y2="279.4957983193277" stroke="black" stroke-width="1" />
+<line x1="258.7088" y1="279.4957983193277" x2="275.7632" y2="279.4957983193277" stroke="black" stroke-width="1" />
+<rect x="247.33919999999998" y="272.1428571428571" width="11.36960000000002" height="14.705882352941217" fill="#1f77b4" opacity="1" stroke="black" stroke-width="1" />
+<line x1="253.024" y1="272.1428571428571" x2="253.024" y2="286.8487394957983" stroke="black" stroke-width="2" />
+<line x1="250.1816" y1="297.14285714285717" x2="270.0784" y2="297.14285714285717" stroke="black" stroke-width="1" />
+<line x1="289.9752" y1="297.14285714285717" x2="309.87199999999996" y2="297.14285714285717" stroke="black" stroke-width="1" />
+<rect x="270.0784" y="289.78991596638656" width="19.896799999999985" height="14.705882352941217" fill="#ff7f0e" opacity="1" stroke="black" stroke-width="1" />
+<line x1="278.6056" y1="289.78991596638656" x2="278.6056" y2="304.4957983193278" stroke="black" stroke-width="2" />
+<line x1="250.1816" y1="314.7899159663866" x2="287.8434" y2="314.7899159663866" stroke="black" stroke-width="1" />
+<line x1="307.0296" y1="314.7899159663866" x2="335.4536" y2="314.7899159663866" stroke="black" stroke-width="1" />
+<rect x="287.8434" y="307.436974789916" width="19.186200000000042" height="14.705882352941217" fill="#2ca02c" opacity="1" stroke="black" stroke-width="1" />
+<line x1="295.65999999999997" y1="307.436974789916" x2="295.65999999999997" y2="322.1428571428572" stroke="black" stroke-width="2" />
+<circle cx="250.1816" cy="314.7899159663866" r="3" fill="black" opacity="1" />
+<line x1="176.2792" y1="208.06722689075627" x2="199.72899999999998" y2="208.06722689075627" stroke="black" stroke-width="1" />
+<line x1="215.3622" y1="208.06722689075627" x2="235.9696" y2="208.06722689075627" stroke="black" stroke-width="1" />
+<rect x="199.72899999999998" y="200.71428571428567" width="15.633200000000016" height="14.705882352941217" fill="#1f77b4" opacity="1" stroke="black" stroke-width="1" />
+<line x1="207.54559999999998" y1="200.71428571428567" x2="207.54559999999998" y2="215.42016806722688" stroke="black" stroke-width="2" />
+<line x1="167.752" y1="225.71428571428572" x2="182.6746" y2="225.71428571428572" stroke="black" stroke-width="1" />
+<line x1="196.176" y1="225.71428571428572" x2="207.54559999999998" y2="225.71428571428572" stroke="black" stroke-width="1" />
+<rect x="182.6746" y="218.3613445378151" width="13.50139999999999" height="14.705882352941217" fill="#ff7f0e" opacity="1" stroke="black" stroke-width="1" />
+<line x1="190.4912" y1="218.3613445378151" x2="190.4912" y2="233.06722689075633" stroke="black" stroke-width="2" />
+<line x1="173.4368" y1="243.36134453781517" x2="190.4912" y2="243.36134453781517" stroke="black" stroke-width="1" />
+<line x1="201.15019999999998" y1="243.36134453781517" x2="218.91519999999997" y2="243.36134453781517" stroke="black" stroke-width="1" />
+<rect x="190.4912" y="236.00840336134456" width="10.658999999999992" height="14.705882352941217" fill="#2ca02c" opacity="1" stroke="black" stroke-width="1" />
+<line x1="196.176" y1="236.00840336134456" x2="196.176" y2="250.71428571428578" stroke="black" stroke-width="2" />
+<circle cx="218.91519999999997" cy="243.36134453781517" r="3" fill="black" opacity="1" />
+<circle cx="173.4368" cy="243.36134453781517" r="3" fill="black" opacity="1" />
+<circle cx="218.91519999999997" cy="243.36134453781517" r="3" fill="black" opacity="1" />
+<line x1="139.328" y1="136.63865546218483" x2="150.6976" y2="136.63865546218483" stroke="black" stroke-width="1" />
+<line x1="155.6718" y1="136.63865546218483" x2="164.90959999999998" y2="136.63865546218483" stroke="black" stroke-width="1" />
+<rect x="150.6976" y="129.28571428571422" width="4.974199999999996" height="14.705882352941217" fill="#1f77b4" opacity="1" stroke="black" stroke-width="1" />
+<line x1="153.54" y1="129.28571428571422" x2="153.54" y2="143.99159663865544" stroke="black" stroke-width="2" />
+<circle cx="142.1704" cy="136.63865546218483" r="3" fill="black" opacity="1" />
+<circle cx="139.328" cy="136.63865546218483" r="3" fill="black" opacity="1" />
+<circle cx="164.90959999999998" cy="136.63865546218483" r="3" fill="black" opacity="1" />
+<circle cx="164.90959999999998" cy="136.63865546218483" r="3" fill="black" opacity="1" />
+<line x1="196.176" y1="154.28571428571428" x2="224.6" y2="154.28571428571428" stroke="black" stroke-width="1" />
+<line x1="241.65439999999998" y1="154.28571428571428" x2="255.86639999999997" y2="154.28571428571428" stroke="black" stroke-width="1" />
+<rect x="224.6" y="146.93277310924367" width="17.054399999999987" height="14.705882352941217" fill="#ff7f0e" opacity="1" stroke="black" stroke-width="1" />
+<line x1="234.5484" y1="146.93277310924367" x2="234.5484" y2="161.6386554621849" stroke="black" stroke-width="2" />
+<circle cx="196.176" cy="154.28571428571428" r="3" fill="black" opacity="1" />
+<line x1="238.812" y1="171.93277310924373" x2="255.86639999999997" y2="171.93277310924373" stroke="black" stroke-width="1" />
+<line x1="277.895" y1="171.93277310924373" x2="307.0296" y2="171.93277310924373" stroke="black" stroke-width="1" />
+<rect x="255.86639999999997" y="164.57983193277312" width="22.02860000000001" height="14.705882352941217" fill="#2ca02c" opacity="1" stroke="black" stroke-width="1" />
+<line x1="268.6572" y1="164.57983193277312" x2="268.6572" y2="179.28571428571433" stroke="black" stroke-width="2" />
+<line x1="113.7464" y1="65.21008403361343" x2="116.58879999999999" y2="65.21008403361343" stroke="black" stroke-width="1" />
+<line x1="119.43119999999999" y1="65.21008403361343" x2="127.9584" y2="65.21008403361343" stroke="black" stroke-width="1" />
+<rect x="116.58879999999999" y="57.85714285714282" width="2.842399999999998" height="14.705882352941217" fill="#1f77b4" opacity="1" stroke="black" stroke-width="1" />
+<line x1="116.58879999999999" y1="57.85714285714282" x2="116.58879999999999" y2="72.56302521008404" stroke="black" stroke-width="2" />
+<circle cx="125.116" cy="65.21008403361343" r="3" fill="black" opacity="1" />
+<circle cx="127.9584" cy="65.21008403361343" r="3" fill="black" opacity="1" />
+<line x1="139.328" y1="82.85714285714289" x2="145.0128" y2="82.85714285714289" stroke="black" stroke-width="1" />
+<line x1="153.54" y1="82.85714285714289" x2="162.0672" y2="82.85714285714289" stroke="black" stroke-width="1" />
+<rect x="145.0128" y="75.50420168067228" width="8.527199999999993" height="14.705882352941217" fill="#ff7f0e" opacity="1" stroke="black" stroke-width="1" />
+<line x1="147.8552" y1="75.50420168067228" x2="147.8552" y2="90.2100840336135" stroke="black" stroke-width="2" />
+<line x1="150.6976" y1="100.50420168067235" x2="162.0672" y2="100.50420168067235" stroke="black" stroke-width="1" />
+<line x1="176.2792" y1="100.50420168067235" x2="181.964" y2="100.50420168067235" stroke="black" stroke-width="1" />
+<rect x="162.0672" y="93.15126050420174" width="14.211999999999989" height="14.705882352941217" fill="#2ca02c" opacity="1" stroke="black" stroke-width="1" />
+<line x1="167.752" y1="93.15126050420174" x2="167.752" y2="107.85714285714296" stroke="black" stroke-width="2" />
+<line x1="75" y1="40" x2="75" y2="340" stroke="black" stroke-width="1"/>
+<line x1="70" y1="297.14285714285717" x2="75" y2="297.14285714285717" stroke="black" stroke-width="1"/>
+<text x="67" y="297.14285714285717" font-size="13" font-family="sans-serif" fill="#333" text-anchor="end" dominant-baseline="middle">sepal length</text>
+<line x1="70" y1="225.71428571428572" x2="75" y2="225.71428571428572" stroke="black" stroke-width="1"/>
+<text x="67" y="225.71428571428572" font-size="13" font-family="sans-serif" fill="#333" text-anchor="end" dominant-baseline="middle">sepal width</text>
+<line x1="70" y1="154.28571428571428" x2="75" y2="154.28571428571428" stroke="black" stroke-width="1"/>
+<text x="67" y="154.28571428571428" font-size="13" font-family="sans-serif" fill="#333" text-anchor="end" dominant-baseline="middle">petal length</text>
+<line x1="70" y1="82.85714285714289" x2="75" y2="82.85714285714289" stroke="black" stroke-width="1"/>
+<text x="67" y="82.85714285714289" font-size="13" font-family="sans-serif" fill="#333" text-anchor="end" dominant-baseline="middle">petal width</text>
+<text x="-21.049999999999997" y="190" font-size="15" font-family="sans-serif" fill="#333" text-anchor="middle" dominant-baseline="text-after-edge" transform="rotate(-90, -21.049999999999997, 190)">variable</text>
+<line x1="75" y1="340" x2="374.2" y2="340" stroke="black" stroke-width="1"/>
+<line x1="110.904" y1="340" x2="110.904" y2="345" stroke="black" stroke-width="1"/>
+<text x="110.904" y="348" font-size="13" font-family="sans-serif" fill="#333" text-anchor="middle" dominant-baseline="text-before-edge">0</text>
+<line x1="167.752" y1="340" x2="167.752" y2="345" stroke="black" stroke-width="1"/>
+<text x="167.752" y="348" font-size="13" font-family="sans-serif" fill="#333" text-anchor="middle" dominant-baseline="text-before-edge">2</text>
+<line x1="224.6" y1="340" x2="224.6" y2="345" stroke="black" stroke-width="1"/>
+<text x="224.6" y="348" font-size="13" font-family="sans-serif" fill="#333" text-anchor="middle" dominant-baseline="text-before-edge">4</text>
+<line x1="281.448" y1="340" x2="281.448" y2="345" stroke="black" stroke-width="1"/>
+<text x="281.448" y="348" font-size="13" font-family="sans-serif" fill="#333" text-anchor="middle" dominant-baseline="text-before-edge">6</text>
+<line x1="338.296" y1="340" x2="338.296" y2="345" stroke="black" stroke-width="1"/>
+<text x="338.296" y="348" font-size="13" font-family="sans-serif" fill="#333" text-anchor="middle" dominant-baseline="text-before-edge">8</text>
+<text x="224.6" y="363" font-size="15" font-family="sans-serif" fill="#333" text-anchor="middle" dominant-baseline="text-before-edge">value</text>
+<text x="389.2" y="55" font-size="15" font-family="sans-serif" text-anchor="start" font-weight="bold">class</text>
+<rect x="389.2" y="67.5" width="15" height="15" fill="#1f77b4" stroke="black" stroke-width="0.0" fill-opacity="1"/>
+<text x="409.2" y="75" font-size="13" font-family="sans-serif" dominant-baseline="middle">Iris-setosa</text>
+<rect x="389.2" y="87.5" width="15" height="15" fill="#ff7f0e" stroke="black" stroke-width="0.0" fill-opacity="1"/>
+<text x="409.2" y="95" font-size="13" font-family="sans-serif" dominant-baseline="middle">Iris-versicolor</text>
+<rect x="389.2" y="107.5" width="15" height="15" fill="#2ca02c" stroke="black" stroke-width="0.0" fill-opacity="1"/>
+<text x="409.2" y="115" font-size="13" font-family="sans-serif" dominant-baseline="middle">Iris-virginica</text>
+</svg>

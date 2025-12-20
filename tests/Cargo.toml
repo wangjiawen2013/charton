@@ -1,0 +1,22 @@
+[package]
+name = "plotix"
+version = "0.1.0"
+edition = "2024"
+
+[dependencies]
+# ipc is for bridge
+polars = { version="0.49", default-features=false, features = ["lazy", "dtype-full", "rank", "fmt", "pivot", "ipc"] }
+thiserror = "2.0"
+itertools = "0.14"
+chrono = "0.4"
+num-traits = "0.2"
+indexmap = "2.0"
+kernel-density-estimation = "0.2"
+uuid = { version = "1.18.1", features = ["v4"] }
+ordered-float = "5.1"
+
+# for bridge
+serde = { version = "1.0", features = ["derive"] }
+serde_json = { version="1.0" }
+base64 = { version="0.22" }
+regex = { version="1.11" }
