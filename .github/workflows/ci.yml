@@ -8,12 +8,9 @@ on:
 
 env:
   CARGO_TERM_COLOR: always
-  # FIX: Disable incremental compilation to save disk space and memory in CI environments
   CARGO_INCREMENTAL: 0
-  # FIX: Reduce debug info level (from 2 to 1). 
-  # This significantly lowers memory usage during the linking phase, 
-  # which is critical when using heavy crates like Polars and resvg.
-  RUSTFLAGS: "-C debuginfo=1"
+  # Set debuginfo to 0 (none) to minimize memory usage during linking
+  RUSTFLAGS: "-C debuginfo=0"
 
 jobs:
   build_and_test:
@@ -21,34 +18,30 @@ jobs:
     runs-on: ubuntu-latest
 
     steps:
-      # Step 1: Clone the repository
       - name: Checkout code
         uses: actions/checkout@v4
 
-      # Step 2: Install the Rust toolchain with required components
       - name: Set up Rust
         uses: dtolnay/rust-toolchain@stable
         with:
           components: clippy, rustfmt
 
-      # Step 3: Enable smart caching for Rust dependencies
-      # This reuses compiled crates between runs, making CI 2-3x faster
       - name: Rust Cache
         uses: Swatinem/rust-cache@v2
 
-      # Step 4: Verify that the code follows standard formatting
       - name: Check formatting
         run: cargo fmt --all -- --check
 
-      # Step 5: Compile the project
-      # Separating build and test helps pinpoint if a failure is in compilation or logic
-      - name: Build
-        run: cargo build --verbose
+      - name: Build Library
+        # Adding --lib ensures we only build the core library first, 
+        # avoiding the heavy linking of examples.
+        run: cargo build --lib --verbose
 
-      # Step 6: Run all unit and integration tests
       - name: Run tests
-        run: cargo test --verbose
+        # Adding --lib only runs unit tests inside src/. 
+        # If you have a tests/ folder, use --tests instead of --examples.
+        run: cargo test --lib --tests --verbose
 
-      # Step 7: Run static analysis (Linter)
       - name: Lint with Clippy
-        run: cargo clippy -- -D warnings
+        # Again, focus only on the library and tests to save memory
+        run: cargo clippy --lib --tests -- -D warnings
