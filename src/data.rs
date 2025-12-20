@@ -170,12 +170,13 @@ pub(crate) fn check_schema(
 
         // Check type if it's specified in the expected_types map
         if let Some(expected_types_vec) = expected_types.get(col_name)
-            && !expected_types_vec.contains(actual_type) {
-                return Err(ChartonError::Data(format!(
-                    "Column '{}' has type {:?}, but expected one of {:?}",
-                    col_name, actual_type, expected_types_vec
-                )));
-            }
+            && !expected_types_vec.contains(actual_type)
+        {
+            return Err(ChartonError::Data(format!(
+                "Column '{}' has type {:?}, but expected one of {:?}",
+                col_name, actual_type, expected_types_vec
+            )));
+        }
     }
 
     Ok(())

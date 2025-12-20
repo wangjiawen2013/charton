@@ -22,7 +22,9 @@ pub(crate) fn render_size_legend<T: Mark>(
     let scale_type = crate::data::determine_scale_for_dtype(size_series.dtype());
 
     // Only render size legend for continuous scales
-    if scale_type == crate::coord::Scale::Discrete { return Ok(()) }
+    if scale_type == crate::coord::Scale::Discrete {
+        return Ok(());
+    }
 
     // Calculate plot area dimensions for proper alignment
     let plot_h = context.plot_height;

@@ -190,7 +190,8 @@ impl<T: Mark> Chart<T> {
             let y_repeated: Vec<String> = all_y_bins
                 .iter()
                 .cycle()
-                .take(all_x_bins.len() * all_y_bins.len()).cloned()
+                .take(all_x_bins.len() * all_y_bins.len())
+                .cloned()
                 .collect();
 
             // Create DataFrame with all combinations

@@ -121,7 +121,7 @@ impl Chart<MarkArea> {
             // Create a temporary color column with default value to avoid duplication code
             let len = self.data.df.height();
             let default_colors: Vec<&str> = vec!["group"; len];
-            
+
             Series::new("color".into(), default_colors)
         };
 
