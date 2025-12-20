@@ -14,21 +14,14 @@ fn main() -> Result<(), Box<dyn Error>> {
     let errorbar = Chart::build(&df)?
         // Use transform_calculate to create ymin and ymax columns based on fixed std values
         .transform_calculate(
-            (col("value") - col("value_std")).alias("value_min"),  // ymin = y - std
-            (col("value") + col("value_std")).alias("value_max")   // ymax = y + std
+            (col("value") - col("value_std")).alias("value_min"), // ymin = y - std
+            (col("value") + col("value_std")).alias("value_max"), // ymax = y + std
         )?
         .mark_errorbar()
-        .encode((
-            x("type"),
-            y("value_min"),
-            y2("value_max")
-        ))?;
+        .encode((x("type"), y("value_min"), y2("value_max")))?;
     let bar = Chart::build(&df)?
         .mark_bar()
-        .encode((
-            x("type"),
-            y("value"),
-        ))?;
+        .encode((x("type"), y("value")))?;
 
     // Create a layered chart and add the errorbar chart as a layer
     LayeredChart::new()

@@ -1,6 +1,6 @@
 use crate::chart::common::{Chart, SharedRenderingContext};
-use crate::mark::Mark;
 use crate::error::ChartonError;
+use crate::mark::Mark;
 use crate::render::constants::render_constants::*;
 use crate::render::utils::estimate_text_width;
 use crate::theme::Theme;
@@ -21,7 +21,7 @@ pub(crate) fn render_color_legend<T: Mark>(
 
     let color_series = chart.data.column(&color_enc.field)?;
     let scale_type = crate::data::determine_scale_for_dtype(color_series.dtype());
-    
+
     // Only render legend for discrete scales
     if !matches!(scale_type, crate::coord::Scale::Discrete) {
         return Ok(());
@@ -30,13 +30,13 @@ pub(crate) fn render_color_legend<T: Mark>(
     // Get unique color values to determine if we should show legend
     let unique_series = color_series.unique_stable()?;
     let unique = unique_series.str()?.into_no_null_iter().collect::<Vec<_>>();
-    
+
     // Check if legend should be shown based on user preference or default logic
     let should_show_legend = match context.legend {
-        Some(show) => show, // User explicitly set show/hide
+        Some(show) => show,       // User explicitly set show/hide
         None => unique.len() > 1, // Default: show only if more than one group
     };
-    
+
     if !should_show_legend {
         return Ok(());
     }
@@ -46,17 +46,20 @@ pub(crate) fn render_color_legend<T: Mark>(
     let draw_x0 = context.draw_x0;
     let draw_y0 = context.draw_y0;
     let plot_w = context.plot_width;
-    
+
     // Legend positioning - use right margin area based on effective_right_margin
     let legend_x = draw_x0 + plot_w + SPACING; // Add small padding
     let legend_y = draw_y0;
     let available_height = plot_h;
-    
+
     // Legend title
     let title = &color_enc.field;
     let font_size = theme.legend_font_size.unwrap_or(theme.label_font_size);
-    let font_family = theme.legend_font_family.as_deref().unwrap_or(&theme.label_font_family);
-    
+    let font_family = theme
+        .legend_font_family
+        .as_deref()
+        .unwrap_or(&theme.label_font_family);
+
     writeln!(
         svg,
         r#"<text x="{}" y="{}" font-size="{}" font-family="{}" text-anchor="start" font-weight="bold">{}</text>"#,
@@ -70,15 +73,16 @@ pub(crate) fn render_color_legend<T: Mark>(
     // Multi-column legend setup
     let available_vertical_space = available_height - (font_size as f64) - 5.0; // Subtract space for title
     let max_items_per_column = (available_vertical_space / ITEM_HEIGHT).floor() as usize;
-    
+
     // Ensure we have at least one item per column and respect the maximum items per column
     let max_items_per_column = max_items_per_column.max(1).min(MAX_ITEMS_PER_COLUMN);
-    
+
     // Calculate column width based on available space and max label width
-    let max_label_width = unique.iter()
+    let max_label_width = unique
+        .iter()
         .map(|label| estimate_text_width(label, theme.tick_label_font_size as f64))
         .fold(0.0, f64::max);
-    
+
     let column_width = COLOR_BOX_SIZE + COLOR_BOX_SPACING + max_label_width + LABEL_PADDING;
 
     // Get opacity from the mark
@@ -95,17 +99,17 @@ pub(crate) fn render_color_legend<T: Mark>(
     for (index, value) in unique.iter().enumerate() {
         let column = index / max_items_per_column;
         let row = index % max_items_per_column;
-        
+
         let item_x = legend_x + (column as f64) * (column_width + COLUMN_SPACING);
         let item_y = legend_y + (font_size as f64) + 10.0 + (row as f64) * ITEM_HEIGHT;
-        
+
         // Get color for this value using direct indexing
         let unique_index = unique.iter().position(|x| *x == *value).unwrap_or(0);
         let color = chart.mark_palette.get_color(unique_index);
-        
+
         // Fixed position for the color box - vertically centered in the item slot
-        let box_center_y = item_y + ITEM_HEIGHT/2.0;
-        
+        let box_center_y = item_y + ITEM_HEIGHT / 2.0;
+
         match mark_type {
             // For point mark, draw a small circle by default
             "point" => {
@@ -118,7 +122,7 @@ pub(crate) fn render_color_legend<T: Mark>(
                     color,
                     opacity
                 )?;
-            },
+            }
             "rect" => {
                 writeln!(
                     svg,
@@ -130,7 +134,7 @@ pub(crate) fn render_color_legend<T: Mark>(
                     color,
                     opacity
                 )?;
-            },
+            }
             "bar" => {
                 writeln!(
                     svg,
@@ -142,7 +146,7 @@ pub(crate) fn render_color_legend<T: Mark>(
                     color,
                     opacity
                 )?;
-            },
+            }
             "line" => {
                 // For line mark, draw a small line segment
                 writeln!(
@@ -155,7 +159,7 @@ pub(crate) fn render_color_legend<T: Mark>(
                     color,
                     opacity
                 )?;
-            },
+            }
             "area" => {
                 // For area mark, draw a small rectangle
                 writeln!(
@@ -168,7 +172,7 @@ pub(crate) fn render_color_legend<T: Mark>(
                     color,
                     opacity
                 )?;
-            },
+            }
             "rule" => {
                 // For rule mark, draw a small line segment
                 writeln!(
@@ -181,7 +185,7 @@ pub(crate) fn render_color_legend<T: Mark>(
                     color,
                     opacity
                 )?;
-            },
+            }
             "tick" => {
                 // For tick mark, draw a small vertical line
                 writeln!(
@@ -194,7 +198,7 @@ pub(crate) fn render_color_legend<T: Mark>(
                     color,
                     opacity
                 )?;
-            },
+            }
             _ => {
                 // Default to rectangle for unknown mark types
                 writeln!(
@@ -209,7 +213,7 @@ pub(crate) fn render_color_legend<T: Mark>(
                 )?;
             }
         }
-        
+
         // Draw label - vertically centered with the color box
         writeln!(
             svg,

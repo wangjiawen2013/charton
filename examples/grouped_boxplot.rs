@@ -11,10 +11,7 @@ fn manual_melt(df: &DataFrame, value_vars: &[&str], id_vars: &[&str]) -> PolarsR
         // 1. Select ID and current value column (dereference col_name)
         let mut sub_df = df.select([id_col, col_name])?;
         // 2. Create "variable" column with repeated column name
-        let variable_series = Series::new(
-            "variable".into(),
-            vec![col_name; sub_df.height()]
-        );
+        let variable_series = Series::new("variable".into(), vec![col_name; sub_df.height()]);
         sub_df.with_column(variable_series)?; // Add variable column
         // 3. Rename value column to "value"
         sub_df.rename(col_name, "value".into())?;
@@ -36,17 +33,13 @@ fn main() -> Result<(), Box<dyn Error>> {
     let df_melted = manual_melt(
         &df,
         &["sepal_length", "sepal_width", "petal_length", "petal_width"],
-        &["species"]
+        &["species"],
     )?;
     println!("{}", &df_melted);
 
     Chart::build(&df_melted)?
         .mark_boxplot()
-        .encode((
-            x("variable"),
-            y("value"),
-            color("species")
-        ))?
+        .encode((x("variable"), y("value"), color("species")))?
         .into_layered()
         .save("./examples/grouped_boxplot.svg")?;
 

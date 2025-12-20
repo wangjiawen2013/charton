@@ -1,32 +1,27 @@
+use crate::bridge::base::{
+    Altair, ExternalRendererExecutor, InputData, Plot, SerializedData, Visualization,
+};
+use crate::error::ChartonError;
 use base64::Engine;
 use polars::prelude::*;
 use regex::Regex;
 use std::io::{Cursor, Seek, SeekFrom, Write};
 use std::marker::PhantomData;
 use std::process::{Command, Stdio};
-use crate::bridge::base::{
-    Altair,
-    ExternalRendererExecutor,
-    InputData,
-    SerializedData,
-    Plot,
-    Visualization
-};
-use crate::error::ChartonError;
 
 impl Plot<Altair> {
     /// Generates and returns the Vega-Lite JSON representation of the chart.
-    /// 
-    /// This method executes the Python plotting code with JSON output format and 
+    ///
+    /// This method executes the Python plotting code with JSON output format and
     /// returns the resulting Vega-Lite specification as a JSON string. The JSON
     /// can be used directly in web applications or Jupyter notebooks that support
     /// Vega-Lite visualizations.
-    /// 
+    ///
     /// # Returns
     /// A Result containing either:
     /// - Ok(String) with the Vega-Lite JSON specification of the chart
     /// - Err(ChartonError) if there was an error during execution
-    /// 
+    ///
     /// # Example
     /// ```
     /// let json_spec = plot.to_json()?;
@@ -60,24 +55,36 @@ __charton_temp_df_name_fm_n9jh3 = pl.read_ipc(BytesIO(ipc_data))
 "#;
 
         let output = match output_format {
-            "svg" => r#"
+            "svg" => {
+                r#"
 import vl_convert as vlc
 
 __charton_temp_svg_fm_n9jh3 = vlc.vegalite_to_svg(chart.to_json())
 print(__charton_temp_svg_fm_n9jh3)
-"#,
-            "json" => r#"
+"#
+            }
+            "json" => {
+                r#"
 print(chart.to_json())
-"#,
-            _ => return Err(ChartonError::Unimplemented(format!("Output format '{}' is not supported", output_format))),
+"#
+            }
+            _ => {
+                return Err(ChartonError::Unimplemented(format!(
+                    "Output format '{}' is not supported",
+                    output_format
+                )));
+            }
         };
 
         let full_plotting_code = format!("{}{}{}", ipc_to_df, self.raw_plotting_code, output);
         // Use regular expressions to replace the dataframe name with the actual dataframe name
-        let re = Regex::new(r"__charton_temp_df_name_fm_n9jh3 = pl.read_ipc\(BytesIO\(ipc_data\)\)")
-            .map_err(|_| ChartonError::Render("Failed to create regex".to_string()))?;
-        let full_plotting_code = re.replace_all(&full_plotting_code, 
-            format!("{} = pl.read_ipc(BytesIO(ipc_data))", self.data.name));
+        let re =
+            Regex::new(r"__charton_temp_df_name_fm_n9jh3 = pl.read_ipc\(BytesIO\(ipc_data\)\)")
+                .map_err(|_| ChartonError::Render("Failed to create regex".to_string()))?;
+        let full_plotting_code = re.replace_all(
+            &full_plotting_code,
+            format!("{} = pl.read_ipc(BytesIO(ipc_data))", self.data.name),
+        );
 
         Ok(full_plotting_code.to_string())
     }
@@ -94,19 +101,20 @@ print(chart.to_json())
         if let Some(mut stdin) = child.stdin.take() {
             let json_data = serde_json::to_string(&self.data)
                 .map_err(|_| ChartonError::Data("Failed to serialize data".to_string()))?;
-            stdin.write_all(json_data.as_bytes())
+            stdin
+                .write_all(json_data.as_bytes())
                 .map_err(|e| ChartonError::Io(e))?;
         }
 
-        let output = child.wait_with_output()
-            .map_err(|e| ChartonError::Io(e))?;
-        
+        let output = child.wait_with_output().map_err(|e| ChartonError::Io(e))?;
+
         if !output.status.success() {
-            return Err(ChartonError::Render(
-                format!("Python script execution failed with status: {:?}", output.status)
-            ));
+            return Err(ChartonError::Render(format!(
+                "Python script execution failed with status: {:?}",
+                output.status
+            )));
         }
-        
+
         Ok(String::from_utf8_lossy(&output.stdout).to_string())
     }
 }
@@ -135,66 +143,74 @@ impl Visualization for Plot<Altair> {
         })
     }
 
-    fn with_exe_path<P: AsRef<std::path::Path>>(mut self, exe_path: P) -> Result<Self, ChartonError> {
+    fn with_exe_path<P: AsRef<std::path::Path>>(
+        mut self,
+        exe_path: P,
+    ) -> Result<Self, ChartonError> {
         let path = exe_path.as_ref();
-        
+
         // Check if the path exists
         if !path.exists() {
-            return Err(ChartonError::ExecutablePath(
-                format!("Python executable not found at path: {}", path.display())
-            ));
+            return Err(ChartonError::ExecutablePath(format!(
+                "Python executable not found at path: {}",
+                path.display()
+            )));
         }
-        
+
         // Check if the path is a file (not a directory)
         if !path.is_file() {
-            return Err(ChartonError::ExecutablePath(
-                format!("Provided path is not a file: {}", path.display())
-            ));
+            return Err(ChartonError::ExecutablePath(format!(
+                "Provided path is not a file: {}",
+                path.display()
+            )));
         }
-        
+
         // On Unix systems, we can also check if the file is executable
         #[cfg(unix)]
         {
             use std::os::unix::fs::MetadataExt;
-            let metadata = path.metadata()
-                .map_err(|e| ChartonError::Io(e))?;
-            
+            let metadata = path.metadata().map_err(|e| ChartonError::Io(e))?;
+
             if metadata.mode() & 0o111 == 0 {
-                return Err(ChartonError::ExecutablePath(
-                    format!("Python executable is not executable: {}", path.display())
-                ));
+                return Err(ChartonError::ExecutablePath(format!(
+                    "Python executable is not executable: {}",
+                    path.display()
+                )));
             }
         }
-        
+
         // Convert path to string for process execution
-        let exe_path_str = path.to_str()
-            .ok_or_else(|| ChartonError::ExecutablePath(
-                "Python executable path contains invalid characters".to_string()
-            ))?;
-        
+        let exe_path_str = path.to_str().ok_or_else(|| {
+            ChartonError::ExecutablePath(
+                "Python executable path contains invalid characters".to_string(),
+            )
+        })?;
+
         // Verify that this is actually a Python interpreter by checking its version
         let output = std::process::Command::new(exe_path_str)
             .arg("--version")
             .output()
             .map_err(|e| ChartonError::Io(e))?;
-        
+
         if !output.status.success() {
-            return Err(ChartonError::ExecutablePath(
-                format!("File at {} is not a valid Python interpreter", path.display())
-            ));
+            return Err(ChartonError::ExecutablePath(format!(
+                "File at {} is not a valid Python interpreter",
+                path.display()
+            )));
         }
-        
+
         let version_output = String::from_utf8_lossy(&output.stdout);
         let version_stderr = String::from_utf8_lossy(&output.stderr);
-        
+
         // Python version output is typically in format "Python X.Y.Z"
         // It can be in either stdout or stderr depending on the Python version
         if !(version_output.starts_with("Python ") || version_stderr.starts_with("Python ")) {
-            return Err(ChartonError::ExecutablePath(
-                format!("File at {} is not a Python interpreter", path.display())
-            ));
+            return Err(ChartonError::ExecutablePath(format!(
+                "File at {} is not a Python interpreter",
+                path.display()
+            )));
         }
-        
+
         self.exe_path = exe_path_str.to_string();
         Ok(self)
     }
@@ -225,12 +241,11 @@ impl Visualization for Plot<Altair> {
             .extension()
             .and_then(|e| e.to_str())
             .map(|s| s.to_lowercase());
-        
+
         match ext.as_deref() {
             Some("svg") => {
                 let svg_content = self.to_svg()?;
-                std::fs::write(path_obj, svg_content)
-                    .map_err(|e| ChartonError::Io(e))?;
+                std::fs::write(path_obj, svg_content).map_err(|e| ChartonError::Io(e))?;
             }
             Some("png") => {
                 let svg_content = self.to_svg()?;
@@ -258,22 +273,23 @@ impl Visualization for Plot<Altair> {
                 // Render and save
                 let transform = resvg::tiny_skia::Transform::from_scale(scale, scale);
                 resvg::render(&tree, transform, &mut pixmap.as_mut());
-                pixmap.save_png(path_obj)
+                pixmap
+                    .save_png(path_obj)
                     .map_err(|e| ChartonError::Render(format!("PNG saving error: {:?}", e)))?;
             }
             Some("json") => {
                 let json_content = self.to_json()?;
-                std::fs::write(path_obj, json_content)
-                    .map_err(|e| ChartonError::Io(e))?;
+                std::fs::write(path_obj, json_content).map_err(|e| ChartonError::Io(e))?;
             }
             Some(format) => {
-                return Err(ChartonError::Unimplemented(
-                    format!("Output format '{}' is not supported", format)
-                ));
+                return Err(ChartonError::Unimplemented(format!(
+                    "Output format '{}' is not supported",
+                    format
+                )));
             }
             None => {
                 return Err(ChartonError::Unimplemented(
-                    "Output format could not be determined from file extension".to_string()
+                    "Output format could not be determined from file extension".to_string(),
                 ));
             }
         }
@@ -319,8 +335,7 @@ mod tests {
             "b" => [4, 5]
         ]?;
         let exe_path = r"D:\Programs\miniconda3\envs\cellpy\python.exe";
-        let altair = Plot::<Altair>::build(data!(&df1)?)?
-            .with_exe_path(exe_path)?;
+        let altair = Plot::<Altair>::build(data!(&df1)?)?.with_exe_path(exe_path)?;
 
         assert_eq!(&altair.exe_path, exe_path);
         Ok(())
@@ -368,8 +383,7 @@ __charton_temp_svg_fm_n9jh3 = vlc.vegalite_to_svg(chart.to_json())
 print(__charton_temp_svg_fm_n9jh3)
 "#;
 
-        let altair = Plot::<Altair>::build(data!(&df1)?)?
-            .with_plotting_code(raw_plotting_code);
+        let altair = Plot::<Altair>::build(data!(&df1)?)?.with_plotting_code(raw_plotting_code);
         let full_plotting_code = altair.generate_full_plotting_code("svg")?;
         assert_eq!(&full_plotting_code, expected);
         Ok(())

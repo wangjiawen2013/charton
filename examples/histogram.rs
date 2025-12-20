@@ -3,9 +3,14 @@ use polars::prelude::*;
 use std::error::Error;
 
 fn main() -> Result<(), Box<dyn Error>> {
-    let df = CsvReadOptions::default().with_has_header(true)
-        .try_into_reader_with_file_path(Some("./datasets/iris.csv".into()))?.finish()?;
-    let df_melted = df.unpivot(["sepal length", "sepal width", "petal length", "petal width"], ["class"])?;
+    let df = CsvReadOptions::default()
+        .with_has_header(true)
+        .try_into_reader_with_file_path(Some("./datasets/iris.csv".into()))?
+        .finish()?;
+    let df_melted = df.unpivot(
+        ["sepal length", "sepal width", "petal length", "petal width"],
+        ["class"],
+    )?;
     println!("{}", &df_melted);
 
     // Create a histogram chart
@@ -14,7 +19,7 @@ fn main() -> Result<(), Box<dyn Error>> {
         .encode((
             x("value"),
             y("count").with_normalize(true),
-            color("variable")
+            color("variable"),
         ))?
         .with_hist_color(Some(SingleColor::new("steelblue")))
         .with_hist_opacity(0.5)

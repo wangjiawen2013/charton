@@ -16,11 +16,7 @@ fn test_area_1() -> Result<(), Box<dyn Error>> {
         .mark_area()
         .with_area_opacity(0.3)
         .with_area_stroke(Some(SingleColor::new("black")))
-        .encode((
-            x("year"),
-            y("net_generation"),
-            color("source"),
-        ))?;
+        .encode((x("year"), y("net_generation"), color("source")))?;
 
     // Create a layered chart for the area
     LayeredChart::new()
@@ -62,13 +58,10 @@ fn test_area_2() -> Result<(), Box<dyn Error>> {
         .transform_density(
             DensityTransform::new("IMDB_Rating")
                 .with_as("IMDB_Rating", "cumulative_density")
-                .with_cumulative(true)
+                .with_cumulative(true),
         )?
         .mark_area()
-        .encode((
-            x("IMDB_Rating"),
-            y("cumulative_density")
-        ))?
+        .encode((x("IMDB_Rating"), y("cumulative_density")))?
         .with_area_color(Some(SingleColor::new("purple")))
         .with_area_opacity(0.3);
 

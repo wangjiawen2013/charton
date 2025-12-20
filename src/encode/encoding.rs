@@ -1,63 +1,54 @@
 use super::{
-    x::X, 
-    y::Y, 
-    y2::Y2,
-    theta::Theta,
-    color::Color,
-    shape::Shape,
-    size::Size,
-    opacity::Opacity,
-    stroke::Stroke,
-    stroke_width::StrokeWidth,
-    text::Text,
+    color::Color, opacity::Opacity, shape::Shape, size::Size, stroke::Stroke,
+    stroke_width::StrokeWidth, text::Text, theta::Theta, x::X, y::Y, y2::Y2,
 };
 
 /// Unified application interface for encoding specifications
-/// 
+///
 /// This trait provides a common interface for applying different types of encodings
 /// to a chart's encoding configuration. Each encoding type (X, Y, Color, etc.)
 /// implements this trait to define how it should be added to the global encoding.
-/// 
+///
 /// # Type Parameters
 /// * `Self` - The encoding type that implements this trait
-/// 
+///
 /// # Methods
 /// * `apply` - Applies the encoding to the provided `Encoding` container
 pub trait IntoEncoding {
     /// Applies the encoding to the provided `Encoding` container
-    /// 
+    ///
     /// This method takes ownership of the encoding specification and applies it
     /// to the global encoding configuration. Each specific encoding type (X, Y, Color, etc.)
     /// implements this method to define how it should be stored in the encoding container.
-    /// 
+    ///
     /// # Arguments
     /// * `enc` - A mutable reference to the `Encoding` container to which this encoding should be applied
     fn apply(self, enc: &mut Encoding);
 }
 
 /// Global encoding container
-/// 
+///
 /// The `Encoding` struct serves as a central repository for all visual encoding
 /// specifications in a chart. It holds optional references to various encoding
 /// types that define how data fields map to visual properties like position,
 /// color, size, and shape.
-/// 
+///
 /// This struct is typically populated using the `encode` method on chart objects
 /// and is used internally during the rendering process to determine how data
 /// should be visually represented.
 #[derive(Default)]
 pub struct Encoding {
-    pub(crate) x: Option<X>, // For both continuous and discrete data
-    pub(crate) y: Option<Y>, // For both continuous and discrete data
-    pub(crate) y2: Option<Y2>, // Useful for mark rule
-    pub(crate) theta: Option<Theta>, // For both continuous and discrete data
-    pub(crate) color: Option<Color>, // For both continuous and discrete data
-    pub(crate) shape: Option<Shape>, // For discrete data
-    pub(crate) size: Option<Size>, // For continuous data
+    pub(crate) x: Option<X>,             // For both continuous and discrete data
+    pub(crate) y: Option<Y>,             // For both continuous and discrete data
+    pub(crate) y2: Option<Y2>,           // Useful for mark rule
+    pub(crate) theta: Option<Theta>,     // For both continuous and discrete data
+    pub(crate) color: Option<Color>,     // For both continuous and discrete data
+    pub(crate) shape: Option<Shape>,     // For discrete data
+    pub(crate) size: Option<Size>,       // For continuous data
     pub(crate) opacity: Option<Opacity>, // For continuous data
     pub(crate) stroke: Option<Stroke>, // A placeholder for encoding stroke color, do not set it currently
     pub(crate) stroke_width: Option<StrokeWidth>, // A placeholder for encoding stroke width, do not set it currently
-    pub(crate) text: Option<Text>, // For text marks
+    pub(crate) text: Option<Text>,                // For text marks
 }
 
 impl Encoding {
@@ -171,16 +162,16 @@ impl IntoEncoding for Text {
 }
 
 /// Macro to implement IntoEncoding trait for tuples of different sizes
-/// 
+///
 /// This macro generates implementations of the IntoEncoding trait for tuples
 /// containing 1 to 9 elements. Each element in the tuple must implement IntoEncoding.
 /// This allows users to pass multiple encodings as a single tuple to the encode method.
-/// 
+///
 /// # Parameters
 /// * `$($idx:tt $T:ident),+` - A repetition of index-type pairs where:
 ///   - `$idx` is the tuple index (0, 1, 2, etc.)
 ///   - `$T` is the type identifier for that position
-/// 
+///
 /// # Generated Implementation
 /// For each tuple size, this creates an IntoEncoding implementation that:
 /// 1. Takes ownership of the tuple
@@ -200,12 +191,12 @@ macro_rules! impl_tuple_encoding {
 }
 
 // Update the tuple implementation to support up to 9 elements now
-impl_tuple_encoding!(0 T0);                                                 // 1
-impl_tuple_encoding!(0 T0, 1 T1);                                           // 2
-impl_tuple_encoding!(0 T0, 1 T1, 2 T2);                                     // 3
-impl_tuple_encoding!(0 T0, 1 T1, 2 T2, 3 T3);                               // 4
-impl_tuple_encoding!(0 T0, 1 T1, 2 T2, 3 T3, 4 T4);                         // 5
-impl_tuple_encoding!(0 T0, 1 T1, 2 T2, 3 T3, 4 T4, 5 T5);                   // 6
-impl_tuple_encoding!(0 T0, 1 T1, 2 T2, 3 T3, 4 T4, 5 T5, 6 T6);             // 7
-impl_tuple_encoding!(0 T0, 1 T1, 2 T2, 3 T3, 4 T4, 5 T5, 6 T6, 7 T7);       // 8
+impl_tuple_encoding!(0 T0); // 1
+impl_tuple_encoding!(0 T0, 1 T1); // 2
+impl_tuple_encoding!(0 T0, 1 T1, 2 T2); // 3
+impl_tuple_encoding!(0 T0, 1 T1, 2 T2, 3 T3); // 4
+impl_tuple_encoding!(0 T0, 1 T1, 2 T2, 3 T3, 4 T4); // 5
+impl_tuple_encoding!(0 T0, 1 T1, 2 T2, 3 T3, 4 T4, 5 T5); // 6
+impl_tuple_encoding!(0 T0, 1 T1, 2 T2, 3 T3, 4 T4, 5 T5, 6 T6); // 7
+impl_tuple_encoding!(0 T0, 1 T1, 2 T2, 3 T3, 4 T4, 5 T5, 6 T6, 7 T7); // 8
 impl_tuple_encoding!(0 T0, 1 T1, 2 T2, 3 T3, 4 T4, 5 T5, 6 T6, 7 T7, 8 T8); // 9

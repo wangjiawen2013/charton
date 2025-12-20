@@ -1,22 +1,18 @@
 use polars::prelude::*;
 
 /// Cut continuous data into discrete bins
-/// 
+///
 /// # Arguments
 /// * `series` - A Series containing continuous data (f64)
 /// * `bins` - A vector of bin edges (must be sorted in ascending order)
 /// * `labels` - Labels for the bins
-/// 
+///
 /// # Returns
 /// A String Series with bin labels
-pub(crate) fn cut(
-    series: &Series,
-    bins: &[f64],
-    labels: &[String],
-) -> Series {
-    let values: Vec<f64>  = series.f64().unwrap().into_no_null_iter().collect();
+pub(crate) fn cut(series: &Series, bins: &[f64], labels: &[String]) -> Series {
+    let values: Vec<f64> = series.f64().unwrap().into_no_null_iter().collect();
     let mut result_categories = Vec::with_capacity(values.len());
-    
+
     for val in values {
         let index = find_bin(val, bins);
         result_categories.push(labels[index].clone());
@@ -25,20 +21,19 @@ pub(crate) fn cut(
     Series::new(series.name().clone(), result_categories)
 }
 
-
 /// Find the bin for value using left-closed, right-open [a, b) interval.
-/// 
+///
 /// This function determines which bin a value belongs to based on the provided bin edges.
 /// It uses a left-closed, right-open interval for all bins except the last one, which
 /// includes the rightmost edge to handle the maximum value.
-/// 
+///
 /// # Arguments
 /// * `value` - The value to find a bin for
 /// * `bins` - A slice of bin edges, must be sorted in ascending order
-/// 
+///
 /// # Returns
 /// The index of the bin that contains the value
-/// 
+///
 /// # Examples
 /// ```
 /// let bins = &[0.0, 1.0, 2.0, 3.0];

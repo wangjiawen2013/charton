@@ -2,23 +2,23 @@ use crate::mark::Mark;
 use crate::visual::color::SingleColor;
 
 /// Represents a text mark with its properties
-/// 
+///
 /// The `MarkText` struct defines the visual properties of text elements used in
 /// chart annotations and labels. It controls the appearance of text including its
 /// color, size, opacity, content, alignment, and baseline positioning.
-/// 
+///
 /// Text marks are used to add descriptive labels, annotations, or data-driven text
 /// elements to visualizations. They support various alignment options and can display
 /// either static text or dynamic text content derived from data fields.
-/// 
+///
 /// # Color Handling
-/// 
+///
 /// In text charts, colors can be assigned based on data categories or groups.
-/// When color encoding is used, each text element will be assigned a color from the 
-/// palette system to distinguish between different data series or categories. 
-/// When no explicit color encoding is provided, the `color` field in this struct 
-/// serves as the default fill color for all text elements. For multi-series text charts, 
-/// different series are automatically assigned different colors from the palette 
+/// When color encoding is used, each text element will be assigned a color from the
+/// palette system to distinguish between different data series or categories.
+/// When no explicit color encoding is provided, the `color` field in this struct
+/// serves as the default fill color for all text elements. For multi-series text charts,
+/// different series are automatically assigned different colors from the palette
 /// to distinguish them.
 #[derive(Debug, Clone)]
 pub struct MarkText {
@@ -37,7 +37,7 @@ pub struct MarkText {
 }
 
 /// Text anchor options
-/// 
+///
 /// The `TextAnchor` enum defines the horizontal alignment of text elements relative
 /// to their anchor point. This controls how text is positioned horizontally when rendered.
 #[derive(Debug, Clone)]
@@ -57,7 +57,7 @@ impl Default for TextAnchor {
 }
 
 /// Text baseline options
-/// 
+///
 /// The `TextBaseline` enum defines the vertical alignment of text elements relative
 /// to their anchor point. This controls how text is positioned vertically when rendered.
 #[derive(Debug, Clone)]
@@ -96,6 +96,8 @@ impl Default for MarkText {
     }
 }
 
-impl Mark for MarkText { 
-    fn mark_type(&self) -> &'static str { "text" }
+impl Mark for MarkText {
+    fn mark_type(&self) -> &'static str {
+        "text"
+    }
 }

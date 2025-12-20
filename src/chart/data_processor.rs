@@ -1,8 +1,8 @@
-use crate::coord::cartesian::Cartesian;
 use crate::coord::Scale;
+use crate::coord::cartesian::Cartesian;
 use crate::data::determine_scale_for_dtype;
-use crate::render::utils::normalize_linear;
 use crate::error::ChartonError;
+use crate::render::utils::normalize_linear;
 use std::collections::HashMap;
 
 pub(crate) struct ProcessedChartData {
@@ -41,7 +41,7 @@ impl ProcessedChartData {
     /// - Polars data processing errors (e.g., unique value extraction)
     pub(crate) fn new<T: crate::mark::Mark>(
         chart: &crate::chart::common::Chart<T>,
-        coord_system: &Cartesian // Accept shared coordinate system
+        coord_system: &Cartesian, // Accept shared coordinate system
     ) -> Result<Self, ChartonError> {
         // Get data columns
         let x_series = chart
@@ -56,7 +56,8 @@ impl ProcessedChartData {
             // For discrete data, we need to map string values to their indices
             // Get unique values while preserving order
             let unique_values_series = x_series.unique_stable()?;
-            let unique_values = unique_values_series.str()?
+            let unique_values = unique_values_series
+                .str()?
                 .into_no_null_iter()
                 .map(|s| s.to_string())
                 .collect::<Vec<String>>();
@@ -68,7 +69,8 @@ impl ProcessedChartData {
             }
 
             // Map original values to indices
-            x_series.str()?
+            x_series
+                .str()?
                 .into_no_null_iter()
                 .map(|val| {
                     let val_string = val.to_string();
@@ -85,7 +87,8 @@ impl ProcessedChartData {
             // For discrete data, we need to map string values to their indices
             // Get unique values while preserving order
             let unique_values_series = y_series.unique_stable()?;
-            let unique_values = unique_values_series.str()?
+            let unique_values = unique_values_series
+                .str()?
                 .into_no_null_iter()
                 .map(|s| s.to_string())
                 .collect::<Vec<String>>();
@@ -97,7 +100,8 @@ impl ProcessedChartData {
             }
 
             // Map original values to indices
-            y_series.str()?
+            y_series
+                .str()?
                 .into_no_null_iter()
                 .map(|val| {
                     let val_string = val.to_string();
@@ -111,16 +115,12 @@ impl ProcessedChartData {
 
         // Transform data values according to scale type
         let x_transformed_vals: Vec<f64> = match coord_system.x_axis.scale {
-            Scale::Log => {
-                x_vals.iter().map(|&x| x.log10()).collect()
-            },
+            Scale::Log => x_vals.iter().map(|&x| x.log10()).collect(),
             _ => x_vals.clone(),
         };
-        
+
         let y_transformed_vals: Vec<f64> = match coord_system.y_axis.scale {
-            Scale::Log => {
-                _y_vals.iter().map(|&y| y.log10()).collect()
-            },
+            Scale::Log => _y_vals.iter().map(|&y| y.log10()).collect(),
             _ => _y_vals.clone(),
         };
 
@@ -128,7 +128,12 @@ impl ProcessedChartData {
         let shape_vals = if let Some(shape_enc) = &chart.encoding.shape {
             let shape_col = chart.data.column(&shape_enc.field)?;
             let str_series = shape_col.str()?;
-            Some(str_series.into_no_null_iter().map(|s| s.to_string()).collect::<Vec<_>>())
+            Some(
+                str_series
+                    .into_no_null_iter()
+                    .map(|s| s.to_string())
+                    .collect::<Vec<_>>(),
+            )
         } else {
             None
         };
@@ -145,56 +150,62 @@ impl ProcessedChartData {
         let normalized_sizes = size_vals.as_ref().map(|sizes| {
             normalize_linear(sizes, 2.0, 10.0) // Map sizes to 2-10 pixel range
         });
-        
+
         // Get color data and automatically determine scale type
-        let color_info: Option<(Scale, Vec<f64>)> = 
-            if let Some(color_enc) = &chart.encoding.color {
-                let color_series = chart.data.column(&color_enc.field)?;
-                // Auto-detect the data type according to the scale type
-                let scale_type = determine_scale_for_dtype(color_series.dtype());
-                
-                match scale_type {
-                    // Continuous scales - normalize data to 0-1 range
-                    Scale::Linear | Scale::Log => {
-                        // Normalize to 0-1 range for colormap usage
-                        let min_val = color_series.min::<f64>()?.unwrap();
-                        let max_val = color_series.max::<f64>()?.unwrap();
+        let color_info: Option<(Scale, Vec<f64>)> = if let Some(color_enc) = &chart.encoding.color {
+            let color_series = chart.data.column(&color_enc.field)?;
+            // Auto-detect the data type according to the scale type
+            let scale_type = determine_scale_for_dtype(color_series.dtype());
 
-                        let normalized = if max_val - min_val > 1e-10 {
-                            color_series.f64()?.into_no_null_iter()
-                                .map(|v| (v - min_val) / (max_val - min_val))
-                                .collect()
-                        } else {
-                            // Create a vector of 0.5 with the same length as the color series
-                            vec![0.5; color_series.len()]
-                        };
+            match scale_type {
+                // Continuous scales - normalize data to 0-1 range
+                Scale::Linear | Scale::Log => {
+                    // Normalize to 0-1 range for colormap usage
+                    let min_val = color_series.min::<f64>()?.unwrap();
+                    let max_val = color_series.max::<f64>()?.unwrap();
 
-                        Some((scale_type, normalized))
-                    },
-                    // Discrete scale - map unique values to indices
-                    Scale::Discrete => {
-                        // Get unique values while preserving order
-                        let unique_values_series = color_series.unique_stable()?;
-                        let unique_values = unique_values_series.str()?
+                    let normalized = if max_val - min_val > 1e-10 {
+                        color_series
+                            .f64()?
                             .into_no_null_iter()
-                            .map(|s| s.to_string())
-                            .collect::<Vec<String>>();
-                        
-                        // Map original values to indices
-                        let indices: Vec<f64> = color_series.str()?
-                            .into_no_null_iter()
-                            .map(|val| {
-                                unique_values.iter().position(|v| v == val)
-                                    .map(|i| i as f64)
-                                    .unwrap_or(0.0)
-                            }).collect();
-                        
-                        Some((scale_type, indices))
-                    },
+                            .map(|v| (v - min_val) / (max_val - min_val))
+                            .collect()
+                    } else {
+                        // Create a vector of 0.5 with the same length as the color series
+                        vec![0.5; color_series.len()]
+                    };
+
+                    Some((scale_type, normalized))
                 }
-            } else {
-                None
-            };
+                // Discrete scale - map unique values to indices
+                Scale::Discrete => {
+                    // Get unique values while preserving order
+                    let unique_values_series = color_series.unique_stable()?;
+                    let unique_values = unique_values_series
+                        .str()?
+                        .into_no_null_iter()
+                        .map(|s| s.to_string())
+                        .collect::<Vec<String>>();
+
+                    // Map original values to indices
+                    let indices: Vec<f64> = color_series
+                        .str()?
+                        .into_no_null_iter()
+                        .map(|val| {
+                            unique_values
+                                .iter()
+                                .position(|v| v == val)
+                                .map(|i| i as f64)
+                                .unwrap_or(0.0)
+                        })
+                        .collect();
+
+                    Some((scale_type, indices))
+                }
+            }
+        } else {
+            None
+        };
 
         Ok(ProcessedChartData {
             x_vals,

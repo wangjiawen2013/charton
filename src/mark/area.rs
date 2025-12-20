@@ -1,19 +1,19 @@
+use crate::mark::Mark;
 use crate::visual::color::SingleColor;
 use crate::visual::shape::PointShape;
-use crate::mark::Mark;
 
 /// Mark type for area charts
-/// 
+///
 /// The `MarkArea` struct defines the visual properties of area elements used in
 /// area charts and stacked area charts. It controls the appearance of filled regions
 /// under data lines, including their color, opacity, and stroke properties.
-/// 
+///
 /// Area marks are typically used to visualize cumulative data or to show the
 /// contribution of different categories to a total over time or across categories.
 /// They provide a filled area between the data line and a baseline (usually zero).
-/// 
+///
 /// # Color Handling
-/// 
+///
 /// In area charts, colors are typically assigned based on data categories or groups.
 /// When color encoding is used, each area will be assigned a color from the palette
 /// system to distinguish between different data series. When no explicit color
@@ -47,18 +47,18 @@ impl Default for MarkArea {
 }
 
 impl Mark for MarkArea {
-    fn mark_type(&self) -> &'static str { 
-        "area" 
+    fn mark_type(&self) -> &'static str {
+        "area"
     }
-    
+
     fn stroke(&self) -> Option<&SingleColor> {
         self.stroke.as_ref()
     }
-    
+
     fn opacity(&self) -> f64 {
         self.opacity
     }
-    
+
     fn shape(&self) -> PointShape {
         PointShape::Circle
     }

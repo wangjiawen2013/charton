@@ -15,12 +15,7 @@ fn test_rule_1() -> Result<(), Box<dyn Error>> {
     // Create a chart with rule marks
     let chart = Chart::build(&df)?
         .mark_rule()
-        .encode((
-            x("x"),
-            y("y"),
-            y2("y2"),
-            color("color"),
-        ))?
+        .encode((x("x"), y("y"), y2("y2"), color("color")))?
         .into_layered()
         .with_title("Rule Chart with Y and Y2")
         .with_x_label("X Values")

@@ -4,9 +4,14 @@ use std::error::Error;
 
 #[test]
 fn test_histogram_1() -> Result<(), Box<dyn Error>> {
-    let df = CsvReadOptions::default().with_has_header(true)
-        .try_into_reader_with_file_path(Some("./datasets/iris.csv".into()))?.finish()?;
-    let df_melted = df.unpivot(["sepal length", "sepal width", "petal length", "petal width"], ["class"])?;
+    let df = CsvReadOptions::default()
+        .with_has_header(true)
+        .try_into_reader_with_file_path(Some("./datasets/iris.csv".into()))?
+        .finish()?;
+    let df_melted = df.unpivot(
+        ["sepal length", "sepal width", "petal length", "petal width"],
+        ["class"],
+    )?;
     println!("{}", &df_melted);
 
     // Create a histogram chart
@@ -15,7 +20,7 @@ fn test_histogram_1() -> Result<(), Box<dyn Error>> {
         .encode((
             x("value"),
             y("count").with_normalize(true),
-            color("variable")
+            color("variable"),
         ))?
         .swap_axes()
         .with_hist_color(Some(SingleColor::new("steelblue")))

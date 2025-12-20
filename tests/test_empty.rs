@@ -14,7 +14,7 @@ fn test_empty_1() -> Result<(), Box<dyn Error>> {
         .mark_point()
         .encode((
             x("a").with_scale(Scale::Linear),
-            y("b").with_scale(Scale::Linear)
+            y("b").with_scale(Scale::Linear),
         ))?
         .with_point_stroke_width(1.0)
         .with_point_stroke(Some(SingleColor::new("black")))
@@ -36,12 +36,10 @@ fn test_empty_2() -> Result<(), Box<dyn Error>> {
         "a" => Vec::<f64>::new(),
         "b" => Vec::<f64>::new()
     ]?;
-    let empty_chart = Chart::build(&df_empty)?
-        .mark_point()
-        .encode((
-            x("a").with_scale(Scale::Linear),
-            y("b").with_scale(Scale::Linear)
-        ))?;
+    let empty_chart = Chart::build(&df_empty)?.mark_point().encode((
+        x("a").with_scale(Scale::Linear),
+        y("b").with_scale(Scale::Linear),
+    ))?;
 
     let df = df![
         "a" => [1.0, 2.0, 3.0, 4.0, 5.0, 6.0, 7.0, 8.0, 9.0, 10.0, 11.0, 12.0, 13.0, 14.0, 15.0, 16.0, 17.0, 18.0],
@@ -49,14 +47,10 @@ fn test_empty_2() -> Result<(), Box<dyn Error>> {
         "category" => ["A123XY", "B", "C", "D", "E", "F", "G", "H", "I", "J", "K", "L", "M", "N", "O", "P", "Q", "R"]
     ]?;
 
-
-    let point_chart = Chart::build(&df)?
-        .mark_point()
-        .encode((
-            x("a"),
-            y("b"),
-            shape("category"),
-        ))?;
+    let point_chart =
+        Chart::build(&df)?
+            .mark_point()
+            .encode((x("a"), y("b"), shape("category")))?;
 
     LayeredChart::new()
         .with_size(500, 300)

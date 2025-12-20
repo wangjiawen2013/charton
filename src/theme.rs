@@ -20,7 +20,7 @@
 ///
 /// ```
 /// use charton::theme::Theme;
-/// 
+///
 /// let theme = Theme::default();
 /// ```
 #[derive(Clone)]
@@ -35,7 +35,7 @@ pub struct Theme {
     pub(crate) label_font_family: String,
     pub(crate) label_color: String,
     pub(crate) label_angle: f64,
-    
+
     // Axis label specific padding
     pub(crate) x_label_padding: f64,
     pub(crate) y_label_padding: f64,
@@ -44,19 +44,19 @@ pub struct Theme {
     pub(crate) tick_label_font_size: u32,
     pub(crate) tick_label_font_family: String,
     pub(crate) tick_label_color: String,
-    
+
     // Tick label specific rotation angles
     pub(crate) x_tick_label_angle: f64,
     pub(crate) y_tick_label_angle: f64,
-    
+
     // Stroke properties
     pub(crate) axis_stroke_width: f64,
     pub(crate) tick_stroke_width: f64,
-    
+
     // Legend properties
     pub(crate) legend_font_size: Option<u32>,
     pub(crate) legend_font_family: Option<String>,
-    
+
     // New additions to consolidate with LayeredChart fields
     pub(crate) x_axis_padding_min: f64, // Padding axis_padding*step before x min ticks, 0.0-1.0
     pub(crate) x_axis_padding_max: f64, // Padding axis_padding*step after x max ticks, 0.0-1.0
@@ -92,7 +92,7 @@ impl Theme {
 
             legend_font_size: None,
             legend_font_family: None,
-            
+
             x_axis_padding_min: 0.2,
             x_axis_padding_max: 0.3,
             y_axis_padding_min: 0.2,

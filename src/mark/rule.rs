@@ -1,23 +1,23 @@
 use crate::visual::color::SingleColor;
 
 /// MarkRule represents a rule mark for drawing horizontal or vertical lines
-/// 
+///
 /// The `MarkRule` struct defines the visual properties of line elements used to draw
 /// horizontal or vertical rules in charts. It controls the appearance of these lines
 /// including their color, opacity, and stroke width.
-/// 
+///
 /// Rule marks are used for various purposes such as drawing reference lines, thresholds,
 /// ranges, or connecting elements in the visualization. They can be positioned using
 /// standard encoding channels and support both fixed and data-driven positioning.
-/// 
+///
 /// # Color Handling
-/// 
+///
 /// In rule charts, colors can be assigned based on data categories or groups.
-/// When color encoding is used, each rule line will be assigned a color from the 
-/// palette system to distinguish between different data series or categories. 
-/// When no explicit color encoding is provided, the `color` field in this struct 
-/// serves as the default stroke color for all rule lines. For multi-series rule charts, 
-/// different series are automatically assigned different colors from the palette 
+/// When color encoding is used, each rule line will be assigned a color from the
+/// palette system to distinguish between different data series or categories.
+/// When no explicit color encoding is provided, the `color` field in this struct
+/// serves as the default stroke color for all rule lines. For multi-series rule charts,
+/// different series are automatically assigned different colors from the palette
 /// to distinguish them.
 #[derive(Debug, Clone)]
 pub struct MarkRule {

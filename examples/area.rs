@@ -15,11 +15,7 @@ fn main() -> Result<(), Box<dyn Error>> {
         .mark_area()
         .with_area_opacity(0.3)
         .with_area_stroke(Some(SingleColor::new("black")))
-        .encode((
-            x("year"),
-            y("net_generation"),
-            color("source"),
-        ))?;
+        .encode((x("year"), y("net_generation"), color("source")))?;
 
     // Create a layered chart for the area
     LayeredChart::new()

@@ -2,7 +2,7 @@ use crate::visual::color::SingleColor;
 use std::fmt::Write;
 
 /// Renders a box plot element (box, whiskers, and outliers) into the SVG string
-/// 
+///
 /// # Parameters
 /// * `svg` - A mutable reference to the SVG string being built
 /// * `x_center` - X-coordinate of the box center
@@ -19,7 +19,7 @@ use std::fmt::Write;
 /// * `outliers` - Vector of outlier Y-coordinates
 /// * `outlier_color` - Color for outlier points
 /// * `outlier_size` - Size of outlier points
-/// 
+///
 /// # Returns
 /// Result indicating success or failure of the operation
 pub(crate) fn render_vertical_box(
@@ -44,13 +44,13 @@ pub(crate) fn render_vertical_box(
     } else {
         "none".to_string()
     };
-    
+
     let stroke_str = if let Some(color) = stroke_color {
         color.get_color()
     } else {
         "none".to_string()
     };
-    
+
     let outlier_str = if let Some(color) = outlier_color {
         color.get_color()
     } else {
@@ -67,30 +67,35 @@ pub(crate) fn render_vertical_box(
         r#"<line x1="{}" y1="{}" x2="{}" y2="{}" stroke="{}" stroke-width="{}" />"#,
         x_center, min_y, x_center, q1_y, stroke_str, stroke_width
     )?;
-    
+
     writeln!(
         svg,
         r#"<line x1="{}" y1="{}" x2="{}" y2="{}" stroke="{}" stroke-width="{}" />"#,
         x_center, q3_y, x_center, max_y, stroke_str, stroke_width
     )?;
-    
+
     // Draw box (IQR)
     let box_height = (q1_y - q3_y).abs();
     let box_y = q3_y.min(q1_y);
-    
+
     writeln!(
         svg,
         r#"<rect x="{}" y="{}" width="{}" height="{}" fill="{}" opacity="{}" stroke="{}" stroke-width="{}" />"#,
         box_left, box_y, box_width, box_height, fill_str, opacity, stroke_str, stroke_width
     )?;
-    
+
     // Draw median line
     writeln!(
         svg,
         r#"<line x1="{}" y1="{}" x2="{}" y2="{}" stroke="{}" stroke-width="{}" />"#,
-        box_left, median_y, box_right, median_y, stroke_str, stroke_width * 2.0
+        box_left,
+        median_y,
+        box_right,
+        median_y,
+        stroke_str,
+        stroke_width * 2.0
     )?;
-    
+
     // Draw outliers
     for &outlier_y in outliers {
         writeln!(
@@ -99,12 +104,12 @@ pub(crate) fn render_vertical_box(
             x_center, outlier_y, outlier_size, outlier_str, opacity
         )?;
     }
-    
+
     Ok(())
 }
 
 /// Renders a horizontal box plot element into the SVG string
-/// 
+///
 /// # Parameters
 /// * `svg` - A mutable reference to the SVG string being built
 /// * `y_center` - Y-coordinate of the box center
@@ -121,7 +126,7 @@ pub(crate) fn render_vertical_box(
 /// * `outliers` - Vector of outlier X-coordinates
 /// * `outlier_color` - Color for outlier points
 /// * `outlier_size` - Size of outlier points
-/// 
+///
 /// # Returns
 /// Result indicating success or failure of the operation
 pub(crate) fn render_horizontal_box(
@@ -146,13 +151,13 @@ pub(crate) fn render_horizontal_box(
     } else {
         "none".to_string()
     };
-    
+
     let stroke_str = if let Some(color) = stroke_color {
         color.get_color()
     } else {
         "none".to_string()
     };
-    
+
     let outlier_str = if let Some(color) = outlier_color {
         color.get_color()
     } else {
@@ -169,30 +174,35 @@ pub(crate) fn render_horizontal_box(
         r#"<line x1="{}" y1="{}" x2="{}" y2="{}" stroke="{}" stroke-width="{}" />"#,
         min_x, y_center, q1_x, y_center, stroke_str, stroke_width
     )?;
-    
+
     writeln!(
         svg,
         r#"<line x1="{}" y1="{}" x2="{}" y2="{}" stroke="{}" stroke-width="{}" />"#,
         q3_x, y_center, max_x, y_center, stroke_str, stroke_width
     )?;
-    
+
     // Draw box (IQR)
     let box_width = (q3_x - q1_x).abs();
     let box_x = q1_x.min(q3_x);
-    
+
     writeln!(
         svg,
         r#"<rect x="{}" y="{}" width="{}" height="{}" fill="{}" opacity="{}" stroke="{}" stroke-width="{}" />"#,
         box_x, box_top, box_width, box_height, fill_str, opacity, stroke_str, stroke_width
     )?;
-    
+
     // Draw median line
     writeln!(
         svg,
         r#"<line x1="{}" y1="{}" x2="{}" y2="{}" stroke="{}" stroke-width="{}" />"#,
-        median_x, box_top, median_x, box_bottom, stroke_str, stroke_width * 2.0
+        median_x,
+        box_top,
+        median_x,
+        box_bottom,
+        stroke_str,
+        stroke_width * 2.0
     )?;
-    
+
     // Draw outliers
     for &outlier_x in outliers {
         writeln!(
@@ -201,6 +211,6 @@ pub(crate) fn render_horizontal_box(
             outlier_x, y_center, outlier_size, outlier_str, opacity
         )?;
     }
-    
+
     Ok(())
 }

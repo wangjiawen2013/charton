@@ -16,7 +16,7 @@ fn test_scatter_1() -> Result<(), Box<dyn Error>> {
         .mark_point()
         .encode((
             x("a").with_scale(Scale::Linear),
-            y("b").with_scale(Scale::Linear)
+            y("b").with_scale(Scale::Linear),
         ))?
         .with_point_stroke_width(1.0)
         .with_point_stroke(Some(SingleColor::new("black")))
@@ -40,14 +40,12 @@ fn test_scatter_2() -> Result<(), Box<dyn Error>> {
         "category" => ["A123XY", "B", "C", "D", "E", "F", "G", "H", "I", "J", "K", "L", "M", "N", "O", "P", "Q", "R"]
     ]?;
 
-    let point_chart = Chart::build(&df)?
-        .mark_point()
-        .encode((
-            x("a"),
-            y("b"),
-            shape("category"),
-            //color("category"),
-        ))?;
+    let point_chart = Chart::build(&df)?.mark_point().encode((
+        x("a"),
+        y("b"),
+        shape("category"),
+        //color("category"),
+    ))?;
 
     LayeredChart::new()
         .with_size(500, 300)
@@ -67,11 +65,7 @@ fn test_scatter_3() -> Result<(), Box<dyn Error>> {
 
     let point_chart = Chart::build(&df)?
         .mark_point()
-        .encode((
-            x("a"),
-            y("b"),
-            color("Origin"),
-        ))?;
+        .encode((x("a"), y("b"), color("Origin")))?;
 
     LayeredChart::new()
         .with_size(500, 300)
@@ -94,11 +88,7 @@ fn test_scatter_4() -> Result<(), Box<dyn Error>> {
 
     let point_chart = Chart::build(&df)?
         .mark_point()
-        .encode((
-            x("a"),
-            y("b"),
-            color("Origin"),
-        ))?;
+        .encode((x("a"), y("b"), color("Origin")))?;
 
     LayeredChart::new()
         .with_size(500, 300)
@@ -121,11 +111,7 @@ fn test_scatter_5() -> Result<(), Box<dyn Error>> {
 
     let point_chart = Chart::build(&df)?
         .mark_point()
-        .encode((
-            x("a"),
-            y("b"),
-            color("Origin"),
-        ))?
+        .encode((x("a"), y("b"), color("Origin")))?
         .swap_axes();
 
     LayeredChart::new()
@@ -155,11 +141,7 @@ fn test_scatter_6() -> Result<(), Box<dyn Error>> {
 
     let point_chart = Chart::build(&df)?
         .mark_point()
-        .encode((
-            x("a"),
-            y("b"),
-            color("Origin"),
-        ))?;
+        .encode((x("a"), y("b"), color("Origin")))?;
 
     LayeredChart::new()
         .with_size(500, 400)
@@ -182,17 +164,15 @@ fn test_scatter_7() -> Result<(), Box<dyn Error>> {
         "confidence" => [0.9, 0.7, 0.8, 0.6, 0.95, 0.85, 0.75, 0.88, 0.72, 0.92]
     ]?;
 
-    let point_chart = Chart::build(&df)?
-        .mark_point()
-        .encode((
-            x("a"),
-            y("b"),
-            //shape("category"),
-            //size("value"),
-            //fill("category"),
-            //opacity("confidence"),
-            color("category")
-        ))?;
+    let point_chart = Chart::build(&df)?.mark_point().encode((
+        x("a"),
+        y("b"),
+        //shape("category"),
+        //size("value"),
+        //fill("category"),
+        //opacity("confidence"),
+        color("category"),
+    ))?;
 
     LayeredChart::new()
         .with_size(500, 300)
@@ -212,12 +192,10 @@ fn test_scatter_8() -> Result<(), Box<dyn Error>> {
         "population" => [100000.0, 500000.0, 2000000.0, 10000000.0, 50000000.0]
     ]?;
 
-    let point_chart = Chart::build(&df)?
-        .mark_point()
-        .encode((
-            x("population"),
-            y("gdp").with_scale(Scale::Log)  // Use logarithmic scale for GDP
-        ))?;
+    let point_chart = Chart::build(&df)?.mark_point().encode((
+        x("population"),
+        y("gdp").with_scale(Scale::Log), // Use logarithmic scale for GDP
+    ))?;
 
     LayeredChart::new()
         .with_size(500, 400)
@@ -237,10 +215,10 @@ fn test_scatter_9() -> Result<(), Box<dyn Error>> {
 
     // Create a point chart using the new API
     let point_chart = Chart::build(&df)?
-        .mark_point()  // This is the correct method name
+        .mark_point() // This is the correct method name
         .encode((
-            x("department"),  // Discrete categorical data on x-axis
-            y("salary")  // Continuous numerical data on y-axis
+            x("department"), // Discrete categorical data on x-axis
+            y("salary"),     // Continuous numerical data on y-axis
         ))?;
 
     // Create a layered chart and add the point chart as a layer
@@ -263,14 +241,12 @@ fn test_scatter_10() -> Result<(), Box<dyn Error>> {
     ]?;
 
     // Create a chart with color encoding using the continuous variable
-    let chart = Chart::build(&df)?
-        .mark_point()
-        .encode((
-            x("a"),
-            y("b"),
-            color("value"),  // This will trigger the colorbar instead of discrete legend
-            size("value"),  // This will trigger the colorbar instead of discrete legend
-        ))?;
+    let chart = Chart::build(&df)?.mark_point().encode((
+        x("a"),
+        y("b"),
+        color("value"), // This will trigger the colorbar instead of discrete legend
+        size("value"),  // This will trigger the colorbar instead of discrete legend
+    ))?;
 
     LayeredChart::new()
         .with_size(500, 300)
@@ -291,15 +267,13 @@ fn test_scatter_11() -> Result<(), Box<dyn Error>> {
     ]?;
 
     // Create a chart with shape encoding using the categorical variable
-    let chart = Chart::build(&df)?
-        .mark_point()
-        .encode((
-            x("a"),
-            y("b"),
-            //size("x"),
-            shape("category"),  // This will trigger the shape legend
-            color("category"),  // This will trigger the shape legend
-        ))?;
+    let chart = Chart::build(&df)?.mark_point().encode((
+        x("a"),
+        y("b"),
+        //size("x"),
+        shape("category"), // This will trigger the shape legend
+        color("category"), // This will trigger the shape legend
+    ))?;
 
     LayeredChart::new()
         .with_size(500, 300)
@@ -321,11 +295,7 @@ fn test_scatter_12() -> Result<(), Box<dyn Error>> {
     // Create a point chart with only x, y, and color encodings
     let chart = Chart::build(&df)?
         .mark_point()
-        .encode((
-            x("a"),
-            y("b"),
-            color("category"),
-        ))?;
+        .encode((x("a"), y("b"), color("category")))?;
 
     LayeredChart::new()
         .with_size(500, 300)
@@ -345,13 +315,10 @@ fn test_scatter_13() -> Result<(), Box<dyn Error>> {
     ]?;
 
     // Create a chart with explicit tick values using the new API
-    let point_chart = Chart::build(&df)?
-        .mark_point()
-        .encode((
-            x("category"),
-            y("b"),
-            color("category"),
-        ))?;
+    let point_chart =
+        Chart::build(&df)?
+            .mark_point()
+            .encode((x("category"), y("b"), color("category")))?;
 
     // Create a layered chart and add the point chart as a layer
     LayeredChart::new()
@@ -362,7 +329,7 @@ fn test_scatter_13() -> Result<(), Box<dyn Error>> {
         //.with_x_tick_values(vec![1.0, 2.0, 3.0, 4.0, 5.0])
         .with_x_tick_labels(vec!["A", "D", "F"])
         .with_y_label("B Values")
-        .with_y_tick_values(vec![0.0, 10.1,5.0,])
+        .with_y_tick_values(vec![0.0, 10.1, 5.0])
         .save("./tests/scatter_13.svg")?;
 
     Ok(())
@@ -376,13 +343,9 @@ fn test_scatter_14() -> Result<(), Box<dyn Error>> {
         "Origin" => ["USA", "USA", "Europe", "Japan"],
     ]?;
 
-Chart::build(&df)?
+    Chart::build(&df)?
         .mark_point()
-        .encode((
-            x("a"),
-            y("b"),
-            color("Origin"),
-        ))?
+        .encode((x("a"), y("b"), color("Origin")))?
         .into_layered()
         .save("./tests/scatter_14.svg")?;
 

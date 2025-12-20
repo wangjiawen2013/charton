@@ -1,8 +1,8 @@
 use crate::chart::common::{Chart, SharedRenderingContext};
-use crate::render::constants::render_constants::SPACING;
-use crate::theme::Theme;
 use crate::error::ChartonError;
 use crate::mark::Mark;
+use crate::render::constants::render_constants::SPACING;
+use crate::theme::Theme;
 use std::fmt::Write;
 
 // Renders a size legend for continuous size scales
@@ -20,7 +20,7 @@ pub(crate) fn render_size_legend<T: Mark>(
 
     let size_series = chart.data.column(&size_enc.field)?;
     let scale_type = crate::data::determine_scale_for_dtype(size_series.dtype());
-    
+
     // Only render size legend for continuous scales
     match scale_type {
         crate::coord::Scale::Discrete => return Ok(()),
@@ -36,10 +36,10 @@ pub(crate) fn render_size_legend<T: Mark>(
     // Size legend dimensions and positioning
     let legend_width = 20.0;
     let legend_x = draw_x0 + plot_w + SPACING; // Add small padding
-    
+
     // Calculate the height that matches the y-axis
     let legend_height = plot_h;
-    
+
     // Use 45% of the axis height for the size legend + title
     let legend_section_height = legend_height * 0.45;
     // Leave some space for the title
@@ -52,7 +52,10 @@ pub(crate) fn render_size_legend<T: Mark>(
     // Render size legend title
     let title = &size_enc.field;
     let font_size = theme.legend_font_size.unwrap_or(theme.label_font_size);
-    let font_family = theme.legend_font_family.as_deref().unwrap_or(&theme.label_font_family);
+    let font_family = theme
+        .legend_font_family
+        .as_deref()
+        .unwrap_or(&theme.label_font_family);
 
     // Position title
     writeln!(
@@ -71,27 +74,31 @@ pub(crate) fn render_size_legend<T: Mark>(
     // Get min and max values for size mapping
     let min_val = size_series.min::<f64>()?.unwrap();
     let max_val = size_series.max::<f64>()?.unwrap();
-    
+
     // Define reference sizes for the legend (five equally spaced points)
     let reference_sizes = vec![
-        (0.00, min_val + (max_val - min_val) * 0.00, 2.0),   // Minimum size
-        (0.25, min_val + (max_val - min_val) * 0.25, 4.0),   // 25% size
-        (0.50, min_val + (max_val - min_val) * 0.50, 6.0),   // 50% size
-        (0.75, min_val + (max_val - min_val) * 0.75, 8.0),  // 75% size
-        (1.00, min_val + (max_val - min_val) * 1.00, 10.0),  // Maximum size
+        (0.00, min_val + (max_val - min_val) * 0.00, 2.0), // Minimum size
+        (0.25, min_val + (max_val - min_val) * 0.25, 4.0), // 25% size
+        (0.50, min_val + (max_val - min_val) * 0.50, 6.0), // 50% size
+        (0.75, min_val + (max_val - min_val) * 0.75, 8.0), // 75% size
+        (1.00, min_val + (max_val - min_val) * 1.00, 10.0), // Maximum size
     ];
-    
+
     let tick_length = 2.0;
     let tick_font_size = theme.tick_label_font_size;
     let tick_font_family = &theme.tick_label_font_family;
     let tick_color = &theme.tick_label_color;
 
     // Draw reference point (using default color and shape, but no fill)
-    let point_stroke = chart.mark.as_ref()
+    let point_stroke = chart
+        .mark
+        .as_ref()
         .and_then(|point_mark| point_mark.stroke().cloned())
         .unwrap_or_else(|| crate::visual::color::SingleColor::new("black"));
-    
-    let point_shape = chart.mark.as_ref()
+
+    let point_shape = chart
+        .mark
+        .as_ref()
         .map(|point_mark| point_mark.shape())
         .unwrap_or(crate::visual::shape::PointShape::Circle);
 
@@ -99,7 +106,7 @@ pub(crate) fn render_size_legend<T: Mark>(
     for (i, (_ratio, value, size)) in reference_sizes.iter().enumerate() {
         let spacing_factor = (actual_legend_height / (reference_sizes.len() - 1) as f64) - 2.0;
         let y_pos = legend_start_y + i as f64 * spacing_factor;
-        
+
         // Draw tick lines pointing inward from both sides
         writeln!(
             svg,
@@ -109,7 +116,7 @@ pub(crate) fn render_size_legend<T: Mark>(
             legend_x + tick_length,
             y_pos
         )?;
-        
+
         writeln!(
             svg,
             r#"<line x1="{}" y1="{}" x2="{}" y2="{}" stroke="white" stroke-width="1"/>"#,
@@ -118,7 +125,7 @@ pub(crate) fn render_size_legend<T: Mark>(
             legend_x + legend_width,
             y_pos
         )?;
-        
+
         // Render point with no fill by using None for fill_color
         crate::render::point_renderer::render_point(
             svg,
@@ -129,9 +136,9 @@ pub(crate) fn render_size_legend<T: Mark>(
             *size,
             1.0,
             &Some(point_stroke.clone()),
-            1.0
+            1.0,
         )?;
-        
+
         // Draw tick label
         writeln!(
             svg,

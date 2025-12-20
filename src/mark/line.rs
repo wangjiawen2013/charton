@@ -3,24 +3,24 @@ use crate::render::line_renderer::PathInterpolation;
 use crate::visual::color::SingleColor;
 
 /// Mark type for line charts
-/// 
+///
 /// The `MarkLine` struct defines the visual properties of line elements used in
 /// line charts and time series visualizations. It controls the appearance of lines
 /// including their color, stroke width, opacity, and optional LOESS smoothing.
-/// 
+///
 /// Line marks are used to display trends and patterns in data over continuous
 /// intervals or time periods. They connect individual data points to show the
 /// overall shape of the data distribution and can be enhanced with smoothing
 /// algorithms for better visualization of underlying patterns.
-/// 
+///
 /// # Color Handling
-/// 
+///
 /// In line charts, colors can be assigned based on data categories or groups.
-/// When color encoding is used, each line will be assigned a color from the 
-/// palette system to distinguish between different data series or categories. 
-/// When no explicit color encoding is provided, the `color` field in this struct 
-/// serves as the default stroke color for all lines. For multi-series line charts, 
-/// different series are automatically assigned different colors from the palette 
+/// When color encoding is used, each line will be assigned a color from the
+/// palette system to distinguish between different data series or categories.
+/// When no explicit color encoding is provided, the `color` field in this struct
+/// serves as the default stroke color for all lines. For multi-series line charts,
+/// different series are automatically assigned different colors from the palette
 /// to distinguish them.
 #[derive(Clone)]
 pub struct MarkLine {
@@ -57,6 +57,8 @@ impl Default for MarkLine {
     }
 }
 
-impl Mark for MarkLine { 
-    fn mark_type(&self) -> &'static str { "line" } 
+impl Mark for MarkLine {
+    fn mark_type(&self) -> &'static str {
+        "line"
+    }
 }

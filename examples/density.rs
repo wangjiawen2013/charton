@@ -29,13 +29,10 @@ fn main() -> Result<(), Box<dyn Error>> {
         .transform_density(
             DensityTransform::new("IMDB_Rating")
                 .with_as("IMDB_Rating", "cumulative_density")
-                .with_cumulative(true)
+                .with_cumulative(true),
         )?
         .mark_area()
-        .encode((
-            x("IMDB_Rating"),
-            y("cumulative_density")
-        ))?
+        .encode((x("IMDB_Rating"), y("cumulative_density")))?
         .with_area_color(Some(SingleColor::new("purple")))
         .with_area_opacity(0.3);
 

@@ -21,7 +21,8 @@ fn test_bar_1() -> Result<(), Box<dyn Error>> {
             x("Month"),
             y("Revenue").with_normalize(true).with_stack(true),
             color("Region"),
-        ))?.swap_axes();
+        ))?
+        .swap_axes();
 
     // Create a layered chart for colored bars
     LayeredChart::new()
