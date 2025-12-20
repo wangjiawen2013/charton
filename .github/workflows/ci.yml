@@ -1,0 +1,56 @@
+# The name of the workflow as it appears in the GitHub Actions tab
+name: Rust CI
+
+# Define the events that trigger this workflow
+on:
+  # Run the workflow whenever code is pushed to the 'main' branch
+  push:
+    branches: [ "main" ]
+  # Run the workflow whenever a Pull Request is opened or updated against 'main'
+  pull_request:
+    branches: [ "main" ]
+
+# Set global environment variables
+env:
+  # Force Cargo to use colored output in the GitHub logs for better readability
+  CARGO_TERM_COLOR: always
+
+jobs:
+  # A single job named 'build_and_test'
+  build_and_test:
+    name: Build and Test
+    # The virtual machine environment (Ubuntu Linux is the fastest and most common)
+    runs-on: ubuntu-latest
+
+    steps:
+      # Step 1: Clone the repository into the runner's workspace
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      # Step 2: Install the Rust toolchain
+      # We use 'dtolnay/rust-toolchain' for a reliable and fast setup
+      - name: Set up Rust
+        uses: dtolnay/rust-toolchain@stable
+        with:
+          # Install components needed for code quality checks
+          components: clippy, rustfmt
+
+      # Step 3: Verify code style
+      # 'cargo fmt' ensures the code adheres to the standard Rust style
+      - name: Check formatting
+        run: cargo fmt --all -- --check
+
+      # Step 4: Compile the project
+      # Checking if the project builds correctly is the first line of defense
+      - name: Build
+        run: cargo build --verbose
+
+      # Step 5: Execute all unit and integration tests
+      # This ensures your logic (like the theta aggregation) works as expected
+      - name: Run tests
+        run: cargo test --verbose
+
+      # Step 6: Static analysis using Clippy
+      # '-D warnings' treats all warnings as errors to keep the codebase clean
+      - name: Lint with Clippy
+        run: cargo clippy -- -D warnings
