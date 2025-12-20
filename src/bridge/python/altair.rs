@@ -302,6 +302,7 @@ mod tests {
     use super::*;
     use crate::data;
     #[test]
+    #[ignore = "Requires Python environment with altair"]
     fn build_works() -> Result<(), ChartonError> {
         let df1 = df![
             "a" => [1, 2],
@@ -329,6 +330,7 @@ mod tests {
     }
 
     #[test]
+    #[ignore = "Requires Python environment with altair"]
     fn with_exe_path_works() -> Result<(), ChartonError> {
         let df1 = df![
             "a" => [1, 2],
@@ -342,6 +344,7 @@ mod tests {
     }
 
     #[test]
+    #[ignore = "Requires Python environment with altair"]
     fn generate_full_plotting_code_works() -> Result<(), ChartonError> {
         let df1 = df![
             "a" => [1, 2],
@@ -390,6 +393,7 @@ print(__charton_temp_svg_fm_n9jh3)
     }
 
     #[test]
+    #[ignore = "Requires Python environment with altair"]
     fn show_works() -> Result<(), ChartonError> {
         let exe_path = r"D:\Programs\miniconda3\envs\cellpy\python.exe";
         let df1 = df![
