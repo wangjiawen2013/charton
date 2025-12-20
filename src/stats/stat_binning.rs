@@ -41,9 +41,9 @@ pub(crate) fn cut(series: &Series, bins: &[f64], labels: &[String]) -> Series {
 /// assert_eq!(find_bin(1.0, bins), 1);  // Falls in [1.0, 2.0)
 /// assert_eq!(find_bin(3.0, bins), 2);  // Equals right edge, falls in [2.0, 3.0]
 /// ```
-
-// `bins` must be sorted. If `value == bins.last()`, it goes to the last bin.
+///
 fn find_bin(value: f64, bins: &[f64]) -> usize {
+    // `bins` must be sorted. If `value == bins.last()`, it goes to the last bin.
     // Search using iterator windows of size 2: (bins[i], bins[i+1])
     if let Some(index) = bins.windows(2).position(|w| value >= w[0] && value < w[1]) {
         return index;

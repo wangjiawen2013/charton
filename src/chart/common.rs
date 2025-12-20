@@ -20,7 +20,7 @@ use std::fmt::Write;
 /// including coordinate mappers, drawing dimensions, and chart configuration.
 /// The context is shared among all layers of a chart to ensure consistent
 /// rendering and coordinate mapping.
-
+///
 // This struct is for shared rendering context, map x/y to horizontal/vertical pixels using x/y mapper
 pub struct SharedRenderingContext<'a> {
     pub(crate) x_mapper: &'a dyn Fn(f64) -> f64,
@@ -974,7 +974,7 @@ where
                     (available_vertical_space / ITEM_HEIGHT).floor() as usize;
 
                 // Ensure we have at least one item per column and respect the maximum items per column
-                let max_items_per_column = max_items_per_column.max(1).min(MAX_ITEMS_PER_COLUMN);
+                let max_items_per_column = max_items_per_column.clamp(1, MAX_ITEMS_PER_COLUMN);
 
                 let total_items = unique.len();
                 let columns_needed =
@@ -1026,7 +1026,7 @@ where
             let max_items_per_column = (available_vertical_space / ITEM_HEIGHT).floor() as usize;
 
             // Ensure we have at least one item per column and respect the maximum items per column
-            let max_items_per_column = max_items_per_column.max(1).min(MAX_ITEMS_PER_COLUMN);
+            let max_items_per_column = max_items_per_column.clamp(1, MAX_ITEMS_PER_COLUMN);
 
             let total_items = unique_shapes.len();
             let columns_needed =
@@ -1627,7 +1627,7 @@ impl LayeredChart {
     /// # Arguments
     ///
     /// * `labels` - A vector of strings or values that can be converted to strings,
-    ///              specifying the labels for each tick position
+    /// specifying the labels for each tick position
     ///
     /// # Returns
     ///
@@ -1791,7 +1791,7 @@ impl LayeredChart {
     /// # Arguments
     ///
     /// * `labels` - A vector of strings or values that can be converted to strings,
-    ///              specifying the labels for each tick position
+    /// specifying the labels for each tick position
     ///
     /// # Returns
     ///
@@ -2535,22 +2535,21 @@ impl LayeredChart {
         };
 
         // Create proper mappers based on the coordinate system and chart properties
-        let (x_mapper, y_mapper): (Box<dyn Fn(f64) -> f64>, Box<dyn Fn(f64) -> f64>) =
-            if swapped_axes {
-                // When axes are swapped, x maps to vertical pixels and y maps to horizontal pixels
-                let x_mapper: Box<dyn Fn(f64) -> f64> =
-                    Box::new(coord_system.x_data_to_vertical_pixels(draw_y0, plot_h));
-                let y_mapper: Box<dyn Fn(f64) -> f64> =
-                    Box::new(coord_system.y_data_to_horizontal_pixels(draw_x0, plot_w));
-                (x_mapper, y_mapper)
-            } else {
-                // Normal orientation: x maps to horizontal pixels and y maps to vertical pixels
-                let x_mapper: Box<dyn Fn(f64) -> f64> =
-                    Box::new(coord_system.x_data_to_horizontal_pixels(draw_x0, plot_w));
-                let y_mapper: Box<dyn Fn(f64) -> f64> =
-                    Box::new(coord_system.y_data_to_vertical_pixels(draw_y0, plot_h));
-                (x_mapper, y_mapper)
-            };
+        let (x_mapper, y_mapper) = if swapped_axes {
+            // When axes are swapped, x maps to vertical pixels and y maps to horizontal pixels
+            let x_mapper: Box<dyn Fn(f64) -> f64> =
+                Box::new(coord_system.x_data_to_vertical_pixels(draw_y0, plot_h));
+            let y_mapper: Box<dyn Fn(f64) -> f64> =
+                Box::new(coord_system.y_data_to_horizontal_pixels(draw_x0, plot_w));
+            (x_mapper, y_mapper)
+        } else {
+            // Normal orientation: x maps to horizontal pixels and y maps to vertical pixels
+            let x_mapper: Box<dyn Fn(f64) -> f64> =
+                Box::new(coord_system.x_data_to_horizontal_pixels(draw_x0, plot_w));
+            let y_mapper: Box<dyn Fn(f64) -> f64> =
+                Box::new(coord_system.y_data_to_vertical_pixels(draw_y0, plot_h));
+            (x_mapper, y_mapper)
+        };
 
         // Create context for rendering with proper mappers
         let context = SharedRenderingContext {
