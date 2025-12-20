@@ -1,5 +1,5 @@
-use thiserror::Error;
 use polars::prelude::PolarsError;
+use thiserror::Error;
 
 /// The main error type for the charton crate.
 ///

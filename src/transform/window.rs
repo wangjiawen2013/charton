@@ -1,11 +1,11 @@
 use crate::chart::common::Chart;
-use crate::mark::Mark;
 use crate::error::ChartonError;
+use crate::mark::Mark;
 use polars::prelude::*;
 use uuid::Uuid;
 
 /// Window-specific operations for computing window functions
-/// 
+///
 /// These operations are used in window transformations to calculate
 /// various statistics and rankings within sliding windows of data.
 /// They correspond to window functions commonly found in SQL and data analysis.
@@ -62,7 +62,7 @@ impl std::fmt::Display for WindowOnlyOp {
 }
 
 /// Definition of a window field operation
-/// 
+///
 /// This struct specifies which field to operate on, what window operation to apply,
 /// and what to name the resulting column.
 #[derive(Debug, Clone)]
@@ -77,15 +77,15 @@ pub struct WindowFieldDef {
 
 impl WindowFieldDef {
     /// Creates a new `WindowFieldDef` instance
-    /// 
+    ///
     /// # Parameters
     /// * `field` - The name of the data field to apply the window operation to
     /// * `op` - The window operation to apply
     /// * `as_` - The name for the output column that will contain the result of the window operation
-    /// 
+    ///
     /// # Returns
     /// A new `WindowFieldDef` instance with the specified parameters
-    /// 
+    ///
     /// # Example
     /// ```
     /// let window_field = WindowFieldDef::new("sales", WindowOnlyOp::Rank, "sales_rank");
@@ -100,7 +100,7 @@ impl WindowFieldDef {
 }
 
 /// Configuration parameters for window transformation
-/// 
+///
 /// This struct encapsulates all the settings needed to perform window operations
 /// on data, including the window field definition, frame specification, grouping,
 /// and various options for output formatting.
@@ -120,17 +120,17 @@ pub struct WindowTransform {
 
 impl WindowTransform {
     /// Create a new WindowTransform with the specified window operation
-    /// 
+    ///
     /// # Parameters
     /// * `window` - The window field definition specifying the field, operation, and output name
-    /// 
+    ///
     /// # Returns
     /// A new `WindowTransform` instance with default settings:
     /// - Frame: [None, Some(0.0)] (unbounded preceding to current row)
     /// - No grouping
     /// - ignore_peers: false
     /// - normalize: false
-    /// 
+    ///
     /// # Example
     /// ```
     /// let window_field = WindowFieldDef::new("value", WindowOnlyOp::Rank, "value_rank");
@@ -145,16 +145,16 @@ impl WindowTransform {
             normalize: false,
         }
     }
-    
+
     /// Set the frame specification
-    /// 
+    ///
     /// # Parameters
-    /// * `frame` - A two-element array where the first element is the lower bound and 
+    /// * `frame` - A two-element array where the first element is the lower bound and
     ///             the second element is the upper bound of the window frame
-    /// 
+    ///
     /// # Returns
     /// The modified `WindowTransform` instance with the updated frame setting
-    /// 
+    ///
     /// # Example
     /// ```
     /// let window_transform = window_transform.with_frame([Some(-5.0), Some(5.0)]); // Window includes 5 rows before and after
@@ -163,15 +163,15 @@ impl WindowTransform {
         self.frame = frame;
         self
     }
-    
+
     /// Set the groupby field
-    /// 
+    ///
     /// # Parameters
     /// * `groupby` - The name of the column to group by, with separate window calculations for each group
-    /// 
+    ///
     /// # Returns
     /// The modified `WindowTransform` instance with the updated groupby setting
-    /// 
+    ///
     /// # Example
     /// ```
     /// let window_transform = window_transform.with_groupby("category");
@@ -180,15 +180,15 @@ impl WindowTransform {
         self.groupby = Some(groupby.into());
         self
     }
-    
+
     /// Set the ignore_peers flag
-    /// 
+    ///
     /// # Parameters
     /// * `ignore_peers` - If true, the window frame will ignore peer values (values that are equal when sorted)
-    /// 
+    ///
     /// # Returns
     /// The modified `WindowTransform` instance with the updated ignore_peers setting
-    /// 
+    ///
     /// # Example
     /// ```
     /// let window_transform = window_transform.with_ignore_peers(true);
@@ -199,13 +199,13 @@ impl WindowTransform {
     }
 
     /// Set the normalize flag
-    /// 
+    ///
     /// # Parameters
     /// * `normalize` - If true, normalize the cumulative frequency to the range [0,1] in each group
-    /// 
+    ///
     /// # Returns
     /// The modified `WindowTransform` instance with the updated normalize setting
-    /// 
+    ///
     /// # Example
     /// ```
     /// let window_transform = window_transform.with_normalize(true);
@@ -218,22 +218,22 @@ impl WindowTransform {
 
 impl<T: Mark> Chart<T> {
     /// Transform data by performing window operations
-    /// 
+    ///
     /// This method computes window functions on the data, such as cumulative distribution,
     /// ranking, or lag/lead operations. The computation can be grouped by a specified field
     /// and configured with various window parameters.
-    /// 
+    ///
     /// # Parameters
     /// * `params` - A `WindowTransform` configuration object specifying the window operation details
-    /// 
+    ///
     /// # Returns
     /// * `Result<Self, ChartonError>` - The chart with transformed window data or an error if the transformation fails
-    /// 
+    ///
     /// # Example
     /// ```
     /// let window_field = WindowFieldDef::new("value", WindowOnlyOp::CumeDist, "cumulative_dist");
     /// let window_params = WindowTransform::new(window_field).with_groupby("category");
-    /// 
+    ///
     /// chart.transform_window(window_params)?;
     /// ```
     pub fn transform_window(mut self, params: WindowTransform) -> Result<Self, ChartonError> {
@@ -244,7 +244,8 @@ impl<T: Mark> Chart<T> {
         let normalize = params.normalize;
 
         // Determine the group field name once to avoid duplication code
-        let group_field_name = params.groupby
+        let group_field_name = params
+            .groupby
             .clone()
             .unwrap_or_else(|| format!("__charton_temp_group_{}", Uuid::now_v7().hyphenated()));
 
@@ -254,8 +255,12 @@ impl<T: Mark> Chart<T> {
             self.data.df.select([field_name, group_field])?
         } else {
             // Create a temp grouping column with a single group
-            let temp_group_series = Series::new((&group_field_name).into(), vec!["temp"; self.data.df.height()]);
-            self.data.df
+            let temp_group_series = Series::new(
+                (&group_field_name).into(),
+                vec!["temp"; self.data.df.height()],
+            );
+            self.data
+                .df
                 .select([field_name])?
                 .with_column(temp_group_series)?
                 .clone()
@@ -265,9 +270,14 @@ impl<T: Mark> Chart<T> {
         match window_op {
             WindowOnlyOp::CumeDist => {
                 // Use uuid as column name to avoid column name conflicts
-                let cumulative_freq_col = format!("__charton_temp_cumulative_freq_{}", Uuid::now_v7().hyphenated());
-                let total_freq_col = format!("__charton_temp_total_freq_{}", Uuid::now_v7().hyphenated());
-                let group_order_col = format!("__charton_temp_group_order_{}", Uuid::now_v7().hyphenated());
+                let cumulative_freq_col = format!(
+                    "__charton_temp_cumulative_freq_{}",
+                    Uuid::now_v7().hyphenated()
+                );
+                let total_freq_col =
+                    format!("__charton_temp_total_freq_{}", Uuid::now_v7().hyphenated());
+                let group_order_col =
+                    format!("__charton_temp_group_order_{}", Uuid::now_v7().hyphenated());
 
                 // Compute original group appearance order
                 let group_order_df = working_df
@@ -280,19 +290,17 @@ impl<T: Mark> Chart<T> {
                 // Compute cumulative frequency per group (optionally normalized)
                 let mut dataset = working_df
                     .lazy()
-                    .with_columns([
-                        as_struct(vec![col(field_name)])
-                            .rank(
-                                RankOptions {
-                                    method: RankMethod::Max,   // Take maximum rank when tied
-                                    descending: false,         // The smallest value gets rank = 1, otherwise the largest value gets rank = 1
-                                },
-                                None,
-                            )
-                            .over([col(&group_field_name)]) // Rank within groups
-                            .cast(DataType::Float64)
-                            .alias(&cumulative_freq_col),
-                    ])
+                    .with_columns([as_struct(vec![col(field_name)])
+                        .rank(
+                            RankOptions {
+                                method: RankMethod::Max, // Take maximum rank when tied
+                                descending: false, // The smallest value gets rank = 1, otherwise the largest value gets rank = 1
+                            },
+                            None,
+                        )
+                        .over([col(&group_field_name)]) // Rank within groups
+                        .cast(DataType::Float64)
+                        .alias(&cumulative_freq_col)])
                     // Join group order back
                     .join(
                         group_order_df,
@@ -303,67 +311,63 @@ impl<T: Mark> Chart<T> {
                     // Sort: first by group appearance order, then by field ascending within groups
                     .sort_by_exprs(
                         &[col(&group_order_col), col(field_name)],
-                        SortMultipleOptions::default().with_order_descending_multi(vec![false, false]),
+                        SortMultipleOptions::default()
+                            .with_order_descending_multi(vec![false, false]),
                     )
                     .drop([group_order_col]) // Drop temporary column after use
                     // Deduplicate: keep only first occurrence of cumulative frequency within each group
                     .unique_stable(
-                        Some(vec![group_field_name.clone().into(), cumulative_freq_col.clone().into()]),
+                        Some(vec![
+                            group_field_name.clone().into(),
+                            cumulative_freq_col.clone().into(),
+                        ]),
                         UniqueKeepStrategy::First,
                     );
 
                 // Compute total frequency per group
-                let total_frequency_per_group = dataset.clone()
+                let total_frequency_per_group = dataset
+                    .clone()
                     .group_by([col(&group_field_name)])
-                    .agg([
-                        col(&cumulative_freq_col)
-                            .max()
-                            .alias(&total_freq_col)
-                    ]);
+                    .agg([col(&cumulative_freq_col).max().alias(&total_freq_col)]);
 
                 // Join the total frequency back to the main dataset
                 dataset = dataset.join(
                     total_frequency_per_group,
                     [col(&group_field_name)],
                     [col(&group_field_name)],
-                    JoinArgs::new(JoinType::Left)
+                    JoinArgs::new(JoinType::Left),
                 );
 
                 // Conditionally normalize cumulative frequency
                 // Using `when().then().otherwise()` keeps it within the lazy pipeline
-                let dataset = dataset.with_columns([
-                    when(lit(normalize))
-                        .then(
-                            col(&cumulative_freq_col) / col(&total_freq_col)
-                        )
-                        .otherwise(col(&cumulative_freq_col))
-                        .alias(output_field_name)  // Use output_field_name as final column name
-                ])
-                // Drop temporary columns to clean up the final result
-                .drop([cumulative_freq_col, total_freq_col]);
+                let dataset = dataset
+                    .with_columns([
+                        when(lit(normalize))
+                            .then(col(&cumulative_freq_col) / col(&total_freq_col))
+                            .otherwise(col(&cumulative_freq_col))
+                            .alias(output_field_name), // Use output_field_name as final column name
+                    ])
+                    // Drop temporary columns to clean up the final result
+                    .drop([cumulative_freq_col, total_freq_col]);
 
                 self.data.df = dataset.collect()?;
-
-            },
+            }
             WindowOnlyOp::RowNumber => {
                 // Add row number column using Polars' lazy API with grouping
-            },
+            }
             _ => {
                 return Err(ChartonError::Unimplemented(format!(
-                    "Window operation {:?} is not yet implemented", 
+                    "Window operation {:?} is not yet implemented",
                     window_op
                 )));
             }
         }
-        
+
         // If no real groupby was specified, remove the temp group column
         if params.groupby.is_none() {
-            self.data.df = self.data.df
-                .lazy()
-                .drop([group_field_name])
-                .collect()?;
+            self.data.df = self.data.df.lazy().drop([group_field_name]).collect()?;
         }
-        
+
         Ok(self)
     }
 }

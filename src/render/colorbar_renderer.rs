@@ -1,8 +1,8 @@
 use crate::chart::common::{Chart, SharedRenderingContext};
-use crate::theme::Theme;
-use crate::mark::Mark;
 use crate::error::ChartonError;
+use crate::mark::Mark;
 use crate::render::constants::render_constants::SPACING;
+use crate::theme::Theme;
 use std::fmt::Write;
 
 // Renders a colorbar for continuous color scales
@@ -20,7 +20,7 @@ pub(crate) fn render_colorbar<T: Mark>(
 
     let color_series = chart.data.column(&color_enc.field)?;
     let scale_type = crate::data::determine_scale_for_dtype(color_series.dtype());
-    
+
     // Only render colorbar for continuous scales
     match scale_type {
         crate::coord::Scale::Discrete => return Ok(()),
@@ -36,10 +36,10 @@ pub(crate) fn render_colorbar<T: Mark>(
     // Colorbar dimensions and positioning
     let colorbar_width = 20.0;
     let colorbar_x = draw_x0 + plot_w + SPACING;
-    
+
     // Calculate the height that matches the y-axis regardless of swapped axes
     let colorbar_height = plot_h;
-    
+
     // Use 40% of the axis height for the colorbar + title
     let colorbar_section_height = colorbar_height * 0.4;
     // Leave some space for the colorbar title
@@ -52,7 +52,10 @@ pub(crate) fn render_colorbar<T: Mark>(
     // Render colorbar title
     let title = &color_enc.field;
     let font_size = theme.legend_font_size.unwrap_or(theme.label_font_size);
-    let font_family = theme.legend_font_family.as_deref().unwrap_or(&theme.label_font_family);
+    let font_family = theme
+        .legend_font_family
+        .as_deref()
+        .unwrap_or(&theme.label_font_family);
 
     // Position title at the top of the colorbar section (adjusted for new title height)
     writeln!(
@@ -70,11 +73,15 @@ pub(crate) fn render_colorbar<T: Mark>(
 
     // Render colorbar gradient
     let gradient_id = format!("colorbar-gradient-{}", title.replace(" ", "-"));
-    
+
     writeln!(svg, r#"<defs>"#)?;
     // We want high values at the top and low values at the bottom
-    writeln!(svg, r#"  <linearGradient id="{}" x1="0" y1="0" x2="0" y2="1">"#, gradient_id)?;
-    
+    writeln!(
+        svg,
+        r#"  <linearGradient id="{}" x1="0" y1="0" x2="0" y2="1">"#,
+        gradient_id
+    )?;
+
     // Generate gradient stops based on the colormap - but in reverse order
     let steps = 10;
     for i in 0..=steps {
@@ -88,29 +95,22 @@ pub(crate) fn render_colorbar<T: Mark>(
             color
         )?;
     }
-    
+
     writeln!(svg, r#"  </linearGradient>"#)?;
     writeln!(svg, r#"</defs>"#)?;
-    
+
     // Draw the colorbar rectangle with gradient fill
     writeln!(
         svg,
         r#"<rect x="{}" y="{}" width="{}" height="{}" fill="url('#{}')"/>"#,
-        colorbar_x,
-        colorbar_start_y,
-        colorbar_width,
-        actual_colorbar_height,
-        gradient_id
+        colorbar_x, colorbar_start_y, colorbar_width, actual_colorbar_height, gradient_id
     )?;
 
     // Draw border around colorbar
     writeln!(
         svg,
         r#"<rect x="{}" y="{}" width="{}" height="{}" fill="none" stroke="black" stroke-width="1"/>"#,
-        colorbar_x,
-        colorbar_start_y,
-        colorbar_width,
-        actual_colorbar_height
+        colorbar_x, colorbar_start_y, colorbar_width, actual_colorbar_height
     )?;
 
     // Get min and max values for ticks
@@ -122,17 +122,17 @@ pub(crate) fn render_colorbar<T: Mark>(
         (0.15, min_val + (max_val - min_val) * 0.85), // 15% position
         (0.40, min_val + (max_val - min_val) * 0.60), // 40% position
         (0.65, min_val + (max_val - min_val) * 0.35), // 65% position
-        (0.90, min_val + (max_val - min_val) * 0.10)  // 90% position
+        (0.90, min_val + (max_val - min_val) * 0.10), // 90% position
     ];
-    
+
     let tick_length = 4.0; // Extend ticks inward
     let tick_font_size = theme.tick_label_font_size;
     let tick_font_family = &theme.tick_label_font_family;
     let tick_color = &theme.tick_label_color;
-    
+
     for (ratio, value) in tick_positions {
         let y_pos = colorbar_start_y + actual_colorbar_height * ratio;
-        
+
         // Draw tick lines pointing inward from both sides
         writeln!(
             svg,
@@ -142,7 +142,7 @@ pub(crate) fn render_colorbar<T: Mark>(
             colorbar_x + tick_length,
             y_pos
         )?;
-        
+
         writeln!(
             svg,
             r#"<line x1="{}" y1="{}" x2="{}" y2="{}" stroke="white" stroke-width="1"/>"#,
@@ -151,7 +151,7 @@ pub(crate) fn render_colorbar<T: Mark>(
             colorbar_x + colorbar_width,
             y_pos
         )?;
-        
+
         // Draw tick label
         writeln!(
             svg,

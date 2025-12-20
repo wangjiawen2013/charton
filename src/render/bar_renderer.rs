@@ -2,7 +2,7 @@ use crate::visual::color::SingleColor;
 use std::fmt::Write;
 
 /// Renders a vertical bar into the SVG string
-/// 
+///
 /// # Parameters
 /// * `svg` - A mutable reference to the SVG string being built
 /// * `x_center` - X-coordinate of the bar center
@@ -13,7 +13,7 @@ use std::fmt::Write;
 /// * `stroke_color` - Stroke color for the bar
 /// * `stroke_width` - Width of the stroke
 /// * `opacity` - Opacity level (0.0 to 1.0)
-/// 
+///
 /// # Returns
 /// Result indicating success or failure of the operation
 pub(crate) fn render_vertical_bar(
@@ -29,32 +29,32 @@ pub(crate) fn render_vertical_bar(
 ) -> std::fmt::Result {
     // Calculate bar edges based on the center position
     let x_left = x_center - width / 2.0;
-    
+
     // Determine the top and bottom of the bar
     let (y_top, y_bottom) = if y_value < y_zero {
         (y_value, y_zero)
     } else {
         (y_zero, y_value)
     };
-    
+
     // Calculate dimensions
     let rect_width = width;
     let rect_height = (y_bottom - y_top).abs();
-    
+
     // Determine fill color
     let fill_str = if let Some(color) = fill_color {
         color.get_color()
     } else {
         "none".to_string()
     };
-    
+
     // Determine stroke
     let stroke_str = if let Some(color) = stroke_color {
         color.get_color()
     } else {
         "none".to_string()
     };
-    
+
     // Add the rectangle to the SVG
     writeln!(
         svg,
@@ -64,7 +64,7 @@ pub(crate) fn render_vertical_bar(
 }
 
 /// Renders a horizontal bar into the SVG string
-/// 
+///
 /// # Parameters
 /// * `svg` - A mutable reference to the SVG string being built
 /// * `x_zero` - X-coordinate of the zero line
@@ -75,7 +75,7 @@ pub(crate) fn render_vertical_bar(
 /// * `stroke_color` - Stroke color for the bar
 /// * `stroke_width` - Width of the stroke
 /// * `opacity` - Opacity level (0.0 to 1.0)
-/// 
+///
 /// # Returns
 /// Result indicating success or failure of the operation
 pub(crate) fn render_horizontal_bar(
@@ -91,32 +91,32 @@ pub(crate) fn render_horizontal_bar(
 ) -> std::fmt::Result {
     // Calculate bar edges based on the center position
     let y_top = y_center - height / 2.0;
-    
+
     // Determine the left and right of the bar
     let (x_left, x_right) = if x_value < x_zero {
         (x_value, x_zero)
     } else {
         (x_zero, x_value)
     };
-    
+
     // Calculate dimensions
     let rect_width = (x_right - x_left).abs();
     let rect_height = height;
-    
+
     // Determine fill color
     let fill_str = if let Some(color) = fill_color {
         color.get_color()
     } else {
         "none".to_string()
     };
-    
+
     // Determine stroke
     let stroke_str = if let Some(color) = stroke_color {
         color.get_color()
     } else {
         "none".to_string()
     };
-    
+
     // Add the rectangle to the SVG
     writeln!(
         svg,

@@ -10,11 +10,7 @@ fn main() -> Result<(), Box<dyn Error>> {
 
     Chart::build(&df)?
         .mark_point()
-        .encode((
-            x("wt"),
-            y("mpg"),
-            color("gear"),
-        ))?
+        .encode((x("wt"), y("mpg"), color("gear")))?
         .into_layered()
         .save("./examples/scatter_chart.svg")?;
 

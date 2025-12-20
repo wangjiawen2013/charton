@@ -7,7 +7,7 @@ fn main() -> Result<(), Box<dyn Error>> {
     let df = df![
         "a" => [1],
         "b" => [2],
-    ]?;  // A toy dataset
+    ]?; // A toy dataset
 
     let raw_plotting_code = r#"
 import matplotlib.pyplot as plt
@@ -46,6 +46,6 @@ ax1.set_title('tripcolor of Delaunay triangulation, flat shading')
         .with_exe_path(exe_path)?
         .with_plotting_code(raw_plotting_code)
         .save("./examples/matplotlib.png")?;
-    
+
     Ok(())
 }

@@ -11,10 +11,10 @@ fn main() -> Result<(), Box<dyn Error>> {
 
     // Create pie chart
     let pie_chart = Chart::build(&df)?
-        .mark_arc()  // Use arc mark for pie charts
+        .mark_arc() // Use arc mark for pie charts
         .encode((
-            theta("value"),  // theta encoding for pie slices
-            color("category"),  // color encoding for different segments
+            theta("value"),    // theta encoding for pie slices
+            color("category"), // color encoding for different segments
         ))?
         .with_inner_radius_ratio(0.5); // Creates a donut chart
 

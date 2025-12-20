@@ -1,5 +1,5 @@
-use crate::error::ChartonError;
 use crate::coord::Scale;
+use crate::error::ChartonError;
 
 #[derive(Debug, Clone)]
 pub(crate) struct Tick {
@@ -17,9 +17,9 @@ pub(crate) struct Axis {
     pub(crate) label: String,
     pub(crate) scale: Scale,
     // Used for mapping (x_mapper and y_mapper)
-    pub(crate) automatic_ticks: Ticks, 
+    pub(crate) automatic_ticks: Ticks,
     // Used for rendering
-    pub(crate) explicit_ticks: Ticks, 
+    pub(crate) explicit_ticks: Ticks,
 }
 
 impl Axis {
@@ -38,13 +38,16 @@ impl Axis {
             .map(|(position, label)| Tick { position, label })
             .collect();
         self.explicit_ticks = Ticks {
-            ticks: tick_objects
+            ticks: tick_objects,
         };
 
         self
     }
 
-    pub(crate) fn compute_discrete_ticks(&mut self, labels: Vec<String>) -> Result<(), ChartonError> {
+    pub(crate) fn compute_discrete_ticks(
+        &mut self,
+        labels: Vec<String>,
+    ) -> Result<(), ChartonError> {
         let ticks: Vec<Tick> = labels
             .into_iter()
             .enumerate()
@@ -61,7 +64,12 @@ impl Axis {
         Ok(())
     }
 
-    pub(crate) fn compute_continuous_ticks(&mut self, min: f64, max: f64, pixels: u32) -> Result<(), ChartonError> {
+    pub(crate) fn compute_continuous_ticks(
+        &mut self,
+        min: f64,
+        max: f64,
+        pixels: u32,
+    ) -> Result<(), ChartonError> {
         // Approximately 1 tick per 70 pixels, with a minimum of 2 ticks
         let max_ticks = (pixels / 70).max(2);
         self.automatic_ticks = self.compute_ticks(min, max, max_ticks as usize, &self.scale)?;
@@ -78,7 +86,7 @@ impl Axis {
     ) -> Result<Ticks, ChartonError> {
         let mut tick_values: Vec<f64> = Vec::new();
         let max_ticks_f64 = max_ticks.max(2) as f64;
-        
+
         // Floating point tolerance factor
         const EPSILON_FACTOR: f64 = 1e-9;
         // Maximum iterations to prevent infinite loops
@@ -88,37 +96,49 @@ impl Axis {
         if !min.is_finite() || !max.is_finite() {
             return Err(ChartonError::Data("Invalid min/max values".to_string()));
         }
-        
+
         if min > max {
-            return Err(ChartonError::Data("Min value must be less than or equal to max value".to_string()));
+            return Err(ChartonError::Data(
+                "Min value must be less than or equal to max value".to_string(),
+            ));
         }
 
         match scale {
             Scale::Linear => {
                 let range = max - min;
-                
+
                 if range.abs() < 1e-12 {
                     // Extremely small or zero range: special handling
                     let magnitude = 10f64.powf(min.abs().log10().floor().max(0.0));
                     let step = if magnitude > 1e-12 { magnitude } else { 1.0 };
-                    
+
                     // Ensure at least two ticks for mapping
                     let start = (min / step).floor() * step;
                     tick_values.push(start);
-                    tick_values.push(start + step); 
+                    tick_values.push(start + step);
                 } else {
                     // 1. Determine "nice" step size
                     let rough_step = range / max_ticks_f64;
                     let exp = 10f64.powf(rough_step.log10().floor());
                     let f = rough_step / exp;
                     // Nice numbers: 1, 2, 5, 10
-                    let nice = if f < 1.5 { 1.0 } else if f < 3.0 { 2.0 } else if f < 7.0 { 5.0 } else { 10.0 };
+                    let nice = if f < 1.5 {
+                        1.0
+                    } else if f < 3.0 {
+                        2.0
+                    } else if f < 7.0 {
+                        5.0
+                    } else {
+                        10.0
+                    };
                     let step = nice * exp;
                     let tolerance = step * EPSILON_FACTOR;
 
                     // Validate step to prevent infinite loops
                     if step <= 0.0 || !step.is_finite() {
-                        return Err(ChartonError::Data("Invalid step size calculated".to_string()));
+                        return Err(ChartonError::Data(
+                            "Invalid step size calculated".to_string(),
+                        ));
                     }
 
                     // 2. Determine nice start and end tick values (ensuring min and max are covered)
@@ -130,7 +150,7 @@ impl Axis {
                     if end - step >= max + tolerance && (end - step).abs() > tolerance {
                         end -= step;
                     }
-                    
+
                     // Try to tighten start: if start+step is still covered by min, then tighten start
                     if start + step <= min - tolerance && (start + step).abs() > tolerance {
                         start += step;
@@ -139,45 +159,51 @@ impl Axis {
                     // 4. Generate tick values
                     let mut pos = start;
                     let mut iterations = 0;
-                    
+
                     while pos <= end + tolerance && iterations < MAX_ITERATIONS {
                         // Reduce floating point noise
                         let rounded = (pos / tolerance).round() * tolerance;
-                        
+
                         // Avoid duplicates
-                        if tick_values.last().map_or(true, |&p| (p - rounded).abs() > tolerance) {
+                        if tick_values
+                            .last()
+                            .map_or(true, |&p| (p - rounded).abs() > tolerance)
+                        {
                             tick_values.push(rounded);
                         }
-                        
+
                         let old_pos = pos;
                         pos += step;
                         iterations += 1;
-                        
+
                         // Break if no progress or invalid value
                         if (pos - old_pos).abs() < tolerance * 0.1 || !pos.is_finite() {
                             break;
                         }
                     }
-                    
+
                     // If after tightening we have only one tick, restore to non-tightened range
                     if tick_values.len() <= 1 {
                         tick_values.clear();
                         start = (min / step).floor() * step;
                         end = (max / step).ceil() * step;
-                        
+
                         let mut pos = start;
                         let mut iterations = 0;
-                        
+
                         while pos <= end + tolerance && iterations < MAX_ITERATIONS {
                             let rounded = (pos / tolerance).round() * tolerance;
-                            if tick_values.last().map_or(true, |&p| (p - rounded).abs() > tolerance) {
+                            if tick_values
+                                .last()
+                                .map_or(true, |&p| (p - rounded).abs() > tolerance)
+                            {
                                 tick_values.push(rounded);
                             }
-                            
+
                             let old_pos = pos;
                             pos += step;
                             iterations += 1;
-                            
+
                             // Break if no progress or invalid value
                             if (pos - old_pos).abs() < tolerance * 0.1 || !pos.is_finite() {
                                 break;
@@ -188,49 +214,57 @@ impl Axis {
             }
             Scale::Log => {
                 if min <= 0.0 {
-                    return Err(ChartonError::Data("Log scale requires positive values".to_string()));
+                    return Err(ChartonError::Data(
+                        "Log scale requires positive values".to_string(),
+                    ));
                 }
-                
+
                 // Validate log inputs
                 if !min.is_finite() || !max.is_finite() {
-                    return Err(ChartonError::Data("Invalid values for log scale".to_string()));
+                    return Err(ChartonError::Data(
+                        "Invalid values for log scale".to_string(),
+                    ));
                 }
-                
+
                 // Traditional Log Scale: major ticks are powers of 10
                 let log_min = min.log10();
                 let log_max = max.log10();
-                let major_step = 1.0; 
-                
+                let major_step = 1.0;
+
                 // Protect against invalid log values
                 if !log_min.is_finite() || !log_max.is_finite() {
-                    return Err(ChartonError::Data("Invalid log values calculated".to_string()));
+                    return Err(ChartonError::Data(
+                        "Invalid log values calculated".to_string(),
+                    ));
                 }
-                
+
                 let log_start = log_min.floor();
                 let log_end = log_max.ceil();
-                
+
                 let mut pos = log_start;
                 let tolerance = 1e-9;
                 let mut iterations = 0;
-                
+
                 while pos <= log_end + tolerance && iterations < MAX_ITERATIONS {
                     // Insert major tick (10^N)
                     tick_values.push(pos);
                     pos += major_step;
                     iterations += 1;
                 }
-                
+
                 // Add minor ticks (10^N * 2, 3, 5 etc.) based on max ticks and range
                 // Only add minor ticks when range is small (e.g., less than 3 decades)
                 if log_end - log_start < max_ticks_f64 / 3.0 {
                     let mut extra_ticks: Vec<f64> = Vec::new();
                     // Consider 2 and 5 as important minor ticks
-                    let minor_steps = [2.0f64.log10(), 5.0f64.log10()]; 
-                    
+                    let minor_steps = [2.0f64.log10(), 5.0f64.log10()];
+
                     for &log_v in tick_values.iter() {
                         for &minor_log_step in minor_steps.iter() {
                             let minor_log_pos = log_v + minor_log_step;
-                            if minor_log_pos > log_min - tolerance && minor_log_pos < log_max + tolerance {
+                            if minor_log_pos > log_min - tolerance
+                                && minor_log_pos < log_max + tolerance
+                            {
                                 extra_ticks.push(minor_log_pos);
                             }
                         }
@@ -241,7 +275,9 @@ impl Axis {
                 }
             }
             Scale::Discrete => {
-                return Err(ChartonError::Scale("Cannot compute continuous ticks for discrete scale.".to_string()));
+                return Err(ChartonError::Scale(
+                    "Cannot compute continuous ticks for discrete scale.".to_string(),
+                ));
             }
         }
 
@@ -255,7 +291,9 @@ impl Axis {
         let step_for_dec = if tick_values.len() >= 2 {
             // Calculate step in data space
             if *scale == Scale::Log {
-                (10f64.powf(tick_values[1]) - 10f64.powf(tick_values[0])).abs().max(1e-30)
+                (10f64.powf(tick_values[1]) - 10f64.powf(tick_values[0]))
+                    .abs()
+                    .max(1e-30)
             } else {
                 (tick_values[1] - tick_values[0]).abs().max(1e-30)
             }
@@ -264,7 +302,7 @@ impl Axis {
             let refv = min.abs().max(1.0);
             (refv * 0.1).max(1e-30)
         };
-        
+
         let step_in_data_space = step_for_dec;
 
         let decimals = if use_sci {
@@ -285,23 +323,31 @@ impl Axis {
                         // For Log scale, convert back to data space from log space
                         let data_value = 10f64.powf(v);
                         // Fix negative zero issue
-                        let formatted_data_value = if data_value.abs() < 1e-12 { 0.0 } else { data_value };
-                        
+                        let formatted_data_value = if data_value.abs() < 1e-12 {
+                            0.0
+                        } else {
+                            data_value
+                        };
+
                         if use_sci {
                             format!("{:.1e}", formatted_data_value)
                         } else {
                             // If it's a major tick (power of 10), display as integer
-                            if (formatted_data_value.log10().round() as f64 - formatted_data_value.log10()).abs() < 1e-9 {
+                            if (formatted_data_value.log10().round() as f64
+                                - formatted_data_value.log10())
+                            .abs()
+                                < 1e-9
+                            {
                                 format!("{:.0}", formatted_data_value)
                             } else {
                                 format!("{:.prec$}", formatted_data_value, prec = decimals)
                             }
                         }
-                    },
+                    }
                     _ => {
                         // For Linear scale, use the value directly
                         let formatted_value = if v.abs() < 1e-12 { 0.0 } else { v };
-                        
+
                         if use_sci {
                             format!("{:.1e}", formatted_value)
                         } else {

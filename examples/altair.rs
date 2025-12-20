@@ -29,6 +29,6 @@ chart = alt.Chart(iris).mark_circle().encode(
         .with_exe_path(exe_path)?
         .with_plotting_code(raw_plotting_code)
         .save("./examples/altair.svg")?;
-    
+
     Ok(())
 }

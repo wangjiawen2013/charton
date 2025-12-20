@@ -24,6 +24,6 @@ chart = alt.Chart(df1).mark_point().encode(
         .with_exe_path(exe_path)?
         .with_plotting_code(raw_plotting_code)
         .save("./tests/altair_1.svg")?;
-    
+
     Ok(())
 }

@@ -62,23 +62,27 @@ pub(crate) fn render_line(
     writeln!(
         svg,
         r#"<path d="{}" fill="none" stroke="{}" stroke-width="{}" opacity="{}" stroke-linejoin="round" stroke-linecap="round"/>"#,
-        path_data,
-        color_str,
-        stroke_width,
-        opacity
+        path_data, color_str, stroke_width, opacity
     )
 }
 
-
 // Generate SVG path data for linear interpolation
 fn generate_linear_path(points: &[(f64, f64)]) -> String {
-    let mut path = format!("M {} {}", format_coordinate(points[0].0), format_coordinate(points[0].1));
+    let mut path = format!(
+        "M {} {}",
+        format_coordinate(points[0].0),
+        format_coordinate(points[0].1)
+    );
     let mut prev_point = points[0];
-    
+
     for &point in &points[1..] {
         // Skip duplicate consecutive points in case of duplicated start or end points
         if point != prev_point {
-            path.push_str(&format!(" L {} {}", format_coordinate(point.0), format_coordinate(point.1)));
+            path.push_str(&format!(
+                " L {} {}",
+                format_coordinate(point.0),
+                format_coordinate(point.1)
+            ));
             prev_point = point;
         }
     }
@@ -87,13 +91,21 @@ fn generate_linear_path(points: &[(f64, f64)]) -> String {
 
 // Generate SVG path data for step-after interpolation (appropriate for ECDF)
 fn generate_step_after_path(points: &[(f64, f64)]) -> String {
-    let mut path = format!("M {} {}", format_coordinate(points[0].0), format_coordinate(points[0].1));
+    let mut path = format!(
+        "M {} {}",
+        format_coordinate(points[0].0),
+        format_coordinate(points[0].1)
+    );
     let mut prev_point = points[0];
-    
+
     for &point in &points[1..] {
         // Skip duplicate consecutive points in case of duplicated start or end points
         if point != prev_point {
-            path.push_str(&format!(" H {} V {}", format_coordinate(point.0), format_coordinate(point.1)));
+            path.push_str(&format!(
+                " H {} V {}",
+                format_coordinate(point.0),
+                format_coordinate(point.1)
+            ));
             prev_point = point;
         }
     }
@@ -102,13 +114,21 @@ fn generate_step_after_path(points: &[(f64, f64)]) -> String {
 
 // Generate SVG path data for step-before interpolation
 fn generate_step_before_path(points: &[(f64, f64)]) -> String {
-    let mut path = format!("M {} {}", format_coordinate(points[0].0), format_coordinate(points[0].1));
+    let mut path = format!(
+        "M {} {}",
+        format_coordinate(points[0].0),
+        format_coordinate(points[0].1)
+    );
     let mut prev_point = points[0];
-    
+
     for &point in &points[1..] {
         // Skip duplicate consecutive points in case of duplicated start or end points
         if point != prev_point {
-            path.push_str(&format!(" V {} H {}", format_coordinate(point.1), format_coordinate(point.0)));
+            path.push_str(&format!(
+                " V {} H {}",
+                format_coordinate(point.1),
+                format_coordinate(point.0)
+            ));
             prev_point = point;
         }
     }

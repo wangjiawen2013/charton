@@ -1,16 +1,16 @@
-use crate::error::ChartonError;
-use crate::chart::common::{Chart, SharedRenderingContext};
 use super::data_processor::ProcessedChartData;
-use polars::prelude::*;
+use crate::chart::common::{Chart, SharedRenderingContext};
+use crate::error::ChartonError;
 use crate::mark::histogram::MarkHist;
-use crate::visual::color::SingleColor;
-use crate::theme::Theme;
 use crate::render::color_legend_renderer;
+use crate::theme::Theme;
+use crate::visual::color::SingleColor;
+use polars::prelude::*;
 
 // Implementation specific to MarkHist with additional methods
 impl Chart<MarkHist> {
     /// Create a new histogram mark chart
-    /// 
+    ///
     /// This method initializes a `Chart` instance with a `MarkHist` marker to enable
     /// rendering of histogram charts. It sets up the basic structure required for
     /// histogram visualization.
@@ -20,11 +20,11 @@ impl Chart<MarkHist> {
     }
 
     /// Set the fill color for histogram bars
-    /// 
+    ///
     /// Configures the interior color of the histogram bars. When `None` is provided,
     /// the system will use default coloring or palette-based colors if color encoding
     /// is applied.
-    /// 
+    ///
     /// # Arguments
     /// * `color` - Optional `SingleColor` specifying the fill color for bars
     pub fn with_hist_color(mut self, color: Option<SingleColor>) -> Self {
@@ -35,10 +35,10 @@ impl Chart<MarkHist> {
     }
 
     /// Set the opacity for histogram bars
-    /// 
+    ///
     /// Controls the transparency level of the histogram bars. Values range from 0.0
     /// (completely transparent) to 1.0 (completely opaque).
-    /// 
+    ///
     /// # Arguments
     /// * `opacity` - A `f64` value between 0.0 and 1.0 representing the opacity level
     pub fn with_hist_opacity(mut self, opacity: f64) -> Self {
@@ -49,10 +49,10 @@ impl Chart<MarkHist> {
     }
 
     /// Set the stroke color for histogram bars
-    /// 
+    ///
     /// Defines the outline color of the histogram bars. When `None` is provided,
     /// no stroke will be rendered around the bars.
-    /// 
+    ///
     /// # Arguments
     /// * `stroke` - Optional `SingleColor` specifying the stroke color for bar outlines
     pub fn with_hist_stroke(mut self, stroke: Option<SingleColor>) -> Self {
@@ -63,10 +63,10 @@ impl Chart<MarkHist> {
     }
 
     /// Set the stroke width for histogram bars
-    /// 
+    ///
     /// Specifies the thickness of the bar outlines in pixels. Larger values create
     /// thicker borders around the histogram bars.
-    /// 
+    ///
     /// # Arguments
     /// * `stroke_width` - A `f64` value representing the stroke width in pixels
     pub fn with_hist_stroke_width(mut self, stroke_width: f64) -> Self {
@@ -77,13 +77,18 @@ impl Chart<MarkHist> {
     }
 
     // Render histogram with support for color encoding (grouped histogram)
-    fn render_histogram(&self, svg: &mut String, context: &SharedRenderingContext) -> Result<(), ChartonError> {
+    fn render_histogram(
+        &self,
+        svg: &mut String,
+        context: &SharedRenderingContext,
+    ) -> Result<(), ChartonError> {
         // Process chart data using shared processor
         let processed_data = ProcessedChartData::new(self, context.coord_system)?;
-        
+
         // Extract the mark hist from Option
-        let mark = self.mark.as_ref()
-            .ok_or_else(|| ChartonError::Internal("Mark should exist when rendering histograms".to_string()))?;
+        let mark = self.mark.as_ref().ok_or_else(|| {
+            ChartonError::Internal("Mark should exist when rendering histograms".to_string())
+        })?;
 
         // Get unique values to avoid duplicates from color encoding
         let series = Series::new("x_vals".into(), processed_data.x_transformed_vals.clone());
@@ -100,11 +105,11 @@ impl Chart<MarkHist> {
         } else {
             1.0 // Default width if we only have one unique value or no values
         };
-                
+
         let base_position = (context.x_mapper)(0.0);
         let bar_width_position = (context.x_mapper)(bar_width_data);
         let bar_width_pixels = (bar_width_position - base_position).abs();
-        
+
         // Ensure we have a minimum bar width
         let bar_width_pixels = if bar_width_pixels < 1e-6 {
             10.0 // Default to 10 pixels if calculation fails
@@ -122,33 +127,37 @@ impl Chart<MarkHist> {
             let default_colors: Vec<&str> = vec!["group"; len];
             Series::new("color".into(), default_colors)
         };
-        
+
         // Use Polars' group_by functionality to get indices for each group
         let str_series = color_series.str()?;
         // Create a DataFrame with indices and color values for grouping
         let indices: Vec<u32> = (0..str_series.len() as u32).collect();
         let indices_series = Series::new("index".into(), &indices);
         let color_series_named = str_series.clone().with_name("color".into());
-        
-        let temp_df = DataFrame::new(vec![indices_series.into(), color_series_named.into_series().into()])?;
+
+        let temp_df = DataFrame::new(vec![
+            indices_series.into(),
+            color_series_named.into_series().into(),
+        ])?;
         // Group order is the same as unique (ordered by their first appearance)
         let groups = temp_df.partition_by_stable(["color"], true)?;
-        
+
         // Extract group names and their corresponding indices
         let mut group_data: Vec<(String, Vec<usize>)> = Vec::new();
         for group_df in groups {
             let color_col = group_df.column("color")?;
             let color_val = color_col.str()?.get(0).unwrap().to_string();
-            
+
             let index_col = group_df.column("index")?;
-            let indices: Vec<usize> = index_col.u32()?
+            let indices: Vec<usize> = index_col
+                .u32()?
                 .into_no_null_iter()
                 .map(|i| i as usize)
                 .collect();
-            
+
             group_data.push((color_val, indices));
         }
-        
+
         // Render bars for each color group
         for (group_index, (_group_name, indices)) in group_data.iter().enumerate() {
             // Determine color for this group
@@ -158,19 +167,19 @@ impl Chart<MarkHist> {
             } else {
                 mark.color.clone()
             };
-            
+
             // Render all bars that belong to this color group
             for &i in indices {
                 let x_val = processed_data.x_transformed_vals[i];
                 let y_val = processed_data.y_transformed_vals[i];
-                
+
                 match !self.swapped_axes {
                     true => {
                         // Vertical histogram: x is bin value, y is count
                         let x_center = (context.x_mapper)(x_val);
                         let y_zero = (context.y_mapper)(0.0);
                         let y_value = (context.y_mapper)(y_val);
-                        
+
                         // Render the bar using the histogram renderer
                         crate::render::hist_renderer::render_vertical_histogram_bar(
                             svg,
@@ -183,13 +192,13 @@ impl Chart<MarkHist> {
                             mark.stroke_width,
                             mark.opacity,
                         )?;
-                    },
+                    }
                     false => {
                         // Horizontal histogram: y is bin value, x is count
                         let x_zero = (context.y_mapper)(0.0);
                         let x_value = (context.y_mapper)(y_val); // Note: for horizontal, count is in x direction
                         let y_center = (context.x_mapper)(x_val); // Note: for horizontal, bin value is in y direction
-                        
+
                         // Render the bar using the histogram renderer
                         crate::render::hist_renderer::render_horizontal_histogram_bar(
                             svg,
@@ -213,19 +222,23 @@ impl Chart<MarkHist> {
 
 // Implementation of MarkRenderer for Chart<MarkHist>
 impl crate::chart::common::MarkRenderer for Chart<MarkHist> {
-    fn render_marks(&self, svg: &mut String, context: &SharedRenderingContext) -> Result<(), ChartonError> {
+    fn render_marks(
+        &self,
+        svg: &mut String,
+        context: &SharedRenderingContext,
+    ) -> Result<(), ChartonError> {
         self.render_histogram(svg, context)
     }
 }
 
 impl crate::chart::common::LegendRenderer for Chart<MarkHist> {
-    fn render_legends(&self, svg: &mut String, theme: &Theme, context: &SharedRenderingContext) -> Result<(), ChartonError> {
-        color_legend_renderer::render_color_legend(
-            svg,
-            self,
-            theme,
-            context
-        )?;
+    fn render_legends(
+        &self,
+        svg: &mut String,
+        theme: &Theme,
+        context: &SharedRenderingContext,
+    ) -> Result<(), ChartonError> {
+        color_legend_renderer::render_color_legend(svg, self, theme, context)?;
 
         Ok(())
     }

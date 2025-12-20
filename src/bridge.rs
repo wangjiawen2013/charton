@@ -3,10 +3,10 @@ mod python;
 mod r;
 
 pub mod base {
-    use polars::prelude::{DataFrame, LazyFrame, ParquetReader, SerReader};
-    use serde::{Serialize, Deserialize};
-    use std::marker::PhantomData;
     use crate::error::ChartonError;
+    use polars::prelude::{DataFrame, LazyFrame, ParquetReader, SerReader};
+    use serde::{Deserialize, Serialize};
+    use std::marker::PhantomData;
 
     /// A container that associates a name with a DataFrame value.
     ///
@@ -14,8 +14,8 @@ pub mod base {
     /// exchange between Rust and other language environments. It is primarily used for
     /// passing data to visualization libraries through the bridge system.
     ///
-    /// The struct derives `Serialize` and `Deserialize` traits, allowing it to be 
-    /// easily converted to and from various data formats (like JSON) when communicating 
+    /// The struct derives `Serialize` and `Deserialize` traits, allowing it to be
+    /// easily converted to and from various data formats (like JSON) when communicating
     /// with external systems.
     ///
     /// # Fields
@@ -33,7 +33,7 @@ pub mod base {
     /// This struct wraps a serialized string representation of data along with its string name,
     /// It is primarily used for storing serialized data from `InputData`.
     ///
-    /// The struct derives `Serialize` and `Deserialize` traits, allowing it to be 
+    /// The struct derives `Serialize` and `Deserialize` traits, allowing it to be
     /// easily converted to and from various data formats when communicating with external systems.
     ///
     /// # Fields
@@ -48,11 +48,11 @@ pub mod base {
 
     impl InputData {
         /// Creates a new InputData instance with a custom name
-        /// 
+        ///
         /// # Arguments
         /// * `name` - The variable name of the DataFrame
         /// * `df` - The DataFrame to wrap
-        /// 
+        ///
         /// # Returns
         /// A new InputData instance
         fn new(name: &str, df: DataFrame) -> Self {
@@ -65,7 +65,7 @@ pub mod base {
 
     impl TryFrom<(&str, &DataFrame)> for InputData {
         type Error = ChartonError;
-        
+
         fn try_from((name, df): (&str, &DataFrame)) -> Result<Self, Self::Error> {
             Ok(InputData::new(name, df.clone()))
         }
@@ -73,7 +73,7 @@ pub mod base {
 
     impl TryFrom<(&str, &LazyFrame)> for InputData {
         type Error = ChartonError;
-        
+
         fn try_from((name, lf): (&str, &LazyFrame)) -> Result<Self, Self::Error> {
             let df = lf.clone().collect()?;
             Ok(InputData::new(name, df))
@@ -82,7 +82,7 @@ pub mod base {
 
     impl TryFrom<(&str, &Vec<u8>)> for InputData {
         type Error = ChartonError;
-        
+
         /// Creates a new InputData from a name and Parquet-encoded data.
         ///
         /// This allows users to pass DataFrames serialized as Parquet data,
@@ -91,7 +91,7 @@ pub mod base {
         ///
         /// # Arguments
         /// * `name` - The variable name to associate with the DataFrame
-        /// * `parquet_data` - A reference to the vector of bytes containing 
+        /// * `parquet_data` - A reference to the vector of bytes containing
         ///                    Parquet-serialized DataFrame
         ///
         /// # Returns
@@ -140,7 +140,10 @@ pub mod base {
     #[macro_export]
     macro_rules! data {
         (&$var:ident) => {
-            <$crate::bridge::base::InputData as ::std::convert::TryFrom<_>>::try_from((stringify!($var), &$var))
+            <$crate::bridge::base::InputData as ::std::convert::TryFrom<_>>::try_from((
+                stringify!($var),
+                &$var,
+            ))
         };
     }
 
@@ -224,16 +227,19 @@ pub mod base {
             Self: Sized;
 
         /// Sets the interpreter/executable path for running the visualization code
-        /// 
+        ///
         /// # Parameters
         /// * `exe_path` - Path to the interpreter or executable that will run the visualization code
-        /// 
+        ///
         /// # Returns
         /// Self with the updated executable path
-        /// 
+        ///
         /// # Errors
         /// Returns a ChartonError if the provided path does not exist or is not executable
-        fn with_exe_path<P: AsRef<std::path::Path>>(self, exe_path: P) -> Result<Self, ChartonError>
+        fn with_exe_path<P: AsRef<std::path::Path>>(
+            self,
+            exe_path: P,
+        ) -> Result<Self, ChartonError>
         where
             Self: Sized;
 
@@ -254,7 +260,7 @@ pub mod base {
         ///
         /// This method runs the generated or provided plotting code and renders
         /// the visualization directly in a Jupyter notebook environment.
-        /// 
+        ///
         /// # Returns
         /// Result indicating success or a ChartonError if the operation fails
         fn show(&self) -> Result<(), ChartonError>;
@@ -267,7 +273,7 @@ pub mod base {
         ///
         /// # Parameters
         /// * `path` - A path-like object specifying where to save the visualization
-        /// 
+        ///
         /// # Returns
         /// Result indicating success or a ChartonError if the operation fails
         fn save<P: AsRef<std::path::Path>>(&self, path: P) -> Result<(), ChartonError>;
@@ -319,7 +325,8 @@ mod tests {
         let df = df![
             "a" => [1, 2, 3],
             "b" => [4, 5, 6]
-        ].unwrap();
+        ]
+        .unwrap();
         let result = data!(&df).unwrap();
         assert_eq!(result.name, "df");
     }

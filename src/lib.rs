@@ -7,17 +7,17 @@
 //! facilitates the creation of informative and aesthetically pleasing visualizations interactively,
 //! making it especially well-suited for exploratory data analysis.
 
-pub mod encode;
+pub mod axis;
 pub mod chart;
 pub mod coord;
 pub mod data;
-pub mod transform;
-pub mod stats;
+pub mod encode;
 pub mod error;
 pub mod mark;
-pub mod theme;
-pub mod axis;
 pub mod render;
+pub mod stats;
+pub mod theme;
+pub mod transform;
 pub mod visual;
 
 #[cfg(not(target_arch = "wasm32"))]
@@ -25,36 +25,26 @@ pub mod bridge;
 
 pub mod prelude {
     pub use crate::encode::{
-        x::x,
-        y::y,
-        y2::y2,
-        theta::theta,
-        color::color,
-        shape::shape,
-        size::size,
-        opacity::opacity,
-        stroke::stroke,
-        stroke_width::stroke_width,
-        text::text,
-        encoding::Encoding,
+        color::color, encoding::Encoding, opacity::opacity, shape::shape, size::size,
+        stroke::stroke, stroke_width::stroke_width, text::text, theta::theta, x::x, y::y, y2::y2,
     };
 
     pub use crate::chart::common::{Chart, LayeredChart};
-    pub use crate::data::{DataFrameSource, load_dataset};
     pub use crate::coord::Scale;
+    pub use crate::data::{DataFrameSource, load_dataset};
 
     pub use crate::transform::{
-        density::{DensityTransform, BandwidthType, KernelType},
-        window::{WindowTransform, WindowOnlyOp, WindowFieldDef},
+        density::{BandwidthType, DensityTransform, KernelType},
+        window::{WindowFieldDef, WindowOnlyOp, WindowTransform},
     };
 
     pub use crate::render::line_renderer::PathInterpolation;
-    pub use crate::visual::color::{SingleColor, ColorMap, ColorPalette};
-    pub use crate::visual::shape::PointShape;
     pub use crate::theme::Theme;
+    pub use crate::visual::color::{ColorMap, ColorPalette, SingleColor};
+    pub use crate::visual::shape::PointShape;
 
     #[cfg(not(target_arch = "wasm32"))]
-    pub use crate::bridge::base::{Visualization, Plot, Altair, Matplotlib};
+    pub use crate::bridge::base::{Altair, Matplotlib, Plot, Visualization};
     #[cfg(not(target_arch = "wasm32"))]
     pub use crate::data; // Macro data!
 }

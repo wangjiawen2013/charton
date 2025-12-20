@@ -3,7 +3,6 @@ use polars::prelude::*;
 use std::error::Error;
 
 fn main() -> Result<(), Box<dyn Error>> {
-
     // Sample data: Country information
     let df = df! [
         "GDP" => [21.43, 14.34, 5.31, 4.94, 3.87, 3.75], // Trillions USD
@@ -21,7 +20,8 @@ fn main() -> Result<(), Box<dyn Error>> {
             y("Population"),
             text("Country"),
             color("Continent"),
-        ))?.swap_axes();
+        ))?
+        .swap_axes();
 
     // Create a layered chart and add the text chart as a layer
     LayeredChart::new()

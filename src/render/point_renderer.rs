@@ -31,9 +31,17 @@ pub(crate) fn render_point(
     stroke_width: f64,
 ) -> std::fmt::Result {
     // Convert ColorScheme to string values for SVG
-    let fill_str = if let Some(color) = fill_color {color.get_color()} else {"none".to_string()};
-    let stroke_str = if let Some(color) = stroke_color {color.get_color()} else {"none".to_string()};
-    
+    let fill_str = if let Some(color) = fill_color {
+        color.get_color()
+    } else {
+        "none".to_string()
+    };
+    let stroke_str = if let Some(color) = stroke_color {
+        color.get_color()
+    } else {
+        "none".to_string()
+    };
+
     match shape {
         // Basic shapes implementation
         PointShape::Circle => {
@@ -95,7 +103,8 @@ pub(crate) fn render_point(
         PointShape::Pentagon => {
             let points = (0..5)
                 .map(|i| {
-                    let angle = std::f64::consts::PI / 2.0 + i as f64 * 2.0 * std::f64::consts::PI / 5.0;
+                    let angle =
+                        std::f64::consts::PI / 2.0 + i as f64 * 2.0 * std::f64::consts::PI / 5.0;
                     let x = cx + size * angle.cos();
                     let y = cy - size * angle.sin();
                     format!("{} {}", x, y)
@@ -112,7 +121,8 @@ pub(crate) fn render_point(
         PointShape::Hexagon => {
             let points = (0..6)
                 .map(|i| {
-                    let angle = std::f64::consts::PI / 2.0 + i as f64 * 2.0 * std::f64::consts::PI / 6.0;
+                    let angle =
+                        std::f64::consts::PI / 2.0 + i as f64 * 2.0 * std::f64::consts::PI / 6.0;
                     let x = cx + size * angle.cos();
                     let y = cy - size * angle.sin();
                     format!("{} {}", x, y)
@@ -129,7 +139,8 @@ pub(crate) fn render_point(
         PointShape::Octagon => {
             let points = (0..8)
                 .map(|i| {
-                    let angle = std::f64::consts::PI / 8.0 + i as f64 * 2.0 * std::f64::consts::PI / 8.0;
+                    let angle =
+                        std::f64::consts::PI / 8.0 + i as f64 * 2.0 * std::f64::consts::PI / 8.0;
                     let x = cx + size * angle.cos();
                     let y = cy - size * angle.sin();
                     format!("{} {}", x, y)

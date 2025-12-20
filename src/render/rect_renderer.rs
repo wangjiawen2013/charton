@@ -13,7 +13,10 @@ pub(crate) fn render_rect(
     stroke: &str,
     stroke_width: f64,
 ) -> Result<(), ChartonError> {
-    write!(svg, r#"<rect x="{}" y="{}" width="{}" height="{}" fill="{}" opacity="{}" stroke="{}" stroke-width="{}" />"#,
-           x, y, width, height, fill, opacity, stroke, stroke_width)?;
+    write!(
+        svg,
+        r#"<rect x="{}" y="{}" width="{}" height="{}" fill="{}" opacity="{}" stroke="{}" stroke-width="{}" />"#,
+        x, y, width, height, fill, opacity, stroke, stroke_width
+    )?;
     Ok(())
 }

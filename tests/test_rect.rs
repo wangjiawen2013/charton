@@ -14,11 +14,7 @@ fn test_rect_1() -> Result<(), Box<dyn Error>> {
     // Create heatmap chart
     let rect_chart = Chart::build(&df)?
         .mark_rect()
-        .encode((
-            x("a"),
-            y("b"),
-            color("value"),
-        ))?;
+        .encode((x("a"), y("b"), color("value")))?;
 
     // Create a layered chart and add the rect chart as a layer
     LayeredChart::new()
@@ -40,11 +36,8 @@ fn test_rect_2() -> Result<(), Box<dyn Error>> {
     // Create heatmap chart
     let rect_chart = Chart::build(&df)?
         .mark_rect()
-        .encode((
-            x("a"),
-            y("b"),
-            color("value"),
-        ))?.swap_axes();
+        .encode((x("a"), y("b"), color("value")))?
+        .swap_axes();
 
     // Create a layered chart and add the rect chart as a layer
     LayeredChart::new()
@@ -66,11 +59,7 @@ fn test_rect_3() -> Result<(), Box<dyn Error>> {
     // Create heatmap chart
     let rect_chart = Chart::build(&df)?
         .mark_rect()
-        .encode((
-            x("x"),
-            y("y"),
-            color("value"),
-        ))?
+        .encode((x("x"), y("y"), color("value")))?
         .with_color_map(ColorMap::GnBu);
 
     // Create a layered chart and add the rect chart as a layer

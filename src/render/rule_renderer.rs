@@ -2,7 +2,7 @@ use crate::visual::color::SingleColor;
 use std::fmt::Write;
 
 /// Renders a vertical rule (line) into the SVG string
-/// 
+///
 /// # Parameters
 /// * `svg` - A mutable reference to the SVG string being built
 /// * `x` - X-coordinate of the rule
@@ -11,7 +11,7 @@ use std::fmt::Write;
 /// * `stroke_color` - Stroke color for the rule
 /// * `stroke_width` - Width of the stroke
 /// * `opacity` - Opacity level (0.0 to 1.0)
-/// 
+///
 /// # Returns
 /// Result indicating success or failure of the operation
 pub(crate) fn render_vertical_rule(
@@ -29,7 +29,7 @@ pub(crate) fn render_vertical_rule(
     } else {
         "none".to_string()
     };
-    
+
     writeln!(
         svg,
         r#"<line x1="{}" y1="{}" x2="{}" y2="{}" stroke="{}" stroke-width="{}" opacity="{}"/>"#,
@@ -38,7 +38,7 @@ pub(crate) fn render_vertical_rule(
 }
 
 /// Renders a horizontal rule (line) into the SVG string
-/// 
+///
 /// # Parameters
 /// * `svg` - A mutable reference to the SVG string being built
 /// * `x1` - Starting X-coordinate of the rule
@@ -47,7 +47,7 @@ pub(crate) fn render_vertical_rule(
 /// * `stroke_color` - Stroke color for the rule
 /// * `stroke_width` - Width of the stroke
 /// * `opacity` - Opacity level (0.0 to 1.0)
-/// 
+///
 /// # Returns
 /// Result indicating success or failure of the operation
 pub(crate) fn render_horizontal_rule(
@@ -65,7 +65,7 @@ pub(crate) fn render_horizontal_rule(
     } else {
         "none".to_string()
     };
-    
+
     writeln!(
         svg,
         r#"<line x1="{}" y1="{}" x2="{}" y2="{}" stroke="{}" stroke-width="{}" opacity="{}"/>"#,

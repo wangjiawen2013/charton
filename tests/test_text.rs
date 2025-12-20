@@ -21,7 +21,8 @@ fn test_text_1() -> Result<(), Box<dyn Error>> {
             y("Population"),
             text("Country"),
             color("Continent"),
-        ))?.swap_axes();
+        ))?
+        .swap_axes();
 
     // Create a layered chart and add the text chart as a layer
     LayeredChart::new()

@@ -10,13 +10,13 @@ pub(crate) mod cartesian;
 pub enum Scale {
     /// Linear scale where equal distances represent equal values.
     ///
-    /// This is the most common scale where the relationship between 
+    /// This is the most common scale where the relationship between
     /// displayed distance and value difference is proportional.
     Linear,
 
     /// Logarithmic scale where equal distances represent equal ratios.
     ///
-    /// In this scale, each tick represents a multiplication factor rather 
+    /// In this scale, each tick represents a multiplication factor rather
     /// than an addition factor. Useful for data spanning several orders of magnitude.
     Log,
 

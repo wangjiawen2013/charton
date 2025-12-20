@@ -1,14 +1,14 @@
-pub(crate) mod point;
-pub(crate) mod line;
-pub(crate) mod bar;
 pub(crate) mod arc;
-pub(crate) mod rect;
-pub(crate) mod errorbar;
-pub(crate) mod text;
-pub(crate) mod boxplot;
-pub(crate) mod histogram;
 pub(crate) mod area;
+pub(crate) mod bar;
+pub(crate) mod boxplot;
+pub(crate) mod errorbar;
+pub(crate) mod histogram;
+pub(crate) mod line;
+pub(crate) mod point;
+pub(crate) mod rect;
 pub(crate) mod rule;
+pub(crate) mod text;
 
 /// A trait representing a visual mark in a plot.
 ///
@@ -35,10 +35,10 @@ pub trait Mark: Clone {
     fn mark_type(&self) -> &'static str;
 
     /// Returns the stroke color of the mark
-    /// 
+    ///
     /// This method provides access to the stroke color setting of the mark.
     /// If no stroke color is set, it returns None.
-    /// 
+    ///
     /// # Returns
     /// * `Option<&crate::visual::color::SingleColor>` - A reference to the stroke color, or None if not set
     fn stroke(&self) -> Option<&crate::visual::color::SingleColor> {
@@ -46,13 +46,13 @@ pub trait Mark: Clone {
     }
 
     /// Returns the shape of the point
-    /// 
+    ///
     /// # Arguments
     /// * `self` - Reference to the instance
-    /// 
+    ///
     /// # Returns
     /// Returns a PointShape enum value representing the visual shape of the point
-    /// 
+    ///
     /// # Description
     /// This function returns a circular shape by default for point visualization
     fn shape(&self) -> crate::visual::shape::PointShape {
