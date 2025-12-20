@@ -257,6 +257,7 @@ mod tests {
     use crate::data;
 
     #[test]
+    #[ignore = "Requires Python environment with matplotlib"]
     fn build_works() -> Result<(), ChartonError> {
         let df1 = df![
             "a" => [1, 2],
@@ -284,6 +285,7 @@ mod tests {
     }
 
     #[test]
+    #[ignore = "Requires Python environment with matplotlib"]
     fn with_exe_path_works() -> Result<(), ChartonError> {
         let df1 = df![
             "a" => [1, 2],
@@ -297,6 +299,7 @@ mod tests {
     }
 
     #[test]
+    #[ignore = "Requires Python environment with matplotlib"]
     fn generate_full_plotting_code_works() -> Result<(), ChartonError> {
         let df1 = df![
             "a" => [1, 2],
@@ -351,6 +354,7 @@ print(base64.b64encode(__charton_temp_buf_fm_n9jh3.getvalue()).decode("utf-8"))
     }
 
     #[test]
+    #[ignore = "Requires Python environment with matplotlib"]
     fn show_works() -> Result<(), ChartonError> {
         let exe_path = r"D:\Programs\miniconda3\envs\cellpy\python.exe";
         let df1 = df![
