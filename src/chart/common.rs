@@ -1627,7 +1627,7 @@ impl LayeredChart {
     /// # Arguments
     ///
     /// * `labels` - A vector of strings or values that can be converted to strings,
-    /// specifying the labels for each tick position
+    ///   specifying the labels for each tick position
     ///
     /// # Returns
     ///
@@ -1791,7 +1791,7 @@ impl LayeredChart {
     /// # Arguments
     ///
     /// * `labels` - A vector of strings or values that can be converted to strings,
-    /// specifying the labels for each tick position
+    ///   specifying the labels for each tick position
     ///
     /// # Returns
     ///
