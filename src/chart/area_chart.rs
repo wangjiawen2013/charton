@@ -207,8 +207,8 @@ impl Chart<MarkArea> {
                 area_points.push((points[0].0, points[0].1));
 
                 // Draw line to each subsequent point (this will be skipped if only one point)
-                for i in 1..points.len() {
-                    area_points.push((points[i].0, points[i].1));
+                for p in points.iter().skip(1) {
+                    area_points.push((p.0, p.1));
                 }
 
                 // Connect back to the zero baseline for the last point
@@ -223,8 +223,8 @@ impl Chart<MarkArea> {
                 area_points.push((points[0].0, points[0].1));
 
                 // Draw line to each subsequent point (this will be skipped if only one point)
-                for i in 1..points.len() {
-                    area_points.push((points[i].0, points[i].1));
+                for p in points.iter().skip(1) {
+                    area_points.push((p.0, p.1));
                 }
 
                 // Connect back to the zero baseline for the last point
