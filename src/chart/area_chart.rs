@@ -36,7 +36,7 @@ impl Chart<MarkArea> {
     ///
     /// Returns the chart instance for method chaining
     pub fn with_area_color(mut self, color: Option<SingleColor>) -> Self {
-        let mut mark = self.mark.unwrap_or_else(MarkArea::new);
+        let mut mark = self.mark.unwrap_or_default();
         mark.color = color;
         self.mark = Some(mark);
         self
@@ -55,7 +55,7 @@ impl Chart<MarkArea> {
     ///
     /// Returns the chart instance for method chaining
     pub fn with_area_opacity(mut self, opacity: f64) -> Self {
-        let mut mark = self.mark.unwrap_or_else(MarkArea::new);
+        let mut mark = self.mark.unwrap_or_default();
         mark.opacity = opacity;
         self.mark = Some(mark);
         self
@@ -74,7 +74,7 @@ impl Chart<MarkArea> {
     ///
     /// Returns the chart instance for method chaining
     pub fn with_area_stroke(mut self, stroke: Option<SingleColor>) -> Self {
-        let mut mark = self.mark.unwrap_or_else(MarkArea::new);
+        let mut mark = self.mark.unwrap_or_default();
         mark.stroke = stroke;
         self.mark = Some(mark);
         self
@@ -93,7 +93,7 @@ impl Chart<MarkArea> {
     ///
     /// Returns the chart instance for method chaining
     pub fn with_area_stroke_width(mut self, stroke_width: f64) -> Self {
-        let mut mark = self.mark.unwrap_or_else(MarkArea::new);
+        let mut mark = self.mark.unwrap_or_default();
         mark.stroke_width = stroke_width;
         self.mark = Some(mark);
         self
@@ -121,8 +121,8 @@ impl Chart<MarkArea> {
             // Create a temporary color column with default value to avoid duplication code
             let len = self.data.df.height();
             let default_colors: Vec<&str> = vec!["group"; len];
-            let series = Series::new("color".into(), default_colors);
-            series
+            
+            Series::new("color".into(), default_colors)
         };
 
         // Use Polars' group_by functionality to get indices for each group

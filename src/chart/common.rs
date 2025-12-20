@@ -426,11 +426,10 @@ impl<T: Mark> Chart<T> {
         }
 
         // Add type checking for text charts - text encoding must be String
-        if mark.mark_type() == "text" {
-            if let Some(text_enc) = &self.encoding.text {
+        if mark.mark_type() == "text"
+            && let Some(text_enc) = &self.encoding.text {
                 expected_types.insert(text_enc.field.as_str(), vec![DataType::String]);
             }
-        }
 
         // Use check_schema to validate columns exist in the dataframe and have correct types
         check_schema(&mut self.data.df, &active_fields, &expected_types).map_err(|e| {
@@ -596,7 +595,7 @@ where
 {
     fn requires_axes(&self) -> bool {
         // For pie charts (which use MarkArc), don't show axes
-        if self.mark.as_ref().map(|m| m.mark_type()).as_deref() == Some("arc") {
+        if self.mark.as_ref().map(|m| m.mark_type()) == Some("arc") {
             false
         } else {
             // For all other chart types, show axes by default
@@ -605,7 +604,7 @@ where
     }
 
     fn preferred_x_axis_padding_min(&self) -> Option<f64> {
-        match self.mark.as_ref().map(|m| m.mark_type()).as_deref() {
+        match self.mark.as_ref().map(|m| m.mark_type()) {
             Some("rect") => {
                 let x_encoding = self.encoding.x.as_ref().unwrap();
                 let x_series = self.data.column(&x_encoding.field).unwrap();
@@ -623,7 +622,7 @@ where
     }
 
     fn preferred_x_axis_padding_max(&self) -> Option<f64> {
-        match self.mark.as_ref().map(|m| m.mark_type()).as_deref() {
+        match self.mark.as_ref().map(|m| m.mark_type()) {
             Some("rect") => {
                 let x_encoding = self.encoding.x.as_ref().unwrap();
                 let x_series = self.data.column(&x_encoding.field).unwrap();
@@ -642,7 +641,7 @@ where
     }
 
     fn preferred_y_axis_padding_min(&self) -> Option<f64> {
-        match self.mark.as_ref().map(|m| m.mark_type()).as_deref() {
+        match self.mark.as_ref().map(|m| m.mark_type()) {
             Some("rect") => {
                 let y_encoding = self.encoding.y.as_ref().unwrap();
                 let y_series = self.data.column(&y_encoding.field).unwrap();
@@ -667,7 +666,7 @@ where
     }
 
     fn preferred_y_axis_padding_max(&self) -> Option<f64> {
-        match self.mark.as_ref().map(|m| m.mark_type()).as_deref() {
+        match self.mark.as_ref().map(|m| m.mark_type()) {
             Some("rect") => {
                 let y_encoding = self.encoding.y.as_ref().unwrap();
                 let y_series = self.data.column(&y_encoding.field).unwrap();
@@ -701,7 +700,7 @@ where
         })?;
 
         // Handle chart-type-specific logic
-        let (x_min_val, x_max_val) = match self.mark.as_ref().map(|m| m.mark_type()).as_deref() {
+        let (x_min_val, x_max_val) = match self.mark.as_ref().map(|m| m.mark_type()) {
             // Handle rect charts with bin size adjustment
             Some("rect") | Some("hist") => {
                 // For rect charts with continuous data, adjust bounds by half bin size
@@ -744,7 +743,7 @@ where
         })?;
 
         // Handle chart-type-specific logic with match
-        let (y_min_val, y_max_val) = match self.mark.as_ref().map(|m| m.mark_type()).as_deref() {
+        let (y_min_val, y_max_val) = match self.mark.as_ref().map(|m| m.mark_type()) {
             // Handle errorbar charts specially - check for min/max columns
             Some("errorbar") => {
                 // For errorbar charts, we need to consider the min/max values from the calculated columns
@@ -1151,6 +1150,12 @@ pub struct LayeredChart {
 
     background: Option<String>,
     axes: Option<bool>,
+}
+
+impl Default for LayeredChart {
+    fn default() -> Self {
+        Self::new()
+    }
 }
 
 impl LayeredChart {
@@ -2627,9 +2632,9 @@ impl LayeredChart {
     /// std::fs::write("chart.svg", svg_string)?;
     /// ```
     pub fn to_svg(&self) -> Result<String, ChartonError> {
-        let svg_content = self.generate_svg();
+        
 
-        svg_content
+        self.generate_svg()
     }
 
     /// Generate the chart and display in Jupyter
@@ -2711,7 +2716,7 @@ impl LayeredChart {
 
         match ext.as_deref() {
             Some("svg") => {
-                std::fs::write(path_obj, svg_content).map_err(|e| ChartonError::Io(e))?;
+                std::fs::write(path_obj, svg_content).map_err(ChartonError::Io)?;
             }
             Some("png") => {
                 // Load system fonts
@@ -2759,12 +2764,12 @@ impl LayeredChart {
 }
 
 // Convert single layer chart into layered chart
-impl<T: Mark + 'static> Into<LayeredChart> for Chart<T>
+impl<T: Mark + 'static> From<Chart<T>> for LayeredChart
 where
     Chart<T>: Layer,
 {
-    fn into(self) -> LayeredChart {
-        LayeredChart::new().add_layer(self)
+    fn from(val: Chart<T>) -> Self {
+        LayeredChart::new().add_layer(val)
     }
 }
 

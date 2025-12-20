@@ -28,7 +28,7 @@ impl Chart<MarkRule> {
     /// # Arguments
     /// * `color` - A `SingleColor` specifying the rule line color
     pub fn with_rule_color(mut self, color: Option<SingleColor>) -> Self {
-        let mut mark = self.mark.unwrap_or_else(MarkRule::new);
+        let mut mark = self.mark.unwrap_or_default();
         mark.color = color;
         self.mark = Some(mark);
         self
@@ -42,7 +42,7 @@ impl Chart<MarkRule> {
     /// # Arguments
     /// * `opacity` - A `f64` value between 0.0 and 1.0 representing the rule line opacity
     pub fn with_rule_opacity(mut self, opacity: f64) -> Self {
-        let mut mark = self.mark.unwrap_or_else(MarkRule::new);
+        let mut mark = self.mark.unwrap_or_default();
         mark.opacity = opacity;
         self.mark = Some(mark);
         self
@@ -56,7 +56,7 @@ impl Chart<MarkRule> {
     /// # Arguments
     /// * `stroke_width` - A `f64` value representing the stroke width in pixels
     pub fn with_rule_stroke_width(mut self, stroke_width: f64) -> Self {
-        let mut mark = self.mark.unwrap_or_else(MarkRule::new);
+        let mut mark = self.mark.unwrap_or_default();
         mark.stroke_width = stroke_width;
         self.mark = Some(mark);
         self
@@ -145,32 +145,30 @@ impl Chart<MarkRule> {
                         mark.opacity,
                     )?;
                 }
+            } else if let Some(ref y2_vals_data) = y2_vals {
+                // Draw horizontal rule line from y to y2 (appears vertical in swapped axes)
+                let y2_pos = (context.x_mapper)(y2_vals_data[i]);
+                rule_renderer::render_horizontal_rule(
+                    svg,
+                    y_pos,
+                    y2_pos,
+                    x_pos, // This is the y-coordinate for the horizontal line
+                    &stroke_color,
+                    mark.stroke_width,
+                    mark.opacity,
+                )?;
             } else {
-                if let Some(ref y2_vals_data) = y2_vals {
-                    // Draw horizontal rule line from y to y2 (appears vertical in swapped axes)
-                    let y2_pos = (context.x_mapper)(y2_vals_data[i]);
-                    rule_renderer::render_horizontal_rule(
-                        svg,
-                        y_pos,
-                        y2_pos,
-                        x_pos, // This is the y-coordinate for the horizontal line
-                        &stroke_color,
-                        mark.stroke_width,
-                        mark.opacity,
-                    )?;
-                } else {
-                    // When axes are swapped, vertical and horizontal lines are swapped too
-                    // Draw horizontal rule line (appears vertical in swapped axes)
-                    rule_renderer::render_horizontal_rule(
-                        svg,
-                        context.draw_x0,
-                        context.draw_x0 + context.plot_width,
-                        x_pos,
-                        &stroke_color,
-                        mark.stroke_width,
-                        mark.opacity,
-                    )?;
-                }
+                // When axes are swapped, vertical and horizontal lines are swapped too
+                // Draw horizontal rule line (appears vertical in swapped axes)
+                rule_renderer::render_horizontal_rule(
+                    svg,
+                    context.draw_x0,
+                    context.draw_x0 + context.plot_width,
+                    x_pos,
+                    &stroke_color,
+                    mark.stroke_width,
+                    mark.opacity,
+                )?;
             }
         }
 

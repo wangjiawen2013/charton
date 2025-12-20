@@ -36,7 +36,7 @@ impl Chart<MarkBar> {
     ///
     /// Returns the chart instance for method chaining
     pub fn with_bar_color(mut self, color: Option<SingleColor>) -> Self {
-        let mut mark = self.mark.unwrap_or_else(MarkBar::new);
+        let mut mark = self.mark.unwrap_or_default();
         mark.color = color;
         self.mark = Some(mark);
         self
@@ -55,7 +55,7 @@ impl Chart<MarkBar> {
     ///
     /// Returns the chart instance for method chaining
     pub fn with_bar_opacity(mut self, opacity: f64) -> Self {
-        let mut mark = self.mark.unwrap_or_else(MarkBar::new);
+        let mut mark = self.mark.unwrap_or_default();
         mark.opacity = opacity;
         self.mark = Some(mark);
         self
@@ -74,7 +74,7 @@ impl Chart<MarkBar> {
     ///
     /// Returns the chart instance for method chaining
     pub fn with_bar_stroke(mut self, stroke: Option<SingleColor>) -> Self {
-        let mut mark = self.mark.unwrap_or_else(MarkBar::new);
+        let mut mark = self.mark.unwrap_or_default();
         mark.stroke = stroke;
         self.mark = Some(mark);
         self
@@ -93,7 +93,7 @@ impl Chart<MarkBar> {
     ///
     /// Returns the chart instance for method chaining
     pub fn with_bar_stroke_width(mut self, stroke_width: f64) -> Self {
-        let mut mark = self.mark.unwrap_or_else(MarkBar::new);
+        let mut mark = self.mark.unwrap_or_default();
         mark.stroke_width = stroke_width;
         self.mark = Some(mark);
         self
@@ -112,7 +112,7 @@ impl Chart<MarkBar> {
     ///
     /// Returns the chart instance for method chaining
     pub fn with_bar_width(mut self, width: f64) -> Self {
-        let mut mark = self.mark.unwrap_or_else(MarkBar::new);
+        let mut mark = self.mark.unwrap_or_default();
         mark.width = width;
         self.mark = Some(mark);
         self
@@ -131,7 +131,7 @@ impl Chart<MarkBar> {
     ///
     /// Returns the chart instance for method chaining
     pub fn with_bar_spacing(mut self, spacing: f64) -> Self {
-        let mut mark = self.mark.unwrap_or_else(MarkBar::new);
+        let mut mark = self.mark.unwrap_or_default();
         mark.spacing = spacing;
         self.mark = Some(mark);
         self
@@ -150,7 +150,7 @@ impl Chart<MarkBar> {
     ///
     /// Returns the chart instance for method chaining
     pub fn with_bar_span(mut self, span: f64) -> Self {
-        let mut mark = self.mark.unwrap_or_else(MarkBar::new);
+        let mut mark = self.mark.unwrap_or_default();
         mark.span = span;
         self.mark = Some(mark);
         self
@@ -215,7 +215,7 @@ impl Chart<MarkBar> {
         let groups = df.partition_by_stable(["group"], true)?;
 
         // Render bars for each group
-        for (_group_idx, group_df) in groups.iter().enumerate() {
+        for group_df in groups.iter() {
             let group_val = group_df.column("group")?.f64()?.get(0).unwrap();
 
             // Get all bars in this group (different colors)

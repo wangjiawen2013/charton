@@ -167,7 +167,7 @@ impl Axis {
                         // Avoid duplicates
                         if tick_values
                             .last()
-                            .map_or(true, |&p| (p - rounded).abs() > tolerance)
+                            .is_none_or(|&p| (p - rounded).abs() > tolerance)
                         {
                             tick_values.push(rounded);
                         }
@@ -195,7 +195,7 @@ impl Axis {
                             let rounded = (pos / tolerance).round() * tolerance;
                             if tick_values
                                 .last()
-                                .map_or(true, |&p| (p - rounded).abs() > tolerance)
+                                .is_none_or(|&p| (p - rounded).abs() > tolerance)
                             {
                                 tick_values.push(rounded);
                             }
@@ -333,7 +333,7 @@ impl Axis {
                             format!("{:.1e}", formatted_data_value)
                         } else {
                             // If it's a major tick (power of 10), display as integer
-                            if (formatted_data_value.log10().round() as f64
+                            if (formatted_data_value.log10().round()
                                 - formatted_data_value.log10())
                             .abs()
                                 < 1e-9

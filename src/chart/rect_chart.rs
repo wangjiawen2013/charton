@@ -28,7 +28,7 @@ impl Chart<MarkRect> {
     /// # Arguments
     /// * `color` - A `SingleColor` specifying the fill color for rectangles
     pub fn with_rect_color(mut self, color: Option<SingleColor>) -> Self {
-        let mut mark = self.mark.unwrap_or_else(MarkRect::new);
+        let mut mark = self.mark.unwrap_or_default();
         mark.color = color;
         self.mark = Some(mark);
         self
@@ -42,7 +42,7 @@ impl Chart<MarkRect> {
     /// # Arguments
     /// * `opacity` - A `f64` value between 0.0 and 1.0 representing the rectangle opacity
     pub fn with_rect_opacity(mut self, opacity: f64) -> Self {
-        let mut mark = self.mark.unwrap_or_else(MarkRect::new);
+        let mut mark = self.mark.unwrap_or_default();
         mark.opacity = opacity;
         self.mark = Some(mark);
         self
@@ -56,7 +56,7 @@ impl Chart<MarkRect> {
     /// # Arguments
     /// * `stroke` - A `SingleColor` specifying the border color for rectangles
     pub fn with_rect_stroke(mut self, stroke: Option<SingleColor>) -> Self {
-        let mut mark = self.mark.unwrap_or_else(MarkRect::new);
+        let mut mark = self.mark.unwrap_or_default();
         mark.stroke = stroke;
         self.mark = Some(mark);
         self
@@ -69,7 +69,7 @@ impl Chart<MarkRect> {
     /// # Arguments
     /// * `stroke_width` - A `f64` value representing the border thickness in pixels
     pub fn with_rect_stroke_width(mut self, stroke_width: f64) -> Self {
-        let mut mark = self.mark.unwrap_or_else(MarkRect::new);
+        let mut mark = self.mark.unwrap_or_default();
         mark.stroke_width = stroke_width;
         self.mark = Some(mark);
         self

@@ -48,7 +48,7 @@ impl Chart<MarkBoxplot> {
     ///
     /// Returns the chart instance for method chaining
     pub fn with_box_color(mut self, color: Option<SingleColor>) -> Self {
-        let mut mark = self.mark.unwrap_or_else(MarkBoxplot::new);
+        let mut mark = self.mark.unwrap_or_default();
         mark.color = color;
         self.mark = Some(mark);
         self
@@ -67,7 +67,7 @@ impl Chart<MarkBoxplot> {
     ///
     /// Returns the chart instance for method chaining
     pub fn with_box_opacity(mut self, opacity: f64) -> Self {
-        let mut mark = self.mark.unwrap_or_else(MarkBoxplot::new);
+        let mut mark = self.mark.unwrap_or_default();
         mark.opacity = opacity;
         self.mark = Some(mark);
         self
@@ -86,7 +86,7 @@ impl Chart<MarkBoxplot> {
     ///
     /// Returns the chart instance for method chaining
     pub fn with_box_stroke(mut self, stroke: Option<SingleColor>) -> Self {
-        let mut mark = self.mark.unwrap_or_else(MarkBoxplot::new);
+        let mut mark = self.mark.unwrap_or_default();
         mark.stroke = stroke;
         self.mark = Some(mark);
         self
@@ -105,7 +105,7 @@ impl Chart<MarkBoxplot> {
     ///
     /// Returns the chart instance for method chaining
     pub fn with_box_stroke_width(mut self, stroke_width: f64) -> Self {
-        let mut mark = self.mark.unwrap_or_else(MarkBoxplot::new);
+        let mut mark = self.mark.unwrap_or_default();
         mark.stroke_width = stroke_width;
         self.mark = Some(mark);
         self
@@ -125,7 +125,7 @@ impl Chart<MarkBoxplot> {
     ///
     /// Returns the chart instance for method chaining
     pub fn with_outlier_color(mut self, color: Option<SingleColor>) -> Self {
-        let mut mark = self.mark.unwrap_or_else(MarkBoxplot::new);
+        let mut mark = self.mark.unwrap_or_default();
         mark.outlier_color = color;
         self.mark = Some(mark);
         self
@@ -144,7 +144,7 @@ impl Chart<MarkBoxplot> {
     ///
     /// Returns the chart instance for method chaining
     pub fn with_outlier_size(mut self, size: f64) -> Self {
-        let mut mark = self.mark.unwrap_or_else(MarkBoxplot::new);
+        let mut mark = self.mark.unwrap_or_default();
         mark.outlier_size = size;
         self.mark = Some(mark);
         self
@@ -163,7 +163,7 @@ impl Chart<MarkBoxplot> {
     ///
     /// Returns the chart instance for method chaining
     pub fn with_box_width(mut self, width: f64) -> Self {
-        let mut mark = self.mark.unwrap_or_else(MarkBoxplot::new);
+        let mut mark = self.mark.unwrap_or_default();
         mark.width = width;
         self.mark = Some(mark);
         self
@@ -182,7 +182,7 @@ impl Chart<MarkBoxplot> {
     ///
     /// Returns the chart instance for method chaining
     pub fn with_box_spacing(mut self, spacing: f64) -> Self {
-        let mut mark = self.mark.unwrap_or_else(MarkBoxplot::new);
+        let mut mark = self.mark.unwrap_or_default();
         mark.spacing = spacing;
         self.mark = Some(mark);
         self
@@ -201,7 +201,7 @@ impl Chart<MarkBoxplot> {
     ///
     /// Returns the chart instance for method chaining
     pub fn with_box_span(mut self, span: f64) -> Self {
-        let mut mark = self.mark.unwrap_or_else(MarkBoxplot::new);
+        let mut mark = self.mark.unwrap_or_default();
         mark.span = span;
         self.mark = Some(mark);
         self
@@ -535,7 +535,7 @@ impl Chart<MarkBoxplot> {
             for (sub_idx, (_, color_label, stats_opt)) in group_boxes.iter().enumerate() {
                 // Skip rendering if there's no data for this combination
                 let stats = match stats_opt {
-                    &Some(ref s) => s,
+                    Some(s) => s,
                     None => continue, // Skip this box if there's no data
                 };
 

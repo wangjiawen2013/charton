@@ -79,17 +79,17 @@ print(base64.b64encode(__charton_temp_buf_fm_n9jh3.getvalue()).decode("utf-8"))
             .stdin(Stdio::piped())
             .stdout(Stdio::piped())
             .spawn()
-            .map_err(|e| ChartonError::Io(e))?;
+            .map_err(ChartonError::Io)?;
 
         if let Some(mut stdin) = child.stdin.take() {
             let json_data = serde_json::to_string(&self.data)
                 .map_err(|_| ChartonError::Data("Failed to serialize data".to_string()))?;
             stdin
                 .write_all(json_data.as_bytes())
-                .map_err(|e| ChartonError::Io(e))?;
+                .map_err(ChartonError::Io)?;
         }
 
-        let output = child.wait_with_output().map_err(|e| ChartonError::Io(e))?;
+        let output = child.wait_with_output().map_err(ChartonError::Io)?;
 
         if !output.status.success() {
             return Err(ChartonError::Render(format!(
@@ -173,7 +173,7 @@ impl Visualization for Plot<Matplotlib> {
         let output = std::process::Command::new(exe_path_str)
             .arg("--version")
             .output()
-            .map_err(|e| ChartonError::Io(e))?;
+            .map_err(ChartonError::Io)?;
 
         if !output.status.success() {
             return Err(ChartonError::ExecutablePath(format!(
@@ -233,7 +233,7 @@ impl Visualization for Plot<Matplotlib> {
                     .decode(png_base64.trim()) // Remove "\n" at the end
                     .map_err(|e| ChartonError::Render(format!("Failed to decode Base64: {}", e)))?;
                 // Write the raw binary bytes to PNG
-                std::fs::write(path_obj, figure).map_err(|e| ChartonError::Io(e))?;
+                std::fs::write(path_obj, figure).map_err(ChartonError::Io)?;
             }
             Some(format) => {
                 return Err(ChartonError::Unimplemented(format!(

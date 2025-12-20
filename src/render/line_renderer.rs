@@ -3,8 +3,10 @@ use std::fmt::Write;
 
 /// Interpolation methods for line paths
 #[derive(Debug, Clone)]
+#[derive(Default)]
 pub enum PathInterpolation {
     /// Straight line segments between points (default)
+    #[default]
     Linear,
     /// Step function that holds value until next point (appropriate for ECDF)
     StepAfter,
@@ -12,11 +14,6 @@ pub enum PathInterpolation {
     StepBefore,
 }
 
-impl Default for PathInterpolation {
-    fn default() -> Self {
-        PathInterpolation::Linear
-    }
-}
 
 /// Renders a line as an SVG path element and appends it to the provided SVG string.
 ///

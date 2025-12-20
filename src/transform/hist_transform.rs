@@ -134,8 +134,7 @@ impl<T: Mark> Chart<T> {
                 let color_repeated: Vec<String> = color_values
                     .iter()
                     .cycle()
-                    .take(all_bin_labels.len() * color_values.len())
-                    .map(|s| s.clone())
+                    .take(all_bin_labels.len() * color_values.len()).cloned()
                     .collect();
 
                 // Create DataFrame with all combinations
@@ -145,7 +144,9 @@ impl<T: Mark> Chart<T> {
                 ]?;
 
                 // Join with the grouped data to fill in missing combinations
-                let joined_df = all_combinations_df
+                
+
+                all_combinations_df
                     .lazy()
                     .join(
                         grouped_df.lazy(),
@@ -156,9 +157,7 @@ impl<T: Mark> Chart<T> {
                     .collect()?
                     .lazy()
                     .with_column(col(&count_field).fill_null(lit(0)))
-                    .collect()?;
-
-                joined_df
+                    .collect()?
             } else {
                 // Create DataFrame with all bins for no color encoding case
                 let all_bins_df = df![
@@ -166,7 +165,9 @@ impl<T: Mark> Chart<T> {
                 ]?;
 
                 // Join with the grouped data to include zero counts for empty bins
-                let joined_df = all_bins_df
+                
+
+                all_bins_df
                     .lazy()
                     .join(
                         grouped_df.lazy(),
@@ -177,9 +178,7 @@ impl<T: Mark> Chart<T> {
                     .collect()?
                     .lazy()
                     .with_column(col(&count_field).fill_null(lit(0)))
-                    .collect()?;
-
-                joined_df
+                    .collect()?
             };
 
             // Replace bin labels with middle values
