@@ -286,14 +286,16 @@ impl Chart<MarkBar> {
                             // Render the bar segment using the bar renderer
                             crate::render::bar_renderer::render_vertical_bar(
                                 svg,
-                                x_center,
-                                y_zero,
-                                y_value,
-                                bar_width_pixels,
-                                &fill_color,
-                                &mark.stroke,
-                                mark.stroke_width,
-                                mark.opacity,
+                                crate::render::bar_renderer::VerticalBarConfig {
+                                    x_center,
+                                    y_zero,
+                                    y_value,
+                                    width: bar_width_pixels,
+                                    fill_color: fill_color.clone(),
+                                    stroke_color: mark.stroke.clone(),
+                                    stroke_width: mark.stroke_width,
+                                    opacity: mark.opacity,
+                                },
                             )?;
                         }
                         false => {
@@ -305,14 +307,16 @@ impl Chart<MarkBar> {
                             // Render the bar segment using the bar renderer
                             crate::render::bar_renderer::render_horizontal_bar(
                                 svg,
-                                x_zero,
-                                x_value,
-                                y_center,
-                                bar_width_pixels,
-                                &fill_color,
-                                &mark.stroke,
-                                mark.stroke_width,
-                                mark.opacity,
+                                crate::render::bar_renderer::HorizontalBarConfig {
+                                    x_zero,
+                                    x_value,
+                                    y_center,
+                                    height: bar_width_pixels,
+                                    fill_color: fill_color.clone(),
+                                    stroke_color: mark.stroke.clone(),
+                                    stroke_width: mark.stroke_width,
+                                    opacity: mark.opacity,
+                                },
                             )?;
                         }
                     }
@@ -410,14 +414,16 @@ impl Chart<MarkBar> {
                             // Render the bar using the bar renderer
                             crate::render::bar_renderer::render_vertical_bar(
                                 svg,
-                                x_center,
-                                y_zero,
-                                y_value,
-                                bar_width_pixels,
-                                &fill_color,
-                                &mark.stroke,
-                                mark.stroke_width,
-                                mark.opacity,
+                                crate::render::bar_renderer::VerticalBarConfig {
+                                    x_center,
+                                    y_zero,
+                                    y_value,
+                                    width: bar_width_pixels,
+                                    fill_color: fill_color.clone(),
+                                    stroke_color: mark.stroke.clone(),
+                                    stroke_width: mark.stroke_width,
+                                    opacity: mark.opacity,
+                                },
                             )?;
                         }
                         false => {
@@ -429,14 +435,16 @@ impl Chart<MarkBar> {
                             // Render the bar using the bar renderer
                             crate::render::bar_renderer::render_horizontal_bar(
                                 svg,
-                                x_zero,
-                                x_value,
-                                y_center,
-                                bar_width_pixels,
-                                &fill_color,
-                                &mark.stroke,
-                                mark.stroke_width,
-                                mark.opacity,
+                                crate::render::bar_renderer::HorizontalBarConfig {
+                                    x_zero,
+                                    x_value,
+                                    y_center,
+                                    height: bar_width_pixels,
+                                    fill_color: fill_color.clone(),
+                                    stroke_color: mark.stroke.clone(),
+                                    stroke_width: mark.stroke_width,
+                                    opacity: mark.opacity,
+                                },
                             )?;
                         }
                     }

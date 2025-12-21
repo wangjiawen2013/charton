@@ -234,12 +234,14 @@ impl Chart<MarkArea> {
             // Render the area using the area renderer
             crate::render::area_renderer::render_area(
                 svg,
-                &area_points,
-                &fill_color,
-                &mark.stroke,
-                mark.stroke_width,
-                mark.opacity,
-                false, // Don't close the path to create a filled area
+                crate::render::area_renderer::AreaConfig {
+                    points: area_points,
+                    fill_color: fill_color.clone(),
+                    stroke_color: mark.stroke.clone(),
+                    stroke_width: mark.stroke_width,
+                    opacity: mark.opacity,
+                    closed: false, // Don't close the path to create a filled area
+                },
             )?;
         }
 
