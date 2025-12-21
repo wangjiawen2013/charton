@@ -576,39 +576,43 @@ impl Chart<MarkBoxplot> {
                     // Render the box using the box renderer
                     crate::render::box_renderer::render_vertical_box(
                         svg,
-                        x_center_pixel,
-                        min_y_pixel,
-                        q1_y_pixel,
-                        median_y_pixel,
-                        q3_y_pixel,
-                        max_y_pixel,
-                        box_width_pixels,
-                        &fill_color,
-                        &mark.stroke,
-                        mark.stroke_width,
-                        mark.opacity,
-                        &outlier_y_coords, // Use transformed outlier coordinates
-                        &mark.outlier_color,
-                        mark.outlier_size,
+                        crate::render::box_renderer::VerticalBoxConfig {
+                            x_center: x_center_pixel,
+                            min_y: min_y_pixel,
+                            q1_y: q1_y_pixel,
+                            median_y: median_y_pixel,
+                            q3_y: q3_y_pixel,
+                            max_y: max_y_pixel,
+                            box_width: box_width_pixels,
+                            fill_color: fill_color.clone(),
+                            stroke_color: mark.stroke.clone(),
+                            stroke_width: mark.stroke_width,
+                            opacity: mark.opacity,
+                            outliers: outlier_y_coords.clone(),
+                            outlier_color: mark.outlier_color.clone(),
+                            outlier_size: mark.outlier_size,
+                        },
                     )?;
                 } else {
                     // Render the box using the box renderer
                     crate::render::box_renderer::render_horizontal_box(
                         svg,
-                        x_center_pixel,
-                        min_y_pixel,
-                        q1_y_pixel,
-                        median_y_pixel,
-                        q3_y_pixel,
-                        max_y_pixel,
-                        box_width_pixels,
-                        &fill_color,
-                        &mark.stroke,
-                        mark.stroke_width,
-                        mark.opacity,
-                        &outlier_y_coords, // Use transformed outlier coordinates
-                        &mark.outlier_color,
-                        mark.outlier_size,
+                        crate::render::box_renderer::HorizontalBoxConfig {
+                            y_center: x_center_pixel,
+                            min_x: min_y_pixel,
+                            q1_x: q1_y_pixel,
+                            median_x: median_y_pixel,
+                            q3_x: q3_y_pixel,
+                            max_x: max_y_pixel,
+                            box_height: box_width_pixels,
+                            fill_color: fill_color.clone(),
+                            stroke_color: mark.stroke.clone(),
+                            stroke_width: mark.stroke_width,
+                            opacity: mark.opacity,
+                            outliers: outlier_y_coords.clone(),
+                            outlier_color: mark.outlier_color.clone(),
+                            outlier_size: mark.outlier_size,
+                        },
                     )?;
                 }
             }
