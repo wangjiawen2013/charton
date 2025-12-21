@@ -183,14 +183,16 @@ impl Chart<MarkHist> {
                         // Render the bar using the histogram renderer
                         crate::render::hist_renderer::render_vertical_histogram_bar(
                             svg,
-                            x_center,
-                            y_zero,
-                            y_value,
-                            bar_width_pixels,
-                            &fill_color,
-                            &mark.stroke,
-                            mark.stroke_width,
-                            mark.opacity,
+                            crate::render::hist_renderer::VerticalHistogramBarConfig {
+                                x_center,
+                                y_zero,
+                                y_value,
+                                width: bar_width_pixels,
+                                fill_color: fill_color.clone(),
+                                stroke_color: mark.stroke.clone(),
+                                stroke_width: mark.stroke_width,
+                                opacity: mark.opacity,
+                            },
                         )?;
                     }
                     false => {
@@ -202,14 +204,16 @@ impl Chart<MarkHist> {
                         // Render the bar using the histogram renderer
                         crate::render::hist_renderer::render_horizontal_histogram_bar(
                             svg,
-                            x_zero,
-                            x_value,
-                            y_center,
-                            bar_width_pixels,
-                            &fill_color,
-                            &mark.stroke,
-                            mark.stroke_width,
-                            mark.opacity,
+                            crate::render::hist_renderer::HorizontalHistogramBarConfig {
+                                x_zero,
+                                x_value,
+                                y_center,
+                                height: bar_width_pixels,
+                                fill_color: fill_color.clone(),
+                                stroke_color: mark.stroke.clone(),
+                                stroke_width: mark.stroke_width,
+                                opacity: mark.opacity,
+                            },
                         )?;
                     }
                 }
