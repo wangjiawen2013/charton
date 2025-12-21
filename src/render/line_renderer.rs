@@ -13,6 +13,14 @@ pub enum PathInterpolation {
     StepBefore,
 }
 
+pub(crate) struct LineConfig {
+    pub points: Vec<(f64, f64)>,
+    pub color: Option<SingleColor>,
+    pub stroke_width: f64,
+    pub opacity: f64,
+    pub interpolation: PathInterpolation,
+}
+
 /// Renders a line as an SVG path element and appends it to the provided SVG string.
 ///
 /// This function takes a series of points and renders them as a line using the specified
@@ -21,43 +29,32 @@ pub enum PathInterpolation {
 /// # Arguments
 ///
 /// * `svg` - A mutable reference to a String where the generated SVG path element will be appended.
-/// * `points` - A slice of (x, y) coordinate tuples representing the points of the line.
-/// * `color` - An optional SingleColor specifying the stroke color. If None, defaults to black.
-/// * `stroke_width` - The width of the line stroke as a floating point number.
-/// * `opacity` - The opacity of the line as a floating point number between 0.0 and 1.0.
-/// * `interpolation` - A PathInterpolation enum specifying how to connect the points.
+/// * `config` - Configuration parameters for the line
 ///
 /// # Returns
 ///
 /// Returns a `std::fmt::Result` indicating success or failure of the write operation.
-pub(crate) fn render_line(
-    svg: &mut String,
-    points: &[(f64, f64)],
-    color: &Option<SingleColor>,
-    stroke_width: f64,
-    opacity: f64,
-    interpolation: &PathInterpolation,
-) -> std::fmt::Result {
-    if points.is_empty() {
+pub(crate) fn render_line(svg: &mut String, config: LineConfig) -> std::fmt::Result {
+    if config.points.is_empty() {
         return Ok(());
     }
 
-    let color_str = if let Some(color) = color {
+    let color_str = if let Some(color) = &config.color {
         color.get_color()
     } else {
         "black".to_string()
     };
 
-    let path_data = match interpolation {
-        PathInterpolation::Linear => generate_linear_path(points),
-        PathInterpolation::StepAfter => generate_step_after_path(points),
-        PathInterpolation::StepBefore => generate_step_before_path(points),
+    let path_data = match config.interpolation {
+        PathInterpolation::Linear => generate_linear_path(&config.points),
+        PathInterpolation::StepAfter => generate_step_after_path(&config.points),
+        PathInterpolation::StepBefore => generate_step_before_path(&config.points),
     };
 
     writeln!(
         svg,
         r#"<path d="{}" fill="none" stroke="{}" stroke-width="{}" opacity="{}" stroke-linejoin="round" stroke-linecap="round"/>"#,
-        path_data, color_str, stroke_width, opacity
+        path_data, color_str, config.stroke_width, config.opacity
     )
 }
 

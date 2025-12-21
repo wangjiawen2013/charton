@@ -3,7 +3,7 @@ use super::data_processor::ProcessedChartData;
 use crate::chart::common::SharedRenderingContext;
 use crate::error::ChartonError;
 use crate::mark::line::MarkLine;
-use crate::render::line_renderer::{PathInterpolation, render_line};
+use crate::render::line_renderer::PathInterpolation;
 use crate::theme::Theme;
 use crate::visual::color::SingleColor;
 use polars::prelude::*;
@@ -241,13 +241,15 @@ impl Chart<MarkLine> {
             };
 
             // Render the line for this group
-            render_line(
+            crate::render::line_renderer::render_line(
                 svg,
-                &points,
-                &stroke_color,
-                mark.stroke_width,
-                mark.opacity,
-                &mark.interpolation,
+                crate::render::line_renderer::LineConfig {
+                    points,
+                    color: stroke_color.clone(),
+                    stroke_width: mark.stroke_width,
+                    opacity: mark.opacity,
+                    interpolation: mark.interpolation.clone(),
+                },
             )?;
         }
 
