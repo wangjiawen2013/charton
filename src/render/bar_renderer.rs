@@ -16,6 +16,7 @@ use std::fmt::Write;
 ///
 /// # Returns
 /// Result indicating success or failure of the operation
+#[allow(clippy::too_many_arguments)]
 pub(crate) fn render_vertical_bar(
     svg: &mut String,
     x_center: f64,
@@ -78,6 +79,7 @@ pub(crate) fn render_vertical_bar(
 ///
 /// # Returns
 /// Result indicating success or failure of the operation
+#[allow(clippy::too_many_arguments)]
 pub(crate) fn render_horizontal_bar(
     svg: &mut String,
     x_zero: f64,

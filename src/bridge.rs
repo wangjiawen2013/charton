@@ -92,7 +92,7 @@ pub mod base {
         /// # Arguments
         /// * `name` - The variable name to associate with the DataFrame
         /// * `parquet_data` - A reference to the vector of bytes containing
-        ///                    Parquet-serialized DataFrame
+        ///   Parquet-serialized DataFrame
         ///
         /// # Returns
         /// A new InputData instance containing the deserialized DataFrame
@@ -125,7 +125,7 @@ pub mod base {
     ///
     /// # Parameters
     /// * `$var` - An identifier for a variable whose name will be used as the identifier
-    ///            and whose value will be stored in the `InputData`
+    ///   and whose value will be stored in the `InputData`
     ///
     /// # Example
     /// ```

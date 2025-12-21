@@ -75,7 +75,7 @@ pub(crate) fn render_color_legend<T: Mark>(
     let max_items_per_column = (available_vertical_space / ITEM_HEIGHT).floor() as usize;
 
     // Ensure we have at least one item per column and respect the maximum items per column
-    let max_items_per_column = max_items_per_column.max(1).min(MAX_ITEMS_PER_COLUMN);
+    let max_items_per_column = max_items_per_column.clamp(1, MAX_ITEMS_PER_COLUMN);
 
     // Calculate column width based on available space and max label width
     let max_label_width = unique

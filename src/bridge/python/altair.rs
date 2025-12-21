@@ -169,7 +169,7 @@ impl Visualization for Plot<Altair> {
         #[cfg(unix)]
         {
             use std::os::unix::fs::MetadataExt;
-            let metadata = path.metadata().map_err(|e| ChartonError::Io(e))?;
+            let metadata = path.metadata().map_err(ChartonError::Io)?;
 
             if metadata.mode() & 0o111 == 0 {
                 return Err(ChartonError::ExecutablePath(format!(
@@ -412,12 +412,12 @@ chart = alt.Chart(df1).mark_point().encode(
 ).properties(width=200, height=200)
 "#;
 
-        let result = Plot::<Altair>::build(data!(&df1)?)?
+        Plot::<Altair>::build(data!(&df1)?)?
             .with_exe_path(exe_path)?
             .with_plotting_code(raw_plotting_code)
             .show()?;
 
-        assert_eq!(result, ());
+        assert_eq!((), ());
         Ok(())
     }
 }
