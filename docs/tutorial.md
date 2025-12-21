@@ -3413,8 +3413,344 @@ fn main() -> Result<(), Box<dyn Error>> {
 - Explicit support for `y2` avoids special-case “range” marks
 - Shared rendering infrastructure keeps rule logic minimal and composable
 
-# Chapter 8 · Interactive Visualization
+# Chapter 8 · External Backend Integration
+Charton can render charts using native Rust rendering, but it also integrates seamlessly with external visualization backends such as Altair  and Matplotlib.  
 
+This chapter explains how backend switching works and why external backends can be useful for leveraging established visualization ecosystems. You will also learn how to run raw Python plotting code from Rust, allowing complete flexibility.
+
+This is especially useful when mixing Rust data pipelines with existing Python workflows.
+
+## 8.1 Why external backends?
+Rust visualization ecosystem — including Charton — is still relatively young, it may not always meet all user requirements. In contrast, other languages have mature and feature-rich visualization tools, such as Altair and Matplotlib. Therefore, in situations where Charton’s native capabilities are not sufficient, it is necessary to rely on these external visualization tools as complementary backends.
+
+## 8.2 Altair backend
+Charton provides first-class integration with the Altair visualization ecosystem through the Altair backend. This backend allows Rust programs to generate Altair charts, render them using Python, and output either SVG images or Vega-Lite JSON specifications. This enables seamless interoperability between Rust data pipelines and any existing Python-based visualization workflow.
+
+Internally, Charton sends data to Python using an IPC (Apache Arrow) buffer, executes user-provided Altair code, and returns either SVG or Vega-Lite JSON back to Rust.
+
+**🔧 Requirements**
+
+Before using the Altair backend, ensure Python and required packages are installed:
+```shell
+pip install altair vl-convert-python polars pyarrow
+```
+### 8.2.1 Loading the Example Dataset (`mtcars`)
+Below is a built-in function to load `mtcars` into a Polars `DataFrame`:
+```rust
+let df = load_dataset("mtcars")?;
+```
+
+### 8.2.2 Basic Usage: Executing Altair Code
+This example shows the minimal usage of the Altair backend:
+- Load `mtcars`
+- Send it to the Altair backend
+- Execute a small Altair script
+- Display result (in Jupyter) or do nothing (CLI)
+
+```rust
+use charton::prelude::*;
+use polars::prelude::*;
+
+fn main() -> Result<(), Box<dyn std::error::Error>> {
+    let df = load_dataset("mtcars")?;
+
+    let code = r#"
+import altair as alt
+chart = alt.Chart(df).mark_point().encode(
+    x='mpg',
+    y='hp',
+    color='cyl:O'
+)
+"#;
+
+    Plot::<Altair>::build(data!(&df)?)?
+        .with_exe_path("python")?
+        .with_plotting_code(code)
+        .show()?;   // Works in evcxr notebook
+
+    Ok(())
+}
+```
+### 8.2.3 Saving Altair Charts as SVG
+The Altair backend supports exporting the chart as **SVG** by calling `.save("chart.svg")`.
+```rust
+use charton::prelude::*;
+
+fn main() -> Result<(), Box<dyn std::error::Error>> {
+    let df = load_mtcars();
+
+    let code = r#"
+import altair as alt
+chart = alt.Chart(df).mark_circle(size=80).encode(
+    x='wt',
+    y='mpg',
+    color='cyl:O',
+    tooltip=['mpg','cyl','wt']
+)
+"#;
+
+    Plot::<Altair>::build(data!(&df)?)?
+        .with_exe_path("python")?
+        .with_plotting_code(code)
+        .save("scatter.svg")?;
+
+    println!("Saved to scatter.svg");
+    Ok(())
+}
+```
+### 8.2.4 Export as Vega-Lite JSON
+To get a **Vega-Lite JSON specification**, call `.to_json()` or save with `.json` extension:
+
+**Method 1 — get JSON string in Rust:**
+```rust
+let json: String = Plot::<Altair>::build(data!(&df)?)?
+    .with_exe_path("python")?
+    .with_plotting_code(code)
+    .to_json()?;
+
+println!("{}", json);
+```
+**Method 2 — save JSON file:**
+```rust
+Plot::<Altair>::build(data!(&df)?)?
+    .with_exe_path("python")?
+    .with_plotting_code(code)
+    .save("chart.json")?;
+```
+### 8.2.5 Example: Converting to Vega-Lite JSON and Rendering in the Browser
+You can embed the exported JSON into an HTML file and render it directly in the browser using Vega-Lite.
+
+**Step 1 — generate JSON from Rust:**
+```rust
+Plot::<Altair>::build(data!(&df)?)?
+    .with_exe_path("python")?
+    .with_plotting_code(code)
+    .save("mtcars.json")?;
+```
+
+**Step 2 — embed JSON in HTML:**
+```html
+<!DOCTYPE html>
+<html>
+<head>
+  <script src="https://cdn.jsdelivr.net/npm/vega@5"></script>
+  <script src="https://cdn.jsdelivr.net/npm/vega-lite@5"></script>
+  <script src="https://cdn.jsdelivr.net/npm/vega-embed@6"></script>
+</head>
+
+<body>
+<div id="vis"></div>
+
+<script>
+fetch("mtcars.json")
+  .then(r => r.json())
+  .then(spec => vegaEmbed("#vis", spec));
+</script>
+
+</body>
+</html>
+```
+Open in browser → you get an Altair-rendered visualization displayed via Vega-Lite.
+
+### 8.2.6 Full Example: A More Complete Altair Chart
+```rust
+let df = load_dataset("mtcars")?;
+
+let code = r#"
+import altair as alt
+
+chart = alt.Chart(df).mark_point(filled=True).encode(
+    x=alt.X('hp', title='Horsepower'),
+    y=alt.Y('mpg', title='Miles/Gallon'),
+    color=alt.Color('cyl:O', title='Cylinders'),
+    size='wt',
+    tooltip=['mpg','hp','wt','cyl']
+)
+"#;
+
+Plot::<Altair>::build(data!(&df)?)?
+    .with_exe_path("python")?
+    .with_plotting_code(code)
+    .save("full.svg")?;
+```
+## 8.3 Matplotlib backend
+The Matplotlib backend enables Charton to generate high-quality static visualizations using Python’s Matplotlib library. This backend is ideal when users need:
+- Scientific publication–grade plots
+- Fine-grained control over rendering
+- Access to the mature, feature-rich Matplotlib ecosystem
+- Compatibility with existing Python visualization workflows
+
+Just like the Altair backend, Charton transfers data to Python through an IPC buffer (Apache Arrow), executes user-provided Matplotlib code, and returns the resulting SVG image back to Rust.
+
+**🔧 Requirements**
+
+Before using the Matplotlib backend, ensure the required Python packages are installed:
+```bash
+pip install matplotlib polars pyarrow
+```
+### 8.3.1 Basic Usage: Executing Matplotlib Code
+The minimal workflow for the Matplotlib backend is similar to Altair:
+**1.** Load data
+**2.** Provide a snippet of Python Matplotlib code
+**3.** Charton runs it in Python and captures the SVG output
+
+```rust
+use charton::prelude::*;
+use polars::prelude::*;
+
+let df = load_dataset("mtcars")?;
+
+let code = r#"
+import matplotlib.pyplot as plt
+
+fig, ax = plt.subplots(figsize=(5, 4))
+ax.scatter(df['mpg'], df['hp'], c=df['cyl'], cmap='viridis')
+ax.set_xlabel('MPG')
+ax.set_ylabel('Horsepower')
+"#;
+
+Plot::<Matplotlib>::build(data!(&df))?
+    .with_exe_path("python")?
+    .with_plotting_code(code)
+    .show()?;   // Works in evcxr notebook
+```
+### 8.3.2 Saving Matplotlib Output as SVG
+You can export Matplotlib-rendered figures to SVG files using `.save("file.svg")`.
+
+```rust
+use charton::prelude::*;
+
+fn main() -> Result<(), Box<dyn std::error::Error>> {
+    let df = load_dataset("mtcars")?;
+
+    let code = r#"
+import matplotlib.pyplot as plt
+
+fig, ax = plt.subplots(figsize=(5, 4))
+scatter = ax.scatter(df['wt'], df['mpg'], c=df['cyl'], cmap='tab10')
+ax.set_xlabel('Weight')
+ax.set_ylabel('MPG')
+"#;
+
+    Plot::<Matplotlib>::build(data!(&df))?
+        .with_exe_path("python")?
+        .with_plotting_code(code)
+        .save("mat_mtcars.svg")?;
+
+    println!("Saved to mat_mtcars.svg");
+    Ok(())
+}
+```
+The saved SVG can be embedded in Markdown, LaTeX, HTML, Jupyter notebooks, or included in publication figures.
+
+### 8.3.3 Using Subplots
+Matplotlib excels at multi-panel scientific figures. Here is an example showing two subplots:
+
+```rust
+let code = r#"
+import matplotlib.pyplot as plt
+
+fig, axes = plt.subplots(1, 2, figsize=(8, 4))
+
+axes[0].hist(df['mpg'], bins=8, color='steelblue')
+axes[0].set_title('MPG Distribution')
+
+axes[1].scatter(df['hp'], df['wt'], c=df['cyl'], cmap='viridis')
+axes[1].set_xlabel('Horsepower')
+axes[1].set_ylabel('Weight')
+
+fig.tight_layout()
+"#;
+
+Plot::<Matplotlib>::build(data!(&df)?)?
+    .with_exe_path("python")?
+    .with_plotting_code(code)
+    .save("mat_subplots.svg")?;
+```
+### 8.3.4 Adding Titles, Legends, and Styles
+Matplotlib’s flexibility allows full customization:
+
+```rust
+let code = r#"
+import matplotlib.pyplot as plt
+plt.style.use('ggplot')
+
+fig, ax = plt.subplots(figsize=(6, 4))
+
+scatter = ax.scatter(
+    df['hp'], df['mpg'],
+    c=df['cyl'],
+    cmap='viridis',
+    s=df['wt'] * 40,
+    alpha=0.8
+)
+
+fig.colorbar(scatter, ax=ax, label='Cylinders')
+ax.set_title('HP vs MPG (Sized by Weight)')
+ax.set_xlabel('Horsepower')
+ax.set_ylabel('MPG')
+"#;
+
+Plot::<Matplotlib>::build(data!(&df)?)?
+    .with_exe_path("python")?
+    .with_plotting_code(code)
+    .save("mat_custom.svg")?;
+```
+
+### 8.3.5 Using Python Libraries with Matplotlib (not tested)
+Because the backend runs arbitrary Python code, you can integrate any Python library, for example:
+* seaborn for statistical plots
+* scipy for fitting or curves
+* sklearn for clustering overlay
+* pandas for quick plotting
+
+Example with seaborn:
+
+```rust
+let code = r#"
+import seaborn as sns
+import matplotlib.pyplot as plt
+
+fig, ax = plt.subplots(figsize=(6, 4))
+sns.regplot(data=df, x='hp', y='mpg', ax=ax)
+ax.set_title('Regression Line of HP vs MPG')
+"#;
+```
+
+This freedom allows Rust code to leverage the entire Python scientific visualization stack.
+
+### 8.3.6 Full Example: Multi-encoding Scatterplot
+This example uses color mapping, different marker sizes, and labels:
+```rust
+let code = r#"
+import matplotlib.pyplot as plt
+
+fig, ax = plt.subplots(figsize=(6, 4))
+
+sc = ax.scatter(
+    df['hp'], df['mpg'],
+    c=df['cyl'], cmap='tab10',
+    s=df['wt'] * 35,
+    alpha=0.85, edgecolor='black'
+)
+
+ax.set_title('HP vs MPG (Colored by Cylinders, Sized by Weight)')
+ax.set_xlabel('Horsepower')
+ax.set_ylabel('Miles/Gallon')
+
+cbar = fig.colorbar(sc, ax=ax)
+cbar.set_label('Cylinders')
+
+fig.tight_layout()
+"#;
+
+Plot::<Matplotlib>::build(data!(&df))?
+    .with_exe_path("python")?
+    .with_plotting_code(code)
+    .save("mat_full.svg")?;
+```
+
+# Chapter 9 · Interactive Visualization
 Charton provides two categories of visualization output:
 
 1. **Static rendering** (native Charton SVG)
@@ -3424,11 +3760,8 @@ Although Charton’s native renderer produces static SVG files, it can still par
 
 This chapter explains these modes and clarifies the underlying architecture.
 
-## 8.1 Static interactive-style display in Jupyter (via `evcxr`)
-
-Charton integrates with `evcxr` to display static charts *inline* inside Jupyter notebooks.  
-This mode is “static” because the output is a fixed SVG, but it behaves “interactive-style” because:
-
+## 9.1 Static interactive-style display in Jupyter (via `evcxr`)
+Charton integrates with `evcxr` to display static charts *inline* inside Jupyter notebooks. This mode is “static” because the output is a fixed SVG, but it behaves “interactive-style” because:
 - Each execution immediately re-renders the chart inside the notebook  
 - Any changes to code/data result in instant visual updates  
 - Ideal for exploration, education, and iterative refinement
@@ -3436,9 +3769,8 @@ This mode is “static” because the output is a fixed SVG, but it behaves “i
 This is similar to how Plotters or PlotPy integrate with `evcxr`.
 
 ### Example: Displaying a Charton chart inline in Jupyter
-
 ```rust
-:dep charton = { version="0.1.0" }
+:dep charton = { version="0.2.0" }
 :dep polars = { version="0.49.1" }
 
 use charton::prelude::*;
@@ -3459,19 +3791,16 @@ Chart::build(&df)?
 ```
 Even though the chart itself is static, the *workflow* feels interactive due to the rapid feedback loop.
 
-## 8.2 Static SVG vs. Interactive Rendering in WebAssembly (not supported now)
-
+## 9.2 Static SVG vs. Interactive Rendering in WebAssembly (partially supported now)
 Although Charton’s native output is a **static SVG**, this does *not* prevent it from supporting interactive rendering when compiled to Wasm. In fact, the combination of **Charton + Rust + Wasm** enables a high-performance interaction model that is often *faster* than traditional JavaScript visualization libraries.
 
 To understand this correctly, we must distinguish two different concepts:
-
 - **Static** — refers to the file format: SVG is a declarative XML graphics format.
 - **Dynamic** — refers to the rendering and update pipeline: how a chart is recomputed and replaced in response to user input.
 
 **🔑 Key Idea: Charton SVGs Are Not “Immutable”**
 
-The SVG that Charton produces is a static file format, but this does **not** mean the visualization must remain static in the browser.
-The core principle of the Charton + Wasm model is:
+The SVG that Charton produces is a static file format, but this does **not** mean the visualization must remain static in the browser. The core principle of the Charton + Wasm model is:
 
 > Interactions do not modify the SVG in-place.
 > Instead, Charton’s Rust/Wasm runtime dynamically recomputes and regenerates a new SVG whenever needed.
@@ -3480,8 +3809,7 @@ Thus, the browser simply re-renders the updated SVG structure.
 
 This architecture provides both simplicity (SVG is easy to embed, style, and display) and performance (Wasm + Polars + Rust for fast recomputation).
 
-### 8.2.1 Interaction Does Not Require Canvas
-
+### 9.2.1 Interaction Does Not Require Canvas
 Interactive visualization is *not* exclusive to Canvas or WebGL.
 SVG supports two fundamentally different interaction models:
 | **Interaction Model**                           | **Description**                                                                                          | **Suitable For**                                              |
@@ -3491,7 +3819,7 @@ SVG supports two fundamentally different interaction models:
 
 Charton’s design focuses on *the second model*, where Rust/Wasm performs the heavy lifting.
 
-### 8.2.2 Wasm-Driven Interactive Rendering Pipeline
+### 9.2.2 Wasm-Driven Interactive Rendering Pipeline
 When a user interacts with a Charton chart compiled to Wasm, the pipeline works as follows:
 - The browser captures a user event—e.g., a drag event for zooming or a brush gesture for selecting a range.
 - Using `wasm-bindgen`, the event details are passed into the Charton Rust core.
@@ -3502,29 +3830,24 @@ When a user interacts with a Charton chart compiled to Wasm, the pipeline works 
 Charton’s Wasm-driven model has several performance advantages:
 
 **1. Polars performance inside Wasm**
-
 Traditional JS libraries rely on JavaScript arrays, D3 computations, or slower JS-based DataFrame libraries.
 Charton instead executes **Polars** in Wasm—offering:
-
 - zero-copy columnar data
 - vectorized operations
 - multi-threaded execution (where supported)
 
 **2. Rust efficiency**
-
 All chart logic—scales, encodings, transforms, layouts—is executed in **compiled Rust**, not interpreted JS.
 
 **3. SVG rendering advantages**
-
 SVG is declarative; modern browsers:
-
 - batch DOM updates
 - optimize SVG rendering paths
 - offload rendering to GPU when possible
 
 This drastically reduces UI-thread blocking compared to manual JS DOM manipulation.
 
-### 8.2.3 Charton + Polars + wasm-bindgen — step-by-step example
+### 9.2.3 Charton + Polars + wasm-bindgen — step-by-step example
 > Goal: expose a `draw_chart()` function from Rust → returns an SVG string → JavaScript inserts that SVG into the DOM.
 
 **0) Prerequisites**
@@ -3574,7 +3897,7 @@ crate-type = ["cdylib"]
 [dependencies]
 wasm-bindgen = "0.2"
 polars = { version = "0.49", default-features = false }
-charton = { path = "E:/projects/charton" }
+charton = { version = "0.2" }
 
 [profile.release]
 opt-level = "s"
@@ -3669,7 +3992,6 @@ The final step is to create a minimal HTML file (`web/index.html`) that loads th
 </html>
 ```
 This minimal version:
-
 - Loads the WASM module generated by `wasm-pack`
 - Calls the Rust function `draw_chart()` to generate the SVG string
 - Injects the SVG directly into the DOM
@@ -3689,22 +4011,18 @@ python3 -m http.server 8080
 Then open http://localhost:8080/index.html and you'll see the chart in the browser:
 ![wasm](../assets/wasm.png)
 
-### 8.2.4 Conclusion
-
+### 9.2.4 Conclusion
 The combination of *static* SVG and *dynamic* Rust/Wasm computation forms a powerful model for interactive visualization:
-
 - SVG provides simple, portable output for embedding and styling.
 - Rust/Wasm enables high-performance chart recomputation.
 - Polars accelerates data transformations dramatically.
 - Browser handles final rendering efficiently.
 
-**Charton does not attempt to patch SVGs with JavaScript like traditional libraries.**
-**Instead, it regenerates a complete static SVG—fast enough to support real-time interactivity.**
+**Charton does not attempt to patch SVGs with JavaScript like traditional libraries. Instead, it regenerates a complete static SVG—fast enough to support real-time interactivity.**
 
 This architecture makes high-performance, browser-based interaction not only possible but highly efficient.
 
-## 8.3 True interactive visualization via the Altair backend
-
+## 9.3 True interactive visualization via the Altair backend
 Charton can generate fully interactive charts by delegating to **Altair**, which compiles to Vega-Lite specifications capable of:
 - Hover tooltips
 - Selections
@@ -3717,7 +4035,6 @@ Charton can generate fully interactive charts by delegating to **Altair**, which
 **Charton’s role in this workflow**
 
 Charton does:
-
 1. Run Rust-side preprocessing (Polars)
 2. Transfer data to Python
 3. Embed user-provided Altair plotting code
@@ -3728,7 +4045,7 @@ All *actual* interactivity comes from **Altair/Vega-Lite**, not from Charton.
 
 **Example: interactive Altair chart via Charton**
 ```rust
-:dep charton = { version="0.1.0" }
+:dep charton = { version="0.2.0" }
 :dep polars = { version="0.49.1" }
 
 use charton::prelude::*;
@@ -3754,7 +4071,7 @@ chart = alt.Chart(df1).mark_point().encode(
 ).interactive()        # <-- zoom + pan + scroll
 "#;
 
-Plot::<Altair>::build(data!(&df1))?
+Plot::<Altair>::build(data!(&df1)?)?
     .with_exe_path(exe_path)?
     .with_plotting_code(raw_plotting_code)
     .show()?;  // Jupyter or browser
@@ -3762,12 +4079,10 @@ Plot::<Altair>::build(data!(&df1))?
 
 This provides **real interactivity** entirely through Altair.
 
-## 8.4 Exporting Vega-Lite JSON for browser/Web app usage
-
+## 9.4 Exporting Vega-Lite JSON for browser/Web app usage
 Since Altair compiles to Vega-Lite, Charton can generate the JSON specification directly.
 
 This is ideal for:
-
 - Web dashboards
 - React / Vue / Svelte components
 - Embedding charts in HTML
@@ -3776,7 +4091,7 @@ This is ideal for:
 
 **Example: Export to JSON**
 ```rust
-let chart_json = Plot::<Altair>::build(data!(&df1))?
+let chart_json: String = Plot::<Altair>::build(data!(&df1)?)?
     .with_exe_path(exe_path)?
     .with_plotting_code(raw_plotting_code)
     .to_json()?;
@@ -3793,7 +4108,8 @@ println!("{}", chart_json);
   vegaEmbed('#vis', spec);
 </script>
 ```
-## 8.5 Summary: What kinds of interactivity does Charton support?
+
+## 9.5 Summary: What kinds of interactivity does Charton support?
 | **Feature**                                          | **Supported?** | **Provided by**         |
 | ---------------------------------------------------- | ----------     | ----------------------- |
 | Hover tooltips                                       | ✔ Yes         | Altair/Vega-Lite        |
@@ -3812,406 +4128,6 @@ println!("{}", chart_json);
 | Hover/tooltip/zoom              | Altair backend                                  |
 | Web dashboards or JS frameworks | Export Vega-Lite JSON                           |
 | Rust/WASM interactive apps      | Use Charton as SVG generator + custom WASM logic |
-
-# Chapter 9 · External Backend Integration
-
-Charton can render charts using native Rust rendering, but it also integrates seamlessly with external visualization backends such as Altair  and Matplotlib.  
-
-This chapter explains how backend switching works and why external backends can be useful for leveraging established visualization ecosystems.  
-You will also learn how to run raw Python plotting code from Rust, allowing complete flexibility.
-
-This is especially useful when mixing Rust data pipelines with existing Python workflows.
-
-## 9.1 Why external backends?
-Rust visualization ecosystem — including Charton — is still relatively young, it may not always meet all user requirements. In contrast, other languages have mature and feature-rich visualization tools, such as Altair and Matplotlib. Therefore, in situations where Charton’s native capabilities are not sufficient, it is necessary to rely on these external visualization tools as complementary backends.
-
-## 9.2 Altair backend
-Charton provides first-class integration with the Altair visualization ecosystem through the Altair backend.
-This backend allows Rust programs to generate Altair charts, render them using Python, and output either SVG images or Vega-Lite JSON specifications.
-
-This enables seamless interoperability between Rust data pipelines and any existing Python-based visualization workflow.
-
-Internally, Charton sends data to Python using an IPC (Apache Arrow) buffer, executes user-provided Altair code, and returns either SVG or Vega-Lite JSON back to Rust.
-
-**🔧 Requirements**
-
-Before using the Altair backend, ensure Python and required packages are installed:
-```shell
-pip install altair vl-convert-python polars pyarrow
-```
-### 9.2.1 Loading the Example Dataset (`mtcars`)
-Below is a helper function to load `mtcars` into a Polars `DataFrame`:
-```rust
-use polars::prelude::*;
-
-fn load_mtcars() -> DataFrame {
-    df![
-        "mpg" => [21.0,21.0,22.8,21.4,18.7,18.1,14.3,24.4,22.8,19.2],
-        "cyl" => [6,6,4,6,8,6,8,4,4,6],
-        "hp"  => [110,110,93,110,175,105,245,62,95,123],
-        "wt"  => [2.62,2.875,2.32,3.215,3.44,3.46,3.57,3.19,3.15,3.44]
-    ].unwrap()
-}
-```
----
-
-### 9.2.2 Basic Usage: Executing Altair Code
-This example shows the minimal usage of the Altair backend:
-
-- Load `mtcars`
-- Send it to the Altair backend
-- Execute a small Altair script
-- Display result (in Jupyter) or do nothing (CLI)
-
-```rust
-use charton::prelude::*;
-use polars::prelude::*;
-
-fn main() -> Result<(), Box<dyn std::error::Error>> {
-    let df = load_mtcars();
-
-    let code = r#"
-import altair as alt
-chart = alt.Chart(df).mark_point().encode(
-    x='mpg',
-    y='hp',
-    color='cyl:O'
-)
-"#;
-
-    Plot::<Altair>::build(data!(df))?
-        .with_exe_path("python")?
-        .with_plotting_code(code)
-        .show()?;   // Works in evcxr notebook
-
-    Ok(())
-}
-```
----
-### 9.2.3 Saving Altair Charts as SVG
-
-The Altair backend supports exporting the chart as **SVG** by calling `.save("chart.svg")`.
-```rust
-use charton::prelude::*;
-
-fn main() -> Result<(), Box<dyn std::error::Error>> {
-    let df = load_mtcars();
-
-    let code = r#"
-import altair as alt
-chart = alt.Chart(df).mark_circle(size=80).encode(
-    x='wt',
-    y='mpg',
-    color='cyl:O',
-    tooltip=['mpg','cyl','wt']
-)
-"#;
-
-    Plot::<Altair>::build(data!(df))?
-        .with_exe_path("python")?
-        .with_plotting_code(code)
-        .save("scatter.svg")?;
-
-    println!("Saved to scatter.svg");
-    Ok(())
-}
-```
----
-### 9.2.4 Export as Vega-Lite JSON
-
-To get a **Vega-Lite JSON specification**, call `.to_json()` or save with `.json` extension:
-
-**Method 1 — get JSON string in Rust:**
-```rust
-let json = Plot::<Altair>::build(data!(df))?
-    .with_exe_path("python")?
-    .with_plotting_code(code)
-    .to_json()?;
-
-println!("{}", json);
-```
-**Method 2 — save JSON file:**
-```rust
-Plot::<Altair>::build(data!(df))?
-    .with_exe_path("python")?
-    .with_plotting_code(code)
-    .save("chart.json")?;
-```
----
-
-### 9.2.5 Example: Converting to Vega-Lite JSON and Rendering in the Browser
-
-You can embed the exported JSON into an HTML file and render it directly in the browser using Vega-Lite.
-
-**Step 1 — generate JSON from Rust:**
-```rust
-Plot::<Altair>::build(data!(df))?
-    .with_exe_path("python")?
-    .with_plotting_code(code)
-    .save("mtcars.json")?;
-```
----
-
-**Step 2 — embed JSON in HTML:**
-```html
-<!DOCTYPE html>
-<html>
-<head>
-  <script src="https://cdn.jsdelivr.net/npm/vega@5"></script>
-  <script src="https://cdn.jsdelivr.net/npm/vega-lite@5"></script>
-  <script src="https://cdn.jsdelivr.net/npm/vega-embed@6"></script>
-</head>
-
-<body>
-<div id="vis"></div>
-
-<script>
-fetch("mtcars.json")
-  .then(r => r.json())
-  .then(spec => vegaEmbed("#vis", spec));
-</script>
-
-</body>
-</html>
-```
-Open in browser → you get an Altair-rendered visualization displayed via Vega-Lite.
-
----
-
-### 9.2.6 Full Example: A More Complete Altair Chart
-```
-let code = r#"
-import altair as alt
-
-chart = alt.Chart(df).mark_point(filled=True).encode(
-    x=alt.X('hp', title='Horsepower'),
-    y=alt.Y('mpg', title='Miles/Gallon'),
-    color=alt.Color('cyl:O', title='Cylinders'),
-    size='wt',
-    tooltip=['mpg','hp','wt','cyl']
-)
-"#;
-
-Plot::<Altair>::build(data!(df))?
-    .with_exe_path("python")?
-    .with_plotting_code(code)
-    .save("full.svg")?;
-```
----
-
-## 9.3 Matplotlib backend
-The Matplotlib backend enables Charton to generate high-quality static visualizations using Python’s Matplotlib library.
-This backend is ideal when users need:
-
-- Scientific publication–grade plots
-- Fine-grained control over rendering
-- Access to the mature, feature-rich Matplotlib ecosystem
-- Compatibility with existing Python visualization workflows
-
-Just like the Altair backend, Charton transfers data to Python through an IPC buffer (Apache Arrow), executes user-provided Matplotlib code, and returns the resulting SVG image back to Rust.
-
-**🔧 Requirements**
-
-Before using the Matplotlib backend, ensure the required Python packages are installed:
-```bash
-pip install matplotlib polars pyarrow
-```
-### 9.3.1 Basic Dataset (mtcars)
-
-We continue to use the same helper function from the previous section:
-```rust
-use polars::prelude::*;
-
-fn load_mtcars() -> DataFrame {
-    df![
-        "mpg" => [21.0,21.0,22.8,21.4,18.7,18.1,14.3,24.4,22.8,19.2],
-        "cyl" => [6,6,4,6,8,6,8,4,4,6],
-        "hp"  => [110,110,93,110,175,105,245,62,95,123],
-        "wt"  => [2.62,2.875,2.32,3.215,3.44,3.46,3.57,3.19,3.15,3.44]
-    ].unwrap()
-}
-```
-
-### 9.3.2 Basic Usage: Executing Matplotlib Code
-
-The minimal workflow for the Matplotlib backend is similar to Altair:
-
-**1.** Load data
-
-**2.** Provide a snippet of Python Matplotlib code
-
-**3.** Charton runs it in Python and captures the SVG output
-
-```rust
-use charton::prelude::*;
-use polars::prelude::*;
-
-fn main() -> Result<(), Box<dyn std::error::Error>> {
-    let df = load_mtcars();
-
-    let code = r#"
-import matplotlib.pyplot as plt
-
-fig, ax = plt.subplots(figsize=(5, 4))
-ax.scatter(df['mpg'], df['hp'], c=df['cyl'], cmap='viridis')
-ax.set_xlabel('MPG')
-ax.set_ylabel('Horsepower')
-"#;
-
-    Plot::<Matplotlib>::build(data!(&df))?
-        .with_exe_path("python")?
-        .with_plotting_code(code)
-        .show()?;   // Works in evcxr notebook
-
-    Ok(())
-}
-```
-
-### 9.3.3 Saving Matplotlib Output as SVG
-
-You can export Matplotlib-rendered figures to SVG files using `.save("file.svg")`.
-
-```rust
-use charton::prelude::*;
-
-fn main() -> Result<(), Box<dyn std::error::Error>> {
-    let df = load_mtcars();
-
-    let code = r#"
-import matplotlib.pyplot as plt
-
-fig, ax = plt.subplots(figsize=(5, 4))
-scatter = ax.scatter(df['wt'], df['mpg'], c=df['cyl'], cmap='tab10')
-ax.set_xlabel('Weight')
-ax.set_ylabel('MPG')
-"#;
-
-    Plot::<Matplotlib>::build(data!(df))?
-        .with_exe_path("python")?
-        .with_plotting_code(code)
-        .save("mat_mtcars.svg")?;
-
-    println!("Saved to mat_mtcars.svg");
-    Ok(())
-}
-```
-The saved SVG can be embedded in Markdown, LaTeX, HTML, Jupyter notebooks, or included in publication figures.
-
-### 9.3.4 Using Subplots
-
-Matplotlib excels at multi-panel scientific figures.
-Here is an example showing two subplots:
-
-```rust
-let code = r#"
-import matplotlib.pyplot as plt
-
-fig, axes = plt.subplots(1, 2, figsize=(8, 4))
-
-axes[0].hist(df['mpg'], bins=8, color='steelblue')
-axes[0].set_title('MPG Distribution')
-
-axes[1].scatter(df['hp'], df['wt'], c=df['cyl'], cmap='viridis')
-axes[1].set_xlabel('Horsepower')
-axes[1].set_ylabel('Weight')
-
-fig.tight_layout()
-"#;
-
-Plot::<Matplotlib>::build(data!(df))?
-    .with_exe_path("python")?
-    .with_plotting_code(code)
-    .save("mat_subplots.svg")?;
-```
-
-### 9.3.5 Adding Titles, Legends, and Styles
-
-Matplotlib’s flexibility allows full customization:
-
-```rust
-let code = r#"
-import matplotlib.pyplot as plt
-plt.style.use('ggplot')
-
-fig, ax = plt.subplots(figsize=(6, 4))
-
-scatter = ax.scatter(
-    df['hp'], df['mpg'],
-    c=df['cyl'],
-    cmap='viridis',
-    s=df['wt'] * 40,
-    alpha=0.8
-)
-
-fig.colorbar(scatter, ax=ax, label='Cylinders')
-ax.set_title('HP vs MPG (Sized by Weight)')
-ax.set_xlabel('Horsepower')
-ax.set_ylabel('MPG')
-"#;
-
-Plot::<Matplotlib>::build(data!(&df))?
-    .with_exe_path("python")?
-    .with_plotting_code(code)
-    .save("mat_custom.svg")?;
-```
-
-### 9.3.6 Using Python Libraries with Matplotlib
-
-Because the backend runs arbitrary Python code, you can integrate any Python library, for example:
-
-* seaborn for statistical plots
-
-* scipy for fitting or curves
-
-* sklearn for clustering overlay
-
-* pandas for quick plotting
-
-Example with seaborn:
-
-```rust
-let code = r#"
-import seaborn as sns
-import matplotlib.pyplot as plt
-
-fig, ax = plt.subplots(figsize=(6, 4))
-sns.regplot(data=df, x='hp', y='mpg', ax=ax)
-ax.set_title('Regression Line of HP vs MPG')
-"#;
-```
-
-This freedom allows Rust code to leverage the entire Python scientific visualization stack.
-
-### 9.3.7 Full Example: Multi-encoding Scatterplot
-This example uses color mapping, different marker sizes, and labels:
-```rust
-let code = r#"
-import matplotlib.pyplot as plt
-
-fig, ax = plt.subplots(figsize=(6, 4))
-
-sc = ax.scatter(
-    df['hp'], df['mpg'],
-    c=df['cyl'], cmap='tab10',
-    s=df['wt'] * 35,
-    alpha=0.85, edgecolor='black'
-)
-
-ax.set_title('HP vs MPG (Colored by Cylinders, Sized by Weight)')
-ax.set_xlabel('Horsepower')
-ax.set_ylabel('Miles/Gallon')
-
-cbar = fig.colorbar(sc, ax=ax)
-cbar.set_label('Cylinders')
-
-fig.tight_layout()
-"#;
-
-Plot::<Matplotlib>::build(data!(&df))?
-    .with_exe_path("python")?
-    .with_plotting_code(code)
-    .save("mat_full.svg")?;
-```
 
 # Chapter 10 · Performance Optimization
 
