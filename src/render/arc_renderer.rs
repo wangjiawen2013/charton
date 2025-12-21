@@ -1,6 +1,19 @@
 use crate::visual::color::SingleColor;
 use std::fmt::Write;
 
+pub(crate) struct ArcSliceConfig {
+    pub center_x: f64,
+    pub center_y: f64,
+    pub radius: f64,
+    pub inner_radius_ratio: f64,
+    pub start_angle: f64,
+    pub end_angle: f64,
+    pub fill_color: Option<SingleColor>,
+    pub stroke_color: Option<SingleColor>,
+    pub stroke_width: f64,
+    pub opacity: f64,
+}
+
 /// Renders an arc slice (a pie/wedge shape) into the SVG string
 ///
 /// This function calculates the path for an arc slice based on center coordinates,
@@ -9,61 +22,40 @@ use std::fmt::Write;
 ///
 /// # Parameters
 /// * `svg` - A mutable reference to the SVG string being built
-/// * `center_x` - X-coordinate of the arc's center
-/// * `center_y` - Y-coordinate of the arc's center
-/// * `radius` - Radius of the arc
-/// * `inner_radius_ratio` - Ratio of inner radius to outer radius (0.0 to 1.0)
-/// * `start_angle` - Starting angle in radians
-/// * `end_angle` - Ending angle in radians
-/// * `fill_color` - Reference to the fill color
-/// * `stroke_color` - Reference to the stroke color
-/// * `stroke_width` - Width of the stroke
-/// * `opacity` - Opacity of the arc
+/// * `config` - Configuration parameters for the arc slice
 ///
 /// # Returns
 /// Result indicating success or failure of the operation
-#[allow(clippy::too_many_arguments)]
-pub(crate) fn render_arc_slice(
-    svg: &mut String,
-    center_x: f64,
-    center_y: f64,
-    radius: f64,
-    inner_radius_ratio: f64,
-    start_angle: f64,
-    end_angle: f64,
-    fill_color: &Option<SingleColor>,
-    stroke_color: &Option<SingleColor>,
-    stroke_width: f64,
-    opacity: f64,
-) -> std::fmt::Result {
+pub(crate) fn render_arc_slice(svg: &mut String, config: ArcSliceConfig) -> std::fmt::Result {
     // Determine inner radius based on mark settings
-    let inner_radius = radius * inner_radius_ratio;
+    let inner_radius = config.radius * config.inner_radius_ratio;
 
     // Calculate points
-    let cos_start = start_angle.cos();
-    let sin_start = start_angle.sin();
-    let cos_end = end_angle.cos();
-    let sin_end = end_angle.sin();
+    let cos_start = config.start_angle.cos();
+    let sin_start = config.start_angle.sin();
+    let cos_end = config.end_angle.cos();
+    let sin_end = config.end_angle.sin();
 
     // Outer arc points
-    let outer_start_x = center_x + radius * cos_start;
-    let outer_start_y = center_y + radius * sin_start;
-    let outer_end_x = center_x + radius * cos_end;
-    let outer_end_y = center_y + radius * sin_end;
+    let outer_start_x = config.center_x + config.radius * cos_start;
+    let outer_start_y = config.center_y + config.radius * sin_start;
+    let outer_end_x = config.center_x + config.radius * cos_end;
+    let outer_end_y = config.center_y + config.radius * sin_end;
 
     // Determine if this is a large arc (greater than 180 degrees)
-    let large_arc_flag = if end_angle - start_angle > std::f64::consts::PI {
+    let large_arc_flag = if config.end_angle - config.start_angle > std::f64::consts::PI {
         1
     } else {
         0
     };
 
-    let fill_color_str = fill_color
+    let fill_color_str = config
+        .fill_color
         .as_ref()
         .map(|c| c.get_color())
         .unwrap_or_else(|| "none".to_string());
 
-    let stroke_str = if let Some(stroke) = stroke_color {
+    let stroke_str = if let Some(stroke) = &config.stroke_color {
         stroke.get_color()
     } else {
         "none".to_string()
@@ -71,10 +63,10 @@ pub(crate) fn render_arc_slice(
 
     if inner_radius > 0.0 {
         // Donut slice - create a path with both outer and inner arcs
-        let inner_start_x = center_x + inner_radius * cos_start;
-        let inner_start_y = center_y + inner_radius * sin_start;
-        let inner_end_x = center_x + inner_radius * cos_end;
-        let inner_end_y = center_y + inner_radius * sin_end;
+        let inner_start_x = config.center_x + inner_radius * cos_start;
+        let inner_start_y = config.center_y + inner_radius * sin_start;
+        let inner_end_x = config.center_x + inner_radius * cos_end;
+        let inner_end_y = config.center_y + inner_radius * sin_end;
 
         // Create the path for the donut slice
         writeln!(
@@ -82,8 +74,8 @@ pub(crate) fn render_arc_slice(
             r#"<path d="M {} {} A {} {} 0 {} 1 {} {} L {} {} A {} {} 0 {} 0 {} {} L {} {} Z" fill="{}" stroke="{}" stroke-width="{}" opacity="{}"/>"#,
             outer_start_x,
             outer_start_y, // Move to outer start
-            radius,
-            radius,         // Outer arc radii
+            config.radius,
+            config.radius,  // Outer arc radii
             large_arc_flag, // Large arc flag
             outer_end_x,
             outer_end_y, // Outer arc end point
@@ -98,29 +90,29 @@ pub(crate) fn render_arc_slice(
             outer_start_y, // Line back to outer start
             fill_color_str,
             stroke_str,
-            stroke_width,
-            opacity,
+            config.stroke_width,
+            config.opacity,
         )
     } else {
         // Regular pie slice
         writeln!(
             svg,
             r#"<path d="M {} {} L {} {} A {} {} 0 {} 1 {} {} L {} {} Z" fill="{}" stroke="{}" stroke-width="{}" opacity="{}"/>"#,
-            center_x,
-            center_y, // Move to center
+            config.center_x,
+            config.center_y, // Move to center
             outer_start_x,
             outer_start_y, // Line to outer start
-            radius,
-            radius,         // Arc radii
+            config.radius,
+            config.radius,  // Arc radii
             large_arc_flag, // Large arc flag
             outer_end_x,
             outer_end_y, // Arc end point
-            center_x,
-            center_y, // Line back to center
+            config.center_x,
+            config.center_y, // Line back to center
             fill_color_str,
             stroke_str,
-            stroke_width,
-            opacity,
+            config.stroke_width,
+            config.opacity,
         )
     }
 }

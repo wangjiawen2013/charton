@@ -187,19 +187,20 @@ impl Chart<MarkArc> {
             };
 
             // Draw arc/slice using the renderer
-            crate::render::arc_renderer::render_arc_slice(
-                svg,
+            let arc_config = crate::render::arc_renderer::ArcSliceConfig {
                 center_x,
                 center_y,
                 radius,
-                mark.inner_radius_ratio,
+                inner_radius_ratio: mark.inner_radius_ratio,
                 start_angle,
                 end_angle,
-                &fill_color,
-                &mark.stroke,
-                mark.stroke_width,
-                mark.opacity,
-            )?;
+                fill_color: fill_color.clone(),
+                stroke_color: mark.stroke.clone(),
+                stroke_width: mark.stroke_width,
+                opacity: mark.opacity,
+            };
+
+            crate::render::arc_renderer::render_arc_slice(svg, arc_config)?;
 
             cumulative_angle = end_angle;
         }
