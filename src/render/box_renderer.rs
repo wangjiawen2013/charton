@@ -22,6 +22,7 @@ use std::fmt::Write;
 ///
 /// # Returns
 /// Result indicating success or failure of the operation
+#[allow(clippy::too_many_arguments)]
 pub(crate) fn render_vertical_box(
     svg: &mut String,
     x_center: f64,
@@ -129,6 +130,7 @@ pub(crate) fn render_vertical_box(
 ///
 /// # Returns
 /// Result indicating success or failure of the operation
+#[allow(clippy::too_many_arguments)]
 pub(crate) fn render_horizontal_box(
     svg: &mut String,
     y_center: f64,

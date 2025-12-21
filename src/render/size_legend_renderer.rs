@@ -75,13 +75,11 @@ pub(crate) fn render_size_legend<T: Mark>(
     let max_val = size_series.max::<f64>()?.unwrap();
 
     // Define reference sizes for the legend (five equally spaced points)
-    let reference_sizes = vec![
-        (0.00, min_val + (max_val - min_val) * 0.00, 2.0), // Minimum size
-        (0.25, min_val + (max_val - min_val) * 0.25, 4.0), // 25% size
-        (0.50, min_val + (max_val - min_val) * 0.50, 6.0), // 50% size
-        (0.75, min_val + (max_val - min_val) * 0.75, 8.0), // 75% size
-        (1.00, min_val + (max_val - min_val) * 1.00, 10.0), // Maximum size
-    ];
+    let reference_sizes = [(0.00, min_val + (max_val - min_val) * 0.00, 2.0), // Minimum size
+        (0.25, min_val + (max_val - min_val) * 0.25, 4.0),   // 25% size
+        (0.50, min_val + (max_val - min_val) * 0.50, 6.0),   // 50% size
+        (0.75, min_val + (max_val - min_val) * 0.75, 8.0),   // 75% size
+        (1.00, min_val + (max_val - min_val) * 1.00, 10.0)]; // Maximum size
 
     let tick_length = 2.0;
     let tick_font_size = theme.tick_label_font_size;

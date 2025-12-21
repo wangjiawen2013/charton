@@ -22,6 +22,7 @@ use std::fmt::Write;
 ///
 /// # Returns
 /// Result indicating success or failure of the operation
+#[allow(clippy::too_many_arguments)]
 pub(crate) fn render_arc_slice(
     svg: &mut String,
     center_x: f64,

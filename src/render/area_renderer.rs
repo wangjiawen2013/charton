@@ -30,8 +30,8 @@ pub(crate) fn render_area(
     path_data.push_str(&format!("M {} {}", points[0].0, points[0].1));
 
     // Draw line to each subsequent point
-    for i in 1..points.len() {
-        path_data.push_str(&format!(" L {} {}", points[i].0, points[i].1));
+    for p in points.iter().skip(1) {
+        path_data.push_str(&format!(" L {} {}", p.0, p.1));
     }
 
     // If closed, close the path

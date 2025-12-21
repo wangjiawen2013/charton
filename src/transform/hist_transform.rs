@@ -30,7 +30,7 @@ impl<T: Mark> Chart<T> {
             } else {
                 x_encoding
                     .bins
-                    .unwrap_or_else(|| ((unique_count as f64).sqrt() as usize).max(5).min(50))
+                    .unwrap_or_else(|| ((unique_count as f64).sqrt() as usize).clamp(5, 50))
             };
 
             // Get min and max values for binning using Polars' built-in methods

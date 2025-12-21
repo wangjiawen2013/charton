@@ -2,6 +2,7 @@ use crate::error::ChartonError;
 use std::fmt::Write;
 
 // Render a single rectangle
+#[allow(clippy::too_many_arguments)]
 pub(crate) fn render_rect(
     svg: &mut String,
     x: f64,

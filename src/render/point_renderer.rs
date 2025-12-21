@@ -19,6 +19,7 @@ use std::fmt::Write;
 /// # Returns
 ///
 /// Returns a `std::fmt::Result` indicating success or failure of the write operation.
+#[allow(clippy::too_many_arguments)]
 pub(crate) fn render_point(
     svg: &mut String,
     cx: f64,

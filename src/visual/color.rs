@@ -65,7 +65,7 @@ impl ColorMap {
     /// Returns a color from the colormap based on a value between 0 and 1
     pub(crate) fn get_color(&self, value: f64) -> String {
         // Clamp value between 0 and 1
-        let clamped_value = value.max(0.0).min(1.0);
+        let clamped_value = value.clamp(0.0, 1.0);
 
         match self {
             ColorMap::Viridis => {

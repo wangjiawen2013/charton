@@ -65,8 +65,8 @@ pub struct Theme {
     pub(crate) tick_label_padding: f64,
 }
 
-impl Theme {
-    pub fn default() -> Self {
+impl Default for Theme {
+    fn default() -> Self {
         Self {
             title_font_size: 18,
             title_font_family: "sans-serif".to_string(),

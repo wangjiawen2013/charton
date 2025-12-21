@@ -150,7 +150,7 @@ impl WindowTransform {
     ///
     /// # Parameters
     /// * `frame` - A two-element array where the first element is the lower bound and
-    ///             the second element is the upper bound of the window frame
+    ///   the second element is the upper bound of the window frame
     ///
     /// # Returns
     /// The modified `WindowTransform` instance with the updated frame setting

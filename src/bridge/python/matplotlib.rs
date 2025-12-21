@@ -152,7 +152,7 @@ impl Visualization for Plot<Matplotlib> {
         #[cfg(unix)]
         {
             use std::os::unix::fs::MetadataExt;
-            let metadata = path.metadata().map_err(|e| ChartonError::Io(e))?;
+            let metadata = path.metadata().map_err(ChartonError::Io)?;
 
             if metadata.mode() & 0o111 == 0 {
                 return Err(ChartonError::ExecutablePath(format!(
@@ -371,12 +371,12 @@ plt.xlabel("Price")
 plt.ylabel("Discount")
 "#;
 
-        let result = Plot::<Matplotlib>::build(data!(&df1)?)?
+        Plot::<Matplotlib>::build(data!(&df1)?)?
             .with_exe_path(exe_path)?
             .with_plotting_code(raw_plotting_code)
             .show()?;
 
-        assert_eq!(result, ());
+        assert_eq!((), ());
         Ok(())
     }
 }
