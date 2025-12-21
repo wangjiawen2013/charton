@@ -126,23 +126,27 @@ impl Chart<MarkRule> {
                     let y2_pos = (context.y_mapper)(y2_vals_data[i]);
                     rule_renderer::render_vertical_rule(
                         svg,
-                        x_pos,
-                        y_pos,
-                        y2_pos,
-                        &stroke_color,
-                        mark.stroke_width,
-                        mark.opacity,
+                        rule_renderer::VerticalRuleConfig {
+                            x: x_pos,
+                            y1: y_pos,
+                            y2: y2_pos,
+                            stroke_color: stroke_color.clone(),
+                            stroke_width: mark.stroke_width,
+                            opacity: mark.opacity,
+                        },
                     )?;
                 } else {
                     // Draw vertical rule line (from top to bottom of plot area)
                     rule_renderer::render_vertical_rule(
                         svg,
-                        x_pos,
-                        context.draw_y0,
-                        context.draw_y0 + context.plot_height,
-                        &stroke_color,
-                        mark.stroke_width,
-                        mark.opacity,
+                        rule_renderer::VerticalRuleConfig {
+                            x: x_pos,
+                            y1: context.draw_y0,
+                            y2: context.draw_y0 + context.plot_height,
+                            stroke_color: stroke_color.clone(),
+                            stroke_width: mark.stroke_width,
+                            opacity: mark.opacity,
+                        },
                     )?;
                 }
             } else if let Some(ref y2_vals_data) = y2_vals {
@@ -150,24 +154,28 @@ impl Chart<MarkRule> {
                 let y2_pos = (context.x_mapper)(y2_vals_data[i]);
                 rule_renderer::render_horizontal_rule(
                     svg,
-                    y_pos,
-                    y2_pos,
-                    x_pos, // This is the y-coordinate for the horizontal line
-                    &stroke_color,
-                    mark.stroke_width,
-                    mark.opacity,
+                    rule_renderer::HorizontalRuleConfig {
+                        x1: y_pos,
+                        x2: y2_pos,
+                        y: x_pos, // This is the y-coordinate for the horizontal line
+                        stroke_color: stroke_color.clone(),
+                        stroke_width: mark.stroke_width,
+                        opacity: mark.opacity,
+                    },
                 )?;
             } else {
                 // When axes are swapped, vertical and horizontal lines are swapped too
                 // Draw horizontal rule line (appears vertical in swapped axes)
                 rule_renderer::render_horizontal_rule(
                     svg,
-                    context.draw_x0,
-                    context.draw_x0 + context.plot_width,
-                    x_pos,
-                    &stroke_color,
-                    mark.stroke_width,
-                    mark.opacity,
+                    rule_renderer::HorizontalRuleConfig {
+                        x1: context.draw_x0,
+                        x2: context.draw_x0 + context.plot_width,
+                        y: x_pos,
+                        stroke_color: stroke_color.clone(),
+                        stroke_width: mark.stroke_width,
+                        opacity: mark.opacity,
+                    },
                 )?;
             }
         }
