@@ -18,7 +18,7 @@ Charton is a powerful plotting library for Rust that provides first-class, nativ
 Charton includes a pure-Rust SVG renderer, which allows users to create visualizations entirely in Rust without any external dependencies. To use charton, simply add it into `Cargo.toml`:
 ```
 [dependencies]
-charton = "0.1.0"
+charton = "0.2.0"
 polars = "0.49.1"
 ```
 
@@ -175,7 +175,7 @@ Charton integrates with evcxr, allowing you to display plots interactively in a 
 
 The following code shows a minimal example of this.
 ```rust
-:dep charton = { version="0.1.0" }
+:dep charton = { version="0.2.0" }
 :dep polars = { version="0.49.1" }
 
 use charton::prelude::*;
@@ -295,7 +295,7 @@ This gallery contains a selection of examples of the plots charton can create. G
         <td><img src="examples/altair.svg" alt="Altair" /><p align="center">Altair</p></td>
         <td><img src="examples/matplotlib.png" alt="Matplotlib" /><p align="center">Matplotlib</p></td>
         <td><img src="examples/grouped_bar_chart.svg" alt="Grouped Bar Chart" /><p align="center">Grouped Bar Chart</p></td>
-        <td><img src="examples/density.svg" alt="Density" /><p align="center">Density</p></td>
+        <td><img src="examples/distribution.svg" alt="Distribution" /><p align="center">Distribution</p></td>
     </tr>
     <tr>
         <td><img src="examples/histogram.svg" alt="Histogram" /><p align="center">Histogram</p></td>
@@ -306,7 +306,7 @@ This gallery contains a selection of examples of the plots charton can create. G
     <tr>
         <td><img src="examples/2d_density.svg" alt="2d Density" /><p align="center">2d Density Chart</p></td>
         <td><img src="examples/grouped_boxplot.svg" alt="Grouped Boxplot" /><p align="center">Grouped Boxplot</p></td>
-        <td><img src="examples/area.svg" alt="Area" /><p align="center">Area Chart</p></td>
+        <td><img src="examples/density.svg" alt="Density" /><p align="center">Density Chart</p></td>
         <td><img src="examples/cumulative_frequency.svg" alt="Cumulative Frequency" /><p align="center">Cumulative Frequency</p></td>
     </tr>
     <tr>
