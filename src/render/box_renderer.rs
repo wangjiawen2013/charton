@@ -43,10 +43,7 @@ pub(crate) struct HorizontalBoxConfig {
 ///
 /// # Returns
 /// Result indicating success or failure of the operation
-pub(crate) fn render_vertical_box(
-    svg: &mut String,
-    config: VerticalBoxConfig,
-) -> std::fmt::Result {
+pub(crate) fn render_vertical_box(svg: &mut String, config: VerticalBoxConfig) -> std::fmt::Result {
     let fill_str = if let Some(color) = &config.fill_color {
         color.get_color()
     } else {
@@ -73,13 +70,23 @@ pub(crate) fn render_vertical_box(
     writeln!(
         svg,
         r#"<line x1="{}" y1="{}" x2="{}" y2="{}" stroke="{}" stroke-width="{}" />"#,
-        config.x_center, config.min_y, config.x_center, config.q1_y, stroke_str, config.stroke_width
+        config.x_center,
+        config.min_y,
+        config.x_center,
+        config.q1_y,
+        stroke_str,
+        config.stroke_width
     )?;
 
     writeln!(
         svg,
         r#"<line x1="{}" y1="{}" x2="{}" y2="{}" stroke="{}" stroke-width="{}" />"#,
-        config.x_center, config.q3_y, config.x_center, config.max_y, stroke_str, config.stroke_width
+        config.x_center,
+        config.q3_y,
+        config.x_center,
+        config.max_y,
+        stroke_str,
+        config.stroke_width
     )?;
 
     // Draw box (IQR)
@@ -89,7 +96,14 @@ pub(crate) fn render_vertical_box(
     writeln!(
         svg,
         r#"<rect x="{}" y="{}" width="{}" height="{}" fill="{}" opacity="{}" stroke="{}" stroke-width="{}" />"#,
-        box_left, box_y, config.box_width, box_height, fill_str, config.opacity, stroke_str, config.stroke_width
+        box_left,
+        box_y,
+        config.box_width,
+        box_height,
+        fill_str,
+        config.opacity,
+        stroke_str,
+        config.stroke_width
     )?;
 
     // Draw median line
@@ -154,13 +168,23 @@ pub(crate) fn render_horizontal_box(
     writeln!(
         svg,
         r#"<line x1="{}" y1="{}" x2="{}" y2="{}" stroke="{}" stroke-width="{}" />"#,
-        config.min_x, config.y_center, config.q1_x, config.y_center, stroke_str, config.stroke_width
+        config.min_x,
+        config.y_center,
+        config.q1_x,
+        config.y_center,
+        stroke_str,
+        config.stroke_width
     )?;
 
     writeln!(
         svg,
         r#"<line x1="{}" y1="{}" x2="{}" y2="{}" stroke="{}" stroke-width="{}" />"#,
-        config.q3_x, config.y_center, config.max_x, config.y_center, stroke_str, config.stroke_width
+        config.q3_x,
+        config.y_center,
+        config.max_x,
+        config.y_center,
+        stroke_str,
+        config.stroke_width
     )?;
 
     // Draw box (IQR)
@@ -170,7 +194,14 @@ pub(crate) fn render_horizontal_box(
     writeln!(
         svg,
         r#"<rect x="{}" y="{}" width="{}" height="{}" fill="{}" opacity="{}" stroke="{}" stroke-width="{}" />"#,
-        box_x, box_top, box_width, config.box_height, fill_str, config.opacity, stroke_str, config.stroke_width
+        box_x,
+        box_top,
+        box_width,
+        config.box_height,
+        fill_str,
+        config.opacity,
+        stroke_str,
+        config.stroke_width
     )?;
 
     // Draw median line

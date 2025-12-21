@@ -67,7 +67,14 @@ pub(crate) fn render_vertical_histogram_bar(
     writeln!(
         svg,
         r#"<rect x="{}" y="{}" width="{}" height="{}" fill="{}" stroke="{}" stroke-width="{}" opacity="{}" />"#,
-        x_left, y_top, rect_width, rect_height, fill_str, stroke_str, config.stroke_width, config.opacity
+        x_left,
+        y_top,
+        rect_width,
+        rect_height,
+        fill_str,
+        stroke_str,
+        config.stroke_width,
+        config.opacity
     )
 }
 
@@ -115,6 +122,13 @@ pub(crate) fn render_horizontal_histogram_bar(
     writeln!(
         svg,
         r#"<rect x="{}" y="{}" width="{}" height="{}" fill="{}" stroke="{}" stroke-width="{}" opacity="{}" />"#,
-        x_left, y_top, rect_width, rect_height, fill_str, stroke_str, config.stroke_width, config.opacity
+        x_left,
+        y_top,
+        rect_width,
+        rect_height,
+        fill_str,
+        stroke_str,
+        config.stroke_width,
+        config.opacity
     )
 }
