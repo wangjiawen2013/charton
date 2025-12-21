@@ -93,14 +93,16 @@ pub(crate) fn render_shape_legend<T: Mark>(
         // Draw shape representation with only stroke, no fill
         crate::render::point_renderer::render_point(
             svg,
-            item_x + COLOR_BOX_SIZE / 2.0,
-            item_y + ITEM_HEIGHT / 2.0,
-            &None, // No fill color
-            &shape,
-            SHAPE_SIZE,
-            1.0,
-            &Some(crate::visual::color::SingleColor::new("#000000")), // Black stroke
-            1.0,
+            crate::render::point_renderer::PointConfig {
+                cx: item_x + COLOR_BOX_SIZE / 2.0,
+                cy: item_y + ITEM_HEIGHT / 2.0,
+                fill_color: None, // No fill color
+                shape,
+                size: SHAPE_SIZE,
+                opacity: 1.0,
+                stroke_color: Some(crate::visual::color::SingleColor::new("#000000")), // Black stroke
+                stroke_width: 1.0,
+            },
         )?;
 
         // Draw label - vertically centered with the shape box

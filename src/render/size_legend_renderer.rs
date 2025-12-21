@@ -128,14 +128,16 @@ pub(crate) fn render_size_legend<T: Mark>(
         // Render point with no fill by using None for fill_color
         crate::render::point_renderer::render_point(
             svg,
-            legend_x + legend_width / 2.0,
-            y_pos,
-            &None, // No fill color to make it hollow
-            &point_shape,
-            *size,
-            1.0,
-            &Some(point_stroke.clone()),
-            1.0,
+            crate::render::point_renderer::PointConfig {
+                cx: legend_x + legend_width / 2.0,
+                cy: y_pos,
+                fill_color: None, // No fill color to make it hollow
+                shape: point_shape.clone(),
+                size: *size,
+                opacity: 1.0,
+                stroke_color: Some(point_stroke.clone()),
+                stroke_width: 1.0,
+            },
         )?;
 
         // Draw tick label
