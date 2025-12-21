@@ -213,10 +213,10 @@ impl DensityTransform {
     /// # Example
     /// ```
     /// let transform = DensityTransform::new("data")
-    ///     .with_groupby("category".to_string()); // Compute separate density curves for each category
+    ///     .with_groupby("category"); // Compute separate density curves for each category
     /// ```
-    pub fn with_groupby(mut self, groupby: String) -> Self {
-        self.groupby = Some(groupby);
+    pub fn with_groupby(mut self, groupby: &str) -> Self {
+        self.groupby = Some(groupby.into());
         self
     }
 
@@ -270,16 +270,20 @@ impl<T: Mark> Chart<T> {
         let min_val = density_series.min::<f64>()?.unwrap();
         let max_val = density_series.max::<f64>()?.unwrap();
 
+        // Extend the range by 30% on both sides to better visualize the density tails
+        let extended_min = 1.3 * min_val - 0.3 * max_val;
+        let extended_max = 1.3 * max_val - 0.3 * min_val;
+
         // Handle edge case where all values are the same
-        let (min_val, max_val) = if (max_val - min_val).abs() < 1e-12 {
-            let offset = if min_val == 0.0 {
+        let (min_val, max_val) = if (extended_max - extended_min).abs() < 1e-12 {
+            let offset = if extended_min == 0.0 {
                 1.0
             } else {
-                min_val.abs() * 0.1
+                extended_min.abs() * 0.1
             };
-            (min_val - offset, max_val + offset)
+            (extended_min - offset, extended_max + offset)
         } else {
-            (min_val, max_val)
+            (extended_min, extended_max)
         };
 
         // Create evaluation points (default 200 steps)
