@@ -2,7 +2,6 @@ use super::common::{Chart, LegendRenderer, MarkRenderer, SharedRenderingContext}
 use crate::chart::data_processor::ProcessedChartData;
 use crate::error::ChartonError;
 use crate::mark::rect::MarkRect;
-use crate::render::rect_renderer::render_rect;
 use crate::theme::Theme;
 use crate::visual::color::SingleColor;
 use ordered_float::OrderedFloat;
@@ -166,16 +165,18 @@ impl Chart<MarkRect> {
                 .unwrap_or_else(|| "none".to_string());
 
             // Add rectangle to SVG
-            render_rect(
+            crate::render::rect_renderer::render_rect(
                 svg,
-                adjusted_h_pixel,
-                adjusted_v_pixel,
-                rect_h_pixels,
-                rect_v_pixels,
-                &color,
-                mark.opacity,
-                &stroke_color_str,
-                mark.stroke_width,
+                crate::render::rect_renderer::RectConfig {
+                    x: adjusted_h_pixel,
+                    y: adjusted_v_pixel,
+                    width: rect_h_pixels,
+                    height: rect_v_pixels,
+                    fill: color,
+                    opacity: mark.opacity,
+                    stroke: stroke_color_str,
+                    stroke_width: mark.stroke_width,
+                },
             )?;
         }
 
