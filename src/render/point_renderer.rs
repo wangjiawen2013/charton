@@ -1,104 +1,103 @@
 use crate::visual::{color::SingleColor, shape::PointShape};
 use std::fmt::Write;
 
+pub(crate) struct PointConfig {
+    pub cx: f64,
+    pub cy: f64,
+    pub fill_color: Option<SingleColor>,
+    pub shape: PointShape,
+    pub size: f64,
+    pub opacity: f64,
+    pub stroke_color: Option<SingleColor>,
+    pub stroke_width: f64,
+}
+
 /// Renders a point with all its visual properties into the SVG string.
 /// This is a simplified version for legend rendering.
 ///
 /// # Parameters
 ///
 /// - `svg`: A mutable reference to a string used to accumulate the generated SVG content.
-/// - `cx`: The x-coordinate of the point's center (f64).
-/// - `cy`: The y-coordinate of the point's center (f64).
-/// - `fill_color`: The fill color scheme.
-/// - `shape`: The shape variant of the point.
-/// - `size`: The size of the point (radius or side length, depending on the shape).
-/// - `opacity`: The opacity level (between 0.0 and 1.0).
-/// - `stroke_color`: The stroke color scheme.
-/// - `stroke_width`: The stroke width.
+/// - `config`: Configuration parameters for the point
 ///
 /// # Returns
 ///
 /// Returns a `std::fmt::Result` indicating success or failure of the write operation.
-#[allow(clippy::too_many_arguments)]
-pub(crate) fn render_point(
-    svg: &mut String,
-    cx: f64,
-    cy: f64,
-    fill_color: &Option<SingleColor>,
-    shape: &PointShape,
-    size: f64,
-    opacity: f64,
-    stroke_color: &Option<SingleColor>,
-    stroke_width: f64,
-) -> std::fmt::Result {
+pub(crate) fn render_point(svg: &mut String, config: PointConfig) -> std::fmt::Result {
     // Convert ColorScheme to string values for SVG
-    let fill_str = if let Some(color) = fill_color {
+    let fill_str = if let Some(color) = &config.fill_color {
         color.get_color()
     } else {
         "none".to_string()
     };
-    let stroke_str = if let Some(color) = stroke_color {
+    let stroke_str = if let Some(color) = &config.stroke_color {
         color.get_color()
     } else {
         "none".to_string()
     };
 
-    match shape {
+    match config.shape {
         // Basic shapes implementation
         PointShape::Circle => {
             writeln!(
                 svg,
                 r#"<circle cx="{}" cy="{}" r="{}" fill="{}" stroke="{}" stroke-width="{}" opacity="{}"/>"#,
-                cx, cy, size, fill_str, stroke_str, stroke_width, opacity
+                config.cx,
+                config.cy,
+                config.size,
+                fill_str,
+                stroke_str,
+                config.stroke_width,
+                config.opacity
             )
         }
         PointShape::Square => {
             writeln!(
                 svg,
                 r#"<rect x="{}" y="{}" width="{}" height="{}" fill="{}" stroke="{}" stroke-width="{}" opacity="{}"/>"#,
-                cx - size,
-                cy - size,
-                size * 2.0,
-                size * 2.0,
+                config.cx - config.size,
+                config.cy - config.size,
+                config.size * 2.0,
+                config.size * 2.0,
                 fill_str,
                 stroke_str,
-                stroke_width,
-                opacity
+                config.stroke_width,
+                config.opacity
             )
         }
         PointShape::Diamond => {
             writeln!(
                 svg,
                 r#"<polygon points="{} {} {} {} {} {} {} {}" fill="{}" stroke="{}" stroke-width="{}" opacity="{}"/>"#,
-                cx,
-                cy - size, // Top
-                cx + size,
-                cy, // Right
-                cx,
-                cy + size, // Bottom
-                cx - size,
-                cy, // Left
+                config.cx,
+                config.cy - config.size, // Top
+                config.cx + config.size,
+                config.cy, // Right
+                config.cx,
+                config.cy + config.size, // Bottom
+                config.cx - config.size,
+                config.cy, // Left
                 fill_str,
                 stroke_str,
-                stroke_width,
-                opacity
+                config.stroke_width,
+                config.opacity
             )
         }
         PointShape::Triangle => {
-            let height = size * 1.732; // Height of equilateral triangle
+            let height = config.size * 1.732; // Height of equilateral triangle
             writeln!(
                 svg,
                 r#"<polygon points="{} {} {} {} {} {}" fill="{}" stroke="{}" stroke-width="{}" opacity="{}"/>"#,
-                cx,
-                cy - height * 2.0 / 3.0, // Top
-                cx - size,
-                cy + height / 3.0, // Bottom left
-                cx + size,
-                cy + height / 3.0, // Bottom right
+                config.cx,
+                config.cy - height * 2.0 / 3.0, // Top
+                config.cx - config.size,
+                config.cy + height / 3.0, // Bottom left
+                config.cx + config.size,
+                config.cy + height / 3.0, // Bottom right
                 fill_str,
                 stroke_str,
-                stroke_width,
-                opacity
+                config.stroke_width,
+                config.opacity
             )
         }
         PointShape::Pentagon => {
@@ -106,8 +105,8 @@ pub(crate) fn render_point(
                 .map(|i| {
                     let angle =
                         std::f64::consts::PI / 2.0 + i as f64 * 2.0 * std::f64::consts::PI / 5.0;
-                    let x = cx + size * angle.cos();
-                    let y = cy - size * angle.sin();
+                    let x = config.cx + config.size * angle.cos();
+                    let y = config.cy - config.size * angle.sin();
                     format!("{} {}", x, y)
                 })
                 .collect::<Vec<_>>()
@@ -116,7 +115,7 @@ pub(crate) fn render_point(
             writeln!(
                 svg,
                 r#"<polygon points="{}" fill="{}" stroke="{}" stroke-width="{}" opacity="{}"/>"#,
-                points, fill_str, stroke_str, stroke_width, opacity
+                points, fill_str, stroke_str, config.stroke_width, config.opacity
             )
         }
         PointShape::Hexagon => {
@@ -124,8 +123,8 @@ pub(crate) fn render_point(
                 .map(|i| {
                     let angle =
                         std::f64::consts::PI / 2.0 + i as f64 * 2.0 * std::f64::consts::PI / 6.0;
-                    let x = cx + size * angle.cos();
-                    let y = cy - size * angle.sin();
+                    let x = config.cx + config.size * angle.cos();
+                    let y = config.cy - config.size * angle.sin();
                     format!("{} {}", x, y)
                 })
                 .collect::<Vec<_>>()
@@ -134,7 +133,7 @@ pub(crate) fn render_point(
             writeln!(
                 svg,
                 r#"<polygon points="{}" fill="{}" stroke="{}" stroke-width="{}" opacity="{}"/>"#,
-                points, fill_str, stroke_str, stroke_width, opacity
+                points, fill_str, stroke_str, config.stroke_width, config.opacity
             )
         }
         PointShape::Octagon => {
@@ -142,8 +141,8 @@ pub(crate) fn render_point(
                 .map(|i| {
                     let angle =
                         std::f64::consts::PI / 8.0 + i as f64 * 2.0 * std::f64::consts::PI / 8.0;
-                    let x = cx + size * angle.cos();
-                    let y = cy - size * angle.sin();
+                    let x = config.cx + config.size * angle.cos();
+                    let y = config.cy - config.size * angle.sin();
                     format!("{} {}", x, y)
                 })
                 .collect::<Vec<_>>()
@@ -152,18 +151,18 @@ pub(crate) fn render_point(
             writeln!(
                 svg,
                 r#"<polygon points="{}" fill="{}" stroke="{}" stroke-width="{}" opacity="{}"/>"#,
-                points, fill_str, stroke_str, stroke_width, opacity
+                points, fill_str, stroke_str, config.stroke_width, config.opacity
             )
         }
         PointShape::Star => {
-            let outer_size = size;
-            let inner_size = size * 0.5;
+            let outer_size = config.size;
+            let inner_size = config.size * 0.5;
             let points = (0..10)
                 .map(|i| {
                     let radius = if i % 2 == 0 { outer_size } else { inner_size };
                     let angle = std::f64::consts::PI / 2.0 + i as f64 * std::f64::consts::PI / 5.0;
-                    let x = cx + radius * angle.cos();
-                    let y = cy - radius * angle.sin();
+                    let x = config.cx + radius * angle.cos();
+                    let y = config.cy - radius * angle.sin();
                     format!("{} {}", x, y)
                 })
                 .collect::<Vec<_>>()
@@ -172,7 +171,7 @@ pub(crate) fn render_point(
             writeln!(
                 svg,
                 r#"<polygon points="{}" fill="{}" stroke="{}" stroke-width="{}" opacity="{}"/>"#,
-                points, fill_str, stroke_str, stroke_width, opacity
+                points, fill_str, stroke_str, config.stroke_width, config.opacity
             )
         }
     }

@@ -5,7 +5,6 @@ use crate::mark::Mark;
 use crate::mark::point::MarkPoint;
 use crate::render::color_legend_renderer;
 use crate::render::colorbar_renderer;
-use crate::render::point_renderer;
 use crate::render::shape_legend_renderer;
 use crate::render::size_legend_renderer;
 use crate::theme::Theme;
@@ -202,16 +201,18 @@ impl Chart<MarkPoint> {
             };
 
             // Render the point
-            point_renderer::render_point(
+            crate::render::point_renderer::render_point(
                 svg,
-                x,
-                y,
-                &fill_color,
-                &shape,
-                size,
-                mark.opacity,
-                &mark.stroke,
-                mark.stroke_width,
+                crate::render::point_renderer::PointConfig {
+                    cx: x,
+                    cy: y,
+                    fill_color: fill_color.clone(),
+                    shape: shape.clone(),
+                    size,
+                    opacity: mark.opacity,
+                    stroke_color: mark.stroke.clone(),
+                    stroke_width: mark.stroke_width,
+                },
             )?;
         }
 
