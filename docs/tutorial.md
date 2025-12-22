@@ -92,12 +92,15 @@ Charton adopts a modern, decoupled architecture designed for high-performance da
 
 ## 1.4 Why This Architecture Matters
 🚀 **Solving the "Version Hell"**
+
 In the Rust ecosystem, if your project depends on Polars `v0.50` and a plotting library depends on `v0.40`, your code won't compile. Charton’s **Parquet-encoded IPC** bypasses this entirely, making it the most robust visualization tool for production Rust environments.
 
 🔌 **Hot-Swappable Backends**
+
 You can develop interactively using the **Altair backend** to leverage its rich feature set, and then switch to the **Native SVG backend** for deployment to achieve maximum performance and minimum container size.
 
 🌐 **Frontend-First Design**
+
 By generating standard **Vega-Lite JSON**, Charton allows you to handle heavy data lifting in Rust while letting the browser’s GPU handle the final rendering via `Vega-Embed` or `React-Vega`.
 
 # Chapter 2 · Quick Start
