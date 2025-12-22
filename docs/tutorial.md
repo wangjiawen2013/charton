@@ -8,12 +8,96 @@ Charton is a modern Rust visualization library designed around a simple, declara
 
 ## 1.2 Design Philosophy and Key Advantages
 Charton is engineered to be an efficient, safe, and flexible solution, built on the principle that visualization should be declarative.
-
 - 🚀 Performance and Safety: It leverages Rust's strong type system to achieve compile-time safety and utilizes Polars' integration for superior data handling performance.
 - 💡 Layered and Expressive: It features a multi-layer plotting architecture that easily combines various marks (e.g., points, lines, bars, boxplots, error bars) within a shared coordinate system to create complex composite visualizations.
 - 🌐 Frontend Ready: It can generate standard Vega-Lite JSON specifications, making it ready for easy integration into modern web applications using libraries like React-Vega or Vega-Embed.
 - 🔗 Efficient Integration: Through Inter-Process Communication (IPC), it efficiently communicates with external Python libraries, avoiding slow, temporary file operations and maintaining compatibility with environments like Conda in Jupyter.
 - 📓 Jupyter Interactivity: It offers native support for the evcxr Jupyter Notebook environment, enabling interactive and real-time exploratory data analysis.
+
+## 1.3 System Architecture
+Charton adopts a modern, decoupled architecture designed for high-performance data processing and cross-language interoperability.
+
+┌───────────────────────────────────────────────────────────────────────────┐
+│                            Input Layer                                    │
+│  ┌──────────────┐    ┌──────────────┐    ┌──────────────────────────────┐ │
+│  │ Rust Polars  │    │ External     │    │ Jupyter/evcxr Interactive    │ │
+│  │ DataFrame/    │    │ Datasets     │    │ Input                        │ │
+│  │ LazyFrame     │    │ (CSV/Parquet) │    │ (Notebook cell data/commands)│ │
+│  └──────────────┘    └──────────────┘    └──────────────────────────────┘ │
+└───────────────────────────┬───────────────────────────────────────────────┘
+                            │
+┌───────────────────────────▼───────────────────────────────────────────────┐
+│                          Core Layer                                       │
+│  ┌──────────────────────────────────────────────────────────────────────┐ │
+│  │            Charton Core Engine                                       │ │
+│  │  ┌──────────────┐    ┌──────────────┐    ┌──────────────────────┐    │ │
+│  │  │ Declarative  │    │ Layered      │    │ Cross-backend Data   │    │ │
+│  │  │ API (Altair- │    │ Chart        │    │ Converter            │    │ │
+│  │  │ style)       │    │ Management   │    │ (Rust ↔ Python/JSON) │    │ │
+│  │  └──────────────┘    │ (LayeredChart)│   └──────────────────────┘    │ │
+│  │                      └──────────────┘                                │ │
+│  │  ┌──────────────┐    ┌──────────────┐    ┌──────────────────────┐    │ │
+│  │  │ Data         │    │ IPC          │    │ Vega-Lite Spec       │    │ │
+│  │  │ Validation/  │    │ Communication│    │ Generator            │    │ │
+│  │  │ Mapping      │    │ Module       │    │                      │    │ │
+│  │  └──────────────┘    └──────────────┘    └──────────────────────┘    │ │
+│  └──────────────────────────────────────────────────────────────────────┘ │
+└───────────────────────────┬───────────────────────────────────────────────┘
+                            │
+┌───────────────────────────▼───────────────────────────────────────────────┐
+│                        Render Backends                                    │
+│  ┌──────────────────────┐    ┌────────────────────────────────────────┐  │
+│  │ Rust Native Backend  │    │ External Cross-Language Backends       │  │
+│  │                      │    │                                        │  │
+│  │  ┌────────────────┐  │    │  ┌────────────┐  ┌──────────────────┐  │  │
+│  │  │ Pure Rust SVG  │  │    │  │ Altair     │  │ Matplotlib        │  │  │
+│  │  │ Renderer       │  │    │  │ Backend    │  │ Backend           │  │  │
+│  │  └────────────────┘  │    │  │ (Python IPC)│  │ (Python IPC)      │  │  │
+│  │                      │    │  └────────────┘  └──────────────────┘  │  │
+│  │  ┌────────────────┐  │    │                                        │  │
+│  │  │ Wasm Renderer  │  │    │  ┌────────────┐  ┌──────────────────┐  │  │
+│  │  │ (Partial       │  │    │  │ Other      │  │ Extended Backends │  │  │
+│  │  │  Support)      │  │    │  │ Python     │  │ (Future)          │  │  │
+│  │  └────────────────┘  │    │  │ Viz Libs   │  │ (R/Julia, etc.)   │  │  │
+│  │                      │    │  └────────────┘  └──────────────────┘  │  │
+│  └──────────────────────┘    └────────────────────────────────────────┘  │
+└───────────────────────────┬───────────────────────────────────────────────┘
+                            │
+┌───────────────────────────▼───────────────────────────────────────────────┐
+│                          Output Layer                                     │
+│  ┌──────────────┐  ┌──────────────┐  ┌──────────────┐  ┌──────────────┐  │
+│  │ SVG Vector   │  │ Vega-Lite    │  │ PNG Bitmap   │  │ Jupyter       │  │
+│  │ Graphics     │  │ JSON         │  │ Image        │  │ Inline        │  │
+│  │ (Native/Wasm)│  │ (for Web)    │  │ (via Ext.)   │  │ Rendering     │  │
+│  └──────────────┘  └──────────────┘  └──────────────┘  └──────────────┘  │
+└───────────────────────────────────────────────────────────────────────────┘
+
+**1. Input Layer (Data Orchestration)**
+- **Polars-Native**: Unlike other libraries that require heavy data cloning, Charton is built on **Apache Arrow** (via Polars), enabling efficient, zero-copy data access.
+- **Versatile Sourcing**: It supports `DataFrame` and `LazyFrame`, allowing for out-of-core data processing before visualization.
+
+**2. Core Layer (The Grammar Engine)**
+- **Declarative DSL**: A type-safe implementation of the **Grammar of Graphics**, allowing users to compose complex visualizations using intuitive tuples (e.g., `.encode((x, y, color))`).
+- **Universal Data Bridge**: This is the core innovation of Charton. It utilizes **Parquet-serialized bytes** as an intermediate format to exchange data between different Polars versions and languages, effectively bypassing Rust's orphan rules and dependency conflicts.
+- **Vega-Lite Spec Generator**: A high-level compiler that transforms Rust structures into standard Vega-Lite JSON for seamless frontend integration.
+
+**3. Render Backends (Multi-Engine)**
+- **Rust Native Backend**: A **zero-dependency**, pure Rust implementation. It uses a custom SVG renderer for ultra-fast, server-side batch generation and provides partial support for WebAssembly (Wasm).
+- **IPC Bridge (External)**: For features not yet in the native engine, Charton provides a high-speed Inter-Process Communication (IPC) bridge to Python’s mature ecosystem (**Altair/Matplotlib**), eliminating the need for slow temporary disk I/O.
+
+**4. Output Layer (Multi-Format Delivery)**
+- **Vector & Raster**: Support for SVG and high-resolution PNG (via `resvg`).
+- **Web & Notebook**: Direct JSON output for **React/Vue** integration and inline rendering for **evcxr Jupyter** notebooks.
+
+## 1.4 Why This Architecture Matters
+🚀 **Solving the "Version Hell"**
+In the Rust ecosystem, if your project depends on Polars `v0.50` and a plotting library depends on `v0.40`, your code won't compile. Charton’s **Parquet-encoded IPC** bypasses this entirely, making it the most robust visualization tool for production Rust environments.
+
+🔌 **Hot-Swappable Backends**
+You can develop interactively using the **Altair backend** to leverage its rich feature set, and then switch to the **Native SVG backend** for deployment to achieve maximum performance and minimum container size.
+
+🌐 **Frontend-First Design**
+By generating standard **Vega-Lite JSON**, Charton allows you to handle heavy data lifting in Rust while letting the browser’s GPU handle the final rendering via `Vega-Embed` or `React-Vega`.
 
 # Chapter 2 · Quick Start
 Welcome to **Charton Quick Start**! 
@@ -1169,23 +1253,6 @@ Human perception becomes overloaded.
 | `stroke_width` | outline thickness    | all            | `stroke_width("drat")` |
 
 # Chapter 5 · Layered Charts
-
-Layered charts allow you to **stack multiple chart layers** on the same coordinate system.
-Each layer can use any mark type—points, lines, bars, areas, rules, error bars, annotations, etc.—making layering one of the most expressive and flexible visualization tools in Charton.
-
-A `LayeredChart` is especially powerful for combining complementary visual elements, such as:
-
-- scatter points overlaid on a line
-- bar charts with error bars
-- shaded confidence intervals + trend lines
-- histograms with density curves
-- annotations placed on top of data
-- complex scientific figures combining multiple visual cues
-
-Layering in Charton follows the same conceptual model as **Vega-Lite**, enabling powerful composition while keeping the API simple and declarative.
-
-# Chapter 5 · Layered Charts
-
 Layered charts allow you to **stack multiple visual layers** on the same coordinate system. In Charton, a `LayeredChart` can combine any number of independent `Chart` layers—each with its own data, encodings, marks, transforms, and scale mappings. All layers automatically share the same **coordinate system, axes, scales, and overall styling**.
 
 Layered charts are one of the most expressive visualization tools provided by Charton, enabling you to build statistical graphics, scientific plots, and analytical figures that combine multiple visual cues into a single coherent chart.
@@ -1193,13 +1260,11 @@ Layered charts are one of the most expressive visualization tools provided by Ch
 ## 5.1 What Is a Layered Chart?
 
 A `LayeredChart` is a container holding:
-
 - global chart properties (width, height, margins, axes, theme, etc.)
 - a list of layer objects (each a normal `Chart`)
 - optional overrides for axis domains, labels, ticks, legends, and background
 
 Conceptually, a layered chart is like **Photoshop layers** for data visualization:
-
 - each layer can be a line, bar, point, area, rule, annotation, etc.
 - layers are drawn in sequence (first layer at bottom, last layer on top)
 - all layers share the same coordinate system
@@ -1207,11 +1272,9 @@ Conceptually, a layered chart is like **Photoshop layers** for data visualizatio
 This model follows the design of **Vega-Lite’s layering, Altair’s layered charts**, and **ggplot2’s geoms**.
 
 ## 5.2 Why Layering Matters
-
 Layering is essential for building analytical and scientific visualizations. Here are the key advantages.
 
 ### 5.2.1 Shared coordinate system
-
 All layers automatically share:
 - x/y axes
 - axis labels
@@ -1222,7 +1285,6 @@ All layers automatically share:
 This eliminates the need to manually align axis scales across layers.
 
 ### 5.2.2 Rich multi-factor visual expression
-
 Layering is perfect for showing multiple aspects of a dataset:
 - scatter points + smooth trend
 - bars + error bars
@@ -1231,9 +1293,7 @@ Layering is perfect for showing multiple aspects of a dataset:
 - confidence intervals + regression lines
 
 ### 5.2.3 Ideal for scientific and statistical graphics
-
 Most scientific plots are inherently layered:
-
 - mean ± standard deviation
 - line + shaded confidence interval
 - theoretical vs. empirical distributions
@@ -1243,7 +1303,6 @@ Most scientific plots are inherently layered:
 Charton makes these easy and declarative.
 
 ### 5.2.4 Fully modular
-
 Each layer is independently constructed:
 ```rust
 let layer1 = Chart::build(&df)?.mark_line().encode((x("time"), y("value")))?;
@@ -1252,11 +1311,9 @@ let layer2 = Chart::build(&df)?.mark_point().encode((x("time"), y("value")))?;
 Then simply stack them.
 
 ### 5.2.5 Familiar to Altair/Vega-Lite users
-
 Charton’s layering model is intentionally similar to existing declarative charting libraries, making knowledge transferable.
 
 ## 5.3 Creating a Layered Chart
-
 The typical workflow:
 ```rust
 LayeredChart::new()
@@ -1265,24 +1322,19 @@ LayeredChart::new()
     .save("output.svg")?;
 ```
 Each `layer` is a complete, standalone `Chart` with its own:
-
 - mark type
 - encodings
-- color, size, shape scales
 - transforms
-- filters
-- groupings
-- tooltip encodings
 
 This modularity makes layering flexible and composable.
 
 ## 5.4 Example: Line + Scatter Overlay
-
 A common pattern: points show raw measurements, the line shows the trend.
 ```rust
 use charton::prelude::*;
 
-let df = load_dataset("mtcars");
+let df = load_dataset("mtcars")?;
+let df = df.sort(["hp"], SortMultipleOptions::default())?;
 
 let line = Chart::build(&df)?
     .mark_line()
@@ -1302,16 +1354,15 @@ LayeredChart::new()
 This combined visualization shows both the **trend** and the **raw variability**.
 
 ## 5.5 Example: Bar Chart + Error Bars
-
 Charton supports statistical overlays such as error bars:
 ```rust
 use charton::prelude::*;
 use polars::prelude::*;
 
 let df = {
-    let mut df = load_dataset("mtcars");
+    let mut df = load_dataset("mtcars")?.head(Some(3));
     df.with_column(Series::new("mpg_std", vec![1.0; df.height()]))?;
-    df
+    df.lazy().with_column(col("qsec").cast(DataType::String)).collect()?
 };
 
 let errorbar = Chart::build(&df)?
@@ -1320,11 +1371,11 @@ let errorbar = Chart::build(&df)?
         (col("mpg") + col("mpg_std")).alias("mpg_max"),
     )?
     .mark_errorbar()
-    .encode((x("cyl"), y("mpg_min"), y2("mpg_max")))?;
+    .encode((x("qsec"), y("mpg_min"), y2("mpg_max")))?;
 
 let bar = Chart::build(&df)?
     .mark_bar()
-    .encode((x("cyl"), y("mpg")))?;
+    .encode((x("qsec"), y("mpg")))?;
 
 LayeredChart::new()
     .add_layer(bar)
@@ -1335,9 +1386,7 @@ LayeredChart::new()
 This is a standard pattern in scientific and engineering reporting.
 
 ## 5.6 Example: Line + Error Bars (Time Series / Regression)
-
 This layout is widely used for:
-
 - regression mean ± CI
 - temporal trends
 - uncertainty visualization
@@ -1348,45 +1397,35 @@ let errorbar = Chart::build(&df)?
         (col("mpg") + col("mpg_std")).alias("mpg_max"),
     )?
     .mark_errorbar()
-    .encode((x("hp"), y("mpg_min"), y2("mpg_max")))?;
+    .encode((x("qsec"), y("mpg_min"), y2("mpg_max")))?;
 
 let line = Chart::build(&df)?
     .mark_line()
-    .encode((x("hp"), y("mpg")))?;
+    .encode((x("qsec"), y("mpg")))?;
 
 LayeredChart::new()
     .add_layer(line)
     .add_layer(errorbar)
     .save("line_errorbar.svg")?;
 ```
-## 5.7 Example: Shaded Confidence Interval + Line
-
-This is a common format in scientific plotting (similar to seaborn, ggplot2).
-```rust
-let ci_band = Chart::build(&df)?
-    .mark_area()
-    .encode((x("hp"), y("mpg_lower"), y2("mpg_upper")))?;
-
-let curve = Chart::build(&df)?
-    .mark_line()
-    .encode((x("hp"), y("mpg_mean")))?;
-
-LayeredChart::new()
-    .add_layer(ci_band)
-    .add_layer(curve)
-    .save("ci_line.svg")?;
-```
-## 5.8 Layering Reference Lines, Rules, and Annotations
-
+## 5.7 Layering Reference Lines, Rules, and Annotations
 You can combine data layers with semantic elements:
 ```rust
-let rule = Chart::new_empty()
+let df = load_dataset("mtcars")?;
+
+let rule = Chart::build(&df)?
     .mark_rule()
-    .encode((y(20.0),))?;
+    .encode((
+        x("hp"),
+        y("mpg"),
+    ))?;
 
 let scatter = Chart::build(&df)?
     .mark_point()
-    .encode((x("hp"), y("mpg")))?;
+    .encode((
+        x("hp"),
+        y("mpg")
+    ))?;
 
 LayeredChart::new()
     .add_layer(scatter)
@@ -1395,15 +1434,12 @@ LayeredChart::new()
 ```
 
 This is useful for:
-
 - thresholds
 - baselines
 - highlighting important regions
 
-## 5.9 Shared Axes, Scales, and Legends
-
+## 5.8 Shared Axes, Scales, and Legends
 `LayeredChart` intelligently merges:
-
 - x/y domains, unless overridden
 - tick values
 - tick labels
@@ -1421,15 +1457,14 @@ LayeredChart::new()
 **Overriding tick values or labels**
 ```rust
 .with_x_tick_values(vec![0.0, 100.0, 200.0, 300.0])
-.with_y_tick_labels(vec!["Low".into(), "Medium".into(), "High".into()])
+.with_y_tick_labels(vec!["Low", "Medium", "High"])
 ```
 **Controlling the legend**
 ```rust
 .with_legend(true)
 .with_legend_title("Engine Type")
 ```
-## 5.10 Global Styling: Size, Margins, Theme, Background
-
+## 5.9 Global Styling: Size, Margins, Theme, Background
 Because `LayeredChart` owns global styling, you can adjust:
 
 **Size**
@@ -1445,40 +1480,44 @@ Useful to accommodate long tick labels or large legends:
 ```
 **Theme**
 ```rust
-.with_theme(Theme::dark())
+.with_theme(Theme::default())
 ```
 **Background**
 ```rust
 .with_background("#FAFAFA")
 ```
-## 5.11 Advanced Example: Histogram + Density Curve + Mean Line
-
+## 5.10 Advanced Example: Histogram + Reference Line + Density Curve
 A classic triple-layer analytic plot.
 ```rust
+let df = load_dataset("mtcars")?;
+
 let hist = Chart::build(&df)?
-    .mark_bar()
-    .encode((x("mpg").bin(), y("count")))?;
+    .mark_hist()
+    .encode((x("mpg"), y("count")))?;
+
+let rule = Chart::build(&df)?
+    .mark_rule()
+    .encode((x("mpg"), y("cyl")))?;
 
 let density = Chart::build(&df)?
-    .mark_line()
-    .transform_density("mpg", None)?
-    .encode((x("value"), y("density")))?;
-
-let mean_line = Chart::new_empty()
-    .mark_rule()
-    .encode((x(df.column("mpg")?.mean().unwrap()),))?;
+    .transform_density(
+        DensityTransform::new("mpg")
+            .with_as("mpg", "cumulative_density")
+            .with_cumulative(true)
+    )?
+    .mark_line().with_line_color(Some(SingleColor::new("red")))
+    .encode((x("mpg"), y("cumulative_density")))?;
 
 LayeredChart::new()
     .add_layer(hist)
+    .add_layer(rule)
     .add_layer(density)
-    .add_layer(mean_line)
-    .save("hist_density_mean.svg")?;
+    .save("hist_rule_density.svg")?;
 ```
-## 5.12 Best Practices for Layered Charts
+## 5.11 Best Practices for Layered Charts
 **✔ 1. Give each layer a clear conceptual purpose**
 
 Examples:
-
 - Layer 1: trend
 - Layer 2: raw data
 - Layer 3: uncertainty
@@ -1491,14 +1530,10 @@ More than 4–5 layers can cause visual clutter unless carefully styled.
 **✔ 3. Avoid using opacity as the primary differentiator**
 
 Instead prefer:
-
 - color
 - shape
-- stroke width
-- line style
 
 **✔ 4. Think about rendering order**
-
 - bottom layers: areas, bars, intervals
 - top layers: lines, points, rules, annotations
 
@@ -1506,7 +1541,7 @@ Instead prefer:
 
 Layered plots are powerful, but simplicity is clarity.
 
-## 5.13 Summary Table
+## 5.12 Summary Table
 | **Layer Type** | **Use Case**                             | **Example Fields** |
 | -------------- | ---------------------------------------- | -------------- |
 | **line**       | trends, regression, temporal analysis    | hp → mpg       |
