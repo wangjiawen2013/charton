@@ -143,7 +143,8 @@ use polars::prelude::*;
 use std::error::Error;
 
 fn main() -> Result<(), Box<dyn Error>> {
-    let exe_path = r"D:\Programs\miniconda3\envs\cellpy\python.exe";
+    // Set the path to your Python executable on windows/linux/macOS
+    let exe_path = r"where-is-my/python";
     let df1 = df![
         "Model" => ["S1", "M1", "R2", "P8", "M4", "T5", "V1"],
         "Price" => [2430, 3550, 5700, 8750, 2315, 3560, 980],
@@ -208,7 +209,8 @@ The same workflow applies when using external visualization libraries: place the
 use charton::prelude::*;
 use polars::prelude::df;
 
-let exe_path = r"D:\Programs\miniconda3\envs\cellpy\python.exe";
+// Set the path to your Python executable on windows/linux/macOS
+let exe_path = r"where-is-my/python";
 let df1 = df![
     "Model" => ["S1", "M1", "R2", "P8", "M4", "T5", "V1"],
     "Price" => [2430, 3550, 5700, 8750, 2315, 3560, 980],
