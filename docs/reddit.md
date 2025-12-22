@@ -9,6 +9,7 @@ I’m excited to announce the first public release of **Charton**, a plotting li
 **GitHub:** [Charton](https://github.com/wangjiawen2013/charton) Crates.io: `charton = "0.2.0"`
 
 🦀 **Why another plotting library?**
+
 We have great low-level tools like `plotters`, but for exploratory data analysis (EDA), we often miss the declarative "Grammar of Graphics" approach. Charton aims to bridge the gap between high-performance data processing in Polars and beautiful, rapid visualization.
 
 ✨ **Key Features:**
@@ -28,6 +29,7 @@ Chart::build(&df)?
 - **Jupyter/evcxr Integration:** First-class support for interactive data science in Rust notebooks.
 
 🏗️ **Architecture & Performance**
+
 Charton is built to be a "Visualization Infrastructure":
 1. **Core Engine:** Handles statistical transforms (binning, loess, etc.) and encoding logic.
 2. **IPC Module:** Efficiently pipes data to Python if you need specific Altair features, returning PNG/SVG/JSON.
