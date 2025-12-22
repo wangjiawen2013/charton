@@ -16,7 +16,7 @@ Charton is engineered to be an efficient, safe, and flexible solution, built on 
 
 ## 1.3 System Architecture
 Charton adopts a modern, decoupled architecture designed for high-performance data processing and cross-language interoperability.
-
+```text
 ┌───────────────────────────────────────────────────────────────────────────┐
 │                            Input Layer                                    │
 │  ┌──────────────┐    ┌──────────────┐    ┌──────────────────────────────┐ │
@@ -71,6 +71,7 @@ Charton adopts a modern, decoupled architecture designed for high-performance da
 │  │ (Native/Wasm)│  │ (for Web)    │  │ (via Ext.)   │  │ Rendering     │  │
 │  └──────────────┘  └──────────────┘  └──────────────┘  └──────────────┘  │
 └───────────────────────────────────────────────────────────────────────────┘
+```
 
 **1. Input Layer (Data Orchestration)**
 - **Polars-Native**: Unlike other libraries that require heavy data cloning, Charton is built on **Apache Arrow** (via Polars), enabling efficient, zero-copy data access.
