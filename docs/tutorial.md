@@ -21,8 +21,8 @@ Charton adopts a modern, decoupled architecture designed for high-performance da
 │                            Input Layer                                    │
 │  ┌──────────────┐    ┌──────────────┐    ┌──────────────────────────────┐ │
 │  │ Rust Polars  │    │ External     │    │ Jupyter/evcxr Interactive    │ │
-│  │ DataFrame/    │    │ Datasets     │    │ Input                        │ │
-│  │ LazyFrame     │    │ (CSV/Parquet) │    │ (Notebook cell data/commands)│ │
+│  │ DataFrame/   │    │ Datasets     │    │ Input                        │ │
+│  │ LazyFrame    │    │ (CSV/Parquet)│    │ (Notebook cell data/commands)│ │
 │  └──────────────┘    └──────────────┘    └──────────────────────────────┘ │
 └───────────────────────────┬───────────────────────────────────────────────┘
                             │
@@ -30,46 +30,46 @@ Charton adopts a modern, decoupled architecture designed for high-performance da
 │                          Core Layer                                       │
 │  ┌──────────────────────────────────────────────────────────────────────┐ │
 │  │            Charton Core Engine                                       │ │
-│  │  ┌──────────────┐    ┌──────────────┐    ┌──────────────────────┐    │ │
-│  │  │ Declarative  │    │ Layered      │    │ Cross-backend Data   │    │ │
-│  │  │ API (Altair- │    │ Chart        │    │ Converter            │    │ │
-│  │  │ style)       │    │ Management   │    │ (Rust ↔ Python/JSON) │    │ │
-│  │  └──────────────┘    │ (LayeredChart)│   └──────────────────────┘    │ │
-│  │                      └──────────────┘                                │ │
-│  │  ┌──────────────┐    ┌──────────────┐    ┌──────────────────────┐    │ │
-│  │  │ Data         │    │ IPC          │    │ Vega-Lite Spec       │    │ │
-│  │  │ Validation/  │    │ Communication│    │ Generator            │    │ │
-│  │  │ Mapping      │    │ Module       │    │                      │    │ │
-│  │  └──────────────┘    └──────────────┘    └──────────────────────┘    │ │
+│  │  ┌──────────────┐    ┌───────────────┐    ┌──────────────────────┐   │ │
+│  │  │ Declarative  │    │ Layered       │    │ Cross-backend Data   │   │ │
+│  │  │ API (Altair- │    │ Chart         │    │ Converter            │   │ │
+│  │  │ style)       │    │ Management    │    │ (Rust ↔ Python/JSON) │   │ │
+│  │  └──────────────┘    │ (LayeredChart)│    └──────────────────────┘   │ │
+│  │                      └───────────────┘                               │ │
+│  │  ┌──────────────┐    ┌───────────────┐    ┌──────────────────────┐   │ │
+│  │  │ Data         │    │ IPC           │    │ Vega-Lite Spec       │   │ │
+│  │  │ Validation/  │    │ Communication │    │ Generator            │   │ │
+│  │  │ Mapping      │    │ Module        │    │                      │   │ │
+│  │  └──────────────┘    └───────────────┘    └──────────────────────┘   │ │
 │  └──────────────────────────────────────────────────────────────────────┘ │
 └───────────────────────────┬───────────────────────────────────────────────┘
                             │
 ┌───────────────────────────▼───────────────────────────────────────────────┐
 │                        Render Backends                                    │
-│  ┌──────────────────────┐    ┌────────────────────────────────────────┐  │
-│  │ Rust Native Backend  │    │ External Cross-Language Backends       │  │
-│  │                      │    │                                        │  │
-│  │  ┌────────────────┐  │    │  ┌────────────┐  ┌──────────────────┐  │  │
-│  │  │ Pure Rust SVG  │  │    │  │ Altair     │  │ Matplotlib        │  │  │
-│  │  │ Renderer       │  │    │  │ Backend    │  │ Backend           │  │  │
-│  │  └────────────────┘  │    │  │ (Python IPC)│  │ (Python IPC)      │  │  │
-│  │                      │    │  └────────────┘  └──────────────────┘  │  │
-│  │  ┌────────────────┐  │    │                                        │  │
-│  │  │ Wasm Renderer  │  │    │  ┌────────────┐  ┌──────────────────┐  │  │
-│  │  │ (Partial       │  │    │  │ Other      │  │ Extended Backends │  │  │
-│  │  │  Support)      │  │    │  │ Python     │  │ (Future)          │  │  │
-│  │  └────────────────┘  │    │  │ Viz Libs   │  │ (R/Julia, etc.)   │  │  │
-│  │                      │    │  └────────────┘  └──────────────────┘  │  │
-│  └──────────────────────┘    └────────────────────────────────────────┘  │
+│  ┌──────────────────────┐    ┌────────────────────────────────────────┐   │
+│  │ Rust Native Backend  │    │ External Cross-Language Backends       │   │
+│  │                      │    │                                        │   │
+│  │  ┌────────────────┐  │    │  ┌─────────────┐  ┌──────────────────┐ │   │
+│  │  │ Pure Rust SVG  │  │    │  │ Altair      │  │ Matplotlib       │ │   │
+│  │  │ Renderer       │  │    │  │ Backend     │  │ Backend          │ │   │
+│  │  └────────────────┘  │    │  │ (Python IPC)│  │ (Python IPC)     │ │   │
+│  │                      │    │  └─────────────┘  └──────────────────┘ │   │
+│  │  ┌────────────────┐  │    │                                        │   │
+│  │  │ Wasm Renderer  │  │    │  ┌────────────┐  ┌──────────────────┐  │   │
+│  │  │ (Partial       │  │    │  │ Other      │  │ Extended Backends│  │   │
+│  │  │  Support)      │  │    │  │ Python     │  │ (Future)         │  │   │
+│  │  └────────────────┘  │    │  │ Viz Libs   │  │ (R/Julia, etc.)  │  │   │
+│  │                      │    │  └────────────┘  └──────────────────┘  │   │
+│  └──────────────────────┘    └────────────────────────────────────────┘   │
 └───────────────────────────┬───────────────────────────────────────────────┘
                             │
 ┌───────────────────────────▼───────────────────────────────────────────────┐
 │                          Output Layer                                     │
-│  ┌──────────────┐  ┌──────────────┐  ┌──────────────┐  ┌──────────────┐  │
-│  │ SVG Vector   │  │ Vega-Lite    │  │ PNG Bitmap   │  │ Jupyter       │  │
-│  │ Graphics     │  │ JSON         │  │ Image        │  │ Inline        │  │
-│  │ (Native/Wasm)│  │ (for Web)    │  │ (via Ext.)   │  │ Rendering     │  │
-│  └──────────────┘  └──────────────┘  └──────────────┘  └──────────────┘  │
+│  ┌──────────────┐  ┌──────────────┐  ┌──────────────┐  ┌──────────────┐   │
+│  │ SVG Vector   │  │ Vega-Lite    │  │ PNG Bitmap   │  │ Jupyter      │   │
+│  │ Graphics     │  │ JSON         │  │ Image        │  │ Inline       │   │
+│  │ (Native/Wasm)│  │ (for Web)    │  │ (via Ext.)   │  │ Rendering    │   │
+│  └──────────────┘  └──────────────┘  └──────────────┘  └──────────────┘   │
 └───────────────────────────────────────────────────────────────────────────┘
 ```
 
