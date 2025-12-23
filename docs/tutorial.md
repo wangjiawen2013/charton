@@ -3789,7 +3789,7 @@ Plot::<Matplotlib>::build(data!(&df))?
     .save("mat_full.svg")?;
 ```
 
-# Chapter 9 · Interactive Visualization
+# Chapter 9: Interactive Workflows & WebAssembly Integration
 Charton provides two categories of visualization output:
 
 1. **Static rendering** (native Charton SVG)
@@ -3830,7 +3830,7 @@ Chart::build(&df)?
 ```
 Even though the chart itself is static, the *workflow* feels interactive due to the rapid feedback loop.
 
-## 9.2 Static SVG vs. Interactive Rendering in WebAssembly (partially supported now)
+## 9.2 Static SVG vs. Interactive Rendering in WebAssembly
 Although Charton’s native output is a **static SVG**, this does *not* prevent it from supporting interactive rendering when compiled to Wasm. In fact, the combination of **Charton + Rust + Wasm** enables a high-performance interaction model that is often *faster* than traditional JavaScript visualization libraries.
 
 To understand this correctly, we must distinguish two different concepts:
@@ -3895,6 +3895,9 @@ This drastically reduces UI-thread blocking compared to manual JS DOM manipulati
     - Install `wasm-pack` (recommended):
 
       `cargo install wasm-pack`
+- `clang` (required)
+    - **Linux**: `apt install clang`
+    - **Windows**: Download and run the **LLVM installer** from [LLVM Releases](https://github.com/llvm/llvm-project/releases). During installation, select **"Add LLVM to the system PATH"**.
 - A simple static file server (e.g. `basic-http-server` from cargo, `python -m http.server`, or `serve` via npm).
 - Node/ npm only if you want to integrate into an NPM workflow; not required for the simple demo.
 
@@ -3927,7 +3930,7 @@ Put this into `web/Cargo.toml`.
 [package]
 name = "web"
 version = "0.1.0"
-edition = "2021"
+edition = "2021" # Important: Stable standard for Wasm/Polars. Don't upgrade to 2024 yet to avoid toolchain conflicts.
 
 # Produce a cdylib for wasm
 [lib]
@@ -3936,10 +3939,12 @@ crate-type = ["cdylib"]
 [dependencies]
 wasm-bindgen = "0.2"
 polars = { version = "0.49", default-features = false }
+# Avoids transitive mio dependency to ensure Wasm compatibility.
+polars-io = { version = "0.49", default-features = false, features = ["parquet"] }
 charton = { version = "0.2" }
 
 [profile.release]
-opt-level = "s"
+opt-level = "z"  # or "s" to speed up
 lto = true
 codegen-units = 1
 panic = "abort"
@@ -3997,6 +4002,12 @@ wasm-pack build --release --target web --out-dir pkg
     - `web_bg.wasm.d.ts`
     - `web.d.ts`
     - `web.js` (ES module bootstrap)
+> 💡**Optimization Note: Binary Size**
+
+> After building in `--release` mode, the resulting `web_bg.wasm` is approximately **4MB**. However, for web production:
+> - **Gzip compression** reduces it to about **900KB**.
+> - **Brotli compression** can shrink it even further.
+> This compact footprint makes it highly suitable for browser-side data processing without long loading times.
 
 **5) Creating `index.html` (Client-Side Loader)**
 
@@ -4012,7 +4023,7 @@ The final step is to create a minimal HTML file (`web/index.html`) that loads th
     <div id="chart-container"></div>
 
     <script type="module">
-        import init, { draw_chart } from '../pkg/web.js';
+        import init, { draw_chart } from './pkg/web.js';
 
         async function run() {
             // Initialize and load the WebAssembly module
