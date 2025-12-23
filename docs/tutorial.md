@@ -4003,8 +4003,9 @@ wasm-pack build --release --target web --out-dir pkg
     - `web.d.ts`
     - `web.js` (ES module bootstrap)
 > 💡**Optimization Note: Binary Size**
+
 > After building in `--release` mode, the resulting `web_bg.wasm` is approximately **4MB**. However, for web production:
-> - **Gzip compression** reduces it to about 900KB.
+> - **Gzip compression** reduces it to about **900KB**.
 > - **Brotli compression** can shrink it even further.
 > This compact footprint makes it highly suitable for browser-side data processing without long loading times.
 
