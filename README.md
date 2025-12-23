@@ -9,10 +9,10 @@
 Charton is a powerful plotting library for Rust that provides first-class, native support for Rust [Polars](https://github.com/pola-rs/polars), and offers an API similar to Python's [Altair](https://altair-viz.github.io/), making it easy for users familiar with declarative, instruction-based plotting to migrate. It also allows you to leverage existing mature visualization ecosystems, such as Altair and [Matplotlib](https://matplotlib.org/). By seamlessly integrating with [evcxr_jupyter](https://github.com/evcxr/evcxr), Charton facilitates the creation of informative and aesthetically pleasing visualizations interactively, making it especially well-suited for exploratory data analysis.
 
 ## 🌟 Who Charton is For?
-- Data scientists: Generate visualizations directly in Rust after data processing, no need to switch to Python.
-- Performance-sensitive scenarios: Pure Rust rendering with no external dependencies, ideal for high-performance server-side batch chart generation.
-- Jupyter exploratory analysis: Real-time interaction via evcxr for rapid iteration of visualization logic.
-- Cross-language reuse: Use Rust-native rendering or seamlessly integrate with Python ecosystems (Altair/Matplotlib).
+- **Data Scientists:** Generate visualizations directly in Rust after data processing-no more context-switching to Python.
+- **Performance-sensitive scenarios:** Pure Rust rendering with no external dependencies, perfect for server-side batch generation.
+- **Interactive Explorers:** Rapidly iterate on visualization logic via `evcxr` in Jupyter Notebooks.
+- **WebAssembly Developers:** Bring Polars-powered data processing to the browser with a compact, web-optimized binary.
 
 ## Installation
 Charton includes a pure-Rust SVG renderer, which allows users to create visualizations entirely in Rust without any external dependencies. To use charton, simply add it into `Cargo.toml`:
@@ -289,6 +289,12 @@ This is the output (excerpt):
   }
 }
 ```
+## ⚡ High-Performance WebAssembly
+Charton is engineered for the modern web. By stripping away unnecessary bloat, it delivers heavy-duty data power in a lightweight package:
+- **Compact Footprint**: Optimized to **~4MB raw binary (~900KB after Gzip)**, making it one of the lightest Polars-integrated Wasm modules available.
+- **Zero-Lag Rendering:** Designed to process and visualize data-intensive sets directly in the browser (*full performance benchmarks pending*).
+- **Modern Toolchain Support:** Optimized for `wasm-pack`; compatible with modern bundlers like Vite and Webpack.
+> 📖 **Wasm Getting Started:** Check out **Chapter 9** of our [Tutorial](docs/tutorial.md) for a step-by-step example of rendering a scatter plot in the browser using Wasm.
 
 ## Examples
 This gallery contains a selection of examples of the plots charton can create. Go to the `examples` folder to view the source code.
@@ -338,7 +344,7 @@ Charton is engineered to solve these challenges, providing a modern, efficient, 
 | **⚡ IPC (Inter-Process Communication)** | ✅ | Enables efficient use of visualization systems **without writing temporary files**. |
 | **🧩 API Friendliness** | ✅ | **Altair-like API** ensures a minimal learning curve for users familiar with Python tools. |
 | **🌐 Frontend JSON Output** | ✅ | Generates **Vega-Lite JSON** for easy integration and dynamic client-side web rendering. |
-| **💻 Wasm (WebAssembly)** | 🟡 | Aims to bring high-performance visualization to the web. **Currently partial** (due to Polars Wasm limitations). |
+| **💻 Wasm (WebAssembly)** | 🟡 | Aims to bring high-performance visualization to the web.|
 
 ✅ Supported   🟡 Partially supported
 
