@@ -8,7 +8,9 @@ repository = "https://github.com/wangjiawen2013/charton"
 authors = ["Jiawen Wang <wangjiawen2013@163.com>"]
 
 [dependencies]
-polars = { version="0.49", default-features=false, features = ["lazy", "parquet", "rank", "pivot", "partition_by"] }
+polars = { version="0.49", default-features=false, features = ["lazy", "rank", "pivot", "partition_by"] }
+# Avoids transitive mio dependency to ensure Wasm compatibility.
+polars-io = { version = "0.49", default-features = false, features = ["parquet"] }
 thiserror = "2.0"
 itertools = "0.14"
 chrono = "0.4"

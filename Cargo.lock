@@ -332,6 +332,7 @@ dependencies = [
  "num-traits",
  "ordered-float",
  "polars",
+ "polars-io",
  "regex",
  "resvg",
  "serde",
@@ -1864,7 +1865,6 @@ version = "0.49.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "675294ddf9174029e48caa4e59b0665ea64bfb784a366b197690895a6ed65c68"
 dependencies = [
- "futures",
  "memmap2",
  "polars-arrow",
  "polars-core",
@@ -1877,7 +1877,6 @@ dependencies = [
  "polars-utils",
  "rayon",
  "recursive",
- "tokio",
 ]
 
 [[package]]
@@ -1964,7 +1963,6 @@ dependencies = [
  "chrono",
  "chrono-tz",
  "either",
- "futures",
  "hashbrown 0.15.5",
  "memmap2",
  "num-traits",
@@ -1974,7 +1972,6 @@ dependencies = [
  "polars-core",
  "polars-io",
  "polars-ops",
- "polars-parquet",
  "polars-time",
  "polars-utils",
  "rayon",
