@@ -4004,8 +4004,8 @@ wasm-pack build --release --target web --out-dir pkg
     - `web.js` (ES module bootstrap)
 > 💡**Optimization Note: Binary Size**
 
-> After building in `--release` mode, the resulting `web_bg.wasm` is approximately **4MB**. However, for web production:
-> - **Gzip compression** reduces it to about **900KB**.
+> After building in `--release` mode, the resulting `web_bg.wasm` is approximately **4 MB**. However, for web production:
+> - **Gzip compression** reduces it to about **900 KB**.
 > - **Brotli compression** can shrink it even further.
 > This compact footprint makes it highly suitable for browser-side data processing without long loading times.
 
@@ -4056,7 +4056,7 @@ Browsers enforce CORS for WASM; open the page via HTTP server rather than `file:
 Minimal options:
 ```bash
 cd web
-python3 -m http.server 8080
+python -m http.server 8080
 ```
 Then open http://localhost:8080/index.html and you'll see the chart in the browser:
 ![wasm](../assets/wasm.png)
