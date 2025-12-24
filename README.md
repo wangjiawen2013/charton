@@ -1,12 +1,12 @@
 # Charton - A versatile plotting library for Rust
-**Altair-style declarative plotting for Rust.**
+**Altair-style declarative plotting for Rust. High-performance, Polars-native, and Wasm-ready.**
 
 [![Crates.io](https://img.shields.io/crates/v/charton.svg)](https://crates.io/crates/charton)
 [![Documentation](https://docs.rs/charton/badge.svg)](https://docs.rs/charton)
 [![Build Status](https://github.com/wangjiawen2013/charton/actions/workflows/ci.yml/badge.svg)](https://github.com/wangjiawen2013/charton/actions)
 [![License](https://img.shields.io/badge/license-Apache2.0-blue.svg)](LICENSE)
 
-Charton is a powerful plotting library for Rust that provides first-class, native support for Rust [Polars](https://github.com/pola-rs/polars), and offers an API similar to Python's [Altair](https://altair-viz.github.io/), making it easy for users familiar with declarative, instruction-based plotting to migrate. It also allows you to leverage existing mature visualization ecosystems, such as Altair and [Matplotlib](https://matplotlib.org/). By seamlessly integrating with [evcxr_jupyter](https://github.com/evcxr/evcxr), Charton facilitates the creation of informative and aesthetically pleasing visualizations interactively, making it especially well-suited for exploratory data analysis.
+**Charton** is a powerful, **Open Core** plotting library for Rust that provides first-class, native support for **[Polars]**(https://github.com/pola-rs/polars), and offers an API similar to Python's **[Altair]**(https://altair-viz.github.io/), making it easy for users familiar with declarative, instruction-based plotting to migrate. It also allows you to leverage existing mature visualization ecosystems, such as Altair and **[Matplotlib]**(https://matplotlib.org). By seamlessly integrating with **[evcxr_jupyter]**(https://github.com/evcxr/evcxr), Charton facilitates the creation of informative and aesthetically pleasing visualizations interactively, making it especially well-suited for exploratory data analysis.
 
 ## 🌟 Who Charton is For?
 - **Data Scientists:** Generate visualizations directly in Rust after data processing-no more context-switching to Python.
@@ -346,20 +346,25 @@ Charton is engineered to solve these challenges, providing a modern, efficient, 
 | **🌐 Frontend JSON Output** | ✅ | Generates **Vega-Lite JSON** for easy integration and dynamic client-side web rendering. |
 | **💻 Wasm (WebAssembly)** | ✅ | Aims to bring high-performance visualization to the web.|
 
-## Contributions Welcome
-Contributions are welcome in the following areas:
-- Improve and expand the documentation/tutorials
-- Optimization (LazyFrame etc.)
-- Testing WebAssembly (Wasm) Support (now not fully tested)
-- Add more themes (visual style presets)
-- Add new chart types (beeswarm plot, violin plot, etc.)
+## 🤝 Contributions Welcome
+Contributions are welcome! Whether it's improving documentation, adding new chart types, or optimizing performance, your help is appreciated.
 
-## Acknowledgements
-The development of this project has also been greatly aided by AI, particularly through the use of qwen3-coder and kimi, which significantly accelerated the development process.
+## ⚖️ Our Commitment to Open Source
+**Charton is and will always be "Open Core" under the Apache 2.0 license.**
 
-I would like to thank my family for taking care of our home, which gave me the time and focus to work on this project.
+We believe that high-performance visualization infrastructure should be a public good:
+- **The Core:** The engine, statistical transforms, and standard emitters are, and will remain, licensed under **Apache 2.0**. This is a permanent commitment to the Rust community.
+- **Sustainability:** Inspired by the **Polars** model, we aim to build a sustainable ecosystem. While the core remains free and open, we may explore enterprise-grade services (such as **Charton Cloud** or specialized high-performance plugins) in the future to ensure long-term maintenance and innovation.
 
-## License
-This project is licensed under the [Apache License 2.0](https://github.com/wangjiawen2013/charton/blob/main/LICENSE).
+## 📄 License
+Charton is licensed under the **Apache License 2.0**.
 
-Note: This project is developed independently and is not affiliated with or endorsed by any organization.
+By contributing to Charton, you agree that your contributions will be licensed under the Apache License 2.0. This ensures the project remains open and accessible while allowing for long-term sustainability.
+
+## 🙏 Acknowledgements
+- **AI Collaboration:** The development of this project has been greatly aided by AI, particularly **Qwen3-Coder** and **Kimi**, which significantly accelerated the development process.
+- **Personal Support:** I would like to thank my family for taking care of our home, which gave me the time and focus to work on this project.
+
+---
+
+*Note: This project is developed independently and is not affiliated with or endorsed by any organization.*
