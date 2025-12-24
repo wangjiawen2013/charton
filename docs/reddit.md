@@ -13,7 +13,7 @@ I’m excited to announce the first public release of **Charton**, a plotting li
 We have great low-level tools like `plotters`, but for exploratory data analysis (EDA), we often miss the declarative "Grammar of Graphics" approach. Charton aims to bridge the gap between high-performance data processing in Polars and beautiful, rapid visualization.
 
 ✨ **Key Features:**
-- **Polars-First & Wasm Ready:** Deeply integrated with Polars. Thanks to Rust's unique strengths, Plotix is being optimized for WebAssembly, bringing high-performance, interactive data viz directly to the browser.
+- **Polars-First & Wasm Ready:** Deeply integrated with Polars. Thanks to Rust's unique strengths, Charton is being optimized for WebAssembly, bringing high-performance, interactive data viz directly to the browser.
 - **Declarative API:** If you've used Altair or ggplot2, you'll feel at home. Define *what* to plot, not how to draw lines.
 ```rust
 Chart::build(&df)?
@@ -45,10 +45,9 @@ LayeredChart::new()
     .add_layer(scatter)
     .show()?; // Renders inline in Jupyter!
 ```
-🛣️ **What's next?**
-- Full WASM testing (currently partial support).
-- LazyFrame optimization for extremely large datasets.
-- More statistical marks (Violin plots, Beeswarm, etc.).
+⚖️ **Our Commitment to Open Source**
+
+Charton is and will always be **Open Core** under the **Apache 2.0** license. We want the Rust community to build on a stable, free, and open foundation. To ensure long-term maintenance, we aim to build a sustainable ecosystem (inspired by the Polars model) and may explore enterprise-grade services (like Charton Cloud) in the future.
 
 I’d love to get your feedback! Whether you are a data scientist moving to Rust or a systems engineer needing quick dashboards, I hope Charton makes your life easier.
 
