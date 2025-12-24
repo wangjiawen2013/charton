@@ -13,7 +13,7 @@ I’m excited to announce the first public release of **Charton**, a plotting li
 We have great low-level tools like `plotters`, but for exploratory data analysis (EDA), we often miss the declarative "Grammar of Graphics" approach. Charton aims to bridge the gap between high-performance data processing in Polars and beautiful, rapid visualization.
 
 ✨ **Key Features:**
-- **Polars-First:** Deeply integrated with Polars. Plot directly from your DataFrames without cumbersome conversions.
+- **Polars-First & Wasm Ready:** Deeply integrated with Polars. Thanks to Rust's unique strengths, Plotix is being optimized for WebAssembly, bringing high-performance, interactive data viz directly to the browser.
 - **Declarative API:** If you've used Altair or ggplot2, you'll feel at home. Define *what* to plot, not how to draw lines.
 ```rust
 Chart::build(&df)?
