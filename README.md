@@ -292,7 +292,7 @@ This is the output (excerpt):
 ## ⚡ High-Performance WebAssembly
 Charton is engineered for the modern web. By stripping away unnecessary bloat, it delivers heavy-duty data power in a lightweight package:
 - **Compact Footprint**: Optimized to **~4MB raw binary (~900KB after Gzip)**, making it one of the lightest Polars-integrated Wasm modules available.
-- **Zero-Lag Rendering:** Designed to process and visualize data-intensive sets directly in the browser (*full performance benchmarks pending*).
+- **Zero-Lag Rendering:** Designed to process and visualize data-intensive sets directly in the browser (optimized for real-time responsiveness).
 - **Modern Toolchain Support:** Optimized for `wasm-pack`; compatible with modern bundlers like Vite and Webpack.
 > 📖 **Wasm Getting Started:** Check out **Chapter 9** of our [Tutorial](docs/tutorial.md) for a step-by-step example of rendering a scatter plot in the browser using Wasm.
 
@@ -332,7 +332,7 @@ This gallery contains a selection of examples of the plots charton can create. G
 </table>
 
 ## Features
-While the Rust ecosystem has seen efforts in native visualization and integration with external tools (like PyO3), existing solutions often suffer from poor maintenance, inefficient temporary file usage, or complex notebook environment limitations (e.g., restricted Conda support in evcxr).
+While the Rust ecosystem has seen efforts in native visualization and integration with external tools (like `PyO3`), existing solutions often suffer from poor maintenance, inefficient temporary file usage, or complex notebook environment limitations (e.g., restricted Conda support in `evcxr`).
 
 Charton is engineered to solve these challenges, providing a modern, efficient, and user-friendly alternative with several key advantages:
 
@@ -344,9 +344,7 @@ Charton is engineered to solve these challenges, providing a modern, efficient, 
 | **⚡ IPC (Inter-Process Communication)** | ✅ | Enables efficient use of visualization systems **without writing temporary files**. |
 | **🧩 API Friendliness** | ✅ | **Altair-like API** ensures a minimal learning curve for users familiar with Python tools. |
 | **🌐 Frontend JSON Output** | ✅ | Generates **Vega-Lite JSON** for easy integration and dynamic client-side web rendering. |
-| **💻 Wasm (WebAssembly)** | 🟡 | Aims to bring high-performance visualization to the web.|
-
-✅ Supported   🟡 Partially supported
+| **💻 Wasm (WebAssembly)** | ✅ | Aims to bring high-performance visualization to the web.|
 
 ## Contributions Welcome
 Contributions are welcome in the following areas:
