@@ -45,10 +45,12 @@ LayeredChart::new()
     .add_layer(scatter)
     .show()?; // Renders inline in Jupyter!
 ```
-⚖️ **Our Commitment to Open Source**
-
-Charton is and will always be **Open Core** under the **Apache 2.0** license. We want the Rust community to build on a stable, free, and open foundation. To ensure long-term maintenance, we aim to build a sustainable ecosystem (inspired by the Polars model) and may explore enterprise-grade services (like Charton Cloud) in the future.
 
 I’d love to get your feedback! Whether you are a data scientist moving to Rust or a systems engineer needing quick dashboards, I hope Charton makes your life easier.
 
 **Check out the [Examples](https://github.com/wangjiawen2013/charton/tree/main/examples) folder in the repo for more!**
+
+
+
+
+Add the first comment to reddit about wasm usage in tutorial.
