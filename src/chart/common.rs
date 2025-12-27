@@ -2691,6 +2691,18 @@ impl LayeredChart {
 
         // Convert to Path for file operations
         let path_obj = path.as_ref();
+        
+        // Create parent directory if it doesn't exist
+        if let Some(parent) = path_obj.parent() {
+            if !parent.exists() {
+                std::fs::create_dir_all(parent)
+                    .map_err(|e| ChartonError::Io(std::io::Error::new(
+                        std::io::ErrorKind::Other,
+                        format!("Failed to create directory: {}", e)
+                    )))?;
+            }
+        }
+
         let ext = path_obj
             .extension()
             .and_then(|e| e.to_str())
