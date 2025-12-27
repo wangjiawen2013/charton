@@ -223,15 +223,13 @@ impl Visualization for Plot<Matplotlib> {
         let path_obj = path.as_ref();
 
         // Create parent directory if it doesn't exist
-        if let Some(parent) = path_obj.parent() {
-            if !parent.exists() {
-                std::fs::create_dir_all(parent).map_err(|e| {
-                    ChartonError::Io(std::io::Error::new(
-                        std::io::ErrorKind::Other,
-                        format!("Failed to create directory: {}", e),
-                    ))
-                })?;
-            }
+        if let Some(parent) = path_obj.parent().filter(|p| !p.exists()) {
+            std::fs::create_dir_all(parent).map_err(|e| {
+                ChartonError::Io(std::io::Error::other(format!(
+                    "Failed to create directory: {}",
+                    e
+                )))
+            })?;
         }
 
         let ext = path_obj
