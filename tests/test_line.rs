@@ -77,12 +77,12 @@ fn test_line_3() -> Result<(), Box<dyn Error>> {
             x("a"),
             y("b"),
             color("category"), // This creates separate lines for each category
-        ))?
-        .swap_axes();
+        ))?;
 
     LayeredChart::new()
         .with_size(600, 400)
         .add_layer(chart)
+        .swap_axes()
         .save("./tests/line_3.svg")?;
 
     Ok(())

@@ -20,13 +20,13 @@ fn test_scatter_1() -> Result<(), Box<dyn Error>> {
         ))?
         .with_point_stroke_width(1.0)
         .with_point_stroke(Some(SingleColor::new("black")))
-        .with_point_color(Some(SingleColor::new("red")))
-        .swap_axes();
+        .with_point_color(Some(SingleColor::new("red")));
 
     // Create a layered chart and add the point chart as a layer
     LayeredChart::new()
         .with_size(500, 400)
         .add_layer(point_chart)
+        .swap_axes()
         .save("./tests/scatter_1.svg")?;
 
     Ok(())
@@ -111,8 +111,7 @@ fn test_scatter_5() -> Result<(), Box<dyn Error>> {
 
     let point_chart = Chart::build(&df)?
         .mark_point()
-        .encode((x("a"), y("b"), color("Origin")))?
-        .swap_axes();
+        .encode((x("a"), y("b"), color("Origin")))?;
 
     LayeredChart::new()
         .with_size(500, 400)
@@ -126,6 +125,7 @@ fn test_scatter_5() -> Result<(), Box<dyn Error>> {
         .with_label_font_family("serif")
         .with_label_font_size(36)
         .add_layer(point_chart)
+        .swap_axes()
         .save("./tests/scatter_5.svg")?;
 
     Ok(())
