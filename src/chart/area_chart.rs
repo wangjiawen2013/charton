@@ -254,7 +254,7 @@ impl Chart<MarkArea> {
             .unwrap_or(true);
 
         if should_draw_zero_line {
-            if !self.swapped_axes {
+            if !context.swapped_axes {
                 // For vertical areas, draw horizontal zero line
                 let y_zero = (context.y_mapper)(0.0);
                 writeln!(

@@ -20,14 +20,14 @@ fn main() -> Result<(), Box<dyn Error>> {
             y("Population"),
             text("Country"),
             color("Continent"),
-        ))?
-        .swap_axes();
+        ))?;
 
     // Create a layered chart and add the text chart as a layer
     LayeredChart::new()
         .with_x_label("GDP (Trillion USD)")
         .with_y_label("Population (Millions)")
         .add_layer(text_chart)
+        .swap_axes()
         .save("./examples/text.svg")?;
 
     Ok(())

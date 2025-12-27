@@ -18,13 +18,13 @@ fn test_empty_1() -> Result<(), Box<dyn Error>> {
         ))?
         .with_point_stroke_width(1.0)
         .with_point_stroke(Some(SingleColor::new("black")))
-        .with_point_color(Some(SingleColor::new("red")))
-        .swap_axes();
+        .with_point_color(Some(SingleColor::new("red")));
 
     // Create a layered chart and add the layer
     LayeredChart::new()
         .with_size(500, 400)
         .add_layer(empty_chart)
+        .swap_axes()
         .save("./tests/empty_1.svg")?;
 
     Ok(())

@@ -22,7 +22,6 @@ fn test_histogram_1() -> Result<(), Box<dyn Error>> {
             y("count").with_normalize(true),
             color("variable"),
         ))?
-        .swap_axes()
         .with_hist_color(Some(SingleColor::new("steelblue")))
         .with_hist_opacity(0.5)
         .with_hist_stroke(Some(SingleColor::new("black")))
@@ -37,6 +36,7 @@ fn test_histogram_1() -> Result<(), Box<dyn Error>> {
         .with_y_label("Frequency")
         .add_layer(histogram_chart)
         .with_legend(true)
+        .swap_axes()
         .save("./tests/histogram_1.svg")?;
 
     Ok(())

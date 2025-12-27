@@ -276,7 +276,7 @@ impl Chart<MarkBar> {
                         mark.color.clone()
                     };
 
-                    match !self.swapped_axes {
+                    match !context.swapped_axes {
                         true => {
                             // Vertical stacked bars
                             let x_center = group_center;
@@ -404,7 +404,7 @@ impl Chart<MarkBar> {
                         mark.color.clone()
                     };
 
-                    match !self.swapped_axes {
+                    match !context.swapped_axes {
                         true => {
                             // Vertical bars: x is group, y is value
                             let x_center = bar_position;
@@ -456,7 +456,7 @@ impl Chart<MarkBar> {
         let should_draw_zero_line = self.encoding.y.as_ref().unwrap().zero != Some(false);
 
         if should_draw_zero_line {
-            if !self.swapped_axes {
+            if !context.swapped_axes {
                 // For vertical bars, draw horizontal zero line
                 let y_zero = (context.y_mapper)(0.0);
                 writeln!(

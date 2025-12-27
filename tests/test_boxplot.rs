@@ -17,8 +17,8 @@ fn test_boxplot_1() -> Result<(), Box<dyn Error>> {
     Chart::build(&df_melted)?
         .mark_boxplot()
         .encode((x("variable"), y("value"), color("class")))?
-        .swap_axes()
         .into_layered()
+        .swap_axes()
         .save("./tests/boxplot_1.svg")?;
 
     Ok(())

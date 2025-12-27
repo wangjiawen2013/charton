@@ -1446,24 +1446,36 @@ This is useful for:
 `LayeredChart` intelligently merges properties from its constituent layers to provide a consistent, aligned visual structure.
 
 ### 5.8.1 Axis Orientation and Swapping
-One of the most critical roles of the `LayeredChart` is determining the orientation of the shared coordinate system. In Charton, this is governed by the **"First-Layer-Wins"** principle.
-- **Inheritance:** The `LayeredChart` looks at the `swapped_axes` flag of the **first layer** added. If that layer has called `.swap_axes()`, the entire chart's coordinate system is swapped.
-- **Consistency:** Because all layers share the same mappers (the logic that converts data values to pixels), you must ensure that **all layers in the chart use the same orientation**. Mixing swapped and non-swapped layers will result in misaligned data.
+In Charton, the orientation of the coordinate system is a **global property** managed exclusively by the `LayeredChart`. Individual layers (`Chart<T>`) are orientation-agnostic; they do not hold a `swapped_axes` state or provide a `.swap_axes()` method.
+- **Centralized Logic:** The `LayeredChart` serves as the sole controller for the rendering context. This ensures that all layers—whether they are bars, lines, or rules—are rendered using the exact same coordinate transformation logic.
+- **Simplified Layers:** By removing orientation logic from individual charts, the API becomes more intuitive. You focus on data encoding for the layers and layout configuration for the final chart.
+- **One-Step Toggle:** To switch between a vertical and horizontal layout, you only need to call `.swap_axes()` once on the `LayeredChart` instance.
+
+**Correct Usage Example**
+
+Notice that orientation is only specified at the very end, during the assembly of the layered chart.
+
 ```rust
-// Correct: Both layers are transposed to ensure alignment
+// Individual layers focus only on data and marks
 let bar = Chart::build(&df)?
     .mark_bar()
-    .encode((x("value"), y("category")))?
-    .swap_axes(); // First layer sets the "Swapped" mode
+    .encode((
+        x("value"),
+        y("category")
+    ))?;
 
 let rule = Chart::build(&df)?
     .mark_rule()
-    .encode((x("threshold"), y("category")))?
-    .swap_axes(); // Must match first layer
+    .encode((
+        x("threshold"),
+        y("category")
+    ))?;
 
+// All layers are orientation-agnostic until added here
 LayeredChart::new()
     .add_layer(bar)
     .add_layer(rule)
+    .swap_axes() // The ONLY place where orientation is defined
 ```
 ### 5.8.2 Scale Merging
 The `LayeredChart` automatically computes the union of data ranges across all layers:
