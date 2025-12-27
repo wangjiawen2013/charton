@@ -1944,11 +1944,6 @@ impl LayeredChart {
     ///
     pub fn swap_axes(mut self) -> Self {
         self.swapped_axes = true;
-        
-        // // Key: Synchronize update of layers that have already been added to the container
-        // for layer in &mut self.layers {
-        //     layer.swap_axes();
-        // }
         self
     }
 
