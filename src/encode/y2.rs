@@ -1,14 +1,9 @@
-/// Represents a secondary Y-axis encoding for chart elements
-///
 /// The `Y2` struct defines how data values should be mapped to a secondary vertical
-/// position in charts that support dual Y-axes. It specifies which data field should
-/// be used to determine the y2-coordinate of marks, typically used for range-based
-/// visualizations like error bars, candlestick charts, or rule marks that span
-/// between two Y positions.
+/// position in charts. It specifies which data field should be used to determine the
+/// y2-coordinate of marks.
 ///
 /// Y2 encoding is particularly useful for marks like rules where you need to specify
-/// both a starting and ending Y position, or for overlaying multiple datasets with
-/// different scales on the same chart.
+/// both a starting and ending Y position.
 #[derive(Debug)]
 pub struct Y2 {
     // polars column name

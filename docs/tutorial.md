@@ -24,9 +24,9 @@ Charton adopts a modern, decoupled architecture designed for high-performance da
 │  │ DataFrame/   │    │ Datasets     │    │ Input                        │ │
 │  │ LazyFrame    │    │ (CSV/Parquet)│    │ (Notebook cell data/commands)│ │
 │  └──────────────┘    └──────────────┘    └──────────────────────────────┘ │
-└───────────────────────────┬───────────────────────────────────────────────┘
-                            │
-┌───────────────────────────▼───────────────────────────────────────────────┐
+└────────────────────────────────────┬──────────────────────────────────────┘
+                                     │
+┌────────────────────────────────────▼──────────────────────────────────────┐
 │                          Core Layer                                       │
 │  ┌──────────────────────────────────────────────────────────────────────┐ │
 │  │            Charton Core Engine                                       │ │
@@ -42,9 +42,9 @@ Charton adopts a modern, decoupled architecture designed for high-performance da
 │  │  │ Mapping      │    │ Module        │    │                      │   │ │
 │  │  └──────────────┘    └───────────────┘    └──────────────────────┘   │ │
 │  └──────────────────────────────────────────────────────────────────────┘ │
-└───────────────────────────┬───────────────────────────────────────────────┘
-                            │
-┌───────────────────────────▼───────────────────────────────────────────────┐
+└────────────────────────────────────┬──────────────────────────────────────┘
+                                     │
+┌────────────────────────────────────▼──────────────────────────────────────┐
 │                        Render Backends                                    │
 │  ┌──────────────────────┐    ┌────────────────────────────────────────┐   │
 │  │ Rust Native Backend  │    │ External Cross-Language Backends       │   │
@@ -61,9 +61,9 @@ Charton adopts a modern, decoupled architecture designed for high-performance da
 │  │  └────────────────┘  │    │  │ Viz Libs   │  │ (R/Julia, etc.)  │  │   │
 │  │                      │    │  └────────────┘  └──────────────────┘  │   │
 │  └──────────────────────┘    └────────────────────────────────────────┘   │
-└───────────────────────────┬───────────────────────────────────────────────┘
-                            │
-┌───────────────────────────▼───────────────────────────────────────────────┐
+└────────────────────────────────────┬──────────────────────────────────────┘
+                                     │
+┌────────────────────────────────────▼──────────────────────────────────────┐
 │                          Output Layer                                     │
 │  ┌──────────────┐  ┌──────────────┐  ┌──────────────┐  ┌──────────────┐   │
 │  │ SVG Vector   │  │ Vega-Lite    │  │ PNG Bitmap   │  │ Jupyter      │   │
@@ -1443,12 +1443,36 @@ This is useful for:
 - highlighting important regions
 
 ## 5.8 Shared Axes, Scales, and Legends
-`LayeredChart` intelligently merges:
-- x/y domains, unless overridden
-- tick values
-- tick labels
-- labels
-- **legends** when layers use the same encoded fields
+`LayeredChart` intelligently merges properties from its constituent layers to provide a consistent, aligned visual structure.
+
+### 5.8.1 Axis Orientation and Swapping
+One of the most critical roles of the `LayeredChart` is determining the orientation of the shared coordinate system. In Charton, this is governed by the **"First-Layer-Wins"** principle.
+- **Inheritance:** The `LayeredChart` looks at the `swapped_axes` flag of the **first layer** added. If that layer has called `.swap_axes()`, the entire chart's coordinate system is swapped.
+- **Consistency:** Because all layers share the same mappers (the logic that converts data values to pixels), you must ensure that **all layers in the chart use the same orientation**. Mixing swapped and non-swapped layers will result in misaligned data.
+```rust
+// Correct: Both layers are transposed to ensure alignment
+let bar = Chart::build(&df)?
+    .mark_bar()
+    .encode((x("value"), y("category")))?
+    .swap_axes(); // First layer sets the "Swapped" mode
+
+let rule = Chart::build(&df)?
+    .mark_rule()
+    .encode((x("threshold"), y("category")))?
+    .swap_axes(); // Must match first layer
+
+LayeredChart::new()
+    .add_layer(bar)
+    .add_layer(rule)
+```
+### 5.8.2 Scale Merging
+The `LayeredChart` automatically computes the union of data ranges across all layers:
+- **x/y domains:** Unless overridden, the axes will automatically span the minimum and maximum values found across **all** layers.
+- **Tick values & labels:** It merges discrete categories or calculates optimal continuous ticks that accommodate every layer's data.
+- **Legends:** When multiple layers use the same encoded fields (e.g., both use `color("species")`), Charton merges them into a single coherent legend.
+
+### 5.8.3 Overriding Defaults
+While automatic merging is powerful, you can explicitly override these properties at the `LayeredChart` level.
 
 This provides consistent, aligned visual structure.
 
@@ -2550,7 +2574,7 @@ This behavior is ECDF-specific and does **not** apply to ordinary line charts.
 
 ECDF rendering fully respects coordinate transformations.
 
-When axes are swapped:
+When axes are swapped, the charts are transposed:
 ```rust
 (x, y) → (y, x)
 ```
@@ -3302,9 +3326,12 @@ Rule charts support **two conceptual forms**:
 **1. Infinite reference rules**
 
 If `y2` is **not** provided:
-- Each rule spans the entire plotting region
-- Used for baselines or global thresholds
+- Each rule spans the **entire vertical range** of the plotting region.
+- Used for global thresholds or x-axis baselines.
+- **Technical Note:** While the `y` encoding is required by the Cartesian coordinate system, its specific value is ignored for rendering the line; the line will always extend from the bottom to the top of the chart.
+
 ```rust
+// y is required for the API but its value does not restrict the line length
 x = constant
 y = plot_min → plot_max
 ```
