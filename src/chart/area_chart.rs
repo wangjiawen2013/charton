@@ -185,9 +185,6 @@ impl Chart<MarkArea> {
                 })
                 .collect();
 
-            // Sort points by x coordinate to ensure proper area drawing
-            points.sort_by(|a, b| a.0.partial_cmp(&b.0).unwrap());
-
             let fill_color = if self.encoding.color.is_some() {
                 Some(SingleColor::new(&self.mark_palette.get_color(group_index)))
             } else {
@@ -200,6 +197,9 @@ impl Chart<MarkArea> {
             if context.swapped_axes {
                 // For swapped axes, fill from x=0 (vertical baseline) to x values
                 let zero_x = (context.y_mapper)(0.0); // Note: y_mapper because axes are swapped
+
+                // Sort points by y coordinate to ensure proper area drawing when axes are swapped
+                points.sort_by(|a, b| a.1.partial_cmp(&b.1).unwrap());
 
                 // Start at the zero baseline for the first point
                 area_points.push((zero_x, points[0].1));
@@ -216,6 +216,9 @@ impl Chart<MarkArea> {
             } else {
                 // For normal axes, fill from y=0 (horizontal baseline) to y values
                 let zero_y = (context.y_mapper)(0.0);
+
+                // Sort points by x coordinate to ensure proper area drawing
+                points.sort_by(|a, b| a.0.partial_cmp(&b.0).unwrap());
 
                 // Start at the zero baseline for the first point
                 area_points.push((points[0].0, zero_y));
