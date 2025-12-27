@@ -21,7 +21,7 @@ fn main() -> Result<(), Box<dyn Error>> {
     // Create a layered chart and add the pie chart as a layer
     LayeredChart::new()
         .add_layer(pie_chart)
-        .save("./examples2/example3/donut.svg")?;
+        .save("./examples/donut.svg")?;
 
     Ok(())
 }
