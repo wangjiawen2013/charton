@@ -21,7 +21,6 @@ fn test_transform_calculate_1() -> Result<(), Box<dyn Error>> {
         )?
         .mark_errorbar()
         .encode((x("type"), y("value_min"), y2("value_max")))?
-        .swap_axes()
         .with_errorbar_color(Some(SingleColor::new("blue")))
         .with_errorbar_stroke_width(2.0)
         .with_errorbar_cap_length(5.0)
@@ -32,6 +31,7 @@ fn test_transform_calculate_1() -> Result<(), Box<dyn Error>> {
         .with_size(500, 400)
         .with_title("Error Bar Chart with Mean and Std Dev")
         .add_layer(errorbar_chart)
+        .swap_axes()
         .save("./tests/transform_calculate_1.svg")?;
 
     Ok(())

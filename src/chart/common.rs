@@ -54,14 +54,12 @@ pub struct SharedRenderingContext<'a> {
 /// * `mark` - Optional mark configuration specific to the chart type
 /// * `mark_cmap` - Color map used for continuous color encoding
 /// * `mark_palette` - Color palette used for discrete color encoding
-/// * `swapped_axes` - Flag indicating whether x and y axes should be swapped
 pub struct Chart<T: Mark> {
     pub(crate) data: DataFrameSource,
     pub(crate) encoding: Encoding,
     pub(crate) mark: Option<T>,
     pub(crate) mark_cmap: ColorMap,
     pub(crate) mark_palette: ColorPalette,
-    pub(crate) swapped_axes: bool,
 }
 
 impl<T: Mark> Chart<T> {
@@ -108,7 +106,6 @@ impl<T: Mark> Chart<T> {
             mark: None,
             mark_cmap: ColorMap::Viridis,
             mark_palette: ColorPalette::Tab10,
-            swapped_axes: false,
         };
 
         // Automatically convert numeric types to f64
@@ -195,21 +192,6 @@ impl<T: Mark> Chart<T> {
     pub fn with_colors(mut self, cmap: ColorMap, palette: ColorPalette) -> Self {
         self.mark_cmap = cmap;
         self.mark_palette = palette;
-        self
-    }
-
-    /// Swap the x and y axes of the chart
-    ///
-    /// Transposes the chart so that the x-axis becomes the y-axis and vice versa. This
-    /// is useful for creating horizontal bar charts, horizontal box plots, or any other
-    /// chart where you want to flip the orientation.
-    ///
-    /// # Returns
-    ///
-    /// Returns the chart instance for method chaining
-    ///
-    pub fn swap_axes(mut self) -> Self {
-        self.swapped_axes = true;
         self
     }
 
@@ -546,11 +528,6 @@ pub trait Layer: MarkRenderer + LegendRenderer {
         top_margin: f64,
         bottom_margin: f64,
     ) -> f64;
-
-    // Method to check if axes should be swapped
-    fn get_swapped_axes(&self) -> bool {
-        false
-    }
 }
 
 /// Trait for rendering chart marks.
@@ -1078,11 +1055,6 @@ where
 
         max_legend_width
     }
-
-    // Implement the get_swapped_axes method for Chart
-    fn get_swapped_axes(&self) -> bool {
-        self.swapped_axes
-    }
 }
 
 /// LayeredChart structure - shared properties for all layers
@@ -1116,6 +1088,7 @@ where
 /// * `y_label` - Optional label for y-axis
 /// * `y_tick_values` - Optional custom tick values for continuous y-axis
 /// * `y_tick_labels` - Optional custom tick labels for discrete y-axis
+/// * `swapped_axes` - Flag indicating whether x and y axes should be swapped
 /// * `legend` - Optional flag to show/hide legend
 /// * `legend_title` - Optional title for the legend
 /// * `background` - Optional background color
@@ -1145,6 +1118,8 @@ pub struct LayeredChart {
     y_label: Option<String>,   // y axis label
     y_tick_values: Option<Vec<f64>>, // Functions when rendering continuous axis
     y_tick_labels: Option<Vec<String>>, // Functions when rendering discrete axis
+
+    swapped_axes: bool,
 
     legend: Option<bool>,
     legend_title: Option<String>,
@@ -1210,6 +1185,8 @@ impl LayeredChart {
             y_label: None,
             y_tick_values: None,
             y_tick_labels: None,
+
+            swapped_axes: false,
 
             legend: None,
             legend_title: None,
@@ -1955,6 +1932,21 @@ impl LayeredChart {
         self
     }
 
+    /// Swap the x and y axes of the chart
+    ///
+    /// Transposes the chart so that the x-axis becomes the y-axis and vice versa. This
+    /// is useful for creating horizontal bar charts, horizontal box plots, or any other
+    /// chart where you want to flip the orientation.
+    ///
+    /// # Returns
+    ///
+    /// Returns the chart instance for method chaining
+    ///
+    pub fn swap_axes(mut self) -> Self {
+        self.swapped_axes = true;
+        self
+    }
+
     /// Show or hide the legend
     ///
     /// Controls whether the legend is displayed on the chart.
@@ -2526,16 +2518,8 @@ impl LayeredChart {
             )?;
         }
 
-        // Determine swapped_axes from layers - use first layer's setting or default to false
-        let swapped_axes = if !self.layers.is_empty() {
-            // Use the swapped_axes setting from the first layer
-            self.layers[0].get_swapped_axes()
-        } else {
-            false
-        };
-
         // Create proper mappers based on the coordinate system and chart properties
-        let (x_mapper, y_mapper) = if swapped_axes {
+        let (x_mapper, y_mapper) = if self.swapped_axes {
             // When axes are swapped, x maps to vertical pixels and y maps to horizontal pixels
             let x_mapper: Box<dyn Fn(f64) -> f64> =
                 Box::new(coord_system.x_data_to_vertical_pixels(draw_y0, plot_h));
@@ -2560,7 +2544,7 @@ impl LayeredChart {
             draw_y0,
             plot_width: plot_w,
             plot_height: plot_h,
-            swapped_axes,
+            swapped_axes: self.swapped_axes,
             legend: self.legend,
         };
 

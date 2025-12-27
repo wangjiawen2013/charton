@@ -71,18 +71,16 @@ fn test_line_3() -> Result<(), Box<dyn Error>> {
     ]?;
 
     // Create a line chart with multiple groups
-    let chart = Chart::build(&df)?
-        .mark_line()
-        .encode((
-            x("a"),
-            y("b"),
-            color("category"), // This creates separate lines for each category
-        ))?
-        .swap_axes();
+    let chart = Chart::build(&df)?.mark_line().encode((
+        x("a"),
+        y("b"),
+        color("category"), // This creates separate lines for each category
+    ))?;
 
     LayeredChart::new()
         .with_size(600, 400)
         .add_layer(chart)
+        .swap_axes()
         .save("./tests/line_3.svg")?;
 
     Ok(())

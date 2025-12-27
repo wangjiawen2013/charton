@@ -15,12 +15,12 @@ fn main() -> Result<(), Box<dyn Error>> {
         .with_bar_stroke(Some(SingleColor::new("black")))
         .with_bar_stroke_width(1.0)
         .with_bar_width(0.5)
-        .encode((x("Month"), y("Revenue").with_stack(false), color("Region")))?
-        .swap_axes();
+        .encode((x("Month"), y("Revenue").with_stack(false), color("Region")))?;
 
     // Create a layered chart for colored bars
     LayeredChart::new()
         .add_layer(colored_bar_chart)
+        .swap_axes()
         .save("./examples/swapped_axes.svg")?;
 
     Ok(())

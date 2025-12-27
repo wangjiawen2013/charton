@@ -173,7 +173,7 @@ impl Chart<MarkHist> {
                 let x_val = processed_data.x_transformed_vals[i];
                 let y_val = processed_data.y_transformed_vals[i];
 
-                match !self.swapped_axes {
+                match !context.swapped_axes {
                     true => {
                         // Vertical histogram: x is bin value, y is count
                         let x_center = (context.x_mapper)(x_val);

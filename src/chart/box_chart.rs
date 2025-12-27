@@ -572,7 +572,7 @@ impl Chart<MarkBoxplot> {
                     .map(|&outlier_val| (context.y_mapper)(outlier_val))
                     .collect();
 
-                if !self.swapped_axes {
+                if !context.swapped_axes {
                     // Render the box using the box renderer
                     crate::render::box_renderer::render_vertical_box(
                         svg,
