@@ -151,7 +151,7 @@ impl Chart<MarkRule> {
                 }
             } else if let Some(ref y2_vals_data) = y2_vals {
                 // Draw horizontal rule line from y to y2 (appears vertical in swapped axes)
-                let y2_pos = (context.x_mapper)(y2_vals_data[i]);
+                let y2_pos = (context.y_mapper)(y2_vals_data[i]);
                 rule_renderer::render_horizontal_rule(
                     svg,
                     rule_renderer::HorizontalRuleConfig {
