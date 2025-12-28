@@ -353,8 +353,8 @@ Contributions are welcome! Whether it's improving documentation, adding new char
 Charton is licensed under the **Apache License 2.0**.
 
 ## 🙏 Acknowledgements
-- **AI Collaboration:** The development of this project has been greatly aided by AI, particularly **Qwen3-Coder** and **Kimi**, which significantly accelerated the development process.
-- **Personal Support:** I would like to thank my family for taking care of our home, which gave me the time and focus to work on this project.
+- **AI Collaboration:** This project was developed based on a **human-led architectural design**, with AI tools (including **Qwen**, **Kimi**, **ChatGPT**, **Gemini**, and others) serving as intelligent pair-programmers. While AI assisted in accelerating the implementation through boilerplate generation and API exploration, all core logic, architectural decisions, and final implementations were strictly audited, refined, and verified by the author.
+- **Personal Support:** I would like to thank my family for their support, providing the time and environment needed to bring this project to life.
 
 ---
 
