@@ -9,14 +9,14 @@ fn test_boxplot_1() -> Result<(), Box<dyn Error>> {
         .try_into_reader_with_file_path(Some("./datasets/iris.csv".into()))?
         .finish()?;
     let df_melted = df.unpivot(
-        ["sepal length", "sepal width", "petal length", "petal width"],
-        ["class"],
+        ["sepal_length", "sepal_width", "petal_length", "petal_width"],
+        ["species"],
     )?;
     println!("{}", &df_melted);
 
     Chart::build(&df_melted)?
         .mark_boxplot()
-        .encode((x("variable"), y("value"), color("class")))?
+        .encode((x("variable"), y("value"), color("species")))?
         .into_layered()
         .swap_axes()
         .save("./tests/boxplot_1.svg")?;

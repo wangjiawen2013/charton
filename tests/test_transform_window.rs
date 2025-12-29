@@ -10,18 +10,18 @@ fn tests_transform_window_1() -> Result<(), Box<dyn Error>> {
         .finish()?;
 
     // Create a chart with window transform
-    let chart = Chart::build(&df.select(["class", "sepal length"])?)?
+    let chart = Chart::build(&df.select(["species", "sepal_length"])?)?
         .transform_window(
             WindowTransform::new(WindowFieldDef::new(
-                "sepal length",
+                "sepal_length",
                 WindowOnlyOp::CumeDist,
                 "ecdf", // This will be the output column name
             ))
-            .with_groupby("class")
+            .with_groupby("species")
             .with_normalize(false), // Normalize to [0,1] range
         )?
         .mark_line()
-        .encode((x("sepal length"), y("ecdf"), color("class")))?;
+        .encode((x("sepal_length"), y("ecdf"), color("species")))?;
 
     // Create layered chart for display
     LayeredChart::new()
