@@ -10,7 +10,7 @@ I’m excited to announce the first public release of **Charton**, a plotting li
 
 🦀 **Why another plotting library?**
 
-We have great low-level tools like `plotters`, but for exploratory data analysis (EDA), we often miss the declarative "Grammar of Graphics" approach. Charton aims to bridge the gap between high-performance data processing in Polars and beautiful, rapid visualization.
+**As a Rust developer tired of context-switching to Python just for plotting, I spent much of my spare time building Charton to solve my own frustration.** We have great low-level tools like `plotters`, but for exploratory data analysis (EDA), we often miss the declarative "Grammar of Graphics" approach. Charton aims to bridge the gap between high-performance data processing in Polars and beautiful, rapid visualization.
 
 ✨ **Key Features:**
 - **Polars-First & Wasm Ready:** Deeply integrated with Polars. Thanks to Rust's unique strengths, Charton is being optimized for WebAssembly, bringing high-performance, interactive data viz directly to the browser.
