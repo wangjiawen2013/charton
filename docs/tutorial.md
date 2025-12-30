@@ -4098,7 +4098,14 @@ cd web
 python -m http.server 8080
 ```
 Then open http://localhost:8080/index.html and you'll see the chart in the browser:
-![wasm](../assets/wasm.png)
+![wasm](../assets/wasm1.png)
+
+**7) Troubleshooting**
+
+Processing heavy libraries like Polars in WASM can strain your system. Here is how to handle common bottlenecks:
+- **Compilation Hangs/Freezes:** Building Polars for WASM is extremely CPU and RAM intensive. If your computer "freezes" during the `Optimizing with wasm-opt` stage, you can manually stop the process. The compiled `.wasm` file in `pkg/` is usually already functional; it will simply be larger in size without the final optimization. For a smooth experience, a machine with high-core counts and 16GB+ RAM is recommended.
+- **wasm-opt Errors:** If `wasm-pack` fails because it cannot install or run `wasm-opt`, you can simply ignore the error if the `pkg/` folder was already populated. The unoptimized WASM file will still run in the browser.
+- **Polars Version Incompatibility:** If your project requires a Polars version uncompatible with the one used by Charton, passing a DataFrame directly will cause a compilation error. In this case, you can use the Parquet Interoperability method described in Section 2.3.4.
 
 ### 9.2.4 Conclusion
 The combination of *static* SVG and *dynamic* Rust/Wasm computation forms a powerful model for interactive visualization:
