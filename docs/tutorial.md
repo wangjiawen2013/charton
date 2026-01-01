@@ -4247,7 +4247,7 @@ wasm-pack build --release --target web --out-dir pkg
 # Serve the files
 python -m http.server 8080
 ```
-**Summary of Improvements over 9.2.4**
+**Summary of Improvements over 9.2.3**
 - **Data Handling:** Shifted from static `df!` macros to dynamic `CsvReader` parsing.
 - **Complexity:** Added `color` encoding in Charton to demonstrate multi-dimensional data mapping.
 - **User Interaction:** Introduced the `FileReader` API to bridge the gap between the local file system and WASM linear memory.
