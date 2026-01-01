@@ -293,6 +293,7 @@ This is the output (excerpt):
 Charton is engineered for the modern web. By stripping away unnecessary bloat, it delivers heavy-duty data power in a lightweight package:
 - **Compact Footprint**: Optimized to **~4MB raw binary (~900KB after Gzip)**, making it one of the lightest Polars-integrated Wasm modules available.
 - **Zero-Lag Rendering:** Designed to process and visualize data-intensive sets directly in the browser (optimized for real-time responsiveness).
+![wasm2](assets/wasm2.png)
 - **Modern Toolchain Support:** Optimized for `wasm-pack`; compatible with modern bundlers like Vite and Webpack.
 > 📖 **Wasm Getting Started:** Check out **Chapter 9** of our [Tutorial](docs/tutorial.md) for a step-by-step example of rendering a scatter plot in the browser using Wasm.
 
