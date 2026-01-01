@@ -4107,7 +4107,152 @@ Processing heavy libraries like Polars in WASM can strain your system. Here is h
 - **wasm-opt Errors:** If `wasm-pack` fails because it cannot install or run `wasm-opt`, you can simply ignore the error if the `pkg/` folder was already populated. The unoptimized WASM file will still run in the browser.
 - **Polars Version Incompatibility:** If your project requires a Polars version uncompatible with the one used by Charton, passing a DataFrame directly will cause a compilation error. In this case, you can use the Parquet Interoperability method described in Section 2.3.4.
 
-### 9.2.4 Conclusion
+### 9.2.4 Charton + Polars + wasm-bindgen — advanced example: dynamic CSV visualization
+**Goal:** Beyond a static demo, we now build a functional tool: users upload a local CSV file (e.g., `iris.csv`, which can be found and downloaded from the `datasets/` folder in this project) → JavaScript reads it as a string → Rust/Polars parses the data in-browser → Charton generates a multi-colored scatter plot → The resulting SVG is rendered instantly.
+
+**1) Updated** `Cargo.toml`
+**Update Note:** This file updates the dependencies from 9.2.2 by enabling the `csv` feature in polars-io (to handle user uploads) and switching to the `charton` crate for more advanced encoding.
+```toml
+[package]
+name = "web"
+version = "0.1.0"
+edition = "2021" # Important: Stable standard for Wasm/Polars. Don't upgrade to 2024 yet to avoid toolchain conflicts.
+
+# Produce a cdylib for wasm
+[lib]
+crate-type = ["cdylib"]
+
+[dependencies]
+wasm-bindgen = "0.2"
+polars = { version = "0.49", default-features = false }
+# Avoids transitive mio dependency to ensure Wasm compatibility.
+polars-io = { version = "0.49", default-features = false, features = ["parquet", "csv"] }
+charton = { version = 0.2.0 }
+
+[profile.release]
+opt-level = "z"  # or "s" to speed up
+lto = true
+codegen-units = 1
+panic = "abort"
+```
+**2) Updated** `src/lib.rs`
+**Update Note:** This replaces the hard-coded `draw_chart` from 9.2.2. The new `draw_chart_from_csv` function accepts a `String` from JavaScript and uses `std::io::Cursor` to treat that string as a readable file stream for Polars.
+```rust
+use wasm_bindgen::prelude::*;
+use polars::prelude::*;
+use charton::prelude::*;
+use std::io::Cursor;
+
+#[wasm_bindgen]
+pub fn draw_chart_from_csv(csv_content: String) -> Result<String, JsValue> {
+    /* * 1. Parse CSV data from String.
+     * We use a Cursor to treat the String as a readable stream for Polars.
+     */
+    let cursor = Cursor::new(csv_content);
+
+    /* * 2. Initialize the Polars DataFrame.
+     * CsvReader is highly optimized but runs in a single thread in standard WASM.
+     */
+    let df = CsvReader::new(cursor)
+        .finish()
+        .map_err(|e| JsValue::from_str(&format!("Polars Error: {}", e)))?;
+
+    /* * 3. Construct the Scatter Plot.
+     * Ensure that the columns "length" and "width" exist in your CSV file.
+     */
+    let scatter = Chart::build(&df)
+        .map_err(|e| JsValue::from_str(&e.to_string()))?
+        .mark_point()
+        .encode((x("sepal_length"), y("sepal_width"), color("species")))
+        .map_err(|e| JsValue::from_str(&e.to_string()))?;
+
+    /* * 4. Wrap the scatter plot into a LayeredChart and generate SVG.
+     * The to_svg() method returns a raw XML string representing the vector graphic.
+     */
+    let chart = LayeredChart::new().add_layer(scatter);
+
+    let svg = chart.to_svg()
+        .map_err(|e| JsValue::from_str(&e.to_string()))?;
+
+    Ok(svg)
+}
+```
+**3) Updated** `index.html`
+**Update Note:** This expands the simple loader from 9.2.2 by adding a File Input UI and a `FileReader` event loop. This allows the WASM module to process "live" data provided by the user.
+```html
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <title>WASM CSV Visualizer</title>
+    <style>
+        #chart-container { margin-top: 20px; border: 1px solid #ccc; }
+    </style>
+</head>
+<body>
+    <h2>Upload CSV to Generate Chart</h2>
+    <input type="file" id="csv-upload" accept=".csv" />
+    
+    <div id="chart-container"></div>
+
+    <script type="module">
+        import init, { draw_chart_from_csv } from './pkg/web.js';
+
+        async function run() {
+            // Initialize the WASM module
+            await init();
+
+            const fileInput = document.getElementById("csv-upload");
+            const container = document.getElementById("chart-container");
+
+            // Event listener for file selection
+            fileInput.addEventListener("change", async (event) => {
+                const file = event.target.files[0];
+                if (!file) return;
+
+                /* * Use FileReader to read the file content as text.
+                 * This text is then passed across the JS-WASM boundary.
+                 */
+                const reader = new FileReader();
+                reader.onload = (e) => {
+                    const csvContent = e.target.result;
+
+                    try {
+                        // Call the Rust function with the CSV string
+                        const svg = draw_chart_from_csv(csvContent);
+                        
+                        // Inject the returned SVG string directly into the DOM
+                        container.innerHTML = svg;
+                    } catch (err) {
+                        console.error("Computation Error:", err);
+                        alert("Error: Make sure CSV has 'length' and 'width' columns.");
+                    }
+                };
+                
+                // Trigger the file read
+                reader.readAsText(file);
+            });
+        }
+
+        run();
+    </script>
+</body>
+</html>
+```
+**4) Build and Serve Update Note:** The build command remains the same as 9.2.3, but the compilation time may increase due to the added CSV and color encoding features.
+```bash
+# Build the package
+wasm-pack build --release --target web --out-dir pkg
+
+# Serve the files
+python -m http.server 8080
+```
+**Summary of Improvements over 9.2.4**
+- **Data Handling:** Shifted from static `df!` macros to dynamic `CsvReader` parsing.
+- **Complexity:** Added `color` encoding in Charton to demonstrate multi-dimensional data mapping.
+- **User Interaction:** Introduced the `FileReader` API to bridge the gap between the local file system and WASM linear memory.
+
+### 9.2.5 Conclusion
 The combination of *static* SVG and *dynamic* Rust/Wasm computation forms a powerful model for interactive visualization:
 - SVG provides simple, portable output for embedding and styling.
 - Rust/Wasm enables high-performance chart recomputation.
