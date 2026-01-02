@@ -53,4 +53,19 @@ I’d love to get your feedback! Whether you are a data scientist moving to Rust
 
 
 
-Add the first comment to reddit about wasm usage in tutorial.
+The first comment to reddit:
+**Why I built Charton:**
+
+I’ve been working in the Rust data ecosystem for a while, and like many of you, I’ve often felt the "visualization gap." Here’s why I decided to build another plotting library:
+
+**Plotters is too low-level:** While `plotters` is incredibly powerful, it often feels like drawing on a canvas rather than analyzing data. I wanted something where I could describe what to plot, not how to draw every line and pixel.
+
+**The "Native" Problem:** Many existing solutions like `plotly` or `charming` are essentially wrappers around JavaScript libraries. They are great for the web, but they don't feel "Rust-native." I wanted a library that talks directly to **Polars** and leverages Rust’s type system without being a black box for JS.
+
+**API Complexity:** Many Vega-lite implementations in Rust are either too verbose or strictly follow a JSON-like structure that feels clunky in IDEs. Charton aims for an **Altair-inspired API**—concise, chainable, and intuitive.
+
+**Maintenance Concerns:** Let’s be honest—several promising Rust plotting crates haven't seen an update in years. I built Charton to be a modern, actively maintained alternative specifically optimized for the current `Polars` (0.49+) ecosystem and `Wasm` requirements.
+
+**Current Status & Goals:** Charton is currently in its early stages. It has a pure-Rust SVG renderer, but also allows you to "drop down" to Altair/Matplotlib if you need a feature that isn't native yet.
+
+I’d love to hear your thoughts on the API. What’s the biggest "missing piece" in your Rust data workflow?
