@@ -1,5 +1,7 @@
 # Charton - A versatile plotting library for Rust
 **Altair-style declarative plotting for Rust. High-performance, Polars-native, and Wasm-ready.**
+> *"Really nice project. ... This works perfectly as an ecosystem."*
+> — [**Ritchie Vink**](https://github.com/pola-rs/polars/issues/25941), Creator of Polars
 
 [![Crates.io](https://img.shields.io/crates/v/charton.svg)](https://crates.io/crates/charton)
 [![Documentation](https://docs.rs/charton/badge.svg)](https://docs.rs/charton)
