@@ -10,6 +10,7 @@
 pub mod axis;
 pub mod chart;
 pub mod coord;
+pub mod scale;
 pub mod data;
 pub mod encode;
 pub mod error;
