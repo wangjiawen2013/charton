@@ -18,7 +18,8 @@
 
 ## Installation
 Charton includes a pure-Rust SVG renderer, which allows users to create visualizations entirely in Rust without any external dependencies. To use charton, simply add it into `Cargo.toml`:
-```
+
+```toml
 [dependencies]
 charton = "0.2.0"
 polars = "0.49.1"
@@ -28,6 +29,7 @@ polars = "0.49.1"
 Charton employs a multi-layer plotting architecture, in which multiple layers are rendered within a shared coordinate system.  
 
 For most use cases involving single-layer charts, Charton provides a streamlined interface. The `.into_layered()` method allows you to convert a single chart layer directly into a complete, renderable chart.
+
 ```rust
 use charton::prelude::*;
 use polars::prelude::*;
@@ -53,6 +55,7 @@ fn main() -> Result<(), Box<dyn Error>> {
     Ok(())
 }
 ```
+
 ![scatterplot](assets/scatter.svg)
 > 💡 Tip: `Chart::build(...)...into_layered()` is the most concise way to create and save single-layer visualizations.
 
@@ -87,6 +90,7 @@ fn main() -> Result<(), Box<dyn Error>> {
 ```
 
 For more complex plots, you can use the layered chart to combine multiple layers.
+
 ```rust
 use charton::prelude::*;
 use polars::prelude::*;
@@ -123,6 +127,7 @@ fn main() -> Result<(), Box<dyn Error>> {
     Ok(())
 }
 ```
+
 ![layeredchart](assets/layeredchart.svg)
 
 ## Quick Start (External Backends)
@@ -171,12 +176,14 @@ chart = alt.Chart(df1).mark_point().encode(
     Ok(())
 }
 ```
+
 > ℹ️ **Note:** The Altair chart object must be assigned to a variable named `chart`, because `chart.to_json()` is used implicitly to convert the chart to JSON format. Besides, the dataframe name must be the same as the dataframe passed to `Plot::build()`.
 
 ## Interactive Plots in Jupyter
 Charton integrates with evcxr, allowing you to display plots interactively in a Jupyter Notebook. To use this feature, evcxr must be installed beforehand. See the [Jupyter/evcxr article](https://depth-first.com/articles/2020/09/21/interactive-rust-in-a-repl-and-jupyter-notebook-with-evcxr/) for detailed setup instructions.
 
 The following code shows a minimal example of this.
+
 ```rust
 :dep charton = { version="0.2.0" }
 :dep polars = { version="0.49.1" }
@@ -201,9 +208,11 @@ Chart::build(&df)?
     .into_layered()
     .show()?;
 ```
+
 Run it in a Jupyter Notebook cell, and the chart will be displayed inline.
 
 The same workflow applies when using external visualization libraries: place the corresponding Rust code snippet into a Jupyter cell, and Charton will render the visualization interactively.
+
 ```rust
 :dep charton = { version="0.2.0" }
 :dep polars = { version="0.49.1" }
@@ -234,6 +243,7 @@ Plot::<Altair>::build(data!(&df1)?)?
     .with_plotting_code(raw_plotting_code)
     .show()?;
 ```
+
 ![scatterplot](assets/altair.png)
 
 ## 🌐 Front-end Integration
@@ -248,6 +258,7 @@ This allows you to utilize powerful frontend visualization tools like:
 * Any library supporting the Vega-Lite or Vega standard.
 
 The example below shows how Charton generates the specification from your Rust data and Altair code, ready for web consumption:
+
 ```rust
 let chart_json = Plot::<Altair>::build(data!(&df1)?)?
     .with_exe_path(exe_path)?
@@ -258,7 +269,9 @@ let chart_json = Plot::<Altair>::build(data!(&df1)?)?
 // or embedded directly in an HTML file for client-side rendering.
 println!("{}", chart_json);
 ```
+
 This is the output (excerpt):
+
 ```json
 {
   "$schema": "https://vega.github.io/schema/vega-lite/v5.20.1.json",
@@ -291,6 +304,7 @@ This is the output (excerpt):
   }
 }
 ```
+
 ## ⚡ High-Performance WebAssembly
 Charton is engineered for the modern web. By stripping away unnecessary bloat, it delivers heavy-duty data power in a lightweight package:
 - **Compact Footprint**: Optimized to **~4MB raw binary (~900KB after Gzip)**, making it one of the lightest Polars-integrated Wasm modules available.
