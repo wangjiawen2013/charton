@@ -221,7 +221,7 @@ pub(crate) fn render_color_legend<T: Mark>(
             item_x + COLOR_BOX_SIZE + COLOR_BOX_SPACING,
             box_center_y,
             theme.tick_label_font_size,
-            theme.tick_label_font_family,
+            font_family,
             value
         )?;
     }
