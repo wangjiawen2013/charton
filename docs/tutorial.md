@@ -1747,14 +1747,41 @@ Encoding-driven shape and size always use the chart defaults.
 ## 6.6 Font and Text Styling
 Typography plays a major role in readability. Font and text styles currently inherit theme settings but can be overridden at the chart level.
 
-**Chart Title**
+### 6.6.1 Robust Font Fallback & The "Double-Safety" Strategy
+Rendering text consistently across different platforms is a major challenge. Charton solves this with a **Double-Safety** strategy, though the behavior differs between PNG and SVG.
+
+**1. The Built-in "Emergency" Font (For PNG)**
+
+Unlike many libraries, Charton **embeds** the **Inter** font directly into its binary (`include_bytes!`).
+- **Zero-Dependency**: You don't need to install font packages in minimal Docker containers or headless servers.
+- **Guaranteed Rendering**: When exporting to **PNG**, text is "**baked-in**" (rasterized) into pixels. If your requested system fonts are missing, Charton falls back to the internal Inter font. This ensures the PNG looks identical on every machine.
+
+**2. The SVG Limitation: "Instructional" Rendering**
+
+It is important to note that **SVG works differently**:
+- **Browser-Dependent**: When exporting to **SVG**, Charton does not embed the font data. Instead, it writes a "font-family" instruction into the code.
+- **The Result**: The final look depends on the **viewer's browser**. If the viewer doesn't have your specified font, their browser will use its own default.
+
+**3. The Default Font Stack**
+
+To maximize compatibility for both formats, Charton traverses a prioritized **Font Stack**:
+- **Modern Sans-Serifs**: `Inter`, `-apple-system` (macOS), `BlinkMacSystemFont`.
+- **Windows Standards**: `'Segoe UI'`, `Roboto`, `Arial`.
+- **Linux Essentials**: `Ubuntu`, `Cantarell`, `'Noto Sans'`.
+- **System Generic**: `sans-serif` (In PNG, this maps to our embedded Inter).
+
+**4. Overriding at the Chart Level**
+
+You can define your own stack using a comma-separated string:
+
 ```rust
 chart
-    .with_title("Gene Expression Overview")
-    .with_title_font_family("Arial")
-    .with_title_font_size(24)
-    .with_title_color("red");
+    .with_title("Global Genomics Report")
+    // Falls back to Helvetica, then Arial, then the internal "sans-serif"
+    .with_title_font_family("CustomBrandFont, Helvetica, Arial, sans-serif")
+    .with_title_font_size(24);
 ```
+
 ## 6.7 Chart Dimensions, Margins, and Background
 **Dimensions**
 ```rust
