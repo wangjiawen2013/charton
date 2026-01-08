@@ -1747,7 +1747,6 @@ Encoding-driven shape and size always use the chart defaults.
 ## 6.6 Font and Text Styling
 Typography plays a major role in readability. Font and text styles currently inherit theme settings but can be overridden at the chart level.
 
-### 6.6.1 Robust Font Fallback & The "Double-Safety" Strategy
 Rendering text consistently across different platforms is a major challenge. Charton solves this with a **Double-Safety** strategy, though the behavior differs between PNG and SVG.
 
 **1. The Built-in "Emergency" Font (For PNG)**
