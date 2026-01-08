@@ -67,7 +67,7 @@ pub struct Theme {
 
 impl Default for Theme {
     fn default() -> Self {
-        let font_stack = "Inter, -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, 'PingFang SC', 'Microsoft YaHei', 'Ubuntu', 'Cantarell', 'Noto Sans', sans-serif".to_string();
+        let font_stack = "Inter, -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, 'PingFang SC', 'Microsoft YaHei', Ubuntu, Cantarell, 'Noto Sans', sans-serif".to_string();
 
         Self {
             title_font_size: 18,
