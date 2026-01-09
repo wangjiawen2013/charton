@@ -1445,7 +1445,64 @@ This is useful for:
 ## 5.8 Shared Axes, Scales, and Legends
 `LayeredChart` intelligently merges properties from its constituent layers to provide a consistent, aligned visual structure.
 
-### 5.8.1 Axis Orientation and Swapping
+### 5.8.1 Understanding the Core Pipeline: Scale, Coord, and Axis
+In **Charton**, following the principles of the *Grammar of Graphics* theory, chart generation is structured as a pipeline composed of three core concepts—consistent with the design philosophy adopted by **ggplot2** and **Altair**. To put it simply: **Scale "translates," Coord "positions," and Axis "explains."**
+
+**1. Scale: The Data Translator**
+
+**Role:** Maps "Data Space" to "Aesthetic Space".
+
+The Scale determines how your raw data (e.g., the number $100$ or the category "Apple") is transformed into visual attributes (e.g., a length of $200px$ or the color "Red").
+- **Input:** Raw Data (**Domain**).
+- **Output:** Normalized values between $0.0$ and $1.0$, or specific colors, shapes, etc.
+- **Responsibilities:**
+    - Choosing the mapping type (e.g., **Linear** vs. **Logarithmic**).
+    - Handling **Discrete** data (assigning a relative position to each category).
+    - Defining the boundaries of the data (**Limits/Domain**).
+- **Example:** A Scale tells the system: "Data $0$ corresponds to position $0.0$, and data $100$ corresponds to position $1.0$."
+
+**2. Coord (Coordinate System): The Space Architect**
+
+**Role:** Converts "Normalized Coordinates" into "Screen Pixel Coordinates."
+
+The Coord determines the geometry of the chart. It takes the $0.0$ to $1.0$ values produced by the Scale and decides their final placement on the canvas.
+
+- **Responsibilities:**
+    - **Cartesian Coord:** Standard horizontal $x$ and vertical $y$.
+    - **Polar Coord:** Maps $x$ to an angle $\theta$ and $y$ to a radius $r$.
+    - **Coordinate Flipping:** Transposing the rendering logic for $x$ and $y$ (e.g., horizontal bar charts).
+    - **Map Projection:** Handling specialized transformations for geographic coordinates.
+- **Example:** In a Cartesian system, $(0.5, 0.5)$ is the exact center of the plot; in a Polar system, it might represent a point halfway out from the center to the right.
+
+**3. Axis: The Visual Guide for the Viewer**
+
+**Role:** Provides a reverse-mapping guide to make the graphic readable.
+
+An Axis is essentially the visual representation of a Scale. It does not participate in generating the geometry of the marks but tells the reader what a specific point represents in terms of data.
+
+- **Responsibilities:**
+    - **Tick Generation:** Deciding where to draw lines at intervals like $0, 10, 20$.
+    - **Labeling:** Formatting numbers into strings like "$10" or "2026-01-09".
+    - **Visual Alignment:** Handling text rotation, anchoring, and spacing.
+
+**The Workflow Pipeline**
+
+Suppose we want to render a single **Bar**:
+1. **Scale:** Translates the data value `50` into a height ratio of `0.5`.
+2. **Coord:**
+    - If **Cartesian**: Converts `0.5` into `y = 200px` (relative to the screen).
+    - If **Polar**: Converts `0.5` into the radius of a wedge.
+3. **Axis:** Draws a line at the side with the label "50" so the viewer understands the bar's magnitude.
+
+**Summary Table**
+
+| Component | Target of Operation | Problem Solved | Core Logic |
+| :--- | :--- | :--- | :--- |
+| **Scale** | Data $\rightarrow$ Attribute | How large is this ratio? | $f(x) = \frac{x - min}{max - min}$ |
+| **Coord** | Ratio $\rightarrow$ Pixel | Where is this on the canvas? | $x_{pixel} = x_{ratio} \times width$ |
+| **Axis** | Tick $\rightarrow$ Text | How do viewers read this? | Rendering Ticks & Labels |
+
+### 5.8.2 Axis Orientation and Swapping
 In Charton, the orientation of the coordinate system is a **global property** managed exclusively by the `LayeredChart`. Individual layers (`Chart<T>`) are orientation-agnostic; they do not hold a `swapped_axes` state or provide a `.swap_axes()` method.
 - **Centralized Logic:** The `LayeredChart` serves as the sole controller for the rendering context. This ensures that all layers—whether they are bars, lines, or rules—are rendered using the exact same coordinate transformation logic.
 - **Simplified Layers:** By removing orientation logic from individual charts, the API becomes more intuitive. You focus on data encoding for the layers and layout configuration for the final chart.
@@ -1477,7 +1534,7 @@ LayeredChart::new()
     .add_layer(rule)
     .swap_axes() // The ONLY place where orientation is defined
 ```
-### 5.8.2 Scale Merging
+### 5.8.3 Scale Merging
 The `LayeredChart` automatically computes the union of data ranges across all layers:
 - **x/y domains:** Unless overridden, the axes will automatically span the minimum and maximum values found across **all** layers.
 - **Tick values & labels:** It merges discrete categories or calculates optimal continuous ticks that accommodate every layer's data.
