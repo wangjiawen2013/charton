@@ -67,13 +67,15 @@ pub struct Theme {
 
 impl Default for Theme {
     fn default() -> Self {
+        let font_stack = "Inter, -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, 'PingFang SC', 'Microsoft YaHei', Ubuntu, Cantarell, 'Noto Sans', sans-serif".to_string();
+
         Self {
             title_font_size: 18,
-            title_font_family: "sans-serif".to_string(),
+            title_font_family: font_stack.clone(),
             title_color: "#333".to_string(),
 
             label_font_size: 15,
-            label_font_family: "sans-serif".to_string(),
+            label_font_family: font_stack.clone(),
             label_color: "#333".to_string(),
             label_angle: 0.0,
 
@@ -81,7 +83,7 @@ impl Default for Theme {
             y_label_padding: 15.0,
 
             tick_label_font_size: 13,
-            tick_label_font_family: "sans-serif".to_string(),
+            tick_label_font_family: font_stack,
             tick_label_color: "#333".to_string(),
 
             x_tick_label_angle: 0.0,
