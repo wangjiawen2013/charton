@@ -1,25 +1,24 @@
 use super::{ScaleTrait, Tick};
 use std::collections::HashMap;
 
-/// A scale for categorical data that maps discrete string values to spatial slots.
+/// A scale for categorical data that maps discrete values to normalized slots.
 /// 
-/// In a `DiscreteScale`, the range is divided into equal slots (bands). 
-/// Data points are typically centered within these slots, which is ideal 
-/// for bar charts or categorical scatter plots.
+/// In `Charton`, a `DiscreteScale` divides the normalized [0, 1] range into 
+/// equal bands. Data points are centered within these bands, which is 
+/// standard for bar charts or categorical dot plots.
 pub struct DiscreteScale {
     /// The unique categorical labels in the order they should appear.
     domain: Vec<String>,
     /// A lookup map to provide O(1) performance when finding a category's index.
     index_map: HashMap<String, usize>,
-    /// The output visual boundaries: (start_pixel, end_pixel).
-    range: (f64, f64),
 }
 
 impl DiscreteScale {
-    /// Creates a new `DiscreteScale` from a list of categories and a pixel range.
+    /// Creates a new `DiscreteScale` from a list of categories.
     /// 
-    /// Internally builds an `index_map` for efficient mapping.
-    pub fn new(domain: Vec<String>, range: (f64, f64)) -> Self {
+    /// Internally builds an `index_map` for efficient lookup during the 
+    /// normalization process.
+    pub fn new(domain: Vec<String>) -> Self {
         let mut index_map = HashMap::with_capacity(domain.len());
         for (i, val) in domain.iter().enumerate() {
             index_map.insert(val.clone(), i);
@@ -28,17 +27,16 @@ impl DiscreteScale {
         Self {
             domain,
             index_map,
-            range,
         }
     }
 
-    /// Maps a categorical string value directly to its calculated pixel coordinate.
+    /// Maps a categorical string value to its normalized [0, 1] position.
     /// 
-    /// If the value is not found in the domain, it defaults to the start of the range.
-    pub fn map_string(&self, value: &str) -> f64 {
+    /// If the value is not found in the domain, it defaults to 0.0.
+    pub fn normalize_string(&self, value: &str) -> f64 {
         match self.index_map.get(value) {
-            Some(&index) => self.map(index as f64),
-            None => self.range.0,
+            Some(&index) => self.normalize(index as f64),
+            None => 0.0,
         }
     }
 
@@ -49,26 +47,25 @@ impl DiscreteScale {
 }
 
 impl ScaleTrait for DiscreteScale {
-    /// Maps a numeric index (as f64) to the center of its corresponding categorical slot.
+    /// Transforms a categorical index into a normalized [0, 1] ratio.
     /// 
-    /// The total range is divided by the number of categories `N`. 
-    /// Each category occupies a slot of width `step`. This function returns 
-    /// the pixel position at `r_min + (index * step) + (step / 2)`.
-    fn map(&self, value: f64) -> f64 {
-        let n = self.domain.len();
-        if n == 0 { return self.range.0; }
+    /// In ggplot2, discrete values are mapped to the center of their respective
+    /// bands. If there are 3 categories, they divide the space into 3 bands:
+    /// Band 0: [0.0, 0.33], Band 1: [0.33, 0.66], Band 2: [0.66, 1.0]
+    /// The centers (and thus the return values) would be 0.166, 0.5, and 0.833.
+    fn normalize(&self, value: f64) -> f64 {
+        let n = self.domain.len() as f64;
         
-        let (r_min, r_max) = self.range;
-        
-        // Single category is placed exactly in the middle of the available range.
-        if n == 1 {
-            return r_min + (r_max - r_min) / 2.0;
+        // Handling empty domain:
+        // ggplot2 typically handles this at a higher level, but for a robust Scale implementation,
+        // returning 0.5 represents a neutral position (the center) when no extent exists.
+        if n < 1.0 { 
+            return 0.5; 
         }
-
-        let step = (r_max - r_min) / (n as f64);
         
-        // Position the point at the center of the band/slot.
-        r_min + (value * step) + (step / 2.0)
+        // Formula: (index + 0.5) / n
+        // This ensures the point is perfectly centered in its categorical band.
+        (value + 0.5) / n
     }
 
     /// Returns the domain as a range of indices: `(0.0, N - 1)`.
@@ -79,11 +76,6 @@ impl ScaleTrait for DiscreteScale {
         } else {
             (0.0, (n - 1) as f64)
         }
-    }
-
-    /// Returns the pixel boundaries (start, end).
-    fn range(&self) -> (f64, f64) {
-        self.range
     }
 
     /// Returns a list of ticks where each category in the domain is a tick.

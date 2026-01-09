@@ -1,14 +1,17 @@
-use super::CoordinateTrait;
+use super::{CoordinateTrait, Rect};
 use crate::scale::ScaleTrait;
 
 /// A 2D Cartesian coordinate system.
-/// Maps independent X and Y scales onto a rectangular plane.
+/// 
+/// It maps normalized scale values [0, 1] onto a rectangular plane.
+/// This implementation handles axis swapping (coord_flip) and 
+/// the translation from mathematical space to screen space.
 pub struct Cartesian2D {
     pub x_scale: Box<dyn ScaleTrait>,
     pub y_scale: Box<dyn ScaleTrait>,
-    /// If true, data X maps to physical Y, and data Y maps to physical X.
-    /// Primarily used for horizontal bar, histogram, boxplot charts.
-    pub swapped: bool,
+    /// If true, the X and Y axes are swapped (equivalent to ggplot2's coord_flip).
+    /// Data X maps to physical Height, Data Y maps to physical Width.
+    pub flipped: bool,
 }
 
 impl Cartesian2D {
@@ -16,28 +19,49 @@ impl Cartesian2D {
     pub fn new(
         x_scale: Box<dyn ScaleTrait>,
         y_scale: Box<dyn ScaleTrait>,
-        swapped: bool,
+        flipped: bool,
     ) -> Self {
         Self {
             x_scale,
             y_scale,
-            swapped,
+            flipped,
         }
     }
 }
 
 impl CoordinateTrait for Cartesian2D {
-    fn convert(&self, x_val: f64, y_val: f64) -> (f64, f64) {
-        if self.swapped {
-            // Swap logic: Data X -> Vertical, Data Y -> Horizontal
-            (self.y_scale.map(y_val), self.x_scale.map(x_val))
-        } else {
-            // Standard: Data X -> Horizontal, Data Y -> Vertical
-            (self.x_scale.map(x_val), self.y_scale.map(y_val))
+    /// Transforms normalized values [0, 1] into absolute screen pixels.
+    /// 
+    /// Following standard screen coordinates:
+    /// - X increases from Left to Right.
+    /// - Y increases from Top to Bottom (so we invert the normalized Y).
+    fn transform(&self, x_norm: f64, y_norm: f64, panel: &Rect) -> (f64, f64) {
+        let (mut x_p, mut y_p) = (x_norm, y_norm);
+
+        // 1. Handle axis swapping (coord_flip)
+        if self.flipped {
+            std::mem::swap(&mut x_p, &mut y_p);
         }
+
+        // 2. Map normalized ratio to physical pixels within the panel
+        // x_pixel = panel_left + (ratio * panel_width)
+        let final_x = panel.x + (x_p * panel.width);
+        
+        // 3. Invert Y-axis: 0.0 (min) should be at the bottom of the panel, 
+        // 1.0 (max) should be at the top.
+        let final_y = panel.y + ((1.0 - y_p) * panel.height);
+
+        (final_x, final_y)
     }
 
-    fn get_ranges(&self) -> ((f64, f64), (f64, f64)) {
-        (self.x_scale.range(), self.y_scale.range())
+    /// Returns references to the underlying scales.
+    /// The renderer uses these to access domain info and generate ticks.
+    fn get_scales(&self) -> (&dyn ScaleTrait, &dyn ScaleTrait) {
+        (self.x_scale.as_ref(), self.y_scale.as_ref())
+    }
+
+    /// Cartesian coordinates typically clip data that falls outside the panel.
+    fn is_clipped(&self) -> bool {
+        true
     }
 }

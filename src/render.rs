@@ -1,6 +1,7 @@
 pub(crate) mod arc_renderer;
 pub(crate) mod area_renderer;
 pub(crate) mod axis_renderer;
+pub(crate) mod guide_renderer;
 pub(crate) mod bar_renderer;
 pub(crate) mod box_renderer;
 pub(crate) mod color_legend_renderer;

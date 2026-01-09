@@ -1,31 +1,29 @@
 use super::{ScaleTrait, Tick};
 
-/// A scale that performs linear interpolation between a continuous domain and a continuous range.
+/// A scale that maps a continuous data domain to a normalized [0, 1] range.
 /// 
-/// The `LinearScale` is the most common scale type, used for mapping quantitative data 
-/// (like price, temperature, or speed) to a visual dimension (like pixels).
+/// In the Charton layered system, the `LinearScale` handles the mathematical 
+/// transformation of quantitative data. It does not know about pixels; 
+/// that mapping is deferred to the Coordinate system.
 pub struct LinearScale {
     /// The input data boundaries: (min_value, max_value).
     domain: (f64, f64),
-    /// The output visual boundaries: (start_pixel, end_pixel).
-    range: (f64, f64),
 }
 
 impl LinearScale {
-    /// Creates a new `LinearScale` with the specified domain and range.
+    /// Creates a new `LinearScale` with the specified domain.
     /// 
     /// # Arguments
     /// * `domain` - A tuple representing the minimum and maximum data values.
-    /// * `range` - A tuple representing the starting and ending pixel coordinates.
-    pub fn new(domain: (f64, f64), range: (f64, f64)) -> Self {
-        Self { domain, range }
+    pub fn new(domain: (f64, f64)) -> Self {
+        Self { domain }
     }
 
-    /// Calculates a "nice" step size for axis ticks based on the data range.
+    /// Calculates a "nice" step size for axis ticks based on the data domain.
     /// 
     /// This algorithm finds a power-of-ten step (e.g., 0.1, 1, 10, 100) 
     /// and scales it by a "nice" factor (1, 2, or 5) to ensure that axis 
-    /// labels are easy for humans to read.
+    /// labels are intuitive for human readers.
     fn calculate_nice_step(&self, count: usize) -> f64 {
         let (min, max) = self.domain;
         let range = max - min;
@@ -54,31 +52,30 @@ impl LinearScale {
 }
 
 impl ScaleTrait for LinearScale {
-    /// Maps a quantitative value from the domain to a pixel coordinate in the range.
+    /// Transforms a quantitative value from the domain to a normalized [0, 1] value.
     /// 
-    /// Uses the linear formula: `y = r_min + (x - d_min) / (d_max - d_min) * (r_max - r_min)`
-    fn map(&self, value: f64) -> f64 {
+    /// Implementation of the linear formula: `normalized = (x - d_min) / (d_max - d_min)`
+    fn normalize(&self, value: f64) -> f64 {
         let (d_min, d_max) = self.domain;
-        let (r_min, r_max) = self.range;
         
-        if (d_max - d_min).abs() < f64::EPSILON { 
-            return r_min; 
+        let diff = d_max - d_min;
+        if diff.abs() < f64::EPSILON { 
+            // If the domain is a single point, we map it to the center (0.5)
+            return 0.5; 
         }
         
-        let ratio = (value - d_min) / (d_max - d_min);
-        r_min + ratio * (r_max - r_min)
+        (value - d_min) / diff
     }
 
     /// Returns the data boundaries (min, max).
-    fn domain(&self) -> (f64, f64) { self.domain }
-
-    /// Returns the pixel boundaries (start, end).
-    fn range(&self) -> (f64, f64) { self.range }
+    fn domain(&self) -> (f64, f64) { 
+        self.domain 
+    }
 
     /// Generates a list of human-friendly tick marks for an axis.
     /// 
-    /// It automatically determines the appropriate decimal precision 
-    /// based on the calculated step size to avoid messy labels like "1.0000000001".
+    /// This method identifies appropriate decimal precision based on 
+    /// the step size to provide clean, readable labels.
     fn ticks(&self, count: usize) -> Vec<Tick> {
         let (min, max) = self.domain;
         let step = self.calculate_nice_step(count);

@@ -1,35 +1,34 @@
-use crate::scale::{ScaleTrait, Tick};
+use super::{ScaleTrait, Tick};
 use time::{OffsetDateTime, Duration};
 
 /// A scale for temporal (date/time) data using the `time` crate.
 /// 
-/// It maps `OffsetDateTime` values to a continuous physical range by 
-/// converting time points into Unix nanosecond timestamps.
+/// It maps `OffsetDateTime` values to a normalized [0, 1] range by 
+/// converting time points into Unix nanosecond timestamps and performing
+/// linear interpolation.
 pub struct TemporalScale {
-    /// The input temporal boundaries.
+    /// The input temporal boundaries (Start Time, End Time).
     domain: (OffsetDateTime, OffsetDateTime),
-    /// The output visual boundaries: (start_pixel, end_pixel).
-    range: (f64, f64),
 }
 
 impl TemporalScale {
-    /// Creates a new `TemporalScale` with detailed English documentation.
+    /// Creates a new `TemporalScale`.
     /// 
     /// # Arguments
     /// * `domain` - A tuple of (start_time, end_time).
-    /// * `range` - A tuple of (start_pixel, end_pixel).
-    pub fn new(domain: (OffsetDateTime, OffsetDateTime), range: (f64, f64)) -> Self {
-        Self { domain, range }
+    pub fn new(domain: (OffsetDateTime, OffsetDateTime)) -> Self {
+        Self { domain }
     }
 
-    /// Helper method to map an `OffsetDateTime` directly to a pixel coordinate.
-    pub fn map_time(&self, value: OffsetDateTime) -> f64 {
-        self.map(value.unix_timestamp_nanos() as f64)
+    /// Helper method to transform an `OffsetDateTime` directly to a normalized [0, 1] value.
+    pub fn normalize_time(&self, value: OffsetDateTime) -> f64 {
+        self.normalize(value.unix_timestamp_nanos() as f64)
     }
 
-    /// Determines the best time interval and a label key for ticks based on the domain duration.
+    /// Determines the best time interval and a label format key based on the domain duration.
     /// 
-    /// Returns a tuple of (step_duration, format_identifier).
+    /// This heuristic ensures that axis labels remain readable regardless of whether 
+    /// the data spans seconds or years.
     fn get_interval_info(&self) -> (Duration, &'static str) {
         let diff = self.domain.1 - self.domain.0;
         let seconds = diff.whole_seconds().abs();
@@ -49,23 +48,23 @@ impl TemporalScale {
 }
 
 impl ScaleTrait for TemporalScale {
-    /// Maps a timestamp (as f64 nanoseconds) to a pixel coordinate.
+    /// Transforms a timestamp (as f64 nanoseconds) into a normalized [0, 1] ratio.
     /// 
-    /// The transformation is linear in terms of nanoseconds from the Unix epoch.
-    fn map(&self, value: f64) -> f64 {
+    /// The transformation is linear based on the elapsed nanoseconds from the domain start.
+    fn normalize(&self, value: f64) -> f64 {
         let d_min = self.domain.0.unix_timestamp_nanos() as f64;
         let d_max = self.domain.1.unix_timestamp_nanos() as f64;
-        let (r_min, r_max) = self.range;
 
-        if (d_max - d_min).abs() < f64::EPSILON {
-            return r_min;
+        let diff = d_max - d_min;
+        if diff.abs() < f64::EPSILON {
+            // Default to center if the time domain is a single point
+            return 0.5;
         }
 
-        let ratio = (value - d_min) / (d_max - d_min);
-        r_min + ratio * (r_max - r_min)
+        (value - d_min) / diff
     }
 
-    /// Returns the domain boundaries converted to Unix nanosecond timestamps.
+    /// Returns the domain boundaries converted to Unix nanosecond timestamps (f64).
     fn domain(&self) -> (f64, f64) {
         (
             self.domain.0.unix_timestamp_nanos() as f64,
@@ -73,25 +72,20 @@ impl ScaleTrait for TemporalScale {
         )
     }
 
-    /// Returns the visual output range (min_pixel, max_pixel).
-    fn range(&self) -> (f64, f64) {
-        self.range
-    }
-
     /// Generates human-readable temporal ticks.
     /// 
     /// This method selects an appropriate time unit (e.g., Days, Months, Years)
-    /// and uses the `time` crate's macro-based formatting for high performance.
+    /// based on the domain duration and formats them using the `time` crate.
     fn ticks(&self, _count: usize) -> Vec<Tick> {
         let (start, end) = self.domain;
         let (interval, format_key) = self.get_interval_info();
         
-        // Define format descriptions using literal strings to satisfy the macro's requirements.
-        // This avoids the "not a macro" and "dynamic string" errors.
         let mut ticks = Vec::new();
         let mut curr = start;
         let mut iterations = 0;
 
+        // Iteratively generate time steps until the end of the domain.
+        // Capped at 50 iterations to maintain axis readability and performance.
         while curr <= end && iterations < 50 {
             let label = match format_key {
                 "year" => curr.format(&time::macros::format_description!("[year]")),
@@ -106,7 +100,7 @@ impl ScaleTrait for TemporalScale {
                 label,
             });
             
-            // Advance time and check for overflow
+            // Advance time and guard against overflow
             match curr.checked_add(interval) {
                 Some(next) => curr = next,
                 None => break,
