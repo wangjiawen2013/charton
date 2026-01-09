@@ -13,7 +13,7 @@ polars = { version="0.49", default-features=false, features = ["lazy", "rank", "
 polars-io = { version = "0.49", default-features = false, features = ["parquet"] }
 thiserror = "2.0"
 itertools = "0.14"
-chrono = "0.4"
+time = { version = "0.3", features = ["macros", "formatting"] }
 num-traits = "0.2"
 indexmap = "2.0"
 kernel-density-estimation = "0.2"
