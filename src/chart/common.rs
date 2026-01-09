@@ -2281,7 +2281,7 @@ impl LayeredChart {
         let draw_x0 = self.left_margin * self.width as f64;
         let min_plot_width = 200.0;
 
-        // Calculate required legend width using the updated function signature
+        // Calculate required legend width
         let mut total_required_legend_width: f64 = 0.0;
         for layer in &self.layers {
             let layer_legend_width = layer.calculate_legend_width(
@@ -2291,6 +2291,8 @@ impl LayeredChart {
                 self.bottom_margin,
             );
             total_required_legend_width = total_required_legend_width.max(layer_legend_width);
+            // Add 10 pixels padding
+            total_required_legend_width += 10.0;
         }
 
         let base_right_margin_width = self.right_margin * self.width as f64;
@@ -2714,8 +2716,22 @@ impl LayeredChart {
             Some("png") => {
                 // Load system fonts
                 let mut opts = resvg::usvg::Options::default();
-                let mut fontdb = (*opts.fontdb).clone();
+
+                // 1. Create a new fontdb instead of cloning the default one
+                let mut fontdb = resvg::usvg::fontdb::Database::new();
+
+                // 2. Load system fonts (utilizing resources from various OS)
                 fontdb.load_system_fonts();
+
+                // 3. Load built-in "emergency" font to ensure display even in extreme environments
+                let default_font_data = include_bytes!("../../assets/fonts/Inter-Regular.ttf");
+                fontdb.load_font_data(default_font_data.to_vec());
+
+                // 4. Set explicit family mappings (Fallback logic)
+                // When users specify "sans-serif" but the system doesn't have mappings configured,
+                // resvg will try this font as a fallback.
+                fontdb.set_sans_serif_family("Inter");
+
                 opts.fontdb = std::sync::Arc::new(fontdb);
 
                 // Parse svg string
