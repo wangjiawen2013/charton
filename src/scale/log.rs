@@ -4,13 +4,11 @@ use crate::error::ChartonError;
 /// A scale that performs logarithmic transformation.
 /// 
 /// Logarithmic scales are ideal for visualizing data that spans several orders 
-/// of magnitude. This implementation supports custom bases (defaulting to 10.0) 
-/// and generates ticks at power-of-base intervals.
+/// of magnitude. This implementation transforms data into a normalized [0, 1] 
+/// space based on log-ratios.
 pub struct LogScale {
     /// The input data boundaries. Must be strictly positive.
     domain: (f64, f64),
-    /// The output visual boundaries: (start_pixel, end_pixel).
-    range: (f64, f64),
     /// The logarithm base, typically 10.0 or 2.0.
     base: f64,
 }
@@ -20,14 +18,14 @@ impl LogScale {
     /// 
     /// # Errors
     /// Returns `ChartonError::Scale` if domain values are <= 0 or base <= 1.
-    pub fn new(domain: (f64, f64), range: (f64, f64), base: f64) -> Result<Self, ChartonError> {
+    pub fn new(domain: (f64, f64), base: f64) -> Result<Self, ChartonError> {
         if domain.0 <= 0.0 || domain.1 <= 0.0 {
             return Err(ChartonError::Scale("Log scale domain must be strictly positive".into()));
         }
         if base <= 1.0 {
             return Err(ChartonError::Scale("Log scale base must be greater than 1".into()));
         }
-        Ok(Self { domain, range, base })
+        Ok(Self { domain, base })
     }
 
     /// Returns the logarithm base.
@@ -37,32 +35,38 @@ impl LogScale {
 }
 
 impl ScaleTrait for LogScale {
-    /// Maps a value from the domain to a pixel coordinate using logarithmic interpolation.
+    /// Transforms a value from the domain to a normalized [0, 1] ratio using log interpolation.
     /// 
-    /// The ratio is calculated in log-space:
-    /// `ratio = (log(val) - log(min)) / (log(max) - log(min))`
-    fn map(&self, value: f64) -> f64 {
+    /// The ratio is calculated as:
+    /// $$ratio = \frac{\log_{base}(val) - \log_{base}(min)}{\log_{base}(max) - \log_{base}(min)}$$
+    fn normalize(&self, value: f64) -> f64 {
         let (d_min, d_max) = self.domain;
-        let (r_min, r_max) = self.range;
 
-        // Use natural log for internal ratio calculation (base independent)
+        // Use natural log for internal ratio calculation (it is base-agnostic)
         let log_min = d_min.ln();
         let log_max = d_max.ln();
-        // Clamp value to d_min to avoid log of non-positive numbers
+        
+        // Clamp value to d_min to avoid log of non-positive numbers or values outside domain
         let log_val = value.max(d_min).ln();
 
-        let ratio = (log_val - log_min) / (log_max - log_min);
-        r_min + ratio * (r_max - r_min)
+        let diff = log_max - log_min;
+        if diff.abs() < f64::EPSILON {
+            return 0.5;
+        }
+
+        (log_val - log_min) / diff
     }
 
-    fn domain(&self) -> (f64, f64) { self.domain }
-    fn range(&self) -> (f64, f64) { self.range }
+    /// Returns the data boundaries (min, max).
+    fn domain(&self) -> (f64, f64) { 
+        self.domain 
+    }
 
     /// Generates logarithmic tick marks.
     /// 
-    /// This method produces major ticks at powers of the base. If the number 
-    /// of decades is small, it also injects minor ticks (like 2 and 5) to 
-    /// fill the visual gaps.
+    /// Produces major ticks at powers of the base. If the number of decades 
+    /// is small relative to the requested count, it injects minor ticks 
+    /// (multipliers of 2 and 5) to fill visual gaps.
     fn ticks(&self, count: usize) -> Vec<Tick> {
         let (min, max) = self.domain;
         let mut tick_values = Vec::new();
@@ -83,7 +87,6 @@ impl ScaleTrait for LogScale {
         }
 
         // 2. Generate Minor Ticks (if space permits)
-        // If we have very few decades, add multipliers (2, 5)
         let n_decades = (end_exp - start_exp).abs();
         if n_decades < (count as i32) {
             let mut minor_ticks = Vec::new();
@@ -103,7 +106,7 @@ impl ScaleTrait for LogScale {
             tick_values.dedup_by(|a, b| (*a - *b).abs() < 1e-9);
         }
 
-        // 3. Format Labels
+        // 3. Format Labels with appropriate scientific or decimal notation
         tick_values.into_iter().map(|v| {
             let label = if v >= 1e6 || v <= 1e-3 {
                 format!("{:.1e}", v)
