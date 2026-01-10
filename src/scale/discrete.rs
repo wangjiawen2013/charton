@@ -6,27 +6,44 @@ use std::collections::HashMap;
 /// In `Charton`, a `DiscreteScale` divides the normalized [0, 1] range into 
 /// equal bands. Data points are centered within these bands, which is 
 /// standard for bar charts or categorical dot plots.
+/// 
+/// Note: To allow for visual padding, this scale supports an expanded domain
+/// where the coordinate range covers slightly more than the [0, N-1] index space.
 pub struct DiscreteScale {
     /// The unique categorical labels in the order they should appear.
     domain: Vec<String>,
     /// A lookup map to provide O(1) performance when finding a category's index.
     index_map: HashMap<String, usize>,
+    /// The expanded index boundaries: (min_idx, max_idx).
+    /// Typically (-0.6, N - 1 + 0.6) to provide space for bars/points.
+    expanded_range: (f64, f64),
 }
 
 impl DiscreteScale {
     /// Creates a new `DiscreteScale` from a list of categories.
     /// 
-    /// Internally builds an `index_map` for efficient lookup during the 
-    /// normalization process.
-    pub fn new(domain: Vec<String>) -> Self {
+    /// Internally builds an `index_map` for efficient lookup and sets the 
+    /// coordinate boundaries.
+    pub fn new(domain: Vec<String>, expand: crate::scale::Expansion) -> Self {
         let mut index_map = HashMap::with_capacity(domain.len());
         for (i, val) in domain.iter().enumerate() {
             index_map.insert(val.clone(), i);
         }
 
+        let n = domain.len();
+        let expanded_range = if n == 0 {
+            (0.0, 0.0)
+        } else {
+            // Apply discrete expansion: 
+            // ggplot2 default mult is usually 0, and add is 0.6
+            let padding = ((n - 1) as f64) * expand.mult + expand.add;
+            (0.0 - padding, (n - 1) as f64 + padding)
+        };
+
         Self {
             domain,
             index_map,
+            expanded_range,
         }
     }
 
@@ -49,26 +66,22 @@ impl DiscreteScale {
 impl ScaleTrait for DiscreteScale {
     /// Transforms a categorical index into a normalized [0, 1] ratio.
     /// 
-    /// In ggplot2, discrete values are mapped to the center of their respective
-    /// bands. If there are 3 categories, they divide the space into 3 bands:
-    /// Band 0: [0.0, 0.33], Band 1: [0.33, 0.66], Band 2: [0.66, 1.0]
-    /// The centers (and thus the return values) would be 0.166, 0.5, and 0.833.
+    /// In a discrete scale with expansion, the "0.0" and "1.0" on the screen 
+    /// correspond to the expanded_range limits (e.g., -0.6 and N-0.4).
+    /// This ensures categories are centered and have padding.
     fn normalize(&self, value: f64) -> f64 {
-        let n = self.domain.len() as f64;
+        let (min, max) = self.expanded_range;
+        let range = max - min;
         
-        // Handling empty domain:
-        // ggplot2 typically handles this at a higher level, but for a robust Scale implementation,
-        // returning 0.5 represents a neutral position (the center) when no extent exists.
-        if n < 1.0 { 
+        if range.abs() < f64::EPSILON { 
             return 0.5; 
         }
         
-        // Formula: (index + 0.5) / n
-        // This ensures the point is perfectly centered in its categorical band.
-        (value + 0.5) / n
+        // Map the index 'value' into the [min, max] expanded space.
+        (value - min) / range
     }
 
-    /// Returns the domain as a range of indices: `(0.0, N - 1)`.
+    /// Returns the data boundaries (min, max) in index space.
     fn domain(&self) -> (f64, f64) {
         let n = self.domain.len();
         if n == 0 {
