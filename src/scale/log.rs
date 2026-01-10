@@ -64,7 +64,7 @@ impl ScaleTrait for LogScale {
         (log_val - log_min) / diff
     }
 
-    fn normalize_string(&self, value: &str) -> f64 {
+    fn normalize_string(&self, _value: &str) -> f64 {
         0.0
     }
 
