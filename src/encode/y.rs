@@ -77,7 +77,7 @@ impl Y {
     /// # Arguments
     /// * `zero` - A boolean value controlling zero inclusion:
     ///   - `true`: Force include zero in the axis domain
-    ///   - `false`: Exclude zero from the axis domain
+    ///   - `false`: Don't force zero from the axis domain, leave it as it is
     ///
     /// # Returns
     /// Returns `Self` with the updated zero inclusion setting
