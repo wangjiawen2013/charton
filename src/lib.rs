@@ -10,6 +10,7 @@
 pub mod axis;
 pub mod base;
 pub mod chart;
+pub mod chart2;
 pub mod coord;
 pub mod coordinate;
 pub mod scale;

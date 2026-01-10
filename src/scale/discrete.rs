@@ -35,9 +35,15 @@ impl DiscreteScale {
             (0.0, 0.0)
         } else {
             // Apply discrete expansion: 
-            // ggplot2 default mult is usually 0, and add is 0.6
-            let padding = ((n - 1) as f64) * expand.mult + expand.add;
-            (0.0 - padding, (n - 1) as f64 + padding)
+            // ggplot2 default mult is usually 0, and add is 0.6.
+            // With asymmetric expansion, we apply (mult.0, add.0) to the lower bound
+            // and (mult.1, add.1) to the upper bound.
+            let range = (n - 1) as f64;
+            
+            let lower_padding = range * expand.mult.0 + expand.add.0;
+            let upper_padding = range * expand.mult.1 + expand.add.1;
+
+            (0.0 - lower_padding, range + upper_padding)
         };
 
         Self {
