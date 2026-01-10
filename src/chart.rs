@@ -2,7 +2,6 @@ pub(crate) mod area_chart;
 pub(crate) mod bar_chart;
 pub(crate) mod box_chart;
 pub(crate) mod common;
-pub(crate) mod layered_chart;
 pub(crate) mod data_processor;
 pub(crate) mod visual_processor;
 pub(crate) mod errorbar_chart;
