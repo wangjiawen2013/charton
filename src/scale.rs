@@ -73,6 +73,11 @@ pub trait ScaleTrait {
     /// * For discrete scales: (index + 0.5) / count (centered in band)
     fn normalize(&self, value: f64) -> f64;
 
+    /// Transforms a categorical string value into a normalized value.
+    /// * For discrete scales: Maps the string to its index and then normalizes.
+    /// * For continuous scales: Usually returns 0.0 or a default.
+    fn normalize_string(&self, value: &str) -> f64;
+
     /// Returns the expanded domain boundaries (min, max) in data space.
     fn domain(&self) -> (f64, f64);
 

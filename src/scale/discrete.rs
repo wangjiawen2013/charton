@@ -47,16 +47,6 @@ impl DiscreteScale {
         }
     }
 
-    /// Maps a categorical string value to its normalized [0, 1] position.
-    /// 
-    /// If the value is not found in the domain, it defaults to 0.0.
-    pub fn normalize_string(&self, value: &str) -> f64 {
-        match self.index_map.get(value) {
-            Some(&index) => self.normalize(index as f64),
-            None => 0.0,
-        }
-    }
-
     /// Returns the total number of categories in the domain.
     pub fn count(&self) -> usize {
         self.domain.len()
@@ -79,6 +69,15 @@ impl ScaleTrait for DiscreteScale {
         
         // Map the index 'value' into the [min, max] expanded space.
         (value - min) / range
+    }
+
+    /// Implementation for DiscreteScale
+    /// This uses the internal index_map to find the position of the string.
+    fn normalize_string(&self, value: &str) -> f64 {
+        match self.index_map.get(value) {
+            Some(&index) => self.normalize(index as f64),
+            None => 0.0, // Or perhaps a value that maps to "NA" color
+        }
     }
 
     /// Returns the expanded domain boundaries (min, max) in index space.

@@ -72,6 +72,10 @@ impl ScaleTrait for TemporalScale {
         (value - d_min) / diff
     }
 
+    fn normalize_string(&self, value: &str) -> f64 {
+        0.0
+    }
+
     /// Returns the domain boundaries converted to Unix nanosecond timestamps (f64).
     fn domain(&self) -> (f64, f64) {
         (
