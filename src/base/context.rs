@@ -15,7 +15,7 @@ pub struct SharedRenderingContext<'a> {
     pub panel: Rect,
 
     /// Indicates if the X and Y axes are swapped (e.g., for horizontal bar charts).
-    pub swapped_axes: bool,
+    pub flipped: bool,
 
     /// Global flag to control whether legends should be rendered.
     pub show_legend: bool,
@@ -26,13 +26,13 @@ impl<'a> SharedRenderingContext<'a> {
     pub fn new(
         coord: &'a dyn CoordinateTrait,
         panel: Rect,
-        swapped_axes: bool,
+        flipped: bool,
         show_legend: bool,
     ) -> Self {
         Self {
             coord,
             panel,
-            swapped_axes,
+            flipped,
             show_legend,
         }
     }

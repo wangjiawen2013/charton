@@ -14,18 +14,23 @@ use time::OffsetDateTime;
 
 /// Defines how much a scale's domain should be expanded beyond the data limits.
 /// Following ggplot2, expansion consists of a multiplicative factor and an additive constant.
+/// Supports asymmetric padding: (lower, upper).
 #[derive(Debug, Clone, Copy)]
 pub struct Expansion {
-    /// Multiplicative factor (e.g., 0.05 for 5% padding on each side).
-    pub mult: f64,
-    /// Additive constant in data units.
-    pub add: f64,
+    /// Multiplicative factors (lower_mult, upper_mult). 
+    /// e.g., (0.05, 0.05) for 5% padding on both sides.
+    pub mult: (f64, f64),
+    /// Additive constants in data units (lower_add, upper_add).
+    pub add: (f64, f64),
 }
 
 impl Default for Expansion {
     /// Default ggplot2 expansion for continuous scales is 5% on each side.
     fn default() -> Self {
-        Self { mult: 0.05, add: 0.0 }
+        Self { 
+            mult: (0.05, 0.05), 
+            add: (0.0, 0.0) 
+        }
     }
 }
 
@@ -102,11 +107,14 @@ pub fn create_scale(
     match scale_type {
         Scale::Linear => {
             if let ScaleDomain::Continuous(min, max) = domain_data {
-                // Expansion formula: padding = range * mult + add
+                // Expansion formula: 
+                // lower = min - (range * mult.0 + add.0)
+                // upper = max + (range * mult.1 + add.1)
                 let range = max - min;
-                let padding = range * expand.mult + expand.add;
+                let lower_padding = range * expand.mult.0 + expand.add.0;
+                let upper_padding = range * expand.mult.1 + expand.add.1;
                 
-                Ok(Box::new(LinearScale::new((min - padding, max + padding))))
+                Ok(Box::new(LinearScale::new((min - lower_padding, max + upper_padding))))
             } else {
                 Err(ChartonError::Scale("Linear scale requires Continuous domain".into()))
             }
@@ -122,12 +130,13 @@ pub fn create_scale(
                 // Apply multiplicative expansion to the logarithmic range.
                 // Note: Additive expansion ('add') is rarely used in log scales 
                 // as it doesn't map linearly to visual distance.
-                let padding = log_range * expand.mult;
+                let lower_padding = log_range * expand.mult.0;
+                let upper_padding = log_range * expand.mult.1;
                 
                 // Transform the expanded logarithmic boundaries back to the original data space.
                 // This ensures the domain remains strictly positive.
-                let expanded_min = (log_min - padding).exp();
-                let expanded_max = (log_max + padding).exp();
+                let expanded_min = (log_min - lower_padding).exp();
+                let expanded_max = (log_max + upper_padding).exp();
                 
                 Ok(Box::new(LogScale::new((expanded_min, expanded_max), 10.0)?))
             } else {
@@ -137,7 +146,7 @@ pub fn create_scale(
         Scale::Discrete => {
             if let ScaleDomain::Categorical(categories) = domain_data {
                 // Pass the expansion settings to the discrete scale constructor.
-                // In ggplot2, the default for discrete is often mult: 0, add: 0.6.
+                // In ggplot2, the default for discrete is often mult: (0, 0), add: (0.6, 0.6).
                 Ok(Box::new(DiscreteScale::new(categories, expand)))
             } else {
                 Err(ChartonError::Scale("Discrete scale requires Categorical domain".into()))
@@ -147,17 +156,21 @@ pub fn create_scale(
             if let ScaleDomain::Temporal(start, end) = domain_data {
                 // 1. Calculate the raw duration between start and end
                 let diff = end - start;
-                
-                // 2. Convert expansion factors to seconds
-                // ggplot2: expansion = range * mult + add
                 let diff_secs = diff.as_seconds_f64();
-                let padding_secs = diff_secs * expand.mult + expand.add;
-                let padding = time::Duration::seconds_f64(padding_secs);
+                
+                // 2. Convert expansion factors to seconds for both ends
+                // lower_padding = range * mult.0 + add.0
+                // upper_padding = range * mult.1 + add.1
+                let lower_padding_secs = diff_secs * expand.mult.0 + expand.add.0;
+                let upper_padding_secs = diff_secs * expand.mult.1 + expand.add.1;
+
+                let lower_padding = time::Duration::seconds_f64(lower_padding_secs);
+                let upper_padding = time::Duration::seconds_f64(upper_padding_secs);
 
                 // 3. Apply padding to both ends
                 // Note: checked_sub/add are safer to prevent datetime out-of-bounds
-                let expanded_start = start.checked_sub(padding).unwrap_or(start);
-                let expanded_end = end.checked_add(padding).unwrap_or(end);
+                let expanded_start = start.checked_sub(lower_padding).unwrap_or(start);
+                let expanded_end = end.checked_add(upper_padding).unwrap_or(end);
 
                 Ok(Box::new(TemporalScale::new((expanded_start, expanded_end))))
             } else {

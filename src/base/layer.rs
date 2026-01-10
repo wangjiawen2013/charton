@@ -3,32 +3,34 @@ use crate::theme::Theme;
 use crate::scale::Scale; 
 use super::context::SharedRenderingContext;
 
-/// `Layer` is the core trait for the layered grammar of graphics in Charton.
-/// 
-/// It integrates metadata discovery (for axis and scale calculation) 
-/// with the actual rendering logic for both marks and legends.
-pub trait Layer {
-    // --- Rendering Interfaces ---
-
-    /// Renders the visual elements (marks) like points, bars, or lines.
-    /// 
-    /// # Arguments
-    /// * `svg` - The string buffer where SVG elements are appended.
-    /// * `context` - The shared environment containing coordinate mappers and panel dimensions.
+/// Trait for rendering chart marks.
+///
+/// Defines how visual elements (points, bars, lines) are appended to the SVG.
+pub trait MarkRenderer {
     fn render_marks(
         &self,
         svg: &mut String,
         context: &SharedRenderingContext,
     ) -> Result<(), ChartonError>;
+}
 
-    /// Renders the legends associated with this specific layer.
+/// Trait for rendering chart legends.
+///
+/// Defines how legend elements are drawn based on the current theme and context.
+pub trait LegendRenderer {
     fn render_legends(
         &self,
         svg: &mut String,
         theme: &Theme,
         context: &SharedRenderingContext,
     ) -> Result<(), ChartonError>;
+}
 
+/// `Layer` is the core trait for the layered grammar of graphics in Charton.
+/// 
+/// It integrates metadata discovery (for axis and scale calculation) 
+/// with the actual rendering logic by combining `MarkRenderer` and `LegendRenderer`.
+pub trait Layer: MarkRenderer + LegendRenderer {
     // --- Axis & Scale Metadata ---
 
     /// Returns true if this layer requires axes to be drawn (most charts do).
@@ -52,10 +54,10 @@ pub trait Layer {
     /// Returns the field name mapped to the Y axis, used as the default axis title.
     fn get_y_encoding_field(&self) -> Option<String>;
 
-    /// Returns the preferred `Scale` strategy (Linear, Log, Discrete, etc.) for X.
+    /// Returns the `Scale` strategy (Linear, Log, Discrete, etc.) for X.
     fn get_x_scale_type(&self) -> Result<Option<Scale>, ChartonError>;
 
-    /// Returns the preferred `Scale` strategy for Y.
+    /// Returns the `Scale` strategy for Y.
     fn get_y_scale_type(&self) -> Result<Option<Scale>, ChartonError>;
 
     // --- Padding Preferences ---
