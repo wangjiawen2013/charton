@@ -80,6 +80,13 @@ impl ScaleTrait for LinearScale {
         self.domain 
     }
 
+    /// Returns the maximum logical value for mapping.
+    /// For continuous scales like Linear, this is always 1.0 to represent 
+    /// a full 0% to 100% gradient range.
+    fn domain_max(&self) -> f64 {
+        1.0
+    }
+
     /// Generates a list of human-friendly tick marks for an axis.
     /// 
     /// This method identifies appropriate decimal precision based on 
