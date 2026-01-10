@@ -6,8 +6,13 @@ use time::{OffsetDateTime, Duration};
 /// It maps `OffsetDateTime` values to a normalized [0, 1] range by 
 /// converting time points into Unix nanosecond timestamps and performing
 /// linear interpolation.
+/// 
+/// Note: To support ggplot2-style padding, the domain stored here should 
+/// represent the expanded time range (e.g., adding a few days or hours 
+/// to the start/end of the data).
 pub struct TemporalScale {
     /// The input temporal boundaries (Start Time, End Time).
+    /// These boundaries include any expansion padding.
     domain: (OffsetDateTime, OffsetDateTime),
 }
 
@@ -15,7 +20,8 @@ impl TemporalScale {
     /// Creates a new `TemporalScale`.
     /// 
     /// # Arguments
-    /// * `domain` - A tuple of (start_time, end_time).
+    /// * `domain` - A tuple of (start_time, end_time). Should be expanded 
+    ///              if padding is desired.
     pub fn new(domain: (OffsetDateTime, OffsetDateTime)) -> Self {
         Self { domain }
     }
@@ -51,6 +57,8 @@ impl ScaleTrait for TemporalScale {
     /// Transforms a timestamp (as f64 nanoseconds) into a normalized [0, 1] ratio.
     /// 
     /// The transformation is linear based on the elapsed nanoseconds from the domain start.
+    /// Since the domain is expanded, data points will naturally fall within a 
+    /// sub-range of [0, 1], creating visual padding.
     fn normalize(&self, value: f64) -> f64 {
         let d_min = self.domain.0.unix_timestamp_nanos() as f64;
         let d_max = self.domain.1.unix_timestamp_nanos() as f64;
@@ -76,6 +84,7 @@ impl ScaleTrait for TemporalScale {
     /// 
     /// This method selects an appropriate time unit (e.g., Days, Months, Years)
     /// based on the domain duration and formats them using the `time` crate.
+    /// Ticks are generated within the expanded domain.
     fn ticks(&self, _count: usize) -> Vec<Tick> {
         let (start, end) = self.domain;
         let (interval, format_key) = self.get_interval_info();

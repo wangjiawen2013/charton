@@ -6,8 +6,13 @@ use crate::error::ChartonError;
 /// Logarithmic scales are ideal for visualizing data that spans several orders 
 /// of magnitude. This implementation transforms data into a normalized [0, 1] 
 /// space based on log-ratios.
+/// 
+/// Note: To support visual padding, the domain stored here should be 
+/// expanded in log-space. This prevents data points from sticking to 
+/// the axis boundaries.
 pub struct LogScale {
     /// The input data boundaries. Must be strictly positive.
+    /// In an expanded scale, these represent the visual limits of the axis.
     domain: (f64, f64),
     /// The logarithm base, typically 10.0 or 2.0.
     base: f64,
@@ -39,6 +44,8 @@ impl ScaleTrait for LogScale {
     /// 
     /// The ratio is calculated as:
     /// $$ratio = \frac{\log_{base}(val) - \log_{base}(min)}{\log_{base}(max) - \log_{base}(min)}$$
+    /// Because the domain is expanded, raw data values will map to a 
+    /// sub-range within [0, 1], providing visual breathing room.
     fn normalize(&self, value: f64) -> f64 {
         let (d_min, d_max) = self.domain;
 
@@ -46,7 +53,7 @@ impl ScaleTrait for LogScale {
         let log_min = d_min.ln();
         let log_max = d_max.ln();
         
-        // Clamp value to d_min to avoid log of non-positive numbers or values outside domain
+        // Clamp value to d_min to avoid log of non-positive numbers
         let log_val = value.max(d_min).ln();
 
         let diff = log_max - log_min;
@@ -81,6 +88,7 @@ impl ScaleTrait for LogScale {
         // 1. Generate Major Ticks (powers of the base)
         for exp in start_exp..=end_exp {
             let val = self.base.powi(exp);
+            // Allow a small buffer for float precision
             if val >= min * 0.99 && val <= max * 1.01 {
                 tick_values.push(val);
             }

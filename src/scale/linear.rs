@@ -5,8 +5,13 @@ use super::{ScaleTrait, Tick};
 /// In the Charton layered system, the `LinearScale` handles the mathematical 
 /// transformation of quantitative data. It does not know about pixels; 
 /// that mapping is deferred to the Coordinate system.
+/// 
+/// Note: The domain stored here should be the expanded domain (including padding)
+/// to ensure that data points are mapped correctly within the visual area.
 pub struct LinearScale {
     /// The input data boundaries: (min_value, max_value).
+    /// Following ggplot2 principles, these values usually include a small 
+    /// expansion buffer beyond the raw data range.
     domain: (f64, f64),
 }
 
@@ -15,6 +20,7 @@ impl LinearScale {
     /// 
     /// # Arguments
     /// * `domain` - A tuple representing the minimum and maximum data values.
+    ///              This should be the expanded range if padding is desired.
     pub fn new(domain: (f64, f64)) -> Self {
         Self { domain }
     }
@@ -55,6 +61,8 @@ impl ScaleTrait for LinearScale {
     /// Transforms a quantitative value from the domain to a normalized [0, 1] value.
     /// 
     /// Implementation of the linear formula: `normalized = (x - d_min) / (d_max - d_min)`
+    /// Because the domain is expanded, raw data points will be mapped to a range 
+    /// slightly smaller than [0, 1] (e.g., [0.05, 0.95]), creating visual padding.
     fn normalize(&self, value: f64) -> f64 {
         let (d_min, d_max) = self.domain;
         
