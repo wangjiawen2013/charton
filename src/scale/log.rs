@@ -69,6 +69,13 @@ impl ScaleTrait for LogScale {
         self.domain 
     }
 
+    /// Returns the maximum logical value for mapping.
+    /// For continuous log scales, this returns 1.0 to support continuous 
+    /// visual mapping (like color gradients) over the log-transformed range.
+    fn domain_max(&self) -> f64 {
+        1.0
+    }
+
     /// Generates logarithmic tick marks.
     /// 
     /// Produces major ticks at powers of the base. If the number of decades 

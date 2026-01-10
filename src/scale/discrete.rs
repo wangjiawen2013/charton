@@ -81,13 +81,19 @@ impl ScaleTrait for DiscreteScale {
         (value - min) / range
     }
 
-    /// Returns the data boundaries (min, max) in index space.
+    /// Returns the expanded domain boundaries (min, max) in index space.
     fn domain(&self) -> (f64, f64) {
+        self.expanded_range
+    }
+
+    /// Returns the maximum logical index of the domain (N - 1).
+    /// Used by VisualMapper to index into color palettes or shape lists.
+    fn domain_max(&self) -> f64 {
         let n = self.domain.len();
         if n == 0 {
-            (0.0, 0.0)
+            0.0
         } else {
-            (0.0, (n - 1) as f64)
+            (n - 1) as f64
         }
     }
 

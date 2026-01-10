@@ -2,6 +2,7 @@ pub mod discrete;
 pub mod linear;
 pub mod log;
 pub mod temporal;
+pub mod mapper;
 
 use crate::error::ChartonError;
 use self::linear::LinearScale;
@@ -74,6 +75,12 @@ pub trait ScaleTrait {
 
     /// Returns the expanded domain boundaries (min, max) in data space.
     fn domain(&self) -> (f64, f64);
+
+    /// Returns the maximum logical index or value of the domain.
+    /// Used by mappers to determine the range of discrete colors or shapes.
+    /// * For continuous scales: typically returns 1.0.
+    /// * For discrete scales: returns the count of categories minus one.
+    fn domain_max(&self) -> f64;
 
     /// Generates a list of suggested tick marks for an axis.
     /// * `count`: Suggested number of ticks to generate.

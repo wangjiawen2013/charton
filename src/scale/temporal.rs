@@ -58,7 +58,7 @@ impl ScaleTrait for TemporalScale {
     /// 
     /// The transformation is linear based on the elapsed nanoseconds from the domain start.
     /// Since the domain is expanded, data points will naturally fall within a 
-    /// sub-range of [0, 1], creating visual padding.
+    /// sub-range of [0, 1], providing visual padding.
     fn normalize(&self, value: f64) -> f64 {
         let d_min = self.domain.0.unix_timestamp_nanos() as f64;
         let d_max = self.domain.1.unix_timestamp_nanos() as f64;
@@ -78,6 +78,13 @@ impl ScaleTrait for TemporalScale {
             self.domain.0.unix_timestamp_nanos() as f64,
             self.domain.1.unix_timestamp_nanos() as f64,
         )
+    }
+
+    /// Returns the maximum logical value for mapping.
+    /// For temporal scales, this returns 1.0, treating the time range 
+    /// as a continuous dimension for visual encodings like color gradients.
+    fn domain_max(&self) -> f64 {
+        1.0
     }
 
     /// Generates human-readable temporal ticks.
