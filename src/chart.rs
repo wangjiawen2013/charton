@@ -3,6 +3,7 @@ pub(crate) mod bar_chart;
 pub(crate) mod box_chart;
 pub(crate) mod common;
 pub(crate) mod data_processor;
+pub(crate) mod visual_processor;
 pub(crate) mod errorbar_chart;
 pub(crate) mod hist_chart;
 pub(crate) mod line_chart;

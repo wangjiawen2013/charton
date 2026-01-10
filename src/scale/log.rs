@@ -64,6 +64,10 @@ impl ScaleTrait for LogScale {
         (log_val - log_min) / diff
     }
 
+    fn normalize_string(&self, value: &str) -> f64 {
+        0.0
+    }
+
     /// Returns the data boundaries (min, max).
     fn domain(&self) -> (f64, f64) { 
         self.domain 
