@@ -361,7 +361,7 @@ impl<T: Mark> Layer for Chart<T> {
         }
 
         let x_encoding = self.encoding.x.as_ref().unwrap();
-        let x_series = self.data.df.column(&x_encoding.field)?;
+        let x_series = self.data.column(&x_encoding.field)?;
         let x_min_val = x_series.min::<f64>()?.ok_or_else(|| {
             ChartonError::Data("Failed to calculate minimum value for x-axis".to_string())
         })?;
@@ -480,7 +480,8 @@ impl<T: Mark> Layer for Chart<T> {
         Ok(Some(scale))
     }
 
-    /// Method to calculate legend width for this layer
+/// Estimates the width of the legend column based on the longest label string
+    /// and the number of columns required for discrete items.
     fn calculate_legend_width(
         &self,
         theme: &Theme,
@@ -488,15 +489,27 @@ impl<T: Mark> Layer for Chart<T> {
         top_margin: f64,
         bottom_margin: f64,
     ) -> f64 {
-        let mut max_legend_width = 0.0;
+        let mut max_width = 0.0;
         let plot_h = (1.0 - bottom_margin - top_margin) * chart_height;
-        let available_vertical_space = plot_h - 30.0;
-        let max_items_per_column = (available_vertical_space / ITEM_HEIGHT).floor() as usize;
-        let max_items_per_column = max_items_per_column.clamp(1, MAX_ITEMS_PER_COLUMN);
+        let available_h = plot_h - 30.0; // Space for the legend title
+        let items_per_col = ((available_h / ITEM_HEIGHT).floor() as usize).clamp(1, MAX_ITEMS_PER_COLUMN);
 
-        // (Remaining logic for color, size, shape legend width estimation as per your code)
-        // ... (省略部分为计算 title 和 label 宽度的逻辑，完全依照你提供的最后一部分代码)
-
-        max_legend_width
+        // Check discrete color legend
+        if let Some(color_enc) = &self.encoding.color {
+            let series = self.data.df.column(&color_enc.field).ok().unwrap();
+            if matches!(determine_scale_for_dtype(series.dtype()), Scale::Discrete) {
+                let unique_count = series.n_unique().unwrap_or(1);
+                let cols_needed = (unique_count as f64 / items_per_col as f64).ceil() as usize;
+                
+                // Here we would ideally iterate unique values to find max string width
+                let max_label_w = 60.0; // Placeholder for estimate_text_width call
+                let col_w = COLOR_BOX_SIZE + COLOR_BOX_SPACING + max_label_w + LABEL_PADDING;
+                max_width = (col_w * cols_needed as f64) + (COLUMN_SPACING * (cols_needed.saturating_sub(1)) as f64);
+            } else {
+                max_width = 100.0; // Fixed width for continuous color ramp
+            }
+        }
+        
+        max_width + 10.0 // Final safety padding
     }
 }
