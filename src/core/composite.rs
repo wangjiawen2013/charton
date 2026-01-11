@@ -1051,20 +1051,23 @@ impl LayeredChart {
         }
 
         // Collect all unique labels for discrete x-axis, preserving insertion order
-        let mut all_x_labels: IndexSet<String> = IndexSet::new();
+        let mut all_x_labels: Vec<String> = Vec::new();
 
         // Iterate through all layers
         for layer in &self.layers {
             // Use if let in case charts that don't have x encoding (like pie charts)
             if let Some(labels) = layer.get_x_discrete_tick_labels()? {
                 for label in labels {
-                    all_x_labels.insert(label);
+                    // Only add if not already present
+                    if !all_x_labels.contains(&label) {
+                        all_x_labels.push(label);
+                    }
                 }
             }
         }
 
         if !all_x_labels.is_empty() {
-            Ok(Some(all_x_labels.into_iter().collect()))
+            Ok(Some(all_x_labels))
         } else {
             Ok(None)
         }
@@ -1077,20 +1080,23 @@ impl LayeredChart {
         }
 
         // Collect all unique labels for discrete y-axis, preserving insertion order
-        let mut all_y_labels: IndexSet<String> = IndexSet::new();
+        let mut all_y_labels: Vec<String> = Vec::new();
 
         // Iterate through all layers
         for layer in &self.layers {
             // Use if let in case charts that don't have y encoding (like pie charts)
             if let Some(labels) = layer.get_y_discrete_tick_labels()? {
                 for label in labels {
-                    all_y_labels.insert(label);
+                    // Only add if not already present
+                    if !all_y_labels.contains(&label) {
+                        all_y_labels.push(label);
+                    }
                 }
             }
         }
 
         if !all_y_labels.is_empty() {
-            Ok(Some(all_y_labels.into_iter().collect()))
+            Ok(Some(all_y_labels))
         } else {
             Ok(None)
         }
