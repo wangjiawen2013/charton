@@ -1,24 +1,18 @@
-use polars::prelude::*;
-use std::collections::HashMap;
-
-use crate::core::layer::{Layer, MarkRenderer, LegendRenderer};
-use crate::core::context::SharedRenderingContext;
-use crate::error::ChartonError;
-use crate::theme::Theme;
 use crate::scale::Scale;
-use crate::mark::Mark;
+use crate::coordinate::cartesian::Cartesian2D;
+use crate::data::*;
 use crate::encode::encoding::{Encoding, IntoEncoding};
-use crate::data::{DataFrameSource, check_schema};
+use crate::error::ChartonError;
+use crate::mark::Mark;
+use crate::render::axis_renderer::render_axes;
+use crate::render::constants::render_constants::*;
 use crate::render::utils::estimate_text_width;
+use crate::theme::Theme;
 use crate::visual::color::{ColorMap, ColorPalette};
-
-// Constants for legend calculation
-const ITEM_HEIGHT: f64 = 20.0;
-const MAX_ITEMS_PER_COLUMN: usize = 15;
-const COLOR_BOX_SIZE: f64 = 12.0;
-const COLOR_BOX_SPACING: f64 = 8.0;
-const LABEL_PADDING: f64 = 10.0;
-const COLUMN_SPACING: f64 = 20.0;
+use indexmap::IndexSet;
+use polars::prelude::*;
+use resvg;
+use std::fmt::Write;
 
 /// Generic Chart structure - chart-specific properties only
 ///
@@ -66,6 +60,20 @@ impl<T: Mark> Chart<T> {
     /// # Returns
     ///
     /// Returns a Result containing the new Chart instance or a ChartonError if initialization fails
+    ///
+    /// # Example
+    ///
+    /// ```
+    /// use charton::prelude::*;
+    /// use polars::prelude::*;
+    ///
+    /// let df = df![
+    ///     "x" => [1, 2, 3, 4, 5],
+    ///     "y" => [10, 20, 30, 40, 50]
+    /// ]?;
+    ///
+    /// let chart = Chart::<MarkPoint>::build(&df)?;
+    /// ```
     pub fn build<S>(source: S) -> Result<Self, ChartonError>
     where
         S: TryInto<DataFrameSource, Error = ChartonError>,
@@ -81,47 +89,63 @@ impl<T: Mark> Chart<T> {
         };
 
         // Automatically convert numeric types to f64
-        chart.data = Self::convert_numeric_types(chart.data.clone())?;
+        chart.data = convert_numeric_types(chart.data.clone())?;
 
         Ok(chart)
     }
 
-    // Association function to convert numeric columns to f64
-    fn convert_numeric_types(df_source: DataFrameSource) -> Result<DataFrameSource, ChartonError> {
-        let mut new_columns = Vec::new();
-
-        for col in df_source.df.get_columns() {
-            use polars::datatypes::DataType::*;
-            match col.dtype() {
-                UInt8 | UInt16 | UInt32 | UInt64 | Int8 | Int16 | Int32 | Int64 | Int128
-                | Float32 | Float64 => {
-                    let casted = col.cast(&Float64)?;
-                    new_columns.push(casted);
-                }
-                _ => {
-                    new_columns.push(col.clone());
-                }
-            }
-        }
-
-        let new_df = DataFrame::new(new_columns)?;
-
-        Ok(DataFrameSource::new(new_df))
-    }
-
     /// Set the color map for the chart
+    ///
+    /// Defines the color mapping function used for continuous color encodings. The color map
+    /// translates data values to colors on a continuous spectrum. Common options include
+    /// Viridis, Plasma, Inferno, and other perceptually uniform colormaps.
+    ///
+    /// # Arguments
+    ///
+    /// * `cmap` - The ColorMap to use for continuous color encoding
+    ///
+    /// # Returns
+    ///
+    /// Returns the chart instance for method chaining
+    ///
     pub fn with_color_map(mut self, cmap: ColorMap) -> Self {
         self.mark_cmap = cmap;
         self
     }
 
     /// Set the color palette for the chart
+    ///
+    /// Defines the color palette used for discrete color encodings. The palette provides
+    /// a set of distinct colors for categorical data. Common options include Tab10, Set1,
+    /// and other colorblind-friendly palettes.
+    ///
+    /// # Arguments
+    ///
+    /// * `palette` - The ColorPalette to use for discrete color encoding
+    ///
+    /// # Returns
+    ///
+    /// Returns the chart instance for method chaining
+    ///
     pub fn with_color_palette(mut self, palette: ColorPalette) -> Self {
         self.mark_palette = palette;
         self
     }
 
     /// Set both color map and palette at the same time
+    ///
+    /// Convenience method to set both the continuous color map and discrete color palette
+    /// in a single call. This is useful when you want to configure both color encoding
+    /// schemes simultaneously.
+    ///
+    /// # Arguments
+    ///
+    /// * `cmap` - The ColorMap to use for continuous color encoding
+    /// * `palette` - The ColorPalette to use for discrete color encoding
+    ///
+    /// # Returns
+    ///
+    /// Returns the chart instance for method chaining
     pub fn with_colors(mut self, cmap: ColorMap, palette: ColorPalette) -> Self {
         self.mark_cmap = cmap;
         self.mark_palette = palette;
@@ -141,6 +165,40 @@ impl<T: Mark> Chart<T> {
     /// 4. Verifies data types match encoding requirements
     /// 5. Filters out rows with null values in encoded columns
     /// 6. Applies chart-specific data transformations when needed
+    ///
+    /// Different chart types have different encoding requirements:
+    /// - Most charts require both x and y encodings
+    /// - Rect charts require x, y, and color encodings
+    /// - Arc charts require theta and color encodings
+    ///
+    /// # Arguments
+    ///
+    /// * `enc` - An encoding specification that implements IntoEncoding trait
+    ///
+    /// # Returns
+    ///
+    /// Returns a Result containing the updated Chart instance or a ChartonError if validation fails
+    ///
+    /// # Example
+    ///
+    /// ```
+    /// use charton::prelude::*;
+    /// use polars::prelude::*;
+    ///
+    /// let df = df![
+    ///     "x" => [1, 2, 3, 4, 5],
+    ///     "y" => [10, 20, 30, 40, 50],
+    ///     "category" => ["A", "B", "A", "B", "A"]
+    /// ]?;
+    ///
+    /// let chart = Chart::<MarkPoint>::build(&df)?
+    ///     .mark_point()
+    ///     .encode(
+    ///         x("x").scale(Scale::Linear),
+    ///         y("y").scale(Scale::Linear),
+    ///         color("category")
+    ///     )?;
+    /// ```
     pub fn encode<U>(mut self, enc: U) -> Result<Self, ChartonError>
     where
         U: IntoEncoding,
@@ -152,10 +210,12 @@ impl<T: Mark> Chart<T> {
         for (col_name, dtype) in schema.iter() {
             use polars::datatypes::DataType::*;
             match dtype {
+                // Supported numeric types
                 UInt8 | UInt16 | UInt32 | UInt64 | Int8 | Int16 | Int32 | Int64 | Int128
                 | Float32 | Float64 | String => {
                     // These types are supported, continue
                 }
+                // Unsupported types
                 _ => {
                     return Err(ChartonError::Data(format!(
                         "Column '{}' has unsupported data type {:?}. Only numeric types and String are supported.",
@@ -171,8 +231,9 @@ impl<T: Mark> Chart<T> {
             .as_ref()
             .ok_or_else(|| ChartonError::Mark("A mark is required to create a chart".into()))?;
 
-        // Validate mandatory encodings - these are the minimum required fields for each chart type
+        // Validate mandatory encodings - these are the minimum required fields for each chart type and cannot be omitted
         match mark.mark_type() {
+            // Marks that require both x and y encodings
             "errorbar" | "bar" | "hist" | "line" | "point" | "area" | "boxplot" | "text"
             | "rule" => {
                 if self.encoding.x.is_none() || self.encoding.y.is_none() {
@@ -182,6 +243,7 @@ impl<T: Mark> Chart<T> {
                     )));
                 }
             }
+            // Rect charts require x, y, and color encodings
             "rect" => {
                 if self.encoding.x.is_none()
                     || self.encoding.y.is_none()
@@ -192,16 +254,20 @@ impl<T: Mark> Chart<T> {
                     ));
                 }
             }
+            // Marks with specialized requirements - arc charts require theta and color encodings
             "arc" => {
+                // For arc charts, we need theta encoding (for the pie slice sizes) and color encoding (for segments)
                 if self.encoding.theta.is_none() || self.encoding.color.is_none() {
                     return Err(ChartonError::Encoding(
                         "Arc chart requires both theta and color encodings".into(),
                     ));
                 }
             }
+            // This match is exhaustive - all possible mark types are covered above
+            // If we reach here, it indicates a programming error where an unknown mark type was created
             _ => {
                 return Err(ChartonError::Mark(format!(
-                    "Unknown mark type: {}. This is a programming error.",
+                    "Unknown mark type: {}. This is a programming error - all mark types should be handled explicitly.",
                     mark.mark_type()
                 )));
             }
@@ -209,17 +275,101 @@ impl<T: Mark> Chart<T> {
 
         // Build required columns and expected types
         let mut active_fields = self.encoding.active_fields();
-        let mut expected_types = HashMap::new();
+        let mut expected_types = std::collections::HashMap::new();
 
-        // (Type checking for shape, size, errorbar, hist, rect, boxplot, bar, rule, text)
-        // Note: Logic simplified for brevity here but follows your exact logic
+        // Add type checking for shape encoding - must be discrete (String)
         if let Some(shape_enc) = &self.encoding.shape {
             expected_types.insert(shape_enc.field.as_str(), vec![DataType::String]);
         }
+
+        // Add type checking for size encoding - must be continuous (f64)
         if let Some(size_enc) = &self.encoding.size {
+            // we've already converted all numeric types to f64 when building the chart
             expected_types.insert(size_enc.field.as_str(), vec![DataType::Float64]);
         }
-        // ... (remaining expected_types logic from your code)
+
+        // Add type checking for errorbar charts - y and y2 encodings must be f64 (continuous)
+        if mark.mark_type() == "errorbar" {
+            // we've already converted all numeric types to f64 when building the chart
+            expected_types.insert(
+                self.encoding.y.as_ref().unwrap().field.as_str(),
+                vec![DataType::Float64],
+            );
+
+            // If y2 encoding exists, it must also be f64
+            if let Some(y2_encoding) = &self.encoding.y2 {
+                expected_types.insert(y2_encoding.field.as_str(), vec![DataType::Float64]);
+            }
+        }
+
+        // Add type checking for histogram charts - x encoding must be f64 (continuous)
+        if mark.mark_type() == "hist" {
+            active_fields
+                .retain(|&field| field != self.encoding.y.as_ref().unwrap().field.as_str());
+            // we've already converted all numeric types to f64 when building the chart
+            expected_types.insert(
+                self.encoding.x.as_ref().unwrap().field.as_str(),
+                vec![DataType::Float64],
+            );
+        }
+
+        // Add type checking for rect charts - color encoding must be f64 (continuous) for proper color mapping
+        if mark.mark_type() == "rect" {
+            // we've already converted all numeric types to f64 when building the chart
+            expected_types.insert(
+                self.encoding.color.as_ref().unwrap().field.as_str(),
+                vec![DataType::Float64],
+            );
+        }
+
+        // Add type checking for boxplot charts - y encoding must be f64 (continuous)
+        if mark.mark_type() == "boxplot" {
+            // we've already converted all numeric types to f64 when building the chart
+            // Boxplot requires x to be discrete and y to be continuous (numeric)
+            expected_types.insert(
+                self.encoding.x.as_ref().unwrap().field.as_str(),
+                vec![DataType::String],
+            );
+            expected_types.insert(
+                self.encoding.y.as_ref().unwrap().field.as_str(),
+                vec![DataType::Float64],
+            );
+        }
+
+        // Add type checking for bar charts - y encoding must be f64 (continuous)
+        if mark.mark_type() == "bar" {
+            // we've already converted all numeric types to f64 when building the chart
+            // Boxplot requires x to be discrete and y to be continuous (numeric)
+            expected_types.insert(
+                self.encoding.x.as_ref().unwrap().field.as_str(),
+                vec![DataType::String],
+            );
+            expected_types.insert(
+                self.encoding.y.as_ref().unwrap().field.as_str(),
+                vec![DataType::Float64],
+            );
+        }
+
+        // Add type checking for rule charts - y and y2 encodings must be f64 (continuous)
+        if mark.mark_type() == "rule" {
+            // we've already converted all numeric types to f64 when building the chart
+            expected_types.insert(
+                self.encoding.y.as_ref().unwrap().field.as_str(),
+                vec![DataType::Float64],
+            );
+
+            // If y2 encoding exists, it must also be f64
+            if let Some(y2_encoding) = &self.encoding.y2 {
+                expected_types.insert(y2_encoding.field.as_str(), vec![DataType::Float64]);
+            }
+        }
+
+        // Add type checking for text charts - text encoding must be String
+        if mark.mark_type() == "text"
+            && let Some(text_enc) = &self.encoding.text
+        {
+            expected_types.insert(text_enc.field.as_str(), vec![DataType::String]);
+        }
 
         // Use check_schema to validate columns exist in the dataframe and have correct types
         check_schema(&mut self.data.df, &active_fields, &expected_types).map_err(|e| {
@@ -234,282 +384,54 @@ impl<T: Mark> Chart<T> {
             .drop_nulls(Some(
                 &active_fields
                     .iter()
-                    .map(|&s| s.to_string())
+                    .map(|&s| s.to_string()) // Convert &str to String
                     .collect::<Vec<_>>(),
             ))
             .map_err(|e| {
-                eprintln!("Error filtering null values: {}", e);
+                eprintln!(
+                    "Error filtering null values from columns {:?}: {}",
+                    active_fields, e
+                );
                 e
             })?;
 
         // Check if the filtered DataFrame is empty
         if filtered_df.height() == 0 {
-            eprintln!("Warning: No valid data remaining after filtering.");
+            eprintln!(
+                "Warning: No valid data remaining after filtering null values from columns: {:?}",
+                active_fields
+            );
             self.data = DataFrameSource { df: filtered_df };
-            return Ok(self);
+            return Ok(self); // Return early to avoid unnecessary processing
         } else {
             self.data = DataFrameSource { df: filtered_df };
         }
 
         // Perform chart-specific data transformations based on mark type
         match mark.mark_type() {
-            "errorbar" if self.encoding.y2.is_none() => self.transform_errorbar_data(),
-            "rect" => self.transform_rect_data(),
-            "bar" => self.transform_bar_data(),
-            "hist" => self.transform_histogram_data(),
-            _ => Ok(self),
-        }
-    }
-}
-
-// MARK RENDERER IMPLEMENTATION
-impl<T: Mark> MarkRenderer for Chart<T> {
-    fn render_marks(
-        &self,
-        svg: &mut String,
-        context: &SharedRenderingContext,
-    ) -> Result<(), ChartonError> {
-        // Implementation for rendering marks...
-        Ok(())
-    }
-}
-
-// LEGEND RENDERER IMPLEMENTATION
-impl<T: Mark> LegendRenderer for Chart<T> {
-    fn render_legends(
-        &self,
-        svg: &mut String,
-        theme: &Theme,
-        context: &SharedRenderingContext,
-    ) -> Result<(), ChartonError> {
-        // Implementation for rendering legends...
-        Ok(())
-    }
-}
-
-// LAYER TRAIT IMPLEMENTATION
-impl<T: Mark> Layer for Chart<T> {
-    /// Add this method to control whether axes should be rendered for this layer
-    fn requires_axes(&self) -> bool {
-        if self.mark.as_ref().map(|m| m.mark_type()) == Some("arc") {
-            false
-        } else {
-            true
-        }
-    }
-
-    /// Method to get preferred axis padding for this layer
-    fn preferred_x_axis_padding_min(&self) -> Option<f64> {
-        match self.mark.as_ref().map(|m| m.mark_type()) {
-            Some("rect") => {
-                let x_encoding = self.encoding.x.as_ref().unwrap();
-                let x_series = self.data.df.column(&x_encoding.field).ok()?;
-                let scale = determine_scale_for_dtype(x_series.dtype());
-                match scale {
-                    Scale::Discrete => Some(0.5),
-                    _ => Some(0.0),
+            "errorbar" => {
+                // Apply errorbar-specific data transformations only when y2 encoding is not present
+                if self.encoding.y2.is_none() {
+                    self = self.transform_errorbar_data()?;
                 }
             }
-            Some("boxplot") | Some("bar") => Some(0.6),
-            _ => None,
-        }
-    }
-
-    fn preferred_x_axis_padding_max(&self) -> Option<f64> {
-        match self.mark.as_ref().map(|m| m.mark_type()) {
-            Some("rect") => self.preferred_x_axis_padding_min(),
-            Some("boxplot") | Some("bar") | Some("hist") => Some(0.6),
-            _ => None,
-        }
-    }
-
-    fn preferred_y_axis_padding_min(&self) -> Option<f64> {
-        match self.mark.as_ref().map(|m| m.mark_type()) {
-            Some("rect") => {
-                let y_encoding = self.encoding.y.as_ref().unwrap();
-                let y_series = self.data.df.column(&y_encoding.field).ok()?;
-                let scale = determine_scale_for_dtype(y_series.dtype());
-                match scale {
-                    Scale::Discrete => Some(0.5),
-                    _ => Some(0.0),
-                }
+            "rect" => {
+                // Apply rect-specific data transformations
+                self = self.transform_rect_data()?;
             }
-            Some("bar") | Some("area") => {
-                let y_encoding = self.encoding.y.as_ref().unwrap();
-                let y_series = self.data.df.column(&y_encoding.field).ok()?;
-                let min_val = y_series.min::<f64>().ok()??;
-                if min_val >= 0.0 { Some(0.0) } else { None }
+            "bar" => {
+                // Apply bar-specific data transformations
+                self = self.transform_bar_data()?;
             }
-            Some("boxplot") => Some(0.6),
-            Some("hist") => Some(0.0),
-            _ => None,
-        }
-    }
-
-    fn preferred_y_axis_padding_max(&self) -> Option<f64> {
-        match self.mark.as_ref().map(|m| m.mark_type()) {
-            Some("rect") => self.preferred_y_axis_padding_min(),
-            Some("boxplot") | Some("bar") | Some("hist") => Some(0.6),
-            _ => None,
-        }
-    }
-
-    /// For continuous data - return min/max bounds
-    fn get_x_continuous_bounds(&self) -> Result<(f64, f64), ChartonError> {
-        if self.encoding.x.is_none() {
-            return Ok((0.0, 1.0));
-        }
-
-        let x_encoding = self.encoding.x.as_ref().unwrap();
-        let x_series = self.data.column(&x_encoding.field)?;
-        let x_min_val = x_series.min::<f64>()?.ok_or_else(|| {
-            ChartonError::Data("Failed to calculate minimum value for x-axis".to_string())
-        })?;
-        let x_max_val = x_series.max::<f64>()?.ok_or_else(|| {
-            ChartonError::Data("Failed to calculate maximum value for x-axis".to_string())
-        })?;
-
-        let (x_min, x_max) = match self.mark.as_ref().map(|m| m.mark_type()) {
-            Some("rect") | Some("hist") => {
-                let unique_count = x_series.n_unique()?;
-                let bin_size = (x_max_val - x_min_val) / (unique_count as f64);
-                let half_bin = bin_size / 2.0;
-                (x_min_val - half_bin, x_max_val + half_bin)
+            "hist" => {
+                // Apply histogram-specific data transformations
+                self = self.transform_histogram_data()?;
             }
-            _ => (x_min_val, x_max_val),
-        };
-
-        if x_encoding.zero == Some(true) {
-            Ok((x_min.min(0.0), x_max.max(0.0)))
-        } else {
-            Ok((x_min, x_max))
-        }
-    }
-
-    fn get_y_continuous_bounds(&self) -> Result<(f64, f64), ChartonError> {
-        if self.encoding.y.is_none() {
-            return Ok((0.0, 1.0));
-        }
-
-        let y_encoding = self.encoding.y.as_ref().unwrap();
-        let y_series = self.data.df.column(&y_encoding.field)?;
-        let mut y_min_val = y_series.min::<f64>()?.unwrap();
-        let mut y_max_val = y_series.max::<f64>()?.unwrap();
-
-        match self.mark.as_ref().map(|m| m.mark_type()) {
-            Some("errorbar") => {
-                let y_min_field = if let Some(y2) = &self.encoding.y2 { y2.field.clone() } 
-                                  else { format!("__charton_temp_{}_min", y_encoding.field) };
-                let y_max_field = if let Some(y2) = &self.encoding.y2 { y2.field.clone() }
-                                  else { format!("__charton_temp_{}_max", y_encoding.field) };
-                y_min_val = self.data.df.column(&y_min_field)?.min::<f64>()?.unwrap();
-                y_max_val = self.data.df.column(&y_max_field)?.max::<f64>()?.unwrap();
-            }
-            Some("bar") if y_encoding.stack && self.encoding.color.is_some() => {
-                let group_col = self.encoding.x.as_ref().unwrap().field.clone();
-                let grouped = self.data.df.clone().lazy()
-                    .group_by([col(group_col)])
-                    .agg([col(&y_encoding.field).sum().alias("s")])
-                    .collect()?;
-                let s = grouped.column("s")?;
-                y_min_val = s.min::<f64>()?.unwrap();
-                y_max_val = s.max::<f64>()?.unwrap();
-            }
-            Some("rect") => {
-                let bin = (y_max_val - y_min_val) / (y_series.n_unique()? as f64);
-                y_min_val -= bin / 2.0;
-                y_max_val += bin / 2.0;
-            }
-            _ => {}
-        }
-
-        let (f_min, f_max) = match y_encoding.zero {
-            Some(true) => (y_min_val.min(0.0), y_max_val.max(0.0)),
-            Some(false) => (y_min_val, y_max_val),
-            None => {
-                let is_stacked = matches!(self.mark.as_ref().map(|m| m.mark_type()), Some("bar") | Some("hist") | Some("area"));
-                if is_stacked { (y_min_val.min(0.0), y_max_val.max(0.0)) } else { (y_min_val, y_max_val) }
-            }
-        };
-
-        Ok((f_min, f_max))
-    }
-
-    /// For discrete data - return category labels
-    fn get_x_discrete_tick_labels(&self) -> Result<Option<Vec<String>>, ChartonError> {
-        if self.encoding.x.is_none() { return Ok(None); }
-        let field = &self.encoding.x.as_ref().unwrap().field;
-        let labels = self.data.df.column(field)?.unique_stable()?.str()?
-            .into_no_null_iter().map(|s| s.to_string()).collect();
-        Ok(Some(labels))
-    }
-
-    fn get_y_discrete_tick_labels(&self) -> Result<Option<Vec<String>>, ChartonError> {
-        if self.encoding.y.is_none() { return Ok(None); }
-        let field = &self.encoding.y.as_ref().unwrap().field;
-        let labels = self.data.df.column(field)?.unique_stable()?.str()?
-            .into_no_null_iter().map(|s| s.to_string()).collect();
-        Ok(Some(labels))
-    }
-
-    /// Get encoding field names for axis labels
-    fn get_x_encoding_field(&self) -> Option<String> {
-        self.encoding.x.as_ref().map(|x| x.field.clone())
-    }
-
-    fn get_y_encoding_field(&self) -> Option<String> {
-        self.encoding.y.as_ref().map(|y| y.field.clone())
-    }
-
-    /// Methods to get scale type for axes
-    fn get_x_scale_type(&self) -> Result<Option<Scale>, ChartonError> {
-        if self.encoding.x.is_none() { return Ok(None); }
-        let x_enc = self.encoding.x.as_ref().unwrap();
-        let scale = x_enc.scale.clone().unwrap_or_else(|| {
-            determine_scale_for_dtype(self.data.df.column(&x_enc.field).unwrap().dtype())
-        });
-        Ok(Some(scale))
-    }
-
-    fn get_y_scale_type(&self) -> Result<Option<Scale>, ChartonError> {
-        if self.encoding.y.is_none() { return Ok(None); }
-        let y_enc = self.encoding.y.as_ref().unwrap();
-        let scale = y_enc.scale.clone().unwrap_or_else(|| {
-            determine_scale_for_dtype(self.data.df.column(&y_enc.field).unwrap().dtype())
-        });
-        Ok(Some(scale))
-    }
-
-/// Estimates the width of the legend column based on the longest label string
-    /// and the number of columns required for discrete items.
-    fn calculate_legend_width(
-        &self,
-        theme: &Theme,
-        chart_height: f64,
-        top_margin: f64,
-        bottom_margin: f64,
-    ) -> f64 {
-        let mut max_width = 0.0;
-        let plot_h = (1.0 - bottom_margin - top_margin) * chart_height;
-        let available_h = plot_h - 30.0; // Space for the legend title
-        let items_per_col = ((available_h / ITEM_HEIGHT).floor() as usize).clamp(1, MAX_ITEMS_PER_COLUMN);
-
-        // Check discrete color legend
-        if let Some(color_enc) = &self.encoding.color {
-            let series = self.data.df.column(&color_enc.field).ok().unwrap();
-            if matches!(determine_scale_for_dtype(series.dtype()), Scale::Discrete) {
-                let unique_count = series.n_unique().unwrap_or(1);
-                let cols_needed = (unique_count as f64 / items_per_col as f64).ceil() as usize;
-                
-                // Here we would ideally iterate unique values to find max string width
-                let max_label_w = 60.0; // Placeholder for estimate_text_width call
-                let col_w = COLOR_BOX_SIZE + COLOR_BOX_SPACING + max_label_w + LABEL_PADDING;
-                max_width = (col_w * cols_needed as f64) + (COLUMN_SPACING * (cols_needed.saturating_sub(1)) as f64);
-            } else {
-                max_width = 100.0; // Fixed width for continuous color ramp
+            _ => {
+                // Nothing to do for other marks
             }
         }
-        
-        max_width + 10.0 // Final safety padding
+
+        Ok(self)
     }
 }

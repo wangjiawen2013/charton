@@ -21,7 +21,7 @@ impl VisualProcessedData {
     ///
     /// This assumes X and Y encodings are guaranteed to be present in the chart.
     pub(crate) fn new<T: crate::mark::Mark>(
-        chart: &crate::chart::common::Chart<T>,
+        chart: &crate::chart::Chart<T>,
         coord_system: &Cartesian2D,
         color_mapper: Option<(&VisualMapper, &dyn ScaleTrait)>,
         shape_mapper: Option<(&VisualMapper, &dyn ScaleTrait)>,
