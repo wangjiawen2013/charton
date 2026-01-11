@@ -11,7 +11,6 @@ pub mod core;
 pub mod chart;
 pub mod coordinate;
 pub mod scale;
-pub mod data;
 pub mod encode;
 pub mod error;
 pub mod mark;
@@ -31,9 +30,9 @@ pub mod prelude {
     };
 
     pub use crate::chart::Chart;
+    pub use crate::core::data::{DataFrameSource, load_dataset};
     pub use crate::core::composite::LayeredChart;
     pub use crate::scale::Scale;
-    pub use crate::data::{DataFrameSource, load_dataset};
 
     pub use crate::transform::{
         density::{BandwidthType, DensityTransform, KernelType},
