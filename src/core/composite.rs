@@ -1304,176 +1304,54 @@ impl LayeredChart {
         }
     }
 
-    // Create shared coordinate system
-    fn create_shared_coord_system(&self) -> Result<Cartesian, ChartonError> {
-        // Determine plot dimensions
-        let plot_w = (1.0 - self.left_margin - self.calculate_dynamic_right_margin()) * self.width as f64;
+    /// Resolves the final rendering layout by calculating the axis domains 
+    /// and the physical plot area.
+    /// 
+    /// This function consolidates metadata from all layers, computes dynamic 
+    /// margins (e.g., for legends), and prepares the geometric parameters 
+    /// needed to construct a `SharedRenderingContext`.
+    fn resolve_rendering_layout(&self) -> Result<(ScaleDomain, ScaleDomain, Rect), ChartonError> {
+        // 1. Calculate dimensions accounting for dynamic elements like legends
+        let total_right_margin = self.calculate_dynamic_right_margin();
+        let plot_w = (1.0 - self.left_margin - total_right_margin) * self.width as f64;
         let plot_h = (1.0 - self.top_margin - self.bottom_margin) * self.height as f64;
 
-        // Get axis labels
-        let x_label = self.get_x_axis_label_from_layers();
-        let y_label = self.get_y_axis_label_from_layers();
-
-        // Determine scales - derive from layers or fallback to linear for charts without x, y encoding (like pie charts)
+        // 2. Resolve X and Y scale types from layers
         let x_scale = self.get_x_scale_type_from_layers()?.unwrap_or(Scale::Linear);
         let y_scale = self.get_y_scale_type_from_layers()?.unwrap_or(Scale::Linear);
 
-        // Create axes with appropriate labels and scales
-        let mut x_axis = crate::axis::Axis::new(x_label, x_scale.clone());
-        let mut y_axis = crate::axis::Axis::new(y_label, y_scale.clone());
-
-        // For discrete axes, set tick values and labels in order as automatically computed ticks
-        if matches!(x_scale, Scale::Discrete) {
-            if let Some(x_tick_labels) = self.get_x_discrete_tick_labels_from_layers()? {
-                x_axis.compute_discrete_ticks(x_tick_labels)?;
+        // 3. Construct domains (Categorical/Continuous) based on resolved scales
+        let x_domain = match x_scale {
+            Scale::Discrete => {
+                let labels = self.get_x_discrete_tick_labels_from_layers()?.unwrap_or_default();
+                ScaleDomain::Categorical(labels)
+            },
+            _ => {
+                let (x_min, x_max) = self.get_x_continuous_bounds_from_layers()?;
+                ScaleDomain::Continuous(self.x_domain_min.unwrap_or(x_min), self.x_domain_max.unwrap_or(x_max))
             }
-            // If explicit tick labels are provided for discrete axis, use them to find indices
-            if let Some(ref explicit_labels) = self.x_tick_labels {
-                // Find indices of explicit labels in the automatic ticks
-                let explicit_ticks: Vec<(f64, String)> = explicit_labels
-                    .iter()
-                    .filter_map(|label| {
-                        // Find the position of this label in the automatic ticks
-                        x_axis
-                            .automatic_ticks
-                            .ticks
-                            .iter()
-                            .position(|tick| tick.label == *label)
-                            .map(|index| (index as f64, label.clone()))
-                    })
-                    .collect();
+        };
 
-                // Set explicit ticks using the Axis method
-                x_axis = x_axis.with_explicit_ticks(explicit_ticks);
+        let y_domain = match y_scale {
+            Scale::Discrete => {
+                let labels = self.get_y_discrete_tick_labels_from_layers()?.unwrap_or_default();
+                ScaleDomain::Categorical(labels)
+            },
+            _ => {
+                let (y_min, y_max) = self.get_y_continuous_bounds_from_layers()?;
+                ScaleDomain::Continuous(self.y_domain_min.unwrap_or(y_min), self.y_domain_max.unwrap_or(y_max))
             }
-        } else {
-            // For continuous x-axis, get bounds
-            let (x_min, x_max) = self.get_x_continuous_bounds_from_layers()?;
-            // Use custom domain if specified at LayeredChart level, otherwise use data bounds
-            let effective_x_min = self.x_domain_min.unwrap_or(x_min);
-            let effective_x_max = self.x_domain_max.unwrap_or(x_max);
-            x_axis.compute_continuous_ticks(effective_x_min, effective_x_max, plot_w as u32)?;
+        };
 
-            // If explicit tick values are provided for continuous axis, use them with string representation as labels
-            if let Some(ref explicit_values) = self.x_tick_values {
-                let explicit_ticks: Vec<(f64, String)> = explicit_values
-                    .iter()
-                    .map(|&value| {
-                        let value_str = format!("{:?}", value); // This preserves the decimal format
-                        let parts: Vec<&str> = value_str.split('.').collect();
-
-                        let formatted_str = if parts.len() == 2 {
-                            // Has decimal point
-                            format!("{}.{}", parts[0], parts[1])
-                        } else {
-                            // No decimal point
-                            parts[0].to_string()
-                        };
-
-                        (value, formatted_str)
-                    })
-                    .collect();
-                x_axis = x_axis.with_explicit_ticks(explicit_ticks);
-            }
-        }
-
-        // For discrete axes, set tick values and labels in order as automatically computed ticks
-        if matches!(y_scale, Scale::Discrete) {
-            if let Some(y_tick_labels) = self.get_y_discrete_tick_labels_from_layers()? {
-                y_axis.compute_discrete_ticks(y_tick_labels)?;
-            }
-
-            // If explicit tick labels are provided for discrete axis, use them to find indices
-            if let Some(ref explicit_labels) = self.y_tick_labels {
-                // Find indices of explicit labels in the automatic ticks
-                let explicit_ticks: Vec<(f64, String)> = explicit_labels
-                    .iter()
-                    .filter_map(|label| {
-                        // Find the position of this label in the automatic ticks
-                        y_axis
-                            .automatic_ticks
-                            .ticks
-                            .iter()
-                            .position(|tick| tick.label == *label)
-                            .map(|index| (index as f64, label.clone()))
-                    })
-                    .collect();
-
-                // Set explicit ticks using the Axis method
-                y_axis = y_axis.with_explicit_ticks(explicit_ticks);
-            }
-        } else {
-            // For continuous y-axis, get bounds
-            let (y_min, y_max) = self.get_y_continuous_bounds_from_layers()?;
-            // Use custom domain if specified at LayeredChart level, otherwise use data bounds
-            let effective_y_min = self.y_domain_min.unwrap_or(y_min);
-            let effective_y_max = self.y_domain_max.unwrap_or(y_max);
-            y_axis.compute_continuous_ticks(effective_y_min, effective_y_max, plot_h as u32)?;
-
-            // If explicit tick values are provided for continuous axis, use them with string representation as labels
-            if let Some(ref explicit_values) = self.y_tick_values {
-                let explicit_ticks: Vec<(f64, String)> = explicit_values
-                    .iter()
-                    .map(|&value| {
-                        let value_str = format!("{:?}", value); // This preserves the decimal format
-                        let parts: Vec<&str> = value_str.split('.').collect();
-
-                        let formatted_str = if parts.len() == 2 {
-                            // Has decimal point
-                            format!("{}.{}", parts[0], parts[1])
-                        } else {
-                            // No decimal point
-                            parts[0].to_string()
-                        };
-
-                        (value, formatted_str)
-                    })
-                    .collect();
-                y_axis = y_axis.with_explicit_ticks(explicit_ticks);
-            }
-        }
-
-        // Determine x axis padding - use preferred padding from layers if available
-        let x_axis_padding_min = self
-            .layers
-            .iter()
-            .filter_map(|layer| layer.preferred_x_axis_padding_min())
-            .next()
-            .unwrap_or(self.theme.x_axis_padding_min);
-
-        let x_axis_padding_max = self
-            .layers
-            .iter()
-            .filter_map(|layer| layer.preferred_x_axis_padding_max())
-            .next()
-            .unwrap_or(self.theme.x_axis_padding_max);
-
-        // Determine y axis padding - use preferred padding from layers if available
-        let y_axis_padding_min = self
-            .layers
-            .iter()
-            .filter_map(|layer| layer.preferred_y_axis_padding_min())
-            .next()
-            .unwrap_or(self.theme.y_axis_padding_min);
-
-        let y_axis_padding_max = self
-            .layers
-            .iter()
-            .filter_map(|layer| layer.preferred_y_axis_padding_max())
-            .next()
-            .unwrap_or(self.theme.y_axis_padding_max);
-
-        // Create coordinate system using theme.axis_padding - use appropriate constructor based on swapped flag
-        let coord_system = Cartesian::new(
-            x_axis,
-            y_axis,
-            x_axis_padding_min,
-            x_axis_padding_max,
-            y_axis_padding_min,
-            y_axis_padding_max,
+        // 4. Define the physical bounding box for the marks
+        let plot_rect = Rect::new(
+            self.left_margin * self.width as f64,
+            self.top_margin * self.height as f64,
+            plot_w,
+            plot_h,
         );
 
-        Ok(coord_system)
+        Ok((x_domain, y_domain, plot_rect))
     }
 
     fn render(&self, svg: &mut String) -> Result<(), ChartonError> {
