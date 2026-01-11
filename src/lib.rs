@@ -8,7 +8,7 @@
 //! making it especially well-suited for exploratory data analysis.
 
 pub mod axis;
-pub mod base;
+pub mod core;
 pub mod chart;
 pub mod chart2;
 pub mod coord;
