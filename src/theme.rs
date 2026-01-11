@@ -1,3 +1,4 @@
+use crate::scale::Expansion;
 /// A theme that defines the visual styling properties for plots.
 ///
 /// The `Theme` struct contains all the styling parameters that control
@@ -57,11 +58,10 @@ pub struct Theme {
     pub(crate) legend_font_size: Option<u32>,
     pub(crate) legend_font_family: Option<String>,
 
-    // New additions to consolidate with LayeredChart fields
-    pub(crate) x_axis_padding_min: f64, // Padding axis_padding*step before x min ticks, 0.0-1.0
-    pub(crate) x_axis_padding_max: f64, // Padding axis_padding*step after x max ticks, 0.0-1.0
-    pub(crate) y_axis_padding_min: f64, // Padding axis_padding*step before y min ticks, 0.0-1.0
-    pub(crate) y_axis_padding_max: f64, // Padding axis_padding*step after y max ticks, 0.0-1.0
+    // Expansion for x-axis or y-axis including both min and max expanding
+    pub(crate) x_axis_expanding: Expansion,
+    pub(crate) y_axis_expanding: Expansion,
+
     pub(crate) tick_label_padding: f64,
 }
 
@@ -95,10 +95,9 @@ impl Default for Theme {
             legend_font_size: None,
             legend_font_family: None,
 
-            x_axis_padding_min: 0.2,
-            x_axis_padding_max: 0.3,
-            y_axis_padding_min: 0.2,
-            y_axis_padding_max: 0.3,
+            x_axis_expanding: Expansion { mult: (0.05, 0.05), add: (0.2, 0.3) },
+            y_axis_expanding: Expansion { mult: (0.05, 0.05), add: (0.2, 0.3) },
+
             tick_label_padding: 3.0,
         }
     }

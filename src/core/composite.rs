@@ -1,3 +1,4 @@
+use crate::core::layer::Layer;
 /// LayeredChart structure - shared properties for all layers
 ///
 /// This struct represents a multi-layer chart that can combine multiple chart layers
@@ -1133,38 +1134,36 @@ impl LayeredChart {
         "Y".to_string()
     }
 
-    // Get the x-axis scale from all layers
-    fn get_x_scale_from_layers(&self) -> Result<Option<Scale>, ChartonError> {
+    // Get the x-axis data type from all layers
+    fn get_x_data_type_from_layers(&self) -> Option<polars::datatypes::DataType> {
         if self.layers.is_empty() {
-            return Ok(None);
+            return None;
         }
 
-        // Iterate through all layers to find the first non-None scale
+        // Iterate through all layers to find the first one with x encoding
         for layer in &self.layers {
-            // Use if let in case charts that don't have x encoding (like pie charts)
-            if let Some(scale) = layer.get_x_scale()? {
-                return Ok(Some(scale));
+            if let Some(data_type) = layer.get_x_data_type() {
+                return Some(data_type);
             }
         }
 
-        Ok(None)
+        None
     }
 
-    // Get the y-axis scale from all layers
-    fn get_y_scale_from_layers(&self) -> Result<Option<Scale>, ChartonError> {
+    // Get the y-axis data type from all layers
+    fn get_y_data_type_from_layers(&self) -> Option<polars::datatypes::DataType> {
         if self.layers.is_empty() {
-            return Ok(None);
+            return None;
         }
 
-        // Iterate through all layers to find the first non-None scale
+        // Iterate through all layers to find the first one with y encoding
         for layer in &self.layers {
-            // Use if let in case charts that don't have y encoding (like pie charts)
-            if let Some(scale) = layer.get_y_scale()? {
-                return Ok(Some(scale));
+            if let Some(data_type) = layer.get_y_data_type() {
+                return Some(data_type);
             }
         }
 
-        Ok(None)
+        None
     }
 
     /// Add a layer to the chart
