@@ -1,19 +1,14 @@
-use crate::scale::{Expansion, Scale};
+use crate::scale::Expansion;
 use crate::core::layer::{MarkRenderer, LegendRenderer, Layer};
-use crate::coordinate::cartesian::Cartesian2D;
+use crate::core::utils::estimate_text_width;
 use crate::data::*;
 use crate::encode::encoding::{Encoding, IntoEncoding};
 use crate::error::ChartonError;
 use crate::mark::Mark;
-use crate::render::axis_renderer::render_axes;
 use crate::render::constants::render_constants::*;
-use crate::render::utils::estimate_text_width;
 use crate::theme::Theme;
 use crate::visual::color::{ColorMap, ColorPalette};
-use indexmap::IndexSet;
 use polars::prelude::*;
-use resvg;
-use std::fmt::Write;
 
 /// Generic Chart structure - chart-specific properties only
 ///
