@@ -7,11 +7,8 @@
 //! facilitates the creation of informative and aesthetically pleasing visualizations interactively,
 //! making it especially well-suited for exploratory data analysis.
 
-pub mod axis;
 pub mod core;
 pub mod chart;
-pub mod chart2;
-pub mod coord;
 pub mod coordinate;
 pub mod scale;
 pub mod data;
@@ -33,8 +30,9 @@ pub mod prelude {
         stroke::stroke, stroke_width::stroke_width, text::text, theta::theta, x::x, y::y, y2::y2,
     };
 
-    pub use crate::chart::common::{Chart, LayeredChart};
-    pub use crate::coord::Scale;
+    pub use crate::chart::Chart;
+    pub use crate::core::composite::LayeredChart;
+    pub use crate::scale::Scale;
     pub use crate::data::{DataFrameSource, load_dataset};
 
     pub use crate::transform::{
