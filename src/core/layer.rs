@@ -1,5 +1,6 @@
 use crate::error::ChartonError;
 use crate::theme::Theme;
+use crate::scale::Expansion;
 use super::context::SharedRenderingContext;
 
 /// Trait for rendering chart marks.
@@ -75,11 +76,9 @@ pub trait Layer: MarkRenderer + LegendRenderer {
 
     // --- Padding Preferences ---
 
-    /// Method to get preferred axis padding for this layer
-    fn preferred_x_axis_padding_min(&self) -> Option<f64>;
-    fn preferred_x_axis_padding_max(&self) -> Option<f64>;
-    fn preferred_y_axis_padding_min(&self) -> Option<f64>;
-    fn preferred_y_axis_padding_max(&self) -> Option<f64>;
+    /// Method to get preferred axis expanding for this layer
+    fn preferred_x_axis_expanding(&self) -> Expansion;
+    fn preferred_y_axis_expanding(&self) -> Expansion;
 
     // --- Layout Calculation ---
 

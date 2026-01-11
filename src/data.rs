@@ -1,4 +1,3 @@
-use crate::scale::Scale;
 use crate::error::ChartonError;
 use polars::prelude::*;
 use polars::datatypes::DataType::*;

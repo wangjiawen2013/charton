@@ -1,4 +1,4 @@
-use crate::scale::Scale;
+use crate::scale::{Expansion, Scale};
 use crate::core::layer::{MarkRenderer, LegendRenderer, Layer};
 use crate::coordinate::cartesian::Cartesian2D;
 use crate::data::*;
@@ -453,84 +453,55 @@ where
         }
     }
 
-    fn preferred_x_axis_padding_min(&self) -> Option<f64> {
+    fn preferred_x_axis_expanding(&self) -> Expansion {
         match self.mark.as_ref().map(|m| m.mark_type()) {
             Some("rect") => {
                 let x_encoding = self.encoding.x.as_ref().unwrap();
                 let x_series = self.data.column(&x_encoding.field).unwrap();
-                let scale = determine_scale_for_dtype(x_series.dtype());
-                // Discrete x-axis uses 0.5 padding, continuous uses 0.0
-                match scale {
-                    Scale::Discrete => Some(0.5),
-                    _ => Some(0.0),
+                let is_continuous = matches!(
+                    crate::data::determine_data_type_category(x_series.dtype()),
+                    crate::data::DataTypeCategory::Continuous
+                );
+                if is_continuous {
+                    Expansion { mult: (0.05, 0.05), add: (0.0, 0.0) }
+                } else {
+                    Expansion { mult: (0.0, 0.0), add: (0.5, 0.5) }
                 }
             }
-            Some("boxplot") => Some(0.6),
-            Some("bar") => Some(0.6),
-            _ => None,
+            Some("boxplot") | Some("bar") => Expansion { mult: (0.0, 0.0), add: (0.6, 0.6) },
+            Some("hist") => Expansion { mult: (0.0, 0.0), add: (0.6, 0.6) },
+            _ => Expansion::default(),
         }
     }
 
-    fn preferred_x_axis_padding_max(&self) -> Option<f64> {
-        match self.mark.as_ref().map(|m| m.mark_type()) {
-            Some("rect") => {
-                let x_encoding = self.encoding.x.as_ref().unwrap();
-                let x_series = self.data.column(&x_encoding.field).unwrap();
-                let scale = determine_scale_for_dtype(x_series.dtype());
-                // Discrete x-axis uses 0.5 padding, continuous uses 0.0
-                match scale {
-                    Scale::Discrete => Some(0.5),
-                    _ => Some(0.0),
-                }
-            }
-            Some("boxplot") => Some(0.6),
-            Some("bar") => Some(0.6),
-            Some("hist") => Some(0.6),
-            _ => None,
-        }
-    }
-
-    fn preferred_y_axis_padding_min(&self) -> Option<f64> {
+    fn preferred_y_axis_expanding(&self) -> Expansion {
         match self.mark.as_ref().map(|m| m.mark_type()) {
             Some("rect") => {
                 let y_encoding = self.encoding.y.as_ref().unwrap();
                 let y_series = self.data.column(&y_encoding.field).unwrap();
-                let scale = determine_scale_for_dtype(y_series.dtype());
-                // Discrete y-axis uses 0.5 padding, continuous uses 0.0
-                match scale {
-                    Scale::Discrete => Some(0.5),
-                    _ => Some(0.0),
+                let is_continuous = matches!(
+                    crate::data::determine_data_type_category(y_series.dtype()),
+                    crate::data::DataTypeCategory::Continuous
+                );
+                if is_continuous {
+                    Expansion { mult: (0.05, 0.05), add: (0.0, 0.0) }
+                } else {
+                    Expansion { mult: (0.0, 0.0), add: (0.5, 0.5) }
                 }
             }
             Some("bar") | Some("area") => {
-                // For bar and area charts, if minimum value >= 0, padding should be 0
+                // For bar and area charts, if minimum value >= 0, padding should be different
                 let y_encoding = self.encoding.y.as_ref().unwrap();
                 let y_series = self.data.column(&y_encoding.field).unwrap();
                 let min_val = y_series.min::<f64>().unwrap().unwrap();
-                if min_val >= 0.0 { Some(0.0) } else { None }
-            }
-            Some("boxplot") => Some(0.6),
-            Some("hist") => Some(0.0),
-            _ => None,
-        }
-    }
-
-    fn preferred_y_axis_padding_max(&self) -> Option<f64> {
-        match self.mark.as_ref().map(|m| m.mark_type()) {
-            Some("rect") => {
-                let y_encoding = self.encoding.y.as_ref().unwrap();
-                let y_series = self.data.column(&y_encoding.field).unwrap();
-                let scale = determine_scale_for_dtype(y_series.dtype());
-                // Discrete y-axis uses 0.5 padding, continuous uses 0.0
-                match scale {
-                    Scale::Discrete => Some(0.5),
-                    _ => Some(0.0),
+                if min_val >= 0.0 {
+                    Expansion { mult: (0.0, 0.05), add: (0.0, 0.0) } // No lower padding, default upper
+                } else {
+                    Expansion::default() // Default 5% padding on both sides
                 }
             }
-            Some("boxplot") => Some(0.6),
-            Some("bar") => Some(0.6),
-            Some("hist") => Some(0.6),
-            _ => None,
+            Some("boxplot") | Some("hist") => Expansion { mult: (0.0, 0.0), add: (0.6, 0.6) },
+            _ => Expansion::default(),
         }
     }
 
@@ -787,9 +758,15 @@ where
                 .data
                 .column(&color_enc.field)
                 .expect("Color column should exist");
-            let scale_type = crate::data::determine_scale_for_dtype(color_series.dtype());
 
-            if matches!(scale_type, Scale::Discrete) {
+            // Determine if the color encoding should use a continuous scale (like a color ramp)
+            // or a discrete scale (like a color palette) by checking the data type category.
+            let is_continuous = matches!(
+                crate::data::determine_data_type_category(color_series.dtype()),
+                crate::data::DataTypeCategory::Continuous
+            );
+
+            if !is_continuous {
                 // For discrete color legend, calculate actual width needed
                 let unique = color_series
                     .unique_stable()
