@@ -1,4 +1,5 @@
 use crate::core::layer::Layer;
+use crate::scale::Scale;
 use crate::chart::Chart;
 
 /// LayeredChart structure - shared properties for all layers
@@ -886,8 +887,8 @@ impl LayeredChart {
     ///
     /// Returns the chart instance for method chaining
     ///
-    pub fn swap_axes(mut self) -> Self {
-        self.swapped_axes = true;
+    pub fn coord_flip(mut self) -> Self {
+        self.flipped = true;
         self
     }
 
@@ -1142,6 +1143,41 @@ impl LayeredChart {
         "Y".to_string()
     }
 
+    // Get the x-axis scale from all layers
+    fn get_x_scale_type_from_layers(&self) -> Result<Option<Scale>, ChartonError> {
+        if self.layers.is_empty() {
+            return Ok(None);
+        }
+
+        // Iterate through all layers to find the first non-None scale
+        for layer in &self.layers {
+            // Use if let in case charts that don't have x encoding (like pie charts)
+            if let Some(scale) = layer.get_x_scale_type()? {
+                return Ok(Some(scale));
+            }
+        }
+
+        Ok(None)
+    }
+
+    // Get the y-axis scale from all layers
+    fn get_y_scale_type_from_layers(&self) -> Result<Option<Scale>, ChartonError> {
+        if self.layers.is_empty() {
+            return Ok(None);
+        }
+
+        // Iterate through all layers to find the first non-None scale
+        for layer in &self.layers {
+            // Use if let in case charts that don't have y encoding (like pie charts)
+            if let Some(scale) = layer.get_y_scale_type()? {
+                return Ok(Some(scale));
+            }
+        }
+
+        Ok(None)
+    }
+
+
     // Get the x-axis data type from all layers
     fn get_x_data_type_from_layers(&self) -> Option<polars::datatypes::DataType> {
         if self.layers.is_empty() {
@@ -1279,8 +1315,8 @@ impl LayeredChart {
         let y_label = self.get_y_axis_label_from_layers();
 
         // Determine scales - derive from layers or fallback to linear for charts without x, y encoding (like pie charts)
-        let x_scale = self.get_x_scale_from_layers()?.unwrap_or(Scale::Linear);
-        let y_scale = self.get_y_scale_from_layers()?.unwrap_or(Scale::Linear);
+        let x_scale = self.get_x_scale_type_from_layers()?.unwrap_or(Scale::Linear);
+        let y_scale = self.get_y_scale_type_from_layers()?.unwrap_or(Scale::Linear);
 
         // Create axes with appropriate labels and scales
         let mut x_axis = crate::axis::Axis::new(x_label, x_scale.clone());
