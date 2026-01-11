@@ -30,6 +30,20 @@ pub trait LegendRenderer {
 /// 
 /// It integrates metadata discovery (for axis and scale calculation) 
 /// with the actual rendering logic by combining `MarkRenderer` and `LegendRenderer`.
+///
+/// The `Layer` trait defines the interface that all chart layers must implement
+/// to be part of a layered chart. It combines `MarkRenderer` and `LegendRenderer`
+/// traits to provide complete rendering capabilities for a chart layer.
+///
+/// This trait also defines methods for:
+/// - Controlling axis rendering
+/// - Providing axis padding preferences
+/// - Getting data bounds for continuous axes
+/// - Getting tick labels for discrete axes
+/// - Retrieving encoding field names
+/// - Getting axis scales
+/// - Calculating legend width
+/// - Checking if axes should be swapped
 pub trait Layer: MarkRenderer + LegendRenderer {
     // --- Axis & Scale Metadata ---
 
@@ -62,6 +76,7 @@ pub trait Layer: MarkRenderer + LegendRenderer {
 
     // --- Padding Preferences ---
 
+    /// Method to get preferred axis padding for this layer
     fn preferred_x_axis_padding_min(&self) -> Option<f64>;
     fn preferred_x_axis_padding_max(&self) -> Option<f64>;
     fn preferred_y_axis_padding_min(&self) -> Option<f64>;
