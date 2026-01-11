@@ -1,6 +1,6 @@
 use crate::core::layer::Layer;
 use crate::scale::Scale;
-use crate::chart::Chart;
+use std::fmt::Write; // Required for writeln! on String
 
 /// LayeredChart structure - shared properties for all layers
 ///
@@ -1354,83 +1354,72 @@ impl LayeredChart {
         Ok((x_domain, y_domain, plot_rect))
     }
 
-    fn render(&self, svg: &mut String) -> Result<(), ChartonError> {
-        // If there are no layers, create a blank chart with the specified dimensions
+
+
+    /// Renders the entire chart to the provided SVG string.
+    /// 
+    /// This implementation follows a strict rendering order:
+    /// 1. Layout Resolution & Title
+    /// 2. Axes & Gridlines
+    /// 3. Marks (Data visual elements)
+    /// 4. Legends
+    pub fn render(&self, svg: &mut String) -> Result<(), ChartonError> {
+        // 0. Guard: If no layers exist, we render nothing
         if self.layers.is_empty() {
             return Ok(());
         }
 
-        // Create the coordinate system first
-        let coord_system = self.create_shared_coord_system()?;
-        // Calculate draw offsets based on margins
-        let draw_x0 = self.left_margin * self.width as f64;
-        let draw_y0 = self.top_margin * self.height as f64;
-        let plot_w = (1.0 - self.left_margin - self.calculate_dynamic_right_margin()) * self.width as f64;
-        let plot_h = (1.0 - self.bottom_margin - self.top_margin) * self.height as f64;
+        // 1. Resolve Layout and Coordinate Metadata
+        // This consolidates domain calculation and the physical plot rectangle.
+        let (x_domain, y_domain, plot_rect) = self.resolve_rendering_layout()?;
 
-        // Render title if it exists
-        if let Some(ref title) = self.title {
-            let title_x = self.width as f64 / 2.0; // Center horizontally
-            let title_y = self.theme.title_font_size as f64; // Position at top with padding based on font size
-            let font_size = self.theme.title_font_size;
-            let font_family = &self.theme.title_font_family;
-            let title_color = &self.theme.title_color;
+        // 2. Initialize the Coordinate System mapper
+        let coordinate_system = crate::coordinate::CartesianCoordinate::new(x_domain, y_domain);
 
-            writeln!(
-                svg,
-                r#"<text x="{}" y="{}" font-size="{}" font-family="{}" fill="{}" text-anchor="middle">{}</text>"#,
-                title_x, title_y, font_size, font_family, title_color, title
-            )?;
-        }
-
-        // Create proper mappers based on the coordinate system and chart properties
-        let (x_mapper, y_mapper) = if self.swapped_axes {
-            // When axes are swapped, x maps to vertical pixels and y maps to horizontal pixels
-            let x_mapper: Box<dyn Fn(f64) -> f64> =
-                Box::new(coord_system.x_data_to_vertical_pixels(draw_y0, plot_h));
-            let y_mapper: Box<dyn Fn(f64) -> f64> =
-                Box::new(coord_system.y_data_to_horizontal_pixels(draw_x0, plot_w));
-            (x_mapper, y_mapper)
-        } else {
-            // Normal orientation: x maps to horizontal pixels and y maps to vertical pixels
-            let x_mapper: Box<dyn Fn(f64) -> f64> =
-                Box::new(coord_system.x_data_to_horizontal_pixels(draw_x0, plot_w));
-            let y_mapper: Box<dyn Fn(f64) -> f64> =
-                Box::new(coord_system.y_data_to_vertical_pixels(draw_y0, plot_h));
-            (x_mapper, y_mapper)
-        };
-
-        // Create context for rendering with proper mappers
+        // 3. Assemble the Shared Rendering Context
+        // This object tells every layer 'where' and 'how' to draw.
         let context = SharedRenderingContext {
-            x_mapper: &*x_mapper,
-            y_mapper: &*y_mapper,
-            coord_system: &coord_system,
-            draw_x0,
-            draw_y0,
-            plot_width: plot_w,
-            plot_height: plot_h,
-            swapped_axes: self.swapped_axes,
+            coord: &coordinate_system,
+            panel: plot_rect,
+            flipped: self.flipped,      // Using your stored coord_flip state
             legend: self.legend,
         };
 
-        // Render each layer's marks
+        // 4. Render Chart Title
+        // Positioned at the top-center of the SVG canvas.
+        if let Some(ref title) = self.title {
+            let title_x = self.width as f64 / 2.0;
+            let title_y = self.theme.title_font_size as f64 * 1.5; // Slight padding from top
+            
+            writeln!(
+                svg,
+                r#"<text x="{}" y="{}" font-size="{}" font-family="{}" fill="{}" text-anchor="middle" font-weight="bold">{}</text>"#,
+                title_x, title_y, 
+                self.theme.title_font_size, 
+                self.theme.title_font_family, 
+                self.theme.title_color, 
+                title
+            ).map_err(|e| ChartonError::Render(e.to_string()))?;
+        }
+
+        // 5. Determine if Axes should be rendered
+        // Logic: Explicit user override takes priority, otherwise check layer requirements.
+        let should_render_axes = self.axes.unwrap_or_else(|| {
+            self.layers.iter().any(|layer| layer.requires_axes())
+        });
+
+        if should_render_axes {
+            // Axes are usually drawn behind marks
+            crate::axes::render_axes(svg, &self.theme, &context)?;
+        }
+
+        // 6. Render Marks (The actual data points/bars/lines)
         for layer in &self.layers {
             layer.render_marks(svg, &context)?;
         }
 
-        // Render axes only if:
-        // 1. axes setting is explicitly true, OR
-        // 2. axes setting is not explicitly false AND at least one layer requires axes
-        let should_render_axes = match self.axes {
-            Some(true) => true,
-            Some(false) => false,
-            None => self.layers.iter().any(|layer| layer.requires_axes()),
-        };
-        if should_render_axes {
-            render_axes(svg, &self.theme, &context)?;
-        }
-
-        // Render each layer's legends if legend is enabled
+        // 7. Render Legends
+        // Legends are rendered last to ensure they appear on top of any overlapping marks.
         for layer in &self.layers {
             layer.render_legends(svg, &self.theme, &context)?;
         }

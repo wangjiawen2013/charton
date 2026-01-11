@@ -18,7 +18,7 @@ pub struct SharedRenderingContext<'a> {
     pub flipped: bool,
 
     /// Global flag to control whether legends should be rendered.
-    pub show_legend: bool,
+    pub legend: bool,
 }
 
 impl<'a> SharedRenderingContext<'a> {
@@ -33,7 +33,7 @@ impl<'a> SharedRenderingContext<'a> {
             coord,
             panel,
             flipped,
-            show_legend,
+            legend,
         }
     }
 
