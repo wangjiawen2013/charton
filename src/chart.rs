@@ -1,4 +1,4 @@
-use crate::scale::Expansion;
+use crate::scale::{Expansion, Scale};
 use crate::core::layer::{MarkRenderer, LegendRenderer, Layer};
 use crate::core::utils::estimate_text_width;
 use crate::data::*;
@@ -722,6 +722,28 @@ where
         self.encoding.y.as_ref().map(|y| y.field.clone())
     }
 
+    fn get_x_scale_type(&self) -> Result<Option<Scale>, ChartonError> {
+        // For charts that don't have x encoding (like pie charts), return None
+        if self.encoding.x.is_none() {
+            return Ok(None);
+        }
+
+        // If x encoding exists, return the scale from the encoding
+        let x_encoding = self.encoding.x.as_ref().unwrap();
+        Ok(x_encoding.scale.clone())
+    }
+
+    fn get_y_scale_type(&self) -> Result<Option<Scale>, ChartonError> {
+        // For charts that don't have y encoding (like pie charts), return None
+        if self.encoding.y.is_none() {
+            return Ok(None);
+        }
+
+        // If y encoding exists, return the scale from the encoding
+        let y_encoding = self.encoding.y.as_ref().unwrap();
+        Ok(y_encoding.scale.clone())
+    }
+
     /// Returns the data type of the field mapped to the X axis.
     /// Returns `None` if the X encoding is not defined.
     /// In Charton, the field must exists in the DataFrame if the encoding is present.
@@ -805,7 +827,7 @@ where
         // Check size legend width
         if self.encoding.size.is_some() {
             let size_legend_width = 100.0; // Approximate size legend width
-            max_legend_width = max_legend_width.max(size_legend_width);
+            max_legend_width = f64::max(max_legend_width, size_legend_width);
         }
 
         // Check shape legend width
