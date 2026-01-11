@@ -1,6 +1,7 @@
 use crate::scale::Scale;
 use crate::error::ChartonError;
 use polars::prelude::*;
+use polars::datatypes::DataType::*;
 use std::collections::HashMap;
 use std::vec::Vec;
 
@@ -154,18 +155,28 @@ pub(crate) fn convert_numeric_types(df_source: DataFrameSource) -> Result<DataFr
     Ok(DataFrameSource::new(new_df))
 }
 
-// Determine the appropriate default scale type based on the data type
-// (Linear) or discrete scale mapping
-pub(crate) fn determine_scale_for_dtype(dtype: &polars::datatypes::DataType) -> Scale {
-    use polars::datatypes::DataType::*;
 
+// Define data type category enumeration
+#[derive(Debug, Clone, PartialEq)]
+pub enum DataTypeCategory {
+    Continuous,
+    Discrete,
+}
+
+// A helper function to determine data type category of polars data type
+pub(crate) fn determine_data_type_category(dtype: &polars::datatypes::DataType) -> DataTypeCategory {
     match dtype {
-        // Continuous numeric types
-        UInt8 | UInt16 | UInt32 | UInt64 | Int8 | Int16 | Int32 | Int64 | Int128 | Float32
-        | Float64 => Scale::Linear,
-
-        // All other types default to discrete
-        _ => Scale::Discrete,
+        // Float types -> Always Continuous
+        Float32 | Float64 => DataTypeCategory::Continuous,
+        
+        // String/Categorical/Boolean -> Always Discrete
+        String | Categorical(_, _) | Boolean => DataTypeCategory::Discrete,
+        
+        // Integer types -> Default to Continuous
+        UInt8 | UInt16 | UInt32 | UInt64 | Int8 | Int16 | Int32 | Int64 | Int128 => DataTypeCategory::Continuous,
+        
+        // Other types default to discrete
+        _ => DataTypeCategory::Discrete,
     }
 }
 
