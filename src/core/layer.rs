@@ -68,6 +68,12 @@ pub trait Layer: MarkRenderer + LegendRenderer {
     /// Returns the field name mapped to the Y axis, used as the default axis title.
     fn get_y_encoding_field(&self) -> Option<String>;
 
+    // Methods to get scale type for x axes
+    fn get_x_scale_type(&self) -> Result<Option<Scale>, ChartonError>;
+
+    // Methods to get scale type for y axes
+    fn get_y_scale_type(&self) -> Result<Option<Scale>, ChartonError>;
+
     /// Returns the data type of the X encoding column.
     fn get_x_data_type(&self) -> Option<polars::datatypes::DataType>;
 

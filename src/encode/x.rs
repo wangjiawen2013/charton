@@ -1,4 +1,4 @@
-use crate::coord::Scale;
+use crate::scale::Scale;
 
 /// Represents an X-axis encoding for chart elements
 ///
