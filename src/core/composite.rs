@@ -1,4 +1,6 @@
 use crate::core::layer::Layer;
+use crate::chart::Chart;
+
 /// LayeredChart structure - shared properties for all layers
 ///
 /// This struct represents a multi-layer chart that can combine multiple chart layers
@@ -1222,8 +1224,9 @@ impl LayeredChart {
         self
     }
 
-    // Calculate the effective right margin based on legend width requirements
-    fn effective_right_margin(&self) -> f64 {
+    /// Computes the total space needed on the right side by combining
+    /// the base theme margin and the dynamically calculated legend width.
+    fn calculate_dynamic_right_margin(&self) -> f64 {
         let draw_x0 = self.left_margin * self.width as f64;
         let min_plot_width = 200.0;
 
@@ -1268,7 +1271,7 @@ impl LayeredChart {
     // Create shared coordinate system
     fn create_shared_coord_system(&self) -> Result<Cartesian, ChartonError> {
         // Determine plot dimensions
-        let plot_w = (1.0 - self.left_margin - self.effective_right_margin()) * self.width as f64;
+        let plot_w = (1.0 - self.left_margin - self.calculate_dynamic_right_margin()) * self.width as f64;
         let plot_h = (1.0 - self.top_margin - self.bottom_margin) * self.height as f64;
 
         // Get axis labels
