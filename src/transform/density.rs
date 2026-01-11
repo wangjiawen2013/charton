@@ -1,4 +1,4 @@
-use crate::chart::common::Chart;
+use crate::chart::Chart;
 use crate::data::*;
 use crate::error::ChartonError;
 use crate::mark::Mark;

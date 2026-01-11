@@ -1,4 +1,4 @@
-use crate::coord::Scale;
+use crate::scale::Scale;
 use crate::error::ChartonError;
 use polars::prelude::*;
 use std::collections::HashMap;
@@ -129,6 +129,29 @@ impl TryFrom<&Vec<u8>> for DataFrameSource {
         let df = ParquetReader::new(cursor).finish()?;
         Ok(DataFrameSource::new(df))
     }
+}
+
+// A helper function to convert numeric columns to f64
+pub(crate) fn convert_numeric_types(df_source: DataFrameSource) -> Result<DataFrameSource, ChartonError> {
+    let mut new_columns = Vec::new();
+
+    for col in df_source.df.get_columns() {
+        use polars::datatypes::DataType::*;
+        match col.dtype() {
+            UInt8 | UInt16 | UInt32 | UInt64 | Int8 | Int16 | Int32 | Int64 | Int128
+            | Float32 | Float64 => {
+                let casted = col.cast(&Float64)?;
+                new_columns.push(casted);
+            }
+            _ => {
+                new_columns.push(col.clone());
+            }
+        }
+    }
+
+    let new_df = DataFrame::new(new_columns)?;
+
+    Ok(DataFrameSource::new(new_df))
 }
 
 // Determine the appropriate default scale type based on the data type
