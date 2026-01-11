@@ -1,7 +1,7 @@
 use crate::scale::{Expansion, Scale};
 use crate::core::layer::{MarkRenderer, LegendRenderer, Layer};
 use crate::core::utils::estimate_text_width;
-use crate::data::*;
+use crate::core::data::*;
 use crate::encode::encoding::{Encoding, IntoEncoding};
 use crate::error::ChartonError;
 use crate::mark::Mark;
@@ -454,8 +454,8 @@ where
                 let x_encoding = self.encoding.x.as_ref().unwrap();
                 let x_series = self.data.column(&x_encoding.field).unwrap();
                 let is_continuous = matches!(
-                    crate::data::determine_data_type_category(x_series.dtype()),
-                    crate::data::DataTypeCategory::Continuous
+                    determine_data_type_category(x_series.dtype()),
+                    DataTypeCategory::Continuous
                 );
                 if is_continuous {
                     Expansion { mult: (0.05, 0.05), add: (0.0, 0.0) }
@@ -475,8 +475,8 @@ where
                 let y_encoding = self.encoding.y.as_ref().unwrap();
                 let y_series = self.data.column(&y_encoding.field).unwrap();
                 let is_continuous = matches!(
-                    crate::data::determine_data_type_category(y_series.dtype()),
-                    crate::data::DataTypeCategory::Continuous
+                    determine_data_type_category(y_series.dtype()),
+                    DataTypeCategory::Continuous
                 );
                 if is_continuous {
                     Expansion { mult: (0.05, 0.05), add: (0.0, 0.0) }
@@ -779,8 +779,8 @@ where
             // Determine if the color encoding should use a continuous scale (like a color ramp)
             // or a discrete scale (like a color palette) by checking the data type category.
             let is_continuous = matches!(
-                crate::data::determine_data_type_category(color_series.dtype()),
-                crate::data::DataTypeCategory::Continuous
+                determine_data_type_category(color_series.dtype()),
+                DataTypeCategory::Continuous
             );
 
             if !is_continuous {
