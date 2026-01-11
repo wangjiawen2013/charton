@@ -1451,7 +1451,7 @@ impl LayeredChart {
         // Calculate draw offsets based on margins
         let draw_x0 = self.left_margin * self.width as f64;
         let draw_y0 = self.top_margin * self.height as f64;
-        let plot_w = (1.0 - self.left_margin - self.effective_right_margin()) * self.width as f64;
+        let plot_w = (1.0 - self.left_margin - self.calculate_dynamic_right_margin()) * self.width as f64;
         let plot_h = (1.0 - self.bottom_margin - self.top_margin) * self.height as f64;
 
         // Render title if it exists
@@ -1718,52 +1718,5 @@ impl LayeredChart {
         }
 
         Ok(())
-    }
-}
-
-// Convert single layer chart into layered chart
-impl<T: Mark + 'static> From<Chart<T>> for LayeredChart
-where
-    Chart<T>: Layer,
-{
-    fn from(val: Chart<T>) -> Self {
-        LayeredChart::new().add_layer(val)
-    }
-}
-
-impl<T: Mark + 'static> Chart<T>
-where
-    Chart<T>: Layer,
-{
-    /// Convert a single-layer chart into a layered chart
-    ///
-    /// This method transforms a single Chart<T> instance into a LayeredChart by adding
-    /// the chart as the first (and only) layer of the new LayeredChart. This allows
-    /// for easy conversion when you want to start with a simple chart and later add
-    /// additional layers to create a more complex visualization.
-    ///
-    /// This is equivalent to calling `LayeredChart::new().add_layer(self)`, but provides
-    /// a more convenient and readable syntax for the conversion.
-    ///
-    /// # Returns
-    ///
-    /// Returns a new LayeredChart instance with this chart as its first layer
-    ///
-    /// # Example
-    ///
-    /// ```rust
-    /// use charton::prelude::*;
-    /// use polars::prelude::*;
-    ///
-    /// let df = df!["x" => [1, 2, 3], "y" => [10, 20, 30]]?;
-    /// let chart = Chart::build(&df)?
-    ///     .mark_point()
-    ///     .encode(x("x"), y("y"))?;
-    ///
-    /// // Convert to layered chart for further composition
-    /// let layered_chart = chart.into_layered();
-    /// ```
-    pub fn into_layered(self) -> LayeredChart {
-        self.into()
     }
 }
