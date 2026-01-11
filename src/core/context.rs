@@ -14,11 +14,8 @@ pub struct SharedRenderingContext<'a> {
     /// The physical rectangular area (in pixels) designated for the plot.
     pub panel: Rect,
 
-    /// Indicates if the X and Y axes are swapped (e.g., for horizontal bar charts).
-    pub flipped: bool,
-
     /// Global flag to control whether legends should be rendered.
-    pub legend: bool,
+    pub legend: Option<bool>,
 }
 
 impl<'a> SharedRenderingContext<'a> {
@@ -26,13 +23,11 @@ impl<'a> SharedRenderingContext<'a> {
     pub fn new(
         coord: &'a dyn CoordinateTrait,
         panel: Rect,
-        flipped: bool,
-        show_legend: bool,
+        legend: Option<bool>,
     ) -> Self {
         Self {
             coord,
             panel,
-            flipped,
             legend,
         }
     }

@@ -1373,19 +1373,22 @@ impl LayeredChart {
         // This consolidates domain calculation and the physical plot rectangle.
         let (x_domain, y_domain, plot_rect) = self.resolve_rendering_layout()?;
 
-        // 2. Initialize the Coordinate System mapper
-        let coordinate_system = crate::coordinate::CartesianCoordinate::new(x_domain, y_domain);
+        // 2. Resolve scales (assuming you have a factory method for ScaleTrait, 此处需要根据scale模块进行修改)
+        let x_scale = self.create_x_scale(x_domain)?;
+        let y_scale = self.create_y_scale(y_domain)?;
 
-        // 3. Assemble the Shared Rendering Context
+        // 3. Initialize the Coordinate System mapper
+        let coordinate_system = Cartesian2D::new(x_domain, y_domain, self.flipped);
+
+        // 4. Assemble the Shared Rendering Context
         // This object tells every layer 'where' and 'how' to draw.
         let context = SharedRenderingContext {
             coord: &coordinate_system,
             panel: plot_rect,
-            flipped: self.flipped,      // Using your stored coord_flip state
             legend: self.legend,
         };
 
-        // 4. Render Chart Title
+        // 5. Render Chart Title
         // Positioned at the top-center of the SVG canvas.
         if let Some(ref title) = self.title {
             let title_x = self.width as f64 / 2.0;
@@ -1402,7 +1405,7 @@ impl LayeredChart {
             ).map_err(|e| ChartonError::Render(e.to_string()))?;
         }
 
-        // 5. Determine if Axes should be rendered
+        // 6. Determine if Axes should be rendered
         // Logic: Explicit user override takes priority, otherwise check layer requirements.
         let should_render_axes = self.axes.unwrap_or_else(|| {
             self.layers.iter().any(|layer| layer.requires_axes())
@@ -1413,12 +1416,12 @@ impl LayeredChart {
             crate::axes::render_axes(svg, &self.theme, &context)?;
         }
 
-        // 6. Render Marks (The actual data points/bars/lines)
+        // 7. Render Marks (The actual data points/bars/lines)
         for layer in &self.layers {
             layer.render_marks(svg, &context)?;
         }
 
-        // 7. Render Legends
+        // 8. Render Legends
         // Legends are rendered last to ensure they appear on top of any overlapping marks.
         for layer in &self.layers {
             layer.render_legends(svg, &self.theme, &context)?;
