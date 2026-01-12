@@ -2,10 +2,10 @@ use crate::scale::{Expansion, Scale};
 use crate::core::layer::{MarkRenderer, LegendRenderer, Layer};
 use crate::core::utils::estimate_text_width;
 use crate::core::data::*;
+use crate::core::utils::render_constants::*;
 use crate::encode::encoding::{Encoding, IntoEncoding};
 use crate::error::ChartonError;
 use crate::mark::Mark;
-use crate::render::constants::render_constants::*;
 use crate::theme::Theme;
 use crate::visual::color::{ColorMap, ColorPalette};
 use polars::prelude::*;
@@ -428,7 +428,52 @@ impl<T: Mark> Chart<T> {
             }
         }
 
+        // Set default scale types based on data types
+        if let Some(ref mut x_encoding) = self.encoding.x {
+            if x_encoding.scale.is_none() {
+                let dtype = self.data.df.schema().get(&x_encoding.field).unwrap();
+                let data_type_category = determine_data_type_category(dtype);
+                x_encoding.scale = match data_type_category {
+                    DataTypeCategory::Continuous => Some(Scale::Linear),
+                    DataTypeCategory::Discrete => Some(Scale::Discrete),
+                };
+            }
+        }
+
+        if let Some(ref mut y_encoding) = self.encoding.y {
+            if y_encoding.scale.is_none() {
+                let dtype = self.data.df.schema().get(&y_encoding.field).unwrap();
+                let data_type_category = determine_data_type_category(dtype);
+                y_encoding.scale = match data_type_category {
+                    DataTypeCategory::Continuous => Some(Scale::Linear),
+                    DataTypeCategory::Discrete => Some(Scale::Discrete),
+                };
+            }
+        }
+
         Ok(self)
+    }
+
+    pub(crate) fn get_x_scale_type(&self) -> Option<Scale> {
+        // For charts that don't have x encoding (like pie charts), return None
+        if self.encoding.x.is_none() {
+            return None;
+        }
+
+        // If x encoding exists, return the scale from the encoding
+        let x_encoding = self.encoding.x.as_ref().unwrap();
+        x_encoding.scale.clone()
+    }
+
+    pub(crate) fn get_y_scale_type(&self) -> Option<Scale> {
+        // For charts that don't have y encoding (like pie charts), return None
+        if self.encoding.y.is_none() {
+            return None;
+        }
+
+        // If y encoding exists, return the scale from the encoding
+        let y_encoding = self.encoding.y.as_ref().unwrap();
+        y_encoding.scale.clone()
     }
 }
 
@@ -451,13 +496,10 @@ where
     fn preferred_x_axis_expanding(&self) -> Expansion {
         match self.mark.as_ref().map(|m| m.mark_type()) {
             Some("rect") => {
-                let x_encoding = self.encoding.x.as_ref().unwrap();
-                let x_series = self.data.column(&x_encoding.field).unwrap();
-                let is_continuous = matches!(
-                    determine_data_type_category(x_series.dtype()),
-                    DataTypeCategory::Continuous
-                );
-                if is_continuous {
+                let x_scale_type = self.get_x_scale_type();
+                let x_is_discrete = matches!(x_scale_type.as_ref(), Some(Scale::Discrete));
+
+                if !x_is_discrete {
                     Expansion { mult: (0.05, 0.05), add: (0.0, 0.0) }
                 } else {
                     Expansion { mult: (0.0, 0.0), add: (0.5, 0.5) }
@@ -472,13 +514,10 @@ where
     fn preferred_y_axis_expanding(&self) -> Expansion {
         match self.mark.as_ref().map(|m| m.mark_type()) {
             Some("rect") => {
-                let y_encoding = self.encoding.y.as_ref().unwrap();
-                let y_series = self.data.column(&y_encoding.field).unwrap();
-                let is_continuous = matches!(
-                    determine_data_type_category(y_series.dtype()),
-                    DataTypeCategory::Continuous
-                );
-                if is_continuous {
+                let y_scale_type = self.get_y_scale_type();
+                let y_is_discrete = matches!(y_scale_type.as_ref(), Some(Scale::Discrete));
+
+                if !y_is_discrete {
                     Expansion { mult: (0.05, 0.05), add: (0.0, 0.0) }
                 } else {
                     Expansion { mult: (0.0, 0.0), add: (0.5, 0.5) }
@@ -722,42 +761,12 @@ where
         self.encoding.y.as_ref().map(|y| y.field.clone())
     }
 
-    fn get_x_scale_type(&self) -> Result<Option<Scale>, ChartonError> {
-        // For charts that don't have x encoding (like pie charts), return None
-        if self.encoding.x.is_none() {
-            return Ok(None);
-        }
-
-        // If x encoding exists, return the scale from the encoding
-        let x_encoding = self.encoding.x.as_ref().unwrap();
-        Ok(x_encoding.scale.clone())
+    fn get_x_scale_type_from_layer(&self) -> Option<Scale> {
+        self.get_x_scale_type()
     }
 
-    fn get_y_scale_type(&self) -> Result<Option<Scale>, ChartonError> {
-        // For charts that don't have y encoding (like pie charts), return None
-        if self.encoding.y.is_none() {
-            return Ok(None);
-        }
-
-        // If y encoding exists, return the scale from the encoding
-        let y_encoding = self.encoding.y.as_ref().unwrap();
-        Ok(y_encoding.scale.clone())
-    }
-
-    /// Returns the data type of the field mapped to the X axis.
-    /// Returns `None` if the X encoding is not defined.
-    /// In Charton, the field must exists in the DataFrame if the encoding is present.
-    fn get_x_data_type(&self) -> Option<polars::datatypes::DataType> {
-        let x_encoding = self.encoding.x.as_ref()?;
-        self.data.column(x_encoding.field.as_str()).ok().map(|series| series.dtype().clone())
-    }
-
-    /// Returns the data type of the field mapped to the Y axis.
-    /// Returns `None` if the Y encoding is not defined.
-    /// In Charton, the field must exists in the DataFrame if the encoding is present.
-    fn get_y_data_type(&self) -> Option<polars::datatypes::DataType> {
-        let y_encoding = self.encoding.y.as_ref()?;
-        self.data.column(y_encoding.field.as_str()).ok().map(|series| series.dtype().clone())
+    fn get_y_scale_type_from_layer(&self) -> Option<Scale> {
+        self.get_y_scale_type()
     }
 
     fn calculate_legend_width(
@@ -771,21 +780,20 @@ where
 
         // Check color legend width
         if let Some(color_enc) = &self.encoding.color {
-            let color_series = self
-                .data
-                .column(&color_enc.field)
-                .expect("Color column should exist");
+            // Identify the data type of the color field and determine its category (Continuous or Discrete)
+            let color_data_type_category = {
+                let dtype = self.data.df.schema().get(&color_enc.field).unwrap();
+                determine_data_type_category(dtype)
+            };
 
-            // Determine if the color encoding should use a continuous scale (like a color ramp)
-            // or a discrete scale (like a color palette) by checking the data type category.
-            let is_continuous = matches!(
-                determine_data_type_category(color_series.dtype()),
-                DataTypeCategory::Continuous
-            );
+            let color_is_discrete = matches!(color_data_type_category, DataTypeCategory::Discrete);
 
-            if !is_continuous {
+            if color_is_discrete {
                 // For discrete color legend, calculate actual width needed
-                let unique = color_series
+                let unique = self
+                    .data
+                    .column(&color_enc.field)
+                    .expect("Color column should exist")
                     .unique_stable()
                     .expect("Failed to calculate legend width")
                     .str()

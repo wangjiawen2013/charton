@@ -10,3 +10,4 @@ pub(crate) mod theta;
 pub(crate) mod x;
 pub(crate) mod y;
 pub(crate) mod y2;
+pub(crate) mod aesthetics;

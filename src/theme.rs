@@ -59,8 +59,8 @@ pub struct Theme {
     pub(crate) legend_font_family: Option<String>,
 
     // Expansion for x-axis or y-axis including both min and max expanding
-    pub(crate) x_axis_expanding: Expansion,
-    pub(crate) y_axis_expanding: Expansion,
+    pub(crate) x_expand: Expansion,
+    pub(crate) y_expand: Expansion,
 
     pub(crate) tick_label_padding: f64,
 }
@@ -95,8 +95,8 @@ impl Default for Theme {
             legend_font_size: None,
             legend_font_family: None,
 
-            x_axis_expanding: Expansion { mult: (0.05, 0.05), add: (0.2, 0.3) },
-            y_axis_expanding: Expansion { mult: (0.05, 0.05), add: (0.2, 0.3) },
+            x_expand: Expansion { mult: (0.05, 0.05), add: (0.2, 0.3) },
+            y_expand: Expansion { mult: (0.05, 0.05), add: (0.2, 0.3) },
 
             tick_label_padding: 3.0,
         }

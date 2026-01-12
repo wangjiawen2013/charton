@@ -1,5 +1,10 @@
+use crate::coordinate::{CoordinateTrait, CoordSystem, Rect, cartesian::Cartesian2D};
+use crate::chart::Chart;
 use crate::core::layer::Layer;
-use crate::scale::Scale;
+use crate::core::context::SharedRenderingContext;
+use crate::scale::{Scale, ScaleDomain, create_scale};
+use crate::theme::Theme;
+use crate::error::ChartonError;
 use std::fmt::Write; // Required for writeln! on String
 
 /// LayeredChart structure - shared properties for all layers
@@ -23,6 +28,7 @@ use std::fmt::Write; // Required for writeln! on String
 /// * `theme` - Theme settings for colors, fonts, and other styling properties
 /// * `title` - Optional chart title
 /// * `layers` - Vector of boxed Layer trait objects representing individual chart layers
+/// * `coord_system` - The type of coordinate system to use for this chart
 /// * `x_domain_min` - Optional custom minimum value for x-axis domain
 /// * `x_domain_max` - Optional custom maximum value for x-axis domain
 /// * `x_label` - Optional label for x-axis
@@ -50,7 +56,7 @@ pub struct LayeredChart {
     title: Option<String>,
 
     layers: Vec<Box<dyn Layer>>,
-    _coord_system: Option<Cartesian>, // Maybe used in the future in case different coordinate systems are needed
+    coord_system: CoordSystem,
 
     x_domain_min: Option<f64>, // Functions when creating continuous axis
     x_domain_max: Option<f64>, // Functions when creating continuous axis
@@ -118,7 +124,7 @@ impl LayeredChart {
             title: None,
 
             layers: Vec::new(),
-            _coord_system: None,
+            coord_system: CoordSystem::default(),
 
             x_domain_min: None,
             x_domain_max: None,
@@ -322,78 +328,6 @@ impl LayeredChart {
     ///
     pub fn with_title_color(mut self, color: impl Into<String>) -> Self {
         self.theme.title_color = color.into();
-        self
-    }
-
-    /// Set the minimum padding for x axis
-    ///
-    /// Configures the minimum padding used for axis scaling. This padding ensures
-    /// that data points near the edges of the chart are not cut off.
-    ///
-    /// # Arguments
-    ///
-    /// * `padding` - The minimum padding value
-    ///
-    /// # Returns
-    ///
-    /// Returns the chart instance for method chaining
-    ///
-    pub fn with_x_axis_padding_min(mut self, padding: f64) -> Self {
-        self.theme.x_axis_padding_min = padding;
-        self
-    }
-
-    /// Set the maximum padding for x axis
-    ///
-    /// Configures the maximum padding used for axis scaling. This padding ensures
-    /// that data points near the edges of the chart are not cut off.
-    ///
-    /// # Arguments
-    ///
-    /// * `padding` - The maximum padding value
-    ///
-    /// # Returns
-    ///
-    /// Returns the chart instance for method chaining
-    ///
-    pub fn with_x_axis_padding_max(mut self, padding: f64) -> Self {
-        self.theme.x_axis_padding_max = padding;
-        self
-    }
-
-    /// Set the minimum padding for y axis
-    ///
-    /// Configures the minimum padding used for axis scaling. This padding ensures
-    /// that data points near the edges of the chart are not cut off.
-    ///
-    /// # Arguments
-    ///
-    /// * `padding` - The minimum padding value
-    ///
-    /// # Returns
-    ///
-    /// Returns the chart instance for method chaining
-    ///
-    pub fn with_y_axis_padding_min(mut self, padding: f64) -> Self {
-        self.theme.y_axis_padding_min = padding;
-        self
-    }
-
-    /// Set the maximum padding for y axis
-    ///
-    /// Configures the maximum padding used for axis scaling. This padding ensures
-    /// that data points near the edges of the chart are not cut off.
-    ///
-    /// # Arguments
-    ///
-    /// * `padding` - The maximum padding value
-    ///
-    /// # Returns
-    ///
-    /// Returns the chart instance for method chaining
-    ///
-    pub fn with_y_axis_padding_max(mut self, padding: f64) -> Self {
-        self.theme.y_axis_padding_max = padding;
         self
     }
 
@@ -1144,71 +1078,39 @@ impl LayeredChart {
     }
 
     // Get the x-axis scale from all layers
-    fn get_x_scale_type_from_layers(&self) -> Result<Option<Scale>, ChartonError> {
+    fn get_x_scale_type_from_layers(&self) -> Option<Scale> {
         if self.layers.is_empty() {
-            return Ok(None);
+            return None;
         }
 
         // Iterate through all layers to find the first non-None scale
         for layer in &self.layers {
             // Use if let in case charts that don't have x encoding (like pie charts)
-            if let Some(scale) = layer.get_x_scale_type()? {
-                return Ok(Some(scale));
+            if let Some(scale) = layer.get_x_scale_type_from_layer() {
+                return Some(scale);
             }
         }
 
-        Ok(None)
+        None
     }
 
     // Get the y-axis scale from all layers
-    fn get_y_scale_type_from_layers(&self) -> Result<Option<Scale>, ChartonError> {
+    fn get_y_scale_type_from_layers(&self) -> Option<Scale> {
         if self.layers.is_empty() {
-            return Ok(None);
+            return None;
         }
 
         // Iterate through all layers to find the first non-None scale
         for layer in &self.layers {
             // Use if let in case charts that don't have y encoding (like pie charts)
-            if let Some(scale) = layer.get_y_scale_type()? {
-                return Ok(Some(scale));
-            }
-        }
-
-        Ok(None)
-    }
-
-
-    // Get the x-axis data type from all layers
-    fn get_x_data_type_from_layers(&self) -> Option<polars::datatypes::DataType> {
-        if self.layers.is_empty() {
-            return None;
-        }
-
-        // Iterate through all layers to find the first one with x encoding
-        for layer in &self.layers {
-            if let Some(data_type) = layer.get_x_data_type() {
-                return Some(data_type);
+            if let Some(scale) = layer.get_y_scale_type_from_layer() {
+                return Some(scale);
             }
         }
 
         None
     }
 
-    // Get the y-axis data type from all layers
-    fn get_y_data_type_from_layers(&self) -> Option<polars::datatypes::DataType> {
-        if self.layers.is_empty() {
-            return None;
-        }
-
-        // Iterate through all layers to find the first one with y encoding
-        for layer in &self.layers {
-            if let Some(data_type) = layer.get_y_data_type() {
-                return Some(data_type);
-            }
-        }
-
-        None
-    }
 
     /// Add a layer to the chart
     ///
@@ -1304,46 +1206,21 @@ impl LayeredChart {
         }
     }
 
-    /// Resolves the final rendering layout by calculating the axis domains 
-    /// and the physical plot area.
+    /// Resolves the final rendering layout by consolidating metadata from all layers.
     /// 
-    /// This function consolidates metadata from all layers, computes dynamic 
-    /// margins (e.g., for legends), and prepares the geometric parameters 
-    /// needed to construct a `SharedRenderingContext`.
-    fn resolve_rendering_layout(&self) -> Result<(ScaleDomain, ScaleDomain, Rect), ChartonError> {
-        // 1. Calculate dimensions accounting for dynamic elements like legends
+    /// This function performs the following steps:
+    /// 1. Calculates the physical plot area (Rect) based on margins and legend requirements.
+    /// 2. Resolves the appropriate Scale types (Linear, Discrete, etc.) by inspecting layers.
+    /// 3. Computes the unified data domains by merging bounds from all active layers.
+    /// 4. Constructs the final `Cartesian2D` coordinate system, applying axis flipping 
+    ///    and domain expansion settings.
+    fn resolve_rendering_layout(&self) -> Result<(Box<dyn CoordinateTrait>, Rect), ChartonError> {
+        // --- 1. Geometry: Calculate the physical drawing panel ---
         let total_right_margin = self.calculate_dynamic_right_margin();
+        
         let plot_w = (1.0 - self.left_margin - total_right_margin) * self.width as f64;
         let plot_h = (1.0 - self.top_margin - self.bottom_margin) * self.height as f64;
 
-        // 2. Resolve X and Y scale types from layers
-        let x_scale = self.get_x_scale_type_from_layers()?.unwrap_or(Scale::Linear);
-        let y_scale = self.get_y_scale_type_from_layers()?.unwrap_or(Scale::Linear);
-
-        // 3. Construct domains (Categorical/Continuous) based on resolved scales
-        let x_domain = match x_scale {
-            Scale::Discrete => {
-                let labels = self.get_x_discrete_tick_labels_from_layers()?.unwrap_or_default();
-                ScaleDomain::Categorical(labels)
-            },
-            _ => {
-                let (x_min, x_max) = self.get_x_continuous_bounds_from_layers()?;
-                ScaleDomain::Continuous(self.x_domain_min.unwrap_or(x_min), self.x_domain_max.unwrap_or(x_max))
-            }
-        };
-
-        let y_domain = match y_scale {
-            Scale::Discrete => {
-                let labels = self.get_y_discrete_tick_labels_from_layers()?.unwrap_or_default();
-                ScaleDomain::Categorical(labels)
-            },
-            _ => {
-                let (y_min, y_max) = self.get_y_continuous_bounds_from_layers()?;
-                ScaleDomain::Continuous(self.y_domain_min.unwrap_or(y_min), self.y_domain_max.unwrap_or(y_max))
-            }
-        };
-
-        // 4. Define the physical bounding box for the marks
         let plot_rect = Rect::new(
             self.left_margin * self.width as f64,
             self.top_margin * self.height as f64,
@@ -1351,10 +1228,60 @@ impl LayeredChart {
             plot_h,
         );
 
-        Ok((x_domain, y_domain, plot_rect))
+        // --- 2. Scales: Determine Scale types and merge Data Domains ---
+        let x_scale_type = self.get_x_scale_type_from_layers().unwrap_or(Scale::Linear);
+        let y_scale_type = self.get_y_scale_type_from_layers().unwrap_or(Scale::Linear);
+
+        // Resolve X Domain
+        let x_domain = match x_scale_type {
+            Scale::Discrete => {
+                let labels = self.get_x_discrete_tick_labels_from_layers()?.unwrap_or_default();
+                ScaleDomain::Categorical(labels)
+            },
+            _ => {
+                let (x_min, x_max) = self.get_x_continuous_bounds_from_layers()?;
+                ScaleDomain::Continuous(
+                    self.x_domain_min.unwrap_or(x_min), 
+                    self.x_domain_max.unwrap_or(x_max)
+                )
+            }
+        };
+
+        // Resolve Y Domain
+        let y_domain = match y_scale_type {
+            Scale::Discrete => {
+                let labels = self.get_y_discrete_tick_labels_from_layers()?.unwrap_or_default();
+                ScaleDomain::Categorical(labels)
+            },
+            _ => {
+                let (y_min, y_max) = self.get_y_continuous_bounds_from_layers()?;
+                ScaleDomain::Continuous(
+                    self.y_domain_min.unwrap_or(y_min), 
+                    self.y_domain_max.unwrap_or(y_max)
+                )
+            }
+        };
+
+        // --- 3. Instantiate Scales ---
+        // Expansion logic is applied here to add expanding to the domains if configured.
+        let x_scale = create_scale(&x_scale_type, x_domain, self.theme.x_expand)?;
+        let y_scale = create_scale(&y_scale_type, y_domain, self.theme.y_expand)?;
+
+        // --- 4. Coordinate System Factory Logic ---
+        // This allows you to easily plug in Polar coordinates in the future.
+        let coord_box = match self.coord_system {
+            CoordSystem::Cartesian2D => {
+                Box::new(Cartesian2D::new(x_scale, y_scale, self.flipped))
+            },
+            CoordSystem::Polar => {
+                // Future implementation:
+                // Box::new(PolarCoordinate::new(x_scale, y_scale))
+                todo!("Implement Polar coordinates")
+            }
+        };
+
+        Ok((coord_box, plot_rect))
     }
-
-
 
     /// Renders the entire chart to the provided SVG string.
     /// 
@@ -1369,26 +1296,18 @@ impl LayeredChart {
             return Ok(());
         }
 
-        // 1. Resolve Layout and Coordinate Metadata
-        // This consolidates domain calculation and the physical plot rectangle.
-        let (x_domain, y_domain, plot_rect) = self.resolve_rendering_layout()?;
+        // 1. Resolve the coordinate system as a trait object (abstracting away the type)
+        let (coord_box, panel) = self.resolve_rendering_layout()?;
 
-        // 2. Resolve scales (assuming you have a factory method for ScaleTrait, 此处需要根据scale模块进行修改)
-        let x_scale = self.create_x_scale(x_domain)?;
-        let y_scale = self.create_y_scale(y_domain)?;
-
-        // 3. Initialize the Coordinate System mapper
-        let coordinate_system = Cartesian2D::new(x_domain, y_domain, self.flipped);
-
-        // 4. Assemble the Shared Rendering Context
-        // This object tells every layer 'where' and 'how' to draw.
+        // 2. Assemble the Context
+        // coord_box is a Box<dyn CoordinateTrait>, so we take a reference &*coord_box
         let context = SharedRenderingContext {
-            coord: &coordinate_system,
-            panel: plot_rect,
+            coord: &*coord_box, 
+            panel,
             legend: self.legend,
         };
 
-        // 5. Render Chart Title
+        // 3. Render Chart Title
         // Positioned at the top-center of the SVG canvas.
         if let Some(ref title) = self.title {
             let title_x = self.width as f64 / 2.0;
@@ -1405,7 +1324,7 @@ impl LayeredChart {
             ).map_err(|e| ChartonError::Render(e.to_string()))?;
         }
 
-        // 6. Determine if Axes should be rendered
+        // 4. Determine if Axes should be rendered
         // Logic: Explicit user override takes priority, otherwise check layer requirements.
         let should_render_axes = self.axes.unwrap_or_else(|| {
             self.layers.iter().any(|layer| layer.requires_axes())
@@ -1413,15 +1332,15 @@ impl LayeredChart {
 
         if should_render_axes {
             // Axes are usually drawn behind marks
-            crate::axes::render_axes(svg, &self.theme, &context)?;
+            crate::render::axis_renderer::render_axes(svg, &self.theme, &context)?;
         }
 
-        // 7. Render Marks (The actual data points/bars/lines)
+        // 5. Render Marks (The actual data points/bars/lines)
         for layer in &self.layers {
             layer.render_marks(svg, &context)?;
         }
 
-        // 8. Render Legends
+        // 6. Render Legends
         // Legends are rendered last to ensure they appear on top of any overlapping marks.
         for layer in &self.layers {
             layer.render_legends(svg, &self.theme, &context)?;

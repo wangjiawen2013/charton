@@ -1,5 +1,5 @@
 use crate::chart::Chart;
-use crate::data::*;
+use crate::core::data::*;
 use crate::error::ChartonError;
 use crate::mark::Mark;
 use kernel_density_estimation::prelude::*;

@@ -1,6 +1,6 @@
 use crate::error::ChartonError;
 use crate::theme::Theme;
-use crate::scale::Expansion;
+use crate::scale::{Scale, Expansion};
 use super::context::SharedRenderingContext;
 
 /// Trait for rendering chart marks.
@@ -69,16 +69,10 @@ pub trait Layer: MarkRenderer + LegendRenderer {
     fn get_y_encoding_field(&self) -> Option<String>;
 
     // Methods to get scale type for x axes
-    fn get_x_scale_type(&self) -> Result<Option<Scale>, ChartonError>;
+    fn get_x_scale_type_from_layer(&self) -> Option<Scale>;
 
     // Methods to get scale type for y axes
-    fn get_y_scale_type(&self) -> Result<Option<Scale>, ChartonError>;
-
-    /// Returns the data type of the X encoding column.
-    fn get_x_data_type(&self) -> Option<polars::datatypes::DataType>;
-
-    /// Returns the data type of the Y encoding column.
-    fn get_y_data_type(&self) -> Option<polars::datatypes::DataType>;
+    fn get_y_scale_type_from_layer(&self) -> Option<Scale>;
 
     // --- Padding Preferences ---
 

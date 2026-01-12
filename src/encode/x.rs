@@ -14,9 +14,9 @@ use crate::scale::Scale;
 pub struct X {
     // Default label (polars column name)
     pub(crate) field: String,
-    pub(crate) bins: Option<usize>, // bins for continuous encoding value in marks like barchart and histogram
-    pub(crate) scale: Option<Scale>, // scale type for the axis
-    pub(crate) zero: Option<bool>, // None = auto, Some(true) = force zero, Some(false) = exclude zero
+    pub(crate) bins: Option<usize>,     // bins for continuous encoding value in marks like barchart and histogram
+    pub(crate) scale: Option<Scale>,    // scale type for the axis
+    pub(crate) zero: Option<bool>,      // None = auto, Some(true) = force zero, Some(false) = exclude zero
 }
 
 impl X {
