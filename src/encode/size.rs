@@ -1,4 +1,5 @@
 use crate::scale::Scale;
+use crate::error::ChartonError;
 
 /// Represents a size encoding for chart elements
 ///
@@ -12,14 +13,14 @@ use crate::scale::Scale;
 #[derive(Debug)]
 pub struct Size {
     pub(crate) field: String,
-    pub(crate) scale: Option<Scale>,    // scale type for size
+    pub(crate) scale: Scale,    // scale type for size
 }
 
 impl Size {
     fn new(field: &str) -> Self {
         Self {
             field: field.to_string(),
-            scale: None, // Will be initialized when encoding
+            scale: Scale::Log,
         }
     }
 
@@ -33,14 +34,24 @@ impl Size {
     /// * `scale` - A `Scale` enum value specifying the axis scale type
     ///   - `Linear`: Standard linear scale for uniformly distributed data
     ///   - `Log`: Logarithmic scale for exponentially distributed data
-    ///   - `Discrete`: For categorical data with distinct categories
+    ///   - `Discrete`: For categorical data with distinct categories (not allowed for size)
     ///   - `Temporal`: For time data
     ///
     /// # Returns
-    /// Returns `Self` with the updated scale type
-    pub fn with_scale(mut self, scale: Scale) -> Self {
-        self.scale = Some(scale);
-        self
+    /// Returns `Result<Self, ChartonError>` with the updated size encoding or an error
+    /// 
+    /// # Errors
+    /// Returns `ChartonError::Scale` if `Scale::Discrete` is provided, as size encoding
+    /// requires continuous data and cannot use discrete scales.
+    pub fn with_scale(mut self, scale: Scale) -> Result<Self, ChartonError> {
+        if matches!(scale, Scale::Discrete) {
+            return Err(ChartonError::Scale(
+                "Size encoding cannot use Scale::Discrete as size requires continuous data".to_string()
+            ));
+        }
+        
+        self.scale = scale;
+        Ok(self)
     }
 }
 
