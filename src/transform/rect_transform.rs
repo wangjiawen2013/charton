@@ -1,4 +1,5 @@
 use crate::chart::Chart;
+use crate::scale::Scale;
 use crate::error::ChartonError;
 use crate::mark::Mark;
 use polars::prelude::*;
@@ -11,16 +12,12 @@ impl<T: Mark> Chart<T> {
         let y_encoding = self.encoding.y.as_ref().unwrap();
         let color_encoding = self.encoding.color.as_ref().unwrap();
 
-        // Get data series
-        let x_series = self.data.column(&x_encoding.field)?;
-        let y_series = self.data.column(&y_encoding.field)?;
-
         // Determine if x and y values are discrete
-        let x_scale = crate::data::determine_scale_for_dtype(x_series.dtype());
-        let y_scale = crate::data::determine_scale_for_dtype(y_series.dtype());
+        let x_scale_type = self.get_x_scale_type();
+        let y_scale_type = self.get_y_scale_type();
 
-        let x_is_discrete = matches!(x_scale, crate::coord::Scale::Discrete);
-        let y_is_discrete = matches!(y_scale, crate::coord::Scale::Discrete);
+        let x_is_discrete = matches!(x_scale_type.as_ref(), Some(Scale::Discrete));
+        let y_is_discrete = matches!(y_scale_type.as_ref(), Some(Scale::Discrete));
 
         // Store bin information for later use
         let mut x_bin_labels: Option<Vec<String>> = None;

@@ -1,43 +1,42 @@
 use crate::scale::ScaleTrait;
 use crate::scale::mapper::VisualMapper;
-use crate::coordinate::cartesian::Cartesian2D;
+use crate::coordinate::CoordinateTrait;
 use crate::error::ChartonError;
+use crate::visual::shape::PointShape;
 use polars::prelude::*;
 
-/// `VisualProcessedData` encapsulates the final visual attributes for a chart.
-///
-/// All coordinates are normalized to [0, 1] relative to the drawing panel.
-/// Visual aesthetics (colors, shapes, sizes) are mapped to their final rendering values.
-pub(crate) struct VisualProcessedData {
+/// `AestheticData` encapsulates the final visual attributes for a chart.
+/// All coordinates are normalized relative to the coordinate system's logic.
+pub(crate) struct AestheticData {
     pub(crate) x_normalized: Vec<f64>,
     pub(crate) y_normalized: Vec<f64>,
-    pub(crate) shapes: Option<Vec<crate::visual::shape::PointShape>>,
+    pub(crate) shapes: Option<Vec<PointShape>>,
     pub(crate) colors: Option<Vec<String>>,
     pub(crate) sizes: Option<Vec<f64>>,
 }
 
-impl VisualProcessedData {
-    /// Constructs a new `VisualProcessedData` by applying scales and mappers.
-    ///
-    /// This assumes X and Y encodings are guaranteed to be present in the chart.
+impl AestheticData {
+    /// Constructs a new `AestheticData` by applying scales and mappers.
+    /// This is now decoupled from specific coordinate systems.
     pub(crate) fn new<T: crate::mark::Mark>(
         chart: &crate::chart::Chart<T>,
-        coord_system: &Cartesian2D,
+        coord_system: &dyn CoordinateTrait, // 👈 Accept any coordinate system
         color_mapper: Option<(&VisualMapper, &dyn ScaleTrait)>,
         shape_mapper: Option<(&VisualMapper, &dyn ScaleTrait)>,
         size_mapper: Option<(&VisualMapper, &dyn ScaleTrait)>,
     ) -> Result<Self, ChartonError> {
         
         // --- 1. Position Encodings (X, Y) ---
-        // Since x and y are guaranteed, we unwrap the Option and access the field.
+        // These are the core geometric foundations of any chart
         let x_field = &chart.encoding.x.as_ref().unwrap().field;
         let y_field = &chart.encoding.y.as_ref().unwrap().field;
 
         let x_series = chart.data.column(x_field)?;
         let y_series = chart.data.column(y_field)?;
 
-        let x_normalized = Self::normalize_series(&x_series, coord_system.x_scale.as_ref())?;
-        let y_normalized = Self::normalize_series(&y_series, coord_system.y_scale.as_ref())?;
+        // Note: coord_system provides access to its internal scales via the trait
+        let x_normalized = Self::normalize_series(&x_series, coord_system.get_x_scale())?;
+        let y_normalized = Self::normalize_series(&y_series, coord_system.get_y_scale())?;
 
         // --- 2. Color Aesthetic ---
         let colors = if let (Some(color_enc), Some((mapper, scale))) = (&chart.encoding.color, color_mapper) {
@@ -68,9 +67,9 @@ impl VisualProcessedData {
             
             Some(norm_vals.into_iter().map(|v| mapper.map_to_size(v)).collect())
         } else if let Some(size_enc) = &chart.encoding.size {
-            // Fallback: If size encoding exists but no mapper is provided, do a simple linear map
+            // Fallback: Simple linear map if no mapper is provided
             let size_series = chart.data.column(&size_enc.field)?;
-            let vals = size_series.f64()?.into_no_null_iter().collect::<Vec<_>>();
+            let vals = size_series.cast(&DataType::Float64)?.f64()?.into_no_null_iter().collect::<Vec<_>>();
             let min = vals.iter().fold(f64::INFINITY, |a, &b| a.min(b));
             let max = vals.iter().fold(f64::NEG_INFINITY, |a, &b| a.max(b));
             let range = max - min;
@@ -92,7 +91,7 @@ impl VisualProcessedData {
         })
     }
 
-    /// Dispatches normalization logic based on the data type of the Polars Series.
+    /// Internal helper to transform a Polars Series into normalized [0, 1] values
     fn normalize_series(
         series: &Series, 
         scale: &dyn ScaleTrait

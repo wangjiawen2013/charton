@@ -56,8 +56,12 @@ impl CoordinateTrait for Cartesian2D {
 
     /// Returns references to the underlying scales.
     /// The renderer uses these to access domain info and generate ticks.
-    fn get_scales(&self) -> (&dyn ScaleTrait, &dyn ScaleTrait) {
-        (self.x_scale.as_ref(), self.y_scale.as_ref())
+    fn get_x_scale(&self) -> &dyn ScaleTrait {
+        self.x_scale.as_ref()
+    }
+
+    fn get_y_scale(&self) -> &dyn ScaleTrait {
+        self.y_scale.as_ref()
     }
 
     /// Cartesian coordinates typically clip data that falls outside the panel.

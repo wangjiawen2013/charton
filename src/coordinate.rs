@@ -36,13 +36,24 @@ pub trait CoordinateTrait {
     /// A tuple of (x_pixel, y_pixel).
     fn transform(&self, x_norm: f64, y_norm: f64, panel: &Rect) -> (f64, f64);
 
-    /// Retrieves the underlying scales used by this coordinate system.
-    /// This is essential for the renderer to generate ticks and labels.
-    fn get_scales(&self) -> (&dyn ScaleTrait, &dyn ScaleTrait);
+    /// Get the scale for the first dimension (e.g., X).
+    fn get_x_scale(&self) -> &dyn ScaleTrait;
 
-    /// If true, the renderer should clip any geometric shapes that 
-    /// extend beyond the panel boundaries.
+    /// Get the scale for the second dimension (e.g., Y).
+    fn get_y_scale(&self) -> &dyn ScaleTrait;
+
+    /// If true, the renderer should clip shapes extending beyond panel boundaries.
     fn is_clipped(&self) -> bool {
         true
     }
+}
+
+/// Supported coordinate systems for the chart.
+#[derive(Debug, Clone, Copy, Default, PartialEq, Eq)]
+pub enum CoordSystem {
+    /// Standard 2D Cartesian coordinates (X and Y axes).
+    #[default]
+    Cartesian2D,
+    /// Polar coordinates (Radius and Angle).
+    Polar,
 }
