@@ -451,6 +451,17 @@ impl<T: Mark> Chart<T> {
             }
         }
 
+        if let Some(ref mut color_encoding) = self.encoding.color {
+            if color_encoding.scale.is_none() {
+                let dtype = self.data.df.schema().get(&color_encoding.field).unwrap();
+                let data_type_category = determine_data_type_category(dtype);
+                color_encoding.scale = match data_type_category {
+                    DataTypeCategory::Continuous => Some(Scale::Linear),
+                    DataTypeCategory::Discrete => Some(Scale::Discrete),
+                };
+            }
+        }
+
         Ok(self)
     }
 
@@ -490,12 +501,10 @@ impl<T: Mark> Chart<T> {
     pub(crate) fn get_shape_scale_type(&self) -> Option<Scale> {
         // For charts that don't have shape encoding, return None
         if self.encoding.shape.is_none() {
-            return None;
+            None
+        } else {
+            Some(Scale::Discrete)
         }
-
-        // If shape encoding exists, return the scale from the encoding
-        let shape_encoding = self.encoding.shape.as_ref().unwrap();
-        shape_encoding.scale.clone()
     }
 
     pub(crate) fn get_size_scale_type(&self) -> Option<Scale> {
@@ -506,7 +515,7 @@ impl<T: Mark> Chart<T> {
 
         // If size encoding exists, return the scale from the encoding
         let size_encoding = self.encoding.size.as_ref().unwrap();
-        size_encoding.scale.clone()
+        Some(size_encoding.scale.clone())
     }
 }
 

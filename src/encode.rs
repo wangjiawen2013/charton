@@ -1,10 +1,7 @@
 pub(crate) mod color;
 pub(crate) mod encoding;
-pub(crate) mod opacity;
 pub(crate) mod shape;
 pub(crate) mod size;
-pub(crate) mod stroke;
-pub(crate) mod stroke_width;
 pub(crate) mod text;
 pub(crate) mod theta;
 pub(crate) mod x;
