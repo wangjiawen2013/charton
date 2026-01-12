@@ -1,6 +1,12 @@
 use super::{
-    color::Color, opacity::Opacity, shape::Shape, size::Size, stroke::Stroke,
-    stroke_width::StrokeWidth, text::Text, theta::Theta, x::X, y::Y, y2::Y2,
+    x::X,
+    y::Y,
+    y2::Y2,
+    theta::Theta,
+    color::Color,
+    shape::Shape,
+    size::Size,
+    text::Text,
 };
 
 /// Unified application interface for encoding specifications
@@ -45,9 +51,6 @@ pub struct Encoding {
     pub(crate) color: Option<Color>,     // For both continuous and discrete data
     pub(crate) shape: Option<Shape>,     // For discrete data
     pub(crate) size: Option<Size>,       // For continuous data
-    pub(crate) opacity: Option<Opacity>, // For continuous data
-    pub(crate) stroke: Option<Stroke>, // A placeholder for encoding stroke color, do not set it currently
-    pub(crate) stroke_width: Option<StrokeWidth>, // A placeholder for encoding stroke width, do not set it currently
     pub(crate) text: Option<Text>,                // For text marks
 }
 
@@ -65,6 +68,9 @@ impl Encoding {
         if let Some(ref y) = self.y {
             fields.push(y.field.as_str());
         }
+        if let Some(ref y2) = self.y2 {
+            fields.push(y2.field.as_str());
+        }
         if let Some(ref theta) = self.theta {
             fields.push(theta.field.as_str());
         }
@@ -77,18 +83,10 @@ impl Encoding {
         if let Some(ref size) = self.size {
             fields.push(size.field.as_str());
         }
-        if let Some(ref opacity) = self.opacity {
-            fields.push(opacity.field.as_str());
-        }
-        if let Some(ref stroke) = self.stroke {
-            fields.push(stroke.field.as_str());
-        }
-        if let Some(ref stroke_width) = self.stroke_width {
-            fields.push(stroke_width.field.as_str());
-        }
         if let Some(ref text) = self.text {
             fields.push(text.field.as_str());
         }
+
         fields
     }
 }
@@ -137,24 +135,6 @@ impl IntoEncoding for Size {
     }
 }
 
-impl IntoEncoding for Opacity {
-    fn apply(self, enc: &mut Encoding) {
-        enc.opacity = Some(self);
-    }
-}
-
-impl IntoEncoding for Stroke {
-    fn apply(self, enc: &mut Encoding) {
-        enc.stroke = Some(self);
-    }
-}
-
-impl IntoEncoding for StrokeWidth {
-    fn apply(self, enc: &mut Encoding) {
-        enc.stroke_width = Some(self);
-    }
-}
-
 impl IntoEncoding for Text {
     fn apply(self, enc: &mut Encoding) {
         enc.text = Some(self);
@@ -199,4 +179,3 @@ impl_tuple_encoding!(0 T0, 1 T1, 2 T2, 3 T3, 4 T4); // 5
 impl_tuple_encoding!(0 T0, 1 T1, 2 T2, 3 T3, 4 T4, 5 T5); // 6
 impl_tuple_encoding!(0 T0, 1 T1, 2 T2, 3 T3, 4 T4, 5 T5, 6 T6); // 7
 impl_tuple_encoding!(0 T0, 1 T1, 2 T2, 3 T3, 4 T4, 5 T5, 6 T6, 7 T7); // 8
-impl_tuple_encoding!(0 T0, 1 T1, 2 T2, 3 T3, 4 T4, 5 T5, 6 T6, 7 T7, 8 T8); // 9
