@@ -74,6 +74,15 @@ pub trait Layer: MarkRenderer + LegendRenderer {
     // Methods to get scale type for y axes
     fn get_y_scale_type_from_layer(&self) -> Option<Scale>;
 
+    // Methods to get scale type for color encoding
+    fn get_color_scale_type_from_layer(&self) -> Option<Scale>;
+
+    // Methods to get scale type for shape encoding
+    fn get_shape_scale_type_from_layer(&self) -> Option<Scale>;
+
+    // Methods to get scale type for size encoding
+    fn get_size_scale_type_from_layer(&self) -> Option<Scale>;
+
     // --- Padding Preferences ---
 
     /// Method to get preferred axis expanding for this layer
