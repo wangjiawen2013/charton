@@ -1,3 +1,5 @@
+use crate::scale::Scale;
+
 /// Represents a color encoding for chart elements
 ///
 /// The `Color` struct defines how data values should be mapped to colors in a visualization.
@@ -8,13 +10,35 @@
 #[derive(Debug)]
 pub struct Color {
     pub field: String,
+    pub(crate) scale: Option<Scale>,    // scale type for color
 }
 
 impl Color {
     fn new(field: &str) -> Self {
         Self {
             field: field.to_string(),
+            scale: None, // Will be initialized when encoding
         }
+    }
+
+    /// Sets the scale type for the axis
+    ///
+    /// Configures the scaling function used to map data values to positional coordinates.
+    /// Different scale types are appropriate for different data distributions and
+    /// visualization needs.
+    ///
+    /// # Arguments
+    /// * `scale` - A `Scale` enum value specifying the axis scale type
+    ///   - `Linear`: Standard linear scale for uniformly distributed data
+    ///   - `Log`: Logarithmic scale for exponentially distributed data
+    ///   - `Discrete`: For categorical data with distinct categories
+    ///   - `Temporal`: For time data
+    ///
+    /// # Returns
+    /// Returns `Self` with the updated scale type
+    pub fn with_scale(mut self, scale: Scale) -> Self {
+        self.scale = Some(scale);
+        self
     }
 }
 
