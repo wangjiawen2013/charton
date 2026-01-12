@@ -24,7 +24,7 @@ impl X {
         Self {
             field: field.to_string(),
             bins: None,
-            scale: None, // Only applicable for numeric datatypes, so set to None here and will be determined later
+            scale: None, // Will be initialized when encoding
             zero: None,  // Default to auto behavior
         }
     }
@@ -56,6 +56,7 @@ impl X {
     ///   - `Linear`: Standard linear scale for uniformly distributed data
     ///   - `Log`: Logarithmic scale for exponentially distributed data
     ///   - `Discrete`: For categorical data with distinct categories
+    ///   - `Temporal`: For time data
     ///
     /// # Returns
     /// Returns `Self` with the updated scale type

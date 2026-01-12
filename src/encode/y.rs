@@ -26,7 +26,7 @@ impl Y {
         Self {
             field: field.to_string(),
             bins: None,
-            scale: None, // The actual scale type will be determined later using determine_scale_for_dtype
+            scale: None, // Will be initialized when encoding
             zero: None,  // Default to auto behavior
             normalize: false, // Default to false (raw counts)
             stack: false, // Default to false (regular bar chart)
@@ -60,6 +60,7 @@ impl Y {
     ///   - `Linear`: Standard linear scale for uniformly distributed data
     ///   - `Log`: Logarithmic scale for exponentially distributed data
     ///   - `Discrete`: For categorical data with distinct categories
+    ///   - `Temporal`: For time data
     ///
     /// # Returns
     /// Returns `Self` with the updated scale type
