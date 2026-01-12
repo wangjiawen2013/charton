@@ -475,6 +475,39 @@ impl<T: Mark> Chart<T> {
         let y_encoding = self.encoding.y.as_ref().unwrap();
         y_encoding.scale.clone()
     }
+
+    pub(crate) fn get_color_scale_type(&self) -> Option<Scale> {
+        // For charts that don't have encoding, return None
+        if self.encoding.color.is_none() {
+            return None;
+        }
+
+        // If color encoding exists, return the scale from the encoding
+        let color_encoding = self.encoding.color.as_ref().unwrap();
+        color_encoding.scale.clone()
+    }
+
+    pub(crate) fn get_shape_scale_type(&self) -> Option<Scale> {
+        // For charts that don't have shape encoding, return None
+        if self.encoding.shape.is_none() {
+            return None;
+        }
+
+        // If shape encoding exists, return the scale from the encoding
+        let shape_encoding = self.encoding.shape.as_ref().unwrap();
+        shape_encoding.scale.clone()
+    }
+
+    pub(crate) fn get_size_scale_type(&self) -> Option<Scale> {
+        // For charts that don't have size encoding, return None
+        if self.encoding.size.is_none() {
+            return None;
+        }
+
+        // If size encoding exists, return the scale from the encoding
+        let size_encoding = self.encoding.size.as_ref().unwrap();
+        size_encoding.scale.clone()
+    }
 }
 
 // Implementation of Layer trait for Chart<T> allowing any chart to be used as a layer
@@ -767,6 +800,18 @@ where
 
     fn get_y_scale_type_from_layer(&self) -> Option<Scale> {
         self.get_y_scale_type()
+    }
+
+    fn get_color_scale_type_from_layer(&self) -> Option<Scale> {
+        self.get_color_scale_type()
+    }
+
+    fn get_shape_scale_type_from_layer(&self) -> Option<Scale> {
+        self.get_shape_scale_type()
+    }
+
+    fn get_size_scale_type_from_layer(&self) -> Option<Scale> {
+        self.get_size_scale_type()
     }
 
     fn calculate_legend_width(
