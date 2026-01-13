@@ -21,7 +21,7 @@ Charton includes a pure-Rust SVG renderer, which allows users to create visualiz
 
 ```toml
 [dependencies]
-charton = "0.2.0"
+charton = "0.2.1"
 polars = "0.49.1"
 ```
 
@@ -185,7 +185,7 @@ Charton integrates with evcxr, allowing you to display plots interactively in a 
 The following code shows a minimal example of this.
 
 ```rust
-:dep charton = { version="0.2.0" }
+:dep charton = { version="0.2.1" }
 :dep polars = { version="0.49.1" }
 
 use charton::prelude::*;
@@ -214,7 +214,7 @@ Run it in a Jupyter Notebook cell, and the chart will be displayed inline.
 The same workflow applies when using external visualization libraries: place the corresponding Rust code snippet into a Jupyter cell, and Charton will render the visualization interactively.
 
 ```rust
-:dep charton = { version="0.2.0" }
+:dep charton = { version="0.2.1" }
 :dep polars = { version="0.49.1" }
 
 use charton::prelude::*;
