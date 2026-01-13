@@ -1,3 +1,5 @@
+pub mod point_chart;
+
 use crate::scale::{Expansion, Scale};
 use crate::core::layer::{MarkRenderer, LegendRenderer, Layer};
 use crate::core::utils::estimate_text_width;

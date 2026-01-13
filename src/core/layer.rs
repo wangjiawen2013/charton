@@ -9,7 +9,18 @@ pub trait RenderBackend {
     fn draw_circle(&mut self, x: f64, y: f64, radius: f64, color: &str, opacity: f64);
     fn draw_rect(&mut self, x: f64, y: f64, width: f64, height: f64, color: &str);
     fn draw_path(&mut self, points: &[(f64, f64)], stroke_color: &str, stroke_width: f64);
-    // other methods for drawing lines, polygons, etc.
+    fn draw_polygon(&mut self, points: &[(f64, f64)], color: &str, opacity: f64);
+    fn draw_circle_with_stroke(
+        &mut self,
+        x: f64,
+        y: f64,
+        radius: f64,
+        fill: &str,
+        stroke: &str,
+        stroke_width: f64,
+        opacity: f64,
+    );
+    // other methods for drawing lines, etc.
 }
 
 /// Trait for rendering chart marks.
