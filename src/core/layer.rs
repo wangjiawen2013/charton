@@ -3,16 +3,25 @@ use crate::theme::Theme;
 use crate::scale::{Scale, Expansion};
 use super::context::SharedRenderingContext;
 
+/// Abstract backend for rendering shapes.
+/// Implementations could be SvgBackend (String) or WgpuBackend (GPU Buffers).
+pub trait RenderBackend {
+    fn draw_circle(&mut self, x: f64, y: f64, radius: f64, color: &str, opacity: f64);
+    fn draw_rect(&mut self, x: f64, y: f64, width: f64, height: f64, color: &str);
+    fn draw_path(&mut self, points: &[(f64, f64)], stroke_color: &str, stroke_width: f64);
+    // other methods for drawing lines, polygons, etc.
+}
+
 /// Trait for rendering chart marks.
-///
-/// Defines how visual elements (points, bars, lines) are appended to the SVG.
 pub trait MarkRenderer {
+    /// Generic rendering method that doesn't care about the output format.
     fn render_marks(
         &self,
-        svg: &mut String,
+        backend: &mut dyn RenderBackend, // svg backend, wgpu backend etc.
         context: &SharedRenderingContext,
     ) -> Result<(), ChartonError>;
 }
+
 
 /// Trait for rendering chart legends.
 ///
@@ -53,14 +62,20 @@ pub trait Layer: MarkRenderer + LegendRenderer {
     /// Returns the (min, max) data boundaries for a continuous X axis.
     fn get_x_continuous_bounds(&self) -> Result<(f64, f64), ChartonError>;
 
-    /// Returns the (min, max) data boundaries for a continuous Y axis.
-    fn get_y_continuous_bounds(&self) -> Result<(f64, f64), ChartonError>;
-
     /// Returns the list of categorical labels if the X axis is discrete.
     fn get_x_discrete_tick_labels(&self) -> Result<Option<Vec<String>>, ChartonError>;
 
+    // Methods to get scale type for x axes
+    fn get_x_scale_type_from_layer(&self) -> Option<Scale>;
+
+    /// Returns the (min, max) data boundaries for a continuous Y axis.
+    fn get_y_continuous_bounds(&self) -> Result<(f64, f64), ChartonError>;
+
     /// Returns the list of categorical labels if the Y axis is discrete.
     fn get_y_discrete_tick_labels(&self) -> Result<Option<Vec<String>>, ChartonError>;
+
+    // Methods to get scale type for y axes
+    fn get_y_scale_type_from_layer(&self) -> Option<Scale>;
 
     /// Returns the field name mapped to the X axis, used as the default axis title.
     fn get_x_encoding_field(&self) -> Option<String>;
@@ -68,17 +83,23 @@ pub trait Layer: MarkRenderer + LegendRenderer {
     /// Returns the field name mapped to the Y axis, used as the default axis title.
     fn get_y_encoding_field(&self) -> Option<String>;
 
-    // Methods to get scale type for x axes
-    fn get_x_scale_type_from_layer(&self) -> Option<Scale>;
+    /// Returns the (min, max) bounds for color if it is continuous.
+    fn get_color_continuous_bounds(&self) -> Result<Option<(f64, f64)>, ChartonError>;
 
-    // Methods to get scale type for y axes
-    fn get_y_scale_type_from_layer(&self) -> Option<Scale>;
-
-    // Methods to get scale type for color encoding
+    /// Returns the unique labels for color if it is discrete.
+    fn get_color_discrete_labels(&self) -> Result<Option<Vec<String>>, ChartonError>;
+    
+    /// Returns the scale type for color defined in this layer.
     fn get_color_scale_type_from_layer(&self) -> Option<Scale>;
+
+    // --- Shape (Always Discrete) ---
+    fn get_shape_discrete_labels(&self) -> Result<Option<Vec<String>>, ChartonError>;
 
     // Methods to get scale type for shape encoding
     fn get_shape_scale_type_from_layer(&self) -> Option<Scale>;
+
+    // --- Size (Always Continuous) ---
+    fn get_size_continuous_bounds(&self) -> Result<Option<(f64, f64)>, ChartonError>;
 
     // Methods to get scale type for size encoding
     fn get_size_scale_type_from_layer(&self) -> Option<Scale>;

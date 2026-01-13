@@ -581,177 +581,31 @@ where
         }
     }
 
+    /// Get the X continuous bounds.
     fn get_x_continuous_bounds(&self) -> Result<(f64, f64), ChartonError> {
-        // For charts that don't have x encoding (like pie charts), return default bounds
         if self.encoding.x.is_none() {
             return Ok((0.0, 1.0));
         }
 
         let x_encoding = self.encoding.x.as_ref().expect("X encoding should exist");
         let x_series = self.data.column(&x_encoding.field)?;
-        let x_min_val = x_series.min::<f64>()?.ok_or_else(|| {
-            ChartonError::Data("Failed to calculate minimum value for x-axis".to_string())
+
+        let min_val = x_series.min::<f64>()?.ok_or_else(|| {
+            ChartonError::Data(format!("Failed to calculate min for x-axis: {}", x_encoding.field))
         })?;
-        let x_max_val = x_series.max::<f64>()?.ok_or_else(|| {
-            ChartonError::Data("Failed to calculate maximum value for x-axis".to_string())
-        })?;
-
-        // Handle chart-type-specific logic
-        let (x_min_val, x_max_val) = match self.mark.as_ref().map(|m| m.mark_type()) {
-            // Handle rect charts with bin size adjustment
-            Some("rect") | Some("hist") => {
-                // For rect charts with continuous data, adjust bounds by half bin size
-                let unique_count = x_series.n_unique()?;
-                let bin_size = (x_max_val - x_min_val) / (unique_count as f64);
-                let half_bin_size = bin_size / 2.0;
-
-                // Expand bounds by half bin size
-                (x_min_val - half_bin_size, x_max_val + half_bin_size)
-            }
-            // Default case for all other chart types
-            _ => (x_min_val, x_max_val),
-        };
-
-        // Handle zero-crossing logic
-        let (final_min, final_max) = match x_encoding.zero {
-            Some(true) => {
-                // Force include zero
-                (x_min_val.min(0.0), x_max_val.max(0.0))
-            }
-            _ => (x_min_val, x_max_val),
-        };
-
-        Ok((final_min, final_max))
-    }
-
-    fn get_y_continuous_bounds(&self) -> Result<(f64, f64), ChartonError> {
-        // For charts that don't have y encoding (like pie charts), return default bounds
-        if self.encoding.y.is_none() {
-            return Ok((0.0, 1.0));
-        }
-
-        let y_encoding = self.encoding.y.as_ref().expect("Y encoding should exist");
-        let y_series = self.data.column(&y_encoding.field)?;
-        let y_min_val = y_series.min::<f64>()?.ok_or_else(|| {
-            ChartonError::Data("Failed to calculate minimum value for y-axis".to_string())
-        })?;
-        let y_max_val = y_series.max::<f64>()?.ok_or_else(|| {
-            ChartonError::Data("Failed to calculate maximum value for y-axis".to_string())
+        let max_val = x_series.max::<f64>()?.ok_or_else(|| {
+            ChartonError::Data(format!("Failed to calculate max for x-axis: {}", x_encoding.field))
         })?;
 
-        // Handle chart-type-specific logic with match
-        let (y_min_val, y_max_val) = match self.mark.as_ref().map(|m| m.mark_type()) {
-            // Handle errorbar charts specially - check for min/max columns
-            Some("errorbar") => {
-                // For errorbar charts, we need to consider the min/max values from the calculated columns
-                let (y_min_field, y_max_field) = if let Some(y2_encoding) = &self.encoding.y2 {
-                    // If y2 encoding exists, use y field for min and y2 field for max
-                    (
-                        self.encoding.y.as_ref().unwrap().field.clone(),
-                        y2_encoding.field.clone(),
-                    )
-                } else {
-                    // If no y2 encoding, fall back to auto-generated field names
-                    (
-                        self.encoding
-                            .y
-                            .as_ref()
-                            .map(|y| format!("__charton_temp_{}_min", y.field))
-                            .expect("Y encoding and column ymin required"),
-                        self.encoding
-                            .y
-                            .as_ref()
-                            .map(|y| format!("__charton_temp_{}_max", y.field))
-                            .expect("Y encoding and column ymax required"),
-                    )
-                };
+        // Same logic as Y: Force include zero for bar/area/hist
+        let is_bar_like = self.mark.as_ref().map_or(false, |m| {
+            matches!(m.mark_type(), "bar" | "area" | "hist")
+        });
 
-                // Get min values
-                let y_min_series = self.data.column(&y_min_field)?;
-                let y_min_val = y_min_series.min::<f64>()?.unwrap();
-
-                // Get max values
-                let y_max_series = self.data.column(&y_max_field)?;
-                let y_max_val = y_max_series.max::<f64>()?.unwrap();
-
-                (y_min_val, y_max_val)
-            }
-            // Handle rule charts specially - check for y2 column
-            Some("rule") => {
-                // For rule charts, we need to consider both y and y2 values
-                // Add y2 ranges if y2 column exists
-                if let Some(y2_encoding) = &self.encoding.y2 {
-                    let y2_series = self.data.column(&y2_encoding.field)?;
-                    let y2_min_val = y2_series.min::<f64>()?.unwrap();
-                    let y2_max_val = y2_series.max::<f64>()?.unwrap();
-                    let y_min_val = y_min_val.min(y2_min_val);
-                    let y_max_val = y_max_val.max(y2_max_val);
-
-                    (y_min_val, y_max_val)
-                } else {
-                    (y_min_val, y_max_val)
-                }
-            }
-            // Handle stacked bars specially
-            Some("bar") if y_encoding.stack && self.encoding.color.is_some() => {
-                // For stacked bars, we need to calculate the sum of values for each group
-                // and find the min/max of those sums
-                let group_col = self.encoding.x.as_ref().unwrap().field.clone();
-
-                // Create a DataFrame to work with
-                let df = self.data.df.clone();
-
-                // Group by the group column and sum the values
-                let grouped_sums = df
-                    .lazy()
-                    .group_by_stable([col(group_col)])
-                    .agg([col(&y_encoding.field).sum().alias("sum_values")])
-                    .collect()?;
-
-                if let Ok(sum_series) = grouped_sums.column("sum_values") {
-                    let sum_series = sum_series.as_materialized_series();
-                    let group_min = sum_series.min::<f64>()?.unwrap();
-                    let group_max = sum_series.max::<f64>()?.unwrap();
-
-                    (group_min, group_max)
-                } else {
-                    (y_min_val, y_max_val)
-                }
-            }
-            // Handle rect charts with bin size adjustment
-            Some("rect") => {
-                // For rect charts with continuous data, adjust bounds by half bin size
-                let unique_count = y_series.n_unique()?;
-                let bin_size = (y_max_val - y_min_val) / (unique_count as f64);
-                let half_bin_size = bin_size / 2.0;
-
-                // Expand bounds by half bin size
-                (y_min_val - half_bin_size, y_max_val + half_bin_size)
-            }
-            // Default case for all other chart types
-            _ => (y_min_val, y_max_val),
-        };
-
-        // Handle zero-crossing logic
-        let (final_min, final_max) = match y_encoding.zero {
-            Some(true) => {
-                // Force include zero
-                (y_min_val.min(0.0), y_max_val.max(0.0))
-            }
-            Some(false) => {
-                // Use data range as-is
-                (y_min_val, y_max_val)
-            }
-            None => {
-                let is_supported_mark = self.mark.as_ref().map(|m| {
-                    m.mark_type() == "bar" || m.mark_type() == "hist" || m.mark_type() == "area"
-                });
-                if is_supported_mark.unwrap_or(false) {
-                    (y_min_val.min(0.0), y_max_val.max(0.0))
-                } else {
-                    (y_min_val, y_max_val)
-                }
-            }
+        let (final_min, final_max) = if is_bar_like || x_encoding.zero == Some(true) {
+            (min_val.min(0.0), max_val.max(0.0))
+        } else {
+            (min_val, max_val)
         };
 
         Ok((final_min, final_max))
@@ -776,6 +630,45 @@ where
         Ok(Some(unique_labels))
     }
 
+    fn get_x_encoding_field(&self) -> Option<String> {
+        self.encoding.x.as_ref().map(|x| x.field.clone())
+    }
+
+    fn get_x_scale_type_from_layer(&self) -> Option<Scale> {
+        self.get_x_scale_type()
+    }
+
+    /// Get the Y continuous bounds, following the color-axis implementation pattern.
+    fn get_y_continuous_bounds(&self) -> Result<(f64, f64), ChartonError> {
+        if self.encoding.y.is_none() {
+            return Ok((0.0, 1.0));
+        }
+
+        let y_encoding = self.encoding.y.as_ref().expect("Y encoding should exist");
+        let y_series = self.data.column(&y_encoding.field)?;
+
+        let min_val = y_series.min::<f64>()?.ok_or_else(|| {
+            ChartonError::Data(format!("Failed to calculate min for y-axis: {}", y_encoding.field))
+        })?;
+        let max_val = y_series.max::<f64>()?.ok_or_else(|| {
+            ChartonError::Data(format!("Failed to calculate max for y-axis: {}", y_encoding.field))
+        })?;
+
+        // Simplified zero-inclusion: 
+        // Force true for bar/area/hist, otherwise follow user encoding.
+        let is_bar_like = self.mark.as_ref().map_or(false, |m| {
+            matches!(m.mark_type(), "bar" | "area" | "hist")
+        });
+
+        let (final_min, final_max) = if is_bar_like || y_encoding.zero == Some(true) {
+            (min_val.min(0.0), max_val.max(0.0))
+        } else {
+            (min_val, max_val)
+        };
+
+        Ok((final_min, final_max))
+    }
+
     fn get_y_discrete_tick_labels(&self) -> Result<Option<Vec<String>>, ChartonError> {
         // For charts that don't have y encoding (like pie charts), return None
         if self.encoding.y.is_none() {
@@ -795,28 +688,106 @@ where
         Ok(Some(unique_labels))
     }
 
-    fn get_x_encoding_field(&self) -> Option<String> {
-        self.encoding.x.as_ref().map(|x| x.field.clone())
-    }
-
     fn get_y_encoding_field(&self) -> Option<String> {
         self.encoding.y.as_ref().map(|y| y.field.clone())
-    }
-
-    fn get_x_scale_type_from_layer(&self) -> Option<Scale> {
-        self.get_x_scale_type()
     }
 
     fn get_y_scale_type_from_layer(&self) -> Option<Scale> {
         self.get_y_scale_type()
     }
 
+/// Get the color continuous bounds, following the X-axis implementation pattern.
+    fn get_color_continuous_bounds(&self) -> Result<Option<(f64, f64)>, ChartonError> {
+        // For charts that don't have color encoding, return None 
+        // (Note: Unlike X, we return None here so LayeredChart can skip it)
+        if self.encoding.color.is_none() {
+            return Ok(None);
+        }
+
+        let color_encoding = self.encoding.color.as_ref().expect("Color encoding should exist");
+        let color_series = self.data.column(&color_encoding.field)?;
+        
+        let min_val = color_series.min::<f64>()?.ok_or_else(|| {
+            ChartonError::Data(format!("Failed to calculate minimum value for color field: {}", color_encoding.field))
+        })?;
+        let max_val = color_series.max::<f64>()?.ok_or_else(|| {
+            ChartonError::Data(format!("Failed to calculate maximum value for color field: {}", color_encoding.field))
+        })?;
+
+        Ok(Some((min_val, max_val)))
+    }
+
+    /// Get discrete color labels, following the X-axis implementation pattern.
+    fn get_color_discrete_labels(&self) -> Result<Option<Vec<String>>, ChartonError> {
+        // For charts that don't have color encoding, return None
+        if self.encoding.color.is_none() {
+            return Ok(None);
+        }
+
+        let color_encoding = self.encoding.color.as_ref().expect("Color encoding should exist");
+        
+        // Use unique_stable to preserve data order for the legend
+        let unique_labels = self
+            .data
+            .column(&color_encoding.field)?
+            .unique_stable()?
+            .str()?
+            .into_no_null_iter()
+            .map(|s| s.to_string())
+            .collect::<Vec<String>>();
+
+        if unique_labels.is_empty() {
+            Ok(None)
+        } else {
+            Ok(Some(unique_labels))
+        }
+    }
+
+    /// Simply return the scale type from encoding
     fn get_color_scale_type_from_layer(&self) -> Option<Scale> {
         self.get_color_scale_type()
     }
 
+    // --- Get shape labels (Discrete)---
+    fn get_shape_discrete_labels(&self) -> Result<Option<Vec<String>>, ChartonError> {
+        if self.encoding.shape.is_none() {
+            return Ok(None);
+        }
+
+        let shape_encoding = self.encoding.shape.as_ref().expect("Shape encoding should exist");
+        let unique_labels = self
+            .data
+            .column(&shape_encoding.field)?
+            .unique_stable()?
+            .str()?
+            .into_no_null_iter()
+            .map(|s| s.to_string())
+            .collect::<Vec<String>>();
+
+        Ok(Some(unique_labels))
+    }
+
     fn get_shape_scale_type_from_layer(&self) -> Option<Scale> {
         self.get_shape_scale_type()
+    }
+
+    // --- Get size continuous bounds (Continuous) ---
+    fn get_size_continuous_bounds(&self) -> Result<Option<(f64, f64)>, ChartonError> {
+        if self.encoding.size.is_none() {
+            return Ok(None);
+        }
+
+        let size_encoding = self.encoding.size.as_ref().expect("Size encoding should exist");
+        let size_series = self.data.column(&size_encoding.field)?;
+        
+        let min_val = size_series.min::<f64>()?.ok_or_else(|| {
+            ChartonError::Data(format!("Failed to calculate min for size field: {}", size_encoding.field))
+        })?;
+        let max_val = size_series.max::<f64>()?.ok_or_else(|| {
+            ChartonError::Data(format!("Failed to calculate max for size field: {}", size_encoding.field))
+        })?;
+
+        Ok(Some((min_val, max_val)))
     }
 
     fn get_size_scale_type_from_layer(&self) -> Option<Scale> {

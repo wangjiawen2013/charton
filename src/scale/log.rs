@@ -76,7 +76,7 @@ impl ScaleTrait for LogScale {
     /// Returns the maximum logical value for mapping.
     /// For continuous log scales, this returns 1.0 to support continuous 
     /// visual mapping (like color gradients) over the log-transformed range.
-    fn domain_max(&self) -> f64 {
+    fn logical_max(&self) -> f64 {
         1.0
     }
 

@@ -93,7 +93,7 @@ impl ScaleTrait for DiscreteScale {
 
     /// Returns the maximum logical index of the domain (N - 1).
     /// Used by VisualMapper to index into color palettes or shape lists.
-    fn domain_max(&self) -> f64 {
+    fn logical_max(&self) -> f64 {
         let n = self.domain.len();
         if n == 0 {
             0.0

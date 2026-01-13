@@ -86,11 +86,12 @@ pub trait ScaleTrait {
     /// Returns the expanded domain boundaries (min, max) in data space.
     fn domain(&self) -> (f64, f64);
 
-    /// Returns the maximum logical index or value of the domain.
-    /// Used by mappers to determine the range of discrete colors or shapes.
-    /// * For continuous scales: typically returns 1.0.
-    /// * For discrete scales: returns the count of categories minus one.
-    fn domain_max(&self) -> f64;
+    /// Returns the maximum value in the internal logical space.
+    /// 
+    /// This value is used by VisualMappers to determine the interpolation range:
+    /// * For Continuous scales: returns 1.0 (representing 100% of the range).
+    /// * For Discrete scales: returns (n - 1) as f64 (the last valid index).
+    fn logical_max(&self) -> f64;
 
     /// Generates a list of suggested tick marks for an axis.
     /// * `count`: Suggested number of ticks to generate.
