@@ -11,6 +11,7 @@ use self::discrete::DiscreteScale;
 use self::temporal::TemporalScale;
 
 use time::OffsetDateTime;
+use polars::datatypes::AnyValue;
 
 /// Defines how much a scale's domain should be expanded beyond the data limits.
 /// Following ggplot2, expansion consists of a multiplicative factor and an additive constant.
@@ -177,6 +178,39 @@ pub fn create_scale(
             } else {
                 Err(ChartonError::Scale("Time scale requires Temporal domain".into()))
             }
+        }
+    }
+}
+
+/// Bridges Polars data and Scale normalization using the Scale type as the strategy selector.
+/// 
+/// # Arguments
+/// * `scale_trait` - The resolved scale implementation (Linear, Discrete, etc.)
+/// * `scale_type` - The enum variant defining the mapping strategy.
+/// * `value` - The raw data point from a Polars Series.
+pub fn get_normalized_value(
+    scale_trait: &dyn ScaleTrait,
+    scale_type: &Scale,
+    value: &AnyValue,
+) -> f64 {
+    match scale_type {
+        // STRATEGY: DISCRETE
+        // If the scale is explicitly Discrete, we perform a categorical lookup.
+        Scale::Discrete => {
+            match value {
+                AnyValue::String(s) => scale_trait.normalize_string(s),
+                AnyValue::StringOwned(s) => scale_trait.normalize_string(s.as_str()),
+                // Fallback: convert numeric IDs or other types to string to match discrete domain
+                _ => scale_trait.normalize_string(&value.to_string()),
+            }
+        }
+        // STRATEGY: CONTINUOUS (Linear, Log, Time)
+        // All other scales treat data as a numerical range.
+        _ => {
+            // try_extract is highly optimized for converting various Polars numeric types to f64.
+            value.try_extract::<f64>()
+                .map(|v| scale_trait.normalize(v))
+                .unwrap_or(0.0) // Return 0.0 for Nulls or incompatible types
         }
     }
 }
