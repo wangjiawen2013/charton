@@ -1,3 +1,4 @@
+use crate::visual::color::{ColorMap, ColorPalette};
 use crate::scale::Expansion;
 /// A theme that defines the visual styling properties for plots.
 ///
@@ -58,9 +59,15 @@ pub struct Theme {
     pub(crate) legend_font_size: Option<u32>,
     pub(crate) legend_font_family: Option<String>,
 
+    pub(crate) color_map: ColorMap,
+    pub(crate) color_palette: ColorPalette,
+
     // Expansion for x-axis or y-axis including both min and max expanding
     pub(crate) x_expand: Expansion,
     pub(crate) y_expand: Expansion,
+    pub(crate) color_expand: Expansion,
+    pub(crate) shape_expand: Expansion,
+    pub(crate) size_expand: Expansion,
 
     pub(crate) tick_label_padding: f64,
 }
@@ -95,8 +102,14 @@ impl Default for Theme {
             legend_font_size: None,
             legend_font_family: None,
 
-            x_expand: Expansion { mult: (0.05, 0.05), add: (0.2, 0.3) },
-            y_expand: Expansion { mult: (0.05, 0.05), add: (0.2, 0.3) },
+            color_map: ColorMap::Viridis,
+            color_palette: ColorPalette::Tab10,
+
+            x_expand: Expansion { mult: (0.05, 0.05), add: (0.0, 0.0) },
+            y_expand: Expansion { mult: (0.05, 0.05), add: (0.0, 0.0) },
+            color_expand: Expansion { mult: (0.05, 0.05), add: (0.0, 0.0) },
+            shape_expand: Expansion { mult: (0.05, 0.05), add: (0.0, 0.0) },
+            size_expand: Expansion { mult: (0.05, 0.05), add: (0.0, 0.0) },
 
             tick_label_padding: 3.0,
         }

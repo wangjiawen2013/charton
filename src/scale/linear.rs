@@ -87,7 +87,7 @@ impl ScaleTrait for LinearScale {
     /// Returns the maximum logical value for mapping.
     /// For continuous scales like Linear, this is always 1.0 to represent 
     /// a full 0% to 100% gradient range.
-    fn domain_max(&self) -> f64 {
+    fn logical_max(&self) -> f64 {
         1.0
     }
 

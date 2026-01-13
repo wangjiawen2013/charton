@@ -1,11 +1,11 @@
 use crate::coordinate::{CoordinateTrait, Rect};
+use crate::encode::aesthetics::GlobalAesthetics;
 
 /// `SharedRenderingContext` provides the environmental data and transformation tools 
 /// required by any `Layer` to render its content.
 ///
-/// It encapsulates the coordinate system logic and the physical drawing area (panel).
-/// By using this context, a `Layer` is decoupled from the absolute pixel positions
-/// on the canvas, focusing only on mapping normalized data to the coordinate system.
+/// It encapsulates the coordinate system logic, the physical drawing area (panel),
+/// and the global aesthetic mappings (scales and mappers).
 pub struct SharedRenderingContext<'a> {
     /// The coordinate system used to map normalized values [0, 1] to screen pixels.
     /// Supports any implementation of `CoordinateTrait` (e.g., Cartesian, Polar).
@@ -16,6 +16,10 @@ pub struct SharedRenderingContext<'a> {
 
     /// Global flag to control whether legends should be rendered.
     pub legend: Option<bool>,
+
+    /// Global aesthetic rules (Color, Shape, Size) resolved during the training phase.
+    /// This ensures visual consistency across all layers in the chart.
+    pub aesthetics: GlobalAesthetics,
 }
 
 impl<'a> SharedRenderingContext<'a> {
@@ -24,11 +28,13 @@ impl<'a> SharedRenderingContext<'a> {
         coord: &'a dyn CoordinateTrait,
         panel: Rect,
         legend: Option<bool>,
+        aesthetics: GlobalAesthetics,
     ) -> Self {
         Self {
             coord,
             panel,
             legend,
+            aesthetics,
         }
     }
 

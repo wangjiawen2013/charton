@@ -87,7 +87,7 @@ impl ScaleTrait for TemporalScale {
     /// Returns the maximum logical value for mapping.
     /// For temporal scales, this returns 1.0, treating the time range 
     /// as a continuous dimension for visual encodings like color gradients.
-    fn domain_max(&self) -> f64 {
+    fn logical_max(&self) -> f64 {
         1.0
     }
 

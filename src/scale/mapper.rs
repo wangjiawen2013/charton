@@ -1,5 +1,7 @@
 use crate::visual::shape::PointShape;
 use crate::visual::color::{ColorMap, ColorPalette};
+use crate::scale::Scale;
+use crate::theme::Theme;
 
 /// Defines how data values (after normalization) are mapped to visual properties.
 /// 
@@ -27,17 +29,54 @@ pub enum VisualMapper {
 }
 
 impl VisualMapper {
+    /// Creates a default color mapper based on whether the scale is discrete or continuous.
+    pub fn new_color_default(scale_type: &Scale, theme: &Theme) -> Self {
+        match scale_type {
+            Scale::Discrete => {
+                // Use the categorical palette from the theme
+                VisualMapper::DiscreteColor {
+                    palette: theme.color_palette.clone(),
+                }
+            }
+            _ => {
+                // Use the continuous gradient map from the theme
+                VisualMapper::ContinuousColor {
+                    map: theme.color_map.clone(),
+                }
+            }
+        }
+    }
+
+    /// Creates a default size mapper with a specified physical range (e.g., 2.0 to 20.0).
+    pub fn new_size_default(min: f64, max: f64) -> Self {
+        VisualMapper::Size {
+            range: (min, max),
+        }
+    }
+
+    /// Creates a default shape mapper using the standard geometric shapes.
+    pub fn new_shape_default() -> Self {
+        VisualMapper::Shape {
+            custom_shapes: None, // Will fallback to PointShape::LEGEND_SHAPES
+        }
+    }
+
     /// Maps a normalized value [0.0, 1.0] to a hex color string.
     /// 
     /// # Arguments
     /// * `norm` - The normalized value from the scale (usually 0.0 to 1.0).
-    /// * `domain_max` - The maximum index of the domain (used for discrete mapping).
-    pub fn map_to_color(&self, norm: f64, domain_max: f64) -> String {
+    /// * `logical_max` - The maximum index or logical value (from scale.logical_max()).
+    pub fn map_to_color(&self, norm: f64, logical_max: f64) -> String {
         match self {
-            VisualMapper::ContinuousColor { map } => map.get_color(norm),
+            VisualMapper::ContinuousColor { map } => {
+                // For continuous scales, logical_max is typically 1.0, 
+                // so we map the normalized value directly.
+                map.get_color(norm)
+            },
             VisualMapper::DiscreteColor { palette } => {
-                // Calculate index based on normalization and domain size
-                let index = (norm * domain_max).round() as usize;
+                // For discrete scales, logical_max is (n-1).
+                // We re-scale the 0-1 norm value back to the index space.
+                let index = (norm * logical_max).round() as usize;
                 palette.get_color(index)
             }
             _ => "#000000".to_string(), // Default fallback color
@@ -48,11 +87,11 @@ impl VisualMapper {
     /// 
     /// # Arguments
     /// * `norm` - The normalized value from the scale.
-    /// * `domain_max` - The maximum index of the domain (number of categories - 1).
-    pub fn map_to_shape(&self, norm: f64, domain_max: f64) -> PointShape {
+    /// * `logical_max` - The maximum logical value or index (from scale.logical_max()).
+    pub fn map_to_shape(&self, norm: f64, logical_max: f64) -> PointShape {
         match self {
             VisualMapper::Shape { custom_shapes } => {
-                // Use custom list if provided, otherwise fallback to the built-in legend shapes
+                // Use custom list if provided, otherwise fallback to the built-in default shapes
                 let shapes = custom_shapes
                     .as_deref()
                     .unwrap_or(PointShape::LEGEND_SHAPES);
@@ -61,7 +100,12 @@ impl VisualMapper {
                     return PointShape::Circle; 
                 }
 
-                let index = (norm * domain_max).round() as usize;
+                // logical_max represents (number_of_categories - 1)
+                // We re-scale the [0, 1] norm value back to the index space.
+                let index = (norm * logical_max).round() as usize;
+                
+                // Use modulo to safely handle cases where there are more categories 
+                // than available distinct shapes.
                 shapes[index % shapes.len()].clone()
             }
             _ => PointShape::Circle, // Default fallback shape

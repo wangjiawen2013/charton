@@ -13,3 +13,4 @@ pub(crate) mod rect_renderer;
 pub(crate) mod rule_renderer;
 pub(crate) mod shape_legend_renderer;
 pub(crate) mod size_legend_renderer;
+pub(crate) mod backend;
