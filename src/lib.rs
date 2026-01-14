@@ -25,7 +25,7 @@ pub mod bridge;
 
 pub mod prelude {
     pub use crate::encode::{
-        color::color, encoding::Encoding, shape::shape, size::size,
+        color::color, Encoding, shape::shape, size::size,
         text::text, theta::theta, x::x, y::y, y2::y2,
     };
 
