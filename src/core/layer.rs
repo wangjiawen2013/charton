@@ -1,7 +1,7 @@
 use crate::error::ChartonError;
 use crate::theme::Theme;
 use crate::scale::{Scale, Expansion, ScaleDomain};
-use crate::encode::encoding::Encoding;
+use crate::encode::Encoding;
 use super::context::SharedRenderingContext;
 
 /// Abstract backend for rendering shapes.

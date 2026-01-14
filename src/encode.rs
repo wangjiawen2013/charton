@@ -1,5 +1,4 @@
 pub(crate) mod color;
-pub(crate) mod encoding;
 pub(crate) mod shape;
 pub(crate) mod size;
 pub(crate) mod text;

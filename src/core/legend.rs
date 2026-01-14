@@ -65,7 +65,7 @@ impl LegendManager {
     /// one with a new visual channel (e.g., adding 'shape' to a 'color' legend).
     fn merge_encoding(
         map: &mut HashMap<String, LegendSpec>,
-        enc: &crate::encode::encoding::Encoding, 
+        enc: &crate::encode::Encoding, 
         channel: &str,
         layer: &Box<dyn Layer>
     ) {
