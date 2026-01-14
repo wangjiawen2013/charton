@@ -5,7 +5,7 @@ use crate::core::layer::{MarkRenderer, LegendRenderer, Layer};
 use crate::core::utils::estimate_text_width;
 use crate::core::data::*;
 use crate::core::utils::render_constants::*;
-use crate::encode::encoding::{Encoding, IntoEncoding};
+use crate::encode::{Encoding, IntoEncoding};
 use crate::error::ChartonError;
 use crate::mark::Mark;
 use crate::theme::Theme;
@@ -805,7 +805,7 @@ where
     fn get_scale_type(&self, channel: &str) -> Option<Scale> {
         match channel {
             "color" => self.encoding.color.as_ref()?.scale.clone(),
-            "shape" => self.encoding.shape.as_ref()?.scale.clone(),
+            "shape" => Some(self.encoding.shape.as_ref()?.scale.clone()),
             "size" => Some(self.encoding.size.as_ref()?.scale.clone()),
             _ => None,
         }
