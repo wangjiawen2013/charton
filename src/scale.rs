@@ -103,6 +103,7 @@ impl Scale {
 
 /// A container for input data boundaries (the "Domain").
 /// It ensures type safety when initializing different scale types from Polars data.
+#[derive(Debug, Clone)]
 pub enum ScaleDomain {
     /// For Linear/Log: (min, max)
     Continuous(f64, f64),

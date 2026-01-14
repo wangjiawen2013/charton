@@ -30,27 +30,25 @@ impl LegendManager {
     /// Iterates through all chart layers to collect and unify legend requirements.
     /// This is the "brain" that prevents duplicate legends for the same data field.
     pub fn collect_legends(layers: &[Box<dyn Layer>]) -> Vec<LegendSpec> {
-        use std::collections::HashMap;
-        
         // We use a HashMap keyed by the field name to group different visual 
         // channels that belong to the same data dimension.
         let mut specs_map: HashMap<String, LegendSpec> = HashMap::new();
 
         for layer in layers {
-            // Retrieve all visual encodings defined in this specific layer
-            let encodings = layer.get_all_encodings(); 
+            // Retrieve the central encoding configuration from the layer
+            let encoding = layer.get_encoding();
 
-            // Process Color Encoding
-            if let Some(color_enc) = &encodings.color {
-                Self::merge_encoding(&mut specs_map, color_enc, "color", layer);
+            // Process Color Encoding: check if the layer has a color channel defined
+            if let Some(color_attr) = &encoding.color {
+                Self::merge_channel(&mut specs_map, &color_attr.field, "color", layer);
             }
-            // Process Shape Encoding
-            if let Some(shape_enc) = &encodings.shape {
-                Self::merge_encoding(&mut specs_map, shape_enc, "shape", layer);
+            // Process Shape Encoding: check if the layer has a shape channel defined
+            if let Some(shape_attr) = &encoding.shape {
+                Self::merge_channel(&mut specs_map, &shape_attr.field, "shape", layer);
             }
-            // Process Size Encoding
-            if let Some(size_enc) = &encodings.size {
-                Self::merge_encoding(&mut specs_map, size_enc, "size", layer);
+            // Process Size Encoding: check if the layer has a size channel defined
+            if let Some(size_attr) = &encoding.size {
+                Self::merge_channel(&mut specs_map, &size_attr.field, "size", layer);
             }
         }
 
@@ -63,18 +61,21 @@ impl LegendManager {
 
     /// Helper function to either create a new LegendSpec or update an existing 
     /// one with a new visual channel (e.g., adding 'shape' to a 'color' legend).
-    fn merge_encoding(
+    fn merge_channel(
         map: &mut HashMap<String, LegendSpec>,
-        enc: &crate::encode::Encoding, 
+        field_name: &str,
         channel: &str,
         layer: &Box<dyn Layer>
     ) {
-        let entry = map.entry(enc.field.clone()).or_insert_with(|| {
-            // If the field isn't in the map yet, initialize a fresh Spec
+        // If the field name (e.g., "species") is already in the map, 
+        // we retrieve it to add a new visual channel to the existing legend block.
+        // Otherwise, we initialize a fresh LegendSpec.
+        let entry = map.entry(field_name.to_string()).or_insert_with(|| {
             LegendSpec {
-                title: enc.field.clone(),
-                field: enc.field.clone(),
-                // Extract scale/domain info from the layer's internal logic
+                title: field_name.to_string(),
+                field: field_name.to_string(),
+                // Extract the final scale and domain info from the layer's 
+                // resolved state (calculated by LayeredChart).
                 scale_type: layer.get_scale_type(channel).unwrap_or(Scale::Discrete),
                 domain: layer.get_domain(channel).unwrap_or(ScaleDomain::Categorical(vec![])),
                 has_color: false,
@@ -83,7 +84,8 @@ impl LegendManager {
             }
         });
 
-        // Set the flag for the specific channel being processed
+        // Set the flag for the specific channel being processed (e.g., "color")
+        // This tells the renderer to include color swatches in this legend block.
         match channel {
             "color" => entry.has_color = true,
             "shape" => entry.has_shape = true,
