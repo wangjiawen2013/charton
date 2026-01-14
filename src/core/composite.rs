@@ -1,6 +1,7 @@
 use crate::coordinate::{CoordinateTrait, CoordSystem, Rect, cartesian::Cartesian2D};
 use crate::chart::Chart;
 use crate::core::layer::Layer;
+use crate::core::legend::{LegendSpec, LegendManager};
 use crate::core::context::SharedRenderingContext;
 use crate::scale::{Scale, ScaleDomain, create_scale, mapper::VisualMapper};
 use crate::encode::aesthetics::GlobalAesthetics;
