@@ -12,6 +12,7 @@ use self::temporal::TemporalScale;
 
 use time::OffsetDateTime;
 use polars::datatypes::AnyValue;
+use polars::prelude::*;
 
 /// Defines how much a scale's domain should be expanded beyond the data limits.
 /// Following ggplot2, expansion consists of a multiplicative factor and an additive constant.
@@ -56,6 +57,48 @@ pub enum Scale {
     Discrete,
     /// Temporal mapping: specifically for dates and times.
     Time,
+}
+
+impl Scale {
+    /// Normalizes an entire Polars Series into a Float64Chunked.
+    /// 
+    /// This is the high-performance "Polars-way" of processing data. Instead of
+    /// iterating over AnyValues, it casts the data to the appropriate type and
+    /// applies the normalization in a single pass.
+    pub fn normalize_series(
+        &self,
+        scale_trait: &dyn ScaleTrait,
+        series: &Series,
+    ) -> Result<Float64Chunked, ChartonError> {
+        match self {
+            // CATEGORICAL DATA PATH
+            Scale::Discrete => {
+                // We iterate over the Series once. Polars handles the string extraction
+                // more efficiently than a raw for loop.
+                let out: Float64Chunked = series.iter().map(|val| {
+                    let norm = match val {
+                        AnyValue::String(s) => scale_trait.normalize_string(s),
+                        AnyValue::StringOwned(s) => scale_trait.normalize_string(&s),
+                        _ => scale_trait.normalize_string(&val.to_string()),
+                    };
+                    Some(norm)
+                }).collect();
+                Ok(out)
+            }
+            // NUMERICAL DATA PATH (Linear, Log, Time)
+            _ => {
+                // 1. Cast the entire column to Float64 at once (Vectorized operation)
+                let casted = series.cast(&DataType::Float64)
+                    .map_err(|e| ChartonError::Data(e.to_string()))?;
+                let ca = casted.f64().unwrap();
+                
+                // 2. Apply the mathematical normalization formula
+                // Use .apply() to perform an element-wise transformation on the ChunkedArray.
+                // This is highly efficient as it preserves the underlying memory structure.
+                Ok(ca.apply(|opt_v| opt_v.map(|v| scale_trait.normalize(v))))
+            }
+        }
+    }
 }
 
 /// A container for input data boundaries (the "Domain").
@@ -182,35 +225,27 @@ pub fn create_scale(
     }
 }
 
-/// Bridges Polars data and Scale normalization using the Scale type as the strategy selector.
+/// Bridges Polars data and Scale normalization for single-value access.
 /// 
-/// # Arguments
-/// * `scale_trait` - The resolved scale implementation (Linear, Discrete, etc.)
-/// * `scale_type` - The enum variant defining the mapping strategy.
-/// * `value` - The raw data point from a Polars Series.
+/// NOTE: This is kept for convenience (e.g., Tooltips, Legend generation).
+/// For rendering thousands of points, use `Scale::normalize_series` instead.
 pub fn get_normalized_value(
     scale_trait: &dyn ScaleTrait,
     scale_type: &Scale,
     value: &AnyValue,
 ) -> f64 {
     match scale_type {
-        // STRATEGY: DISCRETE
-        // If the scale is explicitly Discrete, we perform a categorical lookup.
         Scale::Discrete => {
             match value {
                 AnyValue::String(s) => scale_trait.normalize_string(s),
                 AnyValue::StringOwned(s) => scale_trait.normalize_string(s.as_str()),
-                // Fallback: convert numeric IDs or other types to string to match discrete domain
                 _ => scale_trait.normalize_string(&value.to_string()),
             }
         }
-        // STRATEGY: CONTINUOUS (Linear, Log, Time)
-        // All other scales treat data as a numerical range.
         _ => {
-            // try_extract is highly optimized for converting various Polars numeric types to f64.
             value.try_extract::<f64>()
                 .map(|v| scale_trait.normalize(v))
-                .unwrap_or(0.0) // Return 0.0 for Nulls or incompatible types
+                .unwrap_or(0.0)
         }
     }
 }

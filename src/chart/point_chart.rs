@@ -2,7 +2,6 @@ use crate::chart::Chart;
 use crate::mark::point::MarkPoint;
 use crate::visual::shape::PointShape;
 use crate::visual::color::SingleColor;
-use crate::error::ChartonError;
 
 /// Extension implementation for `Chart` to support Scatter Plots (MarkPoint).
 /// 
@@ -78,28 +77,5 @@ impl Chart<MarkPoint> {
         mark.stroke_width = width;
         self.mark = Some(mark);
         self
-    }
-}
-
-/// Implementation of LegendRenderer for Point Charts.
-/// 
-/// This implementation ensures that scatter plots can generate appropriate 
-/// legends for color, shape, and size mappings.
-impl crate::core::layer::LegendRenderer for Chart<MarkPoint> {
-    fn render_legends(
-        &self,
-        svg: &mut String,
-        theme: &crate::theme::Theme,
-        context: &crate::core::context::SharedRenderingContext,
-    ) -> Result<(), ChartonError> {
-        // These renderers handle the complex SVG text layout for legends.
-        // They inspect the 'aesthetics' in the context to determine what to draw.
-        
-        crate::render::colorbar_renderer::render_colorbar(svg, self, theme, context)?;
-        crate::render::color_legend_renderer::render_color_legend(svg, self, theme, context)?;
-        crate::render::size_legend_renderer::render_size_legend(svg, self, theme, context)?;
-        crate::render::shape_legend_renderer::render_shape_legend(svg, self, theme, context)?;
-
-        Ok(())
     }
 }
