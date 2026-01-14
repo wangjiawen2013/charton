@@ -1404,48 +1404,48 @@ impl LayeredChart {
         self
     }
 
-    /// Computes the total space needed on the right side by combining
-    /// the base theme margin and the dynamically calculated legend width.
-    fn calculate_dynamic_right_margin(&self) -> f64 {
-        let draw_x0 = self.left_margin * self.width as f64;
-        let min_plot_width = 200.0;
-
-        // Calculate required legend width
-        let mut total_required_legend_width: f64 = 0.0;
-        for layer in &self.layers {
-            let layer_legend_width = layer.calculate_legend_width(
-                &self.theme,
-                self.height as f64,
-                self.top_margin,
-                self.bottom_margin,
-            );
-            total_required_legend_width = total_required_legend_width.max(layer_legend_width);
-            // Add 10 pixels padding
-            total_required_legend_width += 10.0;
+    /// Dynamically calculates the right margin based on the widest legend spec.
+    /// This ensures that long text labels in the legend don't get clipped.
+    fn calculate_dynamic_right_margin(&self, specs: &[LegendSpec]) -> f64 {
+        if specs.is_empty() {
+            return self.right_margin; // Fallback to default margin
         }
 
-        let base_right_margin_width = self.right_margin * self.width as f64;
-        let initial_plot_w = self.width as f64 - draw_x0 - base_right_margin_width;
-
-        if initial_plot_w < min_plot_width {
-            let required_right_margin_width = self.width as f64 - draw_x0 - min_plot_width;
-            required_right_margin_width / self.width as f64
-        } else if total_required_legend_width > base_right_margin_width {
-            let additional_width_needed = total_required_legend_width - base_right_margin_width;
-            let new_plot_w = initial_plot_w - additional_width_needed;
-
-            if new_plot_w >= min_plot_width {
-                (total_required_legend_width / self.width as f64).max(self.right_margin)
-            } else {
-                let max_compression = initial_plot_w - min_plot_width;
-                let actual_compression = additional_width_needed.min(max_compression);
-                let final_right_margin =
-                    base_right_margin_width + (additional_width_needed - actual_compression);
-                final_right_margin / self.width as f64
-            }
-        } else {
-            self.right_margin
+        let mut max_width = 0.0;
+        for spec in specs {
+            // Perform text width estimation based on the LegendSpec content
+            let w = self.estimate_legend_spec_width(spec);
+            max_width = max_width.max(w);
         }
+        
+        // Convert pixel width to a percentage of the total chart width
+        (max_width + 20.0) / self.width as f64
+    }
+
+    /// The main render entry point, now enhanced with unified legend handling.
+    pub fn render(&self, svg: &mut String) -> Result<(), ChartonError> {
+        // A. PRE-RENDER PHASE: Collect all necessary legend specs
+        let legend_specs = LegendManager::collect_legends(&self.layers);
+
+        // B. LAYOUT PHASE: Resolve coordinates using the dynamic margins 
+        // derived from our collected legend specs.
+        let (coord_box, panel, aesthetics) = self.resolve_rendering_layout(&legend_specs)?;
+
+        // ... (Drawing Axes and Marks as before) ...
+
+        // C. LEGEND PHASE: Render the legends using the unified specifications.
+        // We stack them vertically starting from the top of the plot panel.
+        let mut current_y = panel.y; 
+        for spec in legend_specs {
+            // The renderer returns the vertical height consumed by the legend 
+            // so we can offset the next one below it.
+            let height_used = crate::render::legend_renderer::render_single_legend(
+                svg, &spec, current_y, &self.theme, &context
+            )?;
+            current_y += height_used + 10.0; // 10px vertical padding between legends
+        }
+
+        Ok(())
     }
 
     /// Resolves the final rendering layout and global aesthetic scales by consolidating metadata.

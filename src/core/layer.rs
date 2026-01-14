@@ -1,6 +1,7 @@
 use crate::error::ChartonError;
 use crate::theme::Theme;
-use crate::scale::{Scale, Expansion};
+use crate::scale::{Scale, Expansion, ScaleDomain};
+use crate::encode::encoding::Encoding;
 use super::context::SharedRenderingContext;
 
 /// Abstract backend for rendering shapes.
@@ -90,6 +91,9 @@ pub trait LegendRenderer {
 }
 
 /// `Layer` is the core trait for the layered grammar of graphics in Charton.
+/// The Layer trait defines the interface for any renderable component of a chart.
+/// It provides methods for both the data-to-geometry rendering and the 
+/// metadata inspection required for axes and legends.
 /// 
 /// It integrates metadata discovery (for axis and scale calculation) 
 /// with the actual rendering logic by combining `MarkRenderer` and `LegendRenderer`.
@@ -163,6 +167,20 @@ pub trait Layer: MarkRenderer + LegendRenderer {
     /// Method to get preferred axis expanding for this layer
     fn preferred_x_axis_expanding(&self) -> Expansion;
     fn preferred_y_axis_expanding(&self) -> Expansion;
+
+    /// Returns a reference to the encoding configuration of this layer.
+    /// This allows the LegendManager to see which data fields are mapped 
+    /// to which visual channels (Color, Shape, Size, etc.).
+    fn get_encoding(&self) -> &Encoding;
+
+    /// Returns the Scale type associated with a specific visual channel.
+    /// * `channel`: The name of the channel (e.g., "color", "shape", "size").
+    fn get_scale_type(&self, channel: &str) -> Option<Scale>;
+
+    /// Returns the resolved Data Domain for a specific visual channel.
+    /// The domain contains the unique values (discrete) or min/max (continuous) 
+    /// needed to draw legend labels.
+    fn get_domain(&self, channel: &str) -> Option<ScaleDomain>;
 
     // --- Layout Calculation ---
 

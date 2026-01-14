@@ -1,6 +1,6 @@
 pub mod point_chart;
 
-use crate::scale::{Expansion, Scale};
+use crate::scale::{Expansion, Scale, ScaleDomain};
 use crate::core::layer::{MarkRenderer, LegendRenderer, Layer};
 use crate::core::utils::estimate_text_width;
 use crate::core::data::*;
@@ -794,6 +794,33 @@ where
 
     fn get_size_scale_type_from_layer(&self) -> Option<Scale> {
         self.get_size_scale_type()
+    }
+
+    /// Simply returns the internal encoding struct.
+    fn get_encoding(&self) -> &Encoding {
+        &self.encoding
+    }
+
+    /// Inspects the specific channel in the encoding and returns its scale.
+    fn get_scale_type(&self, channel: &str) -> Option<Scale> {
+        match channel {
+            "color" => self.encoding.color.as_ref()?.scale.clone(),
+            "shape" => self.encoding.shape.as_ref()?.scale.clone(),
+            "size" => Some(self.encoding.size.as_ref()?.scale.clone()),
+            _ => None,
+        }
+    }
+
+    /// Inspects the specific channel in the encoding and returns its domain.
+    /// Note: This assumes the domain has been resolved (calculated from data) 
+    /// during the chart's initialization or pre-render phase.
+    fn get_domain(&self, channel: &str) -> Option<ScaleDomain> {
+        match channel {
+            "color" => self.encoding.color.as_ref()?.domain.clone(),
+            "shape" => self.encoding.shape.as_ref()?.domain.clone(),
+            "size" => self.encoding.size.as_ref()?.domain.clone(),
+            _ => None,
+        }
     }
 
     fn calculate_legend_width(
