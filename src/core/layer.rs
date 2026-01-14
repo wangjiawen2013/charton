@@ -6,18 +6,61 @@ use super::context::SharedRenderingContext;
 /// Abstract backend for rendering shapes.
 /// Implementations could be SvgBackend (String) or WgpuBackend (GPU Buffers).
 pub trait RenderBackend {
-    fn draw_circle(&mut self, x: f64, y: f64, radius: f64, color: &str, opacity: f64);
-    fn draw_rect(&mut self, x: f64, y: f64, width: f64, height: f64, color: &str);
-    fn draw_path(&mut self, points: &[(f64, f64)], stroke_color: &str, stroke_width: f64);
-    fn draw_polygon(&mut self, points: &[(f64, f64)], color: &str, opacity: f64);
-    fn draw_circle_with_stroke(
+    /// Draws a circle with optional fill and stroke.
+    fn draw_circle(
         &mut self,
         x: f64,
         y: f64,
         radius: f64,
-        fill: &str,
-        stroke: &str,
+        fill: Option<&str>,
+        stroke: Option<&str>,
         stroke_width: f64,
+        opacity: f64,
+    );
+
+    /// Draws a rectangle with optional fill and stroke.
+    fn draw_rect(
+        &mut self,
+        x: f64,
+        y: f64,
+        width: f64,
+        height: f64,
+        fill: Option<&str>,
+        stroke: Option<&str>,
+        stroke_width: f64,
+        opacity: f64,
+    );
+
+    /// Draws an open path (e.g., for lines or curves) with a stroke.
+    fn draw_path(
+        &mut self, 
+        points: &[(f64, f64)], 
+        stroke: &str, 
+        stroke_width: f64, 
+        opacity: f64
+    );
+
+    /// Draws a closed polygon with optional fill and stroke.
+    fn draw_polygon(
+        &mut self,
+        points: &[(f64, f64)],
+        fill: Option<&str>,
+        stroke: Option<&str>,
+        stroke_width: f64,
+        opacity: f64,
+    );
+
+    /// Renders text with specific alignment and weight.
+    fn draw_text(
+        &mut self,
+        text: &str,
+        x: f64,
+        y: f64,
+        font_size: f64,
+        font_family: &str,
+        color: &str,
+        text_anchor: &str, // "start", "middle", "end"
+        font_weight: &str, // "normal", "bold"
         opacity: f64,
     );
     // other methods for drawing lines, etc.

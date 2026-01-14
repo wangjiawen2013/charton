@@ -26,49 +26,83 @@ impl<'a> SvgBackend<'a> {
 }
 
 impl<'a> RenderBackend for SvgBackend<'a> {
-    /// Draws a circle as an SVG <circle> element.
-    fn draw_circle(&mut self, x: f64, y: f64, radius: f64, color: &str, opacity: f64) {
-        let fill = self.format_color(color);
+    /// Renders a circle. If fill/stroke is None, it is set to "none".
+    fn draw_circle(
+        &mut self,
+        x: f64,
+        y: f64,
+        radius: f64,
+        fill: Option<&str>,
+        stroke: Option<&str>,
+        stroke_width: f64,
+        opacity: f64,
+    ) {
+        let f = fill.map(|c| self.format_color(c)).unwrap_or_else(|| "none".to_string());
+        let s = stroke.map(|c| self.format_color(c)).unwrap_or_else(|| "none".to_string());
+        
         let _ = writeln!(
             self.buffer,
-            r#"<circle cx="{:.3}" cy="{:.3}" r="{:.3}" fill="{}" fill-opacity="{:.3}" />"#,
-            x, y, radius, fill, opacity
+            r#"<circle cx="{:.3}" cy="{:.3}" r="{:.3}" fill="{}" stroke="{}" stroke-width="{:.3}" fill-opacity="{:.3}" stroke-opacity="{:.3}" />"#,
+            x, y, radius, f, s, stroke_width, opacity, opacity
         );
     }
 
-    /// Draws a rectangle as an SVG <rect> element.
-    fn draw_rect(&mut self, x: f64, y: f64, width: f64, height: f64, color: &str) {
-        let fill = self.format_color(color);
+    /// Renders a rectangle. Useful for bar charts or panel backgrounds.
+    fn draw_rect(
+        &mut self,
+        x: f64,
+        y: f64,
+        width: f64,
+        height: f64,
+        fill: Option<&str>,
+        stroke: Option<&str>,
+        stroke_width: f64,
+        opacity: f64,
+    ) {
+        let f = fill.map(|c| self.format_color(c)).unwrap_or_else(|| "none".to_string());
+        let s = stroke.map(|c| self.format_color(c)).unwrap_or_else(|| "none".to_string());
+
         let _ = writeln!(
             self.buffer,
-            r#"<rect x="{:.3}" y="{:.3}" width="{:.3}" height="{:.3}" fill="{}" />"#,
-            x, y, width, height, fill
+            r#"<rect x="{:.3}" y="{:.3}" width="{:.3}" height="{:.3}" fill="{}" stroke="{}" stroke-width="{:.3}" fill-opacity="{:.3}" stroke-opacity="{:.3}" />"#,
+            x, y, width, height, f, s, stroke_width, opacity, opacity
         );
     }
 
-    fn draw_path(&mut self, points: &[(f64, f64)], stroke_color: &str, stroke_width: f64) {
+    /// Renders a multi-point path. Commonly used for geom_line.
+    fn draw_path(&mut self, points: &[(f64, f64)], stroke: &str, stroke_width: f64, opacity: f64) {
         if points.is_empty() { return; }
         
         let mut path_data = String::new();
         for (i, (px, py)) in points.iter().enumerate() {
             if i == 0 {
-                write!(path_data, "M {:.3} {:.3}", px, py).unwrap();
+                let _ = write!(path_data, "M {:.3} {:.3}", px, py);
             } else {
-                write!(path_data, " L {:.3} {:.3}", px, py).unwrap();
+                let _ = write!(path_data, " L {:.3} {:.3}", px, py);
             }
         }
 
         let _ = writeln!(
             self.buffer,
-            r#"<path d="{}" stroke="{}" stroke-width="{:.3}" fill="none" />"#,
-            path_data, stroke_color, stroke_width
+            r#"<path d="{}" stroke="{}" stroke-width="{:.3}" stroke-opacity="{:.3}" fill="none" stroke-linejoin="round" stroke-linecap="round" />"#,
+            path_data, stroke, stroke_width, opacity
         );
     }
 
-    /// Draws complex shapes (Triangle, Star, Diamond) as an SVG <polygon> element.
-    /// This is highly efficient as it reduces multiple draw calls into a single path.
-    fn draw_polygon(&mut self, points: &[(f64, f64)], color: &str, opacity: f64) {
-        let fill = self.format_color(color);
+    /// Renders a closed polygon. Used for complex point shapes (triangles, diamonds) or area charts.
+    fn draw_polygon(
+        &mut self,
+        points: &[(f64, f64)],
+        fill: Option<&str>,
+        stroke: Option<&str>,
+        stroke_width: f64,
+        opacity: f64,
+    ) {
+        if points.is_empty() { return; }
+        
+        let f = fill.map(|c| self.format_color(c)).unwrap_or_else(|| "none".to_string());
+        let s = stroke.map(|c| self.format_color(c)).unwrap_or_else(|| "none".to_string());
+        
         let pts_str = points
             .iter()
             .map(|(px, py)| format!("{:.3},{:.3}", px, py))
@@ -77,30 +111,29 @@ impl<'a> RenderBackend for SvgBackend<'a> {
 
         let _ = writeln!(
             self.buffer,
-            r#"<polygon points="{}" fill="{}" fill-opacity="{:.3}" />"#,
-            pts_str, fill, opacity
+            r#"<polygon points="{}" fill="{}" stroke="{}" stroke-width="{:.3}" fill-opacity="{:.3}" stroke-opacity="{:.3}" />"#,
+            pts_str, f, s, stroke_width, opacity, opacity
         );
     }
 
-    /// Extension: Implementation of stroke support for Marks.
-    /// In a sophisticated SVG backend, we could combine fill and stroke into one tag.
-    /// Here, we can add a specialized method or handle it within existing ones.
-    fn draw_circle_with_stroke(
+    /// Renders text. Handles basic XML escaping for safety.
+    fn draw_text(
         &mut self,
+        text: &str,
         x: f64,
         y: f64,
-        radius: f64,
-        fill: &str,
-        stroke: &str,
-        stroke_width: f64,
+        font_size: f64,
+        font_family: &str,
+        color: &str,
+        text_anchor: &str,
+        font_weight: &str,
         opacity: f64,
     ) {
-        let f = self.format_color(fill);
-        let s = self.format_color(stroke);
+        let safe_text = text.replace('&', "&amp;").replace('<', "&lt;").replace('>', "&gt;");
         let _ = writeln!(
             self.buffer,
-            r#"<circle cx="{:.3}" cy="{:.3}" r="{:.3}" fill="{}" stroke="{}" stroke-width="{:.3}" fill-opacity="{:.3}" />"#,
-            x, y, radius, f, s, stroke_width, opacity
+            r#"<text x="{:.3}" y="{:.3}" font-size="{:.1}" font-family="{}" fill="{}" fill-opacity="{:.3}" text-anchor="{}" font-weight="{}">{}</text>"#,
+            x, y, font_size, font_family, color, opacity, text_anchor, font_weight, safe_text
         );
     }
 }
