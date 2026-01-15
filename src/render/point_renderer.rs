@@ -1,4 +1,4 @@
-use crate::core::layer::{MarkRenderer, LegendRenderer, RenderBackend};
+use crate::core::layer::{MarkRenderer, RenderBackend};
 use crate::core::context::SharedRenderingContext;
 use crate::chart::Chart;
 use crate::mark::point::MarkPoint;
@@ -189,26 +189,5 @@ impl Chart<MarkPoint> {
                 (cx + r * angle.cos(), cy + r * angle.sin())
             })
             .collect()
-    }
-}
-
-// ============================================================================
-// LEGEND RENDERING
-// ============================================================================
-
-impl LegendRenderer for Chart<MarkPoint> {
-    fn render_legends(
-        &self,
-        svg: &mut String,
-        theme: &crate::theme::Theme,
-        context: &SharedRenderingContext,
-    ) -> Result<(), ChartonError> {
-        // Delegates to specialized sub-renderers for legend components
-        crate::render::colorbar_renderer::render_colorbar(svg, self, theme, context)?;
-        crate::render::color_legend_renderer::render_color_legend(svg, self, theme, context)?;
-        crate::render::size_legend_renderer::render_size_legend(svg, self, theme, context)?;
-        crate::render::shape_legend_renderer::render_shape_legend(svg, self, theme, context)?;
-
-        Ok(())
     }
 }

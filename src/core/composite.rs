@@ -1,7 +1,7 @@
 use crate::coordinate::{CoordinateTrait, CoordSystem, Rect, cartesian::Cartesian2D};
 use crate::chart::Chart;
 use crate::core::layer::Layer;
-use crate::core::legend::{LegendSpec, LegendManager};
+use crate::core::legend::{LegendSpec, LegendPosition};
 use crate::core::context::SharedRenderingContext;
 use crate::scale::{Scale, ScaleDomain, create_scale, mapper::VisualMapper};
 use crate::encode::aesthetics::GlobalAesthetics;
@@ -75,6 +75,13 @@ pub struct LayeredChart {
 
     legend: Option<bool>,
     legend_title: Option<String>,
+    /// The strategic placement of the legend block.
+    /// This property triggers dynamic margin adjustments during the layout phase.
+    pub(crate) legend_position: LegendPosition,
+
+    /// The spacing (in pixels) between the plot area and the legend.
+    /// Acts as a buffer to prevent visual crowding.
+    pub(crate) legend_margin: f64,
 
     background: Option<String>,
     axes: Option<bool>,
@@ -142,6 +149,8 @@ impl LayeredChart {
 
             legend: None,
             legend_title: None,
+            legend_position: LegendPosition::Right,
+            legend_margin: 15.0,
 
             background: Some("white".to_string()),
             axes: None,
@@ -293,7 +302,7 @@ impl LayeredChart {
     ///
     /// Returns the chart instance for method chaining
     ///
-    pub fn with_title_font_size(mut self, size: u32) -> Self {
+    pub fn with_title_font_size(mut self, size: f64) -> Self {
         self.theme.title_font_size = size;
         self
     }
@@ -722,7 +731,7 @@ impl LayeredChart {
     ///
     /// Returns the chart instance for method chaining
     ///
-    pub fn with_tick_label_font_size(mut self, size: u32) -> Self {
+    pub fn with_tick_label_font_size(mut self, size: f64) -> Self {
         self.theme.tick_label_font_size = size;
         self
     }
@@ -773,7 +782,7 @@ impl LayeredChart {
     ///
     /// Returns the chart instance for method chaining
     ///
-    pub fn with_label_font_size(mut self, size: u32) -> Self {
+    pub fn with_label_font_size(mut self, size: f64) -> Self {
         self.theme.label_font_size = size;
         self
     }
@@ -874,7 +883,7 @@ impl LayeredChart {
     ///
     /// Returns the chart instance for method chaining
     ///
-    pub fn with_legend_font_size(mut self, size: u32) -> Self {
+    pub fn with_legend_font_size(mut self, size: f64) -> Self {
         self.theme.legend_font_size = Some(size);
         self
     }
@@ -893,6 +902,50 @@ impl LayeredChart {
     ///
     pub fn with_legend_font_family(mut self, family: impl Into<String>) -> Self {
         self.theme.legend_font_family = Some(family.into());
+        self
+    }
+
+    /// Set the position of the chart legend.
+    ///
+    /// Configures where the legend is placed relative to the plot area. 
+    /// Changing the position automatically adjusts the internal margins:
+    /// - `Left` / `Right`: Legends are stacked vertically, reducing the plot width.
+    /// - `Top` / `Bottom`: Legends are arranged horizontally (flow layout), reducing the plot height.
+    /// - `None`: Disables the legend rendering entirely.
+    ///
+    /// # Arguments
+    ///
+    /// * `position` - The `LegendPosition` variant (Top, Bottom, Left, Right, or None).
+    ///
+    /// # Returns
+    ///
+    /// Returns the chart instance for method chaining.
+    ///
+    /// # Example
+    ///
+    /// ```
+    /// let chart = LayeredChart::new()
+    ///     .with_legend_position(LegendPosition::Bottom);
+    /// ```
+    pub fn with_legend_position(mut self, position: LegendPosition) -> Self {
+        self.legend_position = position;
+        self
+    }
+
+    /// Set the spacing between the plot area and the legend.
+    ///
+    /// This defines the buffer zone (in pixels) that prevents the legend from 
+    /// overlapping with axis titles or labels.
+    ///
+    /// # Arguments
+    ///
+    /// * `margin_px` - The buffer space in pixels.
+    ///
+    /// # Returns
+    ///
+    /// Returns the chart instance for method chaining.
+    pub fn with_legend_margin(mut self, margin_px: f64) -> Self {
+        self.legend_margin = margin_px;
         self
     }
 
@@ -929,8 +982,6 @@ impl LayeredChart {
         self.axes = Some(show);
         self
     }
-
-
 
     /// Consolidates X-axis data domains across all layers.
     /// 
@@ -1405,50 +1456,10 @@ impl LayeredChart {
         self
     }
 
-    /// Dynamically calculates the right margin (in pixels) based on unified legend specs.
-    /// This ensures that long text labels in the legend don't get clipped.
-    /// 
-    /// It accounts for the legend title, visual symbols (swatches), 
-    /// spacing, and the widest data label in the domain.
-    fn calculate_dynamic_right_margin(&self, specs: &[LegendSpec]) -> f64 {
-        if specs.is_empty() || !self.legend {
-            return self.right_margin * self.width as f64; // Return default pixel margin
-        }
-
-        let mut max_legend_width = 0.0;
-        
-        for spec in specs {
-            // 1. Calculate the width of the longest label in the domain
-            let max_label_len = match &spec.domain {
-                ScaleDomain::Categorical(labels) => labels.iter()
-                    .map(|l| l.len())
-                    .max()
-                    .unwrap_or(0),
-                ScaleDomain::Continuous(min, max) => {
-                    // Estimate length of formatted numbers (e.g., "-1234.56")
-                    format!("{:.2}", min).len().max(format!("{:.2}", max).len())
-                }
-            };
-
-            // 2. Estimate width in pixels: 
-            // Symbol (20px) + Spacing (8px) + Text (Approx 60% of font size per char)
-            let symbol_part = 20.0 + 8.0;
-            let text_part = max_label_len as f64 * (self.theme.legend_font_size as f64 * 0.6);
-            let title_part = spec.title.len() as f64 * (self.theme.legend_font_size as f64 * 0.7);
-
-            // The width of this legend block is determined by its widest element
-            let spec_width = symbol_part + text_part.max(title_part);
-            max_legend_width = max_legend_width.max(spec_width);
-        }
-
-        // Add a safety buffer for the legend area
-        max_legend_width + 40.0 
-    }
-
     /// Resolves the final rendering layout and global aesthetic scales by consolidating metadata.
     /// 
     /// This function performs the "Training Phase" of the chart:
-    /// 1. **Geometry**: Calculates the plot area based on dynamic margins from legends.
+    /// 1. **Geometry**: Calculates the plot area (Panel) by calling the LayoutEngine.
     /// 2. **Coordinates**: Resolves X and Y scales and constructs the Coordinate System.
     /// 3. **Aesthetics**: Aggregates Color, Size, and Shape domains to create global Mappers.
     ///
@@ -1456,52 +1467,56 @@ impl LayeredChart {
     /// * `legend_specs` - The unified legend specifications used to calculate dynamic margins.
     fn resolve_rendering_layout(&self, legend_specs: &[LegendSpec]) -> Result<(Box<dyn CoordinateTrait>, Rect, GlobalAesthetics), ChartonError> {
         // --- 1. Geometry: Calculate the physical drawing panel ---
-        // We use pixels for all internal layout calculations to ensure precision
-        let total_right_margin_px = self.calculate_dynamic_right_margin(legend_specs);
-        let left_margin_px = self.left_margin * self.width as f64;
-        let top_margin_px = self.top_margin * self.height as f64;
-        let bottom_margin_px = self.bottom_margin * self.height as f64;
-        
-        let plot_w = self.width as f64 - left_margin_px - total_right_margin_px;
-        let plot_h = self.height as f64 - top_margin_px - bottom_margin_px;
-
-        let panel = Rect::new(
-            left_margin_px,
-            top_margin_px,
-            plot_w,
-            plot_h,
+        // We delegate the complex estimation of legend sizes to the LayoutEngine.
+        let legend_box = crate::core::layout::LayoutEngine::calculate_legend_constraints(
+            legend_specs,
+            self.legend_position,
+            self.legend_margin,
+            &self.theme
         );
+        
+        // Add legend constraints (pixels) to the user-defined proportional margins.
+        // This ensures the plot panel "shrinks" to make room for titles and legends.
+        let left_margin_px = (self.left_margin * self.width as f64) + legend_box.left;
+        let right_margin_px = (self.right_margin * self.width as f64) + legend_box.right;
+        let top_margin_px = (self.top_margin * self.height as f64) + legend_box.top;
+        let bottom_margin_px = (self.bottom_margin * self.height as f64) + legend_box.bottom;
+        
+        // Calculate final plot dimensions
+        let plot_w = (self.width as f64 - left_margin_px - right_margin_px).max(0.0);
+        let plot_h = (self.height as f64 - top_margin_px - bottom_margin_px).max(0.0);
+
+        // Define the target rectangle where all data marks will be rendered.
+        let panel = Rect::new(left_margin_px, top_margin_px, plot_w, plot_h);
 
         // --- 2. Coordinate Scales: Resolve X and Y ---
+        // The process involves retrieving raw domains from layers and applying user overrides.
+        
         // Resolve X Scale
         let x_scale = if let Some((stype, mut domain)) = self.get_x_domain_from_layers()? {
-            // Apply user-defined domain overrides for continuous scales
             if let ScaleDomain::Continuous(ref mut min, ref mut max) = domain {
                 if let Some(u_min) = self.x_domain_min { *min = u_min; }
                 if let Some(u_max) = self.x_domain_max { *max = u_max; }
             }
             create_scale(&stype, domain, self.theme.x_expand)?
         } else {
-            // Fallback for empty charts or marks without X encoding
             create_scale(&Scale::Linear, ScaleDomain::Continuous(0.0, 1.0), self.theme.x_expand)?
         };
 
         // Resolve Y Scale
         let y_scale = if let Some((stype, mut domain)) = self.get_y_domain_from_layers()? {
-            // Apply user-defined domain overrides for continuous scales
             if let ScaleDomain::Continuous(ref mut min, ref mut max) = domain {
                 if let Some(u_min) = self.y_domain_min { *min = u_min; }
                 if let Some(u_max) = self.y_domain_max { *max = u_max; }
             }
             create_scale(&stype, domain, self.theme.y_expand)?
         } else {
-            // Fallback for empty charts or marks without Y encoding
             create_scale(&Scale::Linear, ScaleDomain::Continuous(0.0, 1.0), self.theme.y_expand)?
         };
 
         // --- 3. Aesthetic Scales: Color, Size, and Shape ---
+        // These scales ensure that shared visual properties (like color) are consistent across all layers.
         
-        // Resolve Color Scale & Mapper
         let color_bundle = if let Some((scale_type, domain)) = self.get_color_domain_from_layers()? {
             let scale = create_scale(&scale_type, domain, self.theme.color_expand)?;
             let mapper = VisualMapper::new_color_default(&scale_type, &self.theme);
@@ -1510,7 +1525,6 @@ impl LayeredChart {
             None
         };
 
-        // Resolve Shape Scale & Mapper (Always Discrete for shapes)
         let shape_bundle = if let Some(domain) = self.get_shape_domain_from_layers()? {
             let scale = create_scale(&Scale::Discrete, domain, self.theme.shape_expand)?;
             let mapper = VisualMapper::new_shape_default();
@@ -1519,10 +1533,8 @@ impl LayeredChart {
             None
         };
 
-        // Resolve Size Scale & Mapper (Always Continuous for size magnitude)
         let size_bundle = if let Some(domain) = self.get_size_domain_from_layers()? {
             let scale = create_scale(&Scale::Linear, domain, self.theme.size_expand)?;
-            // Maps domain values to a physical pixel range (e.g., 2.0px to 20.0px)
             let mapper = VisualMapper::new_size_default(2.0, 20.0);
             Some((scale, mapper))
         } else {
@@ -1530,6 +1542,7 @@ impl LayeredChart {
         };
 
         // --- 4. Coordinate System Factory ---
+        // Construct the final coordinate engine that maps data values to the resolved Panel.
         let coord_box: Box<dyn CoordinateTrait> = match self.coord_system {
             CoordSystem::Cartesian2D => {
                 Box::new(Cartesian2D::new(x_scale, y_scale, self.flipped))
@@ -1548,28 +1561,78 @@ impl LayeredChart {
         Ok((coord_box, panel, aesthetics))
     }
 
+    /// Renders the chart title at the top-center of the SVG canvas.
+    /// 
+    /// The title's appearance (font size, family, and color) is determined by the 
+    /// current theme. If no title is provided in the chart configuration, 
+    /// this method returns early without modifying the SVG string.
+    fn render_title(&self, svg: &mut String) -> Result<(), ChartonError> {
+        // If no title is defined, there is nothing to render.
+        let title_text = match &self.title {
+            Some(t) => t,
+            None => return Ok(()),
+        };
+
+        // Calculate the horizontal center of the SVG canvas.
+        let center_x = self.width as f64 / 2.0;
+        
+        // Position the title slightly below the top edge. 
+        // We use an offset of roughly 25 pixels, but this could be 
+        // linked to top_margin in a more complex layout.
+        let top_offset = 25.0;
+
+        // Extract styling metadata from the theme.
+        let font_size = self.theme.title_font_size;
+        let font_family = &self.theme.title_font_family;
+        let font_color = &self.theme.title_color;
+
+        // Generate the SVG <text> element.
+        // text-anchor="middle" ensures the center_x is the midpoint of the string.
+        let title_tag = format!(
+            r#"<text x="{}" y="{}" text-anchor="middle" font-family="{}" font-size="{}" fill="{}">{}</text>"#,
+            center_x,
+            top_offset,
+            font_family,
+            font_size,
+            font_color,
+            title_text
+        );
+
+        // Append the title element to the SVG buffer.
+        svg.push_str(&title_tag);
+        svg.push('\n');
+
+        Ok(())
+    }
+
     /// Renders the entire layered chart to the provided SVG string.
     ///
     /// This implementation follows the Grammar of Graphics pipeline:
-    /// 1. Sync: Consolidate data domains across all layers.
+    /// 1. Sync: Consolidate data domains across all layers to ensure visual consistency.
     /// 2. Back-fill: Update layers with unified scale/domain metadata.
-    /// 3. Layout: Calculate plot area using dynamic margins.
-    /// 4. Draw: Render axes, marks, and unified legends.
-    pub fn render(&mut self, svg: &mut String) -> Result<(), ChartonError> {
-        // 0. Guard: If no layers exist, we render nothing
-        if self.layers.is_empty() { return Ok(()); }
+    /// 3. Layout: Calculate plot area (Panel) using dynamic margins and legend dimensions.
+    /// 4. Draw: Render axes, marks, and unified legends using the resolved context.
+    /// 
+    /// This method takes ownership of self (mut self) and returns it back to 
+    /// the caller, supporting a one-time fluent generation pipeline.
+    pub fn render(mut self, svg: &mut String) -> Result<Self, ChartonError> {
+        // 0. Guard: If no layers exist, we render nothing.
+        if self.layers.is_empty() { 
+            return Ok(self); 
+        }
 
         // --- STEP 1: SYNC & BACK-FILL PHASE ---
-        // Calculate global domains from all layers to ensure visual consistency
+        // Calculate global domains from all layers to ensure visual consistency 
+        // across the entire chart (e.g., "Red" always means the same category).
         let global_color = self.get_color_domain_from_layers()?;
         let global_shape = self.get_shape_domain_from_layers()?;
         let global_size = self.get_size_domain_from_layers()?;
 
-        // Back-fill: Update each layer with the unified global metadata
-        // This ensures every layer uses the same mapping for the same data field.
+        // Back-fill: Update each layer with the unified global metadata.
+        // This synchronization is a core requirement of the Grammar of Graphics.
         for layer in self.layers.iter_mut() {
             if let Some((scale, domain)) = &global_color {
-                layer.set_scale("color", scale.clone());
+                layer.set_scale_type("color", scale.clone());
                 layer.set_domain("color", domain.clone());
             }
             if let Some(domain) = &global_shape {
@@ -1581,25 +1644,33 @@ impl LayeredChart {
         }
 
         // --- STEP 2: LEGEND COLLECTION ---
-        // Collect unified legend specifications based on the updated layer metadata
+        // Collect unified legend specifications after the back-fill phase.
+        // The LegendManager aggregates requirements from all layers into unique guides.
         let legend_specs = crate::core::legend::LegendManager::collect_legends(&self.layers);
 
         // --- STEP 3: LAYOUT RESOLUTION ---
-        // Resolve the coordinate system and plot area, accounting for legend width
+        // Resolve the coordinate system and plot area (Panel).
+        // This step accounts for chart margins and the space required by the legend position.
         let (coord_box, panel, aesthetics) = self.resolve_rendering_layout(&legend_specs)?; 
 
+        // Construct the SharedRenderingContext.
+        // Note: 'panel' here is the "squeezed" area reserved strictly for data marks,
+        // while legend_position and legend_margin inform the renderers about the environment.
         let context = SharedRenderingContext {
             coord: &*coord_box, 
             panel,
-            legend: self.legend,
+            legend_position: self.legend_position,
+            legend_margin: self.legend_margin,
             aesthetics,
         };
 
         // --- STEP 4: DRAWING PHASE ---
-        // 5. Render Chart Title
+        
+        // 5. Render Chart Title (if defined in the chart metadata)
         self.render_title(svg)?;
 
-        // 6. Render Axes (X and Y)
+        // 6. Render Axes (X and Y) 
+        // We determine if axes are needed by checking chart-level overrides or layer requirements.
         let should_render_axes = self.axes.unwrap_or_else(|| {
             self.layers.iter().any(|layer| layer.requires_axes())
         });
@@ -1607,18 +1678,26 @@ impl LayeredChart {
             crate::render::axis_renderer::render_axes(svg, &self.theme, &context)?;
         }
 
-        // 7. Render Marks (Data points, lines, bars, etc.)
+        // 7. Render Marks (Data Geometries)
+        // Each layer draws its specific marks (points, lines, etc.) within the context's panel.
         let mut backend = crate::render::backend::svg::SvgBackend::new(svg);
         for layer in &self.layers {
             layer.render_marks(&mut backend, &context)?;
         }
 
         // 8. Render Unified Legends
-        // Draw the aggregated legend blocks on the right side of the chart
-        crate::render::legend_renderer::render_legends(svg, &legend_specs, &self.theme, &context)?;
+        // The LegendRenderer uses the context to position itself relative to the panel.
+        // We map the internal error to ChartonError to maintain the public API contract.
+        crate::render::legend_renderer::LegendRenderer::render_legend(
+            svg, 
+            &legend_specs, 
+            &self.theme, 
+            &context
+        ).map_err(|e| ChartonError::RenderError(e.to_string()))?;
 
-        Ok(())
-    }
+        // Return the chart instance to allow for one-time fluent generation chains.
+        Ok(self)
+    } 
 
     // Generate the SVG content for the chart
     fn generate_svg(&self) -> Result<String, ChartonError> {

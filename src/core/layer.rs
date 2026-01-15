@@ -67,25 +67,11 @@ pub trait RenderBackend {
     // other methods for drawing lines, etc.
 }
 
-/// Trait for rendering chart marks.
+/// Trait for rendering the actual geometric marks (points, lines, bars).
 pub trait MarkRenderer {
-    /// Generic rendering method that doesn't care about the output format.
     fn render_marks(
         &self,
-        backend: &mut dyn RenderBackend, // svg backend, wgpu backend etc.
-        context: &SharedRenderingContext,
-    ) -> Result<(), ChartonError>;
-}
-
-
-/// Trait for rendering chart legends.
-///
-/// Defines how legend elements are drawn based on the current theme and context.
-pub trait LegendRenderer {
-    fn render_legends(
-        &self,
-        svg: &mut String,
-        theme: &Theme,
+        backend: &mut dyn RenderBackend,
         context: &SharedRenderingContext,
     ) -> Result<(), ChartonError>;
 }
@@ -111,7 +97,7 @@ pub trait LegendRenderer {
 /// - Getting axis scales
 /// - Calculating legend width
 /// - Checking if axes should be swapped
-pub trait Layer: MarkRenderer + LegendRenderer {
+pub trait Layer: MarkRenderer {
     // --- Axis & Scale Metadata ---
 
     /// Returns true if this layer requires axes to be drawn (most charts do).
@@ -167,6 +153,28 @@ pub trait Layer: MarkRenderer + LegendRenderer {
     /// Method to get preferred axis expanding for this layer
     fn preferred_x_axis_expanding(&self) -> Expansion;
     fn preferred_y_axis_expanding(&self) -> Expansion;
+
+    // --- State Back-filling (The "Training" ("resolve_rendering_layout") Phase) ---
+
+    /// Sets the resolved Scale type for a specific visual channel.
+    /// 
+    /// This is called by the LayeredChart during the rendering pipeline to ensure
+    /// all layers use a consistent scale type (e.g., forcing a Linear scale to Log 
+    /// if another layer requires it).
+    ///
+    /// * `channel`: The name of the visual channel (e.g., "color", "size").
+    /// * `scale`: The resolved Scale enum to apply.
+    fn set_scale_type(&mut self, channel: &str, scale: Scale);
+
+    /// Sets the resolved Data Domain for a specific visual channel.
+    /// 
+    /// This is the key "back-fill" step. The LayeredChart calculates a unified 
+    /// domain (e.g., global Min/Max) from all layers and pushes it back into 
+    /// each individual layer to ensure visual synchronization across the chart.
+    ///
+    /// * `channel`: The name of the visual channel (e.g., "color", "shape", "size").
+    /// * `domain`: The unified ScaleDomain calculated from the entire dataset.
+    fn set_domain(&mut self, channel: &str, domain: ScaleDomain);
 
     /// Returns a reference to the encoding configuration of this layer.
     /// This allows the LegendManager to see which data fields are mapped 

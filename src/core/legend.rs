@@ -11,9 +11,9 @@ pub struct LegendSpec {
     /// The underlying data column name used for this mapping
     pub field: String,
     /// The scale type (e.g., Linear, Log, Discrete) to determine how labels are formatted
-    pub scale_type: crate::scale::Scale,
+    pub scale_type: Scale,
     /// The unique data values (domain) that need to be represented in the legend
-    pub domain: crate::scale::ScaleDomain,
+    pub domain: ScaleDomain,
     
     // Flags to indicate which visual properties are merged into this legend block
     /// If true, the legend will display color swatches
@@ -22,6 +22,32 @@ pub struct LegendSpec {
     pub has_shape: bool,
     /// If true, the legend will display symbols of varying sizes
     pub has_size: bool,
+}
+
+/// Defines the visual placement of the legend relative to the plot area.
+/// 
+/// Following the Grammar of Graphics, the legend position determines not only 
+/// its coordinates but also the layout orientation (Horizontal for Top/Bottom, 
+/// Vertical for Left/Right).
+#[derive(Debug, Clone, Copy, PartialEq)]
+pub enum LegendPosition {
+    /// Placed above the plot area. Items are typically arranged horizontally.
+    Top,
+    /// Placed below the plot area. Items are typically arranged horizontally.
+    Bottom,
+    /// Placed to the left of the plot area. Items are arranged vertically.
+    Left,
+    /// Placed to the right of the plot area. Items are arranged vertically.
+    Right,
+    /// The legend is not rendered, maximizing the space for the plot area.
+    None,
+}
+
+impl Default for LegendPosition {
+    /// Default position is 'Right', which is the standard for most statistical charts.
+    fn default() -> Self {
+        LegendPosition::Right
+    }
 }
 
 pub struct LegendManager;

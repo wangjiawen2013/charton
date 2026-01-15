@@ -1,7 +1,7 @@
 pub mod point_chart;
 
 use crate::scale::{Expansion, Scale, ScaleDomain};
-use crate::core::layer::{MarkRenderer, LegendRenderer, Layer};
+use crate::core::layer::{MarkRenderer, Layer};
 use crate::core::utils::estimate_text_width;
 use crate::core::data::*;
 use crate::core::utils::render_constants::*;
@@ -525,7 +525,7 @@ impl<T: Mark> Chart<T> {
 impl<T> Layer for Chart<T>
 where
     T: crate::mark::Mark,
-    Chart<T>: MarkRenderer + LegendRenderer,
+    Chart<T>: MarkRenderer,
 {
     fn requires_axes(&self) -> bool {
         // For pie charts (which use MarkArc), don't show axes
@@ -794,6 +794,52 @@ where
 
     fn get_size_scale_type_from_layer(&self) -> Option<Scale> {
         self.get_size_scale_type()
+    }
+
+    /// Sets the resolved Scale type for a specific visual channel.
+    /// This updates the internal encoding configuration to align with the global chart scale.
+    fn set_scale_type(&mut self, channel: &str, scale: Scale) {
+        match channel {
+            "color" => {
+                if let Some(ref mut color_encoding) = self.encoding.color {
+                    color_encoding.scale = Some(scale);
+                }
+            }
+            "size" => {
+                if let Some(ref mut size_encoding) = self.encoding.size {
+                    // Size usually uses a continuous scale (e.g., Linear)
+                    size_encoding.scale = scale;
+                }
+            }
+            // Note: Shape is typically fixed to Scale::Discrete in Grammar of Graphics,
+            // but we can add handling here if your implementation requires dynamic shape scales.
+            _ => {}
+        }
+    }
+
+    /// Sets the resolved Data Domain for a specific visual channel.
+    /// This "back-fills" the global domain calculated by LayeredChart into this specific layer.
+    fn set_domain(&mut self, channel: &str, domain: ScaleDomain) {
+        match channel {
+            "color" => {
+                if let Some(ref mut color_encoding) = self.encoding.color {
+                    color_encoding.domain = Some(domain);
+                }
+            }
+            "shape" => {
+                if let Some(ref mut shape_encoding) = self.encoding.shape {
+                    shape_encoding.domain = Some(domain);
+                }
+            }
+            "size" => {
+                if let Some(ref mut size_encoding) = self.encoding.size {
+                    size_encoding.domain = Some(domain);
+                }
+            }
+            // For x and y, the domains are usually managed by the Coordinate System,
+            // but if your layers store them, add matching logic for "x" and "y" here.
+            _ => {}
+        }
     }
 
     /// Simply returns the internal encoding struct.

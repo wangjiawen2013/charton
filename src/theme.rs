@@ -28,12 +28,12 @@ use crate::scale::Expansion;
 #[derive(Clone)]
 pub struct Theme {
     // Title properties
-    pub(crate) title_font_size: u32,
+    pub(crate) title_font_size: f64,
     pub(crate) title_font_family: String,
     pub(crate) title_color: String,
 
     // Axis label properties
-    pub(crate) label_font_size: u32,
+    pub(crate) label_font_size: f64,
     pub(crate) label_font_family: String,
     pub(crate) label_color: String,
     pub(crate) label_angle: f64,
@@ -43,7 +43,7 @@ pub struct Theme {
     pub(crate) y_label_padding: f64,
 
     // Tick label properties
-    pub(crate) tick_label_font_size: u32,
+    pub(crate) tick_label_font_size: f64,
     pub(crate) tick_label_font_family: String,
     pub(crate) tick_label_color: String,
 
@@ -56,8 +56,15 @@ pub struct Theme {
     pub(crate) tick_stroke_width: f64,
 
     // Legend properties
-    pub(crate) legend_font_size: Option<u32>,
+    pub(crate) legend_font_size: Option<f64>,
     pub(crate) legend_font_family: Option<String>,
+    pub(crate) legent_label_color: String,
+
+    // Legend Layout (Add these)
+    pub(crate) legend_margin: f64,       // Space between plot panel and legend
+    pub(crate) legend_block_spacing: f64, // Space between different legend blocks (e.g., Color vs Shape)
+    pub(crate) legend_item_spacing: f64,  // Space between items within a legend
+    pub(crate) legend_title_padding: f64, // Space between legend title and its items
 
     pub(crate) color_map: ColorMap,
     pub(crate) color_palette: ColorPalette,
@@ -77,11 +84,11 @@ impl Default for Theme {
         let font_stack = "Inter, -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, 'PingFang SC', 'Microsoft YaHei', Ubuntu, Cantarell, 'Noto Sans', sans-serif".to_string();
 
         Self {
-            title_font_size: 18,
+            title_font_size: 18.0,
             title_font_family: font_stack.clone(),
             title_color: "#333".to_string(),
 
-            label_font_size: 15,
+            label_font_size: 15.0,
             label_font_family: font_stack.clone(),
             label_color: "#333".to_string(),
             label_angle: 0.0,
@@ -89,7 +96,7 @@ impl Default for Theme {
             x_label_padding: 15.0,
             y_label_padding: 15.0,
 
-            tick_label_font_size: 13,
+            tick_label_font_size: 13.0,
             tick_label_font_family: font_stack,
             tick_label_color: "#333".to_string(),
 
@@ -101,6 +108,12 @@ impl Default for Theme {
 
             legend_font_size: None,
             legend_font_family: None,
+            legent_label_color: "#333".to_string(),
+
+            legend_margin: 25.0,
+            legend_block_spacing: 40.0,
+            legend_item_spacing: 12.0,
+            legend_title_padding: 8.0,
 
             color_map: ColorMap::Viridis,
             color_palette: ColorPalette::Tab10,
