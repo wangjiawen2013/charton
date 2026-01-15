@@ -1,5 +1,4 @@
 use crate::error::ChartonError;
-use crate::theme::Theme;
 use crate::scale::{Scale, Expansion, ScaleDomain};
 use crate::encode::Encoding;
 use super::context::SharedRenderingContext;
