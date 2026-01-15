@@ -325,6 +325,7 @@ name = "charton"
 version = "0.2.1"
 dependencies = [
  "base64",
+ "dyn-clone",
  "itertools",
  "kernel-density-estimation",
  "num-traits",
