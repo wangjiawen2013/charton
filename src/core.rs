@@ -5,4 +5,3 @@ pub mod composite;
 pub mod legend;
 pub mod conversion;
 pub mod layout;
-pub mod utils;
