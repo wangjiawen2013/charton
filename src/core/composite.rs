@@ -45,6 +45,7 @@ use crate::error::ChartonError;
 /// * `legend_title` - Optional title for the legend
 /// * `background` - Optional background color
 /// * `axes` - Optional flag to show/hide axes
+#[derive(Clone)]
 pub struct LayeredChart {
     width: u32,
     height: u32,
