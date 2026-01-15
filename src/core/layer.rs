@@ -2,6 +2,7 @@ use crate::error::ChartonError;
 use crate::scale::{Scale, Expansion, ScaleDomain};
 use crate::encode::Encoding;
 use super::context::SharedRenderingContext;
+use dyn_clone::{clone_trait_object, DynClone};
 
 /// Abstract backend for rendering shapes.
 /// Implementations could be SvgBackend (String) or WgpuBackend (GPU Buffers).
@@ -96,7 +97,10 @@ pub trait MarkRenderer {
 /// - Getting axis scales
 /// - Calculating legend width
 /// - Checking if axes should be swapped
-pub trait Layer: MarkRenderer {
+///
+/// The Layer trait supports cloning of trait objects.
+/// This allows LayeredChart to be cloned even though it contains Boxed traits.
+pub trait Layer: MarkRenderer + DynClone {
     // --- Axis & Scale Metadata ---
 
     /// Returns true if this layer requires axes to be drawn (most charts do).
@@ -189,3 +193,6 @@ pub trait Layer: MarkRenderer {
     /// needed to draw legend labels.
     fn get_domain(&self, channel: &str) -> Option<ScaleDomain>;
 }
+
+// This line is crucial: it implements the Clone trait for all Box<dyn Layer> types via a macro.
+clone_trait_object!(Layer);

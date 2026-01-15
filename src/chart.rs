@@ -7,6 +7,7 @@ use crate::encode::{Encoding, IntoEncoding};
 use crate::error::ChartonError;
 use crate::mark::Mark;
 use crate::visual::color::{ColorMap, ColorPalette};
+use dyn_clone::DynClone;
 use polars::prelude::*;
 
 /// Generic Chart structure - chart-specific properties only
@@ -522,7 +523,7 @@ impl<T: Mark> Chart<T> {
 impl<T> Layer for Chart<T>
 where
     T: crate::mark::Mark,
-    Chart<T>: MarkRenderer,
+    Chart<T>: MarkRenderer + DynClone,
 {
     fn requires_axes(&self) -> bool {
         // For pie charts (which use MarkArc), don't show axes
