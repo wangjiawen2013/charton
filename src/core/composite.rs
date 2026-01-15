@@ -1696,18 +1696,31 @@ impl LayeredChart {
         Ok(())
     }
 
-    /// Generate the SVG content for the chart.
-    /// Internal helper: Consumes a clone of the chart to generate SVG.
-    /// This keeps the original chart intact for multiple calls.
+    /// Generates the complete SVG string for the chart.
+    /// 
+    /// This method serves as the core rendering entry point. To maintain the original 
+    /// chart state (the "recipe") for potential multiple exports (e.g., saving as 
+    /// both SVG and PNG), it performs the following:
+    /// 1. Creates a decoupled clone of itself.
+    /// 2. Executes the stateful "Training Phase" and drawing logic on the clone.
+    /// 3. Wraps the result in standard SVG XML headers and background elements.
+    ///
+    /// # Returns
+    /// A Result containing the full SVG markup string or a ChartonError.
     fn generate_svg(&self) -> Result<String, ChartonError> {
         let mut svg_content = String::new();
-        // 1. SVG Header & Background...
+
+        // 1. SVG Header & ViewBox Setup
+        // We define the width, height, and viewBox to ensure the chart scales 
+        // correctly across different screen resolutions and aspect ratios.
         svg_content.push_str(&format!(
             r#"<svg width="{}" height="{}" viewBox="0 0 {} {}" xmlns="http://www.w3.org/2000/svg">"#,
             self.width, self.height, self.width, self.height
         ));
 
-        // Add background rectangle if background is specified
+        // 2. Background Layer
+        // If a background color is specified in the chart configuration, 
+        // we render a full-size rectangle as the first element.
         if let Some(ref bg_color) = self.background {
             svg_content.push_str(&format!(
                 r#"<rect width="100%" height="100%" fill="{}" />"#,
@@ -1715,12 +1728,17 @@ impl LayeredChart {
             ));
         }
 
-        // 2. Clone and Render
-        // We clone 'self' here. This copy will be consumed by render().
+        // 3. Local State Training & Rendering
+        // Because the rendering process (specifically the Sync/Back-fill phase) 
+        // mutates internal scales and domains to ensure visual consistency, 
+        // we operate on a mutable clone. This preserves 'self' for future calls.
         let mut chart_instance = self.clone();
+        
+        // Pass the mutable reference of the clone to the rendering pipeline.
         chart_instance.render(&mut svg_content)?;
 
-        // Close SVG tag
+        // 4. Finalize SVG Document
+        // Close the root SVG tag to complete the XML structure.
         svg_content.push_str("</svg>");
 
         Ok(svg_content)
