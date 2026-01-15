@@ -1614,12 +1614,10 @@ impl LayeredChart {
     /// 3. Layout: Calculate plot area (Panel) using dynamic margins and legend dimensions.
     /// 4. Draw: Render axes, marks, and unified legends using the resolved context.
     /// 
-    /// This method takes ownership of self (mut self) and returns it back to 
-    /// the caller, supporting a one-time fluent generation pipeline.
-    pub fn render(mut self, svg: &mut String) -> Result<Self, ChartonError> {
+    pub fn render(&mut self, svg: &mut String) -> Result<(), ChartonError> {
         // 0. Guard: If no layers exist, we render nothing.
         if self.layers.is_empty() { 
-            return Ok(self); 
+            return Ok(()); 
         }
 
         // --- STEP 1: SYNC & BACK-FILL PHASE ---
@@ -1688,7 +1686,6 @@ impl LayeredChart {
 
         // 8. Render Unified Legends
         // The LegendRenderer uses the context to position itself relative to the panel.
-        // We map the internal error to ChartonError to maintain the public API contract.
         crate::render::legend_renderer::LegendRenderer::render_legend(
             svg, 
             &legend_specs, 
@@ -1696,14 +1693,15 @@ impl LayeredChart {
             &context
         );
 
-        // Return the chart instance to allow for one-time fluent generation chains.
-        Ok(self)
-    } 
+        Ok(())
+    }
 
-    // Generate the SVG content for the chart
+    /// Generate the SVG content for the chart.
+    /// Internal helper: Consumes a clone of the chart to generate SVG.
+    /// This keeps the original chart intact for multiple calls.
     fn generate_svg(&self) -> Result<String, ChartonError> {
         let mut svg_content = String::new();
-        // Add SVG header with viewBox for better scaling
+        // 1. SVG Header & Background...
         svg_content.push_str(&format!(
             r#"<svg width="{}" height="{}" viewBox="0 0 {} {}" xmlns="http://www.w3.org/2000/svg">"#,
             self.width, self.height, self.width, self.height
@@ -1717,8 +1715,10 @@ impl LayeredChart {
             ));
         }
 
-        // Render the chart content
-        self.render(&mut svg_content)?;
+        // 2. Clone and Render
+        // We clone 'self' here. This copy will be consumed by render().
+        let mut chart_instance = self.clone();
+        chart_instance.render(&mut svg_content)?;
 
         // Close SVG tag
         svg_content.push_str("</svg>");
