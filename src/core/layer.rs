@@ -189,15 +189,4 @@ pub trait Layer: MarkRenderer {
     /// The domain contains the unique values (discrete) or min/max (continuous) 
     /// needed to draw legend labels.
     fn get_domain(&self, channel: &str) -> Option<ScaleDomain>;
-
-    // --- Layout Calculation ---
-
-    /// Calculates the horizontal space required to render this layer's legend.
-    fn calculate_legend_width(
-        &self,
-        theme: &Theme,
-        chart_height: f64,
-        top_margin: f64,
-        bottom_margin: f64,
-    ) -> f64;
 }

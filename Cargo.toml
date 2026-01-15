@@ -19,6 +19,7 @@ kernel-density-estimation = "0.2"
 uuid = { version = "1.19", features = ["v7"] }
 ordered-float = "5.1"
 resvg = "0.45"
+dyn-clone = "1.0"
 
 # --- Conditional Compilation Block ---
 # Only add the 'ipc' feature when the target architecture is not wasm32.

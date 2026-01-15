@@ -1693,7 +1693,7 @@ impl LayeredChart {
             &legend_specs, 
             &self.theme, 
             &context
-        ).map_err(|e| ChartonError::RenderError(e.to_string()))?;
+        );
 
         // Return the chart instance to allow for one-time fluent generation chains.
         Ok(self)
