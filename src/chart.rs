@@ -2,13 +2,10 @@ pub mod point_chart;
 
 use crate::scale::{Expansion, Scale, ScaleDomain};
 use crate::core::layer::{MarkRenderer, Layer};
-use crate::core::utils::estimate_text_width;
 use crate::core::data::*;
-use crate::core::utils::render_constants::*;
 use crate::encode::{Encoding, IntoEncoding};
 use crate::error::ChartonError;
 use crate::mark::Mark;
-use crate::theme::Theme;
 use crate::visual::color::{ColorMap, ColorPalette};
 use polars::prelude::*;
 
