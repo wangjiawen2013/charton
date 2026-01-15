@@ -1,5 +1,6 @@
 use crate::coordinate::{CoordinateTrait, Rect};
 use crate::encode::aesthetics::GlobalAesthetics;
+use crate::core::legend::{self, LegendPosition};
 
 /// `SharedRenderingContext` provides the environmental data and transformation tools 
 /// required by any `Layer` to render its content.
@@ -14,8 +15,8 @@ pub struct SharedRenderingContext<'a> {
     /// The physical rectangular area (in pixels) designated for the plot.
     pub panel: Rect,
 
-    /// Global flag to control whether legends should be rendered.
-    pub legend: Option<bool>,
+    pub legend_position: LegendPosition,
+    pub legend_margin: f64,
 
     /// Global aesthetic rules (Color, Shape, Size) resolved during the training phase.
     /// This ensures visual consistency across all layers in the chart.
@@ -27,13 +28,15 @@ impl<'a> SharedRenderingContext<'a> {
     pub fn new(
         coord: &'a dyn CoordinateTrait,
         panel: Rect,
-        legend: Option<bool>,
+        legend_position: LegendPosition,
+        legend_margin: f64,
         aesthetics: GlobalAesthetics,
     ) -> Self {
         Self {
             coord,
             panel,
-            legend,
+            legend_position,
+            legend_margin,
             aesthetics,
         }
     }
