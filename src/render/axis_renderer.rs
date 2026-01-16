@@ -150,18 +150,23 @@ fn draw_ticks_and_labels(
     Ok(())
 }
 
-/// Draws the axis title (X or Y label) with dynamic positioning.
+/// Draws the axis title (X or Y label) with dynamic collision avoidance.
 ///
-/// This function calculates the optimal placement for axis titles. For the Y-axis, 
-/// it performs a "look-ahead" on tick labels using `estimate_text_width` to ensure 
-/// the title does not overlap with data labels of varying lengths.
+/// This function calculates the optimal placement for axis titles by measuring 
+/// the space occupied by tick labels. 
+///
+/// For the X-axis: It ensures the title is placed below the tick labels by 
+/// accounting for the label font size and user-defined padding.
+///
+/// For the Y-axis: It performs a "Look-Ahead" on tick labels using `estimate_text_width` 
+/// to push the title leftwards, preventing overlap with varying data lengths.
 ///
 /// # Arguments
 /// * `svg` - The mutable string buffer to append SVG elements to.
-/// * `theme` - Visual configuration for fonts, colors, and spacing.
-/// * `ctx` - Shared context providing access to the panel layout and coordinate scales.
-/// * `label` - The text string to display as the axis title.
-/// * `is_visual_x` - Flag indicating if this is the horizontal (bottom) or vertical (left) axis.
+/// * `theme` - Visual configuration including font families, sizes, and padding.
+/// * `ctx` - Shared context providing access to the panel dimensions and coordinate scales.
+/// * `label` - The text string to display (e.g., "Weight (1000 lbs)").
+/// * `is_visual_x` - Direction flag: true for horizontal (bottom), false for vertical (left).
 fn draw_axis_title(
     svg: &mut String,
     theme: &Theme,
@@ -169,19 +174,34 @@ fn draw_axis_title(
     label: &str,
     is_visual_x: bool,
 ) -> Result<(), ChartonError> {
+    // Exit early if there is no label to render.
     if label.is_empty() { return Ok(()); }
     
     let panel = &ctx.panel;
     let coord = ctx.coord;
 
+    // Standard metric for tick line length
+    let tick_line_len = 6.0;
+    let safety_buffer = 5.0;
+
     if is_visual_x {
         // --- HORIZONTAL (X) AXIS TITLE ---
-        // Positioned centrally relative to the plotting panel's width.
+        
+        // 1. Center the text horizontally relative to the plotting panel.
         let x = panel.x + panel.width / 2.0;
         
-        // Vertical position accounts for the panel bottom, theme padding, 
-        // and a fixed buffer for tick labels.
-        let y = panel.y + panel.height + theme.x_label_padding + 25.0; 
+        // 2. Dynamic Vertical Offset:
+        // We need to clear the Tick Line and the Tick Labels.
+        // For horizontal text, the 'height' is roughly the font size.
+        // We also add half the title's own font size to measure padding from the edge.
+        let title_half_thickness = theme.label_font_size / 2.0;
+        let tick_label_height = theme.tick_label_font_size;
+
+        // Total vertical offset from the bottom axis line:
+        // offset = tick_line + tick_label_height + buffer + user_padding + title_half_thickness
+        let v_offset = tick_line_len + tick_label_height + safety_buffer + theme.x_label_padding + title_half_thickness;
+        
+        let y = panel.y + panel.height + v_offset; 
         
         writeln!(
             svg, 
@@ -191,29 +211,33 @@ fn draw_axis_title(
     } else {
         // --- VERTICAL (Y) AXIS TITLE ---
         
-        // 1. Resolve the correct scale based on the chart's flip state.
+        // 1. Resolve the active scale for the visual left axis.
         let target_scale = if coord.is_flipped() { 
             coord.get_x_scale() 
         } else { 
             coord.get_y_scale() 
         };
         
-        // 2. Dynamic Collision Detection:
-        // Calculate the maximum visual width of the tick labels using the 
-        // custom character-weighted estimation logic in layout.rs.
+        // 2. Dynamic Width Measurement:
+        // Identify the widest tick label to prevent title collision using 
+        // the character-weighted estimation logic.
         let ticks = target_scale.ticks(8);
         let max_tick_width = ticks.iter()
             .map(|t| crate::core::layout::estimate_text_width(&t.label, theme.tick_label_font_size))
             .fold(0.0, f64::max);
 
-        // 3. Coordinate Calculation:
-        // The offset pushes the title leftwards to clear the tick marks and labels.
-        // Formula: tick_line(6.0) + weighted_text_width + user_padding + buffer(5.0).
-        let offset = 6.0 + max_tick_width + theme.y_label_padding + 5.0;
-        let x = panel.x - offset; 
+        // 3. Coordinate Calculation (Edge-based Offset):
+        // Calculate the offset to the title's center, ensuring padding 
+        // is measured from the title's right edge.
+        let title_half_thickness = theme.label_font_size / 2.0;
+
+        // Total Horizontal Offset from the left axis line:
+        let h_offset = tick_line_len + max_tick_width + safety_buffer + theme.y_label_padding + title_half_thickness;
+        
+        let x = panel.x - h_offset; 
         let y = panel.y + panel.height / 2.0;
         
-        // Render the text with a -90 degree rotation centered on the calculated point.
+        // 4. SVG Rendering with -90 degree rotation.
         writeln!(
             svg, 
             r#"<text x="{:.2}" y="{:.2}" text-anchor="middle" font-size="{}" font-family="{}" fill="{}" font-weight="bold" transform="rotate(-90, {:.2}, {:.2})">{}</text>"#,
