@@ -1,4 +1,5 @@
 use crate::core::context::SharedRenderingContext;
+use crate::core::layout::estimate_text_width;
 use crate::theme::Theme;
 use crate::error::ChartonError;
 use std::fmt::Write;
@@ -149,7 +150,18 @@ fn draw_ticks_and_labels(
     Ok(())
 }
 
-/// Draws the axis title (X or Y label).
+/// Draws the axis title (X or Y label) with dynamic positioning.
+///
+/// This function calculates the optimal placement for axis titles. For the Y-axis, 
+/// it performs a "look-ahead" on tick labels using `estimate_text_width` to ensure 
+/// the title does not overlap with data labels of varying lengths.
+///
+/// # Arguments
+/// * `svg` - The mutable string buffer to append SVG elements to.
+/// * `theme` - Visual configuration for fonts, colors, and spacing.
+/// * `ctx` - Shared context providing access to the panel layout and coordinate scales.
+/// * `label` - The text string to display as the axis title.
+/// * `is_visual_x` - Flag indicating if this is the horizontal (bottom) or vertical (left) axis.
 fn draw_axis_title(
     svg: &mut String,
     theme: &Theme,
@@ -158,11 +170,17 @@ fn draw_axis_title(
     is_visual_x: bool,
 ) -> Result<(), ChartonError> {
     if label.is_empty() { return Ok(()); }
+    
     let panel = &ctx.panel;
+    let coord = ctx.coord;
 
     if is_visual_x {
-        // Positioned centrally below the plotting panel.
+        // --- HORIZONTAL (X) AXIS TITLE ---
+        // Positioned centrally relative to the plotting panel's width.
         let x = panel.x + panel.width / 2.0;
+        
+        // Vertical position accounts for the panel bottom, theme padding, 
+        // and a fixed buffer for tick labels.
         let y = panel.y + panel.height + theme.x_label_padding + 25.0; 
         
         writeln!(
@@ -171,10 +189,31 @@ fn draw_axis_title(
             x, y, theme.label_font_size, theme.label_font_family, theme.label_color, label
         )?;
     } else {
-        // Positioned to the left of the plotting panel and rotated 90 degrees.
-        let x = panel.x - (theme.y_label_padding + 35.0); 
+        // --- VERTICAL (Y) AXIS TITLE ---
+        
+        // 1. Resolve the correct scale based on the chart's flip state.
+        let target_scale = if coord.is_flipped() { 
+            coord.get_x_scale() 
+        } else { 
+            coord.get_y_scale() 
+        };
+        
+        // 2. Dynamic Collision Detection:
+        // Calculate the maximum visual width of the tick labels using the 
+        // custom character-weighted estimation logic in layout.rs.
+        let ticks = target_scale.ticks(8);
+        let max_tick_width = ticks.iter()
+            .map(|t| crate::core::layout::estimate_text_width(&t.label, theme.tick_label_font_size))
+            .fold(0.0, f64::max);
+
+        // 3. Coordinate Calculation:
+        // The offset pushes the title leftwards to clear the tick marks and labels.
+        // Formula: tick_line(6.0) + weighted_text_width + user_padding + buffer(5.0).
+        let offset = 6.0 + max_tick_width + theme.y_label_padding + 5.0;
+        let x = panel.x - offset; 
         let y = panel.y + panel.height / 2.0;
         
+        // Render the text with a -90 degree rotation centered on the calculated point.
         writeln!(
             svg, 
             r#"<text x="{:.2}" y="{:.2}" text-anchor="middle" font-size="{}" font-family="{}" fill="{}" font-weight="bold" transform="rotate(-90, {:.2}, {:.2})">{}</text>"#,
