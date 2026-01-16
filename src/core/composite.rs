@@ -1673,8 +1673,19 @@ impl LayeredChart {
         let should_render_axes = self.axes.unwrap_or_else(|| {
             self.layers.iter().any(|layer| layer.requires_axes())
         });
+
         if should_render_axes {
-            crate::render::axis_renderer::render_axes(svg, &self.theme, &context)?;
+            // Extract labels or default to empty strings
+            let x_label = self.x_label.as_deref().unwrap_or("");
+            let y_label = self.y_label.as_deref().unwrap_or("");
+
+            crate::render::axis_renderer::render_axes(
+                svg, 
+                &self.theme, 
+                &context, // The context already contains ctx.coord which has .is_flipped()
+                x_label, 
+                y_label
+            )?;
         }
 
         // 7. Render Marks (Data Geometries)
