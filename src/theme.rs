@@ -60,12 +60,6 @@ pub struct Theme {
     pub(crate) legend_font_family: Option<String>,
     pub(crate) legent_label_color: String,
 
-    // Legend Layout (Add these)
-    pub(crate) legend_margin: f64,       // Space between plot panel and legend
-    pub(crate) legend_block_spacing: f64, // Space between different legend blocks (e.g., Color vs Shape)
-    pub(crate) legend_item_spacing: f64,  // Space between items within a legend
-    pub(crate) legend_title_padding: f64, // Space between legend title and its items
-
     pub(crate) color_map: ColorMap,
     pub(crate) color_palette: ColorPalette,
 
@@ -109,11 +103,6 @@ impl Default for Theme {
             legend_font_size: None,
             legend_font_family: None,
             legent_label_color: "#333".to_string(),
-
-            legend_margin: 25.0,
-            legend_block_spacing: 40.0,
-            legend_item_spacing: 12.0,
-            legend_title_padding: 8.0,
 
             color_map: ColorMap::Viridis,
             color_palette: ColorPalette::Tab10,

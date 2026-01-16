@@ -1082,23 +1082,6 @@ impl LayeredChart {
         "X".to_string()
     }
 
-    // Get the x-axis scale from all layers
-    fn get_x_scale_type_from_layers(&self) -> Option<Scale> {
-        if self.layers.is_empty() {
-            return None;
-        }
-
-        // Iterate through all layers to find the first non-None scale
-        for layer in &self.layers {
-            // Use if let in case charts that don't have x encoding (like pie charts)
-            if let Some(scale) = layer.get_x_scale_type_from_layer() {
-                return Some(scale);
-            }
-        }
-
-        None
-    }
-
     /// Consolidates Y-axis data domains across all layers.
     /// 
     /// Follows the same consolidation logic as X and Color channels:
@@ -1196,23 +1179,6 @@ impl LayeredChart {
 
         // Default fallback
         "Y".to_string()
-    }
-
-    // Get the y-axis scale from all layers
-    fn get_y_scale_type_from_layers(&self) -> Option<Scale> {
-        if self.layers.is_empty() {
-            return None;
-        }
-
-        // Iterate through all layers to find the first non-None scale
-        for layer in &self.layers {
-            // Use if let in case charts that don't have y encoding (like pie charts)
-            if let Some(scale) = layer.get_y_scale_type_from_layer() {
-                return Some(scale);
-            }
-        }
-
-        None
     }
 
     /// Consolidates color data domains across all layers to ensure visual consistency.
@@ -1676,15 +1642,15 @@ impl LayeredChart {
 
         if should_render_axes {
             // Extract labels or default to empty strings
-            let x_label = self.x_label.as_deref().unwrap_or("");
-            let y_label = self.y_label.as_deref().unwrap_or("");
+            let x_label = self.get_x_axis_label_from_layers();
+            let y_label = self.get_y_axis_label_from_layers();
 
             crate::render::axis_renderer::render_axes(
                 svg, 
                 &self.theme, 
                 &context, // The context already contains ctx.coord which has .is_flipped()
-                x_label, 
-                y_label
+                &x_label, 
+                &y_label
             )?;
         }
 
