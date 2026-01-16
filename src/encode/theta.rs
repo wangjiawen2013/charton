@@ -7,7 +7,7 @@
 /// Theta encoding is typically used for polar coordinates and radial visualizations
 /// such as pie charts, donut charts, and radial bar charts. It represents the
 /// angular dimension of data points in these chart types.
-#[derive(Debug)]
+#[derive( Debug, Clone)]
 pub struct Theta {
     pub(crate) field: String,
 }

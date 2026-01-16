@@ -10,7 +10,7 @@ use crate::scale::Scale;
 /// Y encoding is fundamental to most chart types and can handle both continuous
 /// and discrete data. It supports various scale types and specialized options for
 /// bar charts and histograms, including normalization and stacking capabilities.
-#[derive(Debug)]
+#[derive(Debug, Clone)]
 pub struct Y {
     // Default label (polars column name)
     pub(crate) field: String,

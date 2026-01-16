@@ -4,7 +4,7 @@
 ///
 /// Y2 encoding is particularly useful for marks like rules where you need to specify
 /// both a starting and ending Y position.
-#[derive(Debug)]
+#[derive(Debug, Clone)]
 pub struct Y2 {
     // polars column name
     pub(crate) field: String,
