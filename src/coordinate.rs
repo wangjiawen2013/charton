@@ -42,6 +42,12 @@ pub trait CoordinateTrait {
     /// Get the scale for the second dimension (e.g., Y).
     fn get_y_scale(&self) -> &dyn ScaleTrait;
 
+    /// Returns whether the X and Y logical axes are swapped.
+    /// Default is false for systems that don't support flipping.
+    fn is_flipped(&self) -> bool {
+        false
+    }
+
     /// If true, the renderer should clip shapes extending beyond panel boundaries.
     fn is_clipped(&self) -> bool {
         true

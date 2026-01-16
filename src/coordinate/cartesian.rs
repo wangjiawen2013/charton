@@ -64,6 +64,10 @@ impl CoordinateTrait for Cartesian2D {
         self.y_scale.as_ref()
     }
 
+    fn is_flipped(&self) -> bool {
+        self.flipped
+    }
+
     /// Cartesian coordinates typically clip data that falls outside the panel.
     fn is_clipped(&self) -> bool {
         true
