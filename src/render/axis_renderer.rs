@@ -37,7 +37,20 @@ pub fn render_axes(
     Ok(())
 }
 
-/// Draws the main axis spine.
+/// Draws the main axis spine (the line representing the axis itself).
+///
+/// # Arguments
+/// * `svg` - The mutable string buffer to append SVG elements to.
+/// * `theme` - Visual configuration including colors and stroke widths.
+/// * `ctx` - The shared context containing coordinate system and panel layout.
+/// * `is_visual_x` - Directional flag: 
+///     - `true`: Renders the horizontal axis (Visual Bottom).
+///     - `false`: Renders the vertical axis (Visual Left).
+///
+/// # Flip-Aware Logic
+/// This function relies on `coord.transform` to abstract away physical pixels. 
+/// In a "flipped" chart, the horizontal axis (`is_visual_x: true`) will 
+/// automatically represent the data's Y-scale.
 fn draw_axis_line(
     svg: &mut String,
     theme: &Theme,
@@ -47,15 +60,18 @@ fn draw_axis_line(
     let coord = ctx.coord;
     let panel = &ctx.panel;
 
-    // We use (0.0, 0.0) as the anchor for the axis intersection.
+    // The origin (0.0, 0.0) in normalized space always represents 
+    // the intersection of the two axes (usually the bottom-left corner).
     let (p1x, p1y) = coord.transform(0.0, 0.0, panel);
     
-    // Calculate the end point of the spine. 
-    // In a Cartesian system, transform(1.0, 0.0) represents the full span 
-    // along the primary dimension, regardless of flip state.
+    // Calculate the end point of the spine using normalized coordinates.
+    // (1.0, 0.0) represents the full extent of the primary dimension,
+    // and (0.0, 1.0) represents the full extent of the secondary dimension.
     let (p2x, p2y) = if is_visual_x {
+        // Full span across the horizontal visual axis.
         coord.transform(1.0, 0.0, panel)
     } else {
+        // Full span across the vertical visual axis.
         coord.transform(0.0, 1.0, panel)
     };
 
