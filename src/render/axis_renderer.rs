@@ -1,5 +1,4 @@
 use crate::core::context::SharedRenderingContext;
-use crate::core::layout::estimate_text_width;
 use crate::theme::Theme;
 use crate::error::ChartonError;
 use std::fmt::Write;
