@@ -10,7 +10,7 @@ use crate::scale::Scale;
 /// X encoding is fundamental to most chart types and can handle both continuous
 /// and discrete data. It supports various scale types and binning options for
 /// specialized chart types like histograms and bar charts.
-#[derive(Debug)]
+#[derive(Debug, Clone)]
 pub struct X {
     // Default label (polars column name)
     pub(crate) field: String,
