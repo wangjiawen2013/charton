@@ -31,7 +31,7 @@
 <text x="62.00" y="98.90" font-size="13" font-family="Inter, -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, 'PingFang SC', 'Microsoft YaHei', Ubuntu, Cantarell, 'Noto Sans', sans-serif" fill="#333" text-anchor="end" dominant-baseline="middle">30</text>
 <line x1="75.00" y1="40.87" x2="69.00" y2="40.87" stroke="#333" stroke-width="1.0"/>
 <text x="62.00" y="40.87" font-size="13" font-family="Inter, -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, 'PingFang SC', 'Microsoft YaHei', Ubuntu, Cantarell, 'Noto Sans', sans-serif" fill="#333" text-anchor="end" dominant-baseline="middle">35</text>
-<text x="25.00" y="190.00" text-anchor="middle" font-size="15" font-family="Inter, -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, 'PingFang SC', 'Microsoft YaHei', Ubuntu, Cantarell, 'Noto Sans', sans-serif" fill="#333" font-weight="bold" transform="rotate(-90, 25.00, 190.00)">mpg</text>
+<text x="34.70" y="190.00" text-anchor="middle" font-size="15" font-family="Inter, -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, 'PingFang SC', 'Microsoft YaHei', Ubuntu, Cantarell, 'Noto Sans', sans-serif" fill="#333" font-weight="bold" transform="rotate(-90, 34.70, 190.00)">mpg</text>
 <circle cx="169.722" cy="203.346" r="3.000" fill="#1f77b4" stroke="none" stroke-width="0.000" fill-opacity="1.000" stroke-opacity="1.000" />
 <circle cx="188.266" cy="203.346" r="3.000" fill="#1f77b4" stroke="none" stroke-width="0.000" fill-opacity="1.000" stroke-opacity="1.000" />
 <circle cx="147.906" cy="182.456" r="3.000" fill="#1f77b4" stroke="none" stroke-width="0.000" fill-opacity="1.000" stroke-opacity="1.000" />
