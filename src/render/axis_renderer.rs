@@ -133,9 +133,10 @@ fn draw_ticks_and_labels(
         
         // Use theme paddings to position labels away from the spines.
         let (dx, dy) = if is_visual_x { 
-            (0.0, theme.tick_label_font_size + theme.tick_label_padding) 
+            (0.0, theme.tick_label_font_size + theme.tick_label_padding - 3.0) 
         } else { 
-            (-(theme.tick_label_padding + 2.0), theme.tick_label_font_size * 0.35) 
+            //(-(theme.tick_label_padding + 10.0), theme.tick_label_font_size * 0.35) 
+            (-(theme.tick_label_padding + 10.0), 0.0) 
         };
 
         writeln!(
