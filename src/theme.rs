@@ -87,8 +87,8 @@ impl Default for Theme {
             label_color: "#333".to_string(),
             label_angle: 0.0,
 
-            x_label_padding: 15.0,
-            y_label_padding: 15.0,
+            x_label_padding: 10.0,
+            y_label_padding: 10.0,
 
             tick_label_font_size: 13.0,
             tick_label_font_family: font_stack,
