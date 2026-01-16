@@ -1,459 +1,168 @@
-use crate::chart::common::SharedRenderingContext;
-use crate::error::ChartonError;
-use crate::render::utils::estimate_text_width;
+use crate::core::context::SharedRenderingContext;
 use crate::theme::Theme;
+use crate::error::ChartonError;
 use std::fmt::Write;
 
-// Render both x and y axes for the chart
-pub(crate) fn render_axes(
+/// `AxisRenderer` handles the visual manifestation of the coordinate system.
+/// 
+/// It translates abstract data scales into tangible SVG elements (lines and text).
+/// This renderer is "Flip-Aware": it correctly identifies which scale (X or Y) 
+/// should be rendered on the visual bottom vs. visual left based on the 
+/// chart's `flipped` configuration.
+pub fn render_axes(
     svg: &mut String,
     theme: &Theme,
-    context: &SharedRenderingContext,
+    ctx: &SharedRenderingContext,
+    x_label: &str,
+    y_label: &str,
 ) -> Result<(), ChartonError> {
-    render_x_axis(svg, theme, context)?;
-    render_y_axis(svg, theme, context)?;
-    Ok(())
-}
-
-// Renders the x-axis with ticks and labels
-fn render_x_axis(
-    svg: &mut String,
-    theme: &Theme,
-    context: &SharedRenderingContext,
-) -> Result<(), ChartonError> {
-    // Get styling properties from theme
-    let tick_label_font_size = theme.tick_label_font_size;
-    let tick_label_font_family = theme.tick_label_font_family.clone();
-    let tick_label_color = theme.tick_label_color.clone();
-    let tick_label_angle = theme.x_tick_label_angle;
-
-    // Use custom axis stroke width or fall back to theme default
-    let axis_stroke_width = theme.axis_stroke_width;
-    let tick_stroke_width = theme.tick_stroke_width;
-
-    // Use a default axis color and tick length
-    let axis_color = "black".to_string();
-    let tick_length = 5.0;
-    let tick_label_spacing = 3.0;
-
-    // Determine axis position and orientation based on swapped_axes from context
-    let (axis_line_x1, axis_line_y1, axis_line_x2, axis_line_y2, tick_direction) =
-        if context.swapped_axes {
-            // When swapped, x-axis is vertical (typically on the left)
-            (
-                context.draw_x0,
-                context.draw_y0,
-                context.draw_x0,
-                context.draw_y0 + context.plot_height,
-                -1.0,
-            ) // Ticks to the left
-        } else {
-            // Horizontal axis on the bottom
-            (
-                context.draw_x0,
-                context.draw_y0 + context.plot_height,
-                context.draw_x0 + context.plot_width,
-                context.draw_y0 + context.plot_height,
-                1.0,
-            ) // Ticks downward
-        };
-
-    // Draw axis line
-    writeln!(
-        svg,
-        r#"<line x1="{}" y1="{}" x2="{}" y2="{}" stroke="{}" stroke-width="{}"/>"#,
-        axis_line_x1, axis_line_y1, axis_line_x2, axis_line_y2, axis_color, axis_stroke_width
-    )?;
-
-    if context.swapped_axes {
-        // For swapped axes, x-axis is vertical
-        // Find the maximum length of x-axis tick labels to adjust positioning
-        let max_tick_label_length = context
-            .coord_system
-            .x_axis
-            .explicit_ticks
-            .ticks
-            .iter()
-            .map(|tick| estimate_text_width(&tick.label, tick_label_font_size as f64))
-            .fold(0.0, f64::max);
-
-        // Draw ticks and labels for vertical x-axis
-        for tick in &context.coord_system.x_axis.explicit_ticks.ticks {
-            // Vertical axis with ticks to the left
-            let y_pos = (context.x_mapper)(tick.position);
-
-            // Draw tick line
-            writeln!(
-                svg,
-                r#"<line x1="{}" y1="{}" x2="{}" y2="{}" stroke="{}" stroke-width="{}"/>"#,
-                axis_line_x1 + tick_length * tick_direction,
-                y_pos,
-                axis_line_x1,
-                y_pos,
-                axis_color,
-                tick_stroke_width
-            )?;
-
-            // Draw tick label
-            writeln!(
-                svg,
-                r#"<text x="{}" y="{}" font-size="{}" font-family="{}" fill="{}" text-anchor="end" dominant-baseline="middle">{}</text>"#,
-                axis_line_x1 + (tick_length * tick_direction) - tick_label_spacing,
-                y_pos,
-                tick_label_font_size,
-                tick_label_font_family,
-                tick_label_color,
-                tick.label
-            )?;
-        }
-
-        // Draw axis label if needed
-        let label_font_size = theme.label_font_size;
-        let label_font_family = theme.label_font_family.clone();
-        let label_color = theme.label_color.clone();
-        let label_padding = theme.x_label_padding;
-
-        let label = &context.coord_system.x_axis.label;
-
-        // Vertical title on the left side - account for max tick label width
-        let label_x_pos =
-            axis_line_x1 + (tick_length * tick_direction) - max_tick_label_length - label_padding;
-        let label_y_pos = context.draw_y0 + context.plot_height / 2.0;
-
-        writeln!(
-            svg,
-            r#"<text x="{}" y="{}" font-size="{}" font-family="{}" fill="{}" text-anchor="middle" dominant-baseline="text-after-edge" transform="rotate(-90, {}, {})">{}</text>"#,
-            label_x_pos,
-            label_y_pos,
-            label_font_size,
-            label_font_family,
-            label_color,
-            label_x_pos,
-            label_y_pos,
-            label
-        )?;
+    // Determine the correct labels based on the flip state.
+    // If flipped, the data's Y-axis is displayed on the visual X-axis (bottom).
+    let (bottom_label, left_label) = if ctx.coord.is_flipped() {
+        (y_label, x_label)
     } else {
-        // Normal horizontal x-axis
-        // Find the maximum width of x-axis tick labels to adjust positioning (for rotated labels)
-        let max_tick_label_length = context
-            .coord_system
-            .x_axis
-            .explicit_ticks
-            .ticks
-            .iter()
-            .map(|tick| estimate_text_width(&tick.label, tick_label_font_size as f64))
-            .fold(0.0, f64::max);
-        let max_tick_label_height = if tick_label_angle.abs() > 1e-10 {
-            // For rotated labels, estimate height based on text length and rotation angle
-            (max_tick_label_length + tick_label_font_size as f64)
-                * tick_label_angle.to_radians().sin().abs()
-        } else {
-            // For non-rotated labels, use font size
-            tick_label_font_size as f64
-        };
+        (x_label, y_label)
+    };
 
-        // Draw ticks and labels
-        for tick in &context.coord_system.x_axis.explicit_ticks.ticks {
-            // Horizontal axis with ticks downward
-            let x_pos = (context.x_mapper)(tick.position);
+    // 1. Render Visual X-Axis (The Horizontal Bottom Axis)
+    draw_axis_line(svg, theme, ctx, true)?;
+    draw_ticks_and_labels(svg, theme, ctx, true)?;
+    draw_axis_title(svg, theme, ctx, bottom_label, true)?;
 
-            // Draw tick line
-            writeln!(
-                svg,
-                r#"<line x1="{}" y1="{}" x2="{}" y2="{}" stroke="{}" stroke-width="{}"/>"#,
-                x_pos,
-                axis_line_y1,
-                x_pos,
-                axis_line_y1 + tick_length * tick_direction,
-                axis_color,
-                tick_stroke_width
-            )?;
-
-            // Draw tick label
-            let y_pos =
-                axis_line_y1 + tick_length * tick_direction + tick_label_font_size as f64 + 0.0;
-
-            if tick_label_angle.abs() < 1e-10 {
-                // No rotation
-                writeln!(
-                    svg,
-                    r#"<text x="{}" y="{}" font-size="{}" font-family="{}" fill="{}" text-anchor="middle">{}</text>"#,
-                    x_pos,
-                    y_pos,
-                    tick_label_font_size,
-                    tick_label_font_family,
-                    tick_label_color,
-                    tick.label
-                )?;
-            } else {
-                // With rotation, 3.0 is a hack(offset) to align the text with the tick
-                writeln!(
-                    svg,
-                    r#"<text x="{}" y="{}" font-size="{}" font-family="{}" fill="{}" text-anchor="end" transform="rotate({}, {}, {})">{}</text>"#,
-                    x_pos + 3.0,
-                    y_pos,
-                    tick_label_font_size,
-                    tick_label_font_family,
-                    tick_label_color,
-                    tick_label_angle,
-                    x_pos,
-                    y_pos,
-                    tick.label
-                )?;
-            }
-        }
-
-        // Draw axis label
-        let label_font_size = theme.label_font_size;
-        let label_font_family = theme.label_font_family.clone();
-        let label_color = theme.label_color.clone();
-        let label_padding = theme.x_label_padding;
-
-        let label = &context.coord_system.x_axis.label;
-
-        // Horizontal title below the axis - account for max tick label height
-        let label_x_pos = context.draw_x0 + context.plot_width / 2.0;
-        let label_y_pos =
-            axis_line_y1 + tick_length * tick_direction + max_tick_label_height + label_padding
-                - 10.0;
-
-        writeln!(
-            svg,
-            r#"<text x="{}" y="{}" font-size="{}" font-family="{}" fill="{}" text-anchor="middle" dominant-baseline="text-before-edge">{}</text>"#,
-            label_x_pos, label_y_pos, label_font_size, label_font_family, label_color, label
-        )?;
-    }
+    // 2. Render Visual Y-Axis (The Vertical Left Axis)
+    draw_axis_line(svg, theme, ctx, false)?;
+    draw_ticks_and_labels(svg, theme, ctx, false)?;
+    draw_axis_title(svg, theme, ctx, left_label, false)?;
 
     Ok(())
 }
 
-// Renders the y-axis with ticks and labels
-fn render_y_axis(
+/// Draws the main axis spine.
+fn draw_axis_line(
     svg: &mut String,
     theme: &Theme,
-    context: &SharedRenderingContext,
+    ctx: &SharedRenderingContext,
+    is_visual_x: bool,
 ) -> Result<(), ChartonError> {
-    // Get styling properties from theme
-    let tick_label_font_size = theme.tick_label_font_size;
-    let tick_label_font_family = theme.tick_label_font_family.clone();
-    let tick_label_color = theme.tick_label_color.clone();
-    let tick_label_angle = theme.y_tick_label_angle;
+    let coord = ctx.coord;
+    let panel = &ctx.panel;
 
-    let axis_stroke_width = theme.axis_stroke_width;
-    let tick_stroke_width = theme.tick_stroke_width;
+    // We use (0.0, 0.0) as the anchor for the axis intersection.
+    let (p1x, p1y) = coord.transform(0.0, 0.0, panel);
+    
+    // Calculate the end point of the spine. 
+    // In a Cartesian system, transform(1.0, 0.0) represents the full span 
+    // along the primary dimension, regardless of flip state.
+    let (p2x, p2y) = if is_visual_x {
+        coord.transform(1.0, 0.0, panel)
+    } else {
+        coord.transform(0.0, 1.0, panel)
+    };
 
-    // Use a default axis color and tick length
-    let axis_color = "black".to_string();
-    let tick_length = 5.0;
-    let tick_label_spacing = 3.0;
-
-    // Determine axis position and orientation based on swapped_axes from context
-    let (axis_line_x1, axis_line_y1, axis_line_x2, axis_line_y2, tick_direction) =
-        if context.swapped_axes {
-            // When swapped, y-axis is horizontal (typically on the bottom)
-            (
-                context.draw_x0,
-                context.draw_y0 + context.plot_height,
-                context.draw_x0 + context.plot_width,
-                context.draw_y0 + context.plot_height,
-                1.0,
-            ) // Ticks upward
-        } else {
-            // Vertical axis on the left
-            (
-                context.draw_x0,
-                context.draw_y0,
-                context.draw_x0,
-                context.draw_y0 + context.plot_height,
-                -1.0,
-            ) // Ticks to the left
-        };
-
-    // Draw axis line
     writeln!(
         svg,
-        r#"<line x1="{}" y1="{}" x2="{}" y2="{}" stroke="{}" stroke-width="{}"/>"#,
-        axis_line_x1, axis_line_y1, axis_line_x2, axis_line_y2, axis_color, axis_stroke_width
+        r#"<line x1="{:.2}" y1="{:.2}" x2="{:.2}" y2="{:.2}" stroke="{}" stroke-width="{}" stroke-linecap="square"/>"#,
+        p1x, p1y, p2x, p2y, theme.label_color, theme.axis_stroke_width
     )?;
+    Ok(())
+}
 
-    if context.swapped_axes {
-        // For swapped axes, y-axis is horizontal
-        // Find the maximum height of y-axis tick labels to adjust positioning
-        let max_tick_label_length = context
-            .coord_system
-            .y_axis
-            .explicit_ticks
-            .ticks
-            .iter()
-            .map(|tick| estimate_text_width(&tick.label, tick_label_font_size as f64))
-            .fold(0.0, f64::max);
-        let max_tick_label_height = if tick_label_angle.abs() > 1e-10 {
-            // For rotated labels, estimate height based on text length and rotation angle
-            (max_tick_label_length + tick_label_font_size as f64)
-                * tick_label_angle.to_radians().sin().abs()
+/// Renders tick marks and their text labels.
+///
+/// This function dynamically selects the scale based on the flip state to ensure 
+/// the correct data mapping is shown on the correct visual axis.
+fn draw_ticks_and_labels(
+    svg: &mut String,
+    theme: &Theme,
+    ctx: &SharedRenderingContext,
+    is_visual_x: bool,
+) -> Result<(), ChartonError> {
+    let coord = ctx.coord;
+    let panel = &ctx.panel;
+    
+    // Resolve which scale belongs to this visual orientation.
+    // If flipped: Bottom Axis -> Y Scale, Left Axis -> X Scale.
+    let target_scale = if ctx.coord.is_flipped() {
+        if is_visual_x { coord.get_y_scale() } else { coord.get_x_scale() }
+    } else {
+        if is_visual_x { coord.get_x_scale() } else { coord.get_y_scale() }
+    };
+    
+    // Generate ticks based on the target scale's domain.
+    let ticks = target_scale.ticks(8); 
+
+    for tick in ticks {
+        let norm_pos = target_scale.normalize(tick.value);
+
+        // transform() handles the internal mapping of normalized values to pixels.
+        // It accounts for flipped coordinates and Y-axis inversion.
+        let (px, py) = if is_visual_x {
+            coord.transform(norm_pos, 0.0, panel)
         } else {
-            // For non-rotated labels, use font size
-            tick_label_font_size as f64
+            coord.transform(0.0, norm_pos, panel)
         };
 
-        // Draw ticks and labels for horizontal y-axis
-        for tick in &context.coord_system.y_axis.explicit_ticks.ticks {
-            // Horizontal axis with ticks upward
-            let x_pos = (context.y_mapper)(tick.position);
-
-            // Draw tick line
-            writeln!(
-                svg,
-                r#"<line x1="{}" y1="{}" x2="{}" y2="{}" stroke="{}" stroke-width="{}"/>"#,
-                x_pos,
-                axis_line_y1,
-                x_pos,
-                axis_line_y1 + tick_length * tick_direction,
-                axis_color,
-                tick_stroke_width
-            )?;
-
-            // Draw tick label
-            if tick_label_angle.abs() < 1e-10 {
-                // No rotation
-                let y_pos = axis_line_y1 + tick_length * tick_direction + tick_label_spacing;
-                writeln!(
-                    svg,
-                    r#"<text x="{}" y="{}" font-size="{}" font-family="{}" fill="{}" text-anchor="middle" dominant-baseline="text-before-edge">{}</text>"#,
-                    x_pos,
-                    y_pos,
-                    tick_label_font_size,
-                    tick_label_font_family,
-                    tick_label_color,
-                    tick.label
-                )?;
-            } else {
-                // With rotation
-                let y_pos =
-                    axis_line_y1 + tick_length * tick_direction + tick_label_font_size as f64;
-                writeln!(
-                    svg,
-                    r#"<text x="{}" y="{}" font-size="{}" font-family="{}" fill="{}" text-anchor="end" transform="rotate({}, {}, {})">{}</text>"#,
-                    x_pos + 3.0,
-                    y_pos,
-                    tick_label_font_size,
-                    tick_label_font_family,
-                    tick_label_color,
-                    tick_label_angle,
-                    x_pos,
-                    y_pos,
-                    tick.label
-                )?;
-            }
-        }
-
-        // Draw axis label
-        let label_font_size = theme.label_font_size;
-        let label_font_family = theme.label_font_family.clone();
-        let label_color = theme.label_color.clone();
-        let label_padding = theme.y_label_padding;
-
-        let label = &context.coord_system.y_axis.label;
-
-        // Horizontal title below the axis - account for max tick label height
-        let label_x_pos = context.draw_x0 + context.plot_width / 2.0;
-        let label_y_pos =
-            axis_line_y1 + tick_length * tick_direction + max_tick_label_height + label_padding
-                - 10.0;
-
+        // --- TICK MARK ---
+        let tick_len = 6.0;
+        let (x2, y2) = if is_visual_x { (px, py + tick_len) } else { (px - tick_len, py) };
+        
         writeln!(
-            svg,
-            r#"<text x="{}" y="{}" font-size="{}" font-family="{}" fill="{}" text-anchor="middle" dominant-baseline="text-before-edge">{}</text>"#,
-            label_x_pos, label_y_pos, label_font_size, label_font_family, label_color, label
+            svg, 
+            r#"<line x1="{:.2}" y1="{:.2}" x2="{:.2}" y2="{:.2}" stroke="{}" stroke-width="{:.1}"/>"#,
+            px, py, x2, y2, theme.label_color, theme.tick_stroke_width
         )?;
-    } else {
-        // Normal vertical y-axis
-        // Find the maximum length of y-axis tick labels to adjust positioning
-        let max_tick_label_length = context
-            .coord_system
-            .y_axis
-            .explicit_ticks
-            .ticks
-            .iter()
-            .map(|tick| estimate_text_width(&tick.label, tick_label_font_size as f64))
-            .fold(0.0, f64::max);
 
-        // Draw ticks and labels
-        for tick in &context.coord_system.y_axis.explicit_ticks.ticks {
-            // Vertical axis with ticks to the left
-            let y_pos = (context.y_mapper)(tick.position);
-
-            // Draw tick line
-            writeln!(
-                svg,
-                r#"<line x1="{}" y1="{}" x2="{}" y2="{}" stroke="{}" stroke-width="{}"/>"#,
-                axis_line_x1 + tick_length * tick_direction,
-                y_pos,
-                axis_line_x1,
-                y_pos,
-                axis_color,
-                tick_stroke_width
-            )?;
-
-            // Draw tick label
-            if tick_label_angle.abs() < 1e-10 {
-                // No rotation
-                writeln!(
-                    svg,
-                    r#"<text x="{}" y="{}" font-size="{}" font-family="{}" fill="{}" text-anchor="end" dominant-baseline="middle">{}</text>"#,
-                    axis_line_x1 + (tick_length * tick_direction) - tick_label_spacing,
-                    y_pos,
-                    tick_label_font_size,
-                    tick_label_font_family,
-                    tick_label_color,
-                    tick.label
-                )?;
-            } else {
-                // With rotation
-                let label_x_pos =
-                    axis_line_x1 + (tick_length * tick_direction) - tick_label_spacing;
-                writeln!(
-                    svg,
-                    r#"<text x="{}" y="{}" font-size="{}" font-family="{}" fill="{}" text-anchor="end" transform="rotate({}, {}, {})">{}</text>"#,
-                    label_x_pos,
-                    y_pos,
-                    tick_label_font_size,
-                    tick_label_font_family,
-                    tick_label_color,
-                    tick_label_angle,
-                    label_x_pos,
-                    y_pos,
-                    tick.label
-                )?;
-            }
-        }
-
-        // Draw axis label
-        let label_font_size = theme.label_font_size;
-        let label_font_family = theme.label_font_family.clone();
-        let label_color = theme.label_color.clone();
-        let label_padding = theme.y_label_padding;
-
-        let label = &context.coord_system.y_axis.label;
-
-        // Vertical title on the left side - account for max tick label width
-        let label_x_pos =
-            axis_line_x1 + (tick_length * tick_direction) - max_tick_label_length - label_padding;
-        let label_y_pos = context.draw_y0 + context.plot_height / 2.0;
+        // --- TICK LABEL ---
+        let anchor = if is_visual_x { "middle" } else { "end" };
+        
+        // Use theme paddings to position labels away from the spines.
+        let (dx, dy) = if is_visual_x { 
+            (0.0, theme.tick_label_font_size + theme.tick_label_padding) 
+        } else { 
+            (-(theme.tick_label_padding + 2.0), theme.tick_label_font_size * 0.35) 
+        };
 
         writeln!(
             svg,
-            r#"<text x="{}" y="{}" font-size="{}" font-family="{}" fill="{}" text-anchor="middle" transform="rotate(-90, {}, {})">{}</text>"#,
-            label_x_pos,
-            label_y_pos,
-            label_font_size,
-            label_font_family,
-            label_color,
-            label_x_pos,
-            label_y_pos,
-            label
+            r#"<text x="{:.2}" y="{:.2}" font-size="{}" font-family="{}" fill="{}" text-anchor="{}" dominant-baseline="{}">{}</text>"#,
+            px + dx, py + dy, theme.tick_label_font_size, theme.tick_label_font_family,
+            theme.tick_label_color, anchor, if is_visual_x { "hanging" } else { "middle" }, tick.label
         )?;
     }
+    Ok(())
+}
 
+/// Draws the axis title (X or Y label).
+fn draw_axis_title(
+    svg: &mut String,
+    theme: &Theme,
+    ctx: &SharedRenderingContext,
+    label: &str,
+    is_visual_x: bool,
+) -> Result<(), ChartonError> {
+    if label.is_empty() { return Ok(()); }
+    let panel = &ctx.panel;
+
+    if is_visual_x {
+        // Positioned centrally below the plotting panel.
+        let x = panel.x + panel.width / 2.0;
+        let y = panel.y + panel.height + theme.x_label_padding + 25.0; 
+        
+        writeln!(
+            svg, 
+            r#"<text x="{:.2}" y="{:.2}" text-anchor="middle" font-size="{}" font-family="{}" fill="{}" font-weight="bold">{}</text>"#,
+            x, y, theme.label_font_size, theme.label_font_family, theme.label_color, label
+        )?;
+    } else {
+        // Positioned to the left of the plotting panel and rotated 90 degrees.
+        let x = panel.x - (theme.y_label_padding + 35.0); 
+        let y = panel.y + panel.height / 2.0;
+        
+        writeln!(
+            svg, 
+            r#"<text x="{:.2}" y="{:.2}" text-anchor="middle" font-size="{}" font-family="{}" fill="{}" font-weight="bold" transform="rotate(-90, {:.2}, {:.2})">{}</text>"#,
+            x, y, theme.label_font_size, theme.label_font_family, theme.label_color, x, y, label
+        )?;
+    }
     Ok(())
 }

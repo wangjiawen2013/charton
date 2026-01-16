@@ -15,7 +15,7 @@ pub struct LegendSpec {
     /// The unique data values (domain) that need to be represented in the legend
     pub domain: ScaleDomain,
     
-    // Flags to indicate which visual properties are merged into this legend block
+    /// Flags to indicate which visual properties are merged into this legend block
     /// If true, the legend will display color swatches
     pub has_color: bool,
     /// If true, the legend will display geometric shape symbols
