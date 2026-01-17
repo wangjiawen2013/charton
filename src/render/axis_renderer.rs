@@ -106,6 +106,10 @@ fn draw_ticks_and_labels(
     
     // Generate ticks based on the target scale's domain.
     let ticks = target_scale.ticks(8); 
+    let tick_len = 6.0;
+
+    // Resolve the rotation angle from the theme based on the axis.
+    let angle = if is_visual_x { theme.x_tick_label_angle } else { theme.y_tick_label_angle };
 
     for tick in ticks {
         let norm_pos = target_scale.normalize(tick.value);
@@ -119,7 +123,6 @@ fn draw_ticks_and_labels(
         };
 
         // --- TICK MARK ---
-        let tick_len = 6.0;
         let (x2, y2) = if is_visual_x { (px, py + tick_len) } else { (px - tick_len, py) };
         
         writeln!(
@@ -129,21 +132,34 @@ fn draw_ticks_and_labels(
         )?;
 
         // --- TICK LABEL ---
-        let anchor = if is_visual_x { "middle" } else { "end" };
+        // For rotated X labels, "end" anchor is usually better for negative angles 
+        // to keep the label connected to the tick.
+        let anchor = if is_visual_x {
+            if angle == 0.0 { "middle" } else { "end" }
+        } else { 
+            "end" 
+        };
         
         // Use theme paddings to position labels away from the spines.
+        // dx/dy here define the anchor point of the text relative to the spine.
         let (dx, dy) = if is_visual_x { 
-            (0.0, theme.tick_label_font_size + theme.tick_label_padding - 3.0) 
+            (0.0, tick_len + theme.tick_label_padding) 
         } else { 
-            //(-(theme.tick_label_padding + 10.0), theme.tick_label_font_size * 0.35) 
-            (-(theme.tick_label_padding + 10.0), 0.0) 
+            (-(tick_len + theme.tick_label_padding), 0.0) 
+        };
+
+        // Apply rotation transform if an angle is specified in the theme.
+        let transform = if angle != 0.0 {
+            format!(r#" transform="rotate({:.1}, {:.2}, {:.2})""#, angle, px + dx, py + dy)
+        } else {
+            "".to_string()
         };
 
         writeln!(
             svg,
-            r#"<text x="{:.2}" y="{:.2}" font-size="{}" font-family="{}" fill="{}" text-anchor="{}" dominant-baseline="{}">{}</text>"#,
+            r#"<text x="{:.2}" y="{:.2}" font-size="{}" font-family="{}" fill="{}" text-anchor="{}" dominant-baseline="{}"{}>{}</text>"#,
             px + dx, py + dy, theme.tick_label_font_size, theme.tick_label_font_family,
-            theme.tick_label_color, anchor, if is_visual_x { "hanging" } else { "middle" }, tick.label
+            theme.tick_label_color, anchor, if is_visual_x { "hanging" } else { "central" }, transform, tick.label
         )?;
     }
     Ok(())
@@ -152,13 +168,10 @@ fn draw_ticks_and_labels(
 /// Draws the axis title (X or Y label) with dynamic collision avoidance.
 ///
 /// This function calculates the optimal placement for axis titles by measuring 
-/// the space occupied by tick labels. 
+/// the space occupied by tick labels, including their rotation. 
 ///
-/// For the X-axis: It ensures the title is placed below the tick labels by 
-/// accounting for the label font size and user-defined padding.
-///
-/// For the Y-axis: It performs a "Look-Ahead" on tick labels using `estimate_text_width` 
-/// to push the title leftwards, preventing overlap with varying data lengths.
+/// For the X-axis: It calculates the vertical footprint (projected height) of labels.
+/// For the Y-axis: It calculates the horizontal footprint (projected width) of labels.
 ///
 /// # Arguments
 /// * `svg` - The mutable string buffer to append SVG elements to.
@@ -179,7 +192,7 @@ fn draw_axis_title(
     let panel = &ctx.panel;
     let coord = ctx.coord;
 
-    // Standard metric for tick line length
+    // Standard metric for tick line length and internal spacing
     let tick_line_len = 6.0;
     let safety_buffer = 5.0;
 
@@ -190,15 +203,25 @@ fn draw_axis_title(
         let x = panel.x + panel.width / 2.0;
         
         // 2. Dynamic Vertical Offset:
-        // We need to clear the Tick Line and the Tick Labels.
-        // For horizontal text, the 'height' is roughly the font size.
+        // We calculate the projected height of labels based on their rotation angle.
+        let angle_rad = theme.x_tick_label_angle.to_radians();
+        let target_scale = if coord.is_flipped() { coord.get_y_scale() } else { coord.get_x_scale() };
+        let ticks = target_scale.ticks(8);
+
+        // Projected Height = |Width * sin(theta)| + |Height * cos(theta)|
+        let max_projected_height = ticks.iter()
+            .map(|t| {
+                let w = crate::core::layout::estimate_text_width(&t.label, theme.tick_label_font_size);
+                let h = theme.tick_label_font_size;
+                w.abs() * angle_rad.sin().abs() + h * angle_rad.cos().abs()
+            })
+            .fold(0.0, f64::max);
+
         // We also add half the title's own font size to measure padding from the edge.
         let title_half_thickness = theme.label_font_size / 2.0;
-        let tick_label_height = theme.tick_label_font_size;
 
         // Total vertical offset from the bottom axis line:
-        // offset = tick_line + tick_label_height + buffer + user_padding + title_half_thickness
-        let v_offset = tick_line_len + tick_label_height + safety_buffer + theme.x_label_padding + title_half_thickness;
+        let v_offset = tick_line_len + max_projected_height + safety_buffer + theme.x_label_padding + title_half_thickness;
         
         let y = panel.y + panel.height + v_offset; 
         
@@ -218,20 +241,24 @@ fn draw_axis_title(
         };
         
         // 2. Dynamic Width Measurement:
-        // Identify the widest tick label to prevent title collision using 
-        // the character-weighted estimation logic.
+        // Identify the widest projected footprint to prevent title collision.
+        let angle_rad = theme.y_tick_label_angle.to_radians();
         let ticks = target_scale.ticks(8);
-        let max_tick_width = ticks.iter()
-            .map(|t| crate::core::layout::estimate_text_width(&t.label, theme.tick_label_font_size))
+        
+        // Projected Width = |Width * cos(theta)| + |Height * sin(theta)|
+        let max_projected_width = ticks.iter()
+            .map(|t| {
+                let w = crate::core::layout::estimate_text_width(&t.label, theme.tick_label_font_size);
+                let h = theme.tick_label_font_size;
+                w.abs() * angle_rad.cos().abs() + h * angle_rad.sin().abs()
+            })
             .fold(0.0, f64::max);
 
         // 3. Coordinate Calculation (Edge-based Offset):
-        // Calculate the offset to the title's center, ensuring padding 
-        // is measured from the title's right edge.
         let title_half_thickness = theme.label_font_size / 2.0;
 
         // Total Horizontal Offset from the left axis line:
-        let h_offset = tick_line_len + max_tick_width + safety_buffer + theme.y_label_padding + title_half_thickness;
+        let h_offset = tick_line_len + max_projected_width + safety_buffer + theme.y_label_padding + title_half_thickness;
         
         let x = panel.x - h_offset; 
         let y = panel.y + panel.height / 2.0;
