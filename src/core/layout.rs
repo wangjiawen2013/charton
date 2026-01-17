@@ -87,8 +87,10 @@ impl LayoutEngine {
 
     /// Internal helper to calculate the depth (width or height) of an axis area.
     /// 
-    /// It projects the rotated label bounds onto the axis normal to find the 
-    /// maximum required clearance.
+    /// This method simulates the rendering process to determine how many pixels of 
+    /// clearance are required between the plot panel's edge and the canvas edge.
+    /// It is critical that the logic here remains identical to the logic in 
+    /// `render_axes.rs` to prevent labels from being clipped or overlapping.
     fn estimate_axis_dimension(
         scale: &dyn crate::scale::ScaleTrait,
         angle_deg: f64,
@@ -97,34 +99,54 @@ impl LayoutEngine {
         theme: &Theme,
         is_physically_bottom: bool,
     ) -> f64 {
-        let tick_line_len = 6.0;
-        let safety_buffer = 5.0;
+        // --- FIXED GEOMETRY CONSTANTS ---
+        // These values must match the ones used in the drawing functions.
+        let tick_line_len = 6.0;      // Length of the tick mark lines.
+        let label_gap = 5.0;          // Buffer between tick end and label start.
+        let title_gap = 5.0;          // Extra breathing room before the axis title.
+        let edge_buffer = 5.0;        // Final safety margin before the canvas boundary.
+        
         let angle_rad = angle_deg.to_radians();
         let ticks = scale.ticks(8);
 
-        // Calculate the maximum footprint (projection) of tick labels.
+        // --- STEP 1: CALCULATE TICK LABEL FOOTPRINT ---
+        // We iterate through all generated ticks to find the one that extends 
+        // furthest away from the axis line. For rotated text, we use 
+        // trigonometric projection to find the bounding box size.
         let max_label_footprint = ticks.iter()
             .map(|t| {
                 let w = estimate_text_width(&t.label, theme.tick_label_font_size);
                 let h = theme.tick_label_font_size;
+                
                 if is_physically_bottom {
-                    // For the bottom axis, height is the vertical projection.
+                    // For the bottom axis, the "depth" is the vertical height of the label.
+                    // Projection = |w * sin(θ)| + |h * cos(θ)|
                     w.abs() * angle_rad.sin().abs() + h * angle_rad.cos().abs()
                 } else {
-                    // For the left axis, width is the horizontal projection.
+                    // For the left axis, the "depth" is the horizontal width of the label.
+                    // Projection = |w * cos(θ)| + |h * sin(θ)|
                     w.abs() * angle_rad.cos().abs() + h * angle_rad.sin().abs()
                 }
             })
             .fold(0.0, f64::max);
 
-        // Calculate space for the axis title if it exists.
+        // --- STEP 2: CALCULATE AXIS TITLE SPACE ---
+        // If a label (title) is provided, we account for its font size and 
+        // the user-defined padding (label_padding).
         let title_area = if title.is_empty() {
             0.0
         } else {
-            label_padding + theme.label_font_size + safety_buffer
+            // We include the font height, the requested padding, and our title_gap.
+            theme.label_font_size + label_padding + title_gap
         };
 
-        tick_line_len + max_label_footprint + safety_buffer + title_area
+        // --- STEP 3: CONSOLIDATE TOTAL DIMENSION ---
+        // Total Clearance = Ticks + Gap + Max Label Size + Title Area + Final Buffer.
+        // This value is returned as the required 'constraint' for this axis.
+        let total_dimension = tick_line_len + label_gap + max_label_footprint + title_area + edge_buffer;
+
+        // Return the final pixel requirement.
+        total_dimension
     }
 
     /// Dynamically calculates the space required for legends.

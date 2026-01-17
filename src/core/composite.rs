@@ -125,10 +125,12 @@ impl LayeredChart {
         Self {
             width: 500,
             height: 400,
-            left_margin: 0.10,
-            right_margin: 0.10,
-            top_margin: 0.10,
-            bottom_margin: 0.10,
+
+            left_margin: 0.06,   // 6%: Accommodates most Y-axis labels and titles
+            right_margin: 0.03,  // 3%: Small buffer to prevent the last X-axis tick from clipping
+            top_margin: 0.07,    // 7%: Enough room for the chart title and a small legend
+            bottom_margin: 0.08, // 8%: Slightly larger for X-axis labels and the title
+
             theme: Theme::default(),
 
             title: None,

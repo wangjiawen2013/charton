@@ -150,11 +150,12 @@ fn draw_ticks_and_labels(
     Ok(())
 }
 
-/// Draws the axis title (e.g., "Weight (kg)") while avoiding collisions with tick labels.
+/// Draws the axis title (X or Y label) with dynamic collision avoidance.
 ///
-/// This function dynamically calculates the title's position by measuring the 
-/// maximum footprint (width or height) of all rendered tick labels. It uses 
-/// trigonometric projections to account for label rotation.
+/// This function calculates the optimal placement for the title by measuring 
+/// the footprint of the tick labels. It uses the exact same geometric constants
+/// as the LayoutEngine to ensure that the rendered text stays within the 
+/// pre-allocated margin space.
 fn draw_axis_title(
     svg: &mut String,
     theme: &Theme,
@@ -162,26 +163,36 @@ fn draw_axis_title(
     label: &str,
     is_visual_x: bool,
 ) -> Result<(), ChartonError> {
+    // 1. Guard: Skip rendering if no label text is provided.
     if label.is_empty() { return Ok(()); }
     
     let panel = &ctx.panel;
     let coord = ctx.coord;
     let is_flipped = coord.is_flipped();
 
-    let tick_line_len = 6.0;
-    let safety_buffer = 5.0;
+    // --- GEOMETRIC CONSTANTS ---
+    // These MUST remain in sync with LayoutEngine::estimate_axis_dimension.
+    let tick_line_len = 6.0;      // Physical length of tick marks.
+    let label_gap = 5.0;          // Space between tick end and start of tick labels.
+    let title_gap = 5.0;          // Buffer space specifically for the axis title.
 
-    // Resolve the physical orientation to decide which side of the panel to draw on.
+    // 2. Resolve Physical Mapping:
+    // Map the logical axis (Visual X or Y) to the physical screen position 
+    // (Bottom or Left) based on the coordinate system's flip state.
     let (is_physically_bottom, angle_rad, target_scale, label_padding) = if is_flipped {
         if is_visual_x {
+            // Visual X (Bottom) is physically on the LEFT when flipped.
             (false, theme.x_tick_label_angle.to_radians(), coord.get_y_scale(), theme.x_label_padding)
         } else {
+            // Visual Y (Left) is physically on the BOTTOM when flipped.
             (true, theme.y_tick_label_angle.to_radians(), coord.get_x_scale(), theme.y_label_padding)
         }
     } else {
         if is_visual_x {
+            // Standard Bottom.
             (true, theme.x_tick_label_angle.to_radians(), coord.get_x_scale(), theme.x_label_padding)
         } else {
+            // Standard Left.
             (false, theme.y_tick_label_angle.to_radians(), coord.get_y_scale(), theme.y_label_padding)
         }
     };
@@ -189,11 +200,13 @@ fn draw_axis_title(
     let ticks = target_scale.ticks(8);
 
     if is_physically_bottom {
-        // --- Render title for the bottom-aligned axis ---
+        // --- PHYSICAL BOTTOM RENDERER ---
+        // Center the title horizontally relative to the plot panel.
         let x = panel.x + panel.width / 2.0;
         
-        // Calculate the vertical "footprint" of tick labels to push the title further down.
-        let max_height = ticks.iter()
+        // Compute the maximum vertical footprint (height) of tick labels.
+        // We use trigonometric projection to account for label rotation.
+        let max_tick_height = ticks.iter()
             .map(|t| {
                 let w = crate::core::layout::estimate_text_width(&t.label, theme.tick_label_font_size);
                 let h = theme.tick_label_font_size;
@@ -201,16 +214,23 @@ fn draw_axis_title(
             })
             .fold(0.0, f64::max);
 
-        let v_offset = tick_line_len + max_height + safety_buffer + label_padding;
+        // Calculate Y: Panel Bottom + Ticks + Gap + Labels + User Padding + Title Gap.
+        // dominant-baseline="hanging" ensures the text flows downward from this coordinate.
+        let v_offset = tick_line_len + label_gap + max_tick_height + label_padding + title_gap;
         let y = panel.y + panel.height + v_offset; 
         
-        writeln!(svg, r#"<text x="{:.2}" y="{:.2}" text-anchor="middle" font-size="{}" font-family="{}" fill="{}" font-weight="bold" dominant-baseline="hanging">{}</text>"#,
-            x, y, theme.label_font_size, theme.label_font_family, theme.label_color, label)?;
+        writeln!(
+            svg, 
+            r#"<text x="{:.2}" y="{:.2}" text-anchor="middle" font-size="{}" font-family="{}" fill="{}" font-weight="bold" dominant-baseline="hanging">{}</text>"#,
+            x, y, theme.label_font_size, theme.label_font_family, theme.label_color, label
+        )?;
     } else {
-        // --- Render title for the left-aligned axis ---
+        // --- PHYSICAL LEFT RENDERER ---
+        // Center the title vertically relative to the plot panel.
+        let y = panel.y + panel.height / 2.0;
         
-        // Calculate the horizontal "footprint" of tick labels to push the title further left.
-        let max_width = ticks.iter()
+        // Compute the maximum horizontal footprint (width) of tick labels.
+        let max_tick_width = ticks.iter()
             .map(|t| {
                 let w = crate::core::layout::estimate_text_width(&t.label, theme.tick_label_font_size);
                 let h = theme.tick_label_font_size;
@@ -218,13 +238,19 @@ fn draw_axis_title(
             })
             .fold(0.0, f64::max);
 
-        let h_offset = tick_line_len + max_width + safety_buffer + label_padding;
+        // Calculate X: Panel Left - (Ticks + Gap + Labels + User Padding + Title Gap + Text Height).
+        // Since the text is rotated -90 degrees, it effectively "grows" to the left 
+        // from its anchor point.
+        let h_offset = tick_line_len + label_gap + max_tick_width + label_padding + title_gap + theme.label_font_size;
         let x = panel.x - h_offset; 
-        let y = panel.y + panel.height / 2.0;
         
-        // Vertical titles are rotated -90 degrees around their own center.
-        writeln!(svg, r#"<text x="{:.2}" y="{:.2}" text-anchor="middle" font-size="{}" font-family="{}" fill="{}" font-weight="bold" transform="rotate(-90, {:.2}, {:.2})" dominant-baseline="auto">{}</text>"#,
-            x, y, theme.label_font_size, theme.label_font_family, theme.label_color, x, y, label)?;
+        // Note: dominant-baseline="middle" is used here because the rotation center 
+        // is at (x, y). This keeps the text centered on its logical line.
+        writeln!(
+            svg, 
+            r#"<text x="{:.2}" y="{:.2}" text-anchor="middle" font-size="{}" font-family="{}" fill="{}" font-weight="bold" transform="rotate(-90, {:.2}, {:.2})" dominant-baseline="middle">{}</text>"#,
+            x, y, theme.label_font_size, theme.label_font_family, theme.label_color, x, y, label
+        )?;
     }
     Ok(())
 }
