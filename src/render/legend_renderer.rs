@@ -30,8 +30,12 @@ impl LegendRenderer {
             return;
         }
 
-        let mut backend = SvgBackend::new(buffer);
-        
+        // 2. Initialize Backend:
+        // We pass 'None' for the panel/clip rectangle here. 
+        // Reason: Legends are positioned in the margins OUTSIDE the plot panel. 
+        // If we passed the panel reference, the legend would be clipped and invisible.
+        let mut backend = SvgBackend::new(buffer, None);
+
         // --- Theme-Driven Typography ---
         // Determine font size and family by checking legend-specific theme settings 
         // with a fallback to general axis tick styles.

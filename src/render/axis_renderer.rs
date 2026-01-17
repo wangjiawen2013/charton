@@ -3,12 +3,13 @@ use crate::theme::Theme;
 use crate::error::ChartonError;
 use std::fmt::Write;
 
-/// `AxisRenderer` handles the visual manifestation of the coordinate system.
+/// Orchestrates the visual rendering of both horizontal and vertical axes.
 /// 
-/// It translates abstract data scales into tangible SVG elements (lines and text).
-/// This renderer is "Flip-Aware": it correctly identifies which scale (X or Y) 
-/// should be rendered on the visual bottom vs. visual left based on the 
-/// chart's `flipped` configuration.
+/// This function acts as the high-level manager for axis manifestation. It 
+/// handles the logical-to-physical mapping required by the "Coordinate Flip" 
+/// feature. In the Grammar of Graphics, while the data scales remain fixed, 
+/// their visual projection can be swapped (e.g., a Bar chart becoming a 
+/// Horizontal Bar chart).
 pub fn render_axes(
     svg: &mut String,
     theme: &Theme,
@@ -16,20 +17,23 @@ pub fn render_axes(
     x_label: &str,
     y_label: &str,
 ) -> Result<(), ChartonError> {
-    // Determine the correct labels based on the flip state.
-    // If flipped, the data's Y-axis is displayed on the visual X-axis (bottom).
+    // Determine the mapping between data labels and visual positions.
+    // When the coordinate system is flipped, the data's Y-axis is projected
+    // onto the visual horizontal axis (the bottom of the panel).
     let (bottom_label, left_label) = if ctx.coord.is_flipped() {
         (y_label, x_label)
     } else {
         (x_label, y_label)
     };
 
-    // 1. Render Visual X-Axis (The Horizontal Bottom Axis)
+    // 1. Process the Horizontal Axis (Visual Bottom)
+    // Regardless of whether it represents X or Y data, it is rendered at the bottom.
     draw_axis_line(svg, theme, ctx, true)?;
     draw_ticks_and_labels(svg, theme, ctx, true)?;
     draw_axis_title(svg, theme, ctx, bottom_label, true)?;
 
-    // 2. Render Visual Y-Axis (The Vertical Left Axis)
+    // 2. Process the Vertical Axis (Visual Left)
+    // Regardless of whether it represents X or Y data, it is rendered on the left.
     draw_axis_line(svg, theme, ctx, false)?;
     draw_ticks_and_labels(svg, theme, ctx, false)?;
     draw_axis_title(svg, theme, ctx, left_label, false)?;
@@ -37,20 +41,10 @@ pub fn render_axes(
     Ok(())
 }
 
-/// Draws the main axis spine (the line representing the axis itself).
+/// Renders the main structural line (spine) of an axis.
 ///
-/// # Arguments
-/// * `svg` - The mutable string buffer to append SVG elements to.
-/// * `theme` - Visual configuration including colors and stroke widths.
-/// * `ctx` - The shared context containing coordinate system and panel layout.
-/// * `is_visual_x` - Directional flag: 
-///     - `true`: Renders the horizontal axis (Visual Bottom).
-///     - `false`: Renders the vertical axis (Visual Left).
-///
-/// # Flip-Aware Logic
-/// This function relies on `coord.transform` to abstract away physical pixels. 
-/// In a "flipped" chart, the horizontal axis (`is_visual_x: true`) will 
-/// automatically represent the data's Y-scale.
+/// It utilizes the coordinate system's transformation matrix to find 
+/// the pixel coordinates of the [0.0, 1.0] normalized range.
 fn draw_axis_line(
     svg: &mut String,
     theme: &Theme,
@@ -60,18 +54,13 @@ fn draw_axis_line(
     let coord = ctx.coord;
     let panel = &ctx.panel;
 
-    // The origin (0.0, 0.0) in normalized space always represents 
-    // the intersection of the two axes (usually the bottom-left corner).
+    // The origin (0.0, 0.0) in normalized space is the anchor for both axes.
     let (p1x, p1y) = coord.transform(0.0, 0.0, panel);
     
-    // Calculate the end point of the spine using normalized coordinates.
-    // (1.0, 0.0) represents the full extent of the primary dimension,
-    // and (0.0, 1.0) represents the full extent of the secondary dimension.
+    // (1,0) denotes the end of the horizontal axis; (0,1) for the vertical.
     let (p2x, p2y) = if is_visual_x {
-        // Full span across the horizontal visual axis.
         coord.transform(1.0, 0.0, panel)
     } else {
-        // Full span across the vertical visual axis.
         coord.transform(0.0, 1.0, panel)
     };
 
@@ -83,12 +72,11 @@ fn draw_axis_line(
     Ok(())
 }
 
-/// Renders tick marks and their corresponding text labels.
+/// Renders the tick marks and text labels along an axis.
 ///
-/// This function is "Orientation-Aware": it detects the physical placement of the axis
-/// (bottom vs. left) by combining the `is_visual_x` intent with the coordinate system's
-/// `flipped` state. It ensures that ticks always point outward from the plot panel
-/// and labels are positioned with correct alignment and rotation.
+/// This function calculates the appropriate scale to use based on the `is_visual_x`
+/// intent and the `flipped` state of the coordinate system. It ensures that 
+/// ticks always point away from the data panel to avoid visual clutter.
 fn draw_ticks_and_labels(
     svg: &mut String,
     theme: &Theme,
@@ -99,76 +87,62 @@ fn draw_ticks_and_labels(
     let panel = &ctx.panel;
     let is_flipped = coord.is_flipped();
     
-    // Select the appropriate scale based on the visual axis and flip state.
-    // In a flipped chart, the visual Bottom Axis represents the data's Y-scale.
+    // Resolve which data scale (X or Y) is currently mapped to this visual axis.
     let target_scale = if is_flipped {
         if is_visual_x { coord.get_y_scale() } else { coord.get_x_scale() }
     } else {
         if is_visual_x { coord.get_x_scale() } else { coord.get_y_scale() }
     };
     
+    // Request a set of 'pretty' tick values from the scale (defaulting to ~8).
     let ticks = target_scale.ticks(8); 
     let tick_len = 6.0;
     let angle = if is_visual_x { theme.x_tick_label_angle } else { theme.y_tick_label_angle };
 
     for tick in ticks {
         let norm_pos = target_scale.normalize(tick.value);
-
-        // Calculate the base point (px, py) on the axis spine.
-        // We use normalized coordinates (pos, 0.0) for the visual Bottom and (0.0, pos) for the visual Left.
-        // The coordinate system's transform() handles the internal mapping to screen pixels.
+        
+        // Map the normalized position back to absolute screen pixels.
         let (px, py) = if is_visual_x {
             coord.transform(norm_pos, 0.0, panel)
         } else {
             coord.transform(0.0, norm_pos, panel)
         };
 
-        // Determine the physical direction of the tick and label.
-        // If flipped, the visual X-axis (is_visual_x: true) is actually rendered 
-        // on the physical Left of the panel.
+        // Calculate geometric offsets for the tick lines and text anchors.
+        // If flipped, 'Visual X' is physically on the panel's left side.
+        // Otherwise, it is physically on the panel's bottom side.
         let (x2, y2, dx, dy, anchor, baseline) = if is_flipped {
             if is_visual_x {
-                // Flipped Case: Visual X is physically on the LEFT.
-                // Ticks extend to the left (-X), labels are end-anchored.
+                // Physical Left (Representing Logical Y)
                 (px - tick_len, py, -(tick_len + theme.tick_label_padding + 1.0), 0.0, "end", "central")
             } else {
-                // Flipped Case: Visual Y is physically on the BOTTOM.
-                // Ticks extend downward (+Y), labels are middle-anchored.
+                // Physical Bottom (Representing Logical X)
                 (px, py + tick_len, 0.0, tick_len + theme.tick_label_padding, "middle", "hanging")
             }
         } else {
-            // Standard Case.
             if is_visual_x {
-                // Physically on the BOTTOM.
+                // Physical Bottom (Representing Logical X)
                 let x_anchor = if angle == 0.0 { "middle" } else { "end" };
                 (px, py + tick_len, 0.0, tick_len + theme.tick_label_padding, x_anchor, "hanging")
             } else {
-                // Physically on the LEFT.
+                // Physical Left (Representing Logical Y)
                 (px - tick_len, py, -(tick_len + theme.tick_label_padding + 1.0), 0.0, "end", "central")
             }
         };
         
-        // Render the tick mark line.
-        writeln!(
-            svg, 
-            r#"<line x1="{:.2}" y1="{:.2}" x2="{:.2}" y2="{:.2}" stroke="{}" stroke-width="{:.1}"/>"#,
-            px, py, x2, y2, theme.label_color, theme.tick_stroke_width
-        )?;
+        // 1. Draw the tick mark line
+        writeln!(svg, r#"<line x1="{:.2}" y1="{:.2}" x2="{:.2}" y2="{:.2}" stroke="{}" stroke-width="{:.1}"/>"#,
+            px, py, x2, y2, theme.label_color, theme.tick_stroke_width)?;
 
-        // Position the text label relative to the tick end.
+        // 2. Draw the tick label with optional rotation
         let final_x = px + dx;
         let final_y = py + dy;
-        
-        // Apply rotation if specified. The pivot is the calculated label anchor point.
         let transform = if angle != 0.0 {
             format!(r#" transform="rotate({:.1}, {:.2}, {:.2})""#, angle, final_x, final_y)
-        } else { 
-            "".to_string() 
-        };
+        } else { "".to_string() };
 
-        writeln!(
-            svg,
-            r#"<text x="{:.2}" y="{:.2}" font-size="{}" font-family="{}" fill="{}" text-anchor="{}" dominant-baseline="{}"{}>{}</text>"#,
+        writeln!(svg, r#"<text x="{:.2}" y="{:.2}" font-size="{}" font-family="{}" fill="{}" text-anchor="{}" dominant-baseline="{}"{}>{}</text>"#,
             final_x, final_y, theme.tick_label_font_size, theme.tick_label_font_family,
             theme.tick_label_color, anchor, baseline, transform, tick.label
         )?;
@@ -176,11 +150,11 @@ fn draw_ticks_and_labels(
     Ok(())
 }
 
-/// Draws the axis title (X or Y label) with collision avoidance for tick labels.
+/// Draws the axis title (e.g., "Weight (kg)") while avoiding collisions with tick labels.
 ///
-/// This function calculates the optimal placement for the title by measuring 
-/// the vertical or horizontal footprint of the tick labels. It accounts for 
-/// label rotation using trigonometric projection.
+/// This function dynamically calculates the title's position by measuring the 
+/// maximum footprint (width or height) of all rendered tick labels. It uses 
+/// trigonometric projections to account for label rotation.
 fn draw_axis_title(
     svg: &mut String,
     theme: &Theme,
@@ -197,8 +171,7 @@ fn draw_axis_title(
     let tick_line_len = 6.0;
     let safety_buffer = 5.0;
 
-    // Map logical axis intent to physical screen location.
-    // If the chart is flipped, the logical X-axis title moves to the physical Left.
+    // Resolve the physical orientation to decide which side of the panel to draw on.
     let (is_physically_bottom, angle_rad, target_scale, label_padding) = if is_flipped {
         if is_visual_x {
             (false, theme.x_tick_label_angle.to_radians(), coord.get_y_scale(), theme.x_label_padding)
@@ -213,13 +186,13 @@ fn draw_axis_title(
         }
     };
 
-    if is_physically_bottom {
-        // --- PHYSICAL BOTTOM RENDERER ---
-        // Calculate the midpoint of the panel width.
-        let x = panel.x + panel.width / 2.0;
-        let ticks = target_scale.ticks(8);
+    let ticks = target_scale.ticks(8);
 
-        // Compute the maximum vertical height of rotated tick labels.
+    if is_physically_bottom {
+        // --- Render title for the bottom-aligned axis ---
+        let x = panel.x + panel.width / 2.0;
+        
+        // Calculate the vertical "footprint" of tick labels to push the title further down.
         let max_height = ticks.iter()
             .map(|t| {
                 let w = crate::core::layout::estimate_text_width(&t.label, theme.tick_label_font_size);
@@ -228,20 +201,15 @@ fn draw_axis_title(
             })
             .fold(0.0, f64::max);
 
-        // Total offset includes tick length, max label height, paddings, and half of the title font size.
-        let v_offset = tick_line_len + max_height + safety_buffer + label_padding + (theme.label_font_size / 2.0);
+        let v_offset = tick_line_len + max_height + safety_buffer + label_padding;
         let y = panel.y + panel.height + v_offset; 
         
-        writeln!(
-            svg, 
-            r#"<text x="{:.2}" y="{:.2}" text-anchor="middle" font-size="{}" font-family="{}" fill="{}" font-weight="bold" dominant-baseline="middle">{}</text>"#,
-            x, y, theme.label_font_size, theme.label_font_family, theme.label_color, label
-        )?;
+        writeln!(svg, r#"<text x="{:.2}" y="{:.2}" text-anchor="middle" font-size="{}" font-family="{}" fill="{}" font-weight="bold" dominant-baseline="hanging">{}</text>"#,
+            x, y, theme.label_font_size, theme.label_font_family, theme.label_color, label)?;
     } else {
-        // --- PHYSICAL LEFT RENDERER ---
-        let ticks = target_scale.ticks(8);
+        // --- Render title for the left-aligned axis ---
         
-        // Compute the maximum horizontal width of rotated tick labels.
+        // Calculate the horizontal "footprint" of tick labels to push the title further left.
         let max_width = ticks.iter()
             .map(|t| {
                 let w = crate::core::layout::estimate_text_width(&t.label, theme.tick_label_font_size);
@@ -250,17 +218,13 @@ fn draw_axis_title(
             })
             .fold(0.0, f64::max);
 
-        // Total offset from the panel's left edge.
-        let h_offset = tick_line_len + max_width + safety_buffer + label_padding + (theme.label_font_size / 2.0);
+        let h_offset = tick_line_len + max_width + safety_buffer + label_padding;
         let x = panel.x - h_offset; 
         let y = panel.y + panel.height / 2.0;
         
-        // Vertical titles are rotated -90 degrees around their anchor point.
-        writeln!(
-            svg, 
-            r#"<text x="{:.2}" y="{:.2}" text-anchor="middle" font-size="{}" font-family="{}" fill="{}" font-weight="bold" transform="rotate(-90, {:.2}, {:.2})" dominant-baseline="middle">{}</text>"#,
-            x, y, theme.label_font_size, theme.label_font_family, theme.label_color, x, y, label
-        )?;
+        // Vertical titles are rotated -90 degrees around their own center.
+        writeln!(svg, r#"<text x="{:.2}" y="{:.2}" text-anchor="middle" font-size="{}" font-family="{}" fill="{}" font-weight="bold" transform="rotate(-90, {:.2}, {:.2})" dominant-baseline="auto">{}</text>"#,
+            x, y, theme.label_font_size, theme.label_font_family, theme.label_color, x, y, label)?;
     }
     Ok(())
 }

@@ -7,6 +7,7 @@ use crate::scale::{Scale, ScaleDomain, create_scale, mapper::VisualMapper};
 use crate::encode::aesthetics::GlobalAesthetics;
 use crate::theme::Theme;
 use crate::error::ChartonError;
+use std::fmt::Write;
 
 /// LayeredChart structure - shared properties for all layers
 ///
@@ -1534,44 +1535,51 @@ impl LayeredChart {
 
     /// Renders the chart title at the top-center of the SVG canvas.
     /// 
-    /// The title's appearance (font size, family, and color) is determined by the 
-    /// current theme. If no title is provided in the chart configuration, 
-    /// this method returns early without modifying the SVG string.
-    fn render_title(&self, svg: &mut String) -> Result<(), ChartonError> {
-        // If no title is defined, there is nothing to render.
+    /// In this revised implementation, the title position is no longer a fixed offset.
+    /// Instead, it dynamically calculates its vertical position to be centered within
+    /// the space defined by `top_margin`. This ensures the title remains visually 
+    /// balanced even as the chart scales or if large margins are specified.
+    fn render_title(&self, svg: &mut String, panel: &Rect) -> Result<(), ChartonError> {
+        // 1. Guard: Check if a title exists.
         let title_text = match &self.title {
             Some(t) => t,
             None => return Ok(()),
         };
 
-        // Calculate the horizontal center of the SVG canvas.
+        // 2. Horizontal Positioning:
+        // Use the full canvas width to find the absolute horizontal center.
         let center_x = self.width as f64 / 2.0;
         
-        // Position the title slightly below the top edge. 
-        // We use an offset of roughly 25 pixels, but this could be 
-        // linked to top_margin in a more complex layout.
-        let top_offset = 25.0;
-
-        // Extract styling metadata from the theme.
+        // 3. Vertical Positioning Logic:
+        // Instead of a hardcoded '25.0', we calculate the available vertical space 
+        // above the plot panel (panel.y). 
+        // We place the text's baseline in the middle of this area.
+        let title_area_height = panel.y;
         let font_size = self.theme.title_font_size;
+        
+        // Calculate the vertical midpoint. 
+        // Note: Using 'dominant-baseline="middle"' allows us to use the exact midpoint as the Y coordinate.
+        let center_y = title_area_height / 2.0;
+
+        // 4. Style Metadata Extraction:
         let font_family = &self.theme.title_font_family;
         let font_color = &self.theme.title_color;
 
-        // Generate the SVG <text> element.
-        // text-anchor="middle" ensures the center_x is the midpoint of the string.
-        let title_tag = format!(
-            r#"<text x="{}" y="{}" text-anchor="middle" font-family="{}" font-size="{}" fill="{}">{}</text>"#,
+        // 5. SVG Generation:
+        // - x: Absolute horizontal center.
+        // - y: Midpoint of the top margin area.
+        // - text-anchor="middle": Centers the text horizontally.
+        // - dominant-baseline="middle": Centers the text vertically around the Y coordinate.
+        writeln!(
+            svg,
+            r#"<text x="{:.2}" y="{:.2}" text-anchor="middle" dominant-baseline="middle" font-family="{}" font-size="{}" fill="{}" font-weight="bold">{}</text>"#,
             center_x,
-            top_offset,
+            center_y,
             font_family,
             font_size,
             font_color,
             title_text
-        );
-
-        // Append the title element to the SVG buffer.
-        svg.push_str(&title_tag);
-        svg.push('\n');
+        )?;
 
         Ok(())
     }
@@ -1636,9 +1644,9 @@ impl LayeredChart {
 
         // --- STEP 4: DRAWING PHASE ---
         
-        // 5. Render Chart Title (if defined in the chart metadata)
+        // 5. Render Chart Title - Pass the panel to allow vertical centering
         // This is usually rendered at the top of the canvas, outside the Panel.
-        self.render_title(svg)?;
+        self.render_title(svg, &panel)?;
 
         // 6. Render Axes (X and Y) 
         // We determine if axes are needed by checking chart-level overrides or layer requirements.
@@ -1663,7 +1671,7 @@ impl LayeredChart {
         // 7. Render Marks (Data Geometries)
         // Each layer draws its specific marks (points, lines, etc.) within the context's panel.
         // We use an SvgBackend to abstract the raw string manipulations.
-        let mut backend = crate::render::backend::svg::SvgBackend::new(svg);
+        let mut backend = crate::render::backend::svg::SvgBackend::new(svg, Some(&context.panel));
         for layer in &self.layers {
             layer.render_marks(&mut backend, &context)?;
         }
