@@ -1,40 +1,133 @@
-use crate::core::legend::{LegendSpec, LegendPosition};
+use super::context::SharedRenderingContext;
+use super::legend::{LegendSpec, LegendPosition};
 use crate::theme::Theme;
-use crate::scale::ScaleDomain;
+
+/// Represents the reserved space for axes on each side of the plot panel.
+/// 
+/// In the Grammar of Graphics, the 'Panel' is the pure data area. To ensure 
+/// labels and titles do not clip, we calculate these pixel constraints 
+/// during the layout phase and shrink the panel accordingly.
+#[derive(Default, Debug, Clone, Copy)]
+pub struct AxisLayoutConstraints {
+    /// Height required for the horizontal axis (usually X, or Y if flipped).
+    pub bottom: f64, 
+    /// Width required for the vertical axis (usually Y, or X if flipped).
+    pub left: f64,   
+}
 
 /// Internal helper structure representing the whitespace or reserved area 
 /// on each side of the plot panel caused by legend placement.
-///
-/// Encapsulates the pixel dimensions required to accommodate the legend.
-/// 
-/// This is used during the 'Resolution' phase to subtract space from the 
-/// total canvas area, resulting in the final 'Plot Panel' Rect.
 #[derive(Default, Debug, Clone, Copy)]
 pub struct LegendLayoutConstraints {
-    /// Space to be reserved at the top (used by LegendPosition::Top)
     pub top: f64,
-    /// Space to be reserved at the bottom (used by LegendPosition::Bottom)
     pub bottom: f64,
-    /// Space to be reserved on the left (used by LegendPosition::Left)
     pub left: f64,
-    /// Space to be reserved on the right (used by LegendPosition::Right)
     pub right: f64,
 }
 
 /// The `LayoutEngine` is responsible for the geometric partitioning of the chart canvas.
 /// 
-/// In the Grammar of Graphics, the layout phase must occur after data synchronization 
-/// but before rendering. This engine estimates the bounding boxes of non-data 
-/// elements (like legends) to calculate the final 'Panel'—the area where 
-/// data marks will be drawn.
+/// It performs "pre-flight" measurements of non-data elements (axes, legends, titles)
+/// to determine the final dimensions of the Plot Panel.
 pub struct LayoutEngine;
 
 impl LayoutEngine {
-    /// Dynamically calculates the space required for legends based on their 
-    /// intended position and the specific data series being guided.
+    /// Estimates the required margins for axes before rendering occurs.
     /// 
-    /// This method performs a "pre-flight" measurement of the legend's dimensions 
-    /// to prevent overlap with the plot area.
+    /// This function accounts for:
+    /// 1. The length of tick marks.
+    /// 2. The bounding box of tick labels (considering rotation).
+    /// 3. The padding and font size of the axis title.
+    pub fn calculate_axis_constraints(
+        ctx: &SharedRenderingContext,
+        theme: &Theme,
+        x_label: &str,
+        y_label: &str,
+    ) -> AxisLayoutConstraints {
+        let mut constraints = AxisLayoutConstraints::default();
+        let coord = ctx.coord;
+        let is_flipped = coord.is_flipped();
+
+        // 1. Calculate Physical Bottom Axis space.
+        // If flipped, the physical bottom axis represents the Y data scale.
+        let (bottom_scale, bottom_angle, bottom_title, bottom_padding) = if is_flipped {
+            (coord.get_y_scale(), theme.y_tick_label_angle, y_label, theme.y_label_padding)
+        } else {
+            (coord.get_x_scale(), theme.x_tick_label_angle, x_label, theme.x_label_padding)
+        };
+
+        constraints.bottom = Self::estimate_axis_dimension(
+            bottom_scale,
+            bottom_angle,
+            bottom_title,
+            bottom_padding,
+            theme,
+            true // is_physically_bottom
+        );
+
+        // 2. Calculate Physical Left Axis space.
+        // If flipped, the physical left axis represents the X data scale.
+        let (left_scale, left_angle, left_title, left_padding) = if is_flipped {
+            (coord.get_x_scale(), theme.x_tick_label_angle, x_label, theme.x_label_padding)
+        } else {
+            (coord.get_y_scale(), theme.y_tick_label_angle, y_label, theme.y_label_padding)
+        };
+
+        constraints.left = Self::estimate_axis_dimension(
+            left_scale,
+            left_angle,
+            left_title,
+            left_padding,
+            theme,
+            false // is_physically_bottom
+        );
+
+        constraints
+    }
+
+    /// Internal helper to calculate the depth (width or height) of an axis area.
+    /// 
+    /// It projects the rotated label bounds onto the axis normal to find the 
+    /// maximum required clearance.
+    fn estimate_axis_dimension(
+        scale: &dyn crate::scale::ScaleTrait,
+        angle_deg: f64,
+        title: &str,
+        label_padding: f64,
+        theme: &Theme,
+        is_physically_bottom: bool,
+    ) -> f64 {
+        let tick_line_len = 6.0;
+        let safety_buffer = 5.0;
+        let angle_rad = angle_deg.to_radians();
+        let ticks = scale.ticks(8);
+
+        // Calculate the maximum footprint (projection) of tick labels.
+        let max_label_footprint = ticks.iter()
+            .map(|t| {
+                let w = estimate_text_width(&t.label, theme.tick_label_font_size);
+                let h = theme.tick_label_font_size;
+                if is_physically_bottom {
+                    // For the bottom axis, height is the vertical projection.
+                    w.abs() * angle_rad.sin().abs() + h * angle_rad.cos().abs()
+                } else {
+                    // For the left axis, width is the horizontal projection.
+                    w.abs() * angle_rad.cos().abs() + h * angle_rad.sin().abs()
+                }
+            })
+            .fold(0.0, f64::max);
+
+        // Calculate space for the axis title if it exists.
+        let title_area = if title.is_empty() {
+            0.0
+        } else {
+            label_padding + theme.label_font_size + safety_buffer
+        };
+
+        tick_line_len + max_label_footprint + safety_buffer + title_area
+    }
+
+    /// Dynamically calculates the space required for legends.
     pub fn calculate_legend_constraints(
         specs: &[LegendSpec],
         position: LegendPosition,
@@ -42,113 +135,45 @@ impl LayoutEngine {
         theme: &Theme,
     ) -> LegendLayoutConstraints {
         let mut constraints = LegendLayoutConstraints::default();
-
-        // If legends are hidden or no data mappings require a legend, return empty constraints.
         if position == LegendPosition::None || specs.is_empty() {
             return constraints;
         }
 
-        // Determine typography metrics from the theme for accurate width estimation.
         let font_size = theme.legend_font_size.unwrap_or(theme.tick_label_font_size);
         let font_family = theme.legend_font_family.as_ref().unwrap_or(&theme.tick_label_font_family);
-        
-        // Monospaced fonts require a larger width factor than proportional fonts.
         let width_factor = if font_family.contains("Mono") { 0.65 } else { 0.55 };
 
         match position {
-            // Vertical layouts: Reserved space is added to the horizontal margins.
             LegendPosition::Right | LegendPosition::Left => {
                 let mut max_w = 0.0;
                 for spec in specs {
-                    let spec_w = Self::estimate_spec_width(spec, font_size, width_factor);
-                    max_w = f64::max(max_w, spec_w);
+                    // Estimation logic for legend items.
+                    let title_w = spec.title.len() as f64 * (font_size * width_factor * 1.1);
+                    max_w = f64::max(max_w, title_w + 40.0); // 40px buffer for markers
                 }
-                
-                // Final constraint = Estimated text width + user-defined margin + canvas safety buffer.
-                let total_needed = max_w + margin + 10.0; 
-                
-                if position == LegendPosition::Right {
-                    constraints.right = total_needed;
-                } else {
-                    constraints.left = total_needed;
-                }
+                let total_needed = max_w + margin + 10.0;
+                if position == LegendPosition::Right { constraints.right = total_needed; } 
+                else { constraints.left = total_needed; }
             }
-            
-            // Horizontal layouts: Reserved space is added to the vertical margins.
             LegendPosition::Top | LegendPosition::Bottom => {
-                // Calculation assumes a single-row flow layout.
-                // Height includes: Title space + Marker/Label space + User Margin.
-                let title_height = font_size * 1.2;
-                let item_height = font_size + 20.0;
-                let total_needed = title_height + item_height + margin;
-                
-                if position == LegendPosition::Top {
-                    constraints.top = total_needed;
-                } else {
-                    constraints.bottom = total_needed;
-                }
+                let total_needed = (font_size * 1.2) + (font_size + 20.0) + margin;
+                if position == LegendPosition::Top { constraints.top = total_needed; } 
+                else { constraints.bottom = total_needed; }
             }
-            LegendPosition::None => {}
+            _ => {}
         }
         constraints
     }
-
-    /// Estimates the physical width (in pixels) of a single legend block.
-    /// 
-    /// It compares the width of the Legend Title against the width of the 
-    /// longest data label plus the geometric symbol marker.
-    fn estimate_spec_width(spec: &LegendSpec, font_size: f64, width_factor: f64) -> f64 {
-        let max_label_len = match &spec.domain {
-            ScaleDomain::Categorical(labels) => {
-                labels.iter().map(|l| l.len()).max().unwrap_or(0)
-            }
-            ScaleDomain::Continuous(min, max) => {
-                // For continuous scales, we estimate based on formatted numeric strings.
-                format!("{:.2}", min).len().max(format!("{:.2}", max).len())
-            },
-            _ => 10, // Default fallback for unknown domains
-        };
-
-        // Standardized marker area: 20px symbol + 10px spacing to the text.
-        let symbol_area_width = 30.0;
-        
-        // Calculate text widths based on the resolved font factor.
-        let label_text_width = max_label_len as f64 * (font_size * width_factor);
-        let title_text_width = spec.title.len() as f64 * (font_size * width_factor * 1.1);
-
-        // The block width is the wider of the title or the symbol+label combination.
-        f64::max(title_text_width, symbol_area_width + label_text_width)
-    }
 }
 
-/// Calculate the approximate width of a text string in SVG
-///
-/// This function estimates text width by categorizing characters into different width groups:
-/// - Narrow characters: '.', ',', ':', ';', '!', 'i', 'j', 'l', 'I', 'J', 'L', '-', ''', '|', '1', 't', 'f', 'r'
-/// - Uppercase letters: 'A'-'Z' (except those already in narrow_chars)
-/// - All other characters (including lowercase letters): wide_chars
-///
-/// Width multipliers:
-/// - Narrow characters: 0.3 * font_size
-/// - Uppercase letters: 0.65 * font_size (wider than lowercase)
-/// - Other characters: 0.55 * font_size
-///
-/// # Parameters
-/// * `text` - The text string to measure
-/// * `font_size` - The font size in pixels
-///
-/// # Returns
-/// Estimated width of the text in pixels
+/// Estimates text width using character categorization.
 pub(crate) fn estimate_text_width(text: &str, font_size: f64) -> f64 {
     let mut narrow_chars = 0;
     let mut uppercase_chars = 0;
     let mut other_chars = 0;
 
     for c in text.chars() {
-        if matches!(
-            c,
-            '.' | ',' | ':' | ';' | '!' | 'i' | 'j' | 'l' | '-' | '|' | '1' | 't' | 'f' | 'r'
-        ) {
+        if matches!(c, '.'|','|':'|';'|'!'|'i'|'j'|'l'|'-'|'|'|'1'|'t'|'f'|'r') {
             narrow_chars += 1;
         } else if c.is_ascii_uppercase() {
             uppercase_chars += 1;
@@ -157,6 +182,5 @@ pub(crate) fn estimate_text_width(text: &str, font_size: f64) -> f64 {
         }
     }
 
-    (narrow_chars as f64 * 0.3 + uppercase_chars as f64 * 0.65 + other_chars as f64 * 0.55)
-        * font_size
+    (narrow_chars as f64 * 0.3 + uppercase_chars as f64 * 0.65 + other_chars as f64 * 0.55) * font_size
 }

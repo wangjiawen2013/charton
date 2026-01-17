@@ -1,4 +1,4 @@
-use crate::coordinate::{CoordinateTrait, CoordSystem, Rect, cartesian::Cartesian2D};
+use crate::coordinate::{CoordinateTrait, CoordSystem, Rect};
 use crate::chart::Chart;
 use crate::core::layer::Layer;
 use crate::core::legend::{LegendSpec, LegendPosition};
@@ -124,10 +124,10 @@ impl LayeredChart {
         Self {
             width: 500,
             height: 400,
-            left_margin: 0.15,
-            right_margin: 0.10,
-            top_margin: 0.10,
-            bottom_margin: 0.15,
+            left_margin: 0.01,
+            right_margin: 0.02,
+            top_margin: 0.02,
+            bottom_margin: 0.01,
             theme: Theme::default(),
 
             title: None,
@@ -1425,41 +1425,38 @@ impl LayeredChart {
 
     /// Resolves the final rendering layout and global aesthetic scales by consolidating metadata.
     /// 
-    /// This function performs the "Training Phase" of the chart:
-    /// 1. **Geometry**: Calculates the plot area (Panel) by calling the LayoutEngine.
-    /// 2. **Coordinates**: Resolves X and Y scales and constructs the Coordinate System.
-    /// 3. **Aesthetics**: Aggregates Color, Size, and Shape domains to create global Mappers.
-    ///
-    /// # Arguments
-    /// * `legend_specs` - The unified legend specifications used to calculate dynamic margins.
+    /// This function performs the "Training Phase" of the chart by:
+    /// 1. Finalizing aesthetic scales (Color, Shape, Size).
+    /// 2. Constructing X and Y scales based on data and user-defined constraints.
+    /// 3. Estimating the physical space needed for axes and legends.
+    /// 4. Calculating the final 'Panel' Rect for data rendering.
     fn resolve_rendering_layout(&self, legend_specs: &[LegendSpec]) -> Result<(Box<dyn CoordinateTrait>, Rect, GlobalAesthetics), ChartonError> {
-        // --- 1. Geometry: Calculate the physical drawing panel ---
-        // We delegate the complex estimation of legend sizes to the LayoutEngine.
-        let legend_box = crate::core::layout::LayoutEngine::calculate_legend_constraints(
-            legend_specs,
-            self.legend_position,
-            self.legend_margin,
-            &self.theme
-        );
-        
-        // Add legend constraints (pixels) to the user-defined proportional margins.
-        // This ensures the plot panel "shrinks" to make room for titles and legends.
-        let left_margin_px = (self.left_margin * self.width as f64) + legend_box.left;
-        let right_margin_px = (self.right_margin * self.width as f64) + legend_box.right;
-        let top_margin_px = (self.top_margin * self.height as f64) + legend_box.top;
-        let bottom_margin_px = (self.bottom_margin * self.height as f64) + legend_box.bottom;
-        
-        // Calculate final plot dimensions
-        let plot_w = (self.width as f64 - left_margin_px - right_margin_px).max(0.0);
-        let plot_h = (self.height as f64 - top_margin_px - bottom_margin_px).max(0.0);
+        // --- STEP 1: RESOLVE AESTHETIC SCALES ---
+        let color_bundle = if let Some((scale_type, domain)) = self.get_color_domain_from_layers()? {
+            let scale = create_scale(&scale_type, domain, self.theme.color_expand)?;
+            let mapper = VisualMapper::new_color_default(&scale_type, &self.theme);
+            Some((scale, mapper))
+        } else { None };
 
-        // Define the target rectangle where all data marks will be rendered.
-        let panel = Rect::new(left_margin_px, top_margin_px, plot_w, plot_h);
+        let shape_bundle = if let Some(domain) = self.get_shape_domain_from_layers()? {
+            let scale = create_scale(&Scale::Discrete, domain, self.theme.shape_expand)?;
+            let mapper = VisualMapper::new_shape_default();
+            Some((scale, mapper))
+        } else { None };
 
-        // --- 2. Coordinate Scales: Resolve X and Y ---
-        // The process involves retrieving raw domains from layers and applying user overrides.
-        
-        // Resolve X Scale
+        let size_bundle = if let Some(domain) = self.get_size_domain_from_layers()? {
+            let scale = create_scale(&Scale::Linear, domain, self.theme.size_expand)?;
+            let mapper = VisualMapper::new_size_default(2.0, 20.0);
+            Some((scale, mapper))
+        } else { None };
+
+        let aesthetics = GlobalAesthetics {
+            color: color_bundle,
+            shape: shape_bundle,
+            size: size_bundle,
+        };
+
+        // --- STEP 2: RESOLVE COORDINATE SCALES (X & Y) ---
         let x_scale = if let Some((stype, mut domain)) = self.get_x_domain_from_layers()? {
             if let ScaleDomain::Continuous(ref mut min, ref mut max) = domain {
                 if let Some(u_min) = self.x_domain_min { *min = u_min; }
@@ -1470,7 +1467,6 @@ impl LayeredChart {
             create_scale(&Scale::Linear, ScaleDomain::Continuous(0.0, 1.0), self.theme.x_expand)?
         };
 
-        // Resolve Y Scale
         let y_scale = if let Some((stype, mut domain)) = self.get_y_domain_from_layers()? {
             if let ScaleDomain::Continuous(ref mut min, ref mut max) = domain {
                 if let Some(u_min) = self.y_domain_min { *min = u_min; }
@@ -1481,51 +1477,59 @@ impl LayeredChart {
             create_scale(&Scale::Linear, ScaleDomain::Continuous(0.0, 1.0), self.theme.y_expand)?
         };
 
-        // --- 3. Aesthetic Scales: Color, Size, and Shape ---
-        // These scales ensure that shared visual properties (like color) are consistent across all layers.
-        
-        let color_bundle = if let Some((scale_type, domain)) = self.get_color_domain_from_layers()? {
-            let scale = create_scale(&scale_type, domain, self.theme.color_expand)?;
-            let mapper = VisualMapper::new_color_default(&scale_type, &self.theme);
-            Some((scale, mapper))
-        } else {
-            None
+        // --- STEP 3: TEMPORARY GEOMETRY MEASUREMENT ---
+        // Construct the coordinate system first to give to the context.
+        let final_coord: Box<dyn CoordinateTrait> = match self.coord_system {
+            CoordSystem::Cartesian2D => Box::new(crate::coordinate::cartesian::Cartesian2D::new(
+                x_scale, 
+                y_scale, 
+                self.flipped
+            )),
+            CoordSystem::Polar => todo!("Polar coordinate resolution not yet implemented"),
         };
 
-        let shape_bundle = if let Some(domain) = self.get_shape_domain_from_layers()? {
-            let scale = create_scale(&Scale::Discrete, domain, self.theme.shape_expand)?;
-            let mapper = VisualMapper::new_shape_default();
-            Some((scale, mapper))
-        } else {
-            None
-        };
+        // Create a temporary SharedRenderingContext to facilitate space estimation.
+        // We pass '&aesthetics' as a reference, avoiding Clone errors.
+        let temp_ctx = SharedRenderingContext::new(
+            &*final_coord,
+            Rect::new(0.0, 0.0, self.width as f64, self.height as f64),
+            self.legend_position,
+            self.legend_margin,
+            &aesthetics
+        );
 
-        let size_bundle = if let Some(domain) = self.get_size_domain_from_layers()? {
-            let scale = create_scale(&Scale::Linear, domain, self.theme.size_expand)?;
-            let mapper = VisualMapper::new_size_default(2.0, 20.0);
-            Some((scale, mapper))
-        } else {
-            None
-        };
+        // Calculate Legend Constraints (pre-flight measurement)
+        let legend_box = crate::core::layout::LayoutEngine::calculate_legend_constraints(
+            legend_specs,
+            self.legend_position,
+            self.legend_margin,
+            &self.theme
+        );
 
-        // --- 4. Coordinate System Factory ---
-        // Construct the final coordinate engine that maps data values to the resolved Panel.
-        let coord_box: Box<dyn CoordinateTrait> = match self.coord_system {
-            CoordSystem::Cartesian2D => {
-                Box::new(Cartesian2D::new(x_scale, y_scale, self.flipped))
-            },
-            CoordSystem::Polar => {
-                todo!("Implement Polar coordinates using the resolved scales")
-            }
-        };
+        // Calculate Axis Constraints (pre-flight measurement)
+        // We use .as_deref().unwrap_or("") to safely handle Option<String> labels.
+        let axis_box = crate::core::layout::LayoutEngine::calculate_axis_constraints(
+            &temp_ctx,
+            &self.theme,
+            self.x_label.as_deref().unwrap_or(""),
+            self.y_label.as_deref().unwrap_or("")
+        );
 
-        let aesthetics = GlobalAesthetics {
-            color: color_bundle,
-            shape: shape_bundle,
-            size: size_bundle,
-        };
+        // --- STEP 4: RESOLVE FINAL PANEL RECT ---
+        // Combine user-defined proportional margins with measured pixel requirements.
+        let left_margin_px = (self.left_margin * self.width as f64) + legend_box.left + axis_box.left;
+        let right_margin_px = (self.right_margin * self.width as f64) + legend_box.right;
+        let top_margin_px = (self.top_margin * self.height as f64) + legend_box.top;
+        let bottom_margin_px = (self.bottom_margin * self.height as f64) + legend_box.bottom + axis_box.bottom;
 
-        Ok((coord_box, panel, aesthetics))
+        // Shrink the canvas dimensions to find the final Panel area.
+        let plot_w = (self.width as f64 - left_margin_px - right_margin_px).max(0.0);
+        let plot_h = (self.height as f64 - top_margin_px - bottom_margin_px).max(0.0);
+
+        let panel = Rect::new(left_margin_px, top_margin_px, plot_w, plot_h);
+
+        // Return the final resolved components.
+        Ok((final_coord, panel, aesthetics))
     }
 
     /// Renders the chart title at the top-center of the SVG canvas.
@@ -1575,11 +1579,10 @@ impl LayeredChart {
     /// Renders the entire layered chart to the provided SVG string.
     ///
     /// This implementation follows the Grammar of Graphics pipeline:
-    /// 1. Sync: Consolidate data domains across all layers to ensure visual consistency.
-    /// 2. Back-fill: Update layers with unified scale/domain metadata.
-    /// 3. Layout: Calculate plot area (Panel) using dynamic margins and legend dimensions.
-    /// 4. Draw: Render axes, marks, and unified legends using the resolved context.
-    /// 
+    /// 1. **Sync**: Consolidate data domains across all layers to ensure visual consistency.
+    /// 2. **Back-fill**: Update layers with unified scale/domain metadata.
+    /// 3. **Layout**: Calculate plot area (Panel) using dynamic margins, axis labels, and legend dimensions.
+    /// 4. **Draw**: Render axes, marks, and unified legends using the resolved context.
     pub fn render(&mut self, svg: &mut String) -> Result<(), ChartonError> {
         // 0. Guard: If no layers exist, we render nothing.
         if self.layers.is_empty() { 
@@ -1611,27 +1614,30 @@ impl LayeredChart {
         // --- STEP 2: LEGEND COLLECTION ---
         // Collect unified legend specifications after the back-fill phase.
         // The LegendManager aggregates requirements from all layers into unique guides.
+        // We do this BEFORE layout resolution so the engine knows how much space to reserve.
         let legend_specs = crate::core::legend::LegendManager::collect_legends(&self.layers);
 
         // --- STEP 3: LAYOUT RESOLUTION ---
-        // Resolve the coordinate system and plot area (Panel).
-        // This step accounts for chart margins and the space required by the legend position.
+        // Resolve the coordinate system, plot area (Panel), and aesthetics rules.
+        // This method calculates the 'squeezed' panel by measuring legend and axis constraints.
         let (coord_box, panel, aesthetics) = self.resolve_rendering_layout(&legend_specs)?; 
 
         // Construct the SharedRenderingContext.
-        // Note: 'panel' here is the "squeezed" area reserved strictly for data marks,
-        // while legend_position and legend_margin inform the renderers about the environment.
-        let context = SharedRenderingContext {
-            coord: &*coord_box, 
+        // Note: We use the 'new' constructor to handle the lifetime association ('a) 
+        // between the context and the owned objects (coord_box/aesthetics).
+        // By passing &aesthetics as a reference, we satisfy the borrow checker.
+        let context = SharedRenderingContext::new(
+            &*coord_box, 
             panel,
-            legend_position: self.legend_position,
-            legend_margin: self.legend_margin,
-            aesthetics,
-        };
+            self.legend_position,
+            self.legend_margin,
+            &aesthetics
+        );
 
         // --- STEP 4: DRAWING PHASE ---
         
         // 5. Render Chart Title (if defined in the chart metadata)
+        // This is usually rendered at the top of the canvas, outside the Panel.
         self.render_title(svg)?;
 
         // 6. Render Axes (X and Y) 
@@ -1641,14 +1647,14 @@ impl LayeredChart {
         });
 
         if should_render_axes {
-            // Extract labels or default to empty strings
+            // Retrieve labels using helper methods which aggregate or default labels.
             let x_label = self.get_x_axis_label_from_layers();
             let y_label = self.get_y_axis_label_from_layers();
 
             crate::render::axis_renderer::render_axes(
                 svg, 
                 &self.theme, 
-                &context, // The context already contains ctx.coord which has .is_flipped()
+                &context, 
                 &x_label, 
                 &y_label
             )?;
@@ -1656,13 +1662,15 @@ impl LayeredChart {
 
         // 7. Render Marks (Data Geometries)
         // Each layer draws its specific marks (points, lines, etc.) within the context's panel.
+        // We use an SvgBackend to abstract the raw string manipulations.
         let mut backend = crate::render::backend::svg::SvgBackend::new(svg);
         for layer in &self.layers {
             layer.render_marks(&mut backend, &context)?;
         }
 
         // 8. Render Unified Legends
-        // The LegendRenderer uses the context to position itself relative to the panel.
+        // The LegendRenderer uses the context and theme to position the legend blocks 
+        // in the margins calculated during the Layout Phase.
         crate::render::legend_renderer::LegendRenderer::render_legend(
             svg, 
             &legend_specs, 

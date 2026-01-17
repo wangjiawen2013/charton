@@ -6,10 +6,9 @@ use crate::core::legend::LegendPosition;
 /// required by any `Layer` to render its content.
 ///
 /// It encapsulates the coordinate system logic, the physical drawing area (panel),
-/// and the global aesthetic mappings (scales and mappers).
+/// and a reference to the global aesthetic mappings.
 pub struct SharedRenderingContext<'a> {
     /// The coordinate system used to map normalized values [0, 1] to screen pixels.
-    /// Supports any implementation of `CoordinateTrait` (e.g., Cartesian, Polar).
     pub coord: &'a dyn CoordinateTrait,
 
     /// The physical rectangular area (in pixels) designated for the plot.
@@ -18,19 +17,20 @@ pub struct SharedRenderingContext<'a> {
     pub legend_position: LegendPosition,
     pub legend_margin: f64,
 
-    /// Global aesthetic rules (Color, Shape, Size) resolved during the training phase.
-    /// This ensures visual consistency across all layers in the chart.
-    pub aesthetics: GlobalAesthetics,
+    /// Refers to global aesthetic rules (Color, Shape, Size).
+    /// Using a reference '&'a' avoids the need for expensive or impossible Clones 
+    /// of Trait Objects (Box<dyn ScaleTrait>).
+    pub aesthetics: &'a GlobalAesthetics,
 }
 
 impl<'a> SharedRenderingContext<'a> {
-    /// Creates a new shared rendering context.
+    /// Creates a new shared rendering context by borrowing components.
     pub fn new(
         coord: &'a dyn CoordinateTrait,
         panel: Rect,
         legend_position: LegendPosition,
         legend_margin: f64,
-        aesthetics: GlobalAesthetics,
+        aesthetics: &'a GlobalAesthetics,
     ) -> Self {
         Self {
             coord,
