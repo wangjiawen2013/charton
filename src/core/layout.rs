@@ -95,56 +95,68 @@ impl LayoutEngine {
         scale: &dyn crate::scale::ScaleTrait,
         angle_deg: f64,
         title: &str,
-        label_padding: f64,
+        label_padding: f64, // This is the padding for the Axis Title (e.g., xlabel_padding)
         theme: &Theme,
         is_physically_bottom: bool,
     ) -> f64 {
         // --- FIXED GEOMETRY CONSTANTS ---
-        // These values must match the ones used in the drawing functions.
-        let tick_line_len = 6.0;      // Length of the tick mark lines.
-        let title_gap = 5.0;          // Extra breathing room before the axis title.
+        // These values must strictly match the ones used in the drawing functions.
+        let tick_line_len = 6.0;      // Physical length of the tick marks.
+        let title_gap = 5.0;          // Extra breathing room specifically for the axis title.
         let edge_buffer = 5.0;        // Final safety margin before the canvas boundary.
+        
+        // This is the specific gap between the end of the tick line and the tick text.
+        // It is sourced directly from the theme to ensure layout/render sync.
+        let tick_to_label_gap = theme.tick_label_padding;
         
         let angle_rad = angle_deg.to_radians();
         let ticks = scale.ticks(8);
 
         // --- STEP 1: CALCULATE TICK LABEL FOOTPRINT ---
-        // We iterate through all generated ticks to find the one that extends 
-        // furthest away from the axis line. For rotated text, we use 
-        // trigonometric projection to find the bounding box size.
+        // We calculate the maximum physical clearance needed by the rotated label.
+        // This represents the total projection of the label's bounding box (w, h) 
+        // onto the axis normal (the direction perpendicular to the axis line).
         let max_label_footprint = ticks.iter()
             .map(|t| {
                 let w = estimate_text_width(&t.label, theme.tick_label_font_size);
                 let h = theme.tick_label_font_size;
                 
                 if is_physically_bottom {
-                    // For the bottom axis, the "depth" is the vertical height of the label.
-                    // Projection = |w * sin(θ)| + |h * cos(θ)|
+                    // Vertical projection: Total height occupied by the rotated rectangle.
+                    // Calculated as: |w * sin(θ)| + |h * cos(θ)|
                     w.abs() * angle_rad.sin().abs() + h * angle_rad.cos().abs()
                 } else {
-                    // For the left axis, the "depth" is the horizontal width of the label.
-                    // Projection = |w * cos(θ)| + |h * sin(θ)|
+                    // Horizontal projection: Total width occupied by the rotated rectangle.
+                    // Calculated as: |w * cos(θ)| + |h * sin(θ)|
                     w.abs() * angle_rad.cos().abs() + h * angle_rad.sin().abs()
                 }
             })
             .fold(0.0, f64::max);
 
         // --- STEP 2: CALCULATE AXIS TITLE SPACE ---
-        // If a label (title) is provided, we account for its font size and 
-        // the user-defined padding (label_padding).
+        // If an axis title is provided, we account for its font size, the user-defined
+        // padding, and our internal title_gap buffer.
         let title_area = if title.is_empty() {
             0.0
         } else {
-            // We include the font height, the requested padding, and our title_gap.
             theme.label_font_size + label_padding + title_gap
         };
 
         // --- STEP 3: CONSOLIDATE TOTAL DIMENSION ---
-        // Total Clearance = Ticks + Max Label Size + Title Area + Final Buffer.
-        // This value is returned as the required 'constraint' for this axis.
-        let total_dimension = tick_line_len + max_label_footprint + title_area + edge_buffer;
+        // The final dimension is the sum of all individual components moving outward 
+        // from the panel edge:
+        // 1. The tick line itself.
+        // 2. The padding between the tick and the tick labels.
+        // 3. The maximum extent of the tick labels (footprint).
+        // 4. The space required for the axis title.
+        // 5. A final safety buffer to prevent touching the canvas edge.
+        let total_dimension = tick_line_len 
+            + tick_to_label_gap 
+            + max_label_footprint 
+            + title_area 
+            + edge_buffer;
 
-        // Return the final pixel requirement.
+        // Return the total pixel requirement for this axis margin.
         total_dimension
     }
 

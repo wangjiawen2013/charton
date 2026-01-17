@@ -74,9 +74,10 @@ fn draw_axis_line(
 
 /// Renders the tick marks and text labels along an axis.
 ///
-/// This function calculates the appropriate scale to use based on the `is_visual_x`
-/// intent and the `flipped` state of the coordinate system. It ensures that 
-/// ticks always point away from the data panel to avoid visual clutter.
+/// This function handles the physical placement of ticks and labels, ensuring they 
+/// stay outside the plot panel. It specifically addresses long label rotation by 
+/// anchoring the rotation at the end of the text string to prevent overlapping 
+/// with the data area.
 fn draw_ticks_and_labels(
     svg: &mut String,
     theme: &Theme,
@@ -87,14 +88,13 @@ fn draw_ticks_and_labels(
     let panel = &ctx.panel;
     let is_flipped = coord.is_flipped();
     
-    // Resolve which data scale (X or Y) is currently mapped to this visual axis.
+    // Determine which scale is mapped to this visual orientation.
     let target_scale = if is_flipped {
         if is_visual_x { coord.get_y_scale() } else { coord.get_x_scale() }
     } else {
         if is_visual_x { coord.get_x_scale() } else { coord.get_y_scale() }
     };
     
-    // Request a set of 'pretty' tick values from the scale (defaulting to ~8).
     let ticks = target_scale.ticks(8); 
     let tick_len = 6.0;
     let angle = if is_visual_x { theme.x_tick_label_angle } else { theme.y_tick_label_angle };
@@ -102,46 +102,56 @@ fn draw_ticks_and_labels(
     for tick in ticks {
         let norm_pos = target_scale.normalize(tick.value);
         
-        // Map the normalized position back to absolute screen pixels.
         let (px, py) = if is_visual_x {
             coord.transform(norm_pos, 0.0, panel)
         } else {
             coord.transform(0.0, norm_pos, panel)
         };
 
-        // Calculate geometric offsets for the tick lines and text anchors.
-        // If flipped, 'Visual X' is physically on the panel's left side.
-        // Otherwise, it is physically on the panel's bottom side.
+        // Determine geometric placement based on the physical side of the panel.
         let (x2, y2, dx, dy, anchor, baseline) = if is_flipped {
             if is_visual_x {
-                // Physical Left (Representing Logical Y)
+                // Physical Left (Logical Y)
+                // Use a slight 1.0px offset for visual balance on the left side.
                 (px - tick_len, py, -(tick_len + theme.tick_label_padding + 1.0), 0.0, "end", "central")
             } else {
-                // Physical Bottom (Representing Logical X)
-                (px, py + tick_len, 0.0, tick_len + theme.tick_label_padding, "middle", "hanging")
+                // Physical Bottom (Logical X)
+                // REVISION: If rotated, anchor text at the "end" so it swings away from the axis.
+                let x_anchor = if angle == 0.0 { "middle" } else { "end" };
+                (px, py + tick_len, 0.0, tick_len + theme.tick_label_padding, x_anchor, "hanging")
             }
         } else {
             if is_visual_x {
-                // Physical Bottom (Representing Logical X)
+                // Physical Bottom (Logical X)
+                // Setting text-anchor to "end" when rotated ensures the rotation 
+                // pivot point is at the end of the string, preventing labels from piercing the panel.
                 let x_anchor = if angle == 0.0 { "middle" } else { "end" };
                 (px, py + tick_len, 0.0, tick_len + theme.tick_label_padding, x_anchor, "hanging")
             } else {
-                // Physical Left (Representing Logical Y)
+                // Physical Left (Logical Y)
                 (px - tick_len, py, -(tick_len + theme.tick_label_padding + 1.0), 0.0, "end", "central")
             }
         };
         
-        // 1. Draw the tick mark line
+        // 1. Draw the tick mark line extending from the panel boundary.
         writeln!(svg, r#"<line x1="{:.2}" y1="{:.2}" x2="{:.2}" y2="{:.2}" stroke="{}" stroke-width="{:.1}"/>"#,
             px, py, x2, y2, theme.label_color, theme.tick_stroke_width)?;
 
-        // 2. Draw the tick label with optional rotation
+        // 2. Prepare for label rendering.
         let final_x = px + dx;
         let final_y = py + dy;
+
+        // 3. Apply rotation if an angle is defined.
+        // By using (final_x, final_y) as the rotation pivot, the text rotates 
+        // around its anchor point. Coupled with text-anchor="end", the "end" 
+        // of the text remains fixed near the tick mark.
         let transform = if angle != 0.0 {
             format!(r#" transform="rotate({:.1}, {:.2}, {:.2})""#, angle, final_x, final_y)
-        } else { "".to_string() };
+        } else { 
+            "".to_string() 
+        };
 
+        // 4. Render the SVG text element.
         writeln!(svg, r#"<text x="{:.2}" y="{:.2}" font-size="{}" font-family="{}" fill="{}" text-anchor="{}" dominant-baseline="{}"{}>{}</text>"#,
             final_x, final_y, theme.tick_label_font_size, theme.tick_label_font_family,
             theme.tick_label_color, anchor, baseline, transform, tick.label
