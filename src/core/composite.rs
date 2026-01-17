@@ -125,10 +125,10 @@ impl LayeredChart {
         Self {
             width: 500,
             height: 400,
-            left_margin: 0.01,
-            right_margin: 0.02,
-            top_margin: 0.02,
-            bottom_margin: 0.01,
+            left_margin: 0.10,
+            right_margin: 0.10,
+            top_margin: 0.10,
+            bottom_margin: 0.10,
             theme: Theme::default(),
 
             title: None,
