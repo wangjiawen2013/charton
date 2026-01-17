@@ -173,7 +173,6 @@ fn draw_axis_title(
     // --- GEOMETRIC CONSTANTS ---
     // These MUST remain in sync with LayoutEngine::estimate_axis_dimension.
     let tick_line_len = 6.0;      // Physical length of tick marks.
-    let label_gap = 5.0;          // Space between tick end and start of tick labels.
     let title_gap = 5.0;          // Buffer space specifically for the axis title.
 
     // 2. Resolve Physical Mapping:
@@ -182,18 +181,18 @@ fn draw_axis_title(
     let (is_physically_bottom, angle_rad, target_scale, label_padding) = if is_flipped {
         if is_visual_x {
             // Visual X (Bottom) is physically on the LEFT when flipped.
-            (false, theme.x_tick_label_angle.to_radians(), coord.get_y_scale(), theme.x_label_padding)
+            (false, theme.x_tick_label_angle.to_radians(), coord.get_y_scale(), theme.label_padding)
         } else {
             // Visual Y (Left) is physically on the BOTTOM when flipped.
-            (true, theme.y_tick_label_angle.to_radians(), coord.get_x_scale(), theme.y_label_padding)
+            (true, theme.y_tick_label_angle.to_radians(), coord.get_x_scale(), theme.label_padding)
         }
     } else {
         if is_visual_x {
             // Standard Bottom.
-            (true, theme.x_tick_label_angle.to_radians(), coord.get_x_scale(), theme.x_label_padding)
+            (true, theme.x_tick_label_angle.to_radians(), coord.get_x_scale(), theme.label_padding)
         } else {
             // Standard Left.
-            (false, theme.y_tick_label_angle.to_radians(), coord.get_y_scale(), theme.y_label_padding)
+            (false, theme.y_tick_label_angle.to_radians(), coord.get_y_scale(), theme.label_padding)
         }
     };
 
@@ -214,9 +213,9 @@ fn draw_axis_title(
             })
             .fold(0.0, f64::max);
 
-        // Calculate Y: Panel Bottom + Ticks + Gap + Labels + User Padding + Title Gap.
+        // Calculate Y: Panel Bottom + Ticks + Labels + User Padding + Title Gap.
         // dominant-baseline="hanging" ensures the text flows downward from this coordinate.
-        let v_offset = tick_line_len + label_gap + max_tick_height + label_padding + title_gap;
+        let v_offset = tick_line_len + max_tick_height + label_padding + title_gap;
         let y = panel.y + panel.height + v_offset; 
         
         writeln!(
@@ -238,10 +237,10 @@ fn draw_axis_title(
             })
             .fold(0.0, f64::max);
 
-        // Calculate X: Panel Left - (Ticks + Gap + Labels + User Padding + Title Gap + Text Height).
+        // Calculate X: Panel Left - (Ticks + Labels + User Padding + Title Gap + Text Height).
         // Since the text is rotated -90 degrees, it effectively "grows" to the left 
         // from its anchor point.
-        let h_offset = tick_line_len + label_gap + max_tick_width + label_padding + title_gap + theme.label_font_size;
+        let h_offset = tick_line_len + max_tick_width + label_padding + title_gap + theme.label_font_size;
         let x = panel.x - h_offset; 
         
         // Note: dominant-baseline="middle" is used here because the rotation center 
