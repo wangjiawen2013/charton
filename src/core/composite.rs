@@ -436,9 +436,9 @@ impl LayeredChart {
         self
     }
 
-    /// Set the padding for the x-axis label
+    /// Set the padding for the axis label
     ///
-    /// Configures the spacing between the x-axis label and the axis line.
+    /// Configures the spacing between the axis label and the axis line.
     ///
     /// # Arguments
     ///
@@ -448,8 +448,8 @@ impl LayeredChart {
     ///
     /// Returns the chart instance for method chaining
     ///
-    pub fn with_x_label_padding(mut self, padding: f64) -> Self {
-        self.theme.x_label_padding = padding;
+    pub fn with_label_padding(mut self, padding: f64) -> Self {
+        self.theme.label_padding = padding;
         self
     }
 
@@ -597,23 +597,6 @@ impl LayeredChart {
     ///
     pub fn with_y_label(mut self, label: impl Into<String>) -> Self {
         self.y_label = Some(label.into());
-        self
-    }
-
-    /// Set the padding for the y-axis label
-    ///
-    /// Configures the spacing between the y-axis label and the axis line.
-    ///
-    /// # Arguments
-    ///
-    /// * `padding` - The padding value in pixels
-    ///
-    /// # Returns
-    ///
-    /// Returns the chart instance for method chaining
-    ///
-    pub fn with_y_label_padding(mut self, padding: f64) -> Self {
-        self.theme.y_label_padding = padding;
         self
     }
 

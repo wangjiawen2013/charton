@@ -39,8 +39,7 @@ pub struct Theme {
     pub(crate) label_angle: f64,
 
     // Axis label specific padding
-    pub(crate) x_label_padding: f64,
-    pub(crate) y_label_padding: f64,
+    pub(crate) label_padding: f64,
 
     // Tick label properties
     pub(crate) tick_label_font_size: f64,
@@ -87,8 +86,7 @@ impl Default for Theme {
             label_color: "#333".to_string(),
             label_angle: 0.0,
 
-            x_label_padding: 5.0,
-            y_label_padding: 5.0,
+            label_padding: 0.0,
 
             tick_label_font_size: 13.0,
             tick_label_font_family: font_stack,

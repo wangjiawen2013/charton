@@ -51,9 +51,9 @@ impl LayoutEngine {
         // 1. Calculate Physical Bottom Axis space.
         // If flipped, the physical bottom axis represents the Y data scale.
         let (bottom_scale, bottom_angle, bottom_title, bottom_padding) = if is_flipped {
-            (coord.get_y_scale(), theme.y_tick_label_angle, y_label, theme.y_label_padding)
+            (coord.get_y_scale(), theme.y_tick_label_angle, y_label, theme.label_padding)
         } else {
-            (coord.get_x_scale(), theme.x_tick_label_angle, x_label, theme.x_label_padding)
+            (coord.get_x_scale(), theme.x_tick_label_angle, x_label, theme.label_padding)
         };
 
         constraints.bottom = Self::estimate_axis_dimension(
@@ -68,9 +68,9 @@ impl LayoutEngine {
         // 2. Calculate Physical Left Axis space.
         // If flipped, the physical left axis represents the X data scale.
         let (left_scale, left_angle, left_title, left_padding) = if is_flipped {
-            (coord.get_x_scale(), theme.x_tick_label_angle, x_label, theme.x_label_padding)
+            (coord.get_x_scale(), theme.x_tick_label_angle, x_label, theme.label_padding)
         } else {
-            (coord.get_y_scale(), theme.y_tick_label_angle, y_label, theme.y_label_padding)
+            (coord.get_y_scale(), theme.y_tick_label_angle, y_label, theme.label_padding)
         };
 
         constraints.left = Self::estimate_axis_dimension(
@@ -102,7 +102,6 @@ impl LayoutEngine {
         // --- FIXED GEOMETRY CONSTANTS ---
         // These values must match the ones used in the drawing functions.
         let tick_line_len = 6.0;      // Length of the tick mark lines.
-        let label_gap = 5.0;          // Buffer between tick end and label start.
         let title_gap = 5.0;          // Extra breathing room before the axis title.
         let edge_buffer = 5.0;        // Final safety margin before the canvas boundary.
         
@@ -141,9 +140,9 @@ impl LayoutEngine {
         };
 
         // --- STEP 3: CONSOLIDATE TOTAL DIMENSION ---
-        // Total Clearance = Ticks + Gap + Max Label Size + Title Area + Final Buffer.
+        // Total Clearance = Ticks + Max Label Size + Title Area + Final Buffer.
         // This value is returned as the required 'constraint' for this axis.
-        let total_dimension = tick_line_len + label_gap + max_label_footprint + title_area + edge_buffer;
+        let total_dimension = tick_line_len + max_label_footprint + title_area + edge_buffer;
 
         // Return the final pixel requirement.
         total_dimension
