@@ -128,7 +128,7 @@ impl LayeredChart {
 
             left_margin: 0.06,   // 6%: Accommodates most Y-axis labels and titles
             right_margin: 0.03,  // 3%: Small buffer to prevent the last X-axis tick from clipping
-            top_margin: 0.07,    // 7%: Enough room for the chart title and a small legend
+            top_margin: 0.10,    // 10%: Enough room for the chart title and a small legend
             bottom_margin: 0.08, // 8%: Slightly larger for X-axis labels and the title
 
             theme: Theme::default(),
@@ -1544,7 +1544,7 @@ impl LayeredChart {
         
         // Calculate the vertical midpoint. 
         // Note: Using 'dominant-baseline="middle"' allows us to use the exact midpoint as the Y coordinate.
-        let center_y = title_area_height / 2.0;
+        let center_y = title_area_height / 5.0;
 
         // 4. Style Metadata Extraction:
         let font_family = &self.theme.title_font_family;
