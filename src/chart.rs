@@ -27,15 +27,11 @@ use polars::prelude::*;
 /// * `data` - The data source for the chart as a DataFrame
 /// * `encoding` - Encoding mappings that define how data fields map to visual properties
 /// * `mark` - Optional mark configuration specific to the chart type
-/// * `mark_cmap` - Color map used for continuous color encoding
-/// * `mark_palette` - Color palette used for discrete color encoding
 #[derive(Clone)]
 pub struct Chart<T: Mark> {
     pub(crate) data: DataFrameSource,
     pub(crate) encoding: Encoding,
     pub(crate) mark: Option<T>,
-    pub(crate) mark_cmap: ColorMap,
-    pub(crate) mark_palette: ColorPalette,
 }
 
 impl<T: Mark> Chart<T> {
@@ -80,72 +76,12 @@ impl<T: Mark> Chart<T> {
             data: source,
             encoding: Encoding::new(),
             mark: None,
-            mark_cmap: ColorMap::Viridis,
-            mark_palette: ColorPalette::Tab10,
         };
 
         // Automatically convert numeric types to f64
         chart.data = convert_numeric_types(chart.data.clone())?;
 
         Ok(chart)
-    }
-
-    /// Set the color map for the chart
-    ///
-    /// Defines the color mapping function used for continuous color encodings. The color map
-    /// translates data values to colors on a continuous spectrum. Common options include
-    /// Viridis, Plasma, Inferno, and other perceptually uniform colormaps.
-    ///
-    /// # Arguments
-    ///
-    /// * `cmap` - The ColorMap to use for continuous color encoding
-    ///
-    /// # Returns
-    ///
-    /// Returns the chart instance for method chaining
-    ///
-    pub fn with_color_map(mut self, cmap: ColorMap) -> Self {
-        self.mark_cmap = cmap;
-        self
-    }
-
-    /// Set the color palette for the chart
-    ///
-    /// Defines the color palette used for discrete color encodings. The palette provides
-    /// a set of distinct colors for categorical data. Common options include Tab10, Set1,
-    /// and other colorblind-friendly palettes.
-    ///
-    /// # Arguments
-    ///
-    /// * `palette` - The ColorPalette to use for discrete color encoding
-    ///
-    /// # Returns
-    ///
-    /// Returns the chart instance for method chaining
-    ///
-    pub fn with_color_palette(mut self, palette: ColorPalette) -> Self {
-        self.mark_palette = palette;
-        self
-    }
-
-    /// Set both color map and palette at the same time
-    ///
-    /// Convenience method to set both the continuous color map and discrete color palette
-    /// in a single call. This is useful when you want to configure both color encoding
-    /// schemes simultaneously.
-    ///
-    /// # Arguments
-    ///
-    /// * `cmap` - The ColorMap to use for continuous color encoding
-    /// * `palette` - The ColorPalette to use for discrete color encoding
-    ///
-    /// # Returns
-    ///
-    /// Returns the chart instance for method chaining
-    pub fn with_colors(mut self, cmap: ColorMap, palette: ColorPalette) -> Self {
-        self.mark_cmap = cmap;
-        self.mark_palette = palette;
-        self
     }
 
     /// Apply encoding mappings to the chart
