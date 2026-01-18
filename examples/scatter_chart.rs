@@ -12,8 +12,8 @@ fn main() -> Result<(), Box<dyn Error>> {
         .mark_point()
         .encode((x("wt"), y("mpg"), color("gear"), shape("gear"), size("mpg")))?
         .into_layered()
+        .with_x_tick_label_angle(-45.0)
         .with_title("abc")
-        .with_y_label_angle(-45.0)
         .save("./examples/scatter_chart.svg")?;
 
     Ok(())
