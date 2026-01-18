@@ -1435,7 +1435,8 @@ impl LayeredChart {
 
         let size_bundle = if let Some(domain) = self.get_size_domain_from_layers()? {
             let scale = create_scale(&Scale::Linear, domain, self.theme.size_expand)?;
-            let mapper = VisualMapper::new_size_default(2.0, 20.0);
+            // Use a range (2.0, 9.0) radius that fits the 18.0px legend container
+            let mapper = VisualMapper::new_size_default(2.0, 9.0);
             Some((scale, mapper))
         } else { None };
 

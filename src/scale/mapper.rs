@@ -47,7 +47,7 @@ impl VisualMapper {
         }
     }
 
-    /// Creates a default size mapper with a specified physical range (e.g., 2.0 to 20.0).
+    /// Creates a default size mapper with a specified physical range (e.g., 2.0 to 9.0).
     pub fn new_size_default(min: f64, max: f64) -> Self {
         VisualMapper::Size {
             range: (min, max),

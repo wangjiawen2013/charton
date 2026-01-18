@@ -114,10 +114,10 @@ impl Default for Theme {
             legend_font_family: None,
             legent_label_color: "#333".to_string(),
 
-            legend_block_gap: 20.0,
-            legend_item_v_gap: 6.0,
-            legend_col_h_gap: 25.0,
-            legend_title_gap: 10.0,
+            legend_block_gap: 35.0,
+            legend_item_v_gap: 3.0,
+            legend_col_h_gap: 15.0,
+            legend_title_gap: 5.0,
             legend_marker_text_gap: 8.0,
 
             min_panel_size: 100.0,
