@@ -126,7 +126,7 @@ cd demo
 Edit your `Cargo.toml` to add Charton and Polars dependencies:
 ```toml
 [dependencies]
-charton = "0.2.0"
+charton = "0.2.1"
 polars = { version = "0.49", features = ["lazy", "csv", "parquet"] }
 ```
 Run `cargo build` to ensure everything compiles.
@@ -280,7 +280,7 @@ Below is a full example demonstrating:
 ```toml
 [dependencies]
 polars = { version = "0.51", features = ["parquet"] }
-charton = { version = "0.2.0" }
+charton = { version = "0.2.1" }
 ```
 **Source Code Example**
 ```rust
@@ -3931,7 +3931,7 @@ This is similar to how Plotters or PlotPy integrate with `evcxr`.
 
 ### Example: Displaying a Charton chart inline in Jupyter
 ```rust
-:dep charton = { version="0.2.0" }
+:dep charton = { version="0.2.1" }
 :dep polars = { version="0.49.1" }
 
 use charton::prelude::*;
@@ -4210,7 +4210,7 @@ wasm-bindgen = "0.2"
 polars = { version = "0.49", default-features = false }
 # Avoids transitive mio dependency to ensure Wasm compatibility.
 polars-io = { version = "0.49", default-features = false, features = ["parquet", "csv"] }
-charton = { version = 0.2.0 }
+charton = { version = 0.2.1 }
 
 [profile.release]
 opt-level = "z"  # or "s" to speed up
@@ -4369,7 +4369,7 @@ All *actual* interactivity comes from **Altair/Vega-Lite**, not from Charton.
 
 **Example: interactive Altair chart via Charton**
 ```rust
-:dep charton = { version="0.2.0" }
+:dep charton = { version="0.2.1" }
 :dep polars = { version="0.49.1" }
 
 use charton::prelude::*;
