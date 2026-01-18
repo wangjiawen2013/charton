@@ -31,7 +31,7 @@ impl LegendSpec {
     /// provided by the LayoutEngine. It has been updated to use a compact, fixed
     /// marker area to match the Hollow-Circle rendering style.
     pub fn estimate_size(&self, theme: &Theme, max_h: f64) -> LegendSize {
-        let font_size = theme.legend_font_size.unwrap_or(theme.tick_label_font_size);
+        let font_size = theme.legend_label_size.unwrap_or(theme.tick_label_size);
         let title_font_size = font_size * 1.1;
 
         let title_to_content_gap = theme.legend_title_gap;

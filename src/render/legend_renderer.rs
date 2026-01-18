@@ -25,8 +25,8 @@ impl LegendRenderer {
         }
 
         let mut backend = SvgBackend::new(buffer, None);
-        let font_size = theme.legend_font_size.unwrap_or(theme.tick_label_font_size);
-        let font_family = theme.legend_font_family.as_ref().unwrap_or(&theme.tick_label_font_family);
+        let font_size = theme.legend_label_size.unwrap_or(theme.tick_label_size);
+        let font_family = theme.legend_label_family.as_ref().unwrap_or(&theme.tick_label_family);
         
         // Orientation depends on the position (Top/Bottom are horizontal, Left/Right vertical)
         let is_horizontal = matches!(ctx.legend_position, LegendPosition::Top | LegendPosition::Bottom);
@@ -187,7 +187,7 @@ impl LegendRenderer {
         let mut current_col_w = 0.0;
         let mut total_w = 0.0;
         
-        let font_family = theme.legend_font_family.as_ref().unwrap_or(&theme.tick_label_font_family);
+        let font_family = theme.legend_label_family.as_ref().unwrap_or(&theme.tick_label_family);
         let item_v_gap = theme.legend_item_v_gap;
         let col_h_gap = theme.legend_col_h_gap;
         let marker_to_text_gap = theme.legend_marker_text_gap;
@@ -240,7 +240,7 @@ impl LegendRenderer {
                 item_y + (row_h * 0.75),
                 font_size,
                 font_family,
-                &theme.legent_label_color,
+                &theme.legend_label_color,
                 "start",
                 "normal",
                 1.0,

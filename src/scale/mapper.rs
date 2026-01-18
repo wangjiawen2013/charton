@@ -35,7 +35,7 @@ impl VisualMapper {
             Scale::Discrete => {
                 // Use the categorical palette from the theme
                 VisualMapper::DiscreteColor {
-                    palette: theme.color_palette.clone(),
+                    palette: theme.palette.clone(),
                 }
             }
             _ => {

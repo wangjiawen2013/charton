@@ -173,8 +173,8 @@ impl LayoutEngine {
         // Measure the 'depth' impact of labels after rotation
         let max_label_footprint = ticks.iter()
             .map(|t| {
-                let w = estimate_text_width(&t.label, theme.tick_label_font_size);
-                let h = theme.tick_label_font_size;
+                let w = estimate_text_width(&t.label, theme.tick_label_size);
+                let h = theme.tick_label_size;
                 if is_horizontal_axis {
                     // For a bottom axis, rotation affects vertical depth
                     w.abs() * angle_rad.sin().abs() + h * angle_rad.cos().abs()
@@ -188,7 +188,7 @@ impl LayoutEngine {
         let title_area = if title.is_empty() { 
             0.0 
         } else { 
-            theme.label_font_size + label_padding + 5.0 
+            theme.label_size + label_padding + 5.0 
         };
 
         tick_line_len + theme.tick_label_padding + max_label_footprint + title_area + edge_buffer

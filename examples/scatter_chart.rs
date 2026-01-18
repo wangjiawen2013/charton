@@ -10,10 +10,11 @@ fn main() -> Result<(), Box<dyn Error>> {
 
     Chart::build(&df)?
         .mark_point()
+        //.encode((x("wt"), y("mpg"), shape("gear")))?
         .encode((x("wt"), y("mpg"), color("gear"), shape("gear"), size("mpg")))?
         .into_layered()
-        .with_x_tick_label_angle(-45.0)
-        .with_title("abc")
+        .configure_theme(|t| t.x_tick_label_angle(-45.0))
+        .title("abc")
         .save("./examples/scatter_chart.svg")?;
 
     Ok(())
