@@ -1,87 +1,261 @@
 use crate::visual::color::{ColorMap, ColorPalette};
 use crate::scale::Expansion;
+
 /// A theme that defines the visual styling properties for plots.
-///
-/// The `Theme` struct contains all the styling parameters that control
-/// the appearance of various plot elements including titles, axis labels,
-/// tick marks, and legends. It provides a centralized way to manage
-/// the visual design of plots.
-///
-/// # Fields
-///
-/// The theme is organized into several sections:
-///
-/// - **Title properties**: Control the appearance of plot titles
-/// - **Axis label properties**: Define how axis labels are displayed
-/// - **Tick label properties**: Configure the styling of tick mark labels
-/// - **Stroke properties**: Set the width of axis and tick lines
-/// - **Legend properties**: Control legend appearance
-/// - **Padding properties**: Define spacing around various elements
-///
-/// # Examples
-///
-/// ```
-/// use charton::theme::Theme;
-///
-/// let theme = Theme::default();
-/// ```
+/// 
+/// This struct separates aesthetic concerns (colors, fonts, stroke widths) 
+/// from the structural logic of the chart.
 #[derive(Clone)]
 pub struct Theme {
-    // Title properties
-    pub(crate) title_font_size: f64,
-    pub(crate) title_font_family: String,
+    // --- Global Canvas Properties ---
+    pub(crate) background_color: String,
+    pub(crate) show_axes: bool,
+
+    // --- Title properties ---
+    pub(crate) title_size: f64,
+    pub(crate) title_family: String,
     pub(crate) title_color: String,
 
-    // Axis label properties
-    pub(crate) label_font_size: f64,
-    pub(crate) label_font_family: String,
+    // --- Axis label properties ---
+    pub(crate) label_size: f64,
+    pub(crate) label_family: String,
     pub(crate) label_color: String,
-    pub(crate) label_angle: f64,
-
-    // Axis label specific padding
     pub(crate) label_padding: f64,
 
-    // Tick label properties
-    pub(crate) tick_label_font_size: f64,
-    pub(crate) tick_label_font_family: String,
+    // --- Tick label properties ---
+    pub(crate) tick_label_size: f64,
+    pub(crate) tick_label_family: String,
     pub(crate) tick_label_color: String,
-
-    // Tick label specific rotation angles
+    pub(crate) tick_label_padding: f64,
     pub(crate) x_tick_label_angle: f64,
     pub(crate) y_tick_label_angle: f64,
 
-    // Stroke properties
-    pub(crate) axis_stroke_width: f64,
-    pub(crate) tick_stroke_width: f64,
+    // --- Geometry & Stroke properties ---
+    pub(crate) axis_width: f64,
+    pub(crate) tick_width: f64,
+    pub(crate) tick_length: f64,
 
-    // Legend properties
-    pub(crate) legend_font_size: Option<f64>,
-    pub(crate) legend_font_family: Option<String>,
-    pub(crate) legent_label_color: String,
+    // --- Legend styling ---
+    pub(crate) legend_label_size: Option<f64>,
+    pub(crate) legend_label_family: Option<String>,
+    pub(crate) legend_label_color: String,
+    pub(crate) legend_block_gap: f64,
+    pub(crate) legend_item_v_gap: f64,
+    pub(crate) legend_col_h_gap: f64,
+    pub(crate) legend_title_gap: f64,
+    pub(crate) legend_marker_text_gap: f64,
 
-    // Legend Layout Gaps
-    pub(crate) legend_block_gap: f64,      // Gap between distinct legend blocks (e.g., Color vs Shape)
-    pub(crate) legend_item_v_gap: f64,     // Vertical spacing between items in a list
-    pub(crate) legend_col_h_gap: f64,      // Horizontal spacing between wrapped columns
-    pub(crate) legend_title_gap: f64,      // Spacing between the legend title and the first item
-    pub(crate) legend_marker_text_gap: f64, // Spacing between the glyph and its label
+    // --- Layout Defense Thresholds ---
+    pub(crate) min_panel_size: f64,
+    pub(crate) panel_defense_ratio: f64,
+    pub(crate) axis_reserve_buffer: f64,
 
-    // Layout Defense Thresholds
-    pub(crate) min_panel_size: f64,        // Absolute minimum width/height for the plot area
-    pub(crate) panel_defense_ratio: f64,   // Minimum proportion of canvas reserved for the plot
-    pub(crate) axis_reserve_buffer: f64,   // Fixed buffer to protect axis space during legend calculations
-
+    // --- Color & Scale Defaults ---
     pub(crate) color_map: ColorMap,
-    pub(crate) color_palette: ColorPalette,
-
-    // Expansion for x-axis or y-axis including both min and max expanding
+    pub(crate) palette: ColorPalette,
     pub(crate) x_expand: Expansion,
     pub(crate) y_expand: Expansion,
     pub(crate) color_expand: Expansion,
     pub(crate) shape_expand: Expansion,
     pub(crate) size_expand: Expansion,
+}
 
-    pub(crate) tick_label_padding: f64,
+impl Theme {
+    // --- Global Configuration ---
+
+    pub fn background_color(mut self, color: impl Into<String>) -> Self {
+        self.background_color = color.into();
+        self
+    }
+
+    pub fn show_axes(mut self, show: bool) -> Self {
+        self.show_axes = show;
+        self
+    }
+
+    // --- Title ---
+
+    pub fn title_size(mut self, size: f64) -> Self {
+        self.title_size = size;
+        self
+    }
+
+    pub fn title_family(mut self, family: impl Into<String>) -> Self {
+        self.title_family = family.into();
+        self
+    }
+
+    pub fn title_color(mut self, color: impl Into<String>) -> Self {
+        self.title_color = color.into();
+        self
+    }
+
+    // --- Label ---
+
+    pub fn label_size(mut self, size: f64) -> Self {
+        self.label_size = size;
+        self
+    }
+
+    pub fn label_family(mut self, family: impl Into<String>) -> Self {
+        self.label_family = family.into();
+        self
+    }
+
+    pub fn label_color(mut self, color: impl Into<String>) -> Self {
+        self.label_color = color.into();
+        self
+    }
+
+    pub fn label_padding(mut self, padding: f64) -> Self {
+        self.label_padding = padding;
+        self
+    }
+
+    // --- Tick ---
+
+    pub fn tick_label_size(mut self, size: f64) -> Self {
+        self.tick_label_size = size;
+        self
+    }
+
+    pub fn tick_label_family(mut self, family: impl Into<String>) -> Self {
+        self.tick_label_family = family.into();
+        self
+    }
+
+    pub fn tick_label_color(mut self, color: impl Into<String>) -> Self {
+        self.tick_label_color = color.into();
+        self
+    }
+
+    pub fn tick_label_padding(mut self, padding: f64) -> Self {
+        self.tick_label_padding = padding;
+        self
+    }
+
+    pub fn x_tick_label_angle(mut self, angle: f64) -> Self {
+        self.x_tick_label_angle = angle;
+        self
+    }
+
+    pub fn y_tick_label_angle(mut self, angle: f64) -> Self {
+        self.y_tick_label_angle = angle;
+        self
+    }
+
+    // --- Stroke ---
+
+    pub fn axis_width(mut self, width: f64) -> Self {
+        self.axis_width = width;
+        self
+    }
+
+    pub fn tick_width(mut self, width: f64) -> Self {
+        self.tick_width = width;
+        self
+    }
+    
+    pub fn tick_length(mut self, length: f64) -> Self {
+        self.tick_length = length;
+        self
+    }
+
+    // --- Legend ---
+
+    pub fn legend_label_size(mut self, size: Option<f64>) -> Self {
+        self.legend_label_size = size;
+        self
+    }
+
+    pub fn legend_label_family(mut self, family: Option<String>) -> Self {
+        self.legend_label_family = family;
+        self
+    }
+
+    pub fn legend_label_color(mut self, color: impl Into<String>) -> Self {
+        self.legend_label_color = color.into();
+        self
+    }
+
+    pub fn legend_block_gap(mut self, gap: f64) -> Self {
+        self.legend_block_gap = gap;
+        self
+    }
+
+    pub fn legend_item_v_gap(mut self, gap: f64) -> Self {
+        self.legend_item_v_gap = gap;
+        self
+    }
+
+    pub fn legend_col_h_gap(mut self, gap: f64) -> Self {
+        self.legend_col_h_gap = gap;
+        self
+    }
+
+    pub fn legend_title_gap(mut self, gap: f64) -> Self {
+        self.legend_title_gap = gap;
+        self
+    }
+
+    pub fn legend_marker_text_gap(mut self, gap: f64) -> Self {
+        self.legend_marker_text_gap = gap;
+        self
+    }
+
+    // --- Layout Defense ---
+
+    pub fn min_panel_size(mut self, size: f64) -> Self {
+        self.min_panel_size = size;
+        self
+    }
+
+    pub fn panel_defense_ratio(mut self, ratio: f64) -> Self {
+        self.panel_defense_ratio = ratio;
+        self
+    }
+
+    pub fn axis_reserve_buffer(mut self, buffer: f64) -> Self {
+        self.axis_reserve_buffer = buffer;
+        self
+    }
+
+    // --- Color & Scale ---
+
+    pub fn color_map(mut self, map: ColorMap) -> Self {
+        self.color_map = map;
+        self
+    }
+
+    pub fn palette(mut self, palette: ColorPalette) -> Self {
+        self.palette = palette;
+        self
+    }
+
+    pub fn x_expand(mut self, expand: Expansion) -> Self {
+        self.x_expand = expand;
+        self
+    }
+
+    pub fn y_expand(mut self, expand: Expansion) -> Self {
+        self.y_expand = expand;
+        self
+    }
+
+    pub fn color_expand(mut self, expand: Expansion) -> Self {
+        self.color_expand = expand;
+        self
+    }
+
+    pub fn shape_expand(mut self, expand: Expansion) -> Self {
+        self.shape_expand = expand;
+        self
+    }
+
+    pub fn size_expand(mut self, expand: Expansion) -> Self {
+        self.size_expand = expand;
+        self
+    }
 }
 
 impl Default for Theme {
@@ -89,31 +263,33 @@ impl Default for Theme {
         let font_stack = "Inter, -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, 'PingFang SC', 'Microsoft YaHei', Ubuntu, Cantarell, 'Noto Sans', sans-serif".to_string();
 
         Self {
-            title_font_size: 18.0,
-            title_font_family: font_stack.clone(),
+            background_color: "white".to_string(),
+            show_axes: true,
+
+            title_size: 18.0,
+            title_family: font_stack.clone(),
             title_color: "#333".to_string(),
 
-            label_font_size: 15.0,
-            label_font_family: font_stack.clone(),
+            label_size: 15.0,
+            label_family: font_stack.clone(),
             label_color: "#333".to_string(),
-            label_angle: 0.0,
-
             label_padding: 0.0,
 
-            tick_label_font_size: 13.0,
-            tick_label_font_family: font_stack,
+            tick_label_size: 13.0,
+            tick_label_family: font_stack,
             tick_label_color: "#333".to_string(),
+            tick_label_padding: 3.0,
 
             x_tick_label_angle: 0.0,
             y_tick_label_angle: 0.0,
 
-            axis_stroke_width: 1.0,
-            tick_stroke_width: 1.0,
+            axis_width: 1.0,
+            tick_width: 1.0,
+            tick_length: 6.0,
 
-            legend_font_size: None,
-            legend_font_family: None,
-            legent_label_color: "#333".to_string(),
-
+            legend_label_size: None,
+            legend_label_family: None,
+            legend_label_color: "#333".to_string(),
             legend_block_gap: 35.0,
             legend_item_v_gap: 3.0,
             legend_col_h_gap: 15.0,
@@ -125,15 +301,13 @@ impl Default for Theme {
             axis_reserve_buffer: 60.0,
 
             color_map: ColorMap::Viridis,
-            color_palette: ColorPalette::Tab10,
+            palette: ColorPalette::Tab10,
 
             x_expand: Expansion { mult: (0.05, 0.05), add: (0.0, 0.0) },
             y_expand: Expansion { mult: (0.05, 0.05), add: (0.0, 0.0) },
             color_expand: Expansion { mult: (0.05, 0.05), add: (0.0, 0.0) },
             shape_expand: Expansion { mult: (0.05, 0.05), add: (0.0, 0.0) },
             size_expand: Expansion { mult: (0.05, 0.05), add: (0.0, 0.0) },
-
-            tick_label_padding: 3.0,
         }
     }
 }

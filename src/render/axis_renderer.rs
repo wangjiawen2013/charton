@@ -67,7 +67,7 @@ fn draw_axis_line(
     writeln!(
         svg,
         r#"<line x1="{:.2}" y1="{:.2}" x2="{:.2}" y2="{:.2}" stroke="{}" stroke-width="{}" stroke-linecap="square"/>"#,
-        p1x, p1y, p2x, p2y, theme.label_color, theme.axis_stroke_width
+        p1x, p1y, p2x, p2y, theme.label_color, theme.axis_width
     )?;
     Ok(())
 }
@@ -135,7 +135,7 @@ fn draw_ticks_and_labels(
         
         // 1. Draw the tick mark line extending from the panel boundary.
         writeln!(svg, r#"<line x1="{:.2}" y1="{:.2}" x2="{:.2}" y2="{:.2}" stroke="{}" stroke-width="{:.1}"/>"#,
-            px, py, x2, y2, theme.label_color, theme.tick_stroke_width)?;
+            px, py, x2, y2, theme.label_color, theme.tick_width)?;
 
         // 2. Prepare for label rendering.
         let final_x = px + dx;
@@ -153,7 +153,7 @@ fn draw_ticks_and_labels(
 
         // 4. Render the SVG text element.
         writeln!(svg, r#"<text x="{:.2}" y="{:.2}" font-size="{}" font-family="{}" fill="{}" text-anchor="{}" dominant-baseline="{}"{}>{}</text>"#,
-            final_x, final_y, theme.tick_label_font_size, theme.tick_label_font_family,
+            final_x, final_y, theme.tick_label_size, theme.tick_label_family,
             theme.tick_label_color, anchor, baseline, transform, tick.label
         )?;
     }
@@ -217,8 +217,8 @@ fn draw_axis_title(
         // We use trigonometric projection to account for label rotation.
         let max_tick_height = ticks.iter()
             .map(|t| {
-                let w = crate::core::utils::estimate_text_width(&t.label, theme.tick_label_font_size);
-                let h = theme.tick_label_font_size;
+                let w = crate::core::utils::estimate_text_width(&t.label, theme.tick_label_size);
+                let h = theme.tick_label_size;
                 w.abs() * angle_rad.sin().abs() + h * angle_rad.cos().abs()
             })
             .fold(0.0, f64::max);
@@ -231,7 +231,7 @@ fn draw_axis_title(
         writeln!(
             svg, 
             r#"<text x="{:.2}" y="{:.2}" text-anchor="middle" font-size="{}" font-family="{}" fill="{}" font-weight="bold" dominant-baseline="hanging">{}</text>"#,
-            x, y, theme.label_font_size, theme.label_font_family, theme.label_color, label
+            x, y, theme.label_size, theme.label_family, theme.label_color, label
         )?;
     } else {
         // --- PHYSICAL LEFT RENDERER ---
@@ -241,8 +241,8 @@ fn draw_axis_title(
         // Compute the maximum horizontal footprint (width) of tick labels.
         let max_tick_width = ticks.iter()
             .map(|t| {
-                let w = crate::core::utils::estimate_text_width(&t.label, theme.tick_label_font_size);
-                let h = theme.tick_label_font_size;
+                let w = crate::core::utils::estimate_text_width(&t.label, theme.tick_label_size);
+                let h = theme.tick_label_size;
                 w.abs() * angle_rad.cos().abs() + h * angle_rad.sin().abs()
             })
             .fold(0.0, f64::max);
@@ -250,7 +250,7 @@ fn draw_axis_title(
         // Calculate X: Panel Left - (Ticks + Labels + User Padding + Title Gap + Text Height).
         // Since the text is rotated -90 degrees, it effectively "grows" to the left 
         // from its anchor point.
-        let h_offset = tick_line_len + max_tick_width + label_padding + title_gap + theme.label_font_size;
+        let h_offset = tick_line_len + max_tick_width + label_padding + title_gap + theme.label_size;
         let x = panel.x - h_offset; 
         
         // Note: dominant-baseline="middle" is used here because the rotation center 
@@ -258,7 +258,7 @@ fn draw_axis_title(
         writeln!(
             svg, 
             r#"<text x="{:.2}" y="{:.2}" text-anchor="middle" font-size="{}" font-family="{}" fill="{}" font-weight="bold" transform="rotate(-90, {:.2}, {:.2})" dominant-baseline="middle">{}</text>"#,
-            x, y, theme.label_font_size, theme.label_font_family, theme.label_color, x, y, label
+            x, y, theme.label_size, theme.label_family, theme.label_color, x, y, label
         )?;
     }
     Ok(())
