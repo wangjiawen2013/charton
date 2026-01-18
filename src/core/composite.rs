@@ -1411,13 +1411,16 @@ impl LayeredChart {
 
     /// Resolves the final rendering layout and global aesthetic scales by consolidating metadata.
     /// 
-    /// This function performs the "Training Phase" of the chart by:
-    /// 1. Finalizing aesthetic scales (Color, Shape, Size).
-    /// 2. Constructing X and Y scales based on data and user-defined constraints.
-    /// 3. Estimating the physical space needed for axes and legends.
-    /// 4. Calculating the final 'Panel' Rect for data rendering.
+    /// This implementation follows an "Industrial Defense" layout pipeline:
+    /// 1. Finalize Aesthetic & Coordinate Scales.
+    /// 2. Determine initial "safe zones" based on user-defined proportional margins.
+    /// 3. Measure Legend requirements constrained by the initial safe zones.
+    /// 4. Measure Axis requirements based on the remaining space.
+    /// 5. Apply a "Minimum Panel Defense" to guarantee at least 100x100px for data rendering,
+    ///    pushing legends outside the canvas if necessary rather than crushing the plot.
     fn resolve_rendering_layout(&self, legend_specs: &[LegendSpec]) -> Result<(Box<dyn CoordinateTrait>, Rect, GlobalAesthetics), ChartonError> {
         // --- STEP 1: RESOLVE AESTHETIC SCALES ---
+        // Consolidate color, shape, and size mappings across all layers.
         let color_bundle = if let Some((scale_type, domain)) = self.get_color_domain_from_layers()? {
             let scale = create_scale(&scale_type, domain, self.theme.color_expand)?;
             let mapper = VisualMapper::new_color_default(&scale_type, &self.theme);
@@ -1443,6 +1446,7 @@ impl LayeredChart {
         };
 
         // --- STEP 2: RESOLVE COORDINATE SCALES (X & Y) ---
+        // Construct the scales for the primary axes, respecting user overrides for min/max.
         let x_scale = if let Some((stype, mut domain)) = self.get_x_domain_from_layers()? {
             if let ScaleDomain::Continuous(ref mut min, ref mut max) = domain {
                 if let Some(u_min) = self.x_domain_min { *min = u_min; }
@@ -1463,8 +1467,7 @@ impl LayeredChart {
             create_scale(&Scale::Linear, ScaleDomain::Continuous(0.0, 1.0), self.theme.y_expand)?
         };
 
-        // --- STEP 3: TEMPORARY GEOMETRY MEASUREMENT ---
-        // Construct the coordinate system first to give to the context.
+        // Construct the coordinate system trait object.
         let final_coord: Box<dyn CoordinateTrait> = match self.coord_system {
             CoordSystem::Cartesian2D => Box::new(crate::coordinate::cartesian::Cartesian2D::new(
                 x_scale, 
@@ -1474,26 +1477,45 @@ impl LayeredChart {
             CoordSystem::Polar => todo!("Polar coordinate resolution not yet implemented"),
         };
 
-        // Create a temporary SharedRenderingContext to facilitate space estimation.
-        // We pass '&aesthetics' as a reference, avoiding Clone errors.
+        // --- STEP 3: MEASUREMENT PHASE (THE LAYOUT ENGINE) ---
+        let w = self.width as f64;
+        let h = self.height as f64;
+
+        // A. Calculate initial plot dimensions based purely on proportional margins.
+        // This represents the "Theoretical Max" space for the plot + axes.
+        let initial_plot_w = w * (1.0 - self.left_margin - self.right_margin);
+        let initial_plot_h = h * (1.0 - self.top_margin - self.bottom_margin);
+
+        // B. Measure Legend Constraints.
+        // Legends are constrained by the initial plot height (Y-axis length) to ensure 
+        // they don't grow taller than the chart itself.
+        let legend_box = crate::core::layout::LayoutEngine::calculate_legend_constraints(
+            legend_specs,
+            self.legend_position,
+            w, h,               // Full canvas for defense logic
+            initial_plot_w,     // Theoretical width limit
+            initial_plot_h,     // Theoretical height limit (Micro-layout ceiling)
+            self.legend_margin,
+            &self.theme
+        );
+
+        // C. Measure Axis Constraints.
+        // Create a temporary context that accounts for the space eaten by legends.
+        let temp_panel = Rect::new(
+            (self.left_margin * w) + legend_box.left,
+            (self.top_margin * h) + legend_box.top,
+            (initial_plot_w - legend_box.left - legend_box.right).max(0.0),
+            (initial_plot_h - legend_box.top - legend_box.bottom).max(0.0)
+        );
+
         let temp_ctx = SharedRenderingContext::new(
             &*final_coord,
-            Rect::new(0.0, 0.0, self.width as f64, self.height as f64),
+            temp_panel,
             self.legend_position,
             self.legend_margin,
             &aesthetics
         );
 
-        // Calculate Legend Constraints (pre-flight measurement)
-        let legend_box = crate::core::layout::LayoutEngine::calculate_legend_constraints(
-            legend_specs,
-            self.legend_position,
-            self.legend_margin,
-            &self.theme
-        );
-
-        // Calculate Axis Constraints (pre-flight measurement)
-        // We use .as_deref().unwrap_or("") to safely handle Option<String> labels.
         let axis_box = crate::core::layout::LayoutEngine::calculate_axis_constraints(
             &temp_ctx,
             &self.theme,
@@ -1501,20 +1523,28 @@ impl LayeredChart {
             self.y_label.as_deref().unwrap_or("")
         );
 
-        // --- STEP 4: RESOLVE FINAL PANEL RECT ---
-        // Combine user-defined proportional margins with measured pixel requirements.
-        let left_margin_px = (self.left_margin * self.width as f64) + legend_box.left + axis_box.left;
-        let right_margin_px = (self.right_margin * self.width as f64) + legend_box.right;
-        let top_margin_px = (self.top_margin * self.height as f64) + legend_box.top;
-        let bottom_margin_px = (self.bottom_margin * self.height as f64) + legend_box.bottom + axis_box.bottom;
+        // --- STEP 4: FINAL PANEL RESOLUTION & DEFENSE ---
+        
+        // Combine all pixel requirements (Margins + Legends + Axes).
+        let final_left = (self.left_margin * w) + legend_box.left + axis_box.left;
+        let final_right = (self.right_margin * w) + legend_box.right;
+        let final_top = (self.top_margin * h) + legend_box.top;
+        let final_bottom = (self.bottom_margin * h) + legend_box.bottom + axis_box.bottom;
 
-        // Shrink the canvas dimensions to find the final Panel area.
-        let plot_w = (self.width as f64 - left_margin_px - right_margin_px).max(0.0);
-        let plot_h = (self.height as f64 - top_margin_px - bottom_margin_px).max(0.0);
+        // Calculate raw plot area.
+        let mut plot_w = w - final_left - final_right;
+        let mut plot_h = h - final_top - final_bottom;
 
-        let panel = Rect::new(left_margin_px, top_margin_px, plot_w, plot_h);
+        // INDUSTRIAL DEFENSE: Guarantee a minimum 100x100px rendering area.
+        // If plot_w/h is too small, we force it to 100px. This might push 
+        // the legend or right-side margins off the canvas, which is preferred 
+        // over an invisible or negative-sized chart.
+        let min_dim = 100.0;
+        if plot_w < min_dim { plot_w = min_dim; }
+        if plot_h < min_dim { plot_h = min_dim; }
 
-        // Return the final resolved components.
+        let panel = Rect::new(final_left, final_top, plot_w, plot_h);
+
         Ok((final_coord, panel, aesthetics))
     }
 
