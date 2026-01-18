@@ -37,11 +37,11 @@ impl LegendSpec {
     pub fn estimate_size(&self, theme: &Theme, max_h: f64) -> LegendSize {
         let font_size = theme.legend_font_size.unwrap_or(theme.tick_label_font_size);
         let title_font_size = font_size * 1.1;
-        
-        let title_to_content_gap = 10.0;
-        let marker_to_text_gap = 8.0;
-        let item_v_gap = 6.0;   // Vertical spacing between rows
-        let col_h_gap = 25.0;   // Horizontal spacing between wrapped columns
+
+        let title_to_content_gap = theme.legend_title_gap;
+        let marker_to_text_gap = theme.legend_marker_text_gap;
+        let item_v_gap = theme.legend_item_v_gap; // Vertical spacing between rows
+        let col_h_gap = theme.legend_col_h_gap; // Horizontal spacing between wrapped columns
 
         // 1. Measure Title Dimensions
         let title_w = estimate_text_width(&self.title, title_font_size);
@@ -75,7 +75,7 @@ impl LegendSpec {
             let mut max_observed_h = 0.0;
 
             // Define the "Floor" for content wrapping
-            let content_limit = f64::max(max_h - title_h - title_to_content_gap, 50.0);
+            let content_limit = f64::max(max_h - title_h - title_to_content_gap, theme.min_panel_size / 2.0);
 
             for (i, _) in labels.iter().enumerate() {
                 // Determine marker size (grows if 'size' channel is used)
