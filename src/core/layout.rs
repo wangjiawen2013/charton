@@ -3,21 +3,16 @@ use super::legend::{LegendSpec, LegendPosition};
 use super::utils::estimate_text_width;
 use crate::theme::Theme;
 
-/// Represents the reserved space for axes on each side of the plot panel.
-/// 
-/// In the Grammar of Graphics, the 'Panel' is the pure data area. To ensure 
-/// labels and titles do not clip, we calculate these pixel constraints 
-/// during the layout phase and shrink the panel accordingly.
+/// Physical constraints calculated for axis areas.
+/// These represent the pixel-width/height required to draw the axis ticks and labels.
 #[derive(Default, Debug, Clone, Copy)]
 pub struct AxisLayoutConstraints {
-    /// Height required for the horizontal axis (usually X, or Y if flipped).
     pub bottom: f64, 
-    /// Width required for the vertical axis (usually Y, or X if flipped).
     pub left: f64,   
 }
 
-/// Internal helper structure representing the whitespace or reserved area 
-/// on each side of the plot panel caused by legend placement.
+/// Margin reserved on each side of the plot for legend placement.
+/// This acts as a structural buffer calculated during the layout phase.
 #[derive(Default, Debug, Clone, Copy)]
 pub struct LegendLayoutConstraints {
     pub top: f64,
@@ -26,19 +21,114 @@ pub struct LegendLayoutConstraints {
     pub right: f64,
 }
 
-/// The `LayoutEngine` is responsible for the geometric partitioning of the chart canvas.
-/// 
-/// It performs "pre-flight" measurements of non-data elements (axes, legends, titles)
-/// to determine the final dimensions of the Plot Panel.
+/// The LayoutEngine is responsible for the geometric orchestration of the chart.
+/// it resolves the conflicting space requirements between the Data Panel, the Axes, and the Legends.
 pub struct LayoutEngine;
 
 impl LayoutEngine {
-    /// Estimates the required margins for axes before rendering occurs.
+    /// Calculates legend margins using a greedy stacking algorithm with a defensive floor.
     /// 
-    /// This function accounts for:
-    /// 1. The length of tick marks.
-    /// 2. The bounding box of tick labels (considering rotation).
-    /// 3. The padding and font size of the axis title.
+    /// Logic Flow:
+    /// 1. Micro-layout: Each LegendSpec estimates its size given the `initial_plot_h` (Y-axis length).
+    /// 2. Macro-layout: Multiple legend blocks are stacked vertically. If a block overflows 
+    ///    the vertical space, it wraps to a new column on the side.
+    /// 3. Defense: If the total width of all legend columns exceeds the available space,
+    ///    it is capped to ensure the Plot Panel maintains a minimum size of 100px or 20% width.
+    pub fn calculate_legend_constraints(
+        specs: &[LegendSpec],
+        position: LegendPosition,
+        canvas_w: f64,
+        canvas_h: f64,
+        initial_plot_w: f64, // The theoretical plot width based solely on chart margins
+        initial_plot_h: f64, // The theoretical plot height based solely on chart margins
+        margin_gap: f64,     // The buffer space between the plot and the legend block
+        theme: &Theme,
+    ) -> LegendLayoutConstraints {
+        let mut constraints = LegendLayoutConstraints::default();
+        if position == LegendPosition::None || specs.is_empty() {
+            return constraints;
+        }
+
+        let block_gap = 20.0; // Vertical/Horizontal gap between different legend blocks
+
+        match position {
+            LegendPosition::Right | LegendPosition::Left => {
+                // The vertical limit for the legend is the height of the plot area
+                let max_h = initial_plot_h;
+                
+                let mut total_width = 0.0;
+                let mut current_col_w = 0.0;
+                let mut current_col_h = 0.0;
+
+                for spec in specs {
+                    // Step 1: Individual block estimation (internal wrapping)
+                    let size = spec.estimate_size(theme, max_h);
+
+                    // Step 2: Column stacking logic
+                    // If current block doesn't fit in the current column height, wrap to a new column.
+                    if current_col_h + size.height > max_h && current_col_h > 0.0 {
+                        total_width += current_col_w + block_gap;
+                        current_col_w = size.width;
+                        current_col_h = size.height;
+                    } else {
+                        // Keep track of the widest block in this column
+                        current_col_w = f64::max(current_col_w, size.width);
+                        current_col_h += size.height + block_gap;
+                    }
+                }
+                total_width += current_col_w;
+
+                // Step 3: Defense Mechanism
+                // We prevent the legend from eating too much horizontal space.
+                // The plot area must be at least 100px or 20% of canvas width.
+                let min_panel_w = f64::max(100.0, canvas_w * 0.2);
+                let max_allowed_legend_w = (canvas_w - min_panel_w - 60.0).max(0.0);
+                
+                let final_w = f64::min(total_width, max_allowed_legend_w);
+                let reserve = final_w + margin_gap;
+
+                if position == LegendPosition::Right { constraints.right = reserve; }
+                else { constraints.left = reserve; }
+            }
+
+            LegendPosition::Top | LegendPosition::Bottom => {
+                // Horizontal wrapping: legends stack left-to-right, wrapping to new rows.
+                let max_w = initial_plot_w;
+                let mut total_height = 0.0;
+                let mut current_row_h = 0.0;
+                let mut current_row_w = 0.0;
+
+                for spec in specs {
+                    // For top/bottom, we cap height to a reasonable 150px to prevent squeezing the plot
+                    let size = spec.estimate_size(theme, 150.0);
+
+                    if current_row_w + size.width > max_w && current_row_w > 0.0 {
+                        total_height += current_row_h + block_gap;
+                        current_row_h = size.height;
+                        current_row_w = size.width;
+                    } else {
+                        current_row_h = f64::max(current_row_h, size.height);
+                        current_row_w += size.width + block_gap;
+                    }
+                }
+                total_height += current_row_h;
+
+                // Defense for vertical space
+                let min_panel_h = f64::max(100.0, canvas_h * 0.2);
+                let max_allowed_legend_h = (canvas_h - min_panel_h - 60.0).max(0.0);
+                
+                let final_h = f64::min(total_height, max_allowed_legend_h);
+                let reserve = final_h + margin_gap;
+
+                if position == LegendPosition::Top { constraints.top = reserve; }
+                else { constraints.bottom = reserve; }
+            }
+            _ => {}
+        }
+        constraints
+    }
+
+    /// Calculates the space required for axis ticks, labels, and titles.
     pub fn calculate_axis_constraints(
         ctx: &SharedRenderingContext,
         theme: &Theme,
@@ -49,153 +139,60 @@ impl LayoutEngine {
         let coord = ctx.coord;
         let is_flipped = coord.is_flipped();
 
-        // 1. Calculate Physical Bottom Axis space.
-        // If flipped, the physical bottom axis represents the Y data scale.
-        let (bottom_scale, bottom_angle, bottom_title, bottom_padding) = if is_flipped {
+        // Calculate Bottom Axis (usually X, but Y if flipped)
+        let (b_scale, b_angle, b_title, b_pad) = if is_flipped {
             (coord.get_y_scale(), theme.y_tick_label_angle, y_label, theme.label_padding)
         } else {
             (coord.get_x_scale(), theme.x_tick_label_angle, x_label, theme.label_padding)
         };
+        constraints.bottom = Self::estimate_axis_dimension(b_scale, b_angle, b_title, b_pad, theme, true);
 
-        constraints.bottom = Self::estimate_axis_dimension(
-            bottom_scale,
-            bottom_angle,
-            bottom_title,
-            bottom_padding,
-            theme,
-            true // is_physically_bottom
-        );
-
-        // 2. Calculate Physical Left Axis space.
-        // If flipped, the physical left axis represents the X data scale.
-        let (left_scale, left_angle, left_title, left_padding) = if is_flipped {
+        // Calculate Left Axis (usually Y, but X if flipped)
+        let (l_scale, l_angle, l_title, l_pad) = if is_flipped {
             (coord.get_x_scale(), theme.x_tick_label_angle, x_label, theme.label_padding)
         } else {
             (coord.get_y_scale(), theme.y_tick_label_angle, y_label, theme.label_padding)
         };
-
-        constraints.left = Self::estimate_axis_dimension(
-            left_scale,
-            left_angle,
-            left_title,
-            left_padding,
-            theme,
-            false // is_physically_bottom
-        );
+        constraints.left = Self::estimate_axis_dimension(l_scale, l_angle, l_title, l_pad, theme, false);
 
         constraints
     }
 
-    /// Internal helper to calculate the depth (width or height) of an axis area.
-    /// 
-    /// This method simulates the rendering process to determine how many pixels of 
-    /// clearance are required between the plot panel's edge and the canvas edge.
-    /// It is critical that the logic here remains identical to the logic in 
-    /// `render_axes.rs` to prevent labels from being clipped or overlapping.
+    /// Helper to measure axis required depth based on font size and label rotation.
     fn estimate_axis_dimension(
         scale: &dyn crate::scale::ScaleTrait,
         angle_deg: f64,
         title: &str,
-        label_padding: f64, // This is the padding for the Axis Title (e.g., xlabel_padding)
+        label_padding: f64,
         theme: &Theme,
-        is_physically_bottom: bool,
+        is_horizontal_axis: bool,
     ) -> f64 {
-        // --- FIXED GEOMETRY CONSTANTS ---
-        // These values must strictly match the ones used in the drawing functions.
-        let tick_line_len = 6.0;      // Physical length of the tick marks.
-        let title_gap = 5.0;          // Extra breathing room specifically for the axis title.
-        let edge_buffer = 5.0;        // Final safety margin before the canvas boundary.
-        
-        // This is the specific gap between the end of the tick line and the tick text.
-        // It is sourced directly from the theme to ensure layout/render sync.
-        let tick_to_label_gap = theme.tick_label_padding;
-        
+        let tick_line_len = 6.0;
+        let edge_buffer = 10.0;
         let angle_rad = angle_deg.to_radians();
         let ticks = scale.ticks(8);
 
-        // --- STEP 1: CALCULATE TICK LABEL FOOTPRINT ---
-        // We calculate the maximum physical clearance needed by the rotated label.
-        // This represents the total projection of the label's bounding box (w, h) 
-        // onto the axis normal (the direction perpendicular to the axis line).
+        // Measure the 'depth' impact of labels after rotation
         let max_label_footprint = ticks.iter()
             .map(|t| {
                 let w = estimate_text_width(&t.label, theme.tick_label_font_size);
                 let h = theme.tick_label_font_size;
-                
-                if is_physically_bottom {
-                    // Vertical projection: Total height occupied by the rotated rectangle.
-                    // Calculated as: |w * sin(θ)| + |h * cos(θ)|
+                if is_horizontal_axis {
+                    // For a bottom axis, rotation affects vertical depth
                     w.abs() * angle_rad.sin().abs() + h * angle_rad.cos().abs()
                 } else {
-                    // Horizontal projection: Total width occupied by the rotated rectangle.
-                    // Calculated as: |w * cos(θ)| + |h * sin(θ)|
+                    // For a left axis, rotation affects horizontal depth
                     w.abs() * angle_rad.cos().abs() + h * angle_rad.sin().abs()
                 }
             })
             .fold(0.0, f64::max);
 
-        // --- STEP 2: CALCULATE AXIS TITLE SPACE ---
-        // If an axis title is provided, we account for its font size, the user-defined
-        // padding, and our internal title_gap buffer.
-        let title_area = if title.is_empty() {
-            0.0
-        } else {
-            theme.label_font_size + label_padding + title_gap
+        let title_area = if title.is_empty() { 
+            0.0 
+        } else { 
+            theme.label_font_size + label_padding + 5.0 
         };
 
-        // --- STEP 3: CONSOLIDATE TOTAL DIMENSION ---
-        // The final dimension is the sum of all individual components moving outward 
-        // from the panel edge:
-        // 1. The tick line itself.
-        // 2. The padding between the tick and the tick labels.
-        // 3. The maximum extent of the tick labels (footprint).
-        // 4. The space required for the axis title.
-        // 5. A final safety buffer to prevent touching the canvas edge.
-        let total_dimension = tick_line_len 
-            + tick_to_label_gap 
-            + max_label_footprint 
-            + title_area 
-            + edge_buffer;
-
-        // Return the total pixel requirement for this axis margin.
-        total_dimension
-    }
-
-    /// Dynamically calculates the space required for legends.
-    pub fn calculate_legend_constraints(
-        specs: &[LegendSpec],
-        position: LegendPosition,
-        margin: f64,
-        theme: &Theme,
-    ) -> LegendLayoutConstraints {
-        let mut constraints = LegendLayoutConstraints::default();
-        if position == LegendPosition::None || specs.is_empty() {
-            return constraints;
-        }
-
-        let font_size = theme.legend_font_size.unwrap_or(theme.tick_label_font_size);
-        let font_family = theme.legend_font_family.as_ref().unwrap_or(&theme.tick_label_font_family);
-        let width_factor = if font_family.contains("Mono") { 0.65 } else { 0.55 };
-
-        match position {
-            LegendPosition::Right | LegendPosition::Left => {
-                let mut max_w = 0.0;
-                for spec in specs {
-                    // Estimation logic for legend items.
-                    let title_w = spec.title.len() as f64 * (font_size * width_factor * 1.1);
-                    max_w = f64::max(max_w, title_w + 40.0); // 40px buffer for markers
-                }
-                let total_needed = max_w + margin + 10.0;
-                if position == LegendPosition::Right { constraints.right = total_needed; } 
-                else { constraints.left = total_needed; }
-            }
-            LegendPosition::Top | LegendPosition::Bottom => {
-                let total_needed = (font_size * 1.2) + (font_size + 20.0) + margin;
-                if position == LegendPosition::Top { constraints.top = total_needed; } 
-                else { constraints.bottom = total_needed; }
-            }
-            _ => {}
-        }
-        constraints
+        tick_line_len + theme.tick_label_padding + max_label_footprint + title_area + edge_buffer
     }
 }
