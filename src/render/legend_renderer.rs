@@ -7,13 +7,14 @@ use crate::core::context::SharedRenderingContext;
 use crate::scale::ScaleDomain;
 
 /// LegendRenderer is responsible for drawing visual guides (legends) that explain 
-/// the scales (color, size, shape) used in the plot.
+/// the scales (color, size, shape) used in the plot. 
+/// It uses SvgBackend to ensure sharp text rendering and consistent styling.
 pub struct LegendRenderer;
 
 impl LegendRenderer {
     /// The main entry point for rendering the legend.
-    /// It handles the high-level layout, including wrapping legend blocks based on 
-    /// the available panel space and the chosen legend position.
+    /// It handles high-level layout, including wrapping legend blocks (columns/rows)
+    /// based on the available panel space and the chosen legend position.
     pub fn render_legend(
         buffer: &mut String,
         specs: &[LegendSpec],
@@ -24,14 +25,16 @@ impl LegendRenderer {
             return;
         }
 
+        // Initialize the SVG backend directly on the output string buffer
         let mut backend = SvgBackend::new(buffer, None);
+        
         let font_size = theme.legend_label_size.unwrap_or(theme.tick_label_size);
         let font_family = theme.legend_label_family.as_ref().unwrap_or(&theme.tick_label_family);
         
-        // Orientation depends on the position (Top/Bottom are horizontal, Left/Right vertical)
+        // Horizontal layouts (Top/Bottom) wrap into rows; Vertical (Left/Right) wrap into columns.
         let is_horizontal = matches!(ctx.legend_position, LegendPosition::Top | LegendPosition::Bottom);
 
-        // Determine the starting coordinate for the first legend block
+        // Determine the starting anchor coordinate (x, y)
         let (start_x, start_y) = Self::calculate_initial_anchor(ctx, specs, theme, is_horizontal);
 
         let mut current_x = start_x;
@@ -43,12 +46,17 @@ impl LegendRenderer {
         let plot_limit_w = ctx.panel.width;
 
         for spec in specs {
-            // Estimate size using 150px as default wrap width for horizontal layouts
+            // Determine if this spec should be rendered as a continuous Colorbar
+            // Conditions: Has color mapping, but NO shape or size variation, and is not a Discrete scale.
+            let is_discrete = matches!(spec.scale_type, crate::scale::Scale::Discrete);
+            let use_colorbar = !is_discrete && spec.has_color && !spec.has_size && !spec.has_shape;
+
+            // Estimate the block size to determine if wrapping is needed
             let block_size = spec.estimate_size(theme, if is_horizontal { 150.0 } else { plot_limit_h });
 
             // --- MACRO-LAYOUT WRAPPING ---
             if !is_horizontal {
-                // Vertical layout: Wrap to a new column if we exceed panel height
+                // Vertical layout: Wrap to a new column if height exceeds panel height
                 if current_y + block_size.height > start_y + plot_limit_h && current_y > start_y {
                     current_x += max_dim_in_row_col + block_gap;
                     current_y = start_y;
@@ -57,7 +65,7 @@ impl LegendRenderer {
                     max_dim_in_row_col = f64::max(max_dim_in_row_col, block_size.width);
                 }
             } else {
-                // Horizontal layout: Wrap to a new row if we exceed panel width
+                // Horizontal layout: Wrap to a new row if width exceeds panel width
                 if current_x + block_size.width > start_x + plot_limit_w && current_x > start_x {
                     current_y += max_dim_in_row_col + block_gap;
                     current_x = start_x;
@@ -67,47 +75,61 @@ impl LegendRenderer {
                 }
             }
 
-            // 1. Draw the Legend Title
-            backend.draw_text(
-                &spec.title,
-                current_x,
-                current_y + (font_size * 0.8),
-                font_size * 1.1,
-                font_family,
-                &theme.title_color,
-                "start",
-                "bold",
-                1.0,
-            );
-
-            // 2. Resolve data values into visual properties (colors, shapes, radii)
-            let (labels, colors, shapes, sizes) = Self::resolve_mappings(spec, ctx);
-
-            // 3. Draw the items (Glyphs + Text Labels)
-            let actual_block_size = Self::draw_spec_group(
-                &mut backend,
-                spec,
-                &labels,
-                &colors,
-                shapes.as_deref(),
-                sizes.as_deref(), 
-                current_x,
-                current_y + (font_size * 1.1) + theme.legend_title_gap,
-                font_size,
-                theme,
-                if is_horizontal { 150.0 } else { plot_limit_h }
-            );
-
-            // 4. Update cursor position for the next legend block
-            if !is_horizontal {
-                current_y += actual_block_size.height + block_gap;
+            // --- DISPATCH RENDERING ---
+            if use_colorbar {
+                // Delegate to colorbar.rs, passing the relevant dimension for adaptive scaling
+                crate::render::colorbar::render_colorbar(
+                    &mut backend,
+                    spec,
+                    theme,
+                    ctx,
+                    current_x,
+                    current_y,
+                    if is_horizontal { block_size.width } else { block_size.height },
+                );
             } else {
-                current_x += actual_block_size.width + block_gap;
+                // 1. Draw the Legend Title (Discrete)
+                backend.draw_text(
+                    &spec.title,
+                    current_x,
+                    current_y + (font_size * 0.8),
+                    font_size * 1.1,
+                    font_family,
+                    &theme.title_color,
+                    "start",
+                    "bold",
+                    1.0,
+                );
+
+                // 2. Resolve discrete data values into visual properties
+                let (labels, colors, shapes, sizes) = Self::resolve_mappings(spec, ctx);
+
+                // 3. Draw the items (Glyphs + Text Labels)
+                Self::draw_spec_group(
+                    &mut backend,
+                    spec,
+                    &labels,
+                    &colors,
+                    shapes.as_deref(),
+                    sizes.as_deref(), 
+                    current_x,
+                    current_y + (font_size * 1.1) + theme.legend_title_gap,
+                    font_size,
+                    theme,
+                    if is_horizontal { 150.0 } else { plot_limit_h }
+                );
+            }
+
+            // --- UPDATE CURSOR ---
+            if !is_horizontal {
+                current_y += block_size.height + block_gap;
+            } else {
+                current_x += block_size.width + block_gap;
             }
         }
     }
 
-    /// Resolves data labels into specific visual properties by querying the scales.
+    /// Maps data labels into visual properties (Hex strings, PointShapes, Radii).
     fn resolve_mappings(
         spec: &LegendSpec,
         ctx: &SharedRenderingContext,
@@ -122,7 +144,7 @@ impl LegendRenderer {
         let mut sizes = Vec::new();
 
         for val_str in &labels {
-            // A. Color Mapping
+            // A. Color
             if spec.has_color {
                 if let Some((scale, mapper)) = &ctx.aesthetics.color {
                     let norm = scale.normalize_string(val_str);
@@ -132,7 +154,7 @@ impl LegendRenderer {
                 colors.push("#333333".into());
             }
 
-            // B. Shape Mapping
+            // B. Shape
             if spec.has_shape {
                 if let Some((scale, mapper)) = &ctx.aesthetics.shape {
                     let norm = scale.normalize_string(val_str);
@@ -142,7 +164,7 @@ impl LegendRenderer {
                 shapes.push(PointShape::Circle);
             }
 
-            // C. Size Mapping (Radius)
+            // C. Size (Radius)
             if spec.has_size {
                 if let Some((scale, mapper)) = &ctx.aesthetics.size {
                     match &spec.domain {
@@ -168,7 +190,7 @@ impl LegendRenderer {
         (labels, colors, if spec.has_shape { Some(shapes) } else { None }, if spec.has_size { Some(sizes) } else { None })
     }
 
-    /// Renders a group of items (symbols and text) for a single legend block.
+    /// Renders a collection of discrete items (symbols + labels).
     fn draw_spec_group(
         backend: &mut dyn RenderBackend,
         _spec: &LegendSpec,
@@ -192,25 +214,16 @@ impl LegendRenderer {
         let col_h_gap = theme.legend_col_h_gap;
         let marker_to_text_gap = theme.legend_marker_text_gap;
 
-        // --- FIXED DIMENSIONS ---
-        // We use 18.0px to match estimate_size in legend.rs.
-        // This accommodates radius values up to 9.0px (diameter 18.0px).
+        // Container for symbols (usually 18px diameter max)
         let fixed_container_size = 18.0; 
 
         for (i, label) in labels.iter().enumerate() {
-            // --- RADIUS RETRIEVAL ---
-            // Directly use the raw radius from the mapper. With mapper range (2.0, 8.0),
-            // all steps will be clearly distinct and fit inside the 18px container.
-            let r = sizes
-                .and_then(|s| s.get(i))
-                .cloned()
-                .unwrap_or(5.0);
-
+            let r = sizes.and_then(|s| s.get(i)).cloned().unwrap_or(5.0);
             let text_w = crate::core::utils::estimate_text_width(label, font_size);
             let row_w = fixed_container_size + marker_to_text_gap + text_w;
             let row_h = f64::max(fixed_container_size, font_size);
 
-            // Internal Column Wrapping Logic
+            // Column wrapping inside a single spec block
             if item_y + row_h > y + max_h && i > 0 {
                 total_w += current_col_w + col_h_gap;
                 col_x += current_col_w + col_h_gap;
@@ -223,7 +236,7 @@ impl LegendRenderer {
             let color = colors.get(i).map(|s| s.as_str()).unwrap_or("#333333");
             let shape = shapes.and_then(|s| s.get(i)).unwrap_or(&PointShape::Circle);
 
-            // Draw Symbol (Solid Fill)
+            // Draw Symbol
             Self::draw_symbol(
                 backend, 
                 shape, 
@@ -233,7 +246,7 @@ impl LegendRenderer {
                 color
             );
 
-            // Draw Label Text
+            // Draw Label
             backend.draw_text(
                 label,
                 col_x + fixed_container_size + marker_to_text_gap,
@@ -255,9 +268,8 @@ impl LegendRenderer {
         }
     }
 
-    /// Renders the geometric shape for the legend marker with SOLID FILL.
+    /// Low-level SVG symbol drawing for legend markers.
     fn draw_symbol(backend: &mut dyn RenderBackend, shape: &PointShape, cx: f64, cy: f64, r: f64, color: &str) {
-        // We use Some(color) for the fill parameter to create solid-filled markers.
         match shape {
             PointShape::Circle => {
                 backend.draw_circle(cx, cy, r, Some(color), None, 0.0, 1.0)
@@ -277,7 +289,7 @@ impl LegendRenderer {
         }
     }
 
-    /// Calculates where the legend drawing should begin based on position and margins.
+    /// Calculates the anchor point for the legend based on the panel position.
     fn calculate_initial_anchor(ctx: &SharedRenderingContext, _: &[LegendSpec], theme: &Theme, _: bool) -> (f64, f64) {
         let mut x = ctx.panel.x;
         let mut y = ctx.panel.y;
@@ -286,7 +298,7 @@ impl LegendRenderer {
             LegendPosition::Left => x = (ctx.panel.x - ctx.legend_margin - theme.axis_reserve_buffer).max(10.0),
             LegendPosition::Top => y = (ctx.panel.y - ctx.legend_margin - (theme.axis_reserve_buffer * 0.8)).max(10.0),
             LegendPosition::Bottom => y = ctx.panel.y + ctx.panel.height + ctx.legend_margin,
-            _ => {}
+            LegendPosition::None => {}
         }
         (x, y)
     }
