@@ -31,26 +31,29 @@ impl LegendRenderer {
         let font_size = theme.legend_font_size.unwrap_or(theme.tick_label_font_size);
         let font_family = theme.legend_font_family.as_ref().unwrap_or(&theme.tick_label_font_family);
         
-        // Determine layout orientation.
+        // Determine layout orientation based on the strategic position.
         let is_horizontal = matches!(ctx.legend_position, LegendPosition::Top | LegendPosition::Bottom);
 
         // Calculate the starting anchor point (top-left of the first legend block).
-        let (mut start_x, mut start_y) = Self::calculate_initial_anchor(ctx, specs, theme, is_horizontal);
+        let (start_x, start_y) = Self::calculate_initial_anchor(ctx, specs, theme, is_horizontal);
 
         // Cursor tracking for wrapping logic.
         let mut current_x = start_x;
         let mut current_y = start_y;
         let mut max_dim_in_row_col = 0.0; // Tracks col_width (vertical) or row_height (horizontal)
         
-        let block_gap = 20.0;
+        // Use theme-driven gap between distinct legend blocks.
+        let block_gap = theme.legend_block_gap;
         let plot_limit_h = ctx.panel.height;
         let plot_limit_w = ctx.panel.width;
 
         for spec in specs {
-            // Measure the individual block size using the same logic as the LayoutEngine.
+            // Measure the individual block size using theme-aware logic.
+            // Horizontal legends are capped at 150px height to prevent crushing the plot.
             let block_size = spec.estimate_size(theme, if is_horizontal { 150.0 } else { plot_limit_h });
 
             // --- WRAPPING LOGIC (Macro-Layout Replay) ---
+            // We replay the logic used in the LayoutEngine to ensure drawing aligns with reserved space.
             if !is_horizontal {
                 // Vertical Placement: Check for Y-overflow to wrap to a new column.
                 if current_y + block_size.height > start_y + plot_limit_h && current_y > start_y {
@@ -76,7 +79,7 @@ impl LegendRenderer {
             backend.draw_text(
                 &spec.title,
                 current_x,
-                current_y + (font_size * 0.8), // Baseline adjustment
+                current_y + (font_size * 0.8), // Align text to baseline
                 font_size * 1.1,
                 font_family,
                 &theme.title_color,
@@ -85,11 +88,11 @@ impl LegendRenderer {
                 1.0,
             );
 
-            // 2. Resolve data-to-visual mappings
+            // 2. Resolve data-to-visual mappings (colors, shapes)
             let (labels, colors, shapes) = Self::resolve_mappings(spec, ctx);
 
             // 3. Draw items within this block
-            let title_to_content_gap = 10.0;
+            // Vertical offset accounts for title height and the theme-defined title gap.
             let actual_block_size = Self::draw_spec_group(
                 &mut backend,
                 spec,
@@ -97,13 +100,13 @@ impl LegendRenderer {
                 &colors,
                 shapes.as_deref(),
                 current_x,
-                current_y + (font_size * 1.1) + title_to_content_gap,
+                current_y + (font_size * 1.1) + theme.legend_title_gap,
                 font_size,
                 theme,
                 if is_horizontal { 150.0 } else { plot_limit_h }
             );
 
-            // 4. Update cursor for next block
+            // 4. Update cursor for the next LegendSpec block.
             if !is_horizontal {
                 current_y += actual_block_size.height + block_gap;
             } else {
@@ -113,11 +116,12 @@ impl LegendRenderer {
     }
 
     /// Calculates the starting top-left coordinate where the legend group begins.
+    /// It uses the axis_reserve_buffer to ensure legends don't overlap axis labels.
     fn calculate_initial_anchor(
         ctx: &SharedRenderingContext,
-        specs: &[LegendSpec],
+        _specs: &[LegendSpec],
         theme: &Theme,
-        is_horizontal: bool,
+        _is_horizontal: bool,
     ) -> (f64, f64) {
         let mut x = ctx.panel.x;
         let mut y = ctx.panel.y;
@@ -127,11 +131,12 @@ impl LegendRenderer {
                 x = ctx.panel.x + ctx.panel.width + ctx.legend_margin;
             }
             LegendPosition::Left => {
-                // Anchor at the beginning of the calculated Left margin area
-                x = (ctx.panel.x - ctx.legend_margin - 100.0).max(10.0); 
+                // Buffer ensures we stay clear of the Y-axis labels.
+                x = (ctx.panel.x - ctx.legend_margin - theme.axis_reserve_buffer).max(10.0); 
             }
             LegendPosition::Top => {
-                y = (ctx.panel.y - ctx.legend_margin - 50.0).max(10.0);
+                // Buffer ensures we stay clear of the title or Top X-axis.
+                y = (ctx.panel.y - ctx.legend_margin - (theme.axis_reserve_buffer * 0.8)).max(10.0);
             }
             LegendPosition::Bottom => {
                 y = ctx.panel.y + ctx.panel.height + ctx.legend_margin;
@@ -155,7 +160,7 @@ impl LegendRenderer {
                 for val in domain_values {
                     labels.push(val.clone());
                     
-                    // Resolve Color
+                    // Resolve Color Mapping
                     if spec.has_color {
                         if let Some((scale, mapper)) = &ctx.aesthetics.color {
                             let norm = scale.normalize_string(val);
@@ -165,7 +170,7 @@ impl LegendRenderer {
                         colors.push("#333333".into());
                     }
 
-                    // Resolve Shape
+                    // Resolve Shape Mapping
                     if spec.has_shape {
                         if let Some((scale, mapper)) = &ctx.aesthetics.shape {
                             let norm = scale.normalize_string(val);
@@ -176,10 +181,9 @@ impl LegendRenderer {
                     }
                 }
             }
-            // For Continuous/Temporal, use the 5 sample ticks generated by get_sampling_labels
             _ => {
+                // Use the 5 sample ticks generated for Continuous/Temporal domains.
                 labels = spec.get_sampling_labels();
-                // ... logic for continuous mapping would go here ...
                 for _ in 0..labels.len() { colors.push("#555555".into()); }
             }
         }
@@ -187,10 +191,10 @@ impl LegendRenderer {
     }
 
     /// Renders items inside a single LegendSpec block.
-    /// Handles internal column wrapping if items exceed `max_h`.
+    /// Handles internal column wrapping if items exceed the available plot height.
     fn draw_spec_group(
         backend: &mut dyn RenderBackend,
-        spec: &LegendSpec,
+        _spec: &LegendSpec,
         labels: &[String],
         colors: &[String],
         shapes: Option<&[PointShape]>,
@@ -206,16 +210,19 @@ impl LegendRenderer {
         let mut total_w = 0.0;
         
         let font_family = theme.legend_font_family.as_ref().unwrap_or(&theme.tick_label_font_family);
-        let item_v_gap = 6.0;
-        let col_h_gap = 25.0;
+        
+        // Use theme parameters for item and column spacing.
+        let item_v_gap = theme.legend_item_v_gap;
+        let col_h_gap = theme.legend_col_h_gap;
+        let marker_to_text_gap = theme.legend_marker_text_gap;
 
         for (i, label) in labels.iter().enumerate() {
-            let marker_w = 12.0;
+            let marker_size = 12.0;
             let text_w = crate::core::utils::estimate_text_width(label, font_size);
-            let row_w = marker_w + 8.0 + text_w;
-            let row_h = f64::max(marker_w, font_size);
+            let row_w = marker_size + marker_to_text_gap + text_w;
+            let row_h = f64::max(marker_size, font_size);
 
-            // Internal wrapping: Start new column if this item exceeds the block height ceiling
+            // Internal wrapping: Start new column if this item exceeds the vertical limit.
             if item_y + row_h > y + max_h && i > 0 {
                 total_w += current_col_w + col_h_gap;
                 col_x += current_col_w + col_h_gap;
@@ -228,13 +235,13 @@ impl LegendRenderer {
             let color = colors.get(i).map(|s| s.as_str()).unwrap_or("#333333");
             let shape = shapes.and_then(|s| s.get(i)).unwrap_or(&PointShape::Circle);
 
-            // Draw Symbol
-            Self::draw_symbol(backend, shape, col_x + (marker_w / 2.0), item_y + (row_h / 2.0), marker_w / 2.0, color);
+            // Draw the Glyph (Symbol)
+            Self::draw_symbol(backend, shape, col_x + (marker_size / 2.0), item_y + (row_h / 2.0), marker_size / 2.0, color);
 
-            // Draw Label
+            // Draw the Label text
             backend.draw_text(
                 label,
-                col_x + marker_w + 8.0,
+                col_x + marker_size + marker_to_text_gap,
                 item_y + (row_h * 0.75),
                 font_size,
                 font_family,
@@ -253,7 +260,7 @@ impl LegendRenderer {
         }
     }
 
-    /// Renders specific geometric paths based on the PointShape variant.
+    /// Renders specific geometric paths (Circle, Square, etc.) for the legend markers.
     fn draw_symbol(backend: &mut dyn RenderBackend, shape: &PointShape, cx: f64, cy: f64, r: f64, color: &str) {
         match shape {
             PointShape::Circle => backend.draw_circle(cx, cy, r, Some(color), None, 0.0, 1.0),
