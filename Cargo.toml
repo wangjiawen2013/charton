@@ -14,10 +14,8 @@ polars-io = { version = "0.49", default-features = false, features = ["parquet"]
 thiserror = "2.0"
 itertools = "0.14"
 time = { version = "0.3", features = ["macros", "formatting"] }
-num-traits = "0.2"
 kernel-density-estimation = "0.2"
 uuid = { version = "1.19", features = ["v7"] }
-ordered-float = "5.1"
 resvg = "0.45"
 dyn-clone = "1.0"
 
