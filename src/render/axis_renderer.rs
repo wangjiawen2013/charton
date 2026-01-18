@@ -217,7 +217,7 @@ fn draw_axis_title(
         // We use trigonometric projection to account for label rotation.
         let max_tick_height = ticks.iter()
             .map(|t| {
-                let w = crate::core::layout::estimate_text_width(&t.label, theme.tick_label_font_size);
+                let w = crate::core::utils::estimate_text_width(&t.label, theme.tick_label_font_size);
                 let h = theme.tick_label_font_size;
                 w.abs() * angle_rad.sin().abs() + h * angle_rad.cos().abs()
             })
@@ -241,7 +241,7 @@ fn draw_axis_title(
         // Compute the maximum horizontal footprint (width) of tick labels.
         let max_tick_width = ticks.iter()
             .map(|t| {
-                let w = crate::core::layout::estimate_text_width(&t.label, theme.tick_label_font_size);
+                let w = crate::core::utils::estimate_text_width(&t.label, theme.tick_label_font_size);
                 let h = theme.tick_label_font_size;
                 w.abs() * angle_rad.cos().abs() + h * angle_rad.sin().abs()
             })
