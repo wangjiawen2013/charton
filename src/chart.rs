@@ -6,7 +6,6 @@ use crate::core::data::*;
 use crate::encode::{Encoding, IntoEncoding};
 use crate::error::ChartonError;
 use crate::mark::Mark;
-use crate::visual::color::{ColorMap, ColorPalette};
 use polars::prelude::*;
 
 /// Generic Chart structure - chart-specific properties only
