@@ -28,20 +28,16 @@ impl LegendSpec {
     /// Estimates the size of the legend block with internal column wrapping.
     /// 
     /// This implementation is "Layout-Aware": it respects the `max_h` constraint
-    /// provided by the LayoutEngine (which is derived from the Plot Panel height).
-    ///
-    /// # Arguments
-    /// * `theme` - Visual configuration for fonts and spacing.
-    /// * `max_h` - The vertical limit for the content. Items will wrap into 
-    ///             new columns if they exceed this height.
+    /// provided by the LayoutEngine. It has been updated to use a compact, fixed
+    /// marker area to match the Hollow-Circle rendering style.
     pub fn estimate_size(&self, theme: &Theme, max_h: f64) -> LegendSize {
         let font_size = theme.legend_font_size.unwrap_or(theme.tick_label_font_size);
         let title_font_size = font_size * 1.1;
 
         let title_to_content_gap = theme.legend_title_gap;
         let marker_to_text_gap = theme.legend_marker_text_gap;
-        let item_v_gap = theme.legend_item_v_gap; // Vertical spacing between rows
-        let col_h_gap = theme.legend_col_h_gap; // Horizontal spacing between wrapped columns
+        let item_v_gap = theme.legend_item_v_gap; 
+        let col_h_gap = theme.legend_col_h_gap; 
 
         // 1. Measure Title Dimensions
         let title_w = estimate_text_width(&self.title, title_font_size);
@@ -56,7 +52,6 @@ impl LegendSpec {
 
         let (content_w, content_h) = if use_colorbar {
             // SCENARIO A: Continuous Colorbar (Gradient Strip)
-            // Colorbar height is dynamic but capped to stay proportional to the axis.
             let bar_w = 15.0; 
             let bar_h = f64::min(200.0, max_h * 0.8); 
             let max_lbl_w = labels.iter()
@@ -64,7 +59,9 @@ impl LegendSpec {
                 .fold(0.0, f64::max);
             (bar_w + marker_to_text_gap + max_lbl_w, bar_h)
         } else {
-            // SCENARIO B: Discrete Items or Binned Continuous
+            // SCENARIO B: Discrete Items or Binned Continuous (Markers + Labels)
+            
+            // We pre-calculate the maximum label width to ensure column consistency.
             let max_lbl_w = labels.iter()
                 .map(|l| estimate_text_width(l, font_size))
                 .fold(0.0, f64::max);
@@ -74,35 +71,50 @@ impl LegendSpec {
             let mut cur_col_h = 0.0;
             let mut max_observed_h = 0.0;
 
-            // Define the "Floor" for content wrapping
+            // Define the available height for content after accounting for the title.
             let content_limit = f64::max(max_h - title_h - title_to_content_gap, theme.min_panel_size / 2.0);
 
             for (i, _) in labels.iter().enumerate() {
-                // Determine marker size (grows if 'size' channel is used)
-                let marker_w = if self.has_size {
-                    if is_discrete { 18.0 } else { 5.0 + (15.0 * (i as f64 / 4.0)) }
-                } else { 12.0 };
+                // --- CRITICAL SYNC POINT ---
+                // We use a fixed container size (18.0) instead of the previous growing calculation.
+                // This ensures that even if specific circles are smaller/larger, the text 
+                // alignment remains perfectly vertical and the block footprint is compact.
+                let marker_area_w = 18.0;
 
-                let row_h = f64::max(marker_w, font_size);
-                let row_w = marker_w + marker_to_text_gap + max_lbl_w;
+                // The height of a single row is the maximum of the font or the marker area.
+                let row_h = f64::max(marker_area_w, font_size);
+                
+                // Total width of this row item.
+                let row_w = marker_area_w + marker_to_text_gap + max_lbl_w;
 
-                // WRAPPING LOGIC: If this row pushes the column over the limit, start a new one.
+                // WRAPPING LOGIC: 
+                // If adding the current row exceeds the height limit, move to a new column.
                 if cur_col_h + row_h > content_limit && cur_col_h > 0.0 {
+                    // Finalize the current column and reset for the next.
                     total_w += cur_col_w + col_h_gap;
                     max_observed_h = f64::max(max_observed_h, cur_col_h);
+                    
                     cur_col_h = row_h;
                     cur_col_w = row_w;
                 } else {
+                    // Accumulate height in the current column.
                     cur_col_h += row_h;
-                    if i < labels.len() - 1 { cur_col_h += item_v_gap; }
+                    // Add vertical gap between items, except for the very last item in a column.
+                    if i < labels.len() - 1 { 
+                        cur_col_h += item_v_gap; 
+                    }
                     cur_col_w = f64::max(cur_col_w, row_w);
                 }
             }
+            
+            // Add the final column's width to the total.
             total_w += cur_col_w;
             max_observed_h = f64::max(max_observed_h, cur_col_h);
+            
             (total_w, max_observed_h)
         };
 
+        // Final bounding box of the legend block (Title + Spacing + Content).
         LegendSize {
             width: f64::max(title_w, content_w),
             height: title_h + title_to_content_gap + content_h,
