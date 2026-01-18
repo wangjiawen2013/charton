@@ -59,6 +59,18 @@ pub struct Theme {
     pub(crate) legend_font_family: Option<String>,
     pub(crate) legent_label_color: String,
 
+    // Legend Layout Gaps
+    pub(crate) legend_block_gap: f64,      // Gap between distinct legend blocks (e.g., Color vs Shape)
+    pub(crate) legend_item_v_gap: f64,     // Vertical spacing between items in a list
+    pub(crate) legend_col_h_gap: f64,      // Horizontal spacing between wrapped columns
+    pub(crate) legend_title_gap: f64,      // Spacing between the legend title and the first item
+    pub(crate) legend_marker_text_gap: f64, // Spacing between the glyph and its label
+
+    // Layout Defense Thresholds
+    pub(crate) min_panel_size: f64,        // Absolute minimum width/height for the plot area
+    pub(crate) panel_defense_ratio: f64,   // Minimum proportion of canvas reserved for the plot
+    pub(crate) axis_reserve_buffer: f64,   // Fixed buffer to protect axis space during legend calculations
+
     pub(crate) color_map: ColorMap,
     pub(crate) color_palette: ColorPalette,
 
@@ -101,6 +113,16 @@ impl Default for Theme {
             legend_font_size: None,
             legend_font_family: None,
             legent_label_color: "#333".to_string(),
+
+            legend_block_gap: 20.0,
+            legend_item_v_gap: 6.0,
+            legend_col_h_gap: 25.0,
+            legend_title_gap: 10.0,
+            legend_marker_text_gap: 8.0,
+
+            min_panel_size: 100.0,
+            panel_defense_ratio: 0.2,
+            axis_reserve_buffer: 60.0,
 
             color_map: ColorMap::Viridis,
             color_palette: ColorPalette::Tab10,

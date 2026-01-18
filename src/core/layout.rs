@@ -49,7 +49,7 @@ impl LayoutEngine {
             return constraints;
         }
 
-        let block_gap = 20.0; // Vertical/Horizontal gap between different legend blocks
+        let block_gap = theme.legend_block_gap; // Vertical/Horizontal gap between different legend blocks
 
         match position {
             LegendPosition::Right | LegendPosition::Left => {
@@ -78,11 +78,9 @@ impl LayoutEngine {
                 }
                 total_width += current_col_w;
 
-                // Step 3: Defense Mechanism
-                // We prevent the legend from eating too much horizontal space.
-                // The plot area must be at least 100px or 20% of canvas width.
-                let min_panel_w = f64::max(100.0, canvas_w * 0.2);
-                let max_allowed_legend_w = (canvas_w - min_panel_w - 60.0).max(0.0);
+                // Step 3: Defense Mechanism using Theme properties
+                let min_panel_w = f64::max(theme.min_panel_size, canvas_w * theme.panel_defense_ratio);
+                let max_allowed_legend_w = (canvas_w - min_panel_w - theme.axis_reserve_buffer).max(0.0);
                 
                 let final_w = f64::min(total_width, max_allowed_legend_w);
                 let reserve = final_w + margin_gap;
