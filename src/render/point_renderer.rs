@@ -56,7 +56,35 @@ impl MarkRenderer for Chart<MarkPoint> {
             Box::new(std::iter::repeat(default_c))
         };
 
-        // --- 3. SIZE AESTHETIC ITERATOR ---
+        // --- 3 SHAPE AESTHETIC ITERATOR ---
+        // Maps categorical data values to specific geometric PointShapes.
+        let shape_iter: Box<dyn Iterator<Item = PointShape>> = if let (Some(enc), Some((scale_trait, mapper))) = (&self.encoding.shape, &context.aesthetics.shape) {
+            let s = df_source.column(&enc.field)?;
+            
+            // If enc.scale is a direct Scale enum (not Option), use its reference.
+            // If it is Option<Scale>, use .as_ref().unwrap_or(&Scale::Discrete).
+            // Based on your feedback, we'll treat it as a direct Scale enum reference:
+            let scale_type = &enc.scale; 
+            
+            // logical_max is needed by map_to_shape(norm, logical_max)
+            let logical_max = scale_trait.logical_max();
+
+            // Perform normalization: scale_trait is Box<dyn ScaleTrait>, 
+            // so we use .as_ref() to get &dyn ScaleTrait for the method call.
+            let norms = scale_type.normalize_series(scale_trait.as_ref(), &s)?;
+            
+            // Map the normalized values [0.0, 1.0] to PointShape enums.
+            let shape_vec: Vec<PointShape> = norms.into_iter().map(|opt_n| {
+                mapper.map_to_shape(opt_n.unwrap_or(0.0), logical_max)
+            }).collect();
+
+            Box::new(shape_vec.into_iter())
+        } else {
+            // Default: use the static shape from mark_config (e.g., Circle) for all points.
+            Box::new(std::iter::repeat(mark_config.shape.clone()))
+        };
+
+        // --- 4. SIZE AESTHETIC ITERATOR ---
         // Maps normalized values to physical point sizes.
         let size_iter: Box<dyn Iterator<Item = f64>> = if let (Some(enc), Some((scale_trait, mapper))) = (&self.encoding.size, &context.aesthetics.size) {
             let s = df_source.column(&enc.field)?;
@@ -74,21 +102,30 @@ impl MarkRenderer for Chart<MarkPoint> {
             Box::new(std::iter::repeat(mark_config.size))
         };
 
-        // --- 4. MASTER RENDER LOOP ---
-        // Zips all aesthetic streams and projects normalized data onto the screen panel.
-        for (x_n, y_n, fill_color, size) in izip!(x_norms.into_iter(), y_norms.into_iter(), color_iter, size_iter) {
+        // --- 5. MASTER RENDER LOOP ---
+        // Zips all aesthetic streams (X, Y, Color, Size, Shape) together.
+        // This ensures each data row's properties are synchronized during projection.
+        for (x_n, y_n, fill_color, current_shape, size) in izip!(
+            x_norms.into_iter(), 
+            y_norms.into_iter(), 
+            color_iter, 
+            shape_iter,
+            size_iter
+        ) {
             let x_norm = x_n.unwrap_or(0.0);
             let y_norm = y_n.unwrap_or(0.0);
             
-            // The context handles coordinate transformation (including axis flipping).
+            // Transform normalized [0, 1] coordinates to absolute pixel positions (px, py).
+            // This accounts for padding, axis directions, and panel dimensions.
             let (px, py) = context.transform(x_norm, y_norm);
 
             self.emit_draw_call(
                 backend,
-                &mark_config.shape,
+                &current_shape,
                 px, py,
                 size,
                 &fill_color,
+                // Stroke color falls back to "none" if not explicitly configured in the mark.
                 &mark_config.stroke.as_ref().map(|c| c.get_color()).unwrap_or_else(|| "none".into()),
                 mark_config.stroke_width,
                 mark_config.opacity

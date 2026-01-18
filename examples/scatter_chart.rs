@@ -10,8 +10,8 @@ fn main() -> Result<(), Box<dyn Error>> {
 
     Chart::build(&df)?
         .mark_point()
-        //.encode((x("wt"), y("mpg"), shape("gear")))?
-        .encode((x("wt"), y("mpg"), color("gear"), shape("gear"), size("mpg")))?
+        .encode((x("wt"), y("mpg"), shape("gear")))?
+        //.encode((x("wt"), y("mpg"), color("gear"), shape("gear"), size("mpg")))?
         .into_layered()
         .configure_theme(|t| t.x_tick_label_angle(-45.0))
         .title("abc")
