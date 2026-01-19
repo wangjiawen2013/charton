@@ -176,4 +176,70 @@ impl<'a> RenderBackend for SvgBackend<'a> {
             x, y, font_size, font_family, color, opacity, text_anchor, font_weight, clip, safe_text
         );
     }
+
+    /// Draws a straight line, used primarily for internal ticks in the colorbar.
+    fn draw_line(
+        &mut self, 
+        x1: f64, 
+        y1: f64, 
+        x2: f64, 
+        y2: f64, 
+        color: &str, 
+        width: f64
+    ) {
+        writeln!(
+            self.buffer,
+            r#"<line x1="{}" y1="{}" x2="{}" y2="{}" stroke="{}" stroke-width="{}" />"#,
+            x1, y1, x2, y2, color, width
+        ).unwrap();
+    }
+
+    /// Renders a rectangular area filled with a linear color gradient.
+    ///
+    /// This implementation generates an SVG `<linearGradient>` definition within a `<defs>` 
+    /// block and immediately follows it with a `<rect>` that references the gradient via `url()`.
+    fn draw_gradient_rect(
+        &mut self,
+        x: f64,
+        y: f64,
+        width: f64,
+        height: f64,
+        stops: &[(f64, String)],
+        is_vertical: bool,
+        id_suffix: &str,
+    ) {
+        // Construct a unique ID for the gradient to avoid collisions with other legends
+        let grad_id = format!("grad_{}", id_suffix);
+        
+        // Define the vector of the gradient. 
+        // If vertical, it flows from (0,0) to (0,1). If horizontal, from (0,0) to (1,0).
+        let (x2, y2) = if is_vertical { ("0%", "100%") } else { ("100%", "0%") };
+
+        // 1. Write the Gradient Definition
+        // We wrap it in <defs> to ensure it's treated as a reusable resource by the SVG renderer.
+        writeln!(
+            self.buffer, 
+            r#"<defs><linearGradient id="{}" x1="0%" y1="0%" x2="{}" y2="{}">"#, 
+            grad_id, x2, y2
+        ).unwrap();
+
+        // Append each color stop provided by the scale mapper
+        for (offset, color) in stops {
+            writeln!(
+                self.buffer, 
+                r#"  <stop offset="{}%" stop-color="{}"/>"#, 
+                offset * 100.0, 
+                color
+            ).unwrap();
+        }
+        writeln!(self.buffer, "</linearGradient></defs>").unwrap();
+
+        // 2. Draw the Rectangle
+        // The 'fill' attribute points to the ID defined in the <defs> block above.
+        writeln!(
+            self.buffer, 
+            r#"<rect x="{}" y="{}" width="{}" height="{}" fill="url('#{}')"/>"#, 
+            x, y, width, height, grad_id
+        ).unwrap();
+    }
 }

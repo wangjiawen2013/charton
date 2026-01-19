@@ -1,6 +1,5 @@
 use crate::error::ChartonError;
-use crate::scale::{Scale, Expansion, ScaleDomain};
-use crate::encode::Encoding;
+use crate::scale::{Scale, ScaleDomain};
 use super::context::SharedRenderingContext;
 use dyn_clone::{clone_trait_object, DynClone};
 
@@ -64,6 +63,36 @@ pub trait RenderBackend {
         font_weight: &str, // "normal", "bold"
         opacity: f64,
     );
+
+    /// Draws a simple straight line between two points.
+    /// 
+    /// Commonly used for rendering axis ticks or custom markers within guides.
+    fn draw_line(
+        &mut self, 
+        x1: f64, 
+        y1: f64, 
+        x2: f64, 
+        y2: f64, 
+        color: &str, 
+        width: f64
+    );
+
+    /// Draws a rectangle filled with a linear gradient.
+    /// 
+    /// # Arguments
+    /// * `stops` - A slice of tuples containing (offset, color), where offset is 0.0 to 1.0.
+    /// * `is_vertical` - If true, gradient runs from top to bottom; otherwise, left to right.
+    /// * `id_suffix` - A unique identifier used to define the gradient ID in the backend (e.g., SVG <defs>).
+    fn draw_gradient_rect(
+        &mut self,
+        x: f64,
+        y: f64,
+        width: f64,
+        height: f64,
+        stops: &[(f64, String)],
+        is_vertical: bool,
+        id_suffix: &str,
+    );
     // other methods for drawing lines, etc.
 }
 
@@ -106,6 +135,9 @@ pub trait Layer: MarkRenderer + DynClone {
     /// Returns true if this layer requires axes to be drawn (most charts do).
     fn requires_axes(&self) -> bool;
 
+    /// Returns the field name mapped to the X axis, used as the default axis title.
+    fn get_x_encoding_field(&self) -> Option<String>;
+
     /// Returns the (min, max) data boundaries for a continuous X axis.
     fn get_x_continuous_bounds(&self) -> Result<(f64, f64), ChartonError>;
 
@@ -114,6 +146,9 @@ pub trait Layer: MarkRenderer + DynClone {
 
     // Methods to get scale type for x axes
     fn get_x_scale_type_from_layer(&self) -> Option<Scale>;
+
+    /// Returns the field name mapped to the Y axis, used as the default axis title.
+    fn get_y_encoding_field(&self) -> Option<String>;
 
     /// Returns the (min, max) data boundaries for a continuous Y axis.
     fn get_y_continuous_bounds(&self) -> Result<(f64, f64), ChartonError>;
@@ -124,11 +159,8 @@ pub trait Layer: MarkRenderer + DynClone {
     // Methods to get scale type for y axes
     fn get_y_scale_type_from_layer(&self) -> Option<Scale>;
 
-    /// Returns the field name mapped to the X axis, used as the default axis title.
-    fn get_x_encoding_field(&self) -> Option<String>;
-
-    /// Returns the field name mapped to the Y axis, used as the default axis title.
-    fn get_y_encoding_field(&self) -> Option<String>;
+    /// Returns the field mapped to the color channel
+    fn get_color_encoding_field(&self) -> Option<String>;
 
     /// Returns the (min, max) bounds for color if it is continuous.
     fn get_color_continuous_bounds(&self) -> Result<Option<(f64, f64)>, ChartonError>;
@@ -139,23 +171,23 @@ pub trait Layer: MarkRenderer + DynClone {
     /// Returns the scale type for color defined in this layer.
     fn get_color_scale_type_from_layer(&self) -> Option<Scale>;
 
+    /// Returns the field mapped to the shape channel
+    fn get_shape_encoding_field(&self) -> Option<String>;
+
     // --- Shape (Always Discrete) ---
     fn get_shape_discrete_labels(&self) -> Result<Option<Vec<String>>, ChartonError>;
 
     // Methods to get scale type for shape encoding
     fn get_shape_scale_type_from_layer(&self) -> Option<Scale>;
 
+    /// Returns the field mapped to the size channel
+    fn get_size_encoding_field(&self) -> Option<String>;
+
     // --- Size (Always Continuous) ---
     fn get_size_continuous_bounds(&self) -> Result<Option<(f64, f64)>, ChartonError>;
 
     // Methods to get scale type for size encoding
     fn get_size_scale_type_from_layer(&self) -> Option<Scale>;
-
-    // --- Padding Preferences ---
-
-    /// Method to get preferred axis expanding for this layer
-    fn preferred_x_axis_expanding(&self) -> Expansion;
-    fn preferred_y_axis_expanding(&self) -> Expansion;
 
     // --- State Back-filling (The "Training" ("resolve_rendering_layout") Phase) ---
 
@@ -178,20 +210,6 @@ pub trait Layer: MarkRenderer + DynClone {
     /// * `channel`: The name of the visual channel (e.g., "color", "shape", "size").
     /// * `domain`: The unified ScaleDomain calculated from the entire dataset.
     fn set_domain(&mut self, channel: &str, domain: ScaleDomain);
-
-    /// Returns a reference to the encoding configuration of this layer.
-    /// This allows the LegendManager to see which data fields are mapped 
-    /// to which visual channels (Color, Shape, Size, etc.).
-    fn get_encoding(&self) -> &Encoding;
-
-    /// Returns the Scale type associated with a specific visual channel.
-    /// * `channel`: The name of the channel (e.g., "color", "shape", "size").
-    fn get_scale_type(&self, channel: &str) -> Option<Scale>;
-
-    /// Returns the resolved Data Domain for a specific visual channel.
-    /// The domain contains the unique values (discrete) or min/max (continuous) 
-    /// needed to draw legend labels.
-    fn get_domain(&self, channel: &str) -> Option<ScaleDomain>;
 }
 
 // This line is crucial: it implements the Clone trait for all Box<dyn Layer> types via a macro.

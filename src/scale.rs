@@ -13,6 +13,7 @@ use self::temporal::TemporalScale;
 use time::OffsetDateTime;
 use polars::datatypes::AnyValue;
 use polars::prelude::*;
+use dyn_clone::{DynClone, clone_trait_object};
 
 /// Defines how much a scale's domain should be expanded beyond the data limits.
 /// Following ggplot2, expansion consists of a multiplicative factor and an additive constant.
@@ -117,7 +118,7 @@ pub enum ScaleDomain {
 /// Following ggplot2's design, a Scale is only responsible for mapping 
 /// data values to a normalized [0, 1] space. The Coordinate System 
 /// later maps this [0, 1] value to actual pixels.
-pub trait ScaleTrait {
+pub trait ScaleTrait: DynClone + std::fmt::Debug {
     /// Transforms a data value into a normalized value between 0.0 and 1.0.
     /// * For continuous scales: (val - expanded_min) / (expanded_max - expanded_min)
     /// * For discrete scales: (index + 0.5) / count (centered in band)
@@ -141,6 +142,10 @@ pub trait ScaleTrait {
     /// Generates a list of suggested tick marks for an axis.
     /// * `count`: Suggested number of ticks to generate.
     fn ticks(&self, count: usize) -> Vec<Tick>;
+
+    /// Returns the full domain specification as an enum.
+    /// This is used by the Guide system to determine the legend type and formatting.
+    fn get_domain_enum(&self) -> ScaleDomain;
 }
 
 /// Factory function to instantiate a Scale.
@@ -250,3 +255,6 @@ pub fn get_normalized_value(
         }
     }
 }
+
+// This macro generates the impl Clone for Box<dyn ScaleTrait>
+clone_trait_object!(ScaleTrait);
