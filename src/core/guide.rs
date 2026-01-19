@@ -1,5 +1,6 @@
 use crate::scale::mapper::VisualMapper;
 use crate::scale::ScaleDomain;
+use crate::scale::Tick;
 use crate::theme::Theme;
 use crate::core::utils::estimate_text_width;
 use crate::core::aesthetics::{GlobalAesthetics, AestheticMapping};
@@ -156,10 +157,15 @@ impl GuideSpec {
         }
     }
 
-    /// Extracts string labels from the underlying Scale implementation.
-    /// This ensures legend labels match axis labels (e.g., date formatting).
+    /// Extracts string labels from the underlying Scale implementation and 
+    /// enforces uniform decimal precision for visual alignment.
+    /// 
+    /// This method ensures that all labels in a legend block share the same number 
+    /// of decimal places, preventing jagged text alignment (e.g., ensuring "20.0" 
+    /// isn't shortened to "20" when appearing alongside "16.3").
     pub(crate) fn get_sampling_labels(&self) -> Vec<String> {
         if let Some(first_mapping) = self.mappings.first() {
+            // 1. Define target density (e.g., we want 5 circles for Size)
             let count = match self.kind {
                 GuideKind::ColorBar => 5,
                 GuideKind::Legend => {
@@ -167,16 +173,83 @@ impl GuideSpec {
                 }
             };
 
-            // Delegate to the ScaleTrait's tick generation
-            first_mapping.scale_impl.ticks(count)
-                .into_iter()
-                .map(|t| t.label)
-                .collect()
+            // 2. Retrieve raw ticks from the scale (Pretty algorithm or Sample_n)
+            let mut ticks = first_mapping.scale_impl.ticks(count);
+
+            // Fallback to force-sampling if the pretty algorithm returns insufficient points
+            if ticks.len() < 3 && !matches!(self.domain, ScaleDomain::Categorical(_)) {
+                ticks = first_mapping.scale_impl.sample_n(count);
+            }
+
+            // 3. --- Uniform Precision Logic ---
+            
+            // Check if we are dealing with a numeric (non-categorical) scale
+            if !matches!(self.domain, ScaleDomain::Categorical(_)) {
+                // Determine the maximum precision needed across all sampled points.
+                // We look for the most specific decimal place to ensure no data is lost.
+                let mut max_precision = 0;
+                let has_fractions = ticks.iter().any(|t| (t.value - t.value.floor()).abs() > 1e-9);
+
+                if has_fractions {
+                    for tick in &ticks {
+                        // Find how many decimals this specific number actually uses
+                        let s = format!("{}", tick.value);
+                        if let Some(pos) = s.find('.') {
+                            let p = s.len() - pos - 1;
+                            if p > max_precision { max_precision = p; }
+                        }
+                    }
+                    // For aesthetics, we force at least 1 decimal if any fractions exist
+                    max_precision = max_precision.max(1).min(4);
+                }
+
+                // Re-format all ticks using the discovered global precision
+                ticks.into_iter().map(|t| {
+                    format!("{:.1$}", t.value, max_precision)
+                }).collect()
+            } else {
+                // For categorical data, use labels exactly as provided by the scale
+                ticks.into_iter().map(|t| t.label).collect()
+            }
         } else {
+            // Fallback for empty mappings
             match &self.domain {
                 ScaleDomain::Categorical(v) => v.clone(),
                 _ => Vec::new(),
             }
+        }
+    }
+
+    /// Returns the raw Tick objects (value + aligned label) used for sampling.
+    pub(crate) fn get_sampling_ticks(&self) -> Vec<Tick> {
+        if let Some(first_mapping) = self.mappings.first() {
+            let count = 5; // Target density
+            let mut ticks = first_mapping.scale_impl.ticks(count);
+            
+            if ticks.len() < 3 && !matches!(self.domain, ScaleDomain::Categorical(_)) {
+                ticks = first_mapping.scale_impl.sample_n(count);
+            }
+
+            // Apply the precision alignment we discussed earlier
+            let mut max_p = 0;
+            let has_fractions = ticks.iter().any(|t| (t.value - t.value.floor()).abs() > 1e-9);
+            if has_fractions {
+                for t in &ticks {
+                    let s = format!("{}", t.value);
+                    if let Some(pos) = s.find('.') {
+                        max_p = max_p.max(s.len() - pos - 1);
+                    }
+                }
+                max_p = max_p.max(1).min(4);
+            }
+
+            // Update labels in the ticks themselves
+            for t in &mut ticks {
+                t.label = format!("{:.1$}", t.value, max_p);
+            }
+            ticks
+        } else {
+            Vec::new()
         }
     }
 }
@@ -185,43 +258,54 @@ impl GuideSpec {
 pub struct GuideManager;
 
 impl GuideManager {
-    /// Collects and merges aesthetic mappings into a list of GuideSpecs.
+    /// Orchestrates the collection of global aesthetics into a consolidated set of GuideSpecs.
     /// 
-    /// This implementation uses `get_domain_enum()` from the ScaleTrait 
-    /// to ensure the GuideSpec has the correct ScaleDomain (Categorical, Continuous, or Temporal).
+    /// This function implements the "Legend Merging" logic. According to the Grammar of Graphics, 
+    /// if multiple aesthetics (e.g., Color, Shape, and Size) are mapped to the same data field, 
+    /// they should be unified into a single visual guide (Legend) to avoid redundancy and 
+    /// improve scannability.
+    ///
+    /// # Logic Flow:
+    /// 1. Group all active `AestheticMapping` instances by their `field` name.
+    /// 2. Use a `BTreeMap` to ensure that guides are generated in a stable, alphabetical order.
+    /// 3. Pass the consolidated mappings to `GuideSpec::new`, which infers the visual 
+    ///    type (Legend vs. ColorBar) based on the combined mapping properties.
     pub fn collect_guides(aesthetics: &GlobalAesthetics) -> Vec<GuideSpec> {
-        // We use a BTreeMap to group mappings by their field name (e.g., "mpg").
-        // BTreeMap ensures the legends are ordered alphabetically by field name.
-        let mut field_map: BTreeMap<String, Vec<AestheticMapping>> = BTreeMap::new();
+        // We group mappings by field name. The tuple contains the inferred ScaleDomain 
+        // and the list of mappings associated with that field.
+        let mut field_map: BTreeMap<String, (ScaleDomain, Vec<AestheticMapping>)> = BTreeMap::new();
 
-        // 1. Group active mappings by their source field
-        if let Some(ref m) = aesthetics.color { 
-            field_map.entry(m.field.clone()).or_default().push(m.clone()); 
-        }
-        if let Some(ref m) = aesthetics.shape { 
-            field_map.entry(m.field.clone()).or_default().push(m.clone()); 
-        }
-        if let Some(ref m) = aesthetics.size { 
-            field_map.entry(m.field.clone()).or_default().push(m.clone()); 
-        }
+        // Helper closure to safely extract and group active mappings.
+        let mut collect = |mapping: &Option<AestheticMapping>| {
+            if let Some(m) = mapping {
+                let entry = field_map.entry(m.field.clone()).or_insert_with(|| {
+                    // We capture the domain from the first mapping encountered for this field.
+                    // In a valid plot, all aesthetics sharing a field should share the same scale logic.
+                    (m.scale_impl.get_domain_enum(), Vec::new())
+                });
+                entry.1.push(m.clone());
+            }
+        };
 
-        // 2. Create GuideSpecs for each unique field
-        let mut results: Vec<GuideSpec> = field_map.into_iter().map(|(field, mappings)| {
-            // Because all mappings for the same field share the same underlying data,
-            // we can safely pull the domain information from the first mapping.
-            // Using the trait's provided helper to get the full ScaleDomain enum.
-            let domain = mappings[0].scale_impl.get_domain_enum(); 
-            
-            // GuideSpec::new will then perform Semantic Inference to decide 
-            // if this should be a Legend or a ColorBar.
-            GuideSpec::new(field, domain, mappings)
-        }).collect();
+        // --- Phase 1: Aggregation ---
+        // Scan standard aesthetic channels. Order of collection doesn't affect the 
+        // result because BTreeMap handles the final sorting.
+        collect(&aesthetics.color);
+        collect(&aesthetics.shape);
+        collect(&aesthetics.size);
 
-        // 3. Final Sort (though BTreeMap already handled grouping, 
-        // this ensures the result vector is stable).
-        results.sort_by(|a, b| a.field.cmp(&b.field));
-        
-        results
+        // --- Phase 2: Specification ---
+        // Convert each field group into a high-level GuideSpec.
+        // The GuideSpec will later use the `sample_n` logic implemented in the scales 
+        // to generate the 5 visual steps (circles/colors) you requested.
+        field_map
+            .into_iter()
+            .map(|(field, (domain, mappings))| {
+                // GuideSpec::new performs semantic inference to decide if this 
+                // should be rendered as a discrete Legend or a continuous ColorBar.
+                GuideSpec::new(field, domain, mappings)
+            })
+            .collect()
     }
 }
 

@@ -121,4 +121,35 @@ impl ScaleTrait for DiscreteScale {
     fn get_domain_enum(&self) -> ScaleDomain {
         ScaleDomain::Categorical(self.domain.clone())
     }
+
+    /// Provides a representative sample of categories for discrete guides.
+    /// 
+    /// For discrete scales, 'sampling' means picking a subset of labels. 
+    /// If the domain size is smaller than N, it returns all categories.
+    /// If larger, it picks N evenly spaced categories to represent the set.
+    fn sample_n(&self, n: usize) -> Vec<Tick> {
+        let len = self.domain.len();
+        
+        // Handle empty or small domains: return everything we have.
+        if len <= n || n == 0 {
+            return self.ticks(n);
+        }
+
+        // Otherwise, pick N indices that are spread as evenly as possible 
+        // across the discrete set.
+        (0..n).map(|i| {
+            // Calculate the index using a floating step: 
+            // e.g., if len=10, n=3, we might pick indices [0, 4, 9]
+            let idx = if i == n - 1 {
+                len - 1
+            } else {
+                ((i as f64 * (len - 1) as f64) / (n - 1) as f64).round() as usize
+            };
+
+            Tick {
+                value: idx as f64,
+                label: self.domain[idx].clone(),
+            }
+        }).collect()
+    }
 }

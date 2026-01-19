@@ -148,4 +148,41 @@ impl ScaleTrait for LogScale {
         let (min, max) = self.domain;
         ScaleDomain::Continuous(min, max)
     }
+
+    /// Force-samples the scale domain into N points, equidistant in log-space.
+    /// 
+    /// This is essential for log-scale legends (like Size). If we sampled linearly, 
+    /// the visual representation would be heavily biased. By sampling in log-space, 
+    /// each step represents a constant geometric multiplier (e.g., each circle is 
+    /// 2x the value of the previous one).
+    fn sample_n(&self, n: usize) -> Vec<Tick> {
+        let (min, max) = self.domain;
+        
+        if n == 0 { return Vec::new(); }
+        if n == 1 {
+            return vec![Tick { value: min, label: format!("{:.1}", min) }];
+        }
+
+        // 1. Transform boundaries to log-space
+        let log_min = min.ln();
+        let log_max = max.ln();
+        let log_step = (log_max - log_min) / (n - 1) as f64;
+
+        (0..n).map(|i| {
+            // 2. Interpolate in log-space and exponentiate back to raw space
+            let log_val = if i == n - 1 { log_max } else { log_min + i as f64 * log_step };
+            let val = log_val.exp();
+
+            // 3. Apply the same formatting logic as the standard `ticks` method
+            let label = if val >= 1e6 || val <= 1e-3 {
+                format!("{:.1e}", val)
+            } else if val >= 1.0 {
+                format!("{:.1}", val).trim_end_matches('0').trim_end_matches('.').to_string()
+            } else {
+                format!("{:.3}", val).trim_end_matches('0').trim_end_matches('.').to_string()
+            };
+
+            Tick { value: val, label }
+        }).collect()
+    }
 }

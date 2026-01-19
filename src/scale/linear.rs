@@ -134,4 +134,57 @@ impl ScaleTrait for LinearScale {
     fn get_domain_enum(&self) -> ScaleDomain {
         ScaleDomain::Continuous(self.domain.0, self.domain.1)
     }
+
+    /// Force-samples the scale domain into exactly N equidistant points.
+    /// 
+    /// This is used as a fallback for legends (like Size) when the human-friendly 
+    /// `ticks` algorithm produces too few results for a given data range.
+    /// It guarantees visual density at the cost of "non-pretty" labels.
+    fn sample_n(&self, n: usize) -> Vec<Tick> {
+        let (min, max) = self.domain;
+        
+        // Handle edge cases for small N
+        if n == 0 { return Vec::new(); }
+        if n == 1 {
+            return vec![Tick {
+                value: min,
+                label: format!("{:.1}", min),
+            }];
+        }
+
+        // Calculate a raw step size (not constrained by "nice" numbers)
+        let step = (max - min) / (n - 1) as f64;
+        
+        // Heuristic for label precision:
+        // We look at the magnitude of the step to decide how many decimals to show.
+        let precision = if step > 0.0 {
+            (-(step.log10().floor()) as i32).max(0).min(4) as usize
+        } else {
+            1
+        };
+        // // Heuristic for label precision:
+        // // We look at the magnitude of the step to decide how many decimals to show.
+        // let precision = if step < 0.1 {
+        //     2
+        // } else if step < 100.0 {
+        //     1
+        // } else {
+        //     0
+        // };
+
+        (0..n)
+            .map(|i| {
+                // Mathematically exact interpolation: value = min + i * step
+                let val = if i == n - 1 { max } else { min + i as f64 * step };
+                
+                // Clean up near-zero values
+                let clean_val = if val.abs() < 1e-12 { 0.0 } else { val };
+
+                Tick {
+                    value: clean_val,
+                    label: format!("{:.1$}", clean_val, precision),
+                }
+            })
+            .collect()
+    }
 }
