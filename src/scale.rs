@@ -146,6 +146,10 @@ pub trait ScaleTrait: DynClone + std::fmt::Debug {
     /// Returns the full domain specification as an enum.
     /// This is used by the Guide system to determine the legend type and formatting.
     fn get_domain_enum(&self) -> ScaleDomain;
+
+    /// Force-samples the scale domain into N equidistant points.
+    /// Used as a fallback when the 'pretty' tick algorithm provides insufficient density.
+    fn sample_n(&self, n: usize) -> Vec<Tick>;
 }
 
 /// Factory function to instantiate a Scale.

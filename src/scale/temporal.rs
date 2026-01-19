@@ -52,6 +52,17 @@ impl TemporalScale {
             (Duration::seconds(1), "second")
         }
     }
+
+    // Private helper for consistent formatting
+    fn format_dt(&self, dt: OffsetDateTime, format_key: &str) -> String {
+        match format_key {
+            "year" => dt.format(&time::macros::format_description!("[year]")),
+            "month" => dt.format(&time::macros::format_description!("[year]-[month]")),
+            "day" => dt.format(&time::macros::format_description!("[month]-[day]")),
+            "hour" => dt.format(&time::macros::format_description!("[hour]:[minute]")),
+            _ => dt.format(&time::macros::format_description!("[hour]:[minute]:[second]")),
+        }.unwrap_or_else(|_| "??".to_string())
+    }
 }
 
 impl ScaleTrait for TemporalScale {
@@ -108,13 +119,7 @@ impl ScaleTrait for TemporalScale {
         // Iteratively generate time steps until the end of the domain.
         // Capped at 50 iterations to maintain axis readability and performance.
         while curr <= end && iterations < 50 {
-            let label = match format_key {
-                "year" => curr.format(&time::macros::format_description!("[year]")),
-                "month" => curr.format(&time::macros::format_description!("[year]-[month]")),
-                "day" => curr.format(&time::macros::format_description!("[month]-[day]")),
-                "hour" => curr.format(&time::macros::format_description!("[hour]:[minute]")),
-                _ => curr.format(&time::macros::format_description!("[hour]:[minute]:[second]")),
-            }.unwrap_or_else(|_| "??".to_string());
+            let label = self.format_dt(curr, format_key);
 
             ticks.push(Tick {
                 value: curr.unix_timestamp_nanos() as f64,
@@ -138,5 +143,42 @@ impl ScaleTrait for TemporalScale {
     /// and use the correct formatting and sampling logic for legends.
     fn get_domain_enum(&self) -> ScaleDomain {
         ScaleDomain::Temporal(self.domain.0, self.domain.1)
+    }
+
+    /// Force-samples the temporal domain into N equidistant time points.
+    /// 
+    /// This ensures that time-based legends (like Size or Color) display a 
+    /// balanced set of samples across the entire duration, regardless of 
+    /// standard calendar intervals (like months or years).
+    fn sample_n(&self, n: usize) -> Vec<Tick> {
+        let (start_dt, end_dt) = self.domain;
+        
+        if n == 0 { return Vec::new(); }
+        if n == 1 {
+            let (_, format_key) = self.get_interval_info();
+            return vec![Tick {
+                value: start_dt.unix_timestamp_nanos() as f64,
+                label: self.format_dt(start_dt, format_key),
+            }];
+        }
+
+        let start_ns = start_dt.unix_timestamp_nanos() as f64;
+        let end_ns = end_dt.unix_timestamp_nanos() as f64;
+        let step_ns = (end_ns - start_ns) / (n - 1) as f64;
+
+        let (_, format_key) = self.get_interval_info();
+
+        (0..n).map(|i| {
+            let current_ns = if i == n - 1 { end_ns } else { start_ns + i as f64 * step_ns };
+            
+            // Convert nanoseconds back to OffsetDateTime
+            let dt = OffsetDateTime::from_unix_timestamp_nanos(current_ns as i128)
+                .unwrap_or(start_dt);
+
+            Tick {
+                value: current_ns,
+                label: self.format_dt(dt, format_key),
+            }
+        }).collect()
     }
 }

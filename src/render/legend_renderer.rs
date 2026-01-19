@@ -228,52 +228,70 @@ impl LegendRenderer {
         }
     }
 
-    /// Resolves data labels into physical visual properties by querying GlobalAesthetics.
+    /// Resolves data samples into physical visual properties by querying GlobalAesthetics.
+    /// 
+    /// This method maps data values to visual attributes (Color, Shape, Size). 
+    /// For continuous scales, it utilizes the raw numeric values from Ticks to ensure 
+    /// precision, avoiding the fragility of parsing formatted strings back into floats.
     fn resolve_mappings(
         spec: &GuideSpec,
         ctx: &SharedRenderingContext,
     ) -> (Vec<String>, Vec<String>, Option<Vec<PointShape>>, Option<Vec<f64>>) {
-        let labels = match &spec.domain {
-            ScaleDomain::Categorical(values) => values.clone(),
-            _ => spec.get_sampling_labels(),
+        // 1. Retrieve Ticks instead of just strings for non-categorical domains.
+        // This gives us access to both 'tick.value' (for mapping) and 'tick.label' (for display).
+        let (labels, values_f64): (Vec<String>, Vec<f64>) = match &spec.domain {
+            ScaleDomain::Categorical(values) => {
+                // For categories, value and label are treated as the same string.
+                (values.clone(), Vec::new())
+            }
+            _ => {
+                // For Continuous/Log/Temporal, we fetch synced ticks.
+                // Note: We need a small helper or to modify GuideSpec to return Ticks here.
+                // Assuming get_sampling_ticks() returns Vec<Tick> with aligned labels.
+                let ticks = spec.get_sampling_ticks(); 
+                let l = ticks.iter().map(|t| t.label.clone()).collect();
+                let v = ticks.iter().map(|t| t.value).collect();
+                (l, v)
+            }
         };
 
         let mut colors = Vec::new();
         let mut shapes = Vec::new();
         let mut sizes = Vec::new();
 
-        // Aesthetic activation check matching VisualMapper variants
         let has_color = spec.mappings.iter().any(|m| {
             matches!(m.mapper, VisualMapper::DiscreteColor { .. } | VisualMapper::ContinuousColor { .. })
         });
         let has_shape = spec.mappings.iter().any(|m| matches!(m.mapper, VisualMapper::Shape { .. }));
         let has_size = spec.mappings.iter().any(|m| matches!(m.mapper, VisualMapper::Size { .. }));
 
-        for val_str in &labels {
-            // 1. Color
+        for (i, label_str) in labels.iter().enumerate() {
+            // 2. Determine the numeric value for this sample if applicable.
+            let val_f64 = values_f64.get(i).cloned();
+
+            // 3. Resolve Color
             if has_color {
                 if let Some(ref mapping) = ctx.aesthetics.color {
-                    let norm = mapping.scale_impl.normalize_string(val_str);
+                    let norm = val_f64.map(|v| mapping.scale_impl.normalize(v))
+                        .unwrap_or_else(|| mapping.scale_impl.normalize_string(label_str));
                     colors.push(mapping.mapper.map_to_color(norm, mapping.scale_impl.logical_max()));
                 }
             } else { colors.push("#333333".into()); }
 
-            // 2. Shape
+            // 4. Resolve Shape
             if has_shape {
                 if let Some(ref mapping) = ctx.aesthetics.shape {
-                    let norm = mapping.scale_impl.normalize_string(val_str);
+                    let norm = val_f64.map(|v| mapping.scale_impl.normalize(v))
+                        .unwrap_or_else(|| mapping.scale_impl.normalize_string(label_str));
                     shapes.push(mapping.mapper.map_to_shape(norm, mapping.scale_impl.logical_max()));
                 }
             } else { shapes.push(PointShape::Circle); }
 
-            // 3. Size
+            // 5. Resolve Size
             if has_size {
                 if let Some(ref mapping) = ctx.aesthetics.size {
-                    let norm = if let Ok(v) = val_str.parse::<f64>() { 
-                        mapping.scale_impl.normalize(v) 
-                    } else { 
-                        mapping.scale_impl.normalize_string(val_str) 
-                    };
+                    let norm = val_f64.map(|v| mapping.scale_impl.normalize(v))
+                        .unwrap_or_else(|| mapping.scale_impl.normalize_string(label_str));
                     sizes.push(mapping.mapper.map_to_size(norm));
                 }
             } else { sizes.push(5.0); }
