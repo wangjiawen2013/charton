@@ -1,4 +1,4 @@
-use super::{ScaleTrait, Tick};
+use super::{ScaleTrait, ScaleDomain, Tick};
 use std::collections::HashMap;
 
 /// A scale for categorical data that maps discrete values to normalized slots.
@@ -9,6 +9,7 @@ use std::collections::HashMap;
 /// 
 /// Note: To allow for visual padding, this scale supports an expanded domain
 /// where the coordinate range covers slightly more than the [0, N-1] index space.
+#[derive(Debug, Clone)]
 pub struct DiscreteScale {
     /// The unique categorical labels in the order they should appear.
     domain: Vec<String>,
@@ -113,5 +114,11 @@ impl ScaleTrait for DiscreteScale {
                 label: label.clone(),
             }
         }).collect()
+    }
+
+    /// Implementation for DiscreteScale.
+    /// Returns the original list of categories as a ScaleDomain::Categorical.
+    fn get_domain_enum(&self) -> ScaleDomain {
+        ScaleDomain::Categorical(self.domain.clone())
     }
 }

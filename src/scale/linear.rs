@@ -1,4 +1,4 @@
-use super::{ScaleTrait, Tick};
+use super::{ScaleTrait, ScaleDomain, Tick};
 
 /// A scale that maps a continuous data domain to a normalized [0, 1] range.
 /// 
@@ -8,6 +8,7 @@ use super::{ScaleTrait, Tick};
 /// 
 /// Note: The domain stored here should be the expanded domain (including padding)
 /// to ensure that data points are mapped correctly within the visual area.
+#[derive(Debug, Clone)]
 pub struct LinearScale {
     /// The input data boundaries: (min_value, max_value).
     /// Following ggplot2 principles, these values usually include a small 
@@ -128,5 +129,9 @@ impl ScaleTrait for LinearScale {
         }
         
         ticks
+    }
+
+    fn get_domain_enum(&self) -> ScaleDomain {
+        ScaleDomain::Continuous(self.domain.0, self.domain.1)
     }
 }

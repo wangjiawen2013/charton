@@ -12,6 +12,10 @@ use itertools::izip;
 // ============================================================================
 
 impl MarkRenderer for Chart<MarkPoint> {
+    /// Orchestrates the transformation of raw data rows into visual point geometries.
+    ///
+    /// This implementation uses a vectorized normalization phase followed by a 
+    /// zipped iterator to synchronize X, Y, Color, Shape, and Size aesthetics.
     fn render_marks(
         &self,
         backend: &mut dyn RenderBackend,
@@ -24,8 +28,8 @@ impl MarkRenderer for Chart<MarkPoint> {
         let y_enc = self.encoding.y.as_ref().unwrap();
         let mark_config = self.mark.as_ref().unwrap();
 
-        // --- 1. COORDINATE NORMALIZATION ---
-        // Vectorized normalization: Processes the entire column into a [0, 1] range.
+        // --- STEP 1: POSITION NORMALIZATION ---
+        // We project raw data into the [0, 1] normalized unit space of the panel.
         let x_series = df_source.column(&x_enc.field)?;
         let y_series = df_source.column(&y_enc.field)?;
 
@@ -35,76 +39,55 @@ impl MarkRenderer for Chart<MarkPoint> {
         let y_norms = y_enc.scale.as_ref().unwrap_or(&Scale::Linear)
             .normalize_series(context.coord.get_y_scale(), &y_series)?;
 
-        // --- 2. COLOR AESTHETIC ITERATOR ---
-        // Maps normalized values to specific color strings.
-        let color_iter: Box<dyn Iterator<Item = String>> = if let (Some(enc), Some((scale_trait, mapper))) = (&self.encoding.color, &context.aesthetics.color) {
-            let s = df_source.column(&enc.field)?;
-            let scale_type = enc.scale.as_ref().unwrap_or(&Scale::Discrete);
-            let logical_max = scale_trait.logical_max();
-
-            let norms = scale_type.normalize_series(scale_trait.as_ref(), &s)?;
+        // --- STEP 2: COLOR MAPPING ---
+        // Resolve either a data-driven color scale or a static mark color.
+        let color_iter: Box<dyn Iterator<Item = String>> = if let Some(ref mapping) = context.aesthetics.color {
+            let s = df_source.column(&mapping.field)?;
+            let logical_max = mapping.scale_impl.logical_max();
+            let norms = mapping.scale_type.normalize_series(mapping.scale_impl.as_ref(), &s)?;
             
-            // Optimization: Process normalization and mapping synchronously. 
-            // Collecting to Vec avoids complex lifetime issues with ScaleTrait references.
-            let color_vec: Vec<String> = norms.into_iter().map(|opt_n| {
-                mapper.map_to_color(opt_n.unwrap_or(0.0), logical_max)
-            }).collect();
-
+            let color_vec: Vec<String> = norms.into_iter()
+                .map(|opt_n| mapping.mapper.map_to_color(opt_n.unwrap_or(0.0), logical_max))
+                .collect();
             Box::new(color_vec.into_iter())
         } else {
-            let default_c = mark_config.color.as_ref().map(|c| c.get_color()).unwrap_or_else(|| "black".into());
+            let default_c = mark_config.color.as_ref()
+                .map(|c| c.get_color())
+                .unwrap_or_else(|| "black".into());
             Box::new(std::iter::repeat(default_c))
         };
 
-        // --- 3 SHAPE AESTHETIC ITERATOR ---
-        // Maps categorical data values to specific geometric PointShapes.
-        let shape_iter: Box<dyn Iterator<Item = PointShape>> = if let (Some(enc), Some((scale_trait, mapper))) = (&self.encoding.shape, &context.aesthetics.shape) {
-            let s = df_source.column(&enc.field)?;
+        // --- STEP 3: SHAPE MAPPING ---
+        // Resolve categorical data to geometric primitives (Circle, Square, etc.).
+        let shape_iter: Box<dyn Iterator<Item = PointShape>> = if let Some(ref mapping) = context.aesthetics.shape {
+            let s = df_source.column(&mapping.field)?;
+            let logical_max = mapping.scale_impl.logical_max();
+            let norms = mapping.scale_type.normalize_series(mapping.scale_impl.as_ref(), &s)?;
             
-            // If enc.scale is a direct Scale enum (not Option), use its reference.
-            // If it is Option<Scale>, use .as_ref().unwrap_or(&Scale::Discrete).
-            // Based on your feedback, we'll treat it as a direct Scale enum reference:
-            let scale_type = &enc.scale; 
-            
-            // logical_max is needed by map_to_shape(norm, logical_max)
-            let logical_max = scale_trait.logical_max();
-
-            // Perform normalization: scale_trait is Box<dyn ScaleTrait>, 
-            // so we use .as_ref() to get &dyn ScaleTrait for the method call.
-            let norms = scale_type.normalize_series(scale_trait.as_ref(), &s)?;
-            
-            // Map the normalized values [0.0, 1.0] to PointShape enums.
-            let shape_vec: Vec<PointShape> = norms.into_iter().map(|opt_n| {
-                mapper.map_to_shape(opt_n.unwrap_or(0.0), logical_max)
-            }).collect();
-
+            let shape_vec: Vec<PointShape> = norms.into_iter()
+                .map(|opt_n| mapping.mapper.map_to_shape(opt_n.unwrap_or(0.0), logical_max))
+                .collect();
             Box::new(shape_vec.into_iter())
         } else {
-            // Default: use the static shape from mark_config (e.g., Circle) for all points.
             Box::new(std::iter::repeat(mark_config.shape.clone()))
         };
 
-        // --- 4. SIZE AESTHETIC ITERATOR ---
-        // Maps normalized values to physical point sizes.
-        let size_iter: Box<dyn Iterator<Item = f64>> = if let (Some(enc), Some((scale_trait, mapper))) = (&self.encoding.size, &context.aesthetics.size) {
-            let s = df_source.column(&enc.field)?;
-            let scale_type = &enc.scale; 
-
-            let norms = scale_type.normalize_series(scale_trait.as_ref(), &s)?;
+        // --- STEP 4: SIZE MAPPING ---
+        // Resolve numerical data to physical pixel radii.
+        let size_iter: Box<dyn Iterator<Item = f64>> = if let Some(ref mapping) = context.aesthetics.size {
+            let s = df_source.column(&mapping.field)?;
+            let norms = mapping.scale_type.normalize_series(mapping.scale_impl.as_ref(), &s)?;
             
-            // Process size mapping synchronously into an owned collection.
-            let size_vec: Vec<f64> = norms.into_iter().map(|opt_n| {
-                mapper.map_to_size(opt_n.unwrap_or(0.0))
-            }).collect();
-
+            let size_vec: Vec<f64> = norms.into_iter()
+                .map(|opt_n| mapping.mapper.map_to_size(opt_n.unwrap_or(0.0)))
+                .collect();
             Box::new(size_vec.into_iter())
         } else {
             Box::new(std::iter::repeat(mark_config.size))
         };
 
-        // --- 5. MASTER RENDER LOOP ---
-        // Zips all aesthetic streams (X, Y, Color, Size, Shape) together.
-        // This ensures each data row's properties are synchronized during projection.
+        // --- STEP 5: MASTER PROJECTION & RENDERING ---
+        // Zip all aesthetic streams and emit draw calls to the backend.
         for (x_n, y_n, fill_color, current_shape, size) in izip!(
             x_norms.into_iter(), 
             y_norms.into_iter(), 
@@ -115,8 +98,7 @@ impl MarkRenderer for Chart<MarkPoint> {
             let x_norm = x_n.unwrap_or(0.0);
             let y_norm = y_n.unwrap_or(0.0);
             
-            // Transform normalized [0, 1] coordinates to absolute pixel positions (px, py).
-            // This accounts for padding, axis directions, and panel dimensions.
+            // Transform unit coordinates [0, 1] to absolute panel pixels.
             let (px, py) = context.transform(x_norm, y_norm);
 
             self.emit_draw_call(
@@ -125,7 +107,6 @@ impl MarkRenderer for Chart<MarkPoint> {
                 px, py,
                 size,
                 &fill_color,
-                // Stroke color falls back to "none" if not explicitly configured in the mark.
                 &mark_config.stroke.as_ref().map(|c| c.get_color()).unwrap_or_else(|| "none".into()),
                 mark_config.stroke_width,
                 mark_config.opacity
@@ -141,7 +122,10 @@ impl MarkRenderer for Chart<MarkPoint> {
 // ============================================================================
 
 impl Chart<MarkPoint> {
-    /// Centers and renders the chosen geometric shape at (px, py).
+    /// Dispatches the appropriate backend draw call for the given PointShape.
+    ///
+    /// All shapes are centered at (px, py) using the provided size as a 
+    /// characteristic dimension (radius or half-side).
     fn emit_draw_call(
         &self,
         backend: &mut dyn RenderBackend,
@@ -192,7 +176,7 @@ impl Chart<MarkPoint> {
         }
     }
 
-    /// Calculates vertices for regular shapes.
+    /// Computes vertices for regular polygons (Triangle, Pentagon, etc.).
     fn calculate_polygon(&self, cx: f64, cy: f64, radius: f64, sides: usize, rotation: f64) -> Vec<(f64, f64)> {
         (0..sides)
             .map(|i| {
@@ -202,7 +186,7 @@ impl Chart<MarkPoint> {
             .collect()
     }
 
-    /// Calculates vertices for star-burst shapes.
+    /// Computes vertices for a star shape by alternating inner and outer radii.
     fn calculate_star(&self, cx: f64, cy: f64, outer_r: f64, inner_r: f64, points: usize) -> Vec<(f64, f64)> {
         let total_points = points * 2;
         (0..total_points)

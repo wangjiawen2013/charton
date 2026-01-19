@@ -1,10 +1,11 @@
 use crate::coordinate::{CoordinateTrait, CoordSystem, Rect};
 use crate::chart::Chart;
 use crate::core::layer::Layer;
-use crate::core::legend::{LegendSpec, LegendPosition};
+use crate::core::guide::{GuideSpec, LegendPosition};
 use crate::core::context::SharedRenderingContext;
+use crate::core::aesthetics::GlobalAesthetics;
 use crate::scale::{Scale, ScaleDomain, create_scale, mapper::VisualMapper};
-use crate::encode::aesthetics::GlobalAesthetics;
+use crate::core::aesthetics::AestheticMapping;
 use crate::theme::Theme;
 use crate::error::ChartonError;
 use std::fmt::Write;
@@ -45,10 +46,9 @@ pub struct LayeredChart {
     flipped: bool,
 
     // --- Legend Logic ---
-    legend_enabled: Option<bool>,
     legend_title: Option<String>,
-    pub(crate) legend_position: LegendPosition,
-    pub(crate) legend_margin: f64,
+    legend_position: LegendPosition,
+    legend_margin: f64,
 }
 
 impl Default for LayeredChart {
@@ -84,7 +84,6 @@ impl LayeredChart {
 
             flipped: false,
 
-            legend_enabled: None,
             legend_title: None,
             legend_position: LegendPosition::Right,
             legend_margin: 15.0,
@@ -190,11 +189,6 @@ impl LayeredChart {
     }
 
     // --- Legend Logic ---
-
-    pub fn legend_enabled(mut self, enabled: bool) -> Self {
-        self.legend_enabled = Some(enabled);
-        self
-    }
 
     pub fn legend_title(mut self, title: impl Into<String>) -> Self {
         self.legend_title = Some(title.into());
@@ -408,65 +402,52 @@ impl LayeredChart {
         "Y".to_string()
     }
 
-    /// Consolidates color data domains across all layers to ensure visual consistency.
+    /// Resolves the unified color encoding by aggregating metadata and data domains across all layers.
     /// 
-    /// This method performs two critical tasks:
-    /// 1. **Type Validation**: It ensures that all layers using the color channel share the 
-    ///    same Scale type (e.g., you cannot mix a Continuous 'Linear' scale with a 
-    ///    Discrete 'Ordinal' scale in the same chart).
-    /// 2. **Domain Aggregation**: 
-    ///    - For Continuous scales: It finds the global minimum and maximum across all layers.
-    ///    - For Categorical scales: It collects all unique labels while preserving 
-    ///      insertion order across layers.
-    ///
-    /// # Returns
-    /// - `Ok(Some((Scale, ScaleDomain)))`: A unified Scale type and domain ready for Scale initialization.
-    /// - `Ok(None)`: If no layers have color encodings defined.
-    /// - `Err(ChartonError)`: If a type conflict is detected between layers.
-    fn get_color_domain_from_layers(&self) -> Result<Option<(Scale, ScaleDomain)>, ChartonError> {
+    /// This method ensures:
+    /// 1. **Field Consistency**: Identifies the source data column (e.g., "price").
+    /// 2. **Type Validation**: Checks that all layers agree on the Scale type (e.g., all Linear or all Discrete).
+    /// 3. **Domain Merging**:
+    ///    - For Continuous: Calculates global [min, max], handling cases where min == max.
+    ///    - For Categorical: Collects all unique strings in order of appearance.
+    fn resolve_color_encoding(&self) -> Result<Option<(String, Scale, ScaleDomain)>, ChartonError> {
+        let mut resolved_field: Option<String> = None;
         let mut resolved_type: Option<Scale> = None;
         
-        // Variables to track continuous bounds
         let mut global_min = f64::INFINITY;
         let mut global_max = f64::NEG_INFINITY;
-        
-        // Vector to track unique categorical labels
         let mut all_labels: Vec<String> = Vec::new();
 
         for (i, layer) in self.layers.iter().enumerate() {
-            // Step 1: Check if this layer has a color encoding and what its scale type is
-            let current_type = match layer.get_color_scale_type_from_layer() {
-                Some(t) => t,
-                None => continue, // Skip layers that don't encode color
+            // Step 1: Check if this layer has a color mapping defined
+            let (field, current_type) = match (layer.get_color_encoding_field(), layer.get_color_scale_type_from_layer()) {
+                (Some(f), Some(t)) => (f, t),
+                _ => continue, 
             };
 
-            // Step 2: Ensure type consistency across the entire layered chart
+            // Step 2: Establish or validate the "Source of Truth" for this chart's color channel
             if let Some(ref existing_type) = resolved_type {
                 if existing_type != &current_type {
                     return Err(ChartonError::Scale(format!(
-                        "Color scale type conflict at layer {}: Layer 0 is {:?}, but layer {} is {:?}",
-                        i, existing_type, i, current_type
+                        "Color scale type conflict: Layer 0 is {:?}, but layer {} is {:?}",
+                        existing_type, i, current_type
                     )));
                 }
             } else {
-                // This is the first layer with color; it sets the 'source of truth' for the chart
+                resolved_field = Some(field);
                 resolved_type = Some(current_type);
             }
 
-            // Step 3: Extract and merge domain data based on the resolved type
+            // Step 3: Aggregate data based on the resolved scale type
             match resolved_type.as_ref().unwrap() {
                 Scale::Discrete => {
-                    // Collect unique strings for categorical mapping
                     if let Some(labels) = layer.get_color_discrete_labels()? {
                         for label in labels {
-                            if !all_labels.contains(&label) {
-                                all_labels.push(label);
-                            }
+                            if !all_labels.contains(&label) { all_labels.push(label); }
                         }
                     }
                 }
                 _ => {
-                    // Update global min/max for continuous mapping (Linear, Log, etc.)
                     if let Some((min, max)) = layer.get_color_continuous_bounds()? {
                         global_min = global_min.min(min);
                         global_max = global_max.max(max);
@@ -475,128 +456,106 @@ impl LayeredChart {
             }
         }
 
-        // Step 4: Construct the final ScaleDomain based on the accumulated data
-        match resolved_type {
-            Some(stype) => {
-                let domain = match stype {
-                    Scale::Discrete => {
-                        if all_labels.is_empty() { return Ok(None); }
-                        ScaleDomain::Categorical(all_labels)
-                    },
-                    _ => {
-                        // Handle cases where no valid numeric data was found despite having a scale type
-                        if global_min.is_infinite() {
-                            // Fallback to a unit range [0, 1] if data is missing or empty
-                            ScaleDomain::Continuous(0.0, 1.0)
-                        } else {
-                            // Or apply optional user-defined overrides if they exist at the chart level
-                            // (Assuming self.color_domain_min/max exist similar to x_domain_min)
-                            ScaleDomain::Continuous(global_min, global_max)
+        // Step 4: Construct the final ScaleDomain
+        if let (Some(field), Some(stype)) = (resolved_field, resolved_type) {
+            let domain = match stype {
+                Scale::Discrete => {
+                    if all_labels.is_empty() { return Ok(None); }
+                    ScaleDomain::Categorical(all_labels)
+                },
+                _ => {
+                    if global_min.is_infinite() {
+                        ScaleDomain::Continuous(0.0, 1.0)
+                    } else {
+                        // Protect against zero-range domains to avoid division by zero during normalization
+                        let (mut final_min, mut final_max) = (global_min, global_max);
+                        if (final_max - final_min).abs() < 1e-12 {
+                            final_min -= 0.5;
+                            final_max += 0.5;
                         }
+                        ScaleDomain::Continuous(final_min, final_max)
                     }
-                };
-                Ok(Some((stype, domain)))
-            },
-            None => Ok(None),
-        }
-    }
-
-    /// Consolidates shape data domains across all layers.
-    ///
-    /// # Returns
-    /// - `Ok(Some(ScaleDomain::Categorical))`: Unified unique shape labels.
-    /// - `Ok(None)`: If no shape encodings are defined.
-    fn get_shape_domain_from_layers(&self) -> Result<Option<ScaleDomain>, ChartonError> {
-        let mut resolved_type: Option<Scale> = None;
-        let mut all_labels: Vec<String> = Vec::new();
-
-        for (i, layer) in self.layers.iter().enumerate() {
-            let current_type = match layer.get_shape_scale_type_from_layer() {
-                Some(t) => t,
-                None => continue,
+                }
             };
-
-            // Type Validation (Ensuring Shape remains Discrete)
-            if let Some(ref existing_type) = resolved_type {
-                if existing_type != &current_type {
-                    return Err(ChartonError::Scale(format!(
-                        "Shape scale type conflict at layer {}: expected {:?}, found {:?}",
-                        i, existing_type, current_type
-                    )));
-                }
-            } else {
-                resolved_type = Some(current_type);
-            }
-
-            // Domain Aggregation
-            if let Some(labels) = layer.get_shape_discrete_labels()? {
-                for label in labels {
-                    if !all_labels.contains(&label) {
-                        all_labels.push(label);
-                    }
-                }
-            }
-        }
-
-        match resolved_type {
-            Some(_) => {
-                if all_labels.is_empty() {
-                    Ok(None)
-                } else {
-                    Ok(Some(ScaleDomain::Categorical(all_labels)))
-                }
-            },
-            None => Ok(None),
+            Ok(Some((field, stype, domain)))
+        } else {
+            Ok(None)
         }
     }
 
-    /// Consolidates size data domains across all layers.
+    /// Resolves the unified size encoding across all layers.
     ///
-    /// # Returns
-    /// - `Ok(Some(ScaleDomain::Continuous))`: Unified numeric range for size mapping.
-    /// - `Ok(None)`: If no size encodings are defined.
-    fn get_size_domain_from_layers(&self) -> Result<Option<ScaleDomain>, ChartonError> {
+    /// Size scales are typically used for continuous variables (e.g., mapping "population" to radius).
+    /// This method aggregates the numeric bounds and ensures a non-zero range for normalization.
+    fn resolve_size_encoding(&self) -> Result<Option<(String, Scale, ScaleDomain)>, ChartonError> {
+        let mut resolved_field: Option<String> = None;
         let mut resolved_type: Option<Scale> = None;
         let mut global_min = f64::INFINITY;
         let mut global_max = f64::NEG_INFINITY;
 
-        for (i, layer) in self.layers.iter().enumerate() {
-            let current_type = match layer.get_size_scale_type_from_layer() {
-                Some(t) => t,
-                None => continue,
-            };
-
-            if let Some(ref existing_type) = resolved_type {
-                if existing_type != &current_type {
-                    return Err(ChartonError::Scale(format!(
-                        "Size scale type conflict at layer {}: expected {:?}, found {:?}",
-                        i, existing_type, current_type
-                    )));
+        for layer in &self.layers {
+            if let Some(field) = layer.get_size_encoding_field() {
+                if resolved_field.is_none() {
+                    resolved_field = Some(field);
+                    // Default to Linear size scaling if not explicitly specified
+                    resolved_type = Some(layer.get_size_scale_type_from_layer().unwrap_or(Scale::Linear));
                 }
-            } else {
-                resolved_type = Some(current_type);
-            }
 
-            if let Some((min, max)) = layer.get_size_continuous_bounds()? {
-                global_min = global_min.min(min);
-                global_max = global_max.max(max);
+                if let Some((min, max)) = layer.get_size_continuous_bounds()? {
+                    global_min = global_min.min(min);
+                    global_max = global_max.max(max);
+                }
             }
         }
 
-        match resolved_type {
-            Some(_) => {
-                if global_min.is_infinite() {
-                    Ok(Some(ScaleDomain::Continuous(0.0, 1.0)))
-                } else {
-                    // Ensure the range is not zero
-                    if (global_max - global_min).abs() < 1e-12 {
-                        global_min -= 0.5;
-                        global_max += 0.5;
-                    }
-                    Ok(Some(ScaleDomain::Continuous(global_min, global_max)))
+        if let (Some(field), Some(stype)) = (resolved_field, resolved_type) {
+            let domain = if global_min.is_infinite() {
+                ScaleDomain::Continuous(0.0, 1.0)
+            } else {
+                let (mut final_min, mut final_max) = (global_min, global_max);
+                // Zero-range protection: ensures points are visible even if all data values are identical
+                if (final_max - final_min).abs() < 1e-12 {
+                    final_min -= 0.5;
+                    final_max += 0.5;
                 }
-            },
-            None => Ok(None),
+                ScaleDomain::Continuous(final_min, final_max)
+            };
+            Ok(Some((field, stype, domain)))
+        } else {
+            Ok(None)
+        }
+    }
+
+    /// Resolves the unified shape encoding across all layers.
+    ///
+    /// Shape encodings are strictly categorical (Discrete). This method collects all 
+    /// unique category labels to ensure the Shape Palette maps them consistently.
+    fn resolve_shape_encoding(&self) -> Result<Option<(String, Scale, ScaleDomain)>, ChartonError> {
+        let mut resolved_field: Option<String> = None;
+        let mut all_labels: Vec<String> = Vec::new();
+
+        for layer in &self.layers {
+            if let Some(field) = layer.get_shape_encoding_field() {
+                if resolved_field.is_none() {
+                    resolved_field = Some(field);
+                }
+
+                if let Some(labels) = layer.get_shape_discrete_labels()? {
+                    for label in labels {
+                        if !all_labels.contains(&label) {
+                            all_labels.push(label);
+                        }
+                    }
+                }
+            }
+        }
+
+        if let Some(field) = resolved_field {
+            if all_labels.is_empty() { return Ok(None); }
+            // Shape is inherently Discrete in this plotting system
+            Ok(Some((field, Scale::Discrete, ScaleDomain::Categorical(all_labels))))
+        } else {
+            Ok(None)
         }
     }
 
@@ -653,52 +612,75 @@ impl LayeredChart {
     /// Resolves the final rendering layout and global aesthetic scales by consolidating metadata.
     /// 
     /// This implementation follows an "Industrial Defense" layout pipeline:
-    /// 1. Finalize Aesthetic & Coordinate Scales.
-    /// 2. Determine initial "safe zones" based on user-defined proportional margins.
-    /// 3. Measure Legend requirements constrained by the initial safe zones.
-    /// 4. Measure Axis requirements based on the remaining space.
-    /// 5. Apply a "Minimum Panel Defense" to guarantee at least 100x100px for data rendering,
-    ///    pushing legends outside the canvas if necessary rather than crushing the plot.
-    fn resolve_rendering_layout(&self, legend_specs: &[LegendSpec]) -> Result<(Box<dyn CoordinateTrait>, Rect, GlobalAesthetics), ChartonError> {
-        // --- STEP 1: RESOLVE AESTHETIC SCALES ---
-        // Consolidate color, shape, and size mappings across all layers.
-        let color_bundle = if let Some((scale_type, domain)) = self.get_color_domain_from_layers()? {
-            let scale = create_scale(&scale_type, domain, self.theme.color_expand)?;
+    /// 1. **Consolidate Aesthetic Mappings**: Aggregates color, shape, and size scales from layers.
+    /// 2. **Coordinate Resolution**: Initializes X and Y scales based on data domains.
+    /// 3. **Measurement Phase**: Utilizes the LayoutEngine to calculate physical pixel requirements.
+    /// 4. **Defense Mechanism**: Ensures a minimum panel size to prevent chart "collapse".
+    fn resolve_rendering_layout(&self) -> Result<(Box<dyn CoordinateTrait>, Rect, GlobalAesthetics, Vec<GuideSpec>), ChartonError> {
+        // --- STEP 1: CONSOLIDATE AESTHETIC MAPPINGS ---
+        // We resolve encodings across all layers to ensure visual consistency.
+        // Each resolver returns (FieldName, ScaleType, ScaleDomain).
+
+        // 1a. Resolve Color Mapping
+        // This handles both Continuous (Linear/Log) and Discrete color scales.
+        let color_mapping = if let Some((field, scale_type, domain)) = self.resolve_color_encoding()? {
+            let scale_impl = create_scale(&scale_type, domain, self.theme.color_expand)?;
             let mapper = VisualMapper::new_color_default(&scale_type, &self.theme);
-            Some((scale, mapper))
+            Some(AestheticMapping {
+                field,
+                scale_type,
+                scale_impl,
+                mapper,
+            })
         } else { None };
 
-        let shape_bundle = if let Some(domain) = self.get_shape_domain_from_layers()? {
-            let scale = create_scale(&Scale::Discrete, domain, self.theme.shape_expand)?;
+        // 1b. Resolve Shape Mapping
+        // Shapes are strictly Categorical/Discrete in this system.
+        let shape_mapping = if let Some((field, scale_type, domain)) = self.resolve_shape_encoding()? {
+            let scale_impl = create_scale(&scale_type, domain, self.theme.shape_expand)?;
             let mapper = VisualMapper::new_shape_default();
-            Some((scale, mapper))
+            Some(AestheticMapping {
+                field,
+                scale_type,
+                scale_impl,
+                mapper,
+            })
         } else { None };
 
-        let size_bundle = if let Some(domain) = self.get_size_domain_from_layers()? {
-            let scale = create_scale(&Scale::Linear, domain, self.theme.size_expand)?;
-            // Use a range (2.0, 9.0) radius that fits the 18.0px legend container
+        // 1c. Resolve Size Mapping
+        // Size usually maps to a Linear scale (area or radius).
+        let size_mapping = if let Some((field, scale_type, domain)) = self.resolve_size_encoding()? {
+            let scale_impl = create_scale(&scale_type, domain, self.theme.size_expand)?;
+            // Radius range (2.0 to 9.0) provides clear visual distinction in legends.
             let mapper = VisualMapper::new_size_default(2.0, 9.0);
-            Some((scale, mapper))
+            Some(AestheticMapping {
+                field,
+                scale_type,
+                scale_impl,
+                mapper,
+            })
         } else { None };
 
-        let aesthetics = GlobalAesthetics {
-            color: color_bundle,
-            shape: shape_bundle,
-            size: size_bundle,
-        };
+        // Initialize GlobalAesthetics: the single source of truth for non-positional scales.
+        let aesthetics = GlobalAesthetics::new(color_mapping, shape_mapping, size_mapping);
 
         // --- STEP 2: RESOLVE COORDINATE SCALES (X & Y) ---
-        // Construct the scales for the primary axes, respecting user overrides for min/max.
+        // Position scales map data to the [0, 1] normalized range of the plot panel.
+
+        // 2a. Resolve X-Axis
         let x_scale = if let Some((stype, mut domain)) = self.get_x_domain_from_layers()? {
+            // Apply user-defined domain overrides if present.
             if let ScaleDomain::Continuous(ref mut min, ref mut max) = domain {
                 if let Some(u_min) = self.x_domain_min { *min = u_min; }
                 if let Some(u_max) = self.x_domain_max { *max = u_max; }
             }
             create_scale(&stype, domain, self.theme.x_expand)?
         } else {
+            // Fallback to a unit scale if no X data is found.
             create_scale(&Scale::Linear, ScaleDomain::Continuous(0.0, 1.0), self.theme.x_expand)?
         };
 
+        // 2b. Resolve Y-Axis
         let y_scale = if let Some((stype, mut domain)) = self.get_y_domain_from_layers()? {
             if let ScaleDomain::Continuous(ref mut min, ref mut max) = domain {
                 if let Some(u_min) = self.y_domain_min { *min = u_min; }
@@ -709,7 +691,7 @@ impl LayeredChart {
             create_scale(&Scale::Linear, ScaleDomain::Continuous(0.0, 1.0), self.theme.y_expand)?
         };
 
-        // Construct the coordinate system trait object.
+        // Construct the coordinate system (Cartesian is the current standard).
         let final_coord: Box<dyn CoordinateTrait> = match self.coord_system {
             CoordSystem::Cartesian2D => Box::new(crate::coordinate::cartesian::Cartesian2D::new(
                 x_scale, 
@@ -719,35 +701,37 @@ impl LayeredChart {
             CoordSystem::Polar => todo!("Polar coordinate resolution not yet implemented"),
         };
 
-        // --- STEP 3: MEASUREMENT PHASE (THE LAYOUT ENGINE) ---
+        // --- STEP 3: GENERATE GUIDE SPECIFICATIONS ---
+        // We group aesthetic mappings by field name to create unified legends/colorbars.
+        let guide_specs = crate::core::guide::GuideManager::collect_guides(&aesthetics);
+
+        // --- STEP 4: MEASUREMENT PHASE (THE LAYOUT ENGINE) ---
+        // We calculate how much space legends and axes take to determine the remaining data panel size.
         let w = self.width as f64;
         let h = self.height as f64;
 
-        // A. Calculate initial plot dimensions based purely on proportional margins.
-        // This represents the "Theoretical Max" space for the plot + axes.
+        // A. Theoretical Maximum Plot Area (Total size minus static chart margins).
         let initial_plot_w = w * (1.0 - self.left_margin - self.right_margin);
         let initial_plot_h = h * (1.0 - self.top_margin - self.bottom_margin);
 
         // B. Measure Legend Constraints.
-        // Legends are constrained by the initial plot height (Y-axis length) to ensure 
-        // they don't grow taller than the chart itself.
         let legend_box = crate::core::layout::LayoutEngine::calculate_legend_constraints(
-            legend_specs,
+            &guide_specs,
             self.legend_position,
-            w, h,               // Full canvas for defense logic
-            initial_plot_w,     // Theoretical width limit
-            initial_plot_h,     // Theoretical height limit (Micro-layout ceiling)
+            w, h,
+            initial_plot_w,
+            initial_plot_h,
             self.legend_margin,
             &self.theme
         );
 
         // C. Measure Axis Constraints.
-        // Create a temporary context that accounts for the space eaten by legends.
+        // To measure axis labels accurately, we create a temporary context using an estimated panel.
         let temp_panel = Rect::new(
             (self.left_margin * w) + legend_box.left,
             (self.top_margin * h) + legend_box.top,
-            (initial_plot_w - legend_box.left - legend_box.right).max(0.0),
-            (initial_plot_h - legend_box.top - legend_box.bottom).max(0.0)
+            (initial_plot_w - legend_box.left - legend_box.right).max(10.0),
+            (initial_plot_h - legend_box.top - legend_box.bottom).max(10.0)
         );
 
         let temp_ctx = SharedRenderingContext::new(
@@ -765,29 +749,20 @@ impl LayeredChart {
             self.y_label.as_deref().unwrap_or("")
         );
 
-        // --- STEP 4: FINAL PANEL RESOLUTION & DEFENSE ---
-        
-        // Combine all pixel requirements (Margins + Legends + Axes).
+        // --- STEP 5: FINAL PANEL RESOLUTION & DEFENSE ---
+        // We subtract all measured components (Legends + Axes) from the chart total.
         let final_left = (self.left_margin * w) + legend_box.left + axis_box.left;
         let final_right = (self.right_margin * w) + legend_box.right;
         let final_top = (self.top_margin * h) + legend_box.top;
         let final_bottom = (self.bottom_margin * h) + legend_box.bottom + axis_box.bottom;
 
-        // Calculate raw plot area.
-        let mut plot_w = w - final_left - final_right;
-        let mut plot_h = h - final_top - final_bottom;
-
-        // INDUSTRIAL DEFENSE: Guarantee a minimum 100x100px rendering area.
-        // If plot_w/h is too small, we force it to 100px. This might push 
-        // the legend or right-side margins off the canvas, which is preferred 
-        // over an invisible or negative-sized chart.
-        let min_dim = 100.0;
-        if plot_w < min_dim { plot_w = min_dim; }
-        if plot_h < min_dim { plot_h = min_dim; }
+        // Apply the "Defense" rule: Ensure the panel never shrinks below the theme's minimum size.
+        let plot_w = (w - final_left - final_right).max(self.theme.min_panel_size);
+        let plot_h = (h - final_top - final_bottom).max(self.theme.min_panel_size);
 
         let panel = Rect::new(final_left, final_top, plot_w, plot_h);
 
-        Ok((final_coord, panel, aesthetics))
+        Ok((final_coord, panel, aesthetics, guide_specs))
     }
 
     /// Renders the chart title at the top-center of the SVG canvas.
@@ -843,54 +818,55 @@ impl LayeredChart {
 
     /// Renders the entire layered chart to the provided SVG string.
     ///
-    /// This implementation follows the Grammar of Graphics pipeline:
-    /// 1. **Sync**: Consolidate data domains across all layers to ensure visual consistency.
-    /// 2. **Back-fill**: Update layers with unified scale/domain metadata.
-    /// 3. **Layout**: Calculate plot area (Panel) using dynamic margins, axis labels, and legend dimensions.
-    /// 4. **Draw**: Render axes, marks, and unified legends using the resolved context.
+    /// This implementation follows a strictly ordered pipeline:
+    /// 1. **Resolution**: Consolidate scales, domains, and physical layout in one pass.
+    /// 2. **Back-fill**: Synchronize individual layers with the resolved global scales.
+    /// 3. **Draw**: Orchestrate the rendering of axes, data marks, and guides.
     pub fn render(&mut self, svg: &mut String) -> Result<(), ChartonError> {
-        // 0. Guard: If no layers exist, we render nothing.
+        // 0. Guard: If no layers exist, there is nothing to visualize.
         if self.layers.is_empty() { 
             return Ok(()); 
         }
 
-        // --- STEP 1: SYNC & BACK-FILL PHASE ---
-        // Calculate global domains from all layers to ensure visual consistency 
-        // across the entire chart (e.g., "Red" always means the same category).
-        let global_color = self.get_color_domain_from_layers()?;
-        let global_shape = self.get_shape_domain_from_layers()?;
-        let global_size = self.get_size_domain_from_layers()?;
+        // --- STEP 1: RESOLUTION PHASE ---
+        // We call resolve_rendering_layout which performs the following:
+        // - Aggregates data domains (color, shape, size, x, y) across all layers.
+        // - Creates unified Scales and VisualMappers.
+        // - Measures Legend and Axis constraints to determine the final data Panel (Rect).
+        // - Generates GuideSpecs (legend instructions).
+        let (coord_box, panel, aesthetics, guide_specs) = self.resolve_rendering_layout()?;
 
-        // Back-fill: Update each layer with the unified global metadata.
-        // This synchronization is a core requirement of the Grammar of Graphics.
+        // --- STEP 2: LAYER SYNCHRONIZATION (BACK-FILL) ---
+        // To ensure "Visual Consistency," every layer must use the same scales and domains.
+        // We update the layers with the global metadata resolved in Step 1.
         for layer in self.layers.iter_mut() {
-            if let Some((scale, domain)) = &global_color {
-                layer.set_scale_type("color", scale.clone());
-                layer.set_domain("color", domain.clone());
+            
+            // 2a. Sync Color Metadata
+            if let Some(ref mapping) = aesthetics.color {
+                // mapping.scale_type is the Scale enum (Linear, Discrete, etc.)
+                layer.set_scale_type("color", mapping.scale_type.clone());
+                
+                // Use get_domain_enum() to retrieve the full ScaleDomain (Categorical or Continuous)
+                // mapping.scale_impl is the Box<dyn ScaleTrait>
+                layer.set_domain("color", mapping.scale_impl.get_domain_enum());
             }
-            if let Some(domain) = &global_shape {
-                layer.set_domain("shape", domain.clone());
+
+            // 2b. Sync Shape Metadata
+            if let Some(ref mapping) = aesthetics.shape {
+                layer.set_scale_type("shape", mapping.scale_type.clone());
+                layer.set_domain("shape", mapping.scale_impl.get_domain_enum());
             }
-            if let Some(domain) = &global_size {
-                layer.set_domain("size", domain.clone());
+
+            // 2c. Sync Size Metadata
+            if let Some(ref mapping) = aesthetics.size {
+                layer.set_scale_type("size", mapping.scale_type.clone());
+                layer.set_domain("size", mapping.scale_impl.get_domain_enum());
             }
         }
 
-        // --- STEP 2: LEGEND COLLECTION ---
-        // Collect unified legend specifications after the back-fill phase.
-        // The LegendManager aggregates requirements from all layers into unique guides.
-        // We do this BEFORE layout resolution so the engine knows how much space to reserve.
-        let legend_specs = crate::core::legend::LegendManager::collect_legends(&self.layers);
-
-        // --- STEP 3: LAYOUT RESOLUTION ---
-        // Resolve the coordinate system, plot area (Panel), and aesthetics rules.
-        // This method calculates the 'squeezed' panel by measuring legend and axis constraints.
-        let (coord_box, panel, aesthetics) = self.resolve_rendering_layout(&legend_specs)?; 
-
-        // Construct the SharedRenderingContext.
-        // Note: We use the 'new' constructor to handle the lifetime association ('a) 
-        // between the context and the owned objects (coord_box/aesthetics).
-        // By passing &aesthetics as a reference, we satisfy the borrow checker.
+        // --- STEP 3: CONTEXT INITIALIZATION ---
+        // Construct the SharedRenderingContext, which acts as the "Source of Truth" 
+        // for all downstream renderers (Axes, Marks, Legends).
         let context = SharedRenderingContext::new(
             &*coord_box, 
             panel,
@@ -900,26 +876,24 @@ impl LayeredChart {
         );
 
         // --- STEP 4: DRAWING PHASE ---
-        
-        // 5. Render Chart Title - Pass the panel to allow vertical centering
-        // This is usually rendered at the top of the canvas, outside the Panel.
-        self.render_title(svg, &panel)?;
 
-        // 6. Render Axes (X and Y) 
-        // We determine if axes are needed by checking chart-level overrides or layer requirements.
+        // 4a. Render Chart Title
+        // Positions the title based on the overall canvas and resolved panel.
+        self.render_title(svg, &context.panel)?;
+
+        // 4b. Render Axes (X and Y)
+        // Determine if axes are appropriate based on theme settings and layer types.
         let should_render_axes = if !self.theme.show_axes {
-            // 1. Global theme override: If the theme says "no axes", respect it.
-            false
+            false // Global theme override
         } else {
-            // 2. Fallback to layer requirements:
-            // Check if any layer explicitly needs axes (e.g., a scatter plot needs them, but a pie chart might not).
+            // Only render axes if at least one layer requires them (e.g., bypass for Pie charts).
             self.layers.iter().any(|layer| layer.requires_axes())
         };
 
         if should_render_axes {
-            // Retrieve labels using helper methods which aggregate or default labels.
-            let x_label = self.get_x_axis_label_from_layers();
-            let y_label = self.get_y_axis_label_from_layers();
+            // Retrieve labels (aggregated from layers or defaulted from chart settings).
+            let x_label = self.x_label.clone().unwrap_or_default();
+            let y_label = self.y_label.clone().unwrap_or_default();
 
             crate::render::axis_renderer::render_axes(
                 svg, 
@@ -930,20 +904,20 @@ impl LayeredChart {
             )?;
         }
 
-        // 7. Render Marks (Data Geometries)
-        // Each layer draws its specific marks (points, lines, etc.) within the context's panel.
-        // We use an SvgBackend to abstract the raw string manipulations.
+        // 4c. Render Marks (Data Geometries)
+        // Each layer iterates over its data and renders its specific geometry (points, lines, etc.)
+        // using the coordinate system and visual mappers provided by the context.
         let mut backend = crate::render::backend::svg::SvgBackend::new(svg, Some(&context.panel));
         for layer in &self.layers {
             layer.render_marks(&mut backend, &context)?;
         }
 
-        // 8. Render Unified Legends
-        // The LegendRenderer uses the context and theme to position the legend blocks 
-        // in the margins calculated during the Layout Phase.
+        // 4d. Render Unified Legends & Guides
+        // Uses the GuideSpecs generated during resolution to draw legend blocks
+        // in the margins calculated by the LayoutEngine.
         crate::render::legend_renderer::LegendRenderer::render_legend(
             svg, 
-            &legend_specs, 
+            &guide_specs, 
             &self.theme, 
             &context
         );

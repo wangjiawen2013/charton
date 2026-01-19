@@ -1,6 +1,6 @@
 pub mod point_chart;
 
-use crate::scale::{Expansion, Scale, ScaleDomain};
+use crate::scale::{Scale, ScaleDomain};
 use crate::core::layer::{MarkRenderer, Layer};
 use crate::core::data::*;
 use crate::encode::{Encoding, IntoEncoding};
@@ -470,50 +470,8 @@ where
         }
     }
 
-    fn preferred_x_axis_expanding(&self) -> Expansion {
-        match self.mark.as_ref().map(|m| m.mark_type()) {
-            Some("rect") => {
-                let x_scale_type = self.get_x_scale_type();
-                let x_is_discrete = matches!(x_scale_type.as_ref(), Some(Scale::Discrete));
-
-                if !x_is_discrete {
-                    Expansion { mult: (0.05, 0.05), add: (0.0, 0.0) }
-                } else {
-                    Expansion { mult: (0.0, 0.0), add: (0.5, 0.5) }
-                }
-            }
-            Some("boxplot") | Some("bar") => Expansion { mult: (0.0, 0.0), add: (0.6, 0.6) },
-            Some("hist") => Expansion { mult: (0.0, 0.0), add: (0.6, 0.6) },
-            _ => Expansion::default(),
-        }
-    }
-
-    fn preferred_y_axis_expanding(&self) -> Expansion {
-        match self.mark.as_ref().map(|m| m.mark_type()) {
-            Some("rect") => {
-                let y_scale_type = self.get_y_scale_type();
-                let y_is_discrete = matches!(y_scale_type.as_ref(), Some(Scale::Discrete));
-
-                if !y_is_discrete {
-                    Expansion { mult: (0.05, 0.05), add: (0.0, 0.0) }
-                } else {
-                    Expansion { mult: (0.0, 0.0), add: (0.5, 0.5) }
-                }
-            }
-            Some("bar") | Some("area") => {
-                // For bar and area charts, if minimum value >= 0, padding should be different
-                let y_encoding = self.encoding.y.as_ref().unwrap();
-                let y_series = self.data.column(&y_encoding.field).unwrap();
-                let min_val = y_series.min::<f64>().unwrap().unwrap();
-                if min_val >= 0.0 {
-                    Expansion { mult: (0.0, 0.05), add: (0.0, 0.0) } // No lower padding, default upper
-                } else {
-                    Expansion::default() // Default 5% padding on both sides
-                }
-            }
-            Some("boxplot") | Some("hist") => Expansion { mult: (0.0, 0.0), add: (0.6, 0.6) },
-            _ => Expansion::default(),
-        }
+    fn get_x_encoding_field(&self) -> Option<String> {
+        self.encoding.x.as_ref().map(|x| x.field.clone())
     }
 
     /// Get the X continuous bounds.
@@ -565,12 +523,12 @@ where
         Ok(Some(unique_labels))
     }
 
-    fn get_x_encoding_field(&self) -> Option<String> {
-        self.encoding.x.as_ref().map(|x| x.field.clone())
-    }
-
     fn get_x_scale_type_from_layer(&self) -> Option<Scale> {
         self.get_x_scale_type()
+    }
+
+    fn get_y_encoding_field(&self) -> Option<String> {
+        self.encoding.y.as_ref().map(|y| y.field.clone())
     }
 
     /// Get the Y continuous bounds, following the color-axis implementation pattern.
@@ -623,14 +581,13 @@ where
         Ok(Some(unique_labels))
     }
 
-    fn get_y_encoding_field(&self) -> Option<String> {
-        self.encoding.y.as_ref().map(|y| y.field.clone())
-    }
-
     fn get_y_scale_type_from_layer(&self) -> Option<Scale> {
         self.get_y_scale_type()
     }
 
+    fn get_color_encoding_field(&self) -> Option<String> {
+        self.encoding.color.as_ref().map(|c| c.field.clone())
+    }
 /// Get the color continuous bounds, following the X-axis implementation pattern.
     fn get_color_continuous_bounds(&self) -> Result<Option<(f64, f64)>, ChartonError> {
         // For charts that don't have color encoding, return None 
@@ -683,6 +640,10 @@ where
         self.get_color_scale_type()
     }
 
+    fn get_shape_encoding_field(&self) -> Option<String> {
+        self.encoding.shape.as_ref().map(|s| s.field.clone())
+    }
+
     // --- Get shape labels (Discrete)---
     fn get_shape_discrete_labels(&self) -> Result<Option<Vec<String>>, ChartonError> {
         if self.encoding.shape.is_none() {
@@ -704,6 +665,10 @@ where
 
     fn get_shape_scale_type_from_layer(&self) -> Option<Scale> {
         self.get_shape_scale_type()
+    }
+
+    fn get_size_encoding_field(&self) -> Option<String> {
+        self.encoding.size.as_ref().map(|s| s.field.clone())
     }
 
     // --- Get size continuous bounds (Continuous) ---
@@ -772,33 +737,6 @@ where
             // For x and y, the domains are usually managed by the Coordinate System,
             // but if your layers store them, add matching logic for "x" and "y" here.
             _ => {}
-        }
-    }
-
-    /// Simply returns the internal encoding struct.
-    fn get_encoding(&self) -> &Encoding {
-        &self.encoding
-    }
-
-    /// Inspects the specific channel in the encoding and returns its scale.
-    fn get_scale_type(&self, channel: &str) -> Option<Scale> {
-        match channel {
-            "color" => self.encoding.color.as_ref()?.scale.clone(),
-            "shape" => Some(self.encoding.shape.as_ref()?.scale.clone()),
-            "size" => Some(self.encoding.size.as_ref()?.scale.clone()),
-            _ => None,
-        }
-    }
-
-    /// Inspects the specific channel in the encoding and returns its domain.
-    /// Note: This assumes the domain has been resolved (calculated from data) 
-    /// during the chart's initialization or pre-render phase.
-    fn get_domain(&self, channel: &str) -> Option<ScaleDomain> {
-        match channel {
-            "color" => self.encoding.color.as_ref()?.domain.clone(),
-            "shape" => self.encoding.shape.as_ref()?.domain.clone(),
-            "size" => self.encoding.size.as_ref()?.domain.clone(),
-            _ => None,
         }
     }
 }

@@ -7,6 +7,7 @@ use crate::theme::Theme;
 /// 
 /// This enum supports different types of visual encodings, including continuous
 /// color gradients, discrete color palettes, geometric shapes, and point sizes.
+#[derive(Debug, Clone)]
 pub enum VisualMapper {
     /// Continuous color mapping for numerical data.
     ContinuousColor {

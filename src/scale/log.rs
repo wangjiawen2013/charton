@@ -1,4 +1,4 @@
-use super::{ScaleTrait, Tick};
+use super::{ScaleTrait, ScaleDomain, Tick};
 use crate::error::ChartonError;
 
 /// A scale that performs logarithmic transformation.
@@ -10,6 +10,7 @@ use crate::error::ChartonError;
 /// Note: To support visual padding, the domain stored here should be 
 /// expanded in log-space. This prevents data points from sticking to 
 /// the axis boundaries.
+#[derive(Debug, Clone)]
 pub struct LogScale {
     /// The input data boundaries. Must be strictly positive.
     /// In an expanded scale, these represent the visual limits of the axis.
@@ -136,5 +137,15 @@ impl ScaleTrait for LogScale {
             };
             Tick { value: v, label }
         }).collect()
+    }
+
+    /// Implementation for LogScale.
+    /// Returns the logarithmic domain boundaries as a ScaleDomain::Continuous.
+    /// 
+    /// Note: This returns the raw data limits (expanded in log-space), 
+    /// allowing the Guide system to treat it as a continuous numeric range.
+    fn get_domain_enum(&self) -> ScaleDomain {
+        let (min, max) = self.domain;
+        ScaleDomain::Continuous(min, max)
     }
 }

@@ -1,6 +1,6 @@
 use crate::coordinate::{CoordinateTrait, Rect};
-use crate::encode::aesthetics::GlobalAesthetics;
-use crate::core::legend::LegendPosition;
+use crate::core::aesthetics::GlobalAesthetics;
+use crate::core::guide::LegendPosition;
 
 /// `SharedRenderingContext` provides the environmental data and transformation tools 
 /// required by any `Layer` to render its content.

@@ -1,4 +1,4 @@
-use super::{ScaleTrait, Tick};
+use super::{ScaleTrait, ScaleDomain, Tick};
 use time::{OffsetDateTime, Duration};
 
 /// A scale for temporal (date/time) data using the `time` crate.
@@ -10,6 +10,7 @@ use time::{OffsetDateTime, Duration};
 /// Note: To support ggplot2-style padding, the domain stored here should 
 /// represent the expanded time range (e.g., adding a few days or hours 
 /// to the start/end of the data).
+#[derive(Debug, Clone)]
 pub struct TemporalScale {
     /// The input temporal boundaries (Start Time, End Time).
     /// These boundaries include any expansion padding.
@@ -129,5 +130,13 @@ impl ScaleTrait for TemporalScale {
         }
         
         ticks
+    }
+
+    /// Returns the temporal domain as a ScaleDomain enum.
+    /// 
+    /// This allows the GuideManager to identify this scale as a time-based dimension
+    /// and use the correct formatting and sampling logic for legends.
+    fn get_domain_enum(&self) -> ScaleDomain {
+        ScaleDomain::Temporal(self.domain.0, self.domain.1)
     }
 }
