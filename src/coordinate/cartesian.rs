@@ -30,7 +30,9 @@ impl Cartesian2D {
 }
 
 impl CoordinateTrait for Cartesian2D {
-    /// Transforms normalized values [0, 1] into absolute screen pixels.
+    /// Transforms logical data coordinates [0, 1] into physical screen pixels. 
+    /// Use this for rendering Mark geometries; for Axis rendering, calculate positions 
+    /// directly from the panel boundaries to ensure the visual frame remains fixed.
     /// 
     /// Following standard screen coordinates:
     /// - X increases from Left to Right.

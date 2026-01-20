@@ -183,8 +183,8 @@ impl LayeredChart {
         self
     }
 
-    pub fn flipped(mut self, flipped: bool) -> Self {
-        self.flipped = flipped;
+    pub fn coord_flip(mut self) -> Self {
+        self.flipped = true;
         self
     }
 
@@ -285,7 +285,7 @@ impl LayeredChart {
     }
 
     // Get the x-axis label from layers
-    fn get_x_axis_label_from_layers(&self) -> String {
+    fn resolve_x_label(&self) -> String {
         // First check if we have an explicit label set on the chart
         if let Some(ref label) = self.x_label {
             return label.clone();
@@ -384,7 +384,7 @@ impl LayeredChart {
     }
 
     // Get the y-axis label from layers
-    fn get_y_axis_label_from_layers(&self) -> String {
+    fn resolve_y_label(&self) -> String {
         // First check if we have an explicit label set on the chart
         if let Some(ref label) = self.y_label {
             return label.clone();
@@ -745,8 +745,8 @@ impl LayeredChart {
         let axis_box = crate::core::layout::LayoutEngine::calculate_axis_constraints(
             &temp_ctx,
             &self.theme,
-            self.x_label.as_deref().unwrap_or(""),
-            self.y_label.as_deref().unwrap_or("")
+            &self.resolve_x_label(),
+            &self.resolve_y_label()
         );
 
         // --- STEP 5: FINAL PANEL RESOLUTION & DEFENSE ---
@@ -892,8 +892,8 @@ impl LayeredChart {
 
         if should_render_axes {
             // Retrieve labels (aggregated from layers or defaulted from chart settings).
-            let x_label = self.x_label.clone().unwrap_or_default();
-            let y_label = self.y_label.clone().unwrap_or_default();
+            let x_label = self.resolve_x_label();
+            let y_label = self.resolve_y_label();
 
             crate::render::axis_renderer::render_axes(
                 svg, 
