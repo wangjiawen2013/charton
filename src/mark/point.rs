@@ -2,27 +2,10 @@ use crate::mark::Mark;
 use crate::visual::color::SingleColor;
 use crate::visual::shape::PointShape;
 
-/// Mark type for point/scatter charts
+/// Mark type for point/scatter charts.
 ///
-/// The `MarkPoint` struct defines the visual properties of point elements used in
-/// scatter plots and point-based visualizations. It provides default values for
-/// color, shape, size, opacity, and stroke properties, though these are typically
-/// overridden by encoding channels to create data-driven visualizations.
-///
-/// Point marks are fundamental to many chart types and are used to display individual
-/// data points in Cartesian coordinate systems. They support various shapes, sizes,
-/// and colors to encode multiple dimensions of data simultaneously.
-///
-/// # Color Handling
-///
-/// In point/scatter charts, colors can be assigned based on data categories or groups.
-/// When color encoding is used, each point will be assigned a color from the
-/// palette system to distinguish between different data series or categories.
-/// When no explicit color encoding is provided, the `color` field in this struct
-/// serves as the default fill color for all points. For multi-series scatter plots,
-/// different series are automatically assigned different colors from the palette
-/// to distinguish them. Points can also have separate stroke colors for additional
-/// visual distinction.
+/// The `MarkPoint` struct defines the visual properties of point elements. 
+/// It supports a fluent interface for detailed configuration within chart layers.
 #[derive(Clone)]
 pub struct MarkPoint {
     pub(crate) color: Option<SingleColor>,
@@ -43,6 +26,48 @@ impl MarkPoint {
             stroke: None,
             stroke_width: 0.0,
         }
+    }
+
+    // --- Fluent Configuration Methods (Builder Pattern) ---
+
+    /// Sets the fill color of the point.
+    /// 
+    /// Accepts any type that can be converted into an `Option<SingleColor>`.
+    pub fn color(mut self, color: impl Into<Option<SingleColor>>) -> Self {
+        self.color = color.into();
+        self
+    }
+
+    /// Sets the geometric shape of the point (e.g., Circle, Square, Triangle).
+    pub fn shape(mut self, shape: PointShape) -> Self {
+        self.shape = shape;
+        self
+    }
+
+    /// Sets the size (radius or scale factor) of the point.
+    pub fn size(mut self, size: f64) -> Self {
+        self.size = size;
+        self
+    }
+
+    /// Sets the opacity of the point mark.
+    /// 
+    /// Value should be between 0.0 (transparent) and 1.0 (opaque).
+    pub fn opacity(mut self, opacity: f64) -> Self {
+        self.opacity = opacity.clamp(0.0, 1.0);
+        self
+    }
+
+    /// Sets the stroke (outline) color of the point.
+    pub fn stroke(mut self, stroke: impl Into<Option<SingleColor>>) -> Self {
+        self.stroke = stroke.into();
+        self
+    }
+
+    /// Sets the thickness of the point's outline.
+    pub fn stroke_width(mut self, width: f64) -> Self {
+        self.stroke_width = width;
+        self
     }
 }
 
