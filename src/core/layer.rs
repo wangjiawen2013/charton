@@ -1,4 +1,5 @@
 use crate::error::ChartonError;
+use crate::prelude::SingleColor;
 use crate::scale::{Scale, ScaleDomain};
 use super::context::SharedRenderingContext;
 use dyn_clone::{clone_trait_object, DynClone};
@@ -9,59 +10,59 @@ pub trait RenderBackend {
     /// Draws a circle with optional fill and stroke.
     fn draw_circle(
         &mut self,
-        x: f64,
-        y: f64,
-        radius: f64,
-        fill: Option<&str>,
-        stroke: Option<&str>,
-        stroke_width: f64,
-        opacity: f64,
+        x: f32,
+        y: f32,
+        radius: f32,
+        fill: &SingleColor,
+        stroke: &SingleColor,
+        stroke_width: f32,
+        opacity: f32,
     );
 
     /// Draws a rectangle with optional fill and stroke.
     fn draw_rect(
         &mut self,
-        x: f64,
-        y: f64,
-        width: f64,
-        height: f64,
-        fill: Option<&str>,
-        stroke: Option<&str>,
-        stroke_width: f64,
-        opacity: f64,
+        x: f32,
+        y: f32,
+        width: f32,
+        height: f32,
+        fill: &SingleColor,
+        stroke: &SingleColor,
+        stroke_width: f32,
+        opacity: f32,
     );
 
     /// Draws an open path (e.g., for lines or curves) with a stroke.
     fn draw_path(
         &mut self, 
-        points: &[(f64, f64)], 
-        stroke: &str, 
-        stroke_width: f64, 
-        opacity: f64
+        points: &[(f32, f32)], 
+        stroke: &SingleColor, 
+        stroke_width: f32, 
+        opacity: f32
     );
 
     /// Draws a closed polygon with optional fill and stroke.
     fn draw_polygon(
         &mut self,
-        points: &[(f64, f64)],
-        fill: Option<&str>,
-        stroke: Option<&str>,
-        stroke_width: f64,
-        opacity: f64,
+        points: &[(f32, f32)],
+        fill: &SingleColor,
+        stroke: &SingleColor,
+        stroke_width: f32,
+        opacity: f32,
     );
 
     /// Renders text with specific alignment and weight.
     fn draw_text(
         &mut self,
         text: &str,
-        x: f64,
-        y: f64,
-        font_size: f64,
+        x: f32,
+        y: f32,
+        font_size: f32,
         font_family: &str,
-        color: &str,
+        color: &SingleColor,
         text_anchor: &str, // "start", "middle", "end"
         font_weight: &str, // "normal", "bold"
-        opacity: f64,
+        opacity: f32,
     );
 
     /// Draws a simple straight line between two points.
@@ -69,12 +70,12 @@ pub trait RenderBackend {
     /// Commonly used for rendering axis ticks or custom markers within guides.
     fn draw_line(
         &mut self, 
-        x1: f64, 
-        y1: f64, 
-        x2: f64, 
-        y2: f64, 
-        color: &str, 
-        width: f64
+        x1: f32, 
+        y1: f32, 
+        x2: f32, 
+        y2: f32, 
+        color: &SingleColor, 
+        width: f32
     );
 
     /// Draws a rectangle filled with a linear gradient.
@@ -85,11 +86,11 @@ pub trait RenderBackend {
     /// * `id_suffix` - A unique identifier used to define the gradient ID in the backend (e.g., SVG <defs>).
     fn draw_gradient_rect(
         &mut self,
-        x: f64,
-        y: f64,
-        width: f64,
-        height: f64,
-        stops: &[(f64, String)],
+        x: f32,
+        y: f32,
+        width: f32,
+        height: f32,
+        stops: &[(f32, SingleColor)],
         is_vertical: bool,
         id_suffix: &str,
     );
@@ -139,7 +140,7 @@ pub trait Layer: MarkRenderer + DynClone {
     fn get_x_encoding_field(&self) -> Option<String>;
 
     /// Returns the (min, max) data boundaries for a continuous X axis.
-    fn get_x_continuous_bounds(&self) -> Result<(f64, f64), ChartonError>;
+    fn get_x_continuous_bounds(&self) -> Result<(f32, f32), ChartonError>;
 
     /// Returns the list of categorical labels if the X axis is discrete.
     fn get_x_discrete_tick_labels(&self) -> Result<Option<Vec<String>>, ChartonError>;
@@ -151,7 +152,7 @@ pub trait Layer: MarkRenderer + DynClone {
     fn get_y_encoding_field(&self) -> Option<String>;
 
     /// Returns the (min, max) data boundaries for a continuous Y axis.
-    fn get_y_continuous_bounds(&self) -> Result<(f64, f64), ChartonError>;
+    fn get_y_continuous_bounds(&self) -> Result<(f32, f32), ChartonError>;
 
     /// Returns the list of categorical labels if the Y axis is discrete.
     fn get_y_discrete_tick_labels(&self) -> Result<Option<Vec<String>>, ChartonError>;
@@ -163,7 +164,7 @@ pub trait Layer: MarkRenderer + DynClone {
     fn get_color_encoding_field(&self) -> Option<String>;
 
     /// Returns the (min, max) bounds for color if it is continuous.
-    fn get_color_continuous_bounds(&self) -> Result<Option<(f64, f64)>, ChartonError>;
+    fn get_color_continuous_bounds(&self) -> Result<Option<(f32, f32)>, ChartonError>;
 
     /// Returns the unique labels for color if it is discrete.
     fn get_color_discrete_labels(&self) -> Result<Option<Vec<String>>, ChartonError>;
@@ -184,7 +185,7 @@ pub trait Layer: MarkRenderer + DynClone {
     fn get_size_encoding_field(&self) -> Option<String>;
 
     // --- Size (Always Continuous) ---
-    fn get_size_continuous_bounds(&self) -> Result<Option<(f64, f64)>, ChartonError>;
+    fn get_size_continuous_bounds(&self) -> Result<Option<(f32, f32)>, ChartonError>;
 
     // Methods to get scale type for size encoding
     fn get_size_scale_type_from_layer(&self) -> Option<Scale>;

@@ -23,11 +23,10 @@ pub struct Size {
 
 impl Size {
     /// Creates a new Size encoding for the specified field.
-    /// Default scale is set to Log, which is common for wide-ranging numeric data.
     fn new(field: &str) -> Self {
         Self {
             field: field.to_string(),
-            scale: Scale::Log,
+            scale: Scale::Linear,
             domain: None,
         }
     }

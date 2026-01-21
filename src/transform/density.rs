@@ -4,7 +4,6 @@ use crate::error::ChartonError;
 use crate::mark::Mark;
 use kernel_density_estimation::prelude::*;
 use polars::prelude::*;
-use uuid::Uuid;
 
 /// Kernel functions used in kernel density estimation
 ///
@@ -300,7 +299,7 @@ impl<T: Mark> Chart<T> {
         let group_field_name = params
             .groupby
             .clone()
-            .unwrap_or_else(|| format!("__charton_temp_group_{}", Uuid::now_v7().hyphenated()));
+            .unwrap_or_else(|| format!("__charton_temp_group_{}", crate::TEMP_SUFFIX));
 
         // Create a working DataFrame with grouping column
         let working_df = if let Some(ref group_field) = params.groupby {

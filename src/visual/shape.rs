@@ -1,42 +1,26 @@
-/// Represents different geometric shapes that can be used for data points in visualizations.
-///
-/// This enum defines various point shapes that can be used to represent data points
-/// in scatter plots, line charts, and other visualization types. Each variant
-/// corresponds to a distinct geometric shape that helps differentiate data series
-/// or categories visually.
-///
-/// # Variants
-///
-/// * `Circle` - A circular point shape
-/// * `Square` - A square point shape
-/// * `Triangle` - A triangular point shape
-/// * `Star` - A star-shaped point
-/// * `Diamond` - A diamond-shaped point (rotated square)
-/// * `Pentagon` - A five-sided polygonal point
-/// * `Hexagon` - A six-sided polygonal point
-/// * `Octagon` - An eight-sided polygonal point
-///
-/// # Examples
-///
-/// ```
-/// use charton::visual::shape::PointShape;
-///
-/// let shape = PointShape::Circle;
-/// ```
-#[derive(Clone, Debug)]
+/// Represents different geometric shapes for data points.
+/// Supports conversion from strings for a fluent API and provides 
+/// integer IDs for GPU-accelerated rendering.
+#[derive(Clone, Copy, Debug, PartialEq, Eq)] // Added Copy/Eq for easier usage
 pub enum PointShape {
-    Circle,
-    Square,
-    Triangle,
-    Star,
-    Diamond,
-    Pentagon,
-    Hexagon,
-    Octagon,
+    Circle = 0,
+    Square = 1,
+    Triangle = 2,
+    Star = 3,
+    Diamond = 4,
+    Pentagon = 5,
+    Hexagon = 6,
+    Octagon = 7,
 }
 
 impl PointShape {
-    /// Shapes used for legend and mapping
+    /// Returns a unique integer ID for the shape. 
+    /// This is crucial for passing shape data to GPU shaders (wgpu).
+    pub fn gpu_id(&self) -> u32 {
+        *self as u32
+    }
+
+    /// Shapes used for default mapping in legends.
     pub(crate) const LEGEND_SHAPES: &'static [PointShape] = &[
         PointShape::Circle,
         PointShape::Square,
@@ -47,4 +31,36 @@ impl PointShape {
         PointShape::Hexagon,
         PointShape::Octagon,
     ];
+}
+
+// --- Fluent API Support: From string literals ---
+
+impl From<&str> for PointShape {
+    /// Converts a string like "circle" or "square" into a PointShape.
+    /// Defaults to Circle if the string is unrecognized.
+    fn from(s: &str) -> Self {
+        match s.to_lowercase().as_str() {
+            "circle" => PointShape::Circle,
+            "square" => PointShape::Square,
+            "triangle" => PointShape::Triangle,
+            "star" => PointShape::Star,
+            "diamond" => PointShape::Diamond,
+            "pentagon" => PointShape::Pentagon,
+            "hexagon" => PointShape::Hexagon,
+            "octagon" => PointShape::Octagon,
+            _ => PointShape::Circle, // Robust fallback
+        }
+    }
+}
+
+impl From<String> for PointShape {
+    fn from(s: String) -> Self {
+        PointShape::from(s.as_str())
+    }
+}
+
+impl Default for PointShape {
+    fn default() -> Self {
+        PointShape::Circle
+    }
 }

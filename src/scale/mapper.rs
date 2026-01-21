@@ -1,19 +1,19 @@
 use crate::visual::shape::PointShape;
-use crate::visual::color::{ColorMap, ColorPalette};
+use crate::visual::color::{ColorMap, ColorPalette, SingleColor};
 use crate::scale::Scale;
 use crate::theme::Theme;
 
-/// Defines how data values (after normalization) are mapped to visual properties.
+/// Defines how normalized data values [0.0, 1.0] are mapped to physical visual properties.
 /// 
-/// This enum supports different types of visual encodings, including continuous
-/// color gradients, discrete color palettes, geometric shapes, and point sizes.
+/// This enum acts as the final stage of the scale pipeline, converting abstract 
+/// mathematical ratios into concrete types like `SingleColor`, `PointShape`, or `f32`.
 #[derive(Debug, Clone)]
 pub enum VisualMapper {
-    /// Continuous color mapping for numerical data.
+    /// Continuous color mapping for numerical data (Gradients).
     ContinuousColor {
         map: ColorMap,
     },
-    /// Discrete color mapping for categorical data.
+    /// Discrete color mapping for categorical data (Palettes).
     DiscreteColor {
         palette: ColorPalette,
     },
@@ -22,34 +22,34 @@ pub enum VisualMapper {
         /// Optional list of shapes. If None, defaults to `PointShape::LEGEND_SHAPES`.
         custom_shapes: Option<Vec<PointShape>>,
     },
-    /// Size mapping for numerical data (linear interpolation).
+    /// Size mapping for numerical data (Linear Interpolation).
     Size {
-        /// Tuple representing (min_size, max_size).
-        range: (f64, f64),
+        /// Tuple representing (min_size, max_size) in physical units (pixels/points).
+        range: (f32, f32),
     },
 }
 
 impl VisualMapper {
     /// Creates a default color mapper based on whether the scale is discrete or continuous.
+    /// 
+    /// Inherits the aesthetic preferences (Palette/Map) from the provided `Theme`.
     pub fn new_color_default(scale_type: &Scale, theme: &Theme) -> Self {
         match scale_type {
             Scale::Discrete => {
-                // Use the categorical palette from the theme
                 VisualMapper::DiscreteColor {
-                    palette: theme.palette.clone(),
+                    palette: theme.palette,
                 }
             }
             _ => {
-                // Use the continuous gradient map from the theme
                 VisualMapper::ContinuousColor {
-                    map: theme.color_map.clone(),
+                    map: theme.color_map,
                 }
             }
         }
     }
 
-    /// Creates a default size mapper with a specified physical range (e.g., 2.0 to 9.0).
-    pub fn new_size_default(min: f64, max: f64) -> Self {
+    /// Creates a default size mapper with a specified physical range.
+    pub fn new_size_default(min: f32, max: f32) -> Self {
         VisualMapper::Size {
             range: (min, max),
         }
@@ -58,29 +58,31 @@ impl VisualMapper {
     /// Creates a default shape mapper using the standard geometric shapes.
     pub fn new_shape_default() -> Self {
         VisualMapper::Shape {
-            custom_shapes: None, // Will fallback to PointShape::LEGEND_SHAPES
+            custom_shapes: None,
         }
     }
 
-    /// Maps a normalized value [0.0, 1.0] to a hex color string.
+    /// Maps a normalized value [0.0, 1.0] to a `SingleColor`.
+    /// 
+    /// This returns a `SingleColor` object which contains both the CSS string for SVG
+    /// and pre-calculated RGBA values for GPU backends like wgpu.
     /// 
     /// # Arguments
-    /// * `norm` - The normalized value from the scale (usually 0.0 to 1.0).
-    /// * `logical_max` - The maximum index or logical value (from scale.logical_max()).
-    pub fn map_to_color(&self, norm: f64, logical_max: f64) -> String {
+    /// * `norm` - The normalized value from the scale (0.0 to 1.0).
+    /// * `logical_max` - For discrete scales, represents the highest index (n-1).
+    pub fn map_to_color(&self, norm: f32, logical_max: f32) -> SingleColor {
         match self {
             VisualMapper::ContinuousColor { map } => {
-                // For continuous scales, logical_max is typically 1.0, 
-                // so we map the normalized value directly.
+                // Interpolates within the continuous gradient
                 map.get_color(norm)
             },
             VisualMapper::DiscreteColor { palette } => {
-                // For discrete scales, logical_max is (n-1).
-                // We re-scale the 0-1 norm value back to the index space.
+                // Maps the 0-1 norm back to a specific palette index
                 let index = (norm * logical_max).round() as usize;
                 palette.get_color(index)
             }
-            _ => "#000000".to_string(), // Default fallback color
+            // Fallback: Returns Opaque Black if color mapping is called on a non-color mapper
+            _ => SingleColor::default(), 
         }
     }
 
@@ -88,11 +90,10 @@ impl VisualMapper {
     /// 
     /// # Arguments
     /// * `norm` - The normalized value from the scale.
-    /// * `logical_max` - The maximum logical value or index (from scale.logical_max()).
-    pub fn map_to_shape(&self, norm: f64, logical_max: f64) -> PointShape {
+    /// * `logical_max` - The maximum index (number_of_categories - 1).
+    pub fn map_to_shape(&self, norm: f32, logical_max: f32) -> PointShape {
         match self {
             VisualMapper::Shape { custom_shapes } => {
-                // Use custom list if provided, otherwise fallback to the built-in default shapes
                 let shapes = custom_shapes
                     .as_deref()
                     .unwrap_or(PointShape::LEGEND_SHAPES);
@@ -101,28 +102,26 @@ impl VisualMapper {
                     return PointShape::Circle; 
                 }
 
-                // logical_max represents (number_of_categories - 1)
-                // We re-scale the [0, 1] norm value back to the index space.
                 let index = (norm * logical_max).round() as usize;
                 
-                // Use modulo to safely handle cases where there are more categories 
-                // than available distinct shapes.
-                shapes[index % shapes.len()].clone()
+                // Use modulo to cycle through shapes if categories exceed available shapes.
+                // PointShape is Copy-safe and provides .gpu_id() for wgpu logic.
+                shapes[index % shapes.len()]
             }
-            _ => PointShape::Circle, // Default fallback shape
+            _ => PointShape::Circle,
         }
     }
 
     /// Maps a normalized value to a physical size (radius or width).
     /// 
-    /// # Arguments
-    /// * `norm` - The normalized value (0.0 for min_size, 1.0 for max_size).
-    pub fn map_to_size(&self, norm: f64) -> f64 {
+    /// Performs linear interpolation: size = min + norm * (max - min).
+    pub fn map_to_size(&self, norm: f32) -> f32 {
         match self {
             VisualMapper::Size { range } => {
                 range.0 + norm * (range.1 - range.0)
             }
-            _ => 5.0, // Default fallback size
+            // Default size if no size mapping is specified
+            _ => 5.0, 
         }
     }
 }

@@ -15,7 +15,7 @@ pub enum PathInterpolation {
 
 pub(crate) struct LineConfig {
     pub points: Vec<(f64, f64)>,
-    pub color: Option<SingleColor>,
+    pub color: SingleColor,
     pub stroke_width: f64,
     pub opacity: f64,
     pub interpolation: PathInterpolation,
@@ -39,12 +39,6 @@ pub(crate) fn render_line(svg: &mut String, config: LineConfig) -> std::fmt::Res
         return Ok(());
     }
 
-    let color_str = if let Some(color) = &config.color {
-        color.get_color()
-    } else {
-        "black".to_string()
-    };
-
     let path_data = match config.interpolation {
         PathInterpolation::Linear => generate_linear_path(&config.points),
         PathInterpolation::StepAfter => generate_step_after_path(&config.points),
@@ -54,7 +48,7 @@ pub(crate) fn render_line(svg: &mut String, config: LineConfig) -> std::fmt::Res
     writeln!(
         svg,
         r#"<path d="{}" fill="none" stroke="{}" stroke-width="{}" opacity="{}" stroke-linejoin="round" stroke-linecap="round"/>"#,
-        path_data, color_str, config.stroke_width, config.opacity
+        path_data, config.color.as_str(), config.stroke_width, config.opacity
     )
 }
 

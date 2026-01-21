@@ -15,7 +15,7 @@ pub struct SharedRenderingContext<'a> {
     pub panel: Rect,
 
     pub legend_position: LegendPosition,
-    pub legend_margin: f64,
+    pub legend_margin: f32,
 
     /// Refers to global aesthetic rules (Color, Shape, Size).
     /// Using a reference '&'a' avoids the need for expensive or impossible Clones 
@@ -29,7 +29,7 @@ impl<'a> SharedRenderingContext<'a> {
         coord: &'a dyn CoordinateTrait,
         panel: Rect,
         legend_position: LegendPosition,
-        legend_margin: f64,
+        legend_margin: f32,
         aesthetics: &'a GlobalAesthetics,
     ) -> Self {
         Self {
@@ -49,14 +49,14 @@ impl<'a> SharedRenderingContext<'a> {
     ///
     /// # Returns
     /// A tuple `(x_pixel, y_pixel)`.
-    pub fn transform(&self, x_norm: f64, y_norm: f64) -> (f64, f64) {
+    pub fn transform(&self, x_norm: f32, y_norm: f32) -> (f32, f32) {
         self.coord.transform(x_norm, y_norm, &self.panel)
     }
 
     /// Transforms only the normalized X coordinate to a pixel X position.
     ///
     /// Useful for drawing vertical elements like grid lines or X-axis ticks.
-    pub fn x_to_px(&self, x_norm: f64) -> f64 {
+    pub fn x_to_px(&self, x_norm: f32) -> f32 {
         // We pass 0.0 for Y as it doesn't affect the X result in Cartesian systems.
         self.transform(x_norm, 0.0).0
     }
@@ -64,28 +64,28 @@ impl<'a> SharedRenderingContext<'a> {
     /// Transforms only the normalized Y coordinate to a pixel Y position.
     ///
     /// Useful for drawing horizontal elements like grid lines or Y-axis ticks.
-    pub fn y_to_px(&self, y_norm: f64) -> f64 {
+    pub fn y_to_px(&self, y_norm: f32) -> f32 {
         // We pass 0.0 for X as it doesn't affect the Y result in Cartesian systems.
         self.transform(0.0, y_norm).1
     }
 
     /// Returns the width of the plotting panel in pixels.
-    pub fn width(&self) -> f64 {
+    pub fn width(&self) -> f32 {
         self.panel.width
     }
 
     /// Returns the height of the plotting panel in pixels.
-    pub fn height(&self) -> f64 {
+    pub fn height(&self) -> f32 {
         self.panel.height
     }
 
     /// Returns the left-most pixel coordinate of the panel.
-    pub fn x0(&self) -> f64 {
+    pub fn x0(&self) -> f32 {
         self.panel.x
     }
 
     /// Returns the top-most pixel coordinate of the panel.
-    pub fn y0(&self) -> f64 {
+    pub fn y0(&self) -> f32 {
         self.panel.y
     }
 }

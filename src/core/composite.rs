@@ -21,10 +21,10 @@ pub struct LayeredChart {
     height: u32,
 
     // --- Layout Margins (Proportions 0.0 to 1.0) ---
-    left_margin: f64,
-    right_margin: f64,
-    top_margin: f64,
-    bottom_margin: f64,
+    left_margin: f32,
+    right_margin: f32,
+    top_margin: f32,
+    bottom_margin: f32,
 
     // --- Aesthetic Styling ---
     theme: Theme,
@@ -35,12 +35,12 @@ pub struct LayeredChart {
     coord_system: CoordSystem,
 
     // --- Axis Data & Scale Configuration ---
-    x_domain_min: Option<f64>,
-    x_domain_max: Option<f64>,
+    x_domain_min: Option<f32>,
+    x_domain_max: Option<f32>,
     x_label: Option<String>,
 
-    y_domain_min: Option<f64>,
-    y_domain_max: Option<f64>,
+    y_domain_min: Option<f32>,
+    y_domain_max: Option<f32>,
     y_label: Option<String>,
 
     flipped: bool,
@@ -48,7 +48,7 @@ pub struct LayeredChart {
     // --- Legend Logic ---
     legend_title: Option<String>,
     legend_position: LegendPosition,
-    legend_margin: f64,
+    legend_margin: f32,
 }
 
 impl Default for LayeredChart {
@@ -101,28 +101,28 @@ impl LayeredChart {
 
     // --- Layout Margins ---
 
-    pub fn left_margin(mut self, margin: f64) -> Self {
+    pub fn left_margin(mut self, margin: f32) -> Self {
         self.left_margin = margin;
         self
     }
 
-    pub fn right_margin(mut self, margin: f64) -> Self {
+    pub fn right_margin(mut self, margin: f32) -> Self {
         self.right_margin = margin;
         self
     }
 
-    pub fn top_margin(mut self, margin: f64) -> Self {
+    pub fn top_margin(mut self, margin: f32) -> Self {
         self.top_margin = margin;
         self
     }
 
-    pub fn bottom_margin(mut self, margin: f64) -> Self {
+    pub fn bottom_margin(mut self, margin: f32) -> Self {
         self.bottom_margin = margin;
         self
     }
 
     /// Convenience method to set all margins at once.
-    pub fn margins(mut self, top: f64, right: f64, bottom: f64, left: f64) -> Self {
+    pub fn margins(mut self, top: f32, right: f32, bottom: f32, left: f32) -> Self {
         self.top_margin = top;
         self.right_margin = right;
         self.bottom_margin = bottom;
@@ -153,12 +153,12 @@ impl LayeredChart {
 
     // --- Axis Data & Scale Configuration ---
 
-    pub fn x_domain_min(mut self, min: f64) -> Self {
+    pub fn x_domain_min(mut self, min: f32) -> Self {
         self.x_domain_min = Some(min);
         self
     }
 
-    pub fn x_domain_max(mut self, max: f64) -> Self {
+    pub fn x_domain_max(mut self, max: f32) -> Self {
         self.x_domain_max = Some(max);
         self
     }
@@ -168,12 +168,12 @@ impl LayeredChart {
         self
     }
 
-    pub fn y_domain_min(mut self, min: f64) -> Self {
+    pub fn y_domain_min(mut self, min: f32) -> Self {
         self.y_domain_min = Some(min);
         self
     }
 
-    pub fn y_domain_max(mut self, max: f64) -> Self {
+    pub fn y_domain_max(mut self, max: f32) -> Self {
         self.y_domain_max = Some(max);
         self
     }
@@ -200,7 +200,7 @@ impl LayeredChart {
         self
     }
 
-    pub fn legend_margin(mut self, margin: f64) -> Self {
+    pub fn legend_margin(mut self, margin: f32) -> Self {
         self.legend_margin = margin;
         self
     }
@@ -213,8 +213,8 @@ impl LayeredChart {
         let mut resolved_type: Option<Scale> = None;
         
         // Variables to track continuous bounds
-        let mut global_min = f64::INFINITY;
-        let mut global_max = f64::NEG_INFINITY;
+        let mut global_min = f32::INFINITY;
+        let mut global_max = f32::NEG_INFINITY;
         
         // Vector to track unique categorical labels
         let mut all_labels: Vec<String> = Vec::new();
@@ -312,8 +312,8 @@ impl LayeredChart {
         let mut resolved_type: Option<Scale> = None;
         
         // Variables to track continuous bounds
-        let mut global_min = f64::INFINITY;
-        let mut global_max = f64::NEG_INFINITY;
+        let mut global_min = f32::INFINITY;
+        let mut global_max = f32::NEG_INFINITY;
         
         // Vector to track unique categorical labels
         let mut all_labels: Vec<String> = Vec::new();
@@ -414,8 +414,8 @@ impl LayeredChart {
         let mut resolved_field: Option<String> = None;
         let mut resolved_type: Option<Scale> = None;
         
-        let mut global_min = f64::INFINITY;
-        let mut global_max = f64::NEG_INFINITY;
+        let mut global_min = f32::INFINITY;
+        let mut global_max = f32::NEG_INFINITY;
         let mut all_labels: Vec<String> = Vec::new();
 
         for (i, layer) in self.layers.iter().enumerate() {
@@ -490,8 +490,8 @@ impl LayeredChart {
     fn resolve_size_encoding(&self) -> Result<Option<(String, Scale, ScaleDomain)>, ChartonError> {
         let mut resolved_field: Option<String> = None;
         let mut resolved_type: Option<Scale> = None;
-        let mut global_min = f64::INFINITY;
-        let mut global_max = f64::NEG_INFINITY;
+        let mut global_min = f32::INFINITY;
+        let mut global_max = f32::NEG_INFINITY;
 
         for layer in &self.layers {
             if let Some(field) = layer.get_size_encoding_field() {
@@ -707,8 +707,8 @@ impl LayeredChart {
 
         // --- STEP 4: MEASUREMENT PHASE (THE LAYOUT ENGINE) ---
         // We calculate how much space legends and axes take to determine the remaining data panel size.
-        let w = self.width as f64;
-        let h = self.height as f64;
+        let w = self.width as f32;
+        let h = self.height as f32;
 
         // A. Theoretical Maximum Plot Area (Total size minus static chart margins).
         let initial_plot_w = w * (1.0 - self.left_margin - self.right_margin);
@@ -780,7 +780,7 @@ impl LayeredChart {
 
         // 2. Horizontal Positioning:
         // Use the full canvas width to find the absolute horizontal center.
-        let center_x = self.width as f64 / 2.0;
+        let center_x = self.width as f32 / 2.0;
         
         // 3. Vertical Positioning Logic:
         // Instead of a hardcoded '25.0', we calculate the available vertical space 
@@ -809,7 +809,7 @@ impl LayeredChart {
             center_y,
             font_family,
             font_size,
-            font_color,
+            font_color.as_str(),
             title_text
         )?;
 
@@ -952,7 +952,7 @@ impl LayeredChart {
         // We render a full-size rectangle using the theme's background_color.
         svg_content.push_str(&format!(
             r#"<rect width="100%" height="100%" fill="{}" />"#,
-            self.theme.background_color
+            self.theme.background_color.as_str()
         ));
 
         // 3. Local State Training & Rendering
