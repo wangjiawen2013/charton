@@ -77,7 +77,7 @@ impl<T: Mark> Chart<T> {
             mark: None,
         };
 
-        // Automatically convert numeric types to f64
+        // Automatically convert numeric types to f32
         chart.data = convert_numeric_types(chart.data.clone())?;
 
         Ok(chart)
@@ -213,49 +213,49 @@ impl<T: Mark> Chart<T> {
             expected_types.insert(shape_enc.field.as_str(), vec![DataType::String]);
         }
 
-        // Add type checking for size encoding - must be continuous (f64)
+        // Add type checking for size encoding - must be continuous (f32)
         if let Some(size_enc) = &self.encoding.size {
-            // we've already converted all numeric types to f64 when building the chart
-            expected_types.insert(size_enc.field.as_str(), vec![DataType::Float64]);
+            // we've already converted all numeric types to f32 when building the chart
+            expected_types.insert(size_enc.field.as_str(), vec![DataType::Float32]);
         }
 
-        // Add type checking for errorbar charts - y and y2 encodings must be f64 (continuous)
+        // Add type checking for errorbar charts - y and y2 encodings must be f32 (continuous)
         if mark.mark_type() == "errorbar" {
-            // we've already converted all numeric types to f64 when building the chart
+            // we've already converted all numeric types to f32 when building the chart
             expected_types.insert(
                 self.encoding.y.as_ref().unwrap().field.as_str(),
-                vec![DataType::Float64],
+                vec![DataType::Float32],
             );
 
-            // If y2 encoding exists, it must also be f64
+            // If y2 encoding exists, it must also be f32
             if let Some(y2_encoding) = &self.encoding.y2 {
-                expected_types.insert(y2_encoding.field.as_str(), vec![DataType::Float64]);
+                expected_types.insert(y2_encoding.field.as_str(), vec![DataType::Float32]);
             }
         }
 
-        // Add type checking for histogram charts - x encoding must be f64 (continuous)
+        // Add type checking for histogram charts - x encoding must be f32 (continuous)
         if mark.mark_type() == "hist" {
             active_fields
                 .retain(|&field| field != self.encoding.y.as_ref().unwrap().field.as_str());
-            // we've already converted all numeric types to f64 when building the chart
+            // we've already converted all numeric types to f32 when building the chart
             expected_types.insert(
                 self.encoding.x.as_ref().unwrap().field.as_str(),
-                vec![DataType::Float64],
+                vec![DataType::Float32],
             );
         }
 
-        // Add type checking for rect charts - color encoding must be f64 (continuous) for proper color mapping
+        // Add type checking for rect charts - color encoding must be f32 (continuous) for proper color mapping
         if mark.mark_type() == "rect" {
-            // we've already converted all numeric types to f64 when building the chart
+            // we've already converted all numeric types to f32 when building the chart
             expected_types.insert(
                 self.encoding.color.as_ref().unwrap().field.as_str(),
-                vec![DataType::Float64],
+                vec![DataType::Float32],
             );
         }
 
-        // Add type checking for boxplot charts - y encoding must be f64 (continuous)
+        // Add type checking for boxplot charts - y encoding must be f32 (continuous)
         if mark.mark_type() == "boxplot" {
-            // we've already converted all numeric types to f64 when building the chart
+            // we've already converted all numeric types to f32 when building the chart
             // Boxplot requires x to be discrete and y to be continuous (numeric)
             expected_types.insert(
                 self.encoding.x.as_ref().unwrap().field.as_str(),
@@ -263,13 +263,13 @@ impl<T: Mark> Chart<T> {
             );
             expected_types.insert(
                 self.encoding.y.as_ref().unwrap().field.as_str(),
-                vec![DataType::Float64],
+                vec![DataType::Float32],
             );
         }
 
-        // Add type checking for bar charts - y encoding must be f64 (continuous)
+        // Add type checking for bar charts - y encoding must be f32 (continuous)
         if mark.mark_type() == "bar" {
-            // we've already converted all numeric types to f64 when building the chart
+            // we've already converted all numeric types to f32 when building the chart
             // Boxplot requires x to be discrete and y to be continuous (numeric)
             expected_types.insert(
                 self.encoding.x.as_ref().unwrap().field.as_str(),
@@ -277,21 +277,21 @@ impl<T: Mark> Chart<T> {
             );
             expected_types.insert(
                 self.encoding.y.as_ref().unwrap().field.as_str(),
-                vec![DataType::Float64],
+                vec![DataType::Float32],
             );
         }
 
-        // Add type checking for rule charts - y and y2 encodings must be f64 (continuous)
+        // Add type checking for rule charts - y and y2 encodings must be f32 (continuous)
         if mark.mark_type() == "rule" {
-            // we've already converted all numeric types to f64 when building the chart
+            // we've already converted all numeric types to f32 when building the chart
             expected_types.insert(
                 self.encoding.y.as_ref().unwrap().field.as_str(),
-                vec![DataType::Float64],
+                vec![DataType::Float32],
             );
 
-            // If y2 encoding exists, it must also be f64
+            // If y2 encoding exists, it must also be f32
             if let Some(y2_encoding) = &self.encoding.y2 {
-                expected_types.insert(y2_encoding.field.as_str(), vec![DataType::Float64]);
+                expected_types.insert(y2_encoding.field.as_str(), vec![DataType::Float32]);
             }
         }
 
@@ -475,7 +475,7 @@ where
     }
 
     /// Get the X continuous bounds.
-    fn get_x_continuous_bounds(&self) -> Result<(f64, f64), ChartonError> {
+    fn get_x_continuous_bounds(&self) -> Result<(f32, f32), ChartonError> {
         if self.encoding.x.is_none() {
             return Ok((0.0, 1.0));
         }
@@ -483,10 +483,10 @@ where
         let x_encoding = self.encoding.x.as_ref().expect("X encoding should exist");
         let x_series = self.data.column(&x_encoding.field)?;
 
-        let min_val = x_series.min::<f64>()?.ok_or_else(|| {
+        let min_val = x_series.min::<f32>()?.ok_or_else(|| {
             ChartonError::Data(format!("Failed to calculate min for x-axis: {}", x_encoding.field))
         })?;
-        let max_val = x_series.max::<f64>()?.ok_or_else(|| {
+        let max_val = x_series.max::<f32>()?.ok_or_else(|| {
             ChartonError::Data(format!("Failed to calculate max for x-axis: {}", x_encoding.field))
         })?;
 
@@ -532,7 +532,7 @@ where
     }
 
     /// Get the Y continuous bounds, following the color-axis implementation pattern.
-    fn get_y_continuous_bounds(&self) -> Result<(f64, f64), ChartonError> {
+    fn get_y_continuous_bounds(&self) -> Result<(f32, f32), ChartonError> {
         if self.encoding.y.is_none() {
             return Ok((0.0, 1.0));
         }
@@ -540,10 +540,10 @@ where
         let y_encoding = self.encoding.y.as_ref().expect("Y encoding should exist");
         let y_series = self.data.column(&y_encoding.field)?;
 
-        let min_val = y_series.min::<f64>()?.ok_or_else(|| {
+        let min_val = y_series.min::<f32>()?.ok_or_else(|| {
             ChartonError::Data(format!("Failed to calculate min for y-axis: {}", y_encoding.field))
         })?;
-        let max_val = y_series.max::<f64>()?.ok_or_else(|| {
+        let max_val = y_series.max::<f32>()?.ok_or_else(|| {
             ChartonError::Data(format!("Failed to calculate max for y-axis: {}", y_encoding.field))
         })?;
 
@@ -589,7 +589,7 @@ where
         self.encoding.color.as_ref().map(|c| c.field.clone())
     }
 /// Get the color continuous bounds, following the X-axis implementation pattern.
-    fn get_color_continuous_bounds(&self) -> Result<Option<(f64, f64)>, ChartonError> {
+    fn get_color_continuous_bounds(&self) -> Result<Option<(f32, f32)>, ChartonError> {
         // For charts that don't have color encoding, return None 
         // (Note: Unlike X, we return None here so LayeredChart can skip it)
         if self.encoding.color.is_none() {
@@ -599,10 +599,10 @@ where
         let color_encoding = self.encoding.color.as_ref().expect("Color encoding should exist");
         let color_series = self.data.column(&color_encoding.field)?;
         
-        let min_val = color_series.min::<f64>()?.ok_or_else(|| {
+        let min_val = color_series.min::<f32>()?.ok_or_else(|| {
             ChartonError::Data(format!("Failed to calculate minimum value for color field: {}", color_encoding.field))
         })?;
-        let max_val = color_series.max::<f64>()?.ok_or_else(|| {
+        let max_val = color_series.max::<f32>()?.ok_or_else(|| {
             ChartonError::Data(format!("Failed to calculate maximum value for color field: {}", color_encoding.field))
         })?;
 
@@ -672,7 +672,7 @@ where
     }
 
     // --- Get size continuous bounds (Continuous) ---
-    fn get_size_continuous_bounds(&self) -> Result<Option<(f64, f64)>, ChartonError> {
+    fn get_size_continuous_bounds(&self) -> Result<Option<(f32, f32)>, ChartonError> {
         if self.encoding.size.is_none() {
             return Ok(None);
         }
@@ -680,10 +680,10 @@ where
         let size_encoding = self.encoding.size.as_ref().expect("Size encoding should exist");
         let size_series = self.data.column(&size_encoding.field)?;
         
-        let min_val = size_series.min::<f64>()?.ok_or_else(|| {
+        let min_val = size_series.min::<f32>()?.ok_or_else(|| {
             ChartonError::Data(format!("Failed to calculate min for size field: {}", size_encoding.field))
         })?;
-        let max_val = size_series.max::<f64>()?.ok_or_else(|| {
+        let max_val = size_series.max::<f32>()?.ok_or_else(|| {
             ChartonError::Data(format!("Failed to calculate max for size field: {}", size_encoding.field))
         })?;
 

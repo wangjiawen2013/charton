@@ -49,3 +49,6 @@ pub mod prelude {
     #[cfg(not(target_arch = "wasm32"))]
     pub use crate::data; // Macro data!
 }
+
+/// Temporary column name used internally by Polars to avoid naming conflicts.
+pub(crate) const TEMP_SUFFIX: &str = "n9jh3z8";

@@ -131,7 +131,7 @@ impl TryFrom<&Vec<u8>> for DataFrameSource {
     }
 }
 
-// A helper function to convert numeric columns to f64
+// A helper function to convert numeric columns to f32
 pub(crate) fn convert_numeric_types(df_source: DataFrameSource) -> Result<DataFrameSource, ChartonError> {
     let mut new_columns = Vec::new();
 
@@ -140,7 +140,7 @@ pub(crate) fn convert_numeric_types(df_source: DataFrameSource) -> Result<DataFr
         match col.dtype() {
             UInt8 | UInt16 | UInt32 | UInt64 | Int8 | Int16 | Int32 | Int64 | Int128
             | Float32 | Float64 => {
-                let casted = col.cast(&Float64)?;
+                let casted = col.cast(&Float32)?;
                 new_columns.push(casted);
             }
             _ => {
@@ -276,8 +276,8 @@ pub fn load_dataset(dataset: &str) -> Result<DataFrame, ChartonError> {
                 "Volvo 142E",
             ];
 
-            // Numeric variable columns (f64 type)
-            let mpg = vec![
+            // Numeric variable columns (f32 type)
+            let mpg: Vec<f32> = vec![
                 21.0, 21.0, 22.8, 21.4, 18.7, 18.1, 14.3, 24.4, 22.8, 19.2, 17.8, 16.4, 17.3, 15.2,
                 10.4, 10.4, 14.7, 32.4, 30.4, 33.9, 21.5, 15.5, 15.2, 13.3, 19.2, 27.3, 26.0, 30.4,
                 15.8, 19.7, 15.0, 21.4,
@@ -289,7 +289,7 @@ pub fn load_dataset(dataset: &str) -> Result<DataFrame, ChartonError> {
                 8, 6, 8, 4,
             ]; // Number of cylinders
 
-            let disp = vec![
+            let disp: Vec<f32> = vec![
                 160.0, 160.0, 108.0, 258.0, 360.0, 225.0, 360.0, 146.7, 140.8, 167.6, 167.6, 275.8,
                 275.8, 275.8, 472.0, 460.0, 440.0, 78.7, 75.7, 71.1, 120.1, 318.0, 304.0, 350.0,
                 400.0, 79.0, 120.3, 95.1, 351.0, 145.0, 301.0, 121.0,
@@ -300,19 +300,19 @@ pub fn load_dataset(dataset: &str) -> Result<DataFrame, ChartonError> {
                 66, 52, 65, 97, 150, 150, 245, 175, 66, 91, 113, 264, 175, 335, 109,
             ]; // Horsepower
 
-            let drat = vec![
+            let drat: Vec<f32> = vec![
                 3.90, 3.90, 3.85, 3.08, 3.15, 2.76, 3.21, 3.69, 3.92, 3.92, 3.92, 3.07, 3.07, 3.07,
                 2.93, 3.00, 3.23, 4.08, 4.93, 4.22, 3.70, 2.76, 3.15, 3.73, 3.08, 4.08, 4.43, 3.77,
                 4.22, 3.62, 3.54, 4.11,
             ]; // Rear axle ratio
 
-            let wt = vec![
+            let wt: Vec<f32> = vec![
                 2.620, 2.875, 2.320, 3.215, 3.440, 3.460, 3.570, 3.190, 3.150, 3.440, 3.440, 4.070,
                 3.730, 3.780, 5.250, 5.424, 5.345, 2.200, 1.615, 1.835, 2.465, 3.520, 3.435, 3.840,
                 3.845, 1.935, 2.140, 1.513, 3.170, 2.770, 3.570, 2.780,
             ]; // Weight (1000 lbs)
 
-            let qsec = vec![
+            let qsec: Vec<f32> = vec![
                 16.46, 17.02, 18.61, 19.44, 17.02, 20.22, 15.84, 20.00, 22.90, 18.30, 18.90, 17.40,
                 17.60, 18.00, 17.98, 17.82, 17.42, 19.47, 18.52, 19.90, 20.01, 16.87, 17.30, 15.41,
                 17.05, 18.90, 16.70, 16.90, 14.50, 15.50, 14.60, 18.60,
@@ -359,7 +359,7 @@ pub fn load_dataset(dataset: &str) -> Result<DataFrame, ChartonError> {
         // iris dataset: Classic iris flower classification dataset from https://www.kaggle.com/datasets/uciml/iris
         "iris" => {
             // Sepal length, width; Petal length, width (all numeric)
-            let sepal_length = &[
+            let sepal_length: &[f32; 150] = &[
                 5.1, 4.9, 4.7, 4.6, 5.0, 5.4, 4.6, 5.0, 4.4, 4.9, 5.4, 4.8, 4.8, 4.3, 5.8, 5.7,
                 5.4, 5.1, 5.7, 5.1, 5.4, 5.1, 4.6, 5.1, 4.8, 5.0, 5.0, 5.2, 5.2, 4.7, 4.8, 5.4,
                 5.2, 5.5, 4.9, 5.0, 5.5, 4.9, 4.4, 5.1, 5.0, 4.5, 4.4, 5.0, 5.1, 4.8, 5.1, 4.6,
@@ -372,7 +372,7 @@ pub fn load_dataset(dataset: &str) -> Result<DataFrame, ChartonError> {
                 6.7, 6.7, 6.3, 6.5, 6.2, 5.9,
             ];
 
-            let sepal_width = &[
+            let sepal_width: &[f32; 150] = &[
                 3.5, 3.0, 3.2, 3.1, 3.6, 3.9, 3.4, 3.4, 2.9, 3.1, 3.7, 3.4, 3.0, 3.0, 4.0, 4.4,
                 3.9, 3.5, 3.8, 3.8, 3.4, 3.7, 3.6, 3.3, 3.4, 3.0, 3.4, 3.5, 3.4, 3.2, 3.1, 3.4,
                 4.1, 4.2, 3.1, 3.2, 3.5, 3.1, 3.0, 3.4, 3.5, 2.3, 3.2, 3.5, 3.8, 3.0, 3.8, 3.2,
@@ -385,7 +385,7 @@ pub fn load_dataset(dataset: &str) -> Result<DataFrame, ChartonError> {
                 3.3, 3.0, 2.5, 3.0, 3.4, 3.0,
             ];
 
-            let petal_length = &[
+            let petal_length: &[f32; 150] = &[
                 1.4, 1.4, 1.3, 1.5, 1.4, 1.7, 1.4, 1.5, 1.4, 1.5, 1.5, 1.6, 1.4, 1.1, 1.2, 1.5,
                 1.3, 1.4, 1.7, 1.5, 1.7, 1.5, 1.0, 1.7, 1.9, 1.6, 1.6, 1.5, 1.4, 1.6, 1.6, 1.5,
                 1.5, 1.4, 1.5, 1.2, 1.3, 1.5, 1.3, 1.5, 1.3, 1.3, 1.3, 1.6, 1.9, 1.4, 1.6, 1.4,
@@ -398,7 +398,7 @@ pub fn load_dataset(dataset: &str) -> Result<DataFrame, ChartonError> {
                 5.7, 5.2, 5.0, 5.2, 5.4, 5.1,
             ];
 
-            let petal_width = &[
+            let petal_width: &[f32; 150] = &[
                 0.2, 0.2, 0.2, 0.2, 0.2, 0.4, 0.3, 0.2, 0.2, 0.1, 0.2, 0.2, 0.1, 0.1, 0.2, 0.4,
                 0.4, 0.3, 0.3, 0.3, 0.2, 0.4, 0.2, 0.5, 0.2, 0.2, 0.4, 0.2, 0.2, 0.2, 0.2, 0.4,
                 0.1, 0.2, 0.1, 0.2, 0.2, 0.1, 0.2, 0.2, 0.3, 0.3, 0.2, 0.6, 0.4, 0.3, 0.2, 0.2,

@@ -13,7 +13,7 @@ pub struct LinearScale {
     /// The input data boundaries: (min_value, max_value).
     /// Following ggplot2 principles, these values usually include a small 
     /// expansion buffer beyond the raw data range.
-    domain: (f64, f64),
+    domain: (f32, f32),
 }
 
 impl LinearScale {
@@ -22,7 +22,7 @@ impl LinearScale {
     /// # Arguments
     /// * `domain` - A tuple representing the minimum and maximum data values.
     ///              This should be the expanded range if padding is desired.
-    pub fn new(domain: (f64, f64)) -> Self {
+    pub fn new(domain: (f32, f32)) -> Self {
         Self { domain }
     }
 
@@ -31,7 +31,7 @@ impl LinearScale {
     /// This algorithm finds a power-of-ten step (e.g., 0.1, 1, 10, 100) 
     /// and scales it by a "nice" factor (1, 2, or 5) to ensure that axis 
     /// labels are intuitive for human readers.
-    fn calculate_nice_step(&self, count: usize) -> f64 {
+    fn calculate_nice_step(&self, count: usize) -> f32 {
         let (min, max) = self.domain;
         let range = max - min;
         
@@ -41,10 +41,10 @@ impl LinearScale {
         }
 
         // Calculate a rough step size based on the requested tick count
-        let rough_step = range / (count.max(2) as f64);
+        let rough_step = range / (count.max(2) as f32);
         
         // Find the magnitude (power of 10) of the step
-        let exp = 10f64.powf(rough_step.log10().floor());
+        let exp = 10f32.powf(rough_step.log10().floor());
         
         // Determine the fractional part to pick the closest "nice" number
         let f = rough_step / exp;
@@ -64,11 +64,11 @@ impl ScaleTrait for LinearScale {
     /// Implementation of the linear formula: `normalized = (x - d_min) / (d_max - d_min)`
     /// Because the domain is expanded, raw data points will be mapped to a range 
     /// slightly smaller than [0, 1] (e.g., [0.05, 0.95]), creating visual padding.
-    fn normalize(&self, value: f64) -> f64 {
+    fn normalize(&self, value: f32) -> f32 {
         let (d_min, d_max) = self.domain;
         
         let diff = d_max - d_min;
-        if diff.abs() < f64::EPSILON { 
+        if diff.abs() < f32::EPSILON { 
             // If the domain is a single point, we map it to the center (0.5)
             return 0.5; 
         }
@@ -76,19 +76,19 @@ impl ScaleTrait for LinearScale {
         (value - d_min) / diff
     }
 
-    fn normalize_string(&self, _value: &str) -> f64 {
+    fn normalize_string(&self, _value: &str) -> f32 {
         0.0
     }
 
     /// Returns the data boundaries (min, max).
-    fn domain(&self) -> (f64, f64) { 
+    fn domain(&self) -> (f32, f32) { 
         self.domain 
     }
 
     /// Returns the maximum logical value for mapping.
     /// For continuous scales like Linear, this is always 1.0 to represent 
     /// a full 0% to 100% gradient range.
-    fn logical_max(&self) -> f64 {
+    fn logical_max(&self) -> f32 {
         1.0
     }
 
@@ -153,7 +153,7 @@ impl ScaleTrait for LinearScale {
         }
 
         // Calculate a raw step size (not constrained by "nice" numbers)
-        let step = (max - min) / (n - 1) as f64;
+        let step = (max - min) / (n - 1) as f32;
         
         // Heuristic for label precision:
         // We look at the magnitude of the step to decide how many decimals to show.
@@ -175,7 +175,7 @@ impl ScaleTrait for LinearScale {
         (0..n)
             .map(|i| {
                 // Mathematically exact interpolation: value = min + i * step
-                let val = if i == n - 1 { max } else { min + i as f64 * step };
+                let val = if i == n - 1 { max } else { min + i as f32 * step };
                 
                 // Clean up near-zero values
                 let clean_val = if val.abs() < 1e-12 { 0.0 } else { val };

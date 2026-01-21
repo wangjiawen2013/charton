@@ -22,9 +22,9 @@ use dyn_clone::{DynClone, clone_trait_object};
 pub struct Expansion {
     /// Multiplicative factors (lower_mult, upper_mult). 
     /// e.g., (0.05, 0.05) for 5% padding on both sides.
-    pub mult: (f64, f64),
+    pub mult: (f32, f32),
     /// Additive constants in data units (lower_add, upper_add).
-    pub add: (f64, f64),
+    pub add: (f32, f32),
 }
 
 impl Default for Expansion {
@@ -42,7 +42,7 @@ impl Default for Expansion {
 #[derive(Debug, Clone)]
 pub struct Tick {
     /// The value in data space (e.g., 100.0, timestamp, or categorical index).
-    pub value: f64,
+    pub value: f32,
     /// The human-readable string representation (e.g., "100", "Jan 2026").
     pub label: String,
 }
@@ -70,13 +70,13 @@ impl Scale {
         &self,
         scale_trait: &dyn ScaleTrait,
         series: &Series,
-    ) -> Result<Float64Chunked, ChartonError> {
+    ) -> Result<Float32Chunked, ChartonError> {
         match self {
             // CATEGORICAL DATA PATH
             Scale::Discrete => {
                 // We iterate over the Series once. Polars handles the string extraction
                 // more efficiently than a raw for loop.
-                let out: Float64Chunked = series.iter().map(|val| {
+                let out: Float32Chunked = series.iter().map(|val| {
                     let norm = match val {
                         AnyValue::String(s) => scale_trait.normalize_string(s),
                         AnyValue::StringOwned(s) => scale_trait.normalize_string(&s),
@@ -89,9 +89,9 @@ impl Scale {
             // NUMERICAL DATA PATH (Linear, Log, Time)
             _ => {
                 // 1. Cast the entire column to Float64 at once (Vectorized operation)
-                let casted = series.cast(&DataType::Float64)
+                let casted = series.cast(&DataType::Float32)
                     .map_err(|e| ChartonError::Data(e.to_string()))?;
-                let ca = casted.f64().unwrap();
+                let ca = casted.f32().unwrap();
                 
                 // 2. Apply the mathematical normalization formula
                 // Use .apply() to perform an element-wise transformation on the ChunkedArray.
@@ -107,7 +107,7 @@ impl Scale {
 #[derive(Debug, Clone)]
 pub enum ScaleDomain {
     /// For Linear/Log: (min, max)
-    Continuous(f64, f64),
+    Continuous(f32, f32),
     /// For Discrete: List of unique labels in display order
     Categorical(Vec<String>),
     /// For Temporal: (start_time, end_time)
@@ -122,22 +122,22 @@ pub trait ScaleTrait: DynClone + std::fmt::Debug {
     /// Transforms a data value into a normalized value between 0.0 and 1.0.
     /// * For continuous scales: (val - expanded_min) / (expanded_max - expanded_min)
     /// * For discrete scales: (index + 0.5) / count (centered in band)
-    fn normalize(&self, value: f64) -> f64;
+    fn normalize(&self, value: f32) -> f32;
 
     /// Transforms a categorical string value into a normalized value.
     /// * For discrete scales: Maps the string to its index and then normalizes.
     /// * For continuous scales: Usually returns 0.0 or a default.
-    fn normalize_string(&self, value: &str) -> f64;
+    fn normalize_string(&self, value: &str) -> f32;
 
     /// Returns the expanded domain boundaries (min, max) in data space.
-    fn domain(&self) -> (f64, f64);
+    fn domain(&self) -> (f32, f32);
 
     /// Returns the maximum value in the internal logical space.
     /// 
     /// This value is used by VisualMappers to determine the interpolation range:
     /// * For Continuous scales: returns 1.0 (representing 100% of the range).
-    /// * For Discrete scales: returns (n - 1) as f64 (the last valid index).
-    fn logical_max(&self) -> f64;
+    /// * For Discrete scales: returns (n - 1) as f32 (the last valid index).
+    fn logical_max(&self) -> f32;
 
     /// Generates a list of suggested tick marks for an axis.
     /// * `count`: Suggested number of ticks to generate.
@@ -211,7 +211,7 @@ pub fn create_scale(
             if let ScaleDomain::Temporal(start, end) = domain_data {
                 // 1. Calculate the raw duration between start and end
                 let diff = end - start;
-                let diff_secs = diff.as_seconds_f64();
+                let diff_secs = diff.as_seconds_f32();
                 
                 // 2. Convert expansion factors to seconds for both ends
                 // lower_padding = range * mult.0 + add.0
@@ -219,8 +219,8 @@ pub fn create_scale(
                 let lower_padding_secs = diff_secs * expand.mult.0 + expand.add.0;
                 let upper_padding_secs = diff_secs * expand.mult.1 + expand.add.1;
 
-                let lower_padding = time::Duration::seconds_f64(lower_padding_secs);
-                let upper_padding = time::Duration::seconds_f64(upper_padding_secs);
+                let lower_padding = time::Duration::seconds_f32(lower_padding_secs);
+                let upper_padding = time::Duration::seconds_f32(upper_padding_secs);
 
                 // 3. Apply padding to both ends
                 // Note: checked_sub/add are safer to prevent datetime out-of-bounds
@@ -243,7 +243,7 @@ pub fn get_normalized_value(
     scale_trait: &dyn ScaleTrait,
     scale_type: &Scale,
     value: &AnyValue,
-) -> f64 {
+) -> f32 {
     match scale_type {
         Scale::Discrete => {
             match value {
@@ -253,7 +253,7 @@ pub fn get_normalized_value(
             }
         }
         _ => {
-            value.try_extract::<f64>()
+            value.try_extract::<f32>()
                 .map(|v| scale_trait.normalize(v))
                 .unwrap_or(0.0)
         }

@@ -6,14 +6,14 @@ use crate::scale::ScaleTrait;
 /// This defines where the coordinate system is allowed to draw.
 #[derive(Debug, Clone, Copy)]
 pub struct Rect {
-    pub x: f64,
-    pub y: f64,
-    pub width: f64,
-    pub height: f64,
+    pub x: f32,
+    pub y: f32,
+    pub width: f32,
+    pub height: f32,
 }
 
 impl Rect {
-    pub fn new(x: f64, y: f64, width: f64, height: f64) -> Self {
+    pub fn new(x: f32, y: f32, width: f32, height: f32) -> Self {
         Self { x, y, width, height }
     }
 }
@@ -34,7 +34,7 @@ pub trait CoordinateTrait {
     /// 
     /// # Returns
     /// A tuple of (x_pixel, y_pixel).
-    fn transform(&self, x_norm: f64, y_norm: f64, panel: &Rect) -> (f64, f64);
+    fn transform(&self, x_norm: f32, y_norm: f32, panel: &Rect) -> (f32, f32);
 
     /// Get the scale for the first dimension (e.g., X).
     fn get_x_scale(&self) -> &dyn ScaleTrait;

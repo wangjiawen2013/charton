@@ -14,9 +14,9 @@ use crate::error::ChartonError;
 pub struct LogScale {
     /// The input data boundaries. Must be strictly positive.
     /// In an expanded scale, these represent the visual limits of the axis.
-    domain: (f64, f64),
+    domain: (f32, f32),
     /// The logarithm base, typically 10.0 or 2.0.
-    base: f64,
+    base: f32,
 }
 
 impl LogScale {
@@ -24,7 +24,7 @@ impl LogScale {
     /// 
     /// # Errors
     /// Returns `ChartonError::Scale` if domain values are <= 0 or base <= 1.
-    pub fn new(domain: (f64, f64), base: f64) -> Result<Self, ChartonError> {
+    pub fn new(domain: (f32, f32), base: f32) -> Result<Self, ChartonError> {
         if domain.0 <= 0.0 || domain.1 <= 0.0 {
             return Err(ChartonError::Scale("Log scale domain must be strictly positive".into()));
         }
@@ -35,7 +35,7 @@ impl LogScale {
     }
 
     /// Returns the logarithm base.
-    pub fn base(&self) -> f64 {
+    pub fn base(&self) -> f32 {
         self.base
     }
 }
@@ -47,7 +47,7 @@ impl ScaleTrait for LogScale {
     /// $$ratio = \frac{\log_{base}(val) - \log_{base}(min)}{\log_{base}(max) - \log_{base}(min)}$$
     /// Because the domain is expanded, raw data values will map to a 
     /// sub-range within [0, 1], providing visual breathing room.
-    fn normalize(&self, value: f64) -> f64 {
+    fn normalize(&self, value: f32) -> f32 {
         let (d_min, d_max) = self.domain;
 
         // Use natural log for internal ratio calculation (it is base-agnostic)
@@ -58,26 +58,26 @@ impl ScaleTrait for LogScale {
         let log_val = value.max(d_min).ln();
 
         let diff = log_max - log_min;
-        if diff.abs() < f64::EPSILON {
+        if diff.abs() < f32::EPSILON {
             return 0.5;
         }
 
         (log_val - log_min) / diff
     }
 
-    fn normalize_string(&self, _value: &str) -> f64 {
+    fn normalize_string(&self, _value: &str) -> f32 {
         0.0
     }
 
     /// Returns the data boundaries (min, max).
-    fn domain(&self) -> (f64, f64) { 
+    fn domain(&self) -> (f32, f32) { 
         self.domain 
     }
 
     /// Returns the maximum logical value for mapping.
     /// For continuous log scales, this returns 1.0 to support continuous 
     /// visual mapping (like color gradients) over the log-transformed range.
-    fn logical_max(&self) -> f64 {
+    fn logical_max(&self) -> f32 {
         1.0
     }
 
@@ -166,11 +166,11 @@ impl ScaleTrait for LogScale {
         // 1. Transform boundaries to log-space
         let log_min = min.ln();
         let log_max = max.ln();
-        let log_step = (log_max - log_min) / (n - 1) as f64;
+        let log_step = (log_max - log_min) / (n - 1) as f32;
 
         (0..n).map(|i| {
             // 2. Interpolate in log-space and exponentiate back to raw space
-            let log_val = if i == n - 1 { log_max } else { log_min + i as f64 * log_step };
+            let log_val = if i == n - 1 { log_max } else { log_min + i as f32 * log_step };
             let val = log_val.exp();
 
             // 3. Apply the same formatting logic as the standard `ticks` method

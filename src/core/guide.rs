@@ -10,8 +10,8 @@ use std::collections::BTreeMap;
 /// Used by the LayoutEngine to reserve space and calculate the final Plot Panel.
 #[derive(Debug, Clone, Copy, Default)]
 pub struct GuideSize {
-    pub width: f64,
-    pub height: f64,
+    pub width: f32,
+    pub height: f32,
 }
 
 /// The visual representation strategy for a data field.
@@ -82,7 +82,7 @@ impl GuideSpec {
     }
 
     /// Entry point for the LayoutEngine to calculate required pixels.
-    pub fn estimate_size(&self, theme: &Theme, max_h: f64) -> GuideSize {
+    pub fn estimate_size(&self, theme: &Theme, max_h: f32) -> GuideSize {
         match self.kind {
             GuideKind::ColorBar => self.estimate_colorbar_size(theme, max_h),
             GuideKind::Legend => self.estimate_legend_size(theme, max_h),
@@ -90,7 +90,7 @@ impl GuideSpec {
     }
 
     /// Estimates dimensions for a gradient ColorBar.
-    fn estimate_colorbar_size(&self, theme: &Theme, max_h: f64) -> GuideSize {
+    fn estimate_colorbar_size(&self, theme: &Theme, max_h: f32) -> GuideSize {
         let font_size = theme.legend_label_size.unwrap_or(theme.tick_label_size);
         let title_font_size = font_size * 1.1;
         
@@ -100,17 +100,17 @@ impl GuideSpec {
         let labels = self.get_sampling_labels();
         let max_lbl_w = labels.iter()
             .map(|l| estimate_text_width(l, font_size))
-            .fold(0.0, f64::max);
+            .fold(0.0, f32::max);
 
         GuideSize {
-            width: f64::max(title_w, bar_w + theme.legend_marker_text_gap + max_lbl_w),
+            width: f32::max(title_w, bar_w + theme.legend_marker_text_gap + max_lbl_w),
             // Height is usually 70% of plot height or capped at a reasonable max (200px)
-            height: title_font_size + theme.legend_title_gap + f64::min(200.0, max_h * 0.7),
+            height: title_font_size + theme.legend_title_gap + f32::min(200.0, max_h * 0.7),
         }
     }
 
     /// Estimates dimensions for a discrete Legend, supporting multi-column wrapping.
-    fn estimate_legend_size(&self, theme: &Theme, max_h: f64) -> GuideSize {
+    fn estimate_legend_size(&self, theme: &Theme, max_h: f32) -> GuideSize {
         let font_size = theme.legend_label_size.unwrap_or(theme.tick_label_size);
         let title_font_size = font_size * 1.1;
 
@@ -120,7 +120,7 @@ impl GuideSpec {
         let labels = self.get_sampling_labels();
         let max_lbl_w = labels.iter()
             .map(|l| estimate_text_width(l, font_size))
-            .fold(0.0, f64::max);
+            .fold(0.0, f32::max);
         
         let mut total_w = 0.0;
         let mut cur_col_w = 0.0;
@@ -128,31 +128,31 @@ impl GuideSpec {
         let mut max_observed_h = 0.0;
 
         // Content area is limited by the total plot height minus the title space
-        let content_limit = f64::max(max_h - title_h - theme.legend_title_gap, 20.0);
+        let content_limit = f32::max(max_h - title_h - theme.legend_title_gap, 20.0);
 
         for (i, _) in labels.iter().enumerate() {
             let marker_area_w = 18.0; // Reserved square for the icon/glyph
-            let row_h = f64::max(marker_area_w, font_size);
+            let row_h = f32::max(marker_area_w, font_size);
             let row_w = marker_area_w + theme.legend_marker_text_gap + max_lbl_w;
 
             // Column Wrapping Logic: Start a new column if the current one is full
             if cur_col_h + row_h > content_limit && cur_col_h > 0.0 {
                 total_w += cur_col_w + theme.legend_col_h_gap;
-                max_observed_h = f64::max(max_observed_h, cur_col_h);
+                max_observed_h = f32::max(max_observed_h, cur_col_h);
                 cur_col_h = row_h;
                 cur_col_w = row_w;
             } else {
                 cur_col_h += row_h;
                 if i < labels.len() - 1 { cur_col_h += theme.legend_item_v_gap; }
-                cur_col_w = f64::max(cur_col_w, row_w);
+                cur_col_w = f32::max(cur_col_w, row_w);
             }
         }
         
         total_w += cur_col_w;
-        max_observed_h = f64::max(max_observed_h, cur_col_h);
+        max_observed_h = f32::max(max_observed_h, cur_col_h);
 
         GuideSize {
-            width: f64::max(title_w, total_w),
+            width: f32::max(title_w, total_w),
             height: title_h + theme.legend_title_gap + max_observed_h,
         }
     }

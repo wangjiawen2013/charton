@@ -17,7 +17,7 @@ pub struct DiscreteScale {
     index_map: HashMap<String, usize>,
     /// The expanded index boundaries: (min_idx, max_idx).
     /// Typically (-0.6, N - 1 + 0.6) to provide space for bars/points.
-    expanded_range: (f64, f64),
+    expanded_range: (f32, f32),
 }
 
 impl DiscreteScale {
@@ -39,7 +39,7 @@ impl DiscreteScale {
             // ggplot2 default mult is usually 0, and add is 0.6.
             // With asymmetric expansion, we apply (mult.0, add.0) to the lower bound
             // and (mult.1, add.1) to the upper bound.
-            let range = (n - 1) as f64;
+            let range = (n - 1) as f32;
             
             let lower_padding = range * expand.mult.0 + expand.add.0;
             let upper_padding = range * expand.mult.1 + expand.add.1;
@@ -66,11 +66,11 @@ impl ScaleTrait for DiscreteScale {
     /// In a discrete scale with expansion, the "0.0" and "1.0" on the screen 
     /// correspond to the expanded_range limits (e.g., -0.6 and N-0.4).
     /// This ensures categories are centered and have padding.
-    fn normalize(&self, value: f64) -> f64 {
+    fn normalize(&self, value: f32) -> f32 {
         let (min, max) = self.expanded_range;
         let range = max - min;
         
-        if range.abs() < f64::EPSILON { 
+        if range.abs() < f32::EPSILON { 
             return 0.5; 
         }
         
@@ -80,26 +80,26 @@ impl ScaleTrait for DiscreteScale {
 
     /// Implementation for DiscreteScale
     /// This uses the internal index_map to find the position of the string.
-    fn normalize_string(&self, value: &str) -> f64 {
+    fn normalize_string(&self, value: &str) -> f32 {
         match self.index_map.get(value) {
-            Some(&index) => self.normalize(index as f64),
+            Some(&index) => self.normalize(index as f32),
             None => 0.0, // Or perhaps a value that maps to "NA" color
         }
     }
 
     /// Returns the expanded domain boundaries (min, max) in index space.
-    fn domain(&self) -> (f64, f64) {
+    fn domain(&self) -> (f32, f32) {
         self.expanded_range
     }
 
     /// Returns the maximum logical index of the domain (N - 1).
     /// Used by VisualMapper to index into color palettes or shape lists.
-    fn logical_max(&self) -> f64 {
+    fn logical_max(&self) -> f32 {
         let n = self.domain.len();
         if n == 0 {
             0.0
         } else {
-            (n - 1) as f64
+            (n - 1) as f32
         }
     }
 
@@ -110,7 +110,7 @@ impl ScaleTrait for DiscreteScale {
     fn ticks(&self, _count: usize) -> Vec<Tick> {
         self.domain.iter().enumerate().map(|(i, label)| {
             Tick {
-                value: i as f64,
+                value: i as f32,
                 label: label.clone(),
             }
         }).collect()
@@ -143,11 +143,11 @@ impl ScaleTrait for DiscreteScale {
             let idx = if i == n - 1 {
                 len - 1
             } else {
-                ((i as f64 * (len - 1) as f64) / (n - 1) as f64).round() as usize
+                ((i as f32 * (len - 1) as f32) / (n - 1) as f32).round() as usize
             };
 
             Tick {
-                value: idx as f64,
+                value: idx as f32,
                 label: self.domain[idx].clone(),
             }
         }).collect()

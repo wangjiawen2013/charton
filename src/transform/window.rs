@@ -2,7 +2,6 @@ use crate::chart::Chart;
 use crate::error::ChartonError;
 use crate::mark::Mark;
 use polars::prelude::*;
-use uuid::Uuid;
 
 /// Window-specific operations for computing window functions
 ///
@@ -247,7 +246,7 @@ impl<T: Mark> Chart<T> {
         let group_field_name = params
             .groupby
             .clone()
-            .unwrap_or_else(|| format!("__charton_temp_group_{}", Uuid::now_v7().hyphenated()));
+            .unwrap_or_else(|| format!("__charton_temp_group_{}", crate::TEMP_SUFFIX));
 
         // Create a working DataFrame with grouping column
         let working_df = if let Some(ref group_field) = params.groupby {
@@ -272,12 +271,12 @@ impl<T: Mark> Chart<T> {
                 // Use uuid as column name to avoid column name conflicts
                 let cumulative_freq_col = format!(
                     "__charton_temp_cumulative_freq_{}",
-                    Uuid::now_v7().hyphenated()
+                    crate::TEMP_SUFFIX
                 );
                 let total_freq_col =
-                    format!("__charton_temp_total_freq_{}", Uuid::now_v7().hyphenated());
+                    format!("__charton_temp_total_freq_{}", crate::TEMP_SUFFIX);
                 let group_order_col =
-                    format!("__charton_temp_group_order_{}", Uuid::now_v7().hyphenated());
+                    format!("__charton_temp_group_order_{}", crate::TEMP_SUFFIX);
 
                 // Compute original group appearance order
                 let group_order_df = working_df

@@ -6,17 +6,17 @@ use crate::theme::Theme;
 /// Physical constraints calculated for axis areas.
 #[derive(Default, Debug, Clone, Copy)]
 pub struct AxisLayoutConstraints {
-    pub bottom: f64, 
-    pub left: f64,   
+    pub bottom: f32, 
+    pub left: f32,   
 }
 
 /// Margin reserved on each side of the plot for legend placement.
 #[derive(Default, Debug, Clone, Copy)]
 pub struct LegendLayoutConstraints {
-    pub top: f64,
-    pub bottom: f64,
-    pub left: f64,
-    pub right: f64,
+    pub top: f32,
+    pub bottom: f32,
+    pub left: f32,
+    pub right: f32,
 }
 
 pub struct LayoutEngine;
@@ -32,11 +32,11 @@ impl LayoutEngine {
     pub fn calculate_legend_constraints(
         specs: &[GuideSpec],
         position: LegendPosition,
-        canvas_w: f64,
-        canvas_h: f64,
-        initial_plot_w: f64,
-        initial_plot_h: f64,
-        margin_gap: f64, // Space between plot panel and the whole legend block
+        canvas_w: f32,
+        canvas_h: f32,
+        initial_plot_w: f32,
+        initial_plot_h: f32,
+        margin_gap: f32, // Space between plot panel and the whole legend block
         theme: &Theme,
     ) -> LegendLayoutConstraints {
         let mut constraints = LegendLayoutConstraints::default();
@@ -66,7 +66,7 @@ impl LayoutEngine {
                         current_col_h = size.height;
                     } else {
                         // Expand column width if this block is wider than previous ones in the same column
-                        current_col_w = f64::max(current_col_w, size.width);
+                        current_col_w = f32::max(current_col_w, size.width);
                         current_col_h += size.height;
                         
                         // Add gap between blocks, but not after the last one in the column
@@ -79,10 +79,10 @@ impl LayoutEngine {
 
                 // Safety cap: Prevent legends from consuming too much horizontal space.
                 // We ensure the plot panel has a "Defense Floor".
-                let min_panel_w = f64::max(theme.min_panel_size, canvas_w * theme.panel_defense_ratio);
+                let min_panel_w = f32::max(theme.min_panel_size, canvas_w * theme.panel_defense_ratio);
                 let max_allowed_legend_w = (canvas_w - min_panel_w - theme.axis_reserve_buffer).max(0.0);
                 
-                let final_w = f64::min(total_width, max_allowed_legend_w);
+                let final_w = f32::min(total_width, max_allowed_legend_w);
                 let reserve = if final_w > 0.0 { final_w + margin_gap } else { 0.0 };
 
                 if position == LegendPosition::Right { constraints.right = reserve; }
@@ -106,7 +106,7 @@ impl LayoutEngine {
                         current_row_h = size.height;
                         current_row_w = size.width;
                     } else {
-                        current_row_h = f64::max(current_row_h, size.height);
+                        current_row_h = f32::max(current_row_h, size.height);
                         current_row_w += size.width;
                         
                         if i < specs.len() - 1 {
@@ -116,10 +116,10 @@ impl LayoutEngine {
                 }
                 total_height += current_row_h;
 
-                let min_panel_h = f64::max(theme.min_panel_size, canvas_h * theme.panel_defense_ratio);
+                let min_panel_h = f32::max(theme.min_panel_size, canvas_h * theme.panel_defense_ratio);
                 let max_allowed_legend_h = (canvas_h - min_panel_h - theme.axis_reserve_buffer).max(0.0);
                 
-                let final_h = f64::min(total_height, max_allowed_legend_h);
+                let final_h = f32::min(total_height, max_allowed_legend_h);
                 let reserve = if final_h > 0.0 { final_h + margin_gap } else { 0.0 };
 
                 if position == LegendPosition::Top { constraints.top = reserve; }
@@ -163,12 +163,12 @@ impl LayoutEngine {
     /// It considers tick marks, rotated labels, and axis titles.
     fn estimate_axis_dimension(
         scale: &dyn crate::scale::ScaleTrait,
-        angle_deg: f64,
+        angle_deg: f32,
         title: &str,
-        label_padding: f64,
+        label_padding: f32,
         theme: &Theme,
         is_horizontal_axis: bool,
-    ) -> f64 {
+    ) -> f32 {
         let tick_line_len = 6.0;
         let edge_buffer = 10.0;
         let angle_rad = angle_deg.to_radians();
@@ -190,7 +190,7 @@ impl LayoutEngine {
                     w.abs() * angle_rad.cos().abs() + h * angle_rad.sin().abs()
                 }
             })
-            .fold(0.0, f64::max);
+            .fold(0.0, f32::max);
 
         let title_area = if title.is_empty() { 
             0.0 

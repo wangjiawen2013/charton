@@ -28,8 +28,8 @@ impl TemporalScale {
     }
 
     /// Helper method to transform an `OffsetDateTime` directly to a normalized [0, 1] value.
-    pub fn normalize_time(&self, value: OffsetDateTime) -> f64 {
-        self.normalize(value.unix_timestamp_nanos() as f64)
+    pub fn normalize_time(&self, value: OffsetDateTime) -> f32 {
+        self.normalize(value.unix_timestamp_nanos() as f32)
     }
 
     /// Determines the best time interval and a label format key based on the domain duration.
@@ -66,17 +66,17 @@ impl TemporalScale {
 }
 
 impl ScaleTrait for TemporalScale {
-    /// Transforms a timestamp (as f64 nanoseconds) into a normalized [0, 1] ratio.
+    /// Transforms a timestamp (as f32 nanoseconds) into a normalized [0, 1] ratio.
     /// 
     /// The transformation is linear based on the elapsed nanoseconds from the domain start.
     /// Since the domain is expanded, data points will naturally fall within a 
     /// sub-range of [0, 1], providing visual padding.
-    fn normalize(&self, value: f64) -> f64 {
-        let d_min = self.domain.0.unix_timestamp_nanos() as f64;
-        let d_max = self.domain.1.unix_timestamp_nanos() as f64;
+    fn normalize(&self, value: f32) -> f32 {
+        let d_min = self.domain.0.unix_timestamp_nanos() as f32;
+        let d_max = self.domain.1.unix_timestamp_nanos() as f32;
 
         let diff = d_max - d_min;
-        if diff.abs() < f64::EPSILON {
+        if diff.abs() < f32::EPSILON {
             // Default to center if the time domain is a single point
             return 0.5;
         }
@@ -84,22 +84,22 @@ impl ScaleTrait for TemporalScale {
         (value - d_min) / diff
     }
 
-    fn normalize_string(&self, _value: &str) -> f64 {
+    fn normalize_string(&self, _value: &str) -> f32 {
         0.0
     }
 
-    /// Returns the domain boundaries converted to Unix nanosecond timestamps (f64).
-    fn domain(&self) -> (f64, f64) {
+    /// Returns the domain boundaries converted to Unix nanosecond timestamps (f32).
+    fn domain(&self) -> (f32, f32) {
         (
-            self.domain.0.unix_timestamp_nanos() as f64,
-            self.domain.1.unix_timestamp_nanos() as f64,
+            self.domain.0.unix_timestamp_nanos() as f32,
+            self.domain.1.unix_timestamp_nanos() as f32,
         )
     }
 
     /// Returns the maximum logical value for mapping.
     /// For temporal scales, this returns 1.0, treating the time range 
     /// as a continuous dimension for visual encodings like color gradients.
-    fn logical_max(&self) -> f64 {
+    fn logical_max(&self) -> f32 {
         1.0
     }
 
@@ -122,7 +122,7 @@ impl ScaleTrait for TemporalScale {
             let label = self.format_dt(curr, format_key);
 
             ticks.push(Tick {
-                value: curr.unix_timestamp_nanos() as f64,
+                value: curr.unix_timestamp_nanos() as f32,
                 label,
             });
             
@@ -157,19 +157,19 @@ impl ScaleTrait for TemporalScale {
         if n == 1 {
             let (_, format_key) = self.get_interval_info();
             return vec![Tick {
-                value: start_dt.unix_timestamp_nanos() as f64,
+                value: start_dt.unix_timestamp_nanos() as f32,
                 label: self.format_dt(start_dt, format_key),
             }];
         }
 
-        let start_ns = start_dt.unix_timestamp_nanos() as f64;
-        let end_ns = end_dt.unix_timestamp_nanos() as f64;
-        let step_ns = (end_ns - start_ns) / (n - 1) as f64;
+        let start_ns = start_dt.unix_timestamp_nanos() as f32;
+        let end_ns = end_dt.unix_timestamp_nanos() as f32;
+        let step_ns = (end_ns - start_ns) / (n - 1) as f32;
 
         let (_, format_key) = self.get_interval_info();
 
         (0..n).map(|i| {
-            let current_ns = if i == n - 1 { end_ns } else { start_ns + i as f64 * step_ns };
+            let current_ns = if i == n - 1 { end_ns } else { start_ns + i as f32 * step_ns };
             
             // Convert nanoseconds back to OffsetDateTime
             let dt = OffsetDateTime::from_unix_timestamp_nanos(current_ns as i128)

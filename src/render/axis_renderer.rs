@@ -59,7 +59,7 @@ fn draw_axis_line(
     writeln!(
         svg,
         r#"<line x1="{:.2}" y1="{:.2}" x2="{:.2}" y2="{:.2}" stroke="{}" stroke-width="{}" stroke-linecap="square"/>"#,
-        x1, y1, x2, y2, theme.label_color, theme.axis_width
+        x1, y1, x2, y2, theme.label_color.as_str(), theme.axis_width
     )?;
     Ok(())
 }
@@ -109,7 +109,7 @@ fn draw_ticks_and_labels(
         
         // Draw Tick Line
         writeln!(svg, r#"<line x1="{:.2}" y1="{:.2}" x2="{:.2}" y2="{:.2}" stroke="{}" stroke-width="{:.1}"/>"#,
-            px, py, x2, y2, theme.label_color, theme.tick_width)?;
+            px, py, x2, y2, theme.label_color.as_str(), theme.tick_width)?;
 
         // Draw Label Text
         let final_x = px + dx;
@@ -122,7 +122,7 @@ fn draw_ticks_and_labels(
 
         writeln!(svg, r#"<text x="{:.2}" y="{:.2}" font-size="{}" font-family="{}" fill="{}" text-anchor="{}" dominant-baseline="{}"{}>{}</text>"#,
             final_x, final_y, theme.tick_label_size, theme.tick_label_family,
-            theme.tick_label_color, anchor, baseline, transform, tick.label
+            theme.tick_label_color.as_str(), anchor, baseline, transform, tick.label
         )?;
     }
     Ok(())
@@ -172,13 +172,13 @@ fn draw_axis_title(
                     w.abs() * angle_rad.sin().abs() + h * angle_rad.cos().abs()
                 }
             })
-            .fold(0.0, f64::max);
+            .fold(0.0, f32::max);
 
         let v_offset = tick_line_len + max_tick_height + theme.label_padding + title_gap;
         let y = panel.y + panel.height + v_offset; 
         
         writeln!(svg, r#"<text x="{:.2}" y="{:.2}" text-anchor="middle" font-size="{}" font-family="{}" fill="{}" font-weight="bold" dominant-baseline="hanging">{}</text>"#,
-            x, y, theme.label_size, theme.label_family, theme.label_color, label
+            x, y, theme.label_size, theme.label_family, theme.label_color.as_str(), label
         )?;
     } else {
         let y = panel.y + panel.height / 2.0;
@@ -193,13 +193,13 @@ fn draw_axis_title(
                     w.abs() * angle_rad.cos().abs() + h * angle_rad.sin().abs()
                 }
             })
-            .fold(0.0, f64::max);
+            .fold(0.0, f32::max);
 
         let h_offset = tick_line_len + max_tick_width + theme.label_padding + title_gap + theme.label_size;
         let x = panel.x - h_offset; 
         
         writeln!(svg, r#"<text x="{:.2}" y="{:.2}" text-anchor="middle" font-size="{}" font-family="{}" fill="{}" font-weight="bold" transform="rotate(-90, {:.2}, {:.2})" dominant-baseline="middle">{}</text>"#,
-            x, y, theme.label_size, theme.label_family, theme.label_color, x, y, label
+            x, y, theme.label_size, theme.label_family, theme.label_color.as_str(), x, y, label
         )?;
     }
     Ok(())
