@@ -1,42 +1,65 @@
 use crate::mark::Mark;
 use crate::visual::color::SingleColor;
 
-/// Represents an arc-shaped mark for pie and donut charts
+/// Mark type for arc-shaped elements (Pie/Donut charts).
 ///
-/// The `MarkArc` struct defines the visual properties of arc-shaped elements
-/// used in pie charts and donut charts. It controls the appearance of individual
-/// slices including their color, opacity, stroke, and inner radius ratio which
-/// determines whether the chart is a pie chart (full circle) or donut chart (with hole).
-///
-/// This mark type is specifically designed for polar coordinate visualizations
-/// where data is represented as segments of a circle, with the angle of each segment
-/// proportional to its value.
-///
-/// # Color Handling
-///
-/// In pie/donut charts, each slice typically represents a different category and is
-/// automatically assigned a color from the palette system. When no explicit color
-/// encoding is provided, the chart will cycle through colors from the default palette
-/// to distinguish between slices. The `color` field in this struct serves as a fallback
-/// when palette-based coloring is not used.
+/// The `MarkArc` struct defines the visual properties of arcs.
+/// It supports a fluent interface for configuring fill color, opacity, 
+/// stroke properties, and the inner radius ratio for donut charts.
 #[derive(Clone)]
 pub struct MarkArc {
-    pub(crate) color: Option<SingleColor>,
-    pub(crate) opacity: f64,
-    pub(crate) stroke: Option<SingleColor>,
-    pub(crate) stroke_width: f64,
-    pub(crate) inner_radius_ratio: f64, // Ratio of inner radius to outer radius for donut chart
+    pub(crate) color: SingleColor,
+    pub(crate) opacity: f32,
+    pub(crate) stroke: SingleColor,
+    pub(crate) stroke_width: f32,
+    pub(crate) inner_radius_ratio: f32,
 }
 
 impl MarkArc {
     pub(crate) fn new() -> Self {
         Self {
-            color: Some(SingleColor::new("black")),
+            color: SingleColor::new("black"),
             opacity: 1.0,
-            stroke: Some(SingleColor::new("white")),
+            stroke: SingleColor::new("white"),
             stroke_width: 1.0,
-            inner_radius_ratio: 0.0, // Default to 0.0 for regular pie chart
+            inner_radius_ratio: 0.0,
         }
+    }
+
+    // --- Fluent Configuration Methods (Builder Pattern) ---
+
+    /// Sets the fill color of the arc. Accepts "red", "#hex", etc.
+    pub fn color(mut self, color: impl Into<SingleColor>) -> Self {
+        self.color = color.into();
+        self
+    }
+
+    /// Sets the opacity of the arc mark.
+    /// 
+    /// Value should be between 0.0 (transparent) and 1.0 (opaque).
+    pub fn opacity(mut self, opacity: f32) -> Self {
+        self.opacity = opacity.clamp(0.0, 1.0);
+        self
+    }
+
+    /// Sets the stroke color. Use "none" to disable.
+    pub fn stroke(mut self, stroke: impl Into<SingleColor>) -> Self {
+        self.stroke = stroke.into();
+        self
+    }
+
+    /// Sets the thickness of the arc's outline.
+    pub fn stroke_width(mut self, width: f32) -> Self {
+        self.stroke_width = width;
+        self
+    }
+
+    /// Sets the inner radius ratio (0.0 for Pie, > 0.0 for Donut).
+    /// 
+    /// Value is clamped between 0.0 and 1.0.
+    pub fn inner_radius_ratio(mut self, ratio: f32) -> Self {
+        self.inner_radius_ratio = ratio.clamp(0.0, 1.0);
+        self
     }
 }
 

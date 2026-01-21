@@ -1,42 +1,49 @@
+use crate::mark::Mark;
 use crate::visual::color::SingleColor;
 
-/// MarkRule represents a rule mark for drawing horizontal or vertical lines
+/// Mark type for horizontal or vertical reference lines.
 ///
-/// The `MarkRule` struct defines the visual properties of line elements used to draw
-/// horizontal or vertical rules in charts. It controls the appearance of these lines
-/// including their color, opacity, and stroke width.
-///
-/// Rule marks are used for various purposes such as drawing reference lines, thresholds,
-/// ranges, or connecting elements in the visualization. They can be positioned using
-/// standard encoding channels and support both fixed and data-driven positioning.
-///
-/// # Color Handling
-///
-/// In rule charts, colors can be assigned based on data categories or groups.
-/// When color encoding is used, each rule line will be assigned a color from the
-/// palette system to distinguish between different data series or categories.
-/// When no explicit color encoding is provided, the `color` field in this struct
-/// serves as the default stroke color for all rule lines. For multi-series rule charts,
-/// different series are automatically assigned different colors from the palette
-/// to distinguish them.
+/// The `MarkRule` struct defines the visual properties of rule elements. 
+/// It supports a fluent interface for configuring the line color, opacity, 
+/// and thickness for drawing thresholds, grid lines, or connecting ranges.
 #[derive(Debug, Clone)]
 pub struct MarkRule {
-    /// Color of the rule line
-    pub(crate) color: Option<SingleColor>,
-    /// Opacity of the rule line
-    pub(crate) opacity: f64,
-    /// Stroke width of the rule line
-    pub(crate) stroke_width: f64,
+    pub(crate) color: SingleColor,
+    pub(crate) opacity: f32,
+    pub(crate) stroke_width: f32,
 }
 
 impl MarkRule {
-    /// Create a new MarkRule with default values
+    /// Create a new MarkRule with default values.
     pub(crate) fn new() -> Self {
         Self {
-            color: Some(SingleColor::new("black")),
+            // (0.875, 0.651, 0.212, 0.012), // #a63603
+            color: SingleColor::new("black"),
             opacity: 1.0,
             stroke_width: 1.0,
         }
+    }
+
+    // --- Fluent Configuration Methods (Builder Pattern) ---
+
+    /// Sets the color of the rule line. Accepts "red", "#hex", etc.
+    pub fn color(mut self, color: impl Into<SingleColor>) -> Self {
+        self.color = color.into();
+        self
+    }
+
+    /// Sets the opacity of the rule line.
+    /// 
+    /// Value should be between 0.0 (transparent) and 1.0 (opaque).
+    pub fn opacity(mut self, opacity: f32) -> Self {
+        self.opacity = opacity.clamp(0.0, 1.0);
+        self
+    }
+
+    /// Sets the thickness of the rule line.
+    pub fn stroke_width(mut self, width: f32) -> Self {
+        self.stroke_width = width;
+        self
     }
 }
 
@@ -46,7 +53,7 @@ impl Default for MarkRule {
     }
 }
 
-impl crate::mark::Mark for MarkRule {
+impl Mark for MarkRule {
     fn mark_type(&self) -> &'static str {
         "rule"
     }

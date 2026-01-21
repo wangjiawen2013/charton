@@ -1,43 +1,56 @@
 use crate::mark::Mark;
 use crate::visual::color::SingleColor;
 
-/// Mark type for histogram charts
+/// Mark type for histogram charts.
 ///
-/// The `MarkHist` struct defines the visual properties of bar elements used in
-/// histogram charts. It controls the appearance of histogram bars including their
-/// color, opacity, stroke, and stroke width.
-///
-/// Histogram marks are used to display the distribution of continuous data by
-/// grouping values into bins and showing the frequency or density of observations
-/// in each bin. Unlike regular bar charts, histogram bars are typically adjacent
-/// to each other to emphasize the continuous nature of the data.
-///
-/// # Color Handling
-///
-/// In histogram charts, colors can be assigned based on data categories or groups.
-/// When color encoding is used, each histogram bar or group of bars will be assigned
-/// a color from the palette system to distinguish between different data series or
-/// categories. When no explicit color encoding is provided, the `color` field in
-/// this struct serves as the default fill color for all bars. For grouped histograms,
-/// different series are automatically assigned different colors from the palette
-/// to distinguish them.
+/// The `MarkHist` struct defines the visual properties of bars representing binned data.
+/// It supports a fluent interface for configuring fill color, opacity, and stroke properties.
+/// Histograms typically use these marks to represent frequency distributions.
 #[derive(Debug, Clone)]
 pub struct MarkHist {
-    pub(crate) color: Option<SingleColor>,
-    pub(crate) opacity: f64,
-    pub(crate) stroke: Option<SingleColor>,
-    pub(crate) stroke_width: f64,
+    pub(crate) color: SingleColor,
+    pub(crate) opacity: f32,
+    pub(crate) stroke: SingleColor,
+    pub(crate) stroke_width: f32,
 }
 
 impl MarkHist {
-    /// Create a new bar mark
     pub(crate) fn new() -> Self {
         Self {
-            color: Some(SingleColor::new("black")),
+            // (0.651, 0.212, 0.012, 1.000), // #a63603
+            color: SingleColor::new("black"),
             opacity: 1.0,
-            stroke: Some(SingleColor::new("black")),
+            stroke: SingleColor::new("black"),
             stroke_width: 0.0,
         }
+    }
+
+    // --- Fluent Configuration Methods (Builder Pattern) ---
+
+    /// Sets the fill color of the histogram bars. Accepts "red", "#hex", etc.
+    pub fn color(mut self, color: impl Into<SingleColor>) -> Self {
+        self.color = color.into();
+        self
+    }
+
+    /// Sets the opacity of the histogram mark.
+    /// 
+    /// Value should be between 0.0 (transparent) and 1.0 (opaque).
+    pub fn opacity(mut self, opacity: f32) -> Self {
+        self.opacity = opacity.clamp(0.0, 1.0);
+        self
+    }
+
+    /// Sets the stroke color of the bars. Use "none" to disable.
+    pub fn stroke(mut self, stroke: impl Into<SingleColor>) -> Self {
+        self.stroke = stroke.into();
+        self
+    }
+
+    /// Sets the thickness of the bar's outline.
+    pub fn stroke_width(mut self, width: f32) -> Self {
+        self.stroke_width = width;
+        self
     }
 }
 

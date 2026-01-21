@@ -1,44 +1,64 @@
 use crate::mark::Mark;
 use crate::visual::color::SingleColor;
 
-/// Mark type for error bar charts
+/// Mark type for error bar charts.
 ///
-/// The `MarkErrorBar` struct defines the visual properties of error bar elements
-/// used in statistical data visualization. It controls the appearance of error bars
-/// including their color, opacity, stroke width, cap length, and center point visibility.
-///
-/// Error bar marks are used to display the variability or uncertainty of data points,
-/// typically showing standard deviation, standard error, or confidence intervals.
-/// They are commonly overlaid on other chart types like bar charts or scatter plots
-/// to provide additional statistical context.
-///
-/// # Color Handling
-///
-/// In error bar charts, colors can be assigned based on data categories or groups.
-/// When color encoding is used, each error bar will be assigned a color from the
-/// palette system to distinguish between different data series or categories.
-/// When no explicit color encoding is provided, the `color` field in this struct
-/// serves as the default color for all error bars. For grouped error bars,
-/// different series are automatically assigned different colors from the palette
-/// to distinguish them.
+/// The `MarkErrorBar` struct defines the visual properties of error bar elements.
+/// It supports a fluent interface for configuring stroke appearance, cap dimensions,
+/// and the visibility of center points for statistical uncertainty visualization.
 #[derive(Clone)]
 pub struct MarkErrorBar {
-    pub(crate) color: Option<SingleColor>,
-    pub(crate) opacity: f64,
-    pub(crate) stroke_width: f64,
-    pub(crate) cap_length: f64,   // Add configurable cap length
-    pub(crate) show_center: bool, // Add this field to control center visibility
+    pub(crate) color: SingleColor,
+    pub(crate) opacity: f32,
+    pub(crate) stroke_width: f32,
+    pub(crate) cap_length: f32,
+    pub(crate) show_center: bool,
 }
 
 impl MarkErrorBar {
     pub(crate) fn new() -> Self {
         Self {
-            color: Some(SingleColor::new("black")),
+            // (0.000, 1.000, 0.961, 0.922), // #fff5eb
+            color: SingleColor::new("black"),
             opacity: 1.0,
-            stroke_width: 1.0,  // Default stroke width, 1.0 pixels
-            cap_length: 3.0,    // Default cap length, 3.0 pixels
-            show_center: false, // Don't show the center point by default
+            stroke_width: 1.0,
+            cap_length: 3.0,
+            show_center: false,
         }
+    }
+
+    // --- Fluent Configuration Methods (Builder Pattern) ---
+
+    /// Sets the color of the error bar and its caps. Accepts "red", "#hex", etc.
+    pub fn color(mut self, color: impl Into<SingleColor>) -> Self {
+        self.color = color.into();
+        self
+    }
+
+    /// Sets the opacity of the error bar mark.
+    /// 
+    /// Value should be between 0.0 (transparent) and 1.0 (opaque).
+    pub fn opacity(mut self, opacity: f32) -> Self {
+        self.opacity = opacity.clamp(0.0, 1.0);
+        self
+    }
+
+    /// Sets the thickness of the error bar lines.
+    pub fn stroke_width(mut self, width: f32) -> Self {
+        self.stroke_width = width;
+        self
+    }
+
+    /// Sets the length of the horizontal caps at the ends of the error bar.
+    pub fn cap_length(mut self, length: f32) -> Self {
+        self.cap_length = length;
+        self
+    }
+
+    /// Determines whether to display a marker at the center (mean/median) of the error bar.
+    pub fn show_center(mut self, show: bool) -> Self {
+        self.show_center = show;
+        self
     }
 }
 
