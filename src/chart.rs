@@ -1,4 +1,14 @@
 pub mod point_chart;
+pub mod line_chart;
+pub mod bar_chart;
+pub mod hist_chart;
+pub mod box_chart;
+pub mod pie_chart;
+pub mod area_chart;
+pub mod rect_chart;
+pub mod rule_chart;
+pub mod text_chart;
+//pub mod errorbar_chart;
 
 use crate::scale::{Scale, ScaleDomain};
 use crate::core::layer::{MarkRenderer, Layer};

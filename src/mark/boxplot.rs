@@ -1,54 +1,100 @@
 use crate::mark::Mark;
 use crate::visual::color::SingleColor;
 
-/// Mark type for box whisker charts
+/// Mark type for box whisker charts.
 ///
-/// The `MarkBoxplot` struct defines the visual properties of box-and-whisker plot
-/// elements used in statistical data visualization. It controls the appearance of
-/// box plots including the box color, opacity, stroke, outlier styling, and layout
-/// parameters for grouped displays.
-///
-/// Box plot marks are used to display the distribution of data based on a five-number
-/// summary: minimum, first quartile, median, third quartile, and maximum. They are
-/// particularly useful for identifying outliers and comparing distributions across
-/// different categories.
-///
-/// # Color Handling
-///
-/// In box plots, colors can be assigned based on data categories or groups.
-/// When color encoding is used, each box plot or group of box plots will be assigned
-/// a color from the palette system to distinguish between different data series or
-/// categories. When no explicit color encoding is provided, the `color` field in
-/// this struct serves as the default fill color for all boxes. For grouped box plots,
-/// different series are automatically assigned different colors from the palette
-/// to distinguish them.
+/// The `MarkBoxplot` struct defines the visual properties of box-and-whisker plot elements.
+/// It supports a fluent interface for configuring the box appearance, outlier styling,
+/// and statistical layout parameters like spacing and span.
 #[derive(Debug, Clone)]
 pub struct MarkBoxplot {
-    pub(crate) color: Option<SingleColor>,
-    pub(crate) opacity: f64,
-    pub(crate) stroke: Option<SingleColor>,
-    pub(crate) stroke_width: f64,
-    pub(crate) outlier_color: Option<SingleColor>,
-    pub(crate) outlier_size: f64,
-    pub(crate) width: f64,
-    pub(crate) spacing: f64,
-    pub(crate) span: f64,
+    pub(crate) color: SingleColor,
+    pub(crate) opacity: f32,
+    pub(crate) stroke: SingleColor,
+    pub(crate) stroke_width: f32,
+    pub(crate) outlier_color: SingleColor,
+    pub(crate) outlier_size: f32,
+    pub(crate) width: f32,
+    pub(crate) spacing: f32,
+    pub(crate) span: f32,
 }
 
 impl MarkBoxplot {
-    /// Create a new box whisker mark
     pub(crate) fn new() -> Self {
         Self {
-            color: None,
+            // (0.125, 0.996, 0.902, 0.808), // #fee6ce
+            color: SingleColor::new("none"),
             opacity: 1.0,
-            stroke: Some(SingleColor::new("black")),
+            stroke: SingleColor::new("black"),
             stroke_width: 1.0,
-            outlier_color: Some(SingleColor::new("black")),
+            outlier_color: SingleColor::new("black"),
             outlier_size: 3.0,
             width: 0.5,
-            spacing: 0.2, // Gap(spacing*width) between dodged box elements in a group. 0.0-0.5 usually gives a beautiful layout.
-            span: 0.7, // The total width of boxes and gaps in a position. 0.5-1.0 usually gives a beautiful layout.
+            spacing: 0.2,
+            span: 0.7,
         }
+    }
+
+    // --- Fluent Configuration Methods (Builder Pattern) ---
+
+    /// Sets the fill color of the boxes. Accepts "red", "#hex", etc.
+    pub fn color(mut self, color: impl Into<SingleColor>) -> Self {
+        self.color = color.into();
+        self
+    }
+
+    /// Sets the opacity of the boxplot mark.
+    /// 
+    /// Value should be between 0.0 (transparent) and 1.0 (opaque).
+    pub fn opacity(mut self, opacity: f32) -> Self {
+        self.opacity = opacity.clamp(0.0, 1.0);
+        self
+    }
+
+    /// Sets the stroke color of the boxes and whiskers. Use "none" to disable.
+    pub fn stroke(mut self, stroke: impl Into<SingleColor>) -> Self {
+        self.stroke = stroke.into();
+        self
+    }
+
+    /// Sets the thickness of the boxplot's lines.
+    pub fn stroke_width(mut self, width: f32) -> Self {
+        self.stroke_width = width;
+        self
+    }
+
+    /// Sets the color of the outlier points.
+    pub fn outlier_color(mut self, color: impl Into<SingleColor>) -> Self {
+        self.outlier_color = color.into();
+        self
+    }
+
+    /// Sets the size of the outlier points.
+    pub fn outlier_size(mut self, size: f32) -> Self {
+        self.outlier_size = size;
+        self
+    }
+
+    /// Sets the maximal width of the boxes.
+    pub fn width(mut self, width: f32) -> Self {
+        self.width = width;
+        self
+    }
+
+    /// Sets the relative spacing between boxes in a group.
+    /// 
+    /// Value is clamped between 0.0 and 1.0.
+    pub fn spacing(mut self, spacing: f32) -> Self {
+        self.spacing = spacing.clamp(0.0, 1.0);
+        self
+    }
+
+    /// Sets the total span allocated for a box group.
+    /// 
+    /// Value is clamped between 0.0 and 1.0.
+    pub fn span(mut self, span: f32) -> Self {
+        self.span = span.clamp(0.0, 1.0);
+        self
     }
 }
 

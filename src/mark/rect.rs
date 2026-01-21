@@ -1,42 +1,56 @@
 use crate::mark::Mark;
 use crate::visual::color::SingleColor;
 
-/// Mark type for rectangle/heatmap charts
+/// Mark type for rectangle/heatmap charts.
 ///
-/// The `MarkRect` struct defines the visual properties of rectangular elements used in
-/// heatmap visualizations and other rectangle-based chart types. It controls the
-/// appearance of rectangles including their fill color, opacity, stroke, and stroke width.
-///
-/// Rectangle marks are commonly used in heatmaps where data values are represented by
-/// colored rectangles arranged in a grid pattern. They can also be used for other
-/// visualizations like treemaps or tile-based layouts where rectangular areas represent
-/// data values or categories.
-///
-/// # Color Handling
-///
-/// In rectangle/heatmap charts, colors are typically assigned based on data values
-/// using a continuous color mapping system. Each rectangle's fill color represents
-/// the magnitude of the data value it represents. When color encoding is used,
-/// rectangles are automatically assigned colors from a colormap based on their
-/// normalized data values. The `color` field in this struct serves as a fallback
-/// when no color encoding is provided, though in typical heatmap usage, color
-/// encoding is essential for conveying the data values.
+/// The `MarkRect` struct defines the visual properties of rectangular elements.
+/// It supports a fluent interface for configuring fill color, opacity, 
+/// and boundary stroke properties.
 #[derive(Clone)]
 pub struct MarkRect {
-    pub(crate) color: Option<SingleColor>,
-    pub(crate) opacity: f64,
-    pub(crate) stroke: Option<SingleColor>,
-    pub(crate) stroke_width: f64,
+    pub(crate) color: SingleColor,
+    pub(crate) opacity: f32,
+    pub(crate) stroke: SingleColor,
+    pub(crate) stroke_width: f32,
 }
 
 impl MarkRect {
     pub(crate) fn new() -> Self {
         Self {
-            color: Some(SingleColor::new("black")),
+            // (0.500, 0.992, 0.553, 0.235), // #fd8d3c
+            color: SingleColor::new("black"),
             opacity: 1.0,
-            stroke: Some(SingleColor::new("white")),
+            stroke: SingleColor::new("white"),
             stroke_width: 0.0,
         }
+    }
+
+    // --- Fluent Configuration Methods (Builder Pattern) ---
+
+    /// Sets the fill color of the rectangle. Accepts "red", "#hex", etc.
+    pub fn color(mut self, color: impl Into<SingleColor>) -> Self {
+        self.color = color.into();
+        self
+    }
+
+    /// Sets the opacity of the rectangle mark.
+    /// 
+    /// Value should be between 0.0 (transparent) and 1.0 (opaque).
+    pub fn opacity(mut self, opacity: f32) -> Self {
+        self.opacity = opacity.clamp(0.0, 1.0);
+        self
+    }
+
+    /// Sets the stroke color of the rectangle boundary. Use "none" to disable.
+    pub fn stroke(mut self, stroke: impl Into<SingleColor>) -> Self {
+        self.stroke = stroke.into();
+        self
+    }
+
+    /// Sets the thickness of the rectangle's outline.
+    pub fn stroke_width(mut self, width: f32) -> Self {
+        self.stroke_width = width;
+        self
     }
 }
 

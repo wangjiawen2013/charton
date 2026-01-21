@@ -1,82 +1,97 @@
 use crate::mark::Mark;
 use crate::visual::color::SingleColor;
 
-/// Represents a text mark with its properties
+/// Mark type for text annotations and labels.
 ///
-/// The `MarkText` struct defines the visual properties of text elements used in
-/// chart annotations and labels. It controls the appearance of text including its
-/// color, size, opacity, content, alignment, and baseline positioning.
-///
-/// Text marks are used to add descriptive labels, annotations, or data-driven text
-/// elements to visualizations. They support various alignment options and can display
-/// either static text or dynamic text content derived from data fields.
-///
-/// # Color Handling
-///
-/// In text charts, colors can be assigned based on data categories or groups.
-/// When color encoding is used, each text element will be assigned a color from the
-/// palette system to distinguish between different data series or categories.
-/// When no explicit color encoding is provided, the `color` field in this struct
-/// serves as the default fill color for all text elements. For multi-series text charts,
-/// different series are automatically assigned different colors from the palette
-/// to distinguish them.
+/// The `MarkText` struct defines the visual properties of text elements.
+/// It supports a fluent interface for configuring font size, alignment, 
+/// color, and content.
 #[derive(Debug, Clone)]
 pub struct MarkText {
-    // Text color
-    pub(crate) color: Option<SingleColor>,
-    // Text size
-    pub(crate) size: f64,
-    // Text opacity
-    pub(crate) opacity: f64,
-    // Text content (if static)
+    pub(crate) color: SingleColor,
+    pub(crate) size: f32,
+    pub(crate) opacity: f32,
     pub(crate) text: String,
-    // Text anchor (start, middle, end)
     pub(crate) anchor: TextAnchor,
-    // Text baseline (auto, middle, etc.)
     pub(crate) baseline: TextBaseline,
 }
 
-/// Text anchor options
-///
-/// The `TextAnchor` enum defines the horizontal alignment of text elements relative
-/// to their anchor point. This controls how text is positioned horizontally when rendered.
+/// Horizontal alignment options for text elements.
 #[derive(Debug, Clone, Default)]
 pub enum TextAnchor {
-    /// Left-align text to the anchor point
+    /// Left-align text.
     Start,
-    /// Center text on the anchor point
+    /// Center text.
     #[default]
     Middle,
-    /// Right-align text to the anchor point
+    /// Right-align text.
     End,
 }
 
-/// Text baseline options
-///
-/// The `TextBaseline` enum defines the vertical alignment of text elements relative
-/// to their anchor point. This controls how text is positioned vertically when rendered.
+/// Vertical alignment options for text elements.
 #[derive(Debug, Clone, Default)]
 pub enum TextBaseline {
-    /// Use the default baseline determined by the browser
+    /// Browser-determined default.
     #[default]
     Auto,
-    /// Align the middle of the text with the anchor point
+    /// Vertical center.
     Middle,
-    /// Align the top of the text with the anchor point
+    /// Top-aligned.
     Hanging,
 }
 
 impl MarkText {
-    // Create a new text mark with default properties
+    /// Create a new text mark with default properties.
     pub(crate) fn new() -> Self {
         Self {
-            color: Some(SingleColor::new("black")),
+            // (1.000, 0.498, 0.153, 0.016), // #7f2704
+            color: SingleColor::new("black"),
             size: 12.0,
             opacity: 1.0,
-            text: "".to_string(),
+            text: String::new(),
             anchor: TextAnchor::default(),
             baseline: TextBaseline::default(),
         }
+    }
+
+    // --- Fluent Configuration Methods (Builder Pattern) ---
+
+    /// Sets the text color. Accepts "red", "#hex", etc.
+    pub fn color(mut self, color: impl Into<SingleColor>) -> Self {
+        self.color = color.into();
+        self
+    }
+
+    /// Sets the font size of the text.
+    pub fn size(mut self, size: f32) -> Self {
+        self.size = size;
+        self
+    }
+
+    /// Sets the opacity of the text mark.
+    /// 
+    /// Value should be between 0.0 (transparent) and 1.0 (opaque).
+    pub fn opacity(mut self, opacity: f32) -> Self {
+        self.opacity = opacity.clamp(0.0, 1.0);
+        self
+    }
+
+    /// Sets the static text content.
+    pub fn text(mut self, text: impl Into<String>) -> Self {
+        self.text = text.into();
+        self
+    }
+
+    /// Sets the horizontal text anchor point.
+    pub fn anchor(mut self, anchor: impl Into<TextAnchor>) -> Self {
+        self.anchor = anchor.into();
+        self
+    }
+
+    /// Sets the vertical text baseline positioning.
+    pub fn baseline(mut self, baseline: impl Into<TextBaseline>) -> Self {
+        self.baseline = baseline.into();
+        self
     }
 }
 

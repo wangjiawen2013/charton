@@ -1,48 +1,84 @@
 use crate::mark::Mark;
 use crate::visual::color::SingleColor;
 
-/// Mark type for bar charts
+/// Mark type for bar charts.
 ///
-/// The `MarkBar` struct defines the visual properties of rectangular bar elements
-/// used in bar charts, column charts, and histograms. It controls the appearance
-/// of individual bars including their color, opacity, stroke, width, and spacing.
-///
-/// Bar marks are fundamental to many chart types and can be oriented horizontally
-/// or vertically. They support grouping and stacking configurations for comparing
-/// multiple categories or showing part-to-whole relationships.
-///
-/// # Color Handling
-///
-/// In bar charts, colors are typically assigned based on data categories or groups.
-/// When color encoding is used, each bar or group of bars will be assigned a color
-/// from the palette system to distinguish between different data series or categories.
-/// When no explicit color encoding is provided, the `color` field in this struct
-/// serves as the default fill color for all bars. For grouped or stacked bar charts,
-/// different series are automatically assigned different colors from the palette
-/// to distinguish them.
+/// The `MarkBar` struct defines the visual properties of rectangular bar elements.
+/// It supports a fluent interface for configuring fill color, stroke, 
+/// and dimensional constraints like width, spacing, and span.
 #[derive(Debug, Clone)]
 pub struct MarkBar {
-    pub(crate) color: Option<SingleColor>,
-    pub(crate) opacity: f64,
-    pub(crate) stroke: Option<SingleColor>,
-    pub(crate) stroke_width: f64,
-    pub(crate) width: f64,
-    pub(crate) spacing: f64, // Add this field for spacing between bars in a group like boxplot
-    pub(crate) span: f64,    // Add this field for total span of a group like boxplot
+    pub(crate) color: SingleColor,
+    pub(crate) opacity: f32,
+    pub(crate) stroke: SingleColor,
+    pub(crate) stroke_width: f32,
+    pub(crate) width: f32,
+    pub(crate) spacing: f32,
+    pub(crate) span: f32,
 }
 
 impl MarkBar {
-    /// Create a new bar mark
     pub(crate) fn new() -> Self {
         Self {
-            color: Some(SingleColor::new("steelblue")),
+            // (0.375, 0.992, 0.682, 0.420), // #fdae6b
+            color: SingleColor::new("steelblue"),
             opacity: 1.0,
-            stroke: Some(SingleColor::new("black")),
+            stroke: SingleColor::new("black"),
             stroke_width: 1.0,
-            width: 0.5,   // The maximal width of a bar, the actual width may be smaller
-            spacing: 0.0, // Default space(spacing*(actual width)) between bars in a group
-            span: 0.7,    // Default total span for a group
+            width: 0.5,
+            spacing: 0.0,
+            span: 0.7,
         }
+    }
+
+    // --- Fluent Configuration Methods (Builder Pattern) ---
+
+    /// Sets the fill color of the bars. Accepts "red", "#hex", etc.
+    pub fn color(mut self, color: impl Into<SingleColor>) -> Self {
+        self.color = color.into();
+        self
+    }
+
+    /// Sets the opacity of the bar mark.
+    /// 
+    /// Value should be between 0.0 (transparent) and 1.0 (opaque).
+    pub fn opacity(mut self, opacity: f32) -> Self {
+        self.opacity = opacity.clamp(0.0, 1.0);
+        self
+    }
+
+    /// Sets the stroke color of the bars. Use "none" to disable.
+    pub fn stroke(mut self, stroke: impl Into<SingleColor>) -> Self {
+        self.stroke = stroke.into();
+        self
+    }
+
+    /// Sets the thickness of the bar's outline.
+    pub fn stroke_width(mut self, width: f32) -> Self {
+        self.stroke_width = width;
+        self
+    }
+
+    /// Sets the maximal width of a bar (as a ratio or absolute value depending on coordinate system).
+    pub fn width(mut self, width: f32) -> Self {
+        self.width = width;
+        self
+    }
+
+    /// Sets the relative spacing between bars within a group.
+    /// 
+    /// Value is clamped between 0.0 and 1.0.
+    pub fn spacing(mut self, spacing: f32) -> Self {
+        self.spacing = spacing.clamp(0.0, 1.0);
+        self
+    }
+
+    /// Sets the total span of a bar group.
+    /// 
+    /// Value is clamped between 0.0 and 1.0.
+    pub fn span(mut self, span: f32) -> Self {
+        self.span = span.clamp(0.0, 1.0);
+        self
     }
 }
 

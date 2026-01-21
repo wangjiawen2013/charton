@@ -10,6 +10,7 @@ pub(crate) mod rect;
 pub(crate) mod rule;
 pub(crate) mod text;
 
+use crate::prelude::SingleColor;
 /// A trait representing a visual mark in a plot.
 ///
 /// This trait defines the common interface for all visual marks that can be used
@@ -40,9 +41,9 @@ pub trait Mark: Clone {
     /// If no stroke color is set, it returns None.
     ///
     /// # Returns
-    /// * `Option<&crate::visual::color::SingleColor>` - A reference to the stroke color, or None if not set
-    fn stroke(&self) -> Option<&crate::visual::color::SingleColor> {
-        None
+    /// * `crate::visual::color::SingleColor`
+    fn stroke(&self) -> crate::visual::color::SingleColor {
+        SingleColor::new("none".into())
     }
 
     /// Returns the shape of the point
