@@ -6,7 +6,6 @@ use crate::scale::Scale;
 use crate::error::ChartonError;
 use crate::visual::shape::PointShape;
 use crate::visual::color::SingleColor;
-use itertools::izip;
 
 // ============================================================================
 // MARK RENDERING (The main data-to-geometry loop)
@@ -89,13 +88,12 @@ impl MarkRenderer for Chart<MarkPoint> {
         // Prepare the fallback stroke color (default to "none" if not specified)
         let stroke_color = mark_config.stroke.clone();
 
-        for (x_n, y_n, fill_color, current_shape, size) in izip!(
-            x_norms.into_iter(), 
-            y_norms.into_iter(), 
-            color_iter, 
-            shape_iter,
-            size_iter
-        ) {
+        for ((((x_n, y_n), fill_color), current_shape), size) in x_norms.into_iter()
+            .zip(y_norms.into_iter()) 
+            .zip(color_iter) 
+            .zip(shape_iter)
+            .zip(size_iter)
+        {
             let x_norm = x_n.unwrap_or(0.0) as f32;
             let y_norm = y_n.unwrap_or(0.0) as f32;
             
