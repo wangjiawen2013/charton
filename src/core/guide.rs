@@ -91,7 +91,7 @@ impl GuideSpec {
 
     /// Estimates dimensions for a gradient ColorBar.
     fn estimate_colorbar_size(&self, theme: &Theme, max_h: f32) -> GuideSize {
-        let font_size = theme.legend_label_size.unwrap_or(theme.tick_label_size);
+        let font_size = theme.legend_label_size;
         let title_font_size = font_size * 1.1;
         
         let title_w = estimate_text_width(&self.title, title_font_size);
@@ -111,7 +111,7 @@ impl GuideSpec {
 
     /// Estimates dimensions for a discrete Legend, supporting multi-column wrapping.
     fn estimate_legend_size(&self, theme: &Theme, max_h: f32) -> GuideSize {
-        let font_size = theme.legend_label_size.unwrap_or(theme.tick_label_size);
+        let font_size = theme.legend_label_size;
         let title_font_size = font_size * 1.1;
 
         let title_w = estimate_text_width(&self.title, title_font_size);

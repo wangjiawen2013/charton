@@ -4,61 +4,72 @@ use crate::core::layer::Layer;
 use crate::core::guide::{GuideSpec, LegendPosition};
 use crate::core::context::SharedRenderingContext;
 use crate::core::aesthetics::GlobalAesthetics;
-use crate::scale::{Scale, ScaleDomain, create_scale, mapper::VisualMapper};
+use crate::scale::{Scale, ScaleDomain, Expansion, create_scale, mapper::VisualMapper};
 use crate::core::aesthetics::AestheticMapping;
 use crate::theme::Theme;
+use crate::visual::color::{ColorMap, ColorPalette};
 use crate::error::ChartonError;
 use std::fmt::Write;
 
-/// `LayeredChart` is the core structure for building multi-layer visualizations.
+/// `LayeredChart` is the central orchestrator of the visualization.
 ///
-/// It manages the overall layout, coordinate systems, and data-driven properties.
-/// Visual styling is delegated to the [Theme] struct.
+/// It manages:
+/// 1. The list of plot layers ([Layer]).
+/// 2. The global coordinate system ([CoordSystem]).
+/// 3. Scale Overrides (User-defined domains, expansions, and color schemes).
+/// 4. The visual [Theme].
 #[derive(Clone)]
 pub struct LayeredChart {
     // --- Physical Dimensions ---
-    width: u32,
-    height: u32,
+    pub(crate) width: u32,
+    pub(crate) height: u32,
 
     // --- Layout Margins (Proportions 0.0 to 1.0) ---
-    left_margin: f32,
-    right_margin: f32,
-    top_margin: f32,
-    bottom_margin: f32,
+    pub(crate) left_margin: f32,
+    pub(crate) right_margin: f32,
+    pub(crate) top_margin: f32,
+    pub(crate) bottom_margin: f32,
 
     // --- Aesthetic Styling ---
-    theme: Theme,
-    title: Option<String>,
+    pub(crate) theme: Theme,
+    pub(crate) title: Option<String>,
 
     // --- Chart Components ---
-    layers: Vec<Box<dyn Layer>>,
-    coord_system: CoordSystem,
+    pub(crate) layers: Vec<Box<dyn Layer>>,
+    pub(crate) coord_system: CoordSystem,
 
-    // --- Axis Data & Scale Configuration ---
-    x_domain_min: Option<f32>,
-    x_domain_max: Option<f32>,
-    x_label: Option<String>,
+    // --- Axis & Scale Overrides (The "Brain") ---
+    // These fields store explicit user intents that override automatic data inference.
+    pub(crate) x_domain: Option<ScaleDomain>,
+    pub(crate) x_label: Option<String>,
+    pub(crate) x_expand: Option<Expansion>,
 
-    y_domain_min: Option<f32>,
-    y_domain_max: Option<f32>,
-    y_label: Option<String>,
+    pub(crate) y_domain: Option<ScaleDomain>,
+    pub(crate) y_label: Option<String>,
+    pub(crate) y_expand: Option<Expansion>,
 
-    flipped: bool,
+    /// Override the theme's default color map for continuous data.
+    pub(crate) color_map_override: Option<ColorMap>,
+    /// Override the theme's default palette for categorical data.
+    pub(crate) palette_override: Option<ColorPalette>,
+    pub(crate) color_domain: Option<ScaleDomain>,
+    pub(crate) color_expand: Option<Expansion>,
+
+    pub(crate) shape_domain: Option<ScaleDomain>,
+    pub(crate) shape_expand: Option<Expansion>,
+
+    pub(crate) size_domain: Option<ScaleDomain>,
+    pub(crate) size_expand: Option<Expansion>,
+
+    pub(crate) flipped: bool,
 
     // --- Legend Logic ---
-    legend_title: Option<String>,
-    legend_position: LegendPosition,
-    legend_margin: f32,
-}
-
-impl Default for LayeredChart {
-    fn default() -> Self {
-        Self::new()
-    }
+    pub(crate) legend_title: Option<String>,
+    pub(crate) legend_position: LegendPosition,
+    pub(crate) legend_margin: f32,
 }
 
 impl LayeredChart {
-    /// Initializes a new `LayeredChart` with default settings.
     pub fn new() -> Self {
         Self {
             width: 500,
@@ -75,12 +86,24 @@ impl LayeredChart {
             layers: Vec::new(),
             coord_system: CoordSystem::default(),
 
-            x_domain_min: None,
-            x_domain_max: None,
+            // Initializing all overrides as None (defer to automatic inference)
+            x_domain: None,
             x_label: None,
-            y_domain_min: None,
-            y_domain_max: None,
+            x_expand: None,
+
+            y_domain: None,
             y_label: None,
+            y_expand: None,
+
+            color_map_override: None,
+            palette_override: None,
+            color_domain: None,
+            color_expand: None,
+
+            shape_domain: None,
+            shape_expand: None,
+            size_domain: None,
+            size_expand: None,
 
             flipped: false,
 
@@ -137,6 +160,18 @@ impl LayeredChart {
         self
     }
 
+    /// Set a custom ColorMap for continuous color scales.
+    pub fn color_continuous(mut self, map: ColorMap) -> Self {
+        self.color_map_override = Some(map);
+        self
+    }
+
+    /// Set a custom Palette for categorical color scales.
+    pub fn color_discrete(mut self, palette: ColorPalette) -> Self {
+        self.palette_override = Some(palette);
+        self
+    }
+
     /// Provides a closure to modify the existing theme fluently.
     pub fn configure_theme<F>(mut self, f: F) -> Self 
     where 
@@ -153,28 +188,34 @@ impl LayeredChart {
 
     // --- Axis Data & Scale Configuration ---
 
-    pub fn x_domain_min(mut self, min: f32) -> Self {
-        self.x_domain_min = Some(min);
+    /// Set the global X-axis domain, overriding automatic data range calculation.
+    pub fn x_domain(mut self, min: f32, max: f32) -> Self {
+        self.x_domain = Some(ScaleDomain::Continuous(min, max));
         self
     }
 
-    pub fn x_domain_max(mut self, max: f32) -> Self {
-        self.x_domain_max = Some(max);
+    /// Set the X-axis expansion (padding). 
+    /// If None, the resolution logic will use Theme defaults or Scale-specific defaults.
+    pub fn x_expand(mut self, expand: Expansion) -> Self {
+        self.x_expand = Some(expand);
+        self
+    }
+
+    /// Set the global Y-axis domain.
+    pub fn y_domain(mut self, min: f32, max: f32) -> Self {
+        self.y_domain = Some(ScaleDomain::Continuous(min, max));
+        self
+    }
+
+    /// Set the Y-axis expansion (padding). 
+    /// If None, the resolution logic will use Theme defaults or Scale-specific defaults.
+    pub fn y_expand(mut self, expand: Expansion) -> Self {
+        self.y_expand = Some(expand);
         self
     }
 
     pub fn x_label(mut self, label: impl Into<String>) -> Self {
         self.x_label = Some(label.into());
-        self
-    }
-
-    pub fn y_domain_min(mut self, min: f32) -> Self {
-        self.y_domain_min = Some(min);
-        self
-    }
-
-    pub fn y_domain_max(mut self, max: f32) -> Self {
-        self.y_domain_max = Some(max);
         self
     }
 
@@ -624,7 +665,7 @@ impl LayeredChart {
         // 1a. Resolve Color Mapping
         // This handles both Continuous (Linear/Log) and Discrete color scales.
         let color_mapping = if let Some((field, scale_type, domain)) = self.resolve_color_encoding()? {
-            let scale_impl = create_scale(&scale_type, domain, self.theme.color_expand)?;
+            let scale_impl = create_scale(&scale_type, domain, self.color_expand.expect("composite.rs line about 656"))?;
             let mapper = VisualMapper::new_color_default(&scale_type, &self.theme);
             Some(AestheticMapping {
                 field,
@@ -637,7 +678,7 @@ impl LayeredChart {
         // 1b. Resolve Shape Mapping
         // Shapes are strictly Categorical/Discrete in this system.
         let shape_mapping = if let Some((field, scale_type, domain)) = self.resolve_shape_encoding()? {
-            let scale_impl = create_scale(&scale_type, domain, self.theme.shape_expand)?;
+            let scale_impl = create_scale(&scale_type, domain, self.shape_expand.expect("Composite.rs line about 680"))?;
             let mapper = VisualMapper::new_shape_default();
             Some(AestheticMapping {
                 field,
@@ -650,7 +691,7 @@ impl LayeredChart {
         // 1c. Resolve Size Mapping
         // Size usually maps to a Linear scale (area or radius).
         let size_mapping = if let Some((field, scale_type, domain)) = self.resolve_size_encoding()? {
-            let scale_impl = create_scale(&scale_type, domain, self.theme.size_expand)?;
+            let scale_impl = create_scale(&scale_type, domain, self.size_expand.expect("composite.rs line about 696"))?;
             // Radius range (2.0 to 9.0) provides clear visual distinction in legends.
             let mapper = VisualMapper::new_size_default(2.0, 9.0);
             Some(AestheticMapping {
@@ -668,27 +709,21 @@ impl LayeredChart {
         // Position scales map data to the [0, 1] normalized range of the plot panel.
 
         // 2a. Resolve X-Axis
-        let x_scale = if let Some((stype, mut domain)) = self.get_x_domain_from_layers()? {
+        let x_scale = if let Some((stype, domain)) = self.get_x_domain_from_layers()? {
             // Apply user-defined domain overrides if present.
-            if let ScaleDomain::Continuous(ref mut min, ref mut max) = domain {
-                if let Some(u_min) = self.x_domain_min { *min = u_min; }
-                if let Some(u_max) = self.x_domain_max { *max = u_max; }
-            }
-            create_scale(&stype, domain, self.theme.x_expand)?
+            let domain = self.x_domain.clone().unwrap_or(domain);
+            create_scale(&stype, domain, self.x_expand.expect("composite.rs line about 724"))?
         } else {
             // Fallback to a unit scale if no X data is found.
-            create_scale(&Scale::Linear, ScaleDomain::Continuous(0.0, 1.0), self.theme.x_expand)?
+            create_scale(&Scale::Linear, ScaleDomain::Continuous(0.0, 1.0), self.x_expand.expect("composite.rs line about 740"))?
         };
 
         // 2b. Resolve Y-Axis
-        let y_scale = if let Some((stype, mut domain)) = self.get_y_domain_from_layers()? {
-            if let ScaleDomain::Continuous(ref mut min, ref mut max) = domain {
-                if let Some(u_min) = self.y_domain_min { *min = u_min; }
-                if let Some(u_max) = self.y_domain_max { *max = u_max; }
-            }
-            create_scale(&stype, domain, self.theme.y_expand)?
+        let y_scale = if let Some((stype, domain)) = self.get_y_domain_from_layers()? {
+            let domain = self.y_domain.clone().unwrap_or(domain);
+            create_scale(&stype, domain, self.y_expand.expect("composite.rs line about 756"))?
         } else {
-            create_scale(&Scale::Linear, ScaleDomain::Continuous(0.0, 1.0), self.theme.y_expand)?
+            create_scale(&Scale::Linear, ScaleDomain::Continuous(0.0, 1.0), self.y_expand.expect("composite.rs line about 772"))?
         };
 
         // Construct the coordinate system (Cartesian is the current standard).
