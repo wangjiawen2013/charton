@@ -2,7 +2,7 @@
 ## 1.1 What is Charton? (The Core Idea)
 Charton is a modern Rust visualization library designed around a simple, declarative framework for data visualization.
 
-- Declarative API: It offers an API similar to Python's Altair/Vega-Lite, allowing users to define "what to visualize" rather than "how to draw it."
+- Declarative API: It offers an API similar to Python's Altair/Vega-Lite, allowing users to define "what to visualize" rather than "how to draw it.". That is, "the Grammar of Graphics".
 - Native Polars Support: Charton is tightly integrated with the high-performance Rust DataFrame library Polars, enabling efficient, zero-copy data plotting.
 - Dual Rendering Capability: You can utilize its pure Rust SVG renderer for dependency-free plotting, or leverage its IPC mechanism to seamlessly connect with external Python visualization ecosystems like Altair and Matplotlib.
 
