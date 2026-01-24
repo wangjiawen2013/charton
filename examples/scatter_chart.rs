@@ -12,7 +12,7 @@ fn main() -> Result<(), Box<dyn Error>> {
         .mark_point()
         //.configure_point(|m| m.color("red").shape("star").size(3.0).opacity(0.5))
         .encode((x("wt"), y("mpg")))?
-        .encode((x("wt"), y("mpg"), color("gear"), shape("gear"), size("mpg")))?
+        //.encode((x("wt"), y("mpg"), color("gear"), shape("gear"), size("mpg")))?
         .into_layered()
         .coord_flip()
         .configure_theme(|t| t.x_tick_label_angle(-45.0))

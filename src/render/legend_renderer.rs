@@ -26,8 +26,8 @@ impl LegendRenderer {
         }
 
         let mut backend = SvgBackend::new(buffer, None);
-        let font_size = theme.legend_label_size.unwrap_or(theme.tick_label_size);
-        let font_family = theme.legend_label_family.as_ref().unwrap_or(&theme.tick_label_family);
+        let font_size = theme.legend_label_size;
+        let font_family = &theme.legend_label_family;
         
         // Layout orientation: Top/Bottom positions are horizontal; Left/Right are vertical.
         let is_horizontal = matches!(ctx.legend_position, LegendPosition::Top | LegendPosition::Bottom);
@@ -113,8 +113,8 @@ impl LegendRenderer {
     ) -> GuideSize {
         let bar_w = 15.0;
         let bar_h = 150.0; 
-        let font_size = theme.legend_label_size.unwrap_or(theme.tick_label_size);
-        let font_family = theme.legend_label_family.as_ref().unwrap_or(&theme.tick_label_family);
+        let font_size = theme.legend_label_size;
+        let font_family = &theme.legend_label_family;
 
         // A. Sample Gradient Stops
         let mut stops = Vec::new();
@@ -184,7 +184,7 @@ impl LegendRenderer {
         let mut current_col_w = 0.0;
         let mut total_w = 0.0;
         
-        let font_family = theme.legend_label_family.as_ref().unwrap_or(&theme.tick_label_family);
+        let font_family = &theme.legend_label_family;
         let fixed_container_size = 18.0; 
 
         for (i, label) in labels.iter().enumerate() {
