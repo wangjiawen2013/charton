@@ -418,7 +418,7 @@ impl<T: Mark> Chart<T> {
 // This follows the "Composition over Inheritance" principle.
 impl<T> Layer for Chart<T>
 where
-    T: crate::mark::Mark,
+    T: crate::mark::Mark + Send + Sync,
     Chart<T>: MarkRenderer,
 {
     /// Determines if this specific layer needs coordinate axes.
