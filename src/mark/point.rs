@@ -31,7 +31,7 @@ impl MarkPoint {
     // --- Fluent Configuration Methods (Builder Pattern) ---
 
     /// Sets the fill color. Accepts "red", "#hex", etc.
-    pub fn color(mut self, color: impl Into<SingleColor>) -> Self {
+    pub fn with_color(mut self, color: impl Into<SingleColor>) -> Self {
         self.color = color.into();
         self
     }
@@ -42,15 +42,15 @@ impl MarkPoint {
     /// 
     /// # Example
     /// ```
-    /// mark.shape("triangle"); // Automatic conversion
+    /// mark.with_shape("triangle"); // Automatic conversion
     /// ```
-    pub fn shape(mut self, shape: impl Into<PointShape>) -> Self {
+    pub fn with_shape(mut self, shape: impl Into<PointShape>) -> Self {
         self.shape = shape.into();
         self
     }
 
     /// Sets the size (radius or scale factor) of the point.
-    pub fn size(mut self, size: f32) -> Self {
+    pub fn with_size(mut self, size: f32) -> Self {
         self.size = size;
         self
     }
@@ -58,19 +58,19 @@ impl MarkPoint {
     /// Sets the opacity of the point mark.
     /// 
     /// Value should be between 0.0 (transparent) and 1.0 (opaque).
-    pub fn opacity(mut self, opacity: f32) -> Self {
+    pub fn with_opacity(mut self, opacity: f32) -> Self {
         self.opacity = opacity.clamp(0.0, 1.0);
         self
     }
 
     /// Sets the stroke color. Use "none" to disable.
-    pub fn stroke(mut self, stroke: impl Into<SingleColor>) -> Self {
+    pub fn with_stroke(mut self, stroke: impl Into<SingleColor>) -> Self {
         self.stroke = stroke.into();
         self
     }
 
     /// Sets the thickness of the point's outline.
-    pub fn stroke_width(mut self, width: f32) -> Self {
+    pub fn with_stroke_width(mut self, width: f32) -> Self {
         self.stroke_width = width;
         self
     }

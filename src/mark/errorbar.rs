@@ -30,7 +30,7 @@ impl MarkErrorBar {
     // --- Fluent Configuration Methods (Builder Pattern) ---
 
     /// Sets the color of the error bar and its caps. Accepts "red", "#hex", etc.
-    pub fn color(mut self, color: impl Into<SingleColor>) -> Self {
+    pub fn with_color(mut self, color: impl Into<SingleColor>) -> Self {
         self.color = color.into();
         self
     }
@@ -38,25 +38,25 @@ impl MarkErrorBar {
     /// Sets the opacity of the error bar mark.
     /// 
     /// Value should be between 0.0 (transparent) and 1.0 (opaque).
-    pub fn opacity(mut self, opacity: f32) -> Self {
+    pub fn with_opacity(mut self, opacity: f32) -> Self {
         self.opacity = opacity.clamp(0.0, 1.0);
         self
     }
 
     /// Sets the thickness of the error bar lines.
-    pub fn stroke_width(mut self, width: f32) -> Self {
+    pub fn with_stroke_width(mut self, width: f32) -> Self {
         self.stroke_width = width;
         self
     }
 
     /// Sets the length of the horizontal caps at the ends of the error bar.
-    pub fn cap_length(mut self, length: f32) -> Self {
+    pub fn with_cap_length(mut self, length: f32) -> Self {
         self.cap_length = length;
         self
     }
 
     /// Determines whether to display a marker at the center (mean/median) of the error bar.
-    pub fn show_center(mut self, show: bool) -> Self {
+    pub fn with_show_center(mut self, show: bool) -> Self {
         self.show_center = show;
         self
     }

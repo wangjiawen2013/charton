@@ -57,13 +57,13 @@ impl MarkText {
     // --- Fluent Configuration Methods (Builder Pattern) ---
 
     /// Sets the text color. Accepts "red", "#hex", etc.
-    pub fn color(mut self, color: impl Into<SingleColor>) -> Self {
+    pub fn with_color(mut self, color: impl Into<SingleColor>) -> Self {
         self.color = color.into();
         self
     }
 
     /// Sets the font size of the text.
-    pub fn size(mut self, size: f32) -> Self {
+    pub fn with_size(mut self, size: f32) -> Self {
         self.size = size;
         self
     }
@@ -71,25 +71,25 @@ impl MarkText {
     /// Sets the opacity of the text mark.
     /// 
     /// Value should be between 0.0 (transparent) and 1.0 (opaque).
-    pub fn opacity(mut self, opacity: f32) -> Self {
+    pub fn with_opacity(mut self, opacity: f32) -> Self {
         self.opacity = opacity.clamp(0.0, 1.0);
         self
     }
 
     /// Sets the static text content.
-    pub fn text(mut self, text: impl Into<String>) -> Self {
+    pub fn with_text(mut self, text: impl Into<String>) -> Self {
         self.text = text.into();
         self
     }
 
     /// Sets the horizontal text anchor point.
-    pub fn anchor(mut self, anchor: impl Into<TextAnchor>) -> Self {
+    pub fn with_anchor(mut self, anchor: impl Into<TextAnchor>) -> Self {
         self.anchor = anchor.into();
         self
     }
 
     /// Sets the vertical text baseline positioning.
-    pub fn baseline(mut self, baseline: impl Into<TextBaseline>) -> Self {
+    pub fn with_baseline(mut self, baseline: impl Into<TextBaseline>) -> Self {
         self.baseline = baseline.into();
         self
     }

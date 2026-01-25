@@ -28,7 +28,7 @@ impl MarkRect {
     // --- Fluent Configuration Methods (Builder Pattern) ---
 
     /// Sets the fill color of the rectangle. Accepts "red", "#hex", etc.
-    pub fn color(mut self, color: impl Into<SingleColor>) -> Self {
+    pub fn with_color(mut self, color: impl Into<SingleColor>) -> Self {
         self.color = color.into();
         self
     }
@@ -36,19 +36,19 @@ impl MarkRect {
     /// Sets the opacity of the rectangle mark.
     /// 
     /// Value should be between 0.0 (transparent) and 1.0 (opaque).
-    pub fn opacity(mut self, opacity: f32) -> Self {
+    pub fn with_opacity(mut self, opacity: f32) -> Self {
         self.opacity = opacity.clamp(0.0, 1.0);
         self
     }
 
     /// Sets the stroke color of the rectangle boundary. Use "none" to disable.
-    pub fn stroke(mut self, stroke: impl Into<SingleColor>) -> Self {
+    pub fn with_stroke(mut self, stroke: impl Into<SingleColor>) -> Self {
         self.stroke = stroke.into();
         self
     }
 
     /// Sets the thickness of the rectangle's outline.
-    pub fn stroke_width(mut self, width: f32) -> Self {
+    pub fn with_stroke_width(mut self, width: f32) -> Self {
         self.stroke_width = width;
         self
     }

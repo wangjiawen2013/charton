@@ -32,13 +32,13 @@ impl MarkLine {
     // --- Fluent Configuration Methods (Builder Pattern) ---
 
     /// Sets the stroke color of the line. Accepts "red", "#hex", etc.
-    pub fn color(mut self, color: impl Into<SingleColor>) -> Self {
+    pub fn with_color(mut self, color: impl Into<SingleColor>) -> Self {
         self.color = color.into();
         self
     }
 
     /// Sets the thickness of the line.
-    pub fn stroke_width(mut self, width: f32) -> Self {
+    pub fn with_stroke_width(mut self, width: f32) -> Self {
         self.stroke_width = width;
         self
     }
@@ -46,7 +46,7 @@ impl MarkLine {
     /// Sets the opacity of the line mark.
     /// 
     /// Value should be between 0.0 (transparent) and 1.0 (opaque).
-    pub fn opacity(mut self, opacity: f32) -> Self {
+    pub fn with_opacity(mut self, opacity: f32) -> Self {
         self.opacity = opacity.clamp(0.0, 1.0);
         self
     }
@@ -54,13 +54,13 @@ impl MarkLine {
     /// Sets the interpolation method for connecting data points.
     /// 
     /// Accepts `PathInterpolation` variants or string literals like "basis" or "step".
-    pub fn interpolation(mut self, interpolation: impl Into<PathInterpolation>) -> Self {
+    pub fn with_interpolation(mut self, interpolation: impl Into<PathInterpolation>) -> Self {
         self.interpolation = interpolation.into();
         self
     }
 
     /// Enables or disables LOESS (Locally Estimated Scatterplot Smoothing).
-    pub fn use_loess(mut self, use_loess: bool) -> Self {
+    pub fn with_use_loess(mut self, use_loess: bool) -> Self {
         self.use_loess = use_loess;
         self
     }
@@ -68,7 +68,7 @@ impl MarkLine {
     /// Sets the bandwidth parameter for LOESS smoothing.
     /// 
     /// Controls the smoothness; value should be between 0.0 and 1.0.
-    pub fn loess_bandwidth(mut self, bandwidth: f32) -> Self {
+    pub fn with_loess_bandwidth(mut self, bandwidth: f32) -> Self {
         self.loess_bandwidth = bandwidth.clamp(0.0, 1.0);
         self
     }
