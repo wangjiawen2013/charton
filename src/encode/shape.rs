@@ -51,7 +51,7 @@ impl Shape {
     }
 
     /// Sets the desired scale type. Usually kept as Discrete for shapes.
-    pub fn scale(mut self, scale_type: Scale) -> Self {
+    pub fn with_scale(mut self, scale_type: Scale) -> Self {
         self.scale_type = Some(scale_type);
         self
     }
@@ -59,13 +59,13 @@ impl Shape {
     /// Explicitly sets the categorical domain for the shape scale.
     /// 
     /// This is used to define which categories get mapped and in what order.
-    pub fn domain(mut self, domain: ScaleDomain) -> Self {
+    pub fn with_domain(mut self, domain: ScaleDomain) -> Self {
         self.domain = Some(domain);
         self
     }
 
     /// Configures the expansion padding (spacing) for the categorical axis.
-    pub fn expand(mut self, expand: Expansion) -> Self {
+    pub fn with_expand(mut self, expand: Expansion) -> Self {
         self.expand = Some(expand);
         self
     }
@@ -79,14 +79,14 @@ impl Shape {
     }
 
     /// Returns the data field name used for shape encoding.
-    pub fn field(&self) -> &str {
+    pub fn get_field(&self) -> &str {
         &self.field
     }
 
     /// Returns a reference to the resolved scale instance.
     /// 
     /// Marks call this to retrieve the specific symbol ID for a data point.
-    pub fn resolved_scale(&self) -> Option<&Arc<dyn ScaleTrait>> {
+    pub fn get_resolved_scale(&self) -> Option<&Arc<dyn ScaleTrait>> {
         self.resolved_scale.as_ref()
     }
 }
@@ -96,7 +96,7 @@ impl Shape {
 /// # Example
 /// ```
 /// // Map the 'category' field to shapes with a default expansion
-/// let s = shape("category").expand(Expansion::default());
+/// let s = shape("category").with_expand(Expansion::default());
 /// ```
 pub fn shape(field: &str) -> Shape {
     Shape::new(field)

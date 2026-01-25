@@ -59,7 +59,7 @@ impl Y {
     }
 
     /// Sets the desired scale type (e.g., `Scale::Linear`, `Scale::Log`).
-    pub fn scale(mut self, scale_type: Scale) -> Self {
+    pub fn with_scale(mut self, scale_type: Scale) -> Self {
         self.scale_type = Some(scale_type);
         self
     }
@@ -67,19 +67,19 @@ impl Y {
     /// Explicitly sets the data domain (limits) for the Y-axis.
     ///
     /// This prevents the engine from calculating the range from the data.
-    pub fn domain(mut self, domain: ScaleDomain) -> Self {
+    pub fn with_domain(mut self, domain: ScaleDomain) -> Self {
         self.domain = Some(domain);
         self
     }
 
     /// Configures the expansion padding for the axis.
-    pub fn expand(mut self, expand: Expansion) -> Self {
+    pub fn with_expand(mut self, expand: Expansion) -> Self {
         self.expand = Some(expand);
         self
     }
 
     /// Determines if the scale must include the zero value.
-    pub fn zero(mut self, zero: bool) -> Self {
+    pub fn with_zero(mut self, zero: bool) -> Self {
         self.zero = Some(zero);
         self
     }
@@ -93,14 +93,14 @@ impl Y {
     }
 
     /// Returns the name of the data field used for this encoding.
-    pub fn field(&self) -> &str {
+    pub fn get_field(&self) -> &str {
         &self.field
     }
 
     /// Returns a reference to the resolved scale if it has been populated.
     /// 
     /// Marks use this to perform the actual mapping from data values to Y-pixels.
-    pub fn resolved_scale(&self) -> Option<&Arc<dyn ScaleTrait>> {
+    pub fn get_resolved_scale(&self) -> Option<&Arc<dyn ScaleTrait>> {
         self.resolved_scale.as_ref()
     }
 }
@@ -110,8 +110,8 @@ impl Y {
 /// # Example
 /// ```
 /// let encoding = y("sales_volume")
-///     .domain(ScaleDomain::Continuous(0.0, 1000.0))
-///     .zero(true);
+///     .with_domain(ScaleDomain::Continuous(0.0, 1000.0))
+///     .with_zero(true);
 /// ```
 pub fn y(field: &str) -> Y {
     Y::new(field)

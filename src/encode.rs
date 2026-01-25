@@ -51,7 +51,7 @@ pub trait IntoEncoding {
 /// This struct is typically populated using the `encode` method on chart objects
 /// and is used internally during the rendering process to determine how data
 /// should be visually represented.
-#[derive(Default, Clone)]
+#[derive(Default)]
 pub struct Encoding {
     pub(crate) x: Option<X>,             // For both continuous and discrete data
     pub(crate) y: Option<Y>,             // For both continuous and discrete data
