@@ -38,7 +38,7 @@ impl MarkBoxplot {
     // --- Fluent Configuration Methods (Builder Pattern) ---
 
     /// Sets the fill color of the boxes. Accepts "red", "#hex", etc.
-    pub fn color(mut self, color: impl Into<SingleColor>) -> Self {
+    pub fn with_color(mut self, color: impl Into<SingleColor>) -> Self {
         self.color = color.into();
         self
     }
@@ -46,37 +46,37 @@ impl MarkBoxplot {
     /// Sets the opacity of the boxplot mark.
     /// 
     /// Value should be between 0.0 (transparent) and 1.0 (opaque).
-    pub fn opacity(mut self, opacity: f32) -> Self {
+    pub fn with_opacity(mut self, opacity: f32) -> Self {
         self.opacity = opacity.clamp(0.0, 1.0);
         self
     }
 
     /// Sets the stroke color of the boxes and whiskers. Use "none" to disable.
-    pub fn stroke(mut self, stroke: impl Into<SingleColor>) -> Self {
+    pub fn with_stroke(mut self, stroke: impl Into<SingleColor>) -> Self {
         self.stroke = stroke.into();
         self
     }
 
     /// Sets the thickness of the boxplot's lines.
-    pub fn stroke_width(mut self, width: f32) -> Self {
+    pub fn with_stroke_width(mut self, width: f32) -> Self {
         self.stroke_width = width;
         self
     }
 
     /// Sets the color of the outlier points.
-    pub fn outlier_color(mut self, color: impl Into<SingleColor>) -> Self {
+    pub fn with_outlier_color(mut self, color: impl Into<SingleColor>) -> Self {
         self.outlier_color = color.into();
         self
     }
 
     /// Sets the size of the outlier points.
-    pub fn outlier_size(mut self, size: f32) -> Self {
+    pub fn with_outlier_size(mut self, size: f32) -> Self {
         self.outlier_size = size;
         self
     }
 
     /// Sets the maximal width of the boxes.
-    pub fn width(mut self, width: f32) -> Self {
+    pub fn with_width(mut self, width: f32) -> Self {
         self.width = width;
         self
     }
@@ -84,7 +84,7 @@ impl MarkBoxplot {
     /// Sets the relative spacing between boxes in a group.
     /// 
     /// Value is clamped between 0.0 and 1.0.
-    pub fn spacing(mut self, spacing: f32) -> Self {
+    pub fn with_spacing(mut self, spacing: f32) -> Self {
         self.spacing = spacing.clamp(0.0, 1.0);
         self
     }
@@ -92,7 +92,7 @@ impl MarkBoxplot {
     /// Sets the total span allocated for a box group.
     /// 
     /// Value is clamped between 0.0 and 1.0.
-    pub fn span(mut self, span: f32) -> Self {
+    pub fn with_span(mut self, span: f32) -> Self {
         self.span = span.clamp(0.0, 1.0);
         self
     }
