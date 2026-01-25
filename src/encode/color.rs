@@ -1,57 +1,95 @@
-use crate::scale::{Scale, ScaleDomain};
+use crate::scale::{Scale, ScaleDomain, ScaleTrait, Expansion};
+use std::sync::Arc;
 
-/// Represents a color encoding for chart elements.
+/// Represents a color encoding specification for chart elements.
 ///
-/// The `Color` struct defines how data values should be mapped to colors 
-/// in a visualization. It supports both continuous scales (e.g., gradients 
-/// for price) and discrete scales (e.g., distinct colors for categories).
-#[derive(Debug, Clone)]
+/// The `Color` struct defines how data values are mapped to visual colors. 
+/// It supports both continuous mappings (gradients) and discrete mappings (palettes).
+///
+/// ### Architecture Note:
+/// Following the "Intent vs. Resolution" pattern, this struct holds user configuration 
+/// until the `LayeredChart` resolves the final scale. This is where your specific 
+/// orange-ish color gradient will be stored:
+/// `(0.000, 1.000, 0.961, 0.922), // #fff5eb ...`
 pub struct Color {
-    /// The name of the data column to use for color encoding.
-    pub field: String,
+    // --- User Configuration (Intent/Inputs) ---
+    
+    /// The name of the data column used for color encoding.
+    pub(crate) field: String,
 
-    /// The scale type for color mapping (Linear, Log, Discrete, etc.).
-    /// If None, the system will automatically infer the scale based on data type.
-    pub scale: Option<Scale>,
+    /// The desired scale transformation (e.g., Linear, Discrete, Log).
+    pub(crate) scale_type: Option<Scale>,
 
-    /// The resolved data domain used for mapping.
-    /// This holds the unique categories or the numeric range found in the data.
-    pub domain: Option<ScaleDomain>,
+    /// An explicit data domain for color mapping.
+    pub(crate) domain: Option<ScaleDomain>,
+
+    /// Rules for adding padding or buffer to the ends of the color scale domain.
+    pub(crate) expand: Option<Expansion>,
+
+    // --- System Resolution (Result/Outputs) ---
+    
+    /// The concrete, trained color scale instance, shared via Arc.
+    ///
+    /// Populated during the resolution phase, this Arc ensures that all layers 
+    /// (e.g., a heatmap and a legend) reference the exact same color interpolation 
+    /// logic and gradient metadata in memory.
+    pub(crate) resolved_scale: Option<Arc<dyn ScaleTrait>>,
 }
 
 impl Color {
-    /// Creates a new Color encoding for the specified field.
+    /// Creates a new Color encoding for the specified data field.
     pub fn new(field: &str) -> Self {
         Self {
             field: field.to_string(),
-            scale: None,  // Will be inferred during data resolution
-            domain: None, // Will be populated from data scan
+            scale_type: None,
+            domain: None,
+            expand: None,
+            resolved_scale: None,
         }
     }
 
-    /// Explicitly sets the scale type for color mapping.
-    ///
-    /// Use this to override automatic inference, such as forcing a 
-    /// numeric field to be treated as categorical data using `Scale::Discrete`.
-    ///
-    /// # Arguments
-    /// * `scale` - The preferred scale type.
-    ///
-    /// # Returns
-    /// Returns `Self` with the updated scale type.
-    pub fn with_scale(mut self, scale: Scale) -> Self {
-        self.scale = Some(scale);
+    /// Explicitly sets the scale type for color mapping (e.g., Linear, Log).
+    pub fn scale(mut self, scale_type: Scale) -> Self {
+        self.scale_type = Some(scale_type);
         self
+    }
+
+    /// Sets an explicit domain (limits) for the color scale.
+    pub fn domain(mut self, domain: ScaleDomain) -> Self {
+        self.domain = Some(domain);
+        self
+    }
+
+    /// Configures the expansion padding for the color scale.
+    pub fn expand(mut self, expand: Expansion) -> Self {
+        self.expand = Some(expand);
+        self
+    }
+
+    /// Injects the resolved color scale instance.
+    pub(crate) fn set_resolved_scale(&mut self, scale: Arc<dyn ScaleTrait>) {
+        self.resolved_scale = Some(scale);
+    }
+
+    /// Returns the name of the data field used for color encoding.
+    pub fn field(&self) -> &str {
+        &self.field
+    }
+
+    /// Returns a reference to the resolved scale instance.
+    pub fn resolved_scale(&self) -> Option<&Arc<dyn ScaleTrait>> {
+        self.resolved_scale.as_ref()
     }
 }
 
-/// Convenience function for creating a color encoding.
+/// Convenience builder function to create a new Color encoding.
 ///
-/// Maps a data field to the color property of marks. This is the 
-/// primary entry point for color specifications in the `encode()` method.
-///
-/// # Arguments
-/// * `field` - The name of the data column to use for color encoding.
+/// # Example
+/// ```
+/// let c = color("magnitude")
+///     .scale(Scale::Linear)
+///     .expand(Expansion::default());
+/// ```
 pub fn color(field: &str) -> Color {
     Color::new(field)
 }

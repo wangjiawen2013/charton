@@ -1,139 +1,118 @@
-use crate::scale::Scale;
+use crate::scale::{Scale, ScaleDomain, ScaleTrait, Expansion};
+use std::sync::Arc;
 
-/// Represents a Y-axis encoding for chart elements
+/// Represents a Y-axis encoding specification for chart elements.
 ///
-/// The `Y` struct defines how data values should be mapped to the vertical
-/// position of visual elements in a chart. It specifies which data field should
-/// be used to determine the y-coordinate of marks and provides additional
-/// configuration options for axis scaling, binning, normalization, and stacking.
+/// Following the Grammar of Graphics, the `Y` struct separates the 
+/// declaration of the mapping (how data should be mapped) from the 
+/// actual execution (the resolved coordinate system).
 ///
-/// Y encoding is fundamental to most chart types and can handle both continuous
-/// and discrete data. It supports various scale types and specialized options for
-/// bar charts and histograms, including normalization and stacking capabilities.
-#[derive(Debug, Clone)]
+/// ### Lifecycle:
+/// 1. **Definition**: Created via `y("field")`. Users specify constraints like `domain` or `zero`.
+/// 2. **Resolution**: The `LayeredChart` trains the scale based on the data and constraints.
+/// 3. **Back-filling**: A concrete `ScaleTrait` instance is wrapped in an `Arc` and injected into 
+///    the `resolved_scale` field.
 pub struct Y {
-    // Default label (polars column name)
+    // --- User Configuration (Intent/Inputs) ---
+    
+    /// The name of the data column to be mapped to the vertical position.
     pub(crate) field: String,
-    pub(crate) bins: Option<usize>, // bins for continuous encoding value in marks like barchart and histogram
-    pub(crate) scale: Option<Scale>, // scale type for the axis
-    pub(crate) zero: Option<bool>, // None = auto, Some(true) = force zero, Some(false) = exclude zero
-    pub(crate) normalize: bool, // false = raw counts, true = normalize counts to sum to 1 for histogram/bar chart
-    pub(crate) stack: bool,     // false = regular bar chart, true = stacked bar chart
+
+    /// The desired scale transformation (e.g., Linear, Log, Discrete).
+    /// If `None`, the engine will infer the type based on the column's data type.
+    pub(crate) scale_type: Option<Scale>,
+
+    /// An explicit user-defined data range (e.g., [0.0, 500.0]).
+    /// If set, this takes absolute priority over automatic data inference.
+    pub(crate) domain: Option<ScaleDomain>,
+
+    /// Rules for adding padding or buffer to the top and bottom of the axis.
+    pub(crate) expand: Option<Expansion>,
+
+    /// Whether to force the inclusion of zero in the axis range.
+    /// This is crucial for charts like Bar or Area to ensure visual integrity.
+    pub(crate) zero: Option<bool>,
+
+    // --- System Resolution (Result/Outputs) ---
+    
+    /// The concrete, trained scale instance used for rendering.
+    ///
+    /// This is populated by the `LayeredChart` during the resolution phase. 
+    /// We use `Arc` (Atomic Reference Counted) to:
+    /// - **Share**: Allow multiple superimposed layers to use the exact same Y-axis instance.
+    /// - **Isolate**: Allow faceted charts to hold independent Y-axes by assigning different Arcs.
+    /// - **Performance**: Avoid deep-cloning complex scale metadata (like axis labels or color tables).
+    pub(crate) resolved_scale: Option<Arc<dyn ScaleTrait>>,
 }
 
 impl Y {
-    fn new(field: &str) -> Self {
+    /// Creates a new Y encoding for a specific data field.
+    pub fn new(field: &str) -> Self {
         Self {
             field: field.to_string(),
-            bins: None,
-            scale: None, // Will be initialized when encoding
-            zero: None,  // Default to auto behavior
-            normalize: false, // Default to false (raw counts)
-            stack: false, // Default to false (regular bar chart)
+            scale_type: None,
+            domain: None,
+            expand: None,
+            zero: None,
+            resolved_scale: None,
         }
     }
 
-    /// Sets the number of bins for marks like barchart and histogram
-    ///
-    /// Configures the number of bins to use when discretizing continuous data
-    /// for chart types that require binned data, such as histograms and bar charts.
-    /// This is particularly useful for controlling the granularity of data aggregation.
-    ///
-    /// # Arguments
-    /// * `bins` - The number of bins to create from the continuous data
-    ///
-    /// # Returns
-    /// Returns `Self` with the updated bin count
-    pub fn with_bins(mut self, bins: usize) -> Self {
-        self.bins = Some(bins);
+    /// Sets the desired scale type (e.g., `Scale::Linear`, `Scale::Log`).
+    pub fn scale(mut self, scale_type: Scale) -> Self {
+        self.scale_type = Some(scale_type);
         self
     }
 
-    /// Sets the scale type for the axis
+    /// Explicitly sets the data domain (limits) for the Y-axis.
     ///
-    /// Configures the scaling function used to map data values to positional coordinates.
-    /// Different scale types are appropriate for different data distributions and
-    /// visualization needs.
-    ///
-    /// # Arguments
-    /// * `scale` - A `Scale` enum value specifying the axis scale type
-    ///   - `Linear`: Standard linear scale for uniformly distributed data
-    ///   - `Log`: Logarithmic scale for exponentially distributed data
-    ///   - `Discrete`: For categorical data with distinct categories
-    ///   - `Temporal`: For time data
-    ///
-    /// # Returns
-    /// Returns `Self` with the updated scale type
-    pub fn with_scale(mut self, scale: Scale) -> Self {
-        self.scale = Some(scale);
+    /// This prevents the engine from calculating the range from the data.
+    pub fn domain(mut self, domain: ScaleDomain) -> Self {
+        self.domain = Some(domain);
         self
     }
 
-    /// Sets whether to include zero in the axis domain
-    ///
-    /// Controls the inclusion of zero in the calculated axis range. This can be
-    /// important for accurate data representation, especially in bar charts where
-    /// excluding zero can exaggerate differences between values.
-    ///
-    /// # Arguments
-    /// * `zero` - A boolean value controlling zero inclusion:
-    ///   - `true`: Force include zero in the axis domain
-    ///   - `false`: Don't force zero from the axis domain, leave it as it is
-    ///
-    /// # Returns
-    /// Returns `Self` with the updated zero inclusion setting
-    pub fn with_zero(mut self, zero: bool) -> Self {
+    /// Configures the expansion padding for the axis.
+    pub fn expand(mut self, expand: Expansion) -> Self {
+        self.expand = Some(expand);
+        self
+    }
+
+    /// Determines if the scale must include the zero value.
+    pub fn zero(mut self, zero: bool) -> Self {
         self.zero = Some(zero);
         self
     }
 
-    /// Sets whether to normalize histogram counts or bar chart values
+    /// Injects the resolved scale instance into the encoding.
     ///
-    /// Controls whether the y-axis values should represent raw counts or normalized
-    /// proportions. Normalized values sum to 1, making it easier to compare distributions
-    /// across different datasets or categories.
-    ///
-    /// # Arguments
-    /// * `normalize` - A boolean value controlling normalization:
-    ///   - `true`: Normalize counts so they sum to 1 (proportions)
-    ///   - `false`: Use raw counts (default)
-    ///
-    /// # Returns
-    /// Returns `Self` with the updated normalization setting
-    pub fn with_normalize(mut self, normalize: bool) -> Self {
-        self.normalize = normalize;
-        self
+    /// This is called by the `LayeredChart` after combining layer data 
+    /// to determine the final coordinate system.
+    pub(crate) fn set_resolved_scale(&mut self, scale: Arc<dyn ScaleTrait>) {
+        self.resolved_scale = Some(scale);
     }
 
-    /// Sets whether to stack bars
-    ///
-    /// Controls whether bars in bar charts should be displayed as separate entities
-    /// or stacked on top of each other. Stacked bars are useful for showing part-to-whole
-    /// relationships within categories.
-    ///
-    /// # Arguments
-    /// * `stack` - A boolean value controlling bar stacking:
-    ///   - `true`: Stack bars to show cumulative values
-    ///   - `false`: Display bars separately (default)
-    ///
-    /// # Returns
-    /// Returns `Self` with the updated stacking setting
-    pub fn with_stack(mut self, stack: bool) -> Self {
-        self.stack = stack;
-        self
+    /// Returns the name of the data field used for this encoding.
+    pub fn field(&self) -> &str {
+        &self.field
+    }
+
+    /// Returns a reference to the resolved scale if it has been populated.
+    /// 
+    /// Marks use this to perform the actual mapping from data values to Y-pixels.
+    pub fn resolved_scale(&self) -> Option<&Arc<dyn ScaleTrait>> {
+        self.resolved_scale.as_ref()
     }
 }
 
-/// Top-level convenience function: directly return Y
+/// Convenience builder function to create a new Y encoding.
 ///
-/// Provides a convenient way to create a `Y` encoding specification that maps
-/// a data field to the vertical position of chart elements.
-///
-/// # Arguments
-/// * `field` - A string slice representing the name of the data column to use for Y-axis encoding
-///
-/// # Returns
-/// A new `Y` instance configured with the specified field
+/// # Example
+/// ```
+/// let encoding = y("sales_volume")
+///     .domain(ScaleDomain::Continuous(0.0, 1000.0))
+///     .zero(true);
+/// ```
 pub fn y(field: &str) -> Y {
     Y::new(field)
 }

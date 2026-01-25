@@ -1,99 +1,121 @@
-use crate::scale::Scale;
+use crate::scale::{Scale, ScaleDomain, ScaleTrait, Expansion};
+use std::sync::Arc;
 
-/// Represents an X-axis encoding for chart elements
+/// Represents an X-axis encoding specification for chart elements.
 ///
-/// The `X` struct defines how data values should be mapped to the horizontal
-/// position of visual elements in a chart. It specifies which data field should
-/// be used to determine the x-coordinate of marks and provides additional
-/// configuration options for axis scaling and binning.
+/// This struct follows the "Intent vs. Resolution" pattern:
+/// 1. **Intent (Inputs)**: User defines *how* the data should be mapped (field, domain, scale_type).
+/// 2. **Resolution (Outputs)**: The engine processes the data and "back-fills" the `resolved_scale`.
 ///
-/// X encoding is fundamental to most chart types and can handle both continuous
-/// and discrete data. It supports various scale types and binning options for
-/// specialized chart types like histograms and bar charts.
-#[derive(Debug, Clone)]
+/// Using `Arc<dyn ScaleTrait>` allows multiple layers in a `LayeredChart` to share the 
+/// exact same coordinate system instance efficiently without deep-copying data like 
+/// large color gradient tables.
 pub struct X {
-    // Default label (polars column name)
+    // --- User Configuration (Intent/Inputs) ---
+    
+    /// The name of the data column to be mapped to the X-axis.
     pub(crate) field: String,
-    pub(crate) bins: Option<usize>,     // bins for continuous encoding value in marks like barchart and histogram
-    pub(crate) scale: Option<Scale>,    // scale type for the axis
-    pub(crate) zero: Option<bool>,      // None = auto, Some(true) = force zero, Some(false) = exclude zero
+
+    /// The desired scale transformation (e.g., Linear, Log, Discrete).
+    /// If `None`, the engine will infer the type from the column's data type.
+    pub(crate) scale_type: Option<Scale>,
+
+    /// An explicit data range provided by the user (e.g., [0.0, 100.0]).
+    /// This acts as the highest priority override during the training phase.
+    pub(crate) domain: Option<ScaleDomain>,
+
+    /// Rules for adding padding/buffer to the ends of the axis domain.
+    pub(crate) expand: Option<Expansion>,
+
+    /// Whether to force the inclusion of zero in the axis range.
+    /// This is common for bar charts to avoid misleading visual scales.
+    pub(crate) zero: Option<bool>,
+
+    // --- System Resolution (Result/Outputs) ---
+    
+    /// The concrete, trained scale instance used for actual rendering.
+    ///
+    /// This field is initially `None` and is populated by the `LayeredChart` 
+    /// during the resolution phase. Once set, it contains the final 
+    /// mathematical mapping logic (e.g., domain to pixels).
+    /// 
+    /// We use `Arc` (Atomic Reference Counted) to:
+    /// - Share a single scale instance across multiple superimposed layers.
+    /// - Avoid expensive deep clones of complex scales (like those with custom color gradients).
+    /// - Ensure thread-safety if rendering is parallelized in the future.
+    pub(crate) resolved_scale: Option<Arc<dyn ScaleTrait>>,
 }
 
 impl X {
-    fn new(field: &str) -> Self {
+    /// Creates a new X encoding for a specific data field.
+    pub fn new(field: &str) -> Self {
         Self {
             field: field.to_string(),
-            bins: None,
-            scale: None, // Will be initialized when encoding
-            zero: None,  // Default to auto behavior
+            scale_type: None,
+            domain: None,
+            expand: None,
+            zero: None,
+            resolved_scale: None,
         }
     }
 
-    /// Sets the number of bins for marks like barchart and histogram
-    ///
-    /// Configures the number of bins to use when discretizing continuous data
-    /// for chart types that require binned data, such as histograms and bar charts.
-    /// This is particularly useful for controlling the granularity of data aggregation.
-    ///
-    /// # Arguments
-    /// * `bins` - The number of bins to create from the continuous data
-    ///
-    /// # Returns
-    /// Returns `Self` with the updated bin count
-    pub fn with_bins(mut self, bins: usize) -> Self {
-        self.bins = Some(bins);
+    /// Sets the preferred scale type (e.g., `Scale::Linear`, `Scale::Log`).
+    pub fn scale(mut self, scale_type: Scale) -> Self {
+        self.scale_type = Some(scale_type);
         self
     }
 
-    /// Sets the scale type for the axis
+    /// Explicitly sets the data domain (limits) for this axis.
     ///
-    /// Configures the scaling function used to map data values to positional coordinates.
-    /// Different scale types are appropriate for different data distributions and
-    /// visualization needs.
-    ///
-    /// # Arguments
-    /// * `scale` - A `Scale` enum value specifying the axis scale type
-    ///   - `Linear`: Standard linear scale for uniformly distributed data
-    ///   - `Log`: Logarithmic scale for exponentially distributed data
-    ///   - `Discrete`: For categorical data with distinct categories
-    ///   - `Temporal`: For time data
-    ///
-    /// # Returns
-    /// Returns `Self` with the updated scale type
-    pub fn with_scale(mut self, scale: Scale) -> Self {
-        self.scale = Some(scale);
+    /// Setting this will prevent the engine from automatically calculating 
+    /// the range based on the data.
+    pub fn domain(mut self, domain: ScaleDomain) -> Self {
+        self.domain = Some(domain);
         self
     }
 
-    /// Sets whether to include zero in the axis domain
-    ///
-    /// Controls the inclusion of zero in the calculated axis range. This can be
-    /// important for accurate data representation, especially in bar charts where
-    /// excluding zero can exaggerate differences between values.
-    ///
-    /// # Arguments
-    /// * `zero` - A boolean value controlling zero inclusion:
-    ///   - `true`: Force include zero in the axis domain
-    ///   - `false`: Exclude zero from the axis domain
-    ///
-    /// # Returns
-    /// Returns `Self` with the updated zero inclusion setting
-    pub fn with_zero(mut self, zero: bool) -> Self {
+    /// Configures the expansion padding for the axis.
+    pub fn expand(mut self, expand: Expansion) -> Self {
+        self.expand = Some(expand);
+        self
+    }
+
+    /// Determines if the scale must include the zero value.
+    pub fn zero(mut self, zero: bool) -> Self {
         self.zero = Some(zero);
         self
     }
+
+    /// Back-fills the resolved scale instance into the encoding.
+    ///
+    /// This is called by the rendering engine after it has combined data 
+    /// and configurations to create the final coordinate system.
+    pub(crate) fn set_resolved_scale(&mut self, scale: Arc<dyn ScaleTrait>) {
+        self.resolved_scale = Some(scale);
+    }
+
+    /// Returns the name of the data field used for this encoding.
+    pub fn field(&self) -> &str {
+        &self.field
+    }
+
+    /// Returns a reference to the resolved scale if it has been populated.
+    /// 
+    /// Marks should call this during their `render` pass to convert 
+    /// data values into visual coordinates.
+    pub fn resolved_scale(&self) -> Option<&Arc<dyn ScaleTrait>> {
+        self.resolved_scale.as_ref()
+    }
 }
 
-/// Top-level convenience function: directly return X
+/// Convenience builder function to create a new X encoding.
 ///
-/// Provides a convenient way to create an `X` encoding specification that maps
-/// a data field to the horizontal position of chart elements.
-///
-/// # Arguments
-/// * `field` - A string slice representing the name of the data column to use for X-axis encoding
-///
-/// # Returns
-/// A new `X` instance configured with the specified field
+/// # Example
+/// ```
+/// let encoding = x("gdp_per_capita")
+///     .scale(Scale::Log)
+///     .zero(false);
+/// ```
 pub fn x(field: &str) -> X {
     X::new(field)
 }
