@@ -381,6 +381,7 @@ impl<T: Mark> Chart<T> {
                 x_encoding.scale = match data_type_category {
                     DataTypeCategory::Continuous => Some(Scale::Linear),
                     DataTypeCategory::Discrete => Some(Scale::Discrete),
+                    DataTypeCategory::Temporal => Some(Scale::Temporal),
                 };
             }
         }
@@ -392,6 +393,7 @@ impl<T: Mark> Chart<T> {
                 y_encoding.scale = match data_type_category {
                     DataTypeCategory::Continuous => Some(Scale::Linear),
                     DataTypeCategory::Discrete => Some(Scale::Discrete),
+                    DataTypeCategory::Temporal => Some(Scale::Temporal),
                 };
             }
         }
@@ -403,6 +405,7 @@ impl<T: Mark> Chart<T> {
                 color_encoding.scale = match data_type_category {
                     DataTypeCategory::Continuous => Some(Scale::Linear),
                     DataTypeCategory::Discrete => Some(Scale::Discrete),
+                    DataTypeCategory::Temporal => Some(Scale::Temporal),
                 };
             }
         }
