@@ -95,7 +95,7 @@ impl Scale {
 #[derive(Debug, Clone)]
 pub enum ScaleDomain {
     Continuous(f32, f32),
-    Categorical(Vec<String>),
+    Discrete(Vec<String>),
     Temporal(OffsetDateTime, OffsetDateTime),
 }
 
@@ -108,7 +108,7 @@ pub trait ScaleTrait: DynClone + std::fmt::Debug + Send + Sync {
     /// Maps a numerical value to a normalized [0, 1] value.
     fn normalize(&self, value: f32) -> f32;
 
-    /// Maps a categorical string to a normalized [0, 1] value.
+    /// Maps a discrete string to a normalized [0, 1] value.
     fn normalize_string(&self, value: &str) -> f32;
 
     /// Returns the data-space boundaries of the scale.
@@ -165,7 +165,7 @@ pub fn create_scale(
             }
         },
         Scale::Discrete => {
-            if let ScaleDomain::Categorical(categories) = domain_data {
+            if let ScaleDomain::Discrete(categories) = domain_data {
                 Box::new(DiscreteScale::new(categories, expand, mapper))
             } else {
                 return Err(ChartonError::Scale("Discrete scale requires Categorical domain".into()));
