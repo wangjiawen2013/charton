@@ -31,6 +31,8 @@ pub struct X {
     /// This is common for bar charts to avoid misleading visual scales.
     pub(crate) zero: Option<bool>,
 
+    pub(crate) bins: Option<usize>, // bins for continuous encoding value in marks like barchart and histogram
+
     // --- System Resolution (Result/Outputs) ---
     
     /// The concrete, trained scale instance used for actual rendering.
@@ -55,6 +57,7 @@ impl X {
             domain: None,
             expand: None,
             zero: None,
+            bins: None,
             resolved_scale: None,
         }
     }
@@ -83,6 +86,22 @@ impl X {
     /// Determines if the scale must include the zero value.
     pub fn with_zero(mut self, zero: bool) -> Self {
         self.zero = Some(zero);
+        self
+    }
+
+    /// Sets the number of bins for marks like barchart and histogram
+    ///
+    /// Configures the number of bins to use when discretizing continuous data
+    /// for chart types that require binned data, such as histograms and bar charts.
+    /// This is particularly useful for controlling the granularity of data aggregation.
+    ///
+    /// # Arguments
+    /// * `bins` - The number of bins to create from the continuous data
+    ///
+    /// # Returns
+    /// Returns `Self` with the updated bin count
+    pub fn with_bins(mut self, bins: usize) -> Self {
+        self.bins = Some(bins);
         self
     }
 

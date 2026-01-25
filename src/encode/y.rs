@@ -33,6 +33,10 @@ pub struct Y {
     /// This is crucial for charts like Bar or Area to ensure visual integrity.
     pub(crate) zero: Option<bool>,
 
+    pub(crate) bins: Option<usize>, // bins for continuous encoding value in marks like barchart and histogram
+    pub(crate) normalize: bool, // false = raw counts, true = normalize counts to sum to 1 for histogram/bar chart
+    pub(crate) stack: bool,     // false = regular bar chart, true = stacked bar chart
+
     // --- System Resolution (Result/Outputs) ---
     
     /// The concrete, trained scale instance used for rendering.
@@ -54,6 +58,9 @@ impl Y {
             domain: None,
             expand: None,
             zero: None,
+            bins: None,
+            normalize: false, // Default to false (raw counts)
+            stack: false, // Default to false (regular bar chart)
             resolved_scale: None,
         }
     }
@@ -81,6 +88,58 @@ impl Y {
     /// Determines if the scale must include the zero value.
     pub fn with_zero(mut self, zero: bool) -> Self {
         self.zero = Some(zero);
+        self
+    }
+
+    /// Sets the number of bins for marks like barchart and histogram
+    ///
+    /// Configures the number of bins to use when discretizing continuous data
+    /// for chart types that require binned data, such as histograms and bar charts.
+    /// This is particularly useful for controlling the granularity of data aggregation.
+    ///
+    /// # Arguments
+    /// * `bins` - The number of bins to create from the continuous data
+    ///
+    /// # Returns
+    /// Returns `Self` with the updated bin count
+    pub fn with_bins(mut self, bins: usize) -> Self {
+        self.bins = Some(bins);
+        self
+    }
+
+    /// Sets whether to normalize histogram counts or bar chart values
+    ///
+    /// Controls whether the y-axis values should represent raw counts or normalized
+    /// proportions. Normalized values sum to 1, making it easier to compare distributions
+    /// across different datasets or categories.
+    ///
+    /// # Arguments
+    /// * `normalize` - A boolean value controlling normalization:
+    ///   - `true`: Normalize counts so they sum to 1 (proportions)
+    ///   - `false`: Use raw counts (default)
+    ///
+    /// # Returns
+    /// Returns `Self` with the updated normalization setting
+    pub fn with_normalize(mut self, normalize: bool) -> Self {
+        self.normalize = normalize;
+        self
+    }
+
+    /// Sets whether to stack bars
+    ///
+    /// Controls whether bars in bar charts should be displayed as separate entities
+    /// or stacked on top of each other. Stacked bars are useful for showing part-to-whole
+    /// relationships within categories.
+    ///
+    /// # Arguments
+    /// * `stack` - A boolean value controlling bar stacking:
+    ///   - `true`: Stack bars to show cumulative values
+    ///   - `false`: Display bars separately (default)
+    ///
+    /// # Returns
+    /// Returns `Self` with the updated stacking setting
+    pub fn with_stack(mut self, stack: bool) -> Self {
+        self.stack = stack;
         self
     }
 
