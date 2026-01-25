@@ -28,12 +28,10 @@ pub struct Color {
 
     // --- System Resolution (Result/Outputs) ---
     
-    /// The concrete, trained color scale instance, shared via Arc.
-    ///
-    /// Populated during the resolution phase, this Arc ensures that all layers 
-    /// (e.g., a heatmap and a legend) reference the exact same color interpolation 
-    /// logic and gradient metadata in memory.
-    pub(crate) resolved_scale: Option<Arc<dyn ScaleTrait>>,
+    /// Stores the concrete, trained scale instance for rendering.
+    /// We use `OnceLock` to provide interior mutability, allowing the global 
+    /// resolution phase to "back-fill" this field while the layer is held by an `Arc`.
+    pub(crate) resolved_scale: std::sync::OnceLock<Arc<dyn ScaleTrait>>,
 }
 
 impl Color {
@@ -44,7 +42,7 @@ impl Color {
             scale_type: None,
             domain: None,
             expand: None,
-            resolved_scale: None,
+            resolved_scale: std::sync::OnceLock::new(),
         }
     }
 
@@ -64,16 +62,6 @@ impl Color {
     pub fn with_expand(mut self, expand: Expansion) -> Self {
         self.expand = Some(expand);
         self
-    }
-
-    /// Injects the resolved color scale instance.
-    pub(crate) fn set_resolved_scale(&mut self, scale: Arc<dyn ScaleTrait>) {
-        self.resolved_scale = Some(scale);
-    }
-
-    /// Returns a reference to the resolved scale instance.
-    pub fn get_resolved_scale(&self) -> Option<&Arc<dyn ScaleTrait>> {
-        self.resolved_scale.as_ref()
     }
 }
 

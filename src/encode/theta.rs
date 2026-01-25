@@ -33,12 +33,10 @@ pub struct Theta {
 
     // --- System Resolution (Result/Outputs) ---
     
-    /// The concrete, trained angular scale instance.
-    ///
-    /// This is populated by the `LayeredChart` resolution phase. The `Arc`
-    /// allows shared ownership between the chart rendering and potentially 
-    /// radial axis or legend generators.
-    pub(crate) resolved_scale: Option<Arc<dyn ScaleTrait>>,
+    /// Stores the concrete, trained scale instance for rendering.
+    /// We use `OnceLock` to provide interior mutability, allowing the global 
+    /// resolution phase to "back-fill" this field while the layer is held by an `Arc`.
+    pub(crate) resolved_scale: std::sync::OnceLock<Arc<dyn ScaleTrait>>,
 }
 
 impl Theta {
@@ -50,7 +48,7 @@ impl Theta {
             domain: None,
             expand: None,
             zero: None,
-            resolved_scale: None,
+            resolved_scale: std::sync::OnceLock::new(),
         }
     }
 
@@ -76,16 +74,6 @@ impl Theta {
     pub fn with_zero(mut self, zero: bool) -> Self {
         self.zero = Some(zero);
         self
-    }
-
-    /// Injects the resolved angular scale instance.
-    pub(crate) fn set_resolved_scale(&mut self, scale: Arc<dyn ScaleTrait>) {
-        self.resolved_scale = Some(scale);
-    }
-
-    /// Returns a reference to the resolved scale instance.
-    pub fn get_resolved_scale(&self) -> Option<&Arc<dyn ScaleTrait>> {
-        self.resolved_scale.as_ref()
     }
 }
 

@@ -30,12 +30,10 @@ pub struct Size {
 
     // --- System Resolution (Result/Outputs) ---
     
-    /// The concrete, trained size scale instance, shared via Arc.
-    ///
-    /// This is populated by the `LayeredChart` resolution phase. Using `Arc`
-    /// ensures that all marks in a chart (and the size legend) interpret 
-    /// the data values using the exact same scaling factor.
-    pub(crate) resolved_scale: Option<Arc<dyn ScaleTrait>>,
+    /// Stores the concrete, trained scale instance for rendering.
+    /// We use `OnceLock` to provide interior mutability, allowing the global 
+    /// resolution phase to "back-fill" this field while the layer is held by an `Arc`.
+    pub(crate) resolved_scale: std::sync::OnceLock<Arc<dyn ScaleTrait>>,
 }
 
 impl Size {
@@ -46,7 +44,7 @@ impl Size {
             scale_type: Some(Scale::Linear),
             domain: None,
             expand: None,
-            resolved_scale: None,
+            resolved_scale: std::sync::OnceLock::new(),
         }
     }
 
@@ -75,16 +73,6 @@ impl Size {
     pub fn with_expand(mut self, expand: Expansion) -> Self {
         self.expand = Some(expand);
         self
-    }
-
-    /// Injects the resolved size scale instance.
-    pub(crate) fn set_resolved_scale(&mut self, scale: Arc<dyn ScaleTrait>) {
-        self.resolved_scale = Some(scale);
-    }
-
-    /// Returns a reference to the resolved scale instance.
-    pub fn get_resolved_scale(&self) -> Option<&Arc<dyn ScaleTrait>> {
-        self.resolved_scale.as_ref()
     }
 }
 

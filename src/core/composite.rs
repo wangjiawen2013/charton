@@ -639,82 +639,51 @@ impl LayeredChart {
 
     /// Renders the entire layered chart to the provided SVG string.
     ///
-    /// This implementation follows a strictly ordered pipeline:
-    /// 1. **Resolution**: Consolidate scales, domains, and physical layout in one pass.
-    /// 2. **Back-fill**: Synchronize individual layers with the resolved global scales.
-    /// 3. **Draw**: Orchestrate the rendering of axes, data marks, and guides.
+    /// This implementation coordinates the final rendering pipeline:
+    /// 1. **Scene Resolution**: Performs the "Industrial Defense" layout and scale training.
+    /// 2. **Context Setup**: Wraps resolved components into a shared rendering environment.
+    /// 3. **Layer Injection**: Provides layers with the final scales required for geometry calculation.
+    /// 4. **Orchestrated Drawing**: Renders titles, axes, data marks, and legends.
     pub fn render(&mut self, svg: &mut String) -> Result<(), ChartonError> {
-        // 0. Guard: If no layers exist, there is nothing to visualize.
+        // 0. Guard: Ensure there's something to render.
         if self.layers.is_empty() { 
             return Ok(()); 
         }
 
-        // --- STEP 1: RESOLUTION PHASE ---
-        // We call resolve_rendering_layout which performs the following:
-        // - Aggregates data domains (color, shape, size, x, y) across all layers.
-        // - Creates unified Scales and VisualMappers.
-        // - Measures Legend and Axis constraints to determine the final data Panel (Rect).
-        // - Generates GuideSpecs (legend instructions).
-        let (coord_box, panel, aesthetics, guide_specs) = self.resolve_rendering_layout()?;
+        // --- STEP 1: SCENE RESOLUTION ---
+        // Performs scale training, unified aesthetic mapping, and physical layout measurement.
+        // Returns Arc-wrapped components for safe, shared access.
+        let (coord, panel, aesthetics, guide_specs) = self.resolve_scene()?;
 
-        // --- STEP 2: LAYER SYNCHRONIZATION (BACK-FILL) ---
-        // To ensure "Visual Consistency," every layer must use the same scales and domains.
-        // We update the layers with the global metadata resolved in Step 1.
-        for layer in self.layers.iter_mut() {
-            
-            // 2a. Sync Color Metadata
-            if let Some(ref mapping) = aesthetics.color {
-                // mapping.scale_type is the Scale enum (Linear, Discrete, etc.)
-                layer.set_scale_type("color", mapping.scale_type.clone());
-                
-                // Use get_domain_enum() to retrieve the full ScaleDomain (Categorical or Continuous)
-                // mapping.scale_impl is the Box<dyn ScaleTrait>
-                layer.set_domain("color", mapping.scale_impl.get_domain_enum());
-            }
-
-            // 2b. Sync Shape Metadata
-            if let Some(ref mapping) = aesthetics.shape {
-                layer.set_scale_type("shape", mapping.scale_type.clone());
-                layer.set_domain("shape", mapping.scale_impl.get_domain_enum());
-            }
-
-            // 2c. Sync Size Metadata
-            if let Some(ref mapping) = aesthetics.size {
-                layer.set_scale_type("size", mapping.scale_type.clone());
-                layer.set_domain("size", mapping.scale_impl.get_domain_enum());
-            }
-        }
-
-        // --- STEP 3: CONTEXT INITIALIZATION ---
-        // Construct the SharedRenderingContext, which acts as the "Source of Truth" 
-        // for all downstream renderers (Axes, Marks, Legends).
+        // --- STEP 2: CONTEXT INITIALIZATION ---
+        // Construct the Source of Truth for the rendering pass.
+        // Cloning the 'coord' Arc is cheap and maintains thread-safety.
         let context = SharedRenderingContext::new(
-            &*coord_box, 
+            coord.clone(), 
             panel,
             self.legend_position,
             self.legend_margin,
             &aesthetics
         );
 
-        // --- STEP 4: DRAWING PHASE ---
+        // --- STEP 3: LAYER SYNCHRONIZATION (The New "Back-fill") ---
+        // Instead of manually syncing individual domains, we inject the resolved 
+        // aesthetic Arcs directly into the layers.
+        for layer in self.layers.iter() {
+            layer.inject_resolved_scales(coord.clone(), &aesthetics);
+        }
+
+        // --- STEP 4: ORCHESTRATED DRAWING ---
 
         // 4a. Render Chart Title
-        // Positions the title based on the overall canvas and resolved panel.
         self.render_title(svg, &context.panel)?;
 
         // 4b. Render Axes (X and Y)
-        // Determine if axes are appropriate based on theme settings and layer types.
-        let should_render_axes = if !self.theme.show_axes {
-            false // Global theme override
-        } else {
-            // Only render axes if at least one layer requires them (e.g., bypass for Pie charts).
-            self.layers.iter().any(|layer| layer.requires_axes())
-        };
-
-        if should_render_axes {
-            // Retrieve labels (aggregated from layers or defaulted from chart settings).
-            let x_label = self.resolve_x_label();
-            let y_label = self.resolve_y_label();
+        // We only render axes if the theme allows and at least one layer requires them.
+        if self.theme.show_axes && self.layers.iter().any(|l| l.requires_axes()) {
+            // Labels are now derived directly from the resolved coordinate scales' fields.
+            let x_label = coord.get_x_scale_field(); // Assume this helper exists on Coord
+            let y_label = coord.get_y_scale_field();
 
             crate::render::axis_renderer::render_axes(
                 svg, 
@@ -726,16 +695,13 @@ impl LayeredChart {
         }
 
         // 4c. Render Marks (Data Geometries)
-        // Each layer iterates over its data and renders its specific geometry (points, lines, etc.)
-        // using the coordinate system and visual mappers provided by the context.
+        // Layers now use their internal cached scales to calculate vertices.
         let mut backend = crate::render::backend::svg::SvgBackend::new(svg, Some(&context.panel));
         for layer in &self.layers {
             layer.render_marks(&mut backend, &context)?;
         }
 
         // 4d. Render Unified Legends & Guides
-        // Uses the GuideSpecs generated during resolution to draw legend blocks
-        // in the margins calculated by the LayoutEngine.
         crate::render::legend_renderer::LegendRenderer::render_legend(
             svg, 
             &guide_specs, 

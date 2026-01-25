@@ -20,12 +20,10 @@ pub struct Text {
 
     // --- System Resolution (Result/Outputs) ---
     
-    /// The resolved scale instance for text.
-    ///
-    /// While often unused for simple text labels, having this field maintains 
-    /// consistency with other encoding channels and allows for "Identity Scales"
-    /// where values are passed through or formatted.
-    pub(crate) resolved_scale: Option<Arc<dyn ScaleTrait>>,
+    /// Stores the concrete, trained scale instance for rendering.
+    /// We use `OnceLock` to provide interior mutability, allowing the global 
+    /// resolution phase to "back-fill" this field while the layer is held by an `Arc`.
+    pub(crate) resolved_scale: std::sync::OnceLock<Arc<dyn ScaleTrait>>,
 }
 
 impl Text {
@@ -33,21 +31,8 @@ impl Text {
     pub fn new(field: &str) -> Self {
         Self {
             field: field.to_string(),
-            resolved_scale: None,
+            resolved_scale: std::sync::OnceLock::new(),
         }
-    }
-
-    /// Injects the resolved scale instance.
-    ///
-    /// This follows the same back-filling pattern as other encoding channels 
-    /// during the resolution phase of a `LayeredChart`.
-    pub(crate) fn set_resolved_scale(&mut self, scale: Arc<dyn ScaleTrait>) {
-        self.resolved_scale = Some(scale);
-    }
-
-    /// Returns a reference to the resolved scale if it has been populated.
-    pub fn get_resolved_scale(&self) -> Option<&Arc<dyn ScaleTrait>> {
-        self.resolved_scale.as_ref()
     }
 }
 

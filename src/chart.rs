@@ -523,10 +523,4 @@ where
             }
         }
     } 
-
-    /// Resolution Phase: Back-fills the final Arc<ScaleTrait> into the encoding.
-    /// This enables the marks to perform mapping during the render pass.
-    fn set_resolved_scale(&mut self, channel: Channel, scale: Arc<dyn ScaleTrait>) {
-        self.encoding.set_resolved_scale_by_channel(channel, scale);
-    }
 }

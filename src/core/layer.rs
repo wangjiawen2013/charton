@@ -1,7 +1,9 @@
 use crate::error::ChartonError;
 use crate::prelude::SingleColor;
-use crate::scale::{Scale, ScaleDomain, ScaleTrait, Expansion};
+use crate::scale::{Scale, ScaleDomain, Expansion};
 use crate::core::context::SharedRenderingContext;
+use crate::coordinate::CoordinateTrait;
+use super::aesthetics::GlobalAesthetics;
 use crate::encode::Channel;
 use std::sync::Arc;
 
@@ -146,13 +148,13 @@ pub trait Layer: MarkRenderer + Send + Sync {
 
     // --- State Resolution (The "Back-filling" Phase) ---
 
-    /// Injects the final, trained scale instance into the layer's encoding.
-    ///
-    /// This ensures that if multiple layers share an axis (e.g., two different 
-    /// datasets on the same Y-axis), they both receive the same mathematical 
-    /// mapping logic.
+    /// Injects the complete resolved environmental state into the layer.
     /// 
-    /// * `channel`: The visual aesthetic being resolved.
-    /// * `scale`: The shared, thread-safe scale object.
-    fn set_resolved_scale(&mut self, channel: Channel, scale: Arc<dyn ScaleTrait>);
+    /// Instead of &mut self, we use &self. 
+    /// Implementations should use 'OnceLock' or 'RwLock' for interior mutability.
+    fn inject_resolved_scales(
+        &self, 
+        coord: Arc<dyn CoordinateTrait>, 
+        aesthetics: &GlobalAesthetics
+    );
 }

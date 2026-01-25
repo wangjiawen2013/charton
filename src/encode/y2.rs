@@ -20,12 +20,10 @@ pub struct Y2 {
 
     // --- System Resolution (Result/Outputs) ---
     
-    /// The resolved scale instance shared with the primary Y-axis.
-    ///
-    /// This is populated by the `LayeredChart` resolution phase. It should 
-    /// point to the exact same `Arc` instance as the primary `Y` encoding 
-    /// to ensure they share the same domain and pixel mapping.
-    pub(crate) resolved_scale: Option<Arc<dyn ScaleTrait>>,
+    /// Stores the concrete, trained scale instance for rendering.
+    /// We use `OnceLock` to provide interior mutability, allowing the global 
+    /// resolution phase to "back-fill" this field while the layer is held by an `Arc`.
+    pub(crate) resolved_scale: std::sync::OnceLock<Arc<dyn ScaleTrait>>,
 }
 
 impl Y2 {
@@ -33,22 +31,8 @@ impl Y2 {
     pub fn new(field: &str) -> Self {
         Self {
             field: field.to_string(),
-            resolved_scale: None,
+            resolved_scale: std::sync::OnceLock::new(),
         }
-    }
-
-    /// Injects the resolved scale instance.
-    /// 
-    /// In most cases, the engine will pass the same `Arc` used by the `Y` encoding.
-    pub(crate) fn set_resolved_scale(&mut self, scale: Arc<dyn ScaleTrait>) {
-        self.resolved_scale = Some(scale);
-    }
-
-    /// Returns a reference to the resolved scale.
-    /// 
-    /// Marks like Area or Bar use this to calculate the "secondary" pixel coordinate.
-    pub fn get_resolved_scale(&self) -> Option<&Arc<dyn ScaleTrait>> {
-        self.resolved_scale.as_ref()
     }
 }
 

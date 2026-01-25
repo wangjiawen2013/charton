@@ -1,6 +1,7 @@
 use crate::coordinate::{CoordinateTrait, Rect};
 use crate::core::aesthetics::GlobalAesthetics;
 use crate::core::guide::LegendPosition;
+use std::sync::Arc;
 
 /// `SharedRenderingContext` provides the environmental data and transformation tools 
 /// required by any `Layer` to render its content.
@@ -9,24 +10,25 @@ use crate::core::guide::LegendPosition;
 /// and a reference to the global aesthetic mappings.
 pub struct SharedRenderingContext<'a> {
     /// The coordinate system used to map normalized values [0, 1] to screen pixels.
-    pub coord: &'a dyn CoordinateTrait,
+    /// Now uses Arc for shared ownership. This allows the context to be passed 
+    /// easily across threads or cached without complex lifetime issues.
+    pub coord: Arc<dyn CoordinateTrait>,
 
     /// The physical rectangular area (in pixels) designated for the plot.
     pub panel: Rect,
-
     pub legend_position: LegendPosition,
     pub legend_margin: f32,
 
     /// Refers to global aesthetic rules (Color, Shape, Size).
-    /// Using a reference '&'a' avoids the need for expensive or impossible Clones 
-    /// of Trait Objects (Box<dyn ScaleTrait>).
+    /// Aesthetics still uses a reference '&'a' because GlobalAesthetics 
+    /// is usually a temporary collection of Arcs created during resolve_scene.
     pub aesthetics: &'a GlobalAesthetics,
 }
 
 impl<'a> SharedRenderingContext<'a> {
     /// Creates a new shared rendering context by borrowing components.
     pub fn new(
-        coord: &'a dyn CoordinateTrait,
+        coord: Arc<dyn CoordinateTrait>,
         panel: Rect,
         legend_position: LegendPosition,
         legend_margin: f32,
