@@ -1,5 +1,6 @@
 use crate::scale::{ScaleTrait, Scale};
 use crate::scale::mapper::VisualMapper;
+use std::sync::Arc;
 
 /// Represents a complete mapping pipeline from a data field to a visual property.
 /// This is the "Source of Truth" for how a specific aesthetic (like color) 
@@ -15,7 +16,7 @@ pub struct AestheticMapping {
     pub scale_type: Scale,
     
     /// The mathematical implementation that normalizes data to [0, 1].
-    pub scale_impl: Box<dyn ScaleTrait>,
+    pub scale_impl: Arc<dyn ScaleTrait>,
     
     /// The visual transformer that turns normalized values into colors, shapes, or sizes.
     pub mapper: VisualMapper,

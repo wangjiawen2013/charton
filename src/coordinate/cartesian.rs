@@ -1,5 +1,6 @@
 use super::{CoordinateTrait, Rect};
 use crate::scale::ScaleTrait;
+use std::sync::Arc;
 
 /// A 2D Cartesian coordinate system.
 /// 
@@ -7,8 +8,8 @@ use crate::scale::ScaleTrait;
 /// This implementation handles axis swapping (coord_flip) and 
 /// the translation from mathematical space to screen space.
 pub struct Cartesian2D {
-    pub x_scale: Box<dyn ScaleTrait>,
-    pub y_scale: Box<dyn ScaleTrait>,
+    pub x_scale: Arc<dyn ScaleTrait>,
+    pub y_scale: Arc<dyn ScaleTrait>,
     /// If true, the X and Y axes are swapped (equivalent to ggplot2's coord_flip).
     /// Data X maps to physical Height, Data Y maps to physical Width.
     pub flipped: bool,
@@ -17,8 +18,8 @@ pub struct Cartesian2D {
 impl Cartesian2D {
     /// Creates a new Cartesian system from two boxed scales.
     pub fn new(
-        x_scale: Box<dyn ScaleTrait>,
-        y_scale: Box<dyn ScaleTrait>,
+        x_scale: Arc<dyn ScaleTrait>,
+        y_scale: Arc<dyn ScaleTrait>,
         flipped: bool,
     ) -> Self {
         Self {
