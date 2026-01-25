@@ -1,5 +1,6 @@
 use crate::coordinate::{CoordinateTrait, CoordSystem, Rect};
 use crate::chart::Chart;
+use crate::encode::Channel;
 use crate::core::layer::Layer;
 use crate::core::guide::{GuideSpec, LegendPosition};
 use crate::core::context::SharedRenderingContext;
@@ -10,6 +11,15 @@ use crate::theme::Theme;
 use crate::visual::color::{ColorMap, ColorPalette};
 use crate::error::ChartonError;
 use std::fmt::Write;
+use std::sync::Arc;
+
+/// A complete specification for a visual channel before the final Scale object is created.
+pub struct ResolvedSpec {
+    pub field: String,
+    pub scale_type: Scale,
+    pub domain: ScaleDomain,
+    pub expand: Expansion,
+}
 
 /// `LayeredChart` is the central orchestrator of the visualization.
 ///
@@ -35,7 +45,9 @@ pub struct LayeredChart {
     pub(crate) title: Option<String>,
 
     // --- Chart Components ---
-    pub(crate) layers: Vec<Box<dyn Layer>>,
+    /// Using Arc (Atomic Reference Counter) allows the chart to be cloned 
+    /// cheaply without deep-copying the underlying data layers.
+    pub(crate) layers: Vec<Arc<dyn Layer>>,
     pub(crate) coord_system: CoordSystem,
 
     // --- Axis & Scale Overrides (The "Brain") ---
@@ -246,358 +258,147 @@ impl LayeredChart {
         self
     }
 
-    /// Consolidates X-axis data domains across all layers.
-    /// 
-    /// Ensures all layers use a compatible Scale type and merges their data 
-    /// into a single global domain (Continuous or Categorical).
-    fn get_x_domain_from_layers(&self) -> Result<Option<(Scale, ScaleDomain)>, ChartonError> {
-        let mut resolved_type: Option<Scale> = None;
+    /// Resolves the unified visual specification for a given channel across all layers.
+    ///
+    /// This method performs the critical "Scale Arbitration" process. It ensures that 
+    /// multiple layers can coexist on the same coordinate axis or aesthetic mapping.
+    ///
+    /// # The Resolution Pipeline:
+    /// 1. **Discovery**: Iterates through all layers to find the common field and scale type.
+    /// 2. **Constraint Check**: Validates that all layers agree on the mathematical interpretation (Scale).
+    /// 3. **Consolidation**: Merges domains (min/max or unique labels) and expands requirements.
+    /// 4. **Override**: Applies explicit user settings (highest priority).
+    /// 5. **Finalization**: Applies smart defaults for edge cases (e.g., zero-range data).
+    pub fn resolve_scale_spec(&self, channel: Channel) -> Result<Option<ResolvedSpec>, ChartonError> {
+        // --- Accumulators for Data Inference ---
+        let mut inferred_field: Option<String> = None;
+        let mut inferred_type: Option<Scale> = None;
         
-        // Variables to track continuous bounds
-        let mut global_min = f32::INFINITY;
-        let mut global_max = f32::NEG_INFINITY;
-        
-        // Vector to track unique categorical labels
+        // Domain accumulators
+        let mut cont_min = f32::INFINITY;
+        let mut cont_max = f32::NEG_INFINITY;
         let mut all_labels: Vec<String> = Vec::new();
+        let mut temp_start: Option<time::OffsetDateTime> = None;
+        let mut temp_end: Option<time::OffsetDateTime> = None;
 
+        // Expansion accumulators (Finding the "Maximum Room" requested by layers)
+        let mut max_mult = (0.0f32, 0.0f32);
+        let mut max_add = (0.0f32, 0.0f32);
+        let mut has_expansion_info = false;
+
+        // --- Step 1: Scan Layers ---
         for (i, layer) in self.layers.iter().enumerate() {
-            // Step 1: Identify scale type for X in this layer
-            let current_type = match layer.get_x_scale_type_from_layer() {
-                Some(t) => t,
-                None => continue, // Skip layers without X encoding
-            };
-
-            // Step 2: Validate type consistency
-            if let Some(ref existing_type) = resolved_type {
-                if existing_type != &current_type {
-                    return Err(ChartonError::Scale(format!(
-                        "X-axis scale type conflict at layer {}: Expected {:?}, found {:?}",
-                        i, existing_type, current_type
-                    )));
-                }
-            } else {
-                resolved_type = Some(current_type);
-            }
-
-            // Step 3: Extract and merge domain data
-            match resolved_type.as_ref().unwrap() {
-                Scale::Discrete => {
-                    if let Some(labels) = layer.get_x_discrete_tick_labels()? {
-                        for label in labels {
-                            if !all_labels.contains(&label) {
-                                all_labels.push(label);
-                            }
-                        }
-                    }
-                }
-                _ => {
-                    let (min, max) = layer.get_x_continuous_bounds()?;
-                    global_min = global_min.min(min);
-                    global_max = global_max.max(max);
-                }
-            }
-        }
-
-        // Step 4: Finalize the domain
-        match resolved_type {
-            Some(stype) => {
-                let domain = match stype {
-                    Scale::Discrete => {
-                        if all_labels.is_empty() { return Ok(None); }
-                        ScaleDomain::Categorical(all_labels)
-                    },
-                    _ => {
-                        if global_min.is_infinite() {
-                            ScaleDomain::Continuous(0.0, 1.0)
-                        } else {
-                            // Handle edge case where min == max (e.g., single data point)
-                            if (global_max - global_min).abs() < 1e-12 {
-                                global_min -= 0.5;
-                                global_max += 0.5;
-                            }
-                            ScaleDomain::Continuous(global_min, global_max)
-                        }
-                    }
-                };
-                Ok(Some((stype, domain)))
-            },
-            None => Ok(None),
-        }
-    }
-
-    // Get the x-axis label from layers
-    fn resolve_x_label(&self) -> String {
-        // First check if we have an explicit label set on the chart
-        if let Some(ref label) = self.x_label {
-            return label.clone();
-        }
-
-        // Try to take the label from the first layer that has a label or field name defined
-        for layer in &self.layers {
-            // Use if let in case charts that don't have x encoding (like pie charts)
-            if let Some(field) = layer.get_x_encoding_field() {
-                return field;
-            }
-        }
-
-        // Default fallback
-        "X".to_string()
-    }
-
-    /// Consolidates Y-axis data domains across all layers.
-    /// 
-    /// Follows the same consolidation logic as X and Color channels:
-    /// 1. Validates scale type consistency (Linear vs Discrete).
-    /// 2. Aggregates min/max for continuous scales or unique labels for discrete ones.
-    fn get_y_domain_from_layers(&self) -> Result<Option<(Scale, ScaleDomain)>, ChartonError> {
-        let mut resolved_type: Option<Scale> = None;
-        
-        // Variables to track continuous bounds
-        let mut global_min = f32::INFINITY;
-        let mut global_max = f32::NEG_INFINITY;
-        
-        // Vector to track unique categorical labels
-        let mut all_labels: Vec<String> = Vec::new();
-
-        for (i, layer) in self.layers.iter().enumerate() {
-            // Step 1: Check Y encoding and scale type
-            let current_type = match layer.get_y_scale_type_from_layer() {
-                Some(t) => t,
-                None => continue, // Skip layers without Y encoding
-            };
-
-            // Step 2: Ensure Y scale consistency across layers
-            if let Some(ref existing_type) = resolved_type {
-                if existing_type != &current_type {
-                    return Err(ChartonError::Scale(format!(
-                        "Y-axis scale type conflict at layer {}: Expected {:?}, found {:?}",
-                        i, existing_type, current_type
-                    )));
-                }
-            } else {
-                resolved_type = Some(current_type);
-            }
-
-            // Step 3: Domain aggregation
-            match resolved_type.as_ref().unwrap() {
-                Scale::Discrete => {
-                    if let Some(labels) = layer.get_y_discrete_tick_labels()? {
-                        for label in labels {
-                            if !all_labels.contains(&label) {
-                                all_labels.push(label);
-                            }
-                        }
-                    }
-                }
-                _ => {
-                    let (min, max) = layer.get_y_continuous_bounds()?;
-                    global_min = global_min.min(min);
-                    global_max = global_max.max(max);
-                }
-            }
-        }
-
-        // Step 4: Construct final Y domain
-        match resolved_type {
-            Some(stype) => {
-                let domain = match stype {
-                    Scale::Discrete => {
-                        if all_labels.is_empty() { return Ok(None); }
-                        ScaleDomain::Categorical(all_labels)
-                    },
-                    _ => {
-                        if global_min.is_infinite() {
-                            ScaleDomain::Continuous(0.0, 1.0)
-                        } else {
-                            // Apply offset if min/max are identical to ensure a valid range
-                            if (global_max - global_min).abs() < 1e-12 {
-                                global_min -= 0.5;
-                                global_max += 0.5;
-                            }
-                            ScaleDomain::Continuous(global_min, global_max)
-                        }
-                    }
-                };
-                Ok(Some((stype, domain)))
-            },
-            None => Ok(None),
-        }
-    }
-
-    // Get the y-axis label from layers
-    fn resolve_y_label(&self) -> String {
-        // First check if we have an explicit label set on the chart
-        if let Some(ref label) = self.y_label {
-            return label.clone();
-        }
-
-        // Try to get label from the first layers
-        for layer in &self.layers {
-            // Use if let in case charts that don't have y encoding (like pie charts)
-            if let Some(field) = layer.get_y_encoding_field() {
-                return field;
-            }
-        }
-
-        // Default fallback
-        "Y".to_string()
-    }
-
-    /// Resolves the unified color encoding by aggregating metadata and data domains across all layers.
-    /// 
-    /// This method ensures:
-    /// 1. **Field Consistency**: Identifies the source data column (e.g., "price").
-    /// 2. **Type Validation**: Checks that all layers agree on the Scale type (e.g., all Linear or all Discrete).
-    /// 3. **Domain Merging**:
-    ///    - For Continuous: Calculates global [min, max], handling cases where min == max.
-    ///    - For Categorical: Collects all unique strings in order of appearance.
-    fn resolve_color_encoding(&self) -> Result<Option<(String, Scale, ScaleDomain)>, ChartonError> {
-        let mut resolved_field: Option<String> = None;
-        let mut resolved_type: Option<Scale> = None;
-        
-        let mut global_min = f32::INFINITY;
-        let mut global_max = f32::NEG_INFINITY;
-        let mut all_labels: Vec<String> = Vec::new();
-
-        for (i, layer) in self.layers.iter().enumerate() {
-            // Step 1: Check if this layer has a color mapping defined
-            let (field, current_type) = match (layer.get_color_encoding_field(), layer.get_color_scale_type_from_layer()) {
+            let (field, current_type) = match (layer.get_field(channel), layer.get_scale(channel)) {
                 (Some(f), Some(t)) => (f, t),
-                _ => continue, 
+                _ => continue, // Layer does not participate in this channel
             };
 
-            // Step 2: Establish or validate the "Source of Truth" for this chart's color channel
-            if let Some(ref existing_type) = resolved_type {
+            // Scale Type Consistency Check
+            if let Some(ref existing_type) = inferred_type {
                 if existing_type != &current_type {
                     return Err(ChartonError::Scale(format!(
-                        "Color scale type conflict: Layer 0 is {:?}, but layer {} is {:?}",
-                        existing_type, i, current_type
+                        "{:?} scale conflict: Layer 0 is {:?}, but layer {} is {:?}",
+                        channel, existing_type, i, current_type
                     )));
                 }
             } else {
-                resolved_field = Some(field);
-                resolved_type = Some(current_type);
+                inferred_field = Some(field);
+                inferred_type = Some(current_type);
             }
 
-            // Step 3: Aggregate data based on the resolved scale type
-            match resolved_type.as_ref().unwrap() {
-                Scale::Discrete => {
-                    if let Some(labels) = layer.get_color_discrete_labels()? {
-                        for label in labels {
-                            if !all_labels.contains(&label) { all_labels.push(label); }
-                        }
+            // Consolidate Domain Data
+            match layer.get_data_bounds(channel)? {
+                ScaleDomain::Continuous(min, max) => {
+                    cont_min = cont_min.min(min);
+                    cont_max = cont_max.max(max);
+                }
+                ScaleDomain::Discrete(labels) => {
+                    for label in labels {
+                        if !all_labels.contains(&label) { all_labels.push(label); }
                     }
                 }
-                _ => {
-                    if let Some((min, max)) = layer.get_color_continuous_bounds()? {
-                        global_min = global_min.min(min);
-                        global_max = global_max.max(max);
-                    }
+                ScaleDomain::Temporal(start, end) => {
+                    temp_start = Some(temp_start.map_or(start, |s| s.min(start)));
+                    temp_end = Some(temp_end.map_or(end, |e| e.max(end)));
                 }
+            }
+
+            // Consolidate Expansion Requirements
+            if let Some(layer_expand) = layer.get_expand(channel) {
+                max_mult.0 = max_mult.0.max(layer_expand.mult.0);
+                max_mult.1 = max_mult.1.max(layer_expand.mult.1);
+                max_add.0 = max_add.0.max(layer_expand.add.0);
+                max_add.1 = max_add.1.max(layer_expand.add.1);
+                has_expansion_info = true;
             }
         }
 
-        // Step 4: Construct the final ScaleDomain
-        if let (Some(field), Some(stype)) = (resolved_field, resolved_type) {
-            let domain = match stype {
+        // --- Step 2: Retrieve User Overrides ---
+        let (manual_domain, manual_label, manual_expand) = match channel {
+            Channel::X => (self.x_domain.clone(), self.x_label.clone(), self.x_expand),
+            Channel::Y => (self.y_domain.clone(), self.y_label.clone(), self.y_expand),
+            Channel::Color => (self.color_domain.clone(), self.legend_title.clone(), self.color_expand),
+            Channel::Shape => (self.shape_domain.clone(), None, self.shape_expand),
+            Channel::Size => (self.size_domain.clone(), None, self.size_expand),
+        };
+
+        // --- Step 3: Final Reconciliation ---
+        
+        // A. Resolve Scale Type
+        let scale_type = match (&inferred_type, &manual_domain) {
+            (Some(t), _) => t.clone(),
+            (None, Some(d)) => match d {
+                ScaleDomain::Discrete(_) => Scale::Discrete,
+                ScaleDomain::Temporal(_, _) => Scale::Temporal,
+                _ => Scale::Linear,
+            },
+            _ => return Ok(None), // No data and no override
+        };
+
+        // B. Resolve Field Label
+        let field = manual_label.or(inferred_field).unwrap_or_else(|| format!("{:?}", channel));
+
+        // C. Resolve Domain (Priority: Manual > Consolidated)
+        let domain = if let Some(d) = manual_domain {
+            d
+        } else {
+            match scale_type {
                 Scale::Discrete => {
                     if all_labels.is_empty() { return Ok(None); }
-                    ScaleDomain::Categorical(all_labels)
-                },
+                    ScaleDomain::Discrete(all_labels)
+                }
+                Scale::Temporal => {
+                    match (temp_start, temp_end) {
+                        (Some(s), Some(e)) => ScaleDomain::Temporal(s, e),
+                        _ => return Ok(None),
+                    }
+                }
                 _ => {
-                    if global_min.is_infinite() {
+                    if cont_min.is_infinite() {
                         ScaleDomain::Continuous(0.0, 1.0)
                     } else {
-                        // Protect against zero-range domains to avoid division by zero during normalization
-                        let (mut final_min, mut final_max) = (global_min, global_max);
-                        if (final_max - final_min).abs() < 1e-12 {
-                            final_min -= 0.5;
-                            final_max += 0.5;
-                        }
-                        ScaleDomain::Continuous(final_min, final_max)
-                    }
-                }
-            };
-            Ok(Some((field, stype, domain)))
-        } else {
-            Ok(None)
-        }
-    }
-
-    /// Resolves the unified size encoding across all layers.
-    ///
-    /// Size scales are typically used for continuous variables (e.g., mapping "population" to radius).
-    /// This method aggregates the numeric bounds and ensures a non-zero range for normalization.
-    fn resolve_size_encoding(&self) -> Result<Option<(String, Scale, ScaleDomain)>, ChartonError> {
-        let mut resolved_field: Option<String> = None;
-        let mut resolved_type: Option<Scale> = None;
-        let mut global_min = f32::INFINITY;
-        let mut global_max = f32::NEG_INFINITY;
-
-        for layer in &self.layers {
-            if let Some(field) = layer.get_size_encoding_field() {
-                if resolved_field.is_none() {
-                    resolved_field = Some(field);
-                    // Default to Linear size scaling if not explicitly specified
-                    resolved_type = Some(layer.get_size_scale_type_from_layer().unwrap_or(Scale::Linear));
-                }
-
-                if let Some((min, max)) = layer.get_size_continuous_bounds()? {
-                    global_min = global_min.min(min);
-                    global_max = global_max.max(max);
-                }
-            }
-        }
-
-        if let (Some(field), Some(stype)) = (resolved_field, resolved_type) {
-            let domain = if global_min.is_infinite() {
-                ScaleDomain::Continuous(0.0, 1.0)
-            } else {
-                let (mut final_min, mut final_max) = (global_min, global_max);
-                // Zero-range protection: ensures points are visible even if all data values are identical
-                if (final_max - final_min).abs() < 1e-12 {
-                    final_min -= 0.5;
-                    final_max += 0.5;
-                }
-                ScaleDomain::Continuous(final_min, final_max)
-            };
-            Ok(Some((field, stype, domain)))
-        } else {
-            Ok(None)
-        }
-    }
-
-    /// Resolves the unified shape encoding across all layers.
-    ///
-    /// Shape encodings are strictly categorical (Discrete). This method collects all 
-    /// unique category labels to ensure the Shape Palette maps them consistently.
-    fn resolve_shape_encoding(&self) -> Result<Option<(String, Scale, ScaleDomain)>, ChartonError> {
-        let mut resolved_field: Option<String> = None;
-        let mut all_labels: Vec<String> = Vec::new();
-
-        for layer in &self.layers {
-            if let Some(field) = layer.get_shape_encoding_field() {
-                if resolved_field.is_none() {
-                    resolved_field = Some(field);
-                }
-
-                if let Some(labels) = layer.get_shape_discrete_labels()? {
-                    for label in labels {
-                        if !all_labels.contains(&label) {
-                            all_labels.push(label);
-                        }
+                        // Zero-range Protection
+                        let (mut min, mut max) = (cont_min, cont_max);
+                        if (max - min).abs() < 1e-12 { min -= 0.5; max += 0.5; }
+                        ScaleDomain::Continuous(min, max)
                     }
                 }
             }
-        }
+        };
 
-        if let Some(field) = resolved_field {
-            if all_labels.is_empty() { return Ok(None); }
-            // Shape is inherently Discrete in this plotting system
-            Ok(Some((field, Scale::Discrete, ScaleDomain::Categorical(all_labels))))
+        // D. Resolve Expansion (Priority: Manual > Consolidated Max > Type Defaults)
+        let expand = if let Some(me) = manual_expand {
+            me
+        } else if has_expansion_info {
+            Expansion { mult: max_mult, add: max_add }
         } else {
-            Ok(None)
-        }
+            match scale_type {
+                Scale::Discrete => Expansion { mult: (0.0, 0.0), add: (0.4, 0.4) },
+                _ => Expansion::default(), // Standard 5% padding
+            }
+        };
+
+        Ok(Some(ResolvedSpec { field, scale_type, domain, expand }))
     }
 
     /// Add a layer to the chart

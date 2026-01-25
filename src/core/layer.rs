@@ -121,7 +121,7 @@ pub trait MarkRenderer {
 /// 2. **Training**: The engine calculates a global domain based on all layers.
 /// 3. **Resolution**: The engine calls `set_resolved_scale` to inject the final scale.
 /// 4. **Rendering**: The engine calls `render_marks`.
-pub trait Layer: MarkRenderer {
+pub trait Layer: MarkRenderer + Send + Sync {
     // --- Metadata Discovery Phase ---
 
     /// Returns true if this layer requires coordinate axes to be drawn.
