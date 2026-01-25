@@ -133,7 +133,7 @@ impl ScaleTrait for DiscreteScale {
 
     /// Returns the raw category list as a Categorical domain variant.
     fn get_domain_enum(&self) -> ScaleDomain {
-        ScaleDomain::Categorical(self.domain.clone())
+        ScaleDomain::Discrete(self.domain.clone())
     }
 
     /// Provides a sample of categories when the total count is too large for a legend.

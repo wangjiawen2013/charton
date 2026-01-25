@@ -10,13 +10,14 @@ pub mod rule_chart;
 pub mod text_chart;
 //pub mod errorbar_chart;
 
-use crate::scale::{Scale, ScaleDomain};
-use crate::core::layer::{MarkRenderer, Layer};
 use crate::core::data::*;
-use crate::encode::{Encoding, IntoEncoding};
+use crate::core::layer::{Layer, MarkRenderer};
+use crate::encode::{Channel, Encoding, IntoEncoding};
+use crate::scale::{Scale, ScaleDomain, ScaleTrait, Expansion};
 use crate::error::ChartonError;
 use crate::mark::Mark;
 use polars::prelude::*;
+use std::sync::Arc;
 
 /// Generic Chart structure - chart-specific properties only
 ///
@@ -376,11 +377,11 @@ impl<T: Mark> Chart<T> {
         if let Some(ref mut x_encoding) = self.encoding.x {
             if x_encoding.scale_type.is_none() {
                 let dtype = self.data.df.schema().get(&x_encoding.field).unwrap();
-                let data_type_category = determine_data_type_category(dtype);
-                x_encoding.scale_type = match data_type_category {
-                    DataTypeCategory::Continuous => Some(Scale::Linear),
-                    DataTypeCategory::Discrete => Some(Scale::Discrete),
-                    DataTypeCategory::Temporal => Some(Scale::Temporal),
+                let semantic_type = interpret_semantic_type(dtype);
+                x_encoding.scale_type = match semantic_type {
+                    SemanticType::Continuous => Some(Scale::Linear),
+                    SemanticType::Discrete => Some(Scale::Discrete),
+                    SemanticType::Temporal => Some(Scale::Temporal),
                 };
             }
         }
@@ -388,11 +389,11 @@ impl<T: Mark> Chart<T> {
         if let Some(ref mut y_encoding) = self.encoding.y {
             if y_encoding.scale_type.is_none() {
                 let dtype = self.data.df.schema().get(&y_encoding.field).unwrap();
-                let data_type_category = determine_data_type_category(dtype);
-                y_encoding.scale_type = match data_type_category {
-                    DataTypeCategory::Continuous => Some(Scale::Linear),
-                    DataTypeCategory::Discrete => Some(Scale::Discrete),
-                    DataTypeCategory::Temporal => Some(Scale::Temporal),
+                let semantic_type = interpret_semantic_type(dtype);
+                y_encoding.scale_type = match semantic_type {
+                    SemanticType::Continuous => Some(Scale::Linear),
+                    SemanticType::Discrete => Some(Scale::Discrete),
+                    SemanticType::Temporal => Some(Scale::Temporal),
                 };
             }
         }
@@ -400,11 +401,11 @@ impl<T: Mark> Chart<T> {
         if let Some(ref mut color_encoding) = self.encoding.color {
             if color_encoding.scale_type.is_none() {
                 let dtype = self.data.df.schema().get(&color_encoding.field).unwrap();
-                let data_type_category = determine_data_type_category(dtype);
-                color_encoding.scale_type = match data_type_category {
-                    DataTypeCategory::Continuous => Some(Scale::Linear),
-                    DataTypeCategory::Discrete => Some(Scale::Discrete),
-                    DataTypeCategory::Temporal => Some(Scale::Temporal),
+                let semantic_type = interpret_semantic_type(dtype);
+                color_encoding.scale_type = match semantic_type {
+                    SemanticType::Continuous => Some(Scale::Linear),
+                    SemanticType::Discrete => Some(Scale::Discrete),
+                    SemanticType::Temporal => Some(Scale::Temporal),
                 };
             }
         }
@@ -466,289 +467,143 @@ impl<T: Mark> Chart<T> {
     }
 }
 
-// Implementation of Layer trait for Chart<T> allowing any chart to be used as a layer
+// Implementation of Layer trait for Chart<T> allowing any chart to be used as a layer.
+// This follows the "Composition over Inheritance" principle.
 impl<T> Layer for Chart<T>
 where
     T: crate::mark::Mark,
     Chart<T>: MarkRenderer,
 {
+    /// Determines if this specific layer needs coordinate axes.
     fn requires_axes(&self) -> bool {
-        // For pie charts (which use MarkArc), don't show axes
+        // Aesthetic rule: Pie charts (MarkArc) don't use standard Cartesian axes.
         if self.mark.as_ref().map(|m| m.mark_type()) == Some("arc") {
             false
         } else {
-            // For all other chart types, show axes by default
             true
         }
     }
 
-    fn get_x_encoding_field(&self) -> Option<String> {
-        self.encoding.x.as_ref().map(|x| x.field.clone())
+    /// Retrieves the field name for a specific channel.
+    /// Redirects to the central Encoding container.
+    fn get_field(&self, channel: Channel) -> Option<String> {
+        self.encoding.get_field_by_channel(channel).map(|s| s.to_string())
     }
 
-    /// Get the X continuous bounds.
-    fn get_x_continuous_bounds(&self) -> Result<(f32, f32), ChartonError> {
-        if self.encoding.x.is_none() {
-            return Ok((0.0, 1.0));
-        }
-
-        let x_encoding = self.encoding.x.as_ref().expect("X encoding should exist");
-        let x_series = self.data.column(&x_encoding.field)?;
-
-        let min_val = x_series.min::<f32>()?.ok_or_else(|| {
-            ChartonError::Data(format!("Failed to calculate min for x-axis: {}", x_encoding.field))
-        })?;
-        let max_val = x_series.max::<f32>()?.ok_or_else(|| {
-            ChartonError::Data(format!("Failed to calculate max for x-axis: {}", x_encoding.field))
-        })?;
-
-        // Same logic as Y: Force include zero for bar/area/hist
-        let is_bar_like = self.mark.as_ref().map_or(false, |m| {
-            matches!(m.mark_type(), "bar" | "area" | "hist")
-        });
-
-        let (final_min, final_max) = if is_bar_like || x_encoding.zero == Some(true) {
-            (min_val.min(0.0), max_val.max(0.0))
-        } else {
-            (min_val, max_val)
-        };
-
-        Ok((final_min, final_max))
-    }
-
-    fn get_x_discrete_tick_labels(&self) -> Result<Option<Vec<String>>, ChartonError> {
-        // For charts that don't have x encoding (like pie charts), return None
-        if self.encoding.x.is_none() {
-            return Ok(None);
-        }
-
-        let x_encoding = self.encoding.x.as_ref().expect("X encoding should exist");
-        let unique_labels = self
-            .data
-            .column(&x_encoding.field)?
-            .unique_stable()?
-            .str()?
-            .into_no_null_iter()
-            .map(|s| s.to_string())
-            .collect::<Vec<String>>();
-
-        Ok(Some(unique_labels))
-    }
-
-    fn get_x_scale_type_from_layer(&self) -> Option<Scale> {
-        self.get_x_scale_type()
-    }
-
-    fn get_y_encoding_field(&self) -> Option<String> {
-        self.encoding.y.as_ref().map(|y| y.field.clone())
-    }
-
-    /// Get the Y continuous bounds, following the color-axis implementation pattern.
-    fn get_y_continuous_bounds(&self) -> Result<(f32, f32), ChartonError> {
-        if self.encoding.y.is_none() {
-            return Ok((0.0, 1.0));
-        }
-
-        let y_encoding = self.encoding.y.as_ref().expect("Y encoding should exist");
-        let y_series = self.data.column(&y_encoding.field)?;
-
-        let min_val = y_series.min::<f32>()?.ok_or_else(|| {
-            ChartonError::Data(format!("Failed to calculate min for y-axis: {}", y_encoding.field))
-        })?;
-        let max_val = y_series.max::<f32>()?.ok_or_else(|| {
-            ChartonError::Data(format!("Failed to calculate max for y-axis: {}", y_encoding.field))
-        })?;
-
-        // Simplified zero-inclusion: 
-        // Force true for bar/area/hist, otherwise follow user encoding.
-        let is_bar_like = self.mark.as_ref().map_or(false, |m| {
-            matches!(m.mark_type(), "bar" | "area" | "hist")
-        });
-
-        let (final_min, final_max) = if is_bar_like || y_encoding.zero == Some(true) {
-            (min_val.min(0.0), max_val.max(0.0))
-        } else {
-            (min_val, max_val)
-        };
-
-        Ok((final_min, final_max))
-    }
-
-    fn get_y_discrete_tick_labels(&self) -> Result<Option<Vec<String>>, ChartonError> {
-        // For charts that don't have y encoding (like pie charts), return None
-        if self.encoding.y.is_none() {
-            return Ok(None);
-        }
-
-        let y_encoding = self.encoding.y.as_ref().expect("Y encoding should exist");
-        let unique_labels = self
-            .data
-            .column(&y_encoding.field)?
-            .unique_stable()?
-            .str()?
-            .into_no_null_iter()
-            .map(|s| s.to_string())
-            .collect::<Vec<String>>();
-
-        Ok(Some(unique_labels))
-    }
-
-    fn get_y_scale_type_from_layer(&self) -> Option<Scale> {
-        self.get_y_scale_type()
-    }
-
-    fn get_color_encoding_field(&self) -> Option<String> {
-        self.encoding.color.as_ref().map(|c| c.field.clone())
-    }
-/// Get the color continuous bounds, following the X-axis implementation pattern.
-    fn get_color_continuous_bounds(&self) -> Result<Option<(f32, f32)>, ChartonError> {
-        // For charts that don't have color encoding, return None 
-        // (Note: Unlike X, we return None here so LayeredChart can skip it)
-        if self.encoding.color.is_none() {
-            return Ok(None);
-        }
-
-        let color_encoding = self.encoding.color.as_ref().expect("Color encoding should exist");
-        let color_series = self.data.column(&color_encoding.field)?;
-        
-        let min_val = color_series.min::<f32>()?.ok_or_else(|| {
-            ChartonError::Data(format!("Failed to calculate minimum value for color field: {}", color_encoding.field))
-        })?;
-        let max_val = color_series.max::<f32>()?.ok_or_else(|| {
-            ChartonError::Data(format!("Failed to calculate maximum value for color field: {}", color_encoding.field))
-        })?;
-
-        Ok(Some((min_val, max_val)))
-    }
-
-    /// Get discrete color labels, following the X-axis implementation pattern.
-    fn get_color_discrete_labels(&self) -> Result<Option<Vec<String>>, ChartonError> {
-        // For charts that don't have color encoding, return None
-        if self.encoding.color.is_none() {
-            return Ok(None);
-        }
-
-        let color_encoding = self.encoding.color.as_ref().expect("Color encoding should exist");
-        
-        // Use unique_stable to preserve data order for the legend
-        let unique_labels = self
-            .data
-            .column(&color_encoding.field)?
-            .unique_stable()?
-            .str()?
-            .into_no_null_iter()
-            .map(|s| s.to_string())
-            .collect::<Vec<String>>();
-
-        if unique_labels.is_empty() {
-            Ok(None)
-        } else {
-            Ok(Some(unique_labels))
-        }
-    }
-
-    /// Simply return the scale type from encoding
-    fn get_color_scale_type_from_layer(&self) -> Option<Scale> {
-        self.get_color_scale_type()
-    }
-
-    fn get_shape_encoding_field(&self) -> Option<String> {
-        self.encoding.shape.as_ref().map(|s| s.field.clone())
-    }
-
-    // --- Get shape labels (Discrete)---
-    fn get_shape_discrete_labels(&self) -> Result<Option<Vec<String>>, ChartonError> {
-        if self.encoding.shape.is_none() {
-            return Ok(None);
-        }
-
-        let shape_encoding = self.encoding.shape.as_ref().expect("Shape encoding should exist");
-        let unique_labels = self
-            .data
-            .column(&shape_encoding.field)?
-            .unique_stable()?
-            .str()?
-            .into_no_null_iter()
-            .map(|s| s.to_string())
-            .collect::<Vec<String>>();
-
-        Ok(Some(unique_labels))
-    }
-
-    fn get_shape_scale_type_from_layer(&self) -> Option<Scale> {
-        self.get_shape_scale_type()
-    }
-
-    fn get_size_encoding_field(&self) -> Option<String> {
-        self.encoding.size.as_ref().map(|s| s.field.clone())
-    }
-
-    // --- Get size continuous bounds (Continuous) ---
-    fn get_size_continuous_bounds(&self) -> Result<Option<(f32, f32)>, ChartonError> {
-        if self.encoding.size.is_none() {
-            return Ok(None);
-        }
-
-        let size_encoding = self.encoding.size.as_ref().expect("Size encoding should exist");
-        let size_series = self.data.column(&size_encoding.field)?;
-        
-        let min_val = size_series.min::<f32>()?.ok_or_else(|| {
-            ChartonError::Data(format!("Failed to calculate min for size field: {}", size_encoding.field))
-        })?;
-        let max_val = size_series.max::<f32>()?.ok_or_else(|| {
-            ChartonError::Data(format!("Failed to calculate max for size field: {}", size_encoding.field))
-        })?;
-
-        Ok(Some((min_val, max_val)))
-    }
-
-    fn get_size_scale_type_from_layer(&self) -> Option<Scale> {
-        self.get_size_scale_type()
-    }
-
-    /// Sets the resolved Scale type for a specific visual channel.
-    /// This updates the internal encoding configuration to align with the global chart scale.
-    fn set_scale_type(&mut self, channel: &str, scale: Scale) {
+    /// Retrieves user-configured scale types (e.g., Linear vs Log).
+    fn get_scale(&self, channel: Channel) -> Option<Scale> {
         match channel {
-            "color" => {
-                if let Some(ref mut color_encoding) = self.encoding.color {
-                    color_encoding.scale_type = Some(scale);
-                }
-            }
-            "size" => {
-                if let Some(ref mut size_encoding) = self.encoding.size {
-                    // Size usually uses a continuous scale (e.g., Linear)
-                    size_encoding.scale_type = Some(scale);
-                }
-            }
-            // Note: Shape is typically fixed to Scale::Discrete in Grammar of Graphics,
-            // but we can add handling here if your implementation requires dynamic shape scales.
-            _ => {}
+            Channel::X => self.encoding.x.as_ref().and_then(|e| e.scale_type.clone()),
+            Channel::Y => self.encoding.y.as_ref().and_then(|e| e.scale_type.clone()),
+            Channel::Color => self.encoding.color.as_ref().and_then(|e| e.scale_type.clone()),
+            Channel::Shape => self.encoding.shape.as_ref().and_then(|e| e.scale_type.clone()),
+            Channel::Size => self.encoding.size.as_ref().and_then(|e| e.scale_type.clone()),
         }
     }
 
-    /// Sets the resolved Data Domain for a specific visual channel.
-    /// This "back-fills" the global domain calculated by LayeredChart into this specific layer.
-    fn set_domain(&mut self, channel: &str, domain: ScaleDomain) {
+    /// Retrieves user-defined domain overrides.
+    fn get_domain(&self, channel: Channel) -> Option<ScaleDomain> {
         match channel {
-            "color" => {
-                if let Some(ref mut color_encoding) = self.encoding.color {
-                    color_encoding.domain = Some(domain);
-                }
-            }
-            "shape" => {
-                if let Some(ref mut shape_encoding) = self.encoding.shape {
-                    shape_encoding.domain = Some(domain);
-                }
-            }
-            "size" => {
-                if let Some(ref mut size_encoding) = self.encoding.size {
-                    size_encoding.domain = Some(domain);
-                }
-            }
-            // For x and y, the domains are usually managed by the Coordinate System,
-            // but if your layers store them, add matching logic for "x" and "y" here.
-            _ => {}
+            Channel::X => self.encoding.x.as_ref().and_then(|e| e.domain.clone()),
+            Channel::Y => self.encoding.y.as_ref().and_then(|e| e.domain.clone()),
+            Channel::Color => self.encoding.color.as_ref().and_then(|e| e.domain.clone()),
+            Channel::Shape => self.encoding.shape.as_ref().and_then(|e| e.domain.clone()),
+            Channel::Size => self.encoding.size.as_ref().and_then(|e| e.domain.clone()),
         }
+    }
+
+    /// Retrieves padding/expansion preferences.
+    fn get_expand(&self, channel: Channel) -> Option<Expansion> {
+        match channel {
+            Channel::X => self.encoding.x.as_ref().and_then(|e| e.expand),
+            Channel::Y => self.encoding.y.as_ref().and_then(|e| e.expand),
+            Channel::Color => self.encoding.color.as_ref().and_then(|e| e.expand),
+            _ => None, // Expansion is typically only used for axes and color ramps
+        }
+    }
+
+/// Calculates the raw data boundaries for a specific visual channel.
+    /// 
+    /// This method performs the "Discovery" phase of the rendering pipeline. 
+    /// It translates low-level Polars data types into high-level visual domains
+    /// (Continuous or Discrete) by interpreting the column's [SemanticType].
+    ///
+    /// # Parameters
+    /// * `channel` - The visual aesthetic (X, Y, Color, etc.) to calculate bounds for.
+    ///
+    /// # Returns
+    /// * `ScaleDomain` - Either a (min, max) pair for Quantitative/Temporal data,
+    ///                   or a list of unique strings for Nominal data.
+    fn get_data_bounds(&self, channel: Channel) -> Result<ScaleDomain, ChartonError> {
+        // 1. Identify which data field is mapped to this channel
+        let field_name = self.get_field(channel).ok_or_else(|| {
+            ChartonError::Data(format!("No field mapped to channel {:?}", channel))
+        })?;
+
+        // 2. Access the column from the internal Polars DataFrame
+        let series = self.data.column(&field_name)?;
+        
+        // 3. Interpret the "Semantic Meaning" of the data (Physical Type -> Visual Intent)
+        let semantic_type = interpret_semantic_type(series.dtype());
+
+        match semantic_type {
+            // --- Continuous numeric ranges ---
+            SemanticType::Continuous => {
+                let min_val = series.min::<f32>()?.unwrap_or(0.0);
+                let max_val = series.max::<f32>()?.unwrap_or(1.0);
+
+                // Aesthetic Rule: Bar-like marks (bars, areas, histograms) 
+                // typically require the axis to start or include zero to avoid visual bias.
+                let is_bar_like = self.mark.as_ref().map_or(false, |m| {
+                    matches!(m.mark_type(), "bar" | "area" | "hist")
+                });
+                
+                // Check if the user explicitly requested a zero-baseline in the encoding
+                let force_zero = match channel {
+                    Channel::X => self.encoding.x.as_ref().and_then(|x| x.zero) == Some(true),
+                    Channel::Y => self.encoding.y.as_ref().and_then(|y| y.zero) == Some(true),
+                    _ => false,
+                };
+
+                let (low, high) = if is_bar_like || force_zero {
+                    (min_val.min(0.0), max_val.max(0.0))
+                } else {
+                    (min_val, max_val)
+                };
+
+                Ok(ScaleDomain::Continuous(low, high))
+            }
+
+            // --- Categorical unique labels ---
+            SemanticType::Discrete => {
+                // Use unique_stable to preserve the appearance order from the data,
+                // which is usually more intuitive than alphabetical sorting.
+                let labels = series
+                    .unique_stable()?
+                    .cast(&DataType::String)? // Ensure everything is treated as a string label
+                    .str()?
+                    .into_no_null_iter()
+                    .map(|s| s.to_string())
+                    .collect::<Vec<String>>();
+                
+                Ok(ScaleDomain::Discrete(labels))
+            }
+
+            // --- TEMPORAL: Date/Time converted to continuous numeric range ---
+            SemanticType::Temporal => {
+                // For training purposes, we treat temporal data as continuous f64/f32.
+                // The actual TemporalScale will handle the pretty-printing of date labels.
+                let min_val = series.min::<f64>()?.unwrap_or(0.0) as f32;
+                let max_val = series.max::<f64>()?.unwrap_or(1.0) as f32;
+                
+                Ok(ScaleDomain::Continuous(min_val, max_val))
+            }
+        }
+    }
+
+    /// Resolution Phase: Back-fills the final Arc<ScaleTrait> into the encoding.
+    /// This enables the marks to perform mapping during the render pass.
+    fn set_resolved_scale(&mut self, channel: Channel, scale: Arc<dyn ScaleTrait>) {
+        self.encoding.set_resolved_scale_by_channel(channel, scale);
     }
 }
