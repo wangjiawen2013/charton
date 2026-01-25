@@ -1,6 +1,5 @@
 use crate::error::ChartonError;
 use polars::prelude::*;
-use polars::datatypes::DataType::*;
 use std::collections::HashMap;
 use std::vec::Vec;
 

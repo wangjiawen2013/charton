@@ -57,7 +57,7 @@ pub enum Scale {
     /// Categorical mapping: used for discrete strings or labels.
     Discrete,
     /// Temporal mapping: specifically for dates and times.
-    Time,
+    Temporal,
 }
 
 impl Scale {
@@ -207,7 +207,7 @@ pub fn create_scale(
                 Err(ChartonError::Scale("Discrete scale requires Categorical domain".into()))
             }
         },
-        Scale::Time => {
+        Scale::Temporal => {
             if let ScaleDomain::Temporal(start, end) = domain_data {
                 // 1. Calculate the raw duration between start and end
                 let diff = end - start;
