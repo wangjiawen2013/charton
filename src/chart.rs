@@ -36,7 +36,6 @@ use polars::prelude::*;
 /// * `data` - The data source for the chart as a DataFrame
 /// * `encoding` - Encoding mappings that define how data fields map to visual properties
 /// * `mark` - Optional mark configuration specific to the chart type
-#[derive(Clone)]
 pub struct Chart<T: Mark> {
     pub(crate) data: DataFrameSource,
     pub(crate) encoding: Encoding,
@@ -375,10 +374,10 @@ impl<T: Mark> Chart<T> {
 
         // Set default scale types based on data types
         if let Some(ref mut x_encoding) = self.encoding.x {
-            if x_encoding.scale.is_none() {
+            if x_encoding.scale_type.is_none() {
                 let dtype = self.data.df.schema().get(&x_encoding.field).unwrap();
                 let data_type_category = determine_data_type_category(dtype);
-                x_encoding.scale = match data_type_category {
+                x_encoding.scale_type = match data_type_category {
                     DataTypeCategory::Continuous => Some(Scale::Linear),
                     DataTypeCategory::Discrete => Some(Scale::Discrete),
                     DataTypeCategory::Temporal => Some(Scale::Temporal),
@@ -387,10 +386,10 @@ impl<T: Mark> Chart<T> {
         }
 
         if let Some(ref mut y_encoding) = self.encoding.y {
-            if y_encoding.scale.is_none() {
+            if y_encoding.scale_type.is_none() {
                 let dtype = self.data.df.schema().get(&y_encoding.field).unwrap();
                 let data_type_category = determine_data_type_category(dtype);
-                y_encoding.scale = match data_type_category {
+                y_encoding.scale_type = match data_type_category {
                     DataTypeCategory::Continuous => Some(Scale::Linear),
                     DataTypeCategory::Discrete => Some(Scale::Discrete),
                     DataTypeCategory::Temporal => Some(Scale::Temporal),
@@ -399,10 +398,10 @@ impl<T: Mark> Chart<T> {
         }
 
         if let Some(ref mut color_encoding) = self.encoding.color {
-            if color_encoding.scale.is_none() {
+            if color_encoding.scale_type.is_none() {
                 let dtype = self.data.df.schema().get(&color_encoding.field).unwrap();
                 let data_type_category = determine_data_type_category(dtype);
-                color_encoding.scale = match data_type_category {
+                color_encoding.scale_type = match data_type_category {
                     DataTypeCategory::Continuous => Some(Scale::Linear),
                     DataTypeCategory::Discrete => Some(Scale::Discrete),
                     DataTypeCategory::Temporal => Some(Scale::Temporal),
@@ -421,7 +420,7 @@ impl<T: Mark> Chart<T> {
 
         // If x encoding exists, return the scale from the encoding
         let x_encoding = self.encoding.x.as_ref().unwrap();
-        x_encoding.scale.clone()
+        x_encoding.scale_type.clone()
     }
 
     pub(crate) fn get_y_scale_type(&self) -> Option<Scale> {
@@ -432,7 +431,7 @@ impl<T: Mark> Chart<T> {
 
         // If y encoding exists, return the scale from the encoding
         let y_encoding = self.encoding.y.as_ref().unwrap();
-        y_encoding.scale.clone()
+        y_encoding.scale_type.clone()
     }
 
     pub(crate) fn get_color_scale_type(&self) -> Option<Scale> {
@@ -443,7 +442,7 @@ impl<T: Mark> Chart<T> {
 
         // If color encoding exists, return the scale from the encoding
         let color_encoding = self.encoding.color.as_ref().unwrap();
-        color_encoding.scale.clone()
+        color_encoding.scale_type.clone()
     }
 
     pub(crate) fn get_shape_scale_type(&self) -> Option<Scale> {
@@ -463,7 +462,7 @@ impl<T: Mark> Chart<T> {
 
         // If size encoding exists, return the scale from the encoding
         let size_encoding = self.encoding.size.as_ref().unwrap();
-        Some(size_encoding.scale.clone())
+        size_encoding.scale_type.clone()
     }
 }
 
@@ -713,13 +712,13 @@ where
         match channel {
             "color" => {
                 if let Some(ref mut color_encoding) = self.encoding.color {
-                    color_encoding.scale = Some(scale);
+                    color_encoding.scale_type = Some(scale);
                 }
             }
             "size" => {
                 if let Some(ref mut size_encoding) = self.encoding.size {
                     // Size usually uses a continuous scale (e.g., Linear)
-                    size_encoding.scale = scale;
+                    size_encoding.scale_type = Some(scale);
                 }
             }
             // Note: Shape is typically fixed to Scale::Discrete in Grammar of Graphics,

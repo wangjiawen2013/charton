@@ -98,176 +98,176 @@ pub struct Theme {
 impl Theme {
     // --- Global Configuration ---
 
-    pub fn background_color(mut self, color: impl Into<SingleColor>) -> Self {
+    pub fn with_background_color(mut self, color: impl Into<SingleColor>) -> Self {
         self.background_color = color.into();
         self
     }
 
-    pub fn show_axes(mut self, show: bool) -> Self {
+    pub fn with_show_axes(mut self, show: bool) -> Self {
         self.show_axes = show;
         self
     }
 
     // --- Title ---
 
-    pub fn title_size(mut self, size: f32) -> Self {
+    pub fn with_title_size(mut self, size: f32) -> Self {
         self.title_size = size;
         self
     }
 
-    pub fn title_family(mut self, family: impl Into<String>) -> Self {
+    pub fn with_title_family(mut self, family: impl Into<String>) -> Self {
         self.title_family = family.into();
         self
     }
 
-    pub fn title_color(mut self, color: impl Into<SingleColor>) -> Self {
+    pub fn with_title_color(mut self, color: impl Into<SingleColor>) -> Self {
         self.title_color = color.into();
         self
     }
 
     // --- Axis Label ---
 
-    pub fn label_size(mut self, size: f32) -> Self {
+    pub fn with_label_size(mut self, size: f32) -> Self {
         self.label_size = size;
         self
     }
 
-    pub fn label_family(mut self, family: impl Into<String>) -> Self {
+    pub fn with_label_family(mut self, family: impl Into<String>) -> Self {
         self.label_family = family.into();
         self
     }
 
-    pub fn label_color(mut self, color: impl Into<SingleColor>) -> Self {
+    pub fn with_label_color(mut self, color: impl Into<SingleColor>) -> Self {
         self.label_color = color.into();
         self
     }
 
-    pub fn label_padding(mut self, padding: f32) -> Self {
+    pub fn with_label_padding(mut self, padding: f32) -> Self {
         self.label_padding = padding;
         self
     }
 
     // --- Tick Label ---
 
-    pub fn tick_label_size(mut self, size: f32) -> Self {
+    pub fn with_tick_label_size(mut self, size: f32) -> Self {
         self.tick_label_size = size;
         self
     }
 
-    pub fn tick_label_family(mut self, family: impl Into<String>) -> Self {
+    pub fn with_tick_label_family(mut self, family: impl Into<String>) -> Self {
         self.tick_label_family = family.into();
         self
     }
 
-    pub fn tick_label_color(mut self, color: impl Into<SingleColor>) -> Self {
+    pub fn with_tick_label_color(mut self, color: impl Into<SingleColor>) -> Self {
         self.tick_label_color = color.into();
         self
     }
 
-    pub fn tick_label_padding(mut self, padding: f32) -> Self {
+    pub fn with_tick_label_padding(mut self, padding: f32) -> Self {
         self.tick_label_padding = padding;
         self
     }
 
-    pub fn x_tick_label_angle(mut self, angle: f32) -> Self {
+    pub fn with_x_tick_label_angle(mut self, angle: f32) -> Self {
         self.x_tick_label_angle = angle;
         self
     }
 
-    pub fn y_tick_label_angle(mut self, angle: f32) -> Self {
+    pub fn with_y_tick_label_angle(mut self, angle: f32) -> Self {
         self.y_tick_label_angle = angle;
         self
     }
 
     // --- Geometry Strokes ---
 
-    pub fn axis_width(mut self, width: f32) -> Self {
+    pub fn with_axis_width(mut self, width: f32) -> Self {
         self.axis_width = width;
         self
     }
 
-    pub fn tick_width(mut self, width: f32) -> Self {
+    pub fn with_tick_width(mut self, width: f32) -> Self {
         self.tick_width = width;
         self
     }
     
-    pub fn tick_length(mut self, length: f32) -> Self {
+    pub fn with_tick_length(mut self, length: f32) -> Self {
         self.tick_length = length;
         self
     }
 
     // --- Legend Styling ---
 
-    pub fn legend_title_size(mut self, size: f32) -> Self {
+    pub fn with_legend_title_size(mut self, size: f32) -> Self {
         self.legend_title_size = size;
         self
     }
 
-    pub fn legend_label_size(mut self, size: f32) -> Self {
+    pub fn with_legend_label_size(mut self, size: f32) -> Self {
         self.legend_label_size = size;
         self
     }
 
-    pub fn legend_label_family(mut self, family: impl Into<String>) -> Self {
+    pub fn with_legend_label_family(mut self, family: impl Into<String>) -> Self {
         self.legend_label_family = family.into();
         self
     }
 
-    pub fn legend_label_color(mut self, color: impl Into<SingleColor>) -> Self {
+    pub fn with_legend_label_color(mut self, color: impl Into<SingleColor>) -> Self {
         self.legend_label_color = color.into();
         self
     }
 
-    pub fn legend_block_gap(mut self, gap: f32) -> Self {
+    pub fn with_legend_block_gap(mut self, gap: f32) -> Self {
         self.legend_block_gap = gap;
         self
     }
 
-    pub fn legend_item_v_gap(mut self, gap: f32) -> Self {
+    pub fn with_legend_item_v_gap(mut self, gap: f32) -> Self {
         self.legend_item_v_gap = gap;
         self
     }
 
-    pub fn legend_col_h_gap(mut self, gap: f32) -> Self {
+    pub fn with_legend_col_h_gap(mut self, gap: f32) -> Self {
         self.legend_col_h_gap = gap;
         self
     }
 
-    pub fn legend_title_gap(mut self, gap: f32) -> Self {
+    pub fn with_legend_title_gap(mut self, gap: f32) -> Self {
         self.legend_title_gap = gap;
         self
     }
 
-    pub fn legend_marker_text_gap(mut self, gap: f32) -> Self {
+    pub fn with_legend_marker_text_gap(mut self, gap: f32) -> Self {
         self.legend_marker_text_gap = gap;
         self
     }
 
     // --- Layout Defense ---
 
-    pub fn min_panel_size(mut self, size: f32) -> Self {
+    pub fn with_min_panel_size(mut self, size: f32) -> Self {
         self.min_panel_size = size;
         self
     }
 
-    pub fn panel_defense_ratio(mut self, ratio: f32) -> Self {
+    pub fn with_panel_defense_ratio(mut self, ratio: f32) -> Self {
         self.panel_defense_ratio = ratio;
         self
     }
 
-    pub fn axis_reserve_buffer(mut self, buffer: f32) -> Self {
+    pub fn with_axis_reserve_buffer(mut self, buffer: f32) -> Self {
         self.axis_reserve_buffer = buffer;
         self
     }
 
     // --- Color & Palette Defaults ---
 
-    pub fn default_color_map(mut self, map: ColorMap) -> Self {
+    pub fn with_default_color_map(mut self, map: ColorMap) -> Self {
         self.default_color_map = map;
         self
     }
 
-    pub fn default_palette(mut self, palette: ColorPalette) -> Self {
+    pub fn with_default_palette(mut self, palette: ColorPalette) -> Self {
         self.default_palette = palette;
         self
     }
