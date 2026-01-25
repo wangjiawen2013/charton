@@ -412,59 +412,6 @@ impl<T: Mark> Chart<T> {
 
         Ok(self)
     }
-
-    pub(crate) fn get_x_scale_type(&self) -> Option<Scale> {
-        // For charts that don't have x encoding (like pie charts), return None
-        if self.encoding.x.is_none() {
-            return None;
-        }
-
-        // If x encoding exists, return the scale from the encoding
-        let x_encoding = self.encoding.x.as_ref().unwrap();
-        x_encoding.scale_type.clone()
-    }
-
-    pub(crate) fn get_y_scale_type(&self) -> Option<Scale> {
-        // For charts that don't have y encoding (like pie charts), return None
-        if self.encoding.y.is_none() {
-            return None;
-        }
-
-        // If y encoding exists, return the scale from the encoding
-        let y_encoding = self.encoding.y.as_ref().unwrap();
-        y_encoding.scale_type.clone()
-    }
-
-    pub(crate) fn get_color_scale_type(&self) -> Option<Scale> {
-        // For charts that don't have encoding, return None
-        if self.encoding.color.is_none() {
-            return None;
-        }
-
-        // If color encoding exists, return the scale from the encoding
-        let color_encoding = self.encoding.color.as_ref().unwrap();
-        color_encoding.scale_type.clone()
-    }
-
-    pub(crate) fn get_shape_scale_type(&self) -> Option<Scale> {
-        // For charts that don't have shape encoding, return None
-        if self.encoding.shape.is_none() {
-            None
-        } else {
-            Some(Scale::Discrete)
-        }
-    }
-
-    pub(crate) fn get_size_scale_type(&self) -> Option<Scale> {
-        // For charts that don't have size encoding, return None
-        if self.encoding.size.is_none() {
-            return None;
-        }
-
-        // If size encoding exists, return the scale from the encoding
-        let size_encoding = self.encoding.size.as_ref().unwrap();
-        size_encoding.scale_type.clone()
-    }
 }
 
 // Implementation of Layer trait for Chart<T> allowing any chart to be used as a layer.
@@ -492,37 +439,20 @@ where
 
     /// Retrieves user-configured scale types (e.g., Linear vs Log).
     fn get_scale(&self, channel: Channel) -> Option<Scale> {
-        match channel {
-            Channel::X => self.encoding.x.as_ref().and_then(|e| e.scale_type.clone()),
-            Channel::Y => self.encoding.y.as_ref().and_then(|e| e.scale_type.clone()),
-            Channel::Color => self.encoding.color.as_ref().and_then(|e| e.scale_type.clone()),
-            Channel::Shape => self.encoding.shape.as_ref().and_then(|e| e.scale_type.clone()),
-            Channel::Size => self.encoding.size.as_ref().and_then(|e| e.scale_type.clone()),
-        }
+        self.encoding.get_scale_by_channel(channel)
     }
 
     /// Retrieves user-defined domain overrides.
     fn get_domain(&self, channel: Channel) -> Option<ScaleDomain> {
-        match channel {
-            Channel::X => self.encoding.x.as_ref().and_then(|e| e.domain.clone()),
-            Channel::Y => self.encoding.y.as_ref().and_then(|e| e.domain.clone()),
-            Channel::Color => self.encoding.color.as_ref().and_then(|e| e.domain.clone()),
-            Channel::Shape => self.encoding.shape.as_ref().and_then(|e| e.domain.clone()),
-            Channel::Size => self.encoding.size.as_ref().and_then(|e| e.domain.clone()),
-        }
+        self.encoding.get_domain_by_channel(channel)
     }
 
     /// Retrieves padding/expansion preferences.
     fn get_expand(&self, channel: Channel) -> Option<Expansion> {
-        match channel {
-            Channel::X => self.encoding.x.as_ref().and_then(|e| e.expand),
-            Channel::Y => self.encoding.y.as_ref().and_then(|e| e.expand),
-            Channel::Color => self.encoding.color.as_ref().and_then(|e| e.expand),
-            _ => None, // Expansion is typically only used for axes and color ramps
-        }
+        self.encoding.get_expand_by_channel(channel)
     }
 
-/// Calculates the raw data boundaries for a specific visual channel.
+    /// Calculates the raw data boundaries for a specific visual channel.
     /// 
     /// This method performs the "Discovery" phase of the rendering pipeline. 
     /// It translates low-level Polars data types into high-level visual domains
@@ -535,35 +465,31 @@ where
     /// * `ScaleDomain` - Either a (min, max) pair for Quantitative/Temporal data,
     ///                   or a list of unique strings for Nominal data.
     fn get_data_bounds(&self, channel: Channel) -> Result<ScaleDomain, ChartonError> {
-        // 1. Identify which data field is mapped to this channel
-        let field_name = self.get_field(channel).ok_or_else(|| {
+        // 1. Identify which data field is mapped to this channel 
+        let field_name = self.encoding.get_field_by_channel(channel).ok_or_else(|| {
             ChartonError::Data(format!("No field mapped to channel {:?}", channel))
         })?;
 
         // 2. Access the column from the internal Polars DataFrame
         let series = self.data.column(&field_name)?;
         
-        // 3. Interpret the "Semantic Meaning" of the data (Physical Type -> Visual Intent)
+        // 3. Interpret the "Semantic Meaning" (Physical Type -> Visual Intent)
         let semantic_type = interpret_semantic_type(series.dtype());
 
         match semantic_type {
-            // --- Continuous numeric ranges ---
+            // --- CONTINUOUS: Numeric ranges ---
             SemanticType::Continuous => {
                 let min_val = series.min::<f32>()?.unwrap_or(0.0);
                 let max_val = series.max::<f32>()?.unwrap_or(1.0);
 
                 // Aesthetic Rule: Bar-like marks (bars, areas, histograms) 
-                // typically require the axis to start or include zero to avoid visual bias.
+                // typically require the axis to include zero to avoid visual bias.
                 let is_bar_like = self.mark.as_ref().map_or(false, |m| {
                     matches!(m.mark_type(), "bar" | "area" | "hist")
                 });
                 
-                // Check if the user explicitly requested a zero-baseline in the encoding
-                let force_zero = match channel {
-                    Channel::X => self.encoding.x.as_ref().and_then(|x| x.zero) == Some(true),
-                    Channel::Y => self.encoding.y.as_ref().and_then(|y| y.zero) == Some(true),
-                    _ => false,
-                };
+                // Retrieve the 'zero' preference from encoding
+                let force_zero = self.encoding.get_zero_by_channel(channel);
 
                 let (low, high) = if is_bar_like || force_zero {
                     (min_val.min(0.0), max_val.max(0.0))
@@ -574,13 +500,12 @@ where
                 Ok(ScaleDomain::Continuous(low, high))
             }
 
-            // --- Categorical unique labels ---
+            // --- DISCRETE: Categorical unique labels ---
             SemanticType::Discrete => {
-                // Use unique_stable to preserve the appearance order from the data,
-                // which is usually more intuitive than alphabetical sorting.
+                // Use unique_stable to preserve appearance order
                 let labels = series
                     .unique_stable()?
-                    .cast(&DataType::String)? // Ensure everything is treated as a string label
+                    .cast(&DataType::String)? 
                     .str()?
                     .into_no_null_iter()
                     .map(|s| s.to_string())
@@ -591,15 +516,13 @@ where
 
             // --- TEMPORAL: Date/Time converted to continuous numeric range ---
             SemanticType::Temporal => {
-                // For training purposes, we treat temporal data as continuous f64/f32.
-                // The actual TemporalScale will handle the pretty-printing of date labels.
                 let min_val = series.min::<f64>()?.unwrap_or(0.0) as f32;
                 let max_val = series.max::<f64>()?.unwrap_or(1.0) as f32;
                 
                 Ok(ScaleDomain::Continuous(min_val, max_val))
             }
         }
-    }
+    } 
 
     /// Resolution Phase: Back-fills the final Arc<ScaleTrait> into the encoding.
     /// This enables the marks to perform mapping during the render pass.
