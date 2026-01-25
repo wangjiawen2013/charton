@@ -169,7 +169,7 @@ impl GuideSpec {
             let count = match self.kind {
                 GuideKind::ColorBar => 5,
                 GuideKind::Legend => {
-                    if let ScaleDomain::Categorical(ref v) = self.domain { v.len() } else { 5 }
+                    if let ScaleDomain::Discrete(ref v) = self.domain { v.len() } else { 5 }
                 }
             };
 
@@ -177,14 +177,14 @@ impl GuideSpec {
             let mut ticks = first_mapping.scale_impl.ticks(count);
 
             // Fallback to force-sampling if the pretty algorithm returns insufficient points
-            if ticks.len() < 3 && !matches!(self.domain, ScaleDomain::Categorical(_)) {
+            if ticks.len() < 3 && !matches!(self.domain, ScaleDomain::Discrete(_)) {
                 ticks = first_mapping.scale_impl.sample_n(count);
             }
 
             // 3. --- Uniform Precision Logic ---
             
             // Check if we are dealing with a numeric (non-categorical) scale
-            if !matches!(self.domain, ScaleDomain::Categorical(_)) {
+            if !matches!(self.domain, ScaleDomain::Discrete(_)) {
                 // Determine the maximum precision needed across all sampled points.
                 // We look for the most specific decimal place to ensure no data is lost.
                 let mut max_precision = 0;
@@ -214,7 +214,7 @@ impl GuideSpec {
         } else {
             // Fallback for empty mappings
             match &self.domain {
-                ScaleDomain::Categorical(v) => v.clone(),
+                ScaleDomain::Discrete(v) => v.clone(),
                 _ => Vec::new(),
             }
         }
@@ -226,7 +226,7 @@ impl GuideSpec {
             let count = 5; // Target density
             let mut ticks = first_mapping.scale_impl.ticks(count);
             
-            if ticks.len() < 3 && !matches!(self.domain, ScaleDomain::Categorical(_)) {
+            if ticks.len() < 3 && !matches!(self.domain, ScaleDomain::Discrete(_)) {
                 ticks = first_mapping.scale_impl.sample_n(count);
             }
 
