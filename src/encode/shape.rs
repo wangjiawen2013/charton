@@ -78,11 +78,6 @@ impl Shape {
         self.resolved_scale = Some(scale);
     }
 
-    /// Returns the data field name used for shape encoding.
-    pub fn get_field(&self) -> &str {
-        &self.field
-    }
-
     /// Returns a reference to the resolved scale instance.
     /// 
     /// Marks call this to retrieve the specific symbol ID for a data point.

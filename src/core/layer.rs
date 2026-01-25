@@ -1,7 +1,9 @@
 use crate::error::ChartonError;
 use crate::prelude::SingleColor;
-use crate::scale::{Scale, ScaleDomain};
-use super::context::SharedRenderingContext;
+use crate::scale::{Scale, ScaleDomain, ScaleTrait, Expansion};
+use crate::core::context::SharedRenderingContext;
+use crate::encode::Channel;
+use std::sync::Arc;
 
 /// Abstract backend for rendering shapes.
 /// Implementations could be SvgBackend (String) or WgpuBackend (GPU Buffers).
@@ -98,6 +100,9 @@ pub trait RenderBackend {
 
 /// Trait for rendering the actual geometric marks (points, lines, bars).
 pub trait MarkRenderer {
+    /// Executes the drawing logic for this layer's marks.
+    /// 
+    /// This is called after all scales have been "trained" and resolved.
     fn render_marks(
         &self,
         backend: &mut dyn RenderBackend,
@@ -106,108 +111,48 @@ pub trait MarkRenderer {
 }
 
 /// `Layer` is the core trait for the layered grammar of graphics in Charton.
-/// The Layer trait defines the interface for any renderable component of a chart.
-/// It provides methods for both the data-to-geometry rendering and the 
-/// metadata inspection required for axes and legends.
 /// 
-/// It integrates metadata discovery (for axis and scale calculation) 
-/// with the actual rendering logic by combining `MarkRenderer` and `LegendRenderer`.
+/// A layer represents a single component of a chart (e.g., a Scatter plot, a 
+/// Regression line, or a Bar set). It integrates metadata discovery 
+/// with the actual rendering logic.
 ///
-/// The `Layer` trait defines the interface that all chart layers must implement
-/// to be part of a layered chart. It combines `MarkRenderer` and `LegendRenderer`
-/// traits to provide complete rendering capabilities for a chart layer.
-///
-/// This trait also defines methods for:
-/// - Controlling axis rendering
-/// - Providing axis padding preferences
-/// - Getting data bounds for continuous axes
-/// - Getting tick labels for discrete axes
-/// - Retrieving encoding field names
-/// - Getting axis scales
-/// - Calculating legend width
-/// - Checking if axes should be swapped
-///
-/// The Layer trait supports cloning of trait objects.
-/// This allows LayeredChart to be cloned even though it contains Boxed traits.
+/// The lifecycle of a Layer during rendering is:
+/// 1. **Discovery**: `LayeredChart` queries `get_data_bounds` for all active channels.
+/// 2. **Training**: The engine calculates a global domain based on all layers.
+/// 3. **Resolution**: The engine calls `set_resolved_scale` to inject the final scale.
+/// 4. **Rendering**: The engine calls `render_marks`.
 pub trait Layer: MarkRenderer {
-    // --- Axis & Scale Metadata ---
+    // --- Metadata Discovery Phase ---
 
-    /// Returns true if this layer requires axes to be drawn (most charts do).
+    /// Returns true if this layer requires coordinate axes to be drawn.
     fn requires_axes(&self) -> bool;
 
-    /// Returns the field name mapped to the X axis, used as the default axis title.
-    fn get_x_encoding_field(&self) -> Option<String>;
+    /// Returns the data field name mapped to a specific visual channel.
+    fn get_field(&self, channel: Channel) -> Option<String>;
 
-    /// Returns the (min, max) data boundaries for a continuous X axis.
-    fn get_x_continuous_bounds(&self) -> Result<(f32, f32), ChartonError>;
+    /// Returns the user's preferred scale type (e.g., Linear, Log) for a channel.
+    fn get_scale(&self, channel: Channel) -> Option<Scale>;
 
-    /// Returns the list of categorical labels if the X axis is discrete.
-    fn get_x_discrete_tick_labels(&self) -> Result<Option<Vec<String>>, ChartonError>;
-
-    // Methods to get scale type for x axes
-    fn get_x_scale_type_from_layer(&self) -> Option<Scale>;
-
-    /// Returns the field name mapped to the Y axis, used as the default axis title.
-    fn get_y_encoding_field(&self) -> Option<String>;
-
-    /// Returns the (min, max) data boundaries for a continuous Y axis.
-    fn get_y_continuous_bounds(&self) -> Result<(f32, f32), ChartonError>;
-
-    /// Returns the list of categorical labels if the Y axis is discrete.
-    fn get_y_discrete_tick_labels(&self) -> Result<Option<Vec<String>>, ChartonError>;
-
-    // Methods to get scale type for y axes
-    fn get_y_scale_type_from_layer(&self) -> Option<Scale>;
-
-    /// Returns the field mapped to the color channel
-    fn get_color_encoding_field(&self) -> Option<String>;
-
-    /// Returns the (min, max) bounds for color if it is continuous.
-    fn get_color_continuous_bounds(&self) -> Result<Option<(f32, f32)>, ChartonError>;
-
-    /// Returns the unique labels for color if it is discrete.
-    fn get_color_discrete_labels(&self) -> Result<Option<Vec<String>>, ChartonError>;
+    /// Returns the user-defined domain override for a channel, if any.
+    fn get_domain(&self, channel: Channel) -> Option<ScaleDomain>;
     
-    /// Returns the scale type for color defined in this layer.
-    fn get_color_scale_type_from_layer(&self) -> Option<Scale>;
+    /// Returns the expansion/padding rules for a channel.
+    fn get_expand(&self, channel: Channel) -> Option<Expansion>;
 
-    /// Returns the field mapped to the shape channel
-    fn get_shape_encoding_field(&self) -> Option<String>;
-
-    // --- Shape (Always Discrete) ---
-    fn get_shape_discrete_labels(&self) -> Result<Option<Vec<String>>, ChartonError>;
-
-    // Methods to get scale type for shape encoding
-    fn get_shape_scale_type_from_layer(&self) -> Option<Scale>;
-
-    /// Returns the field mapped to the size channel
-    fn get_size_encoding_field(&self) -> Option<String>;
-
-    // --- Size (Always Continuous) ---
-    fn get_size_continuous_bounds(&self) -> Result<Option<(f32, f32)>, ChartonError>;
-
-    // Methods to get scale type for size encoding
-    fn get_size_scale_type_from_layer(&self) -> Option<Scale>;
-
-    // --- State Back-filling (The "Training" ("resolve_rendering_layout") Phase) ---
-
-    /// Sets the resolved Scale type for a specific visual channel.
+    /// Calculates the raw data boundaries (Min/Max or Unique Categories) for this layer.
     /// 
-    /// This is called by the LayeredChart during the rendering pipeline to ensure
-    /// all layers use a consistent scale type (e.g., forcing a Linear scale to Log 
-    /// if another layer requires it).
-    ///
-    /// * `channel`: The name of the visual channel (e.g., "color", "size").
-    /// * `scale`: The resolved Scale enum to apply.
-    fn set_scale_type(&mut self, channel: &str, scale: Scale);
+    /// This is the primary input for the "Training" phase where global scales are built.
+    fn get_data_bounds(&self, channel: Channel) -> Result<ScaleDomain, ChartonError>;
 
-    /// Sets the resolved Data Domain for a specific visual channel.
-    /// 
-    /// This is the key "back-fill" step. The LayeredChart calculates a unified 
-    /// domain (e.g., global Min/Max) from all layers and pushes it back into 
-    /// each individual layer to ensure visual synchronization across the chart.
+    // --- State Resolution (The "Back-filling" Phase) ---
+
+    /// Injects the final, trained scale instance into the layer's encoding.
     ///
-    /// * `channel`: The name of the visual channel (e.g., "color", "shape", "size").
-    /// * `domain`: The unified ScaleDomain calculated from the entire dataset.
-    fn set_domain(&mut self, channel: &str, domain: ScaleDomain);
+    /// This ensures that if multiple layers share an axis (e.g., two different 
+    /// datasets on the same Y-axis), they both receive the same mathematical 
+    /// mapping logic.
+    /// 
+    /// * `channel`: The visual aesthetic being resolved.
+    /// * `scale`: The shared, thread-safe scale object.
+    fn set_resolved_scale(&mut self, channel: Channel, scale: Arc<dyn ScaleTrait>);
 }

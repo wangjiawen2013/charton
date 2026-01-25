@@ -44,11 +44,6 @@ impl Y2 {
         self.resolved_scale = Some(scale);
     }
 
-    /// Returns the data field name used for this secondary Y encoding.
-    pub fn get_field(&self) -> &str {
-        &self.field
-    }
-
     /// Returns a reference to the resolved scale.
     /// 
     /// Marks like Area or Bar use this to calculate the "secondary" pixel coordinate.
