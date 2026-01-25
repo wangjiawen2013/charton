@@ -35,17 +35,10 @@ pub struct X {
 
     // --- System Resolution (Result/Outputs) ---
     
-    /// The concrete, trained scale instance used for actual rendering.
-    ///
-    /// This field is initially `None` and is populated by the `LayeredChart` 
-    /// during the resolution phase. Once set, it contains the final 
-    /// mathematical mapping logic (e.g., domain to pixels).
-    /// 
-    /// We use `Arc` (Atomic Reference Counted) to:
-    /// - Share a single scale instance across multiple superimposed layers.
-    /// - Avoid expensive deep clones of complex scales (like those with custom color gradients).
-    /// - Ensure thread-safety if rendering is parallelized in the future.
-    pub(crate) resolved_scale: Option<Arc<dyn ScaleTrait>>,
+    /// Stores the concrete, trained scale instance for rendering.
+    /// We use `OnceLock` to provide interior mutability, allowing the global 
+    /// resolution phase to "back-fill" this field while the layer is held by an `Arc`.
+    pub(crate) resolved_scale: std::sync::OnceLock<Arc<dyn ScaleTrait>>,
 }
 
 impl X {
@@ -58,7 +51,7 @@ impl X {
             expand: None,
             zero: None,
             bins: None,
-            resolved_scale: None,
+            resolved_scale: std::sync::OnceLock::new(),
         }
     }
 
@@ -103,22 +96,6 @@ impl X {
     pub fn with_bins(mut self, bins: usize) -> Self {
         self.bins = Some(bins);
         self
-    }
-
-    /// Back-fills the resolved scale instance into the encoding.
-    ///
-    /// This is called by the rendering engine after it has combined data 
-    /// and configurations to create the final coordinate system.
-    pub(crate) fn set_resolved_scale(&mut self, scale: Arc<dyn ScaleTrait>) {
-        self.resolved_scale = Some(scale);
-    }
-
-    /// Returns a reference to the resolved scale if it has been populated.
-    /// 
-    /// Marks should call this during their `render` pass to convert 
-    /// data values into visual coordinates.
-    pub fn get_resolved_scale(&self) -> Option<&Arc<dyn ScaleTrait>> {
-        self.resolved_scale.as_ref()
     }
 }
 

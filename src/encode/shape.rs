@@ -29,12 +29,10 @@ pub struct Shape {
 
     // --- System Resolution (Result/Outputs) ---
     
-    /// The concrete, trained shape scale instance, shared via Arc.
-    ///
-    /// Once populated by the `LayeredChart`, this instance contains the mapping 
-    /// table between data strings and geometric identifiers. Using `Arc` prevents 
-    /// redundant palette logic across multiple chart layers.
-    pub(crate) resolved_scale: Option<Arc<dyn ScaleTrait>>,
+    /// Stores the concrete, trained scale instance for rendering.
+    /// We use `OnceLock` to provide interior mutability, allowing the global 
+    /// resolution phase to "back-fill" this field while the layer is held by an `Arc`.
+    pub(crate) resolved_scale: std::sync::OnceLock<Arc<dyn ScaleTrait>>,
 }
 
 impl Shape {
@@ -46,7 +44,7 @@ impl Shape {
             scale_type: Some(Scale::Discrete), 
             domain: None,
             expand: None,
-            resolved_scale: None,
+            resolved_scale: std::sync::OnceLock::new(),
         }
     }
 
@@ -68,21 +66,6 @@ impl Shape {
     pub fn with_expand(mut self, expand: Expansion) -> Self {
         self.expand = Some(expand);
         self
-    }
-
-    /// Injects the resolved shape scale instance.
-    ///
-    /// Back-filled by the engine after it has identified the unique data 
-    /// categories and assigned them to the symbol palette.
-    pub(crate) fn set_resolved_scale(&mut self, scale: Arc<dyn ScaleTrait>) {
-        self.resolved_scale = Some(scale);
-    }
-
-    /// Returns a reference to the resolved scale instance.
-    /// 
-    /// Marks call this to retrieve the specific symbol ID for a data point.
-    pub fn get_resolved_scale(&self) -> Option<&Arc<dyn ScaleTrait>> {
-        self.resolved_scale.as_ref()
     }
 }
 

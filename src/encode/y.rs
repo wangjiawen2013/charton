@@ -39,14 +39,10 @@ pub struct Y {
 
     // --- System Resolution (Result/Outputs) ---
     
-    /// The concrete, trained scale instance used for rendering.
-    ///
-    /// This is populated by the `LayeredChart` during the resolution phase. 
-    /// We use `Arc` (Atomic Reference Counted) to:
-    /// - **Share**: Allow multiple superimposed layers to use the exact same Y-axis instance.
-    /// - **Isolate**: Allow faceted charts to hold independent Y-axes by assigning different Arcs.
-    /// - **Performance**: Avoid deep-cloning complex scale metadata (like axis labels or color tables).
-    pub(crate) resolved_scale: Option<Arc<dyn ScaleTrait>>,
+    /// Stores the concrete, trained scale instance for rendering.
+    /// We use `OnceLock` to provide interior mutability, allowing the global 
+    /// resolution phase to "back-fill" this field while the layer is held by an `Arc`.
+    pub(crate) resolved_scale: std::sync::OnceLock<Arc<dyn ScaleTrait>>,
 }
 
 impl Y {
@@ -61,7 +57,7 @@ impl Y {
             bins: None,
             normalize: false, // Default to false (raw counts)
             stack: false, // Default to false (regular bar chart)
-            resolved_scale: None,
+            resolved_scale: std::sync::OnceLock::new(),
         }
     }
 
@@ -141,21 +137,6 @@ impl Y {
     pub fn with_stack(mut self, stack: bool) -> Self {
         self.stack = stack;
         self
-    }
-
-    /// Injects the resolved scale instance into the encoding.
-    ///
-    /// This is called by the `LayeredChart` after combining layer data 
-    /// to determine the final coordinate system.
-    pub(crate) fn set_resolved_scale(&mut self, scale: Arc<dyn ScaleTrait>) {
-        self.resolved_scale = Some(scale);
-    }
-
-    /// Returns a reference to the resolved scale if it has been populated.
-    /// 
-    /// Marks use this to perform the actual mapping from data values to Y-pixels.
-    pub fn get_resolved_scale(&self) -> Option<&Arc<dyn ScaleTrait>> {
-        self.resolved_scale.as_ref()
     }
 }
 
