@@ -18,7 +18,7 @@ use self::{
     text::Text,
 };
 
-use crate::scale::ScaleTrait;
+use crate::scale::{Scale, ScaleDomain, Expansion, ScaleTrait};
 use std::sync::Arc;
 
 /// Represents the various visual aesthetics that can be mapped to data.
@@ -80,7 +80,48 @@ impl Encoding {
             Channel::Color => self.color.as_ref().map(|v| v.field.as_str()),
             Channel::Shape => self.shape.as_ref().map(|v| v.field.as_str()),
             Channel::Size => self.size.as_ref().map(|v| v.field.as_str()),
-            // Note: Add logic for Y2, Theta, and Text as needed when those modules are updated
+        }
+    }
+
+    /// Retrieves the user-defined scale type (e.g., Linear, Log, Time) for a channel.
+    pub fn get_scale_by_channel(&self, channel: Channel) -> Option<Scale> {
+        match channel {
+            Channel::X => self.x.as_ref().and_then(|v| v.scale_type.clone()),
+            Channel::Y => self.y.as_ref().and_then(|v| v.scale_type.clone()),
+            Channel::Color => self.color.as_ref().and_then(|v| v.scale_type.clone()),
+            Channel::Shape => self.shape.as_ref().and_then(|v| v.scale_type.clone()),
+            Channel::Size => self.size.as_ref().and_then(|v| v.scale_type.clone()),
+        }
+    }
+
+    /// Retrieves the user-defined domain override for a specific channel.
+    pub fn get_domain_by_channel(&self, channel: Channel) -> Option<ScaleDomain> {
+        match channel {
+            Channel::X => self.x.as_ref().and_then(|v| v.domain.clone()),
+            Channel::Y => self.y.as_ref().and_then(|v| v.domain.clone()),
+            Channel::Color => self.color.as_ref().and_then(|v| v.domain.clone()),
+            Channel::Shape => self.shape.as_ref().and_then(|v| v.domain.clone()),
+            Channel::Size => self.size.as_ref().and_then(|v| v.domain.clone()),
+        }
+    }
+
+    /// Retrieves the expansion (padding) preferences for a channel.
+    pub fn get_expand_by_channel(&self, channel: Channel) -> Option<Expansion> {
+        match channel {
+            Channel::X => self.x.as_ref().and_then(|v| v.expand),
+            Channel::Y => self.y.as_ref().and_then(|v| v.expand),
+            Channel::Color => self.color.as_ref().and_then(|v| v.expand),
+            Channel::Shape => self.shape.as_ref().and_then(|v| v.expand),
+            Channel::Size => self.size.as_ref().and_then(|v| v.expand),
+        }
+    }
+
+    /// Checks if the channel is explicitly configured to include zero in its axis range.
+    pub fn get_zero_by_channel(&self, channel: Channel) -> bool {
+        match channel {
+            Channel::X => self.x.as_ref().and_then(|v| v.zero) == Some(true),
+            Channel::Y => self.y.as_ref().and_then(|v| v.zero) == Some(true),
+            _ => false,
         }
     }
 
