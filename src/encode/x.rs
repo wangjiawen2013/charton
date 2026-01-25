@@ -94,11 +94,6 @@ impl X {
         self.resolved_scale = Some(scale);
     }
 
-    /// Returns the name of the data field used for this encoding.
-    pub fn get_field(&self) -> &str {
-        &self.field
-    }
-
     /// Returns a reference to the resolved scale if it has been populated.
     /// 
     /// Marks should call this during their `render` pass to convert 

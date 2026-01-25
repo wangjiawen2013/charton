@@ -1,11 +1,11 @@
-pub(crate) mod color;
-pub(crate) mod shape;
-pub(crate) mod size;
-pub(crate) mod text;
-pub(crate) mod theta;
-pub(crate) mod x;
-pub(crate) mod y;
-pub(crate) mod y2;
+pub mod color;
+pub mod shape;
+pub mod size;
+pub mod text;
+pub mod theta;
+pub mod x;
+pub mod y;
+pub mod y2;
 
 use self::{
     x::X,
@@ -18,49 +18,50 @@ use self::{
     text::Text,
 };
 
-/// Unified application interface for encoding specifications
+use crate::scale::ScaleTrait;
+use std::sync::Arc;
+
+/// Represents the various visual aesthetics that can be mapped to data.
+/// 
+/// By using an enum, we can write generic logic in the rendering engine 
+/// to process all channels in a loop rather than writing custom code for 
+/// each axis or legend.
+#[derive(Debug, Clone, Copy, Hash, PartialEq, Eq)]
+pub enum Channel {
+    X,
+    Y,
+    Color,
+    Shape,
+    Size,
+}
+
+/// Unified application interface for encoding specifications.
 ///
-/// This trait provides a common interface for applying different types of encodings
-/// to a chart's encoding configuration. Each encoding type (X, Y, Color, etc.)
-/// implements this trait to define how it should be added to the global encoding.
-///
-/// # Type Parameters
-/// * `Self` - The encoding type that implements this trait
-///
-/// # Methods
-/// * `apply` - Applies the encoding to the provided `Encoding` container
+/// This trait allows different encoding types (like X, Color, or Size) to be 
+/// added to the global `Encoding` container.
 pub trait IntoEncoding {
-    /// Applies the encoding to the provided `Encoding` container
-    ///
-    /// This method takes ownership of the encoding specification and applies it
-    /// to the global encoding configuration. Each specific encoding type (X, Y, Color, etc.)
-    /// implements this method to define how it should be stored in the encoding container.
-    ///
-    /// # Arguments
-    /// * `enc` - A mutable reference to the `Encoding` container to which this encoding should be applied
+    /// Consumes the specification and applies it to the provided `Encoding` container.
     fn apply(self, enc: &mut Encoding);
 }
 
-/// Global encoding container
+/// Global encoding container.
 ///
 /// The `Encoding` struct serves as a central repository for all visual encoding
-/// specifications in a chart. It holds optional references to various encoding
-/// types that define how data fields map to visual properties like position,
-/// color, size, and shape.
+/// specifications in a chart. It holds the "Intent" (user configuration) for 
+/// how data fields map to visual properties.
 ///
-/// This struct is typically populated using the `encode` method on chart objects
-/// and is used internally during the rendering process to determine how data
-/// should be visually represented.
+/// By using the `Channel` enum, this container can be accessed dynamically 
+/// by the rendering engine during the "Resolution" phase.
 #[derive(Default)]
 pub struct Encoding {
-    pub(crate) x: Option<X>,             // For both continuous and discrete data
-    pub(crate) y: Option<Y>,             // For both continuous and discrete data
-    pub(crate) y2: Option<Y2>,           // Useful for mark rule
-    pub(crate) theta: Option<Theta>,     // For both continuous and discrete data
-    pub(crate) color: Option<Color>,     // For both continuous and discrete data
-    pub(crate) shape: Option<Shape>,     // For discrete data
-    pub(crate) size: Option<Size>,       // For continuous data
-    pub(crate) text: Option<Text>,                // For text marks
+    pub(crate) x: Option<X>,
+    pub(crate) y: Option<Y>,
+    pub(crate) y2: Option<Y2>,
+    pub(crate) theta: Option<Theta>,
+    pub(crate) color: Option<Color>,
+    pub(crate) shape: Option<Shape>,
+    pub(crate) size: Option<Size>,
+    pub(crate) text: Option<Text>,
 }
 
 impl Encoding {
@@ -68,123 +69,115 @@ impl Encoding {
         Default::default()
     }
 
-    /// Get all field names that are currently set in the encoding
+    /// Returns the data field name associated with a specific visual channel.
+    ///
+    /// This is used by the `LayeredChart` to discover which columns in the 
+    /// dataframe need to be processed for scale training.
+    pub fn get_field_by_channel(&self, channel: Channel) -> Option<&str> {
+        match channel {
+            Channel::X => self.x.as_ref().map(|v| v.field.as_str()),
+            Channel::Y => self.y.as_ref().map(|v| v.field.as_str()),
+            Channel::Color => self.color.as_ref().map(|v| v.field.as_str()),
+            Channel::Shape => self.shape.as_ref().map(|v| v.field.as_str()),
+            Channel::Size => self.size.as_ref().map(|v| v.field.as_str()),
+            // Note: Add logic for Y2, Theta, and Text as needed when those modules are updated
+        }
+    }
+
+    /// Injects a fully trained scale into the appropriate channel.
+    ///
+    /// This is the "back-filling" step of the rendering pipeline. Once the engine 
+    /// has calculated the global domain and applied visual mapping (like color ranges), 
+    /// it pushes the resulting `ScaleTrait` object back into the encoding.
+    pub fn set_resolved_scale_by_channel(&mut self, channel: Channel, scale: Arc<dyn ScaleTrait>) {
+        match channel {
+            Channel::X => if let Some(ref mut c) = self.x { c.set_resolved_scale(scale); },
+            Channel::Y => if let Some(ref mut c) = self.y { c.set_resolved_scale(scale); },
+            Channel::Color => if let Some(ref mut c) = self.color { c.set_resolved_scale(scale); },
+            Channel::Shape => if let Some(ref mut c) = self.shape { c.set_resolved_scale(scale); },
+            Channel::Size => if let Some(ref mut c) = self.size { c.set_resolved_scale(scale); },
+        }
+    }
+
+    /// Returns a list of all data fields currently active in this encoding.
+    ///
+    /// Useful for debugging or for pruning unused columns from a dataset 
+    /// before processing.
     pub(crate) fn active_fields(&self) -> Vec<&str> {
         let mut fields = Vec::new();
-        if let Some(ref x) = self.x {
-            fields.push(x.field.as_str());
+        // Check core channels
+        let core_channels = [
+            Channel::X, Channel::Y, Channel::Color, 
+            Channel::Shape, Channel::Size
+        ];
+        
+        for ch in core_channels {
+            if let Some(field) = self.get_field_by_channel(ch) {
+                fields.push(field);
+            }
         }
-        if let Some(ref y) = self.y {
-            fields.push(y.field.as_str());
-        }
-        if let Some(ref y2) = self.y2 {
-            fields.push(y2.field.as_str());
-        }
-        if let Some(ref theta) = self.theta {
-            fields.push(theta.field.as_str());
-        }
-        if let Some(ref color) = self.color {
-            fields.push(color.field.as_str());
-        }
-        if let Some(ref shape) = self.shape {
-            fields.push(shape.field.as_str());
-        }
-        if let Some(ref size) = self.size {
-            fields.push(size.field.as_str());
-        }
-        if let Some(ref text) = self.text {
-            fields.push(text.field.as_str());
-        }
+
+        // Handle specialty channels not yet in the main Channel enum
+        if let Some(ref y2) = self.y2 { fields.push(y2.field.as_str()); }
+        if let Some(ref t) = self.theta { fields.push(t.field.as_str()); }
+        if let Some(ref txt) = self.text { fields.push(txt.field.as_str()); }
 
         fields
     }
 }
 
-/* ---------- Single channel implementation ---------- */
+/* ---------- IntoEncoding Implementations ---------- */
 
 impl IntoEncoding for X {
-    fn apply(self, enc: &mut Encoding) {
-        enc.x = Some(self);
-    }
+    fn apply(self, enc: &mut Encoding) { enc.x = Some(self); }
 }
 
 impl IntoEncoding for Y {
-    fn apply(self, enc: &mut Encoding) {
-        enc.y = Some(self);
-    }
+    fn apply(self, enc: &mut Encoding) { enc.y = Some(self); }
 }
 
 impl IntoEncoding for Y2 {
-    fn apply(self, enc: &mut Encoding) {
-        enc.y2 = Some(self);
-    }
+    fn apply(self, enc: &mut Encoding) { enc.y2 = Some(self); }
 }
 
 impl IntoEncoding for Theta {
-    fn apply(self, enc: &mut Encoding) {
-        enc.theta = Some(self);
-    }
+    fn apply(self, enc: &mut Encoding) { enc.theta = Some(self); }
 }
 
 impl IntoEncoding for Color {
-    fn apply(self, enc: &mut Encoding) {
-        enc.color = Some(self);
-    }
+    fn apply(self, enc: &mut Encoding) { enc.color = Some(self); }
 }
 
 impl IntoEncoding for Shape {
-    fn apply(self, enc: &mut Encoding) {
-        enc.shape = Some(self);
-    }
+    fn apply(self, enc: &mut Encoding) { enc.shape = Some(self); }
 }
 
 impl IntoEncoding for Size {
-    fn apply(self, enc: &mut Encoding) {
-        enc.size = Some(self);
-    }
+    fn apply(self, enc: &mut Encoding) { enc.size = Some(self); }
 }
 
 impl IntoEncoding for Text {
-    fn apply(self, enc: &mut Encoding) {
-        enc.text = Some(self);
-    }
+    fn apply(self, enc: &mut Encoding) { enc.text = Some(self); }
 }
 
-/// Macro to implement IntoEncoding trait for tuples of different sizes
-///
-/// This macro generates implementations of the IntoEncoding trait for tuples
-/// containing 1 to 9 elements. Each element in the tuple must implement IntoEncoding.
-/// This allows users to pass multiple encodings as a single tuple to the encode method.
-///
-/// # Parameters
-/// * `$($idx:tt $T:ident),+` - A repetition of index-type pairs where:
-///   - `$idx` is the tuple index (0, 1, 2, etc.)
-///   - `$T` is the type identifier for that position
-///
-/// # Generated Implementation
-/// For each tuple size, this creates an IntoEncoding implementation that:
-/// 1. Takes ownership of the tuple
-/// 2. Calls apply() on each element in the tuple, passing the same Encoding reference
-/// 3. Applies all encodings to the same Encoding container in sequence
+/// Macro to implement IntoEncoding for tuples (e.g., .encode((X::new("a"), Y::new("b"))))
 macro_rules! impl_tuple_encoding {
     ($($idx:tt $T:ident),+) => {
         impl<$($T: IntoEncoding),+> IntoEncoding for ($($T,)+) {
             #[inline]
             fn apply(self, enc: &mut Encoding) {
-                $(
-                    self.$idx.apply(enc);
-                )+
+                $( self.$idx.apply(enc); )+
             }
         }
     };
 }
 
-// Update the tuple implementation to support up to 9 elements now
-impl_tuple_encoding!(0 T0); // 1
-impl_tuple_encoding!(0 T0, 1 T1); // 2
-impl_tuple_encoding!(0 T0, 1 T1, 2 T2); // 3
-impl_tuple_encoding!(0 T0, 1 T1, 2 T2, 3 T3); // 4
-impl_tuple_encoding!(0 T0, 1 T1, 2 T2, 3 T3, 4 T4); // 5
-impl_tuple_encoding!(0 T0, 1 T1, 2 T2, 3 T3, 4 T4, 5 T5); // 6
-impl_tuple_encoding!(0 T0, 1 T1, 2 T2, 3 T3, 4 T4, 5 T5, 6 T6); // 7
-impl_tuple_encoding!(0 T0, 1 T1, 2 T2, 3 T3, 4 T4, 5 T5, 6 T6, 7 T7); // 8
+impl_tuple_encoding!(0 T0); 
+impl_tuple_encoding!(0 T0, 1 T1); 
+impl_tuple_encoding!(0 T0, 1 T1, 2 T2); 
+impl_tuple_encoding!(0 T0, 1 T1, 2 T2, 3 T3); 
+impl_tuple_encoding!(0 T0, 1 T1, 2 T2, 3 T3, 4 T4); 
+impl_tuple_encoding!(0 T0, 1 T1, 2 T2, 3 T3, 4 T4, 5 T5); 
+impl_tuple_encoding!(0 T0, 1 T1, 2 T2, 3 T3, 4 T4, 5 T5, 6 T6); 
+impl_tuple_encoding!(0 T0, 1 T1, 2 T2, 3 T3, 4 T4, 5 T5, 6 T6, 7 T7); 
+impl_tuple_encoding!(0 T0, 1 T1, 2 T2, 3 T3, 4 T4, 5 T5, 6 T6, 7 T7, 8 T8);

@@ -45,11 +45,6 @@ impl Text {
         self.resolved_scale = Some(scale);
     }
 
-    /// Returns the data field name used for text encoding.
-    pub fn get_field(&self) -> &str {
-        &self.field
-    }
-
     /// Returns a reference to the resolved scale if it has been populated.
     pub fn get_resolved_scale(&self) -> Option<&Arc<dyn ScaleTrait>> {
         self.resolved_scale.as_ref()

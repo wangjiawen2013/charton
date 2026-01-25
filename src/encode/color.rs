@@ -71,11 +71,6 @@ impl Color {
         self.resolved_scale = Some(scale);
     }
 
-    /// Returns the name of the data field used for color encoding.
-    pub fn get_field(&self) -> &str {
-        &self.field
-    }
-
     /// Returns a reference to the resolved scale instance.
     pub fn get_resolved_scale(&self) -> Option<&Arc<dyn ScaleTrait>> {
         self.resolved_scale.as_ref()
