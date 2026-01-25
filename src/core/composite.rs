@@ -116,7 +116,7 @@ impl LayeredChart {
     // --- Physical Dimensions ---
 
     /// Convenience method to set both width and height.
-    pub fn size(mut self, width: u32, height: u32) -> Self {
+    pub fn with_size(mut self, width: u32, height: u32) -> Self {
         self.width = width;
         self.height = height;
         self
@@ -124,28 +124,28 @@ impl LayeredChart {
 
     // --- Layout Margins ---
 
-    pub fn left_margin(mut self, margin: f32) -> Self {
+    pub fn with_left_margin(mut self, margin: f32) -> Self {
         self.left_margin = margin;
         self
     }
 
-    pub fn right_margin(mut self, margin: f32) -> Self {
+    pub fn with_right_margin(mut self, margin: f32) -> Self {
         self.right_margin = margin;
         self
     }
 
-    pub fn top_margin(mut self, margin: f32) -> Self {
+    pub fn with_top_margin(mut self, margin: f32) -> Self {
         self.top_margin = margin;
         self
     }
 
-    pub fn bottom_margin(mut self, margin: f32) -> Self {
+    pub fn with_bottom_margin(mut self, margin: f32) -> Self {
         self.bottom_margin = margin;
         self
     }
 
     /// Convenience method to set all margins at once.
-    pub fn margins(mut self, top: f32, right: f32, bottom: f32, left: f32) -> Self {
+    pub fn with_margins(mut self, top: f32, right: f32, bottom: f32, left: f32) -> Self {
         self.top_margin = top;
         self.right_margin = right;
         self.bottom_margin = bottom;
@@ -155,19 +155,19 @@ impl LayeredChart {
 
     // --- Aesthetic Styling ---
 
-    pub fn theme(mut self, theme: Theme) -> Self {
+    pub fn with_theme(mut self, theme: Theme) -> Self {
         self.theme = theme;
         self
     }
 
     /// Set a custom ColorMap for continuous color scales.
-    pub fn color_continuous(mut self, map: ColorMap) -> Self {
+    pub fn with_color_continuous(mut self, map: ColorMap) -> Self {
         self.color_map_override = Some(map);
         self
     }
 
     /// Set a custom Palette for categorical color scales.
-    pub fn color_discrete(mut self, palette: ColorPalette) -> Self {
+    pub fn with_color_discrete(mut self, palette: ColorPalette) -> Self {
         self.palette_override = Some(palette);
         self
     }
@@ -181,7 +181,7 @@ impl LayeredChart {
         self
     }
 
-    pub fn title(mut self, title: impl Into<String>) -> Self {
+    pub fn with_title(mut self, title: impl Into<String>) -> Self {
         self.title = Some(title.into());
         self
     }
@@ -189,37 +189,37 @@ impl LayeredChart {
     // --- Axis Data & Scale Configuration ---
 
     /// Set the global X-axis domain, overriding automatic data range calculation.
-    pub fn x_domain(mut self, min: f32, max: f32) -> Self {
+    pub fn with_x_domain(mut self, min: f32, max: f32) -> Self {
         self.x_domain = Some(ScaleDomain::Continuous(min, max));
         self
     }
 
     /// Set the X-axis expansion (padding). 
     /// If None, the resolution logic will use Theme defaults or Scale-specific defaults.
-    pub fn x_expand(mut self, expand: Expansion) -> Self {
+    pub fn with_x_expand(mut self, expand: Expansion) -> Self {
         self.x_expand = Some(expand);
         self
     }
 
     /// Set the global Y-axis domain.
-    pub fn y_domain(mut self, min: f32, max: f32) -> Self {
+    pub fn with_y_domain(mut self, min: f32, max: f32) -> Self {
         self.y_domain = Some(ScaleDomain::Continuous(min, max));
         self
     }
 
     /// Set the Y-axis expansion (padding). 
     /// If None, the resolution logic will use Theme defaults or Scale-specific defaults.
-    pub fn y_expand(mut self, expand: Expansion) -> Self {
+    pub fn with_y_expand(mut self, expand: Expansion) -> Self {
         self.y_expand = Some(expand);
         self
     }
 
-    pub fn x_label(mut self, label: impl Into<String>) -> Self {
+    pub fn with_x_label(mut self, label: impl Into<String>) -> Self {
         self.x_label = Some(label.into());
         self
     }
 
-    pub fn y_label(mut self, label: impl Into<String>) -> Self {
+    pub fn with_y_label(mut self, label: impl Into<String>) -> Self {
         self.y_label = Some(label.into());
         self
     }
@@ -231,17 +231,17 @@ impl LayeredChart {
 
     // --- Legend Logic ---
 
-    pub fn legend_title(mut self, title: impl Into<String>) -> Self {
+    pub fn with_legend_title(mut self, title: impl Into<String>) -> Self {
         self.legend_title = Some(title.into());
         self
     }
 
-    pub fn legend_position(mut self, position: LegendPosition) -> Self {
+    pub fn with_legend_position(mut self, position: LegendPosition) -> Self {
         self.legend_position = position;
         self
     }
 
-    pub fn legend_margin(mut self, margin: f32) -> Self {
+    pub fn with_legend_margin(mut self, margin: f32) -> Self {
         self.legend_margin = margin;
         self
     }
