@@ -445,104 +445,91 @@ impl LayeredChart {
     {
         // Check if the layer has data before adding it
         if layer.data.df.height() > 0 {
-            self.layers.push(Box::new(layer));
+            self.layers.push(Arc::new(layer));
         }
         // If layer is empty, silently ignore it
         self
     }
 
-    /// Resolves the final rendering layout and global aesthetic scales by consolidating metadata.
-    /// 
-    /// This implementation follows an "Industrial Defense" layout pipeline:
-    /// 1. **Consolidate Aesthetic Mappings**: Aggregates color, shape, and size scales from layers.
-    /// 2. **Coordinate Resolution**: Initializes X and Y scales based on data domains.
-    /// 3. **Measurement Phase**: Utilizes the LayoutEngine to calculate physical pixel requirements.
-    /// 4. **Defense Mechanism**: Ensures a minimum panel size to prevent chart "collapse".
-    fn resolve_rendering_layout(&self) -> Result<(Box<dyn CoordinateTrait>, Rect, GlobalAesthetics, Vec<GuideSpec>), ChartonError> {
-        // --- STEP 1: CONSOLIDATE AESTHETIC MAPPINGS ---
-        // We resolve encodings across all layers to ensure visual consistency.
-        // Each resolver returns (FieldName, ScaleType, ScaleDomain).
+    /// Consolidates all metadata, data domains, and physical constraints into a final rendering Scene.
+    ///
+    /// This implementation follows the "Industrial Defense" pipeline:
+    /// 1. **Aesthetic Resolution**: Consolidates Color, Shape, and Size scales using unified specs.
+    /// 2. **Coordinate Resolution**: Resolves X and Y scales and constructs the Coordinate system.
+    /// 3. **Guide Generation**: Collects legend specifications based on merged fields.
+    /// 4. **Layout Measurement**: Calculates the physical pixel Rect for the plot panel.
+    ///
+    /// Using `Arc` for Traits ensures that scales and coordinates can be shared safely 
+    /// across multiple layers and threads without expensive deep-copying of data.
+    pub fn resolve_scene(&self) -> Result<(Arc<dyn CoordinateTrait>, Rect, GlobalAesthetics, Vec<GuideSpec>), ChartonError> {
+        
+        // --- STEP 1: RESOLVE GLOBAL AESTHETIC MAPPINGS ---
+        // We resolve non-positional encodings (Color, Shape, Size) across all layers.
+        // The `resolve_scale_spec` handles domain merging and expansion automatically.
 
-        // 1a. Resolve Color Mapping
-        // This handles both Continuous (Linear/Log) and Discrete color scales.
-        let color_mapping = if let Some((field, scale_type, domain)) = self.resolve_color_encoding()? {
-            let scale_impl = create_scale(&scale_type, domain, self.color_expand.expect("composite.rs line about 656"))?;
-            let mapper = VisualMapper::new_color_default(&scale_type, &self.theme);
+        // 1a. Color Mapping
+        let color_mapping = if let Some(spec) = self.resolve_scale_spec(Channel::Color)? {
+            let mapper = VisualMapper::new_color_default(&spec.scale_type, &self.theme);
+            let scale_impl = create_scale(&spec.scale_type, spec.domain, spec.expand, Some(mapper.clone()))?;
             Some(AestheticMapping {
-                field,
-                scale_type,
-                scale_impl,
+                field: spec.field,
+                scale_type: spec.scale_type,
+                scale_impl, // This is now an Arc<dyn ScaleTrait>
                 mapper,
             })
         } else { None };
 
-        // 1b. Resolve Shape Mapping
-        // Shapes are strictly Categorical/Discrete in this system.
-        let shape_mapping = if let Some((field, scale_type, domain)) = self.resolve_shape_encoding()? {
-            let scale_impl = create_scale(&scale_type, domain, self.shape_expand.expect("Composite.rs line about 680"))?;
+        // 1b. Shape Mapping
+        let shape_mapping = if let Some(spec) = self.resolve_scale_spec(Channel::Shape)? {
             let mapper = VisualMapper::new_shape_default();
+            let scale_impl = create_scale(&spec.scale_type, spec.domain, spec.expand, Some(mapper.clone()))?;
             Some(AestheticMapping {
-                field,
-                scale_type,
+                field: spec.field,
+                scale_type: spec.scale_type,
                 scale_impl,
                 mapper,
             })
         } else { None };
 
-        // 1c. Resolve Size Mapping
-        // Size usually maps to a Linear scale (area or radius).
-        let size_mapping = if let Some((field, scale_type, domain)) = self.resolve_size_encoding()? {
-            let scale_impl = create_scale(&scale_type, domain, self.size_expand.expect("composite.rs line about 696"))?;
-            // Radius range (2.0 to 9.0) provides clear visual distinction in legends.
+        // 1c. Size Mapping
+        let size_mapping = if let Some(spec) = self.resolve_scale_spec(Channel::Size)? {
             let mapper = VisualMapper::new_size_default(2.0, 9.0);
+            let scale_impl = create_scale(&spec.scale_type, spec.domain, spec.expand, Some(mapper.clone()))?;
             Some(AestheticMapping {
-                field,
-                scale_type,
+                field: spec.field,
+                scale_type: spec.scale_type,
                 scale_impl,
                 mapper,
             })
         } else { None };
 
-        // Initialize GlobalAesthetics: the single source of truth for non-positional scales.
+        // Wrap mappings into GlobalAesthetics for unified access.
         let aesthetics = GlobalAesthetics::new(color_mapping, shape_mapping, size_mapping);
 
         // --- STEP 2: RESOLVE COORDINATE SCALES (X & Y) ---
-        // Position scales map data to the [0, 1] normalized range of the plot panel.
+        // Position scales map data to the [0, 1] normalized range.
+        // We expect a valid spec for X/Y, falling back to a default unit scale if empty.
+        let x_spec = self.resolve_scale_spec(Channel::X)?.unwrap();
+        let y_spec = self.resolve_scale_spec(Channel::Y)?.unwrap();
 
-        // 2a. Resolve X-Axis
-        let x_scale = if let Some((stype, domain)) = self.get_x_domain_from_layers()? {
-            // Apply user-defined domain overrides if present.
-            let domain = self.x_domain.clone().unwrap_or(domain);
-            create_scale(&stype, domain, self.x_expand.expect("composite.rs line about 724"))?
-        } else {
-            // Fallback to a unit scale if no X data is found.
-            create_scale(&Scale::Linear, ScaleDomain::Continuous(0.0, 1.0), self.x_expand.expect("composite.rs line about 740"))?
-        };
+        let x_scale = create_scale(&x_spec.scale_type, x_spec.domain, x_spec.expand, None)?;
+        let y_scale = create_scale(&y_spec.scale_type, y_spec.domain, y_spec.expand, None)?;
 
-        // 2b. Resolve Y-Axis
-        let y_scale = if let Some((stype, domain)) = self.get_y_domain_from_layers()? {
-            let domain = self.y_domain.clone().unwrap_or(domain);
-            create_scale(&stype, domain, self.y_expand.expect("composite.rs line about 756"))?
-        } else {
-            create_scale(&Scale::Linear, ScaleDomain::Continuous(0.0, 1.0), self.y_expand.expect("composite.rs line about 772"))?
-        };
-
-        // Construct the coordinate system (Cartesian is the current standard).
-        let final_coord: Box<dyn CoordinateTrait> = match self.coord_system {
-            CoordSystem::Cartesian2D => Box::new(crate::coordinate::cartesian::Cartesian2D::new(
+        // Construct the coordinate system as an Arc to allow shared access during rendering.
+        let final_coord: Arc<dyn CoordinateTrait> = match self.coord_system {
+            CoordSystem::Cartesian2D => Arc::new(crate::coordinate::cartesian::Cartesian2D::new(
                 x_scale, 
                 y_scale, 
                 self.flipped
             )),
-            CoordSystem::Polar => todo!("Polar coordinate resolution not yet implemented"),
+            CoordSystem::Polar => todo!("Polar coordinate resolution is planned for the next release"),
         };
 
-        // --- STEP 3: GENERATE GUIDE SPECIFICATIONS ---
-        // We group aesthetic mappings by field name to create unified legends/colorbars.
+        // --- STEP 3: GUIDE GENERATION ---
+        // Group aesthetic mappings by field name to create unified legends/colorbars.
         let guide_specs = crate::core::guide::GuideManager::collect_guides(&aesthetics);
 
-        // --- STEP 4: MEASUREMENT PHASE (THE LAYOUT ENGINE) ---
-        // We calculate how much space legends and axes take to determine the remaining data panel size.
+        // --- STEP 4: PHYSICAL MEASUREMENT (LAYOUT ENGINE) ---
         let w = self.width as f32;
         let h = self.height as f32;
 
@@ -550,7 +537,7 @@ impl LayeredChart {
         let initial_plot_w = w * (1.0 - self.left_margin - self.right_margin);
         let initial_plot_h = h * (1.0 - self.top_margin - self.bottom_margin);
 
-        // B. Measure Legend Constraints.
+        // B. Measure Legend Constraints based on guide specifications.
         let legend_box = crate::core::layout::LayoutEngine::calculate_legend_constraints(
             &guide_specs,
             self.legend_position,
@@ -561,8 +548,7 @@ impl LayeredChart {
             &self.theme
         );
 
-        // C. Measure Axis Constraints.
-        // To measure axis labels accurately, we create a temporary context using an estimated panel.
+        // C. Measure Axis Constraints using a temporary SharedRenderingContext.
         let temp_panel = Rect::new(
             (self.left_margin * w) + legend_box.left,
             (self.top_margin * h) + legend_box.top,
@@ -571,7 +557,7 @@ impl LayeredChart {
         );
 
         let temp_ctx = SharedRenderingContext::new(
-            &*final_coord,
+            &*final_coord, // Deref Arc to &dyn CoordinateTrait
             temp_panel,
             self.legend_position,
             self.legend_margin,
@@ -581,18 +567,17 @@ impl LayeredChart {
         let axis_box = crate::core::layout::LayoutEngine::calculate_axis_constraints(
             &temp_ctx,
             &self.theme,
-            &self.resolve_x_label(),
-            &self.resolve_y_label()
+            &x_spec.field,
+            &y_spec.field
         );
 
         // --- STEP 5: FINAL PANEL RESOLUTION & DEFENSE ---
-        // We subtract all measured components (Legends + Axes) from the chart total.
         let final_left = (self.left_margin * w) + legend_box.left + axis_box.left;
         let final_right = (self.right_margin * w) + legend_box.right;
         let final_top = (self.top_margin * h) + legend_box.top;
         let final_bottom = (self.bottom_margin * h) + legend_box.bottom + axis_box.bottom;
 
-        // Apply the "Defense" rule: Ensure the panel never shrinks below the theme's minimum size.
+        // Apply "Defense" rule: Ensure the panel never shrinks below the theme's minimum size.
         let plot_w = (w - final_left - final_right).max(self.theme.min_panel_size);
         let plot_h = (h - final_top - final_bottom).max(self.theme.min_panel_size);
 
