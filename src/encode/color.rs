@@ -49,19 +49,19 @@ impl Color {
     }
 
     /// Explicitly sets the scale type for color mapping (e.g., Linear, Log).
-    pub fn scale(mut self, scale_type: Scale) -> Self {
+    pub fn with_scale(mut self, scale_type: Scale) -> Self {
         self.scale_type = Some(scale_type);
         self
     }
 
     /// Sets an explicit domain (limits) for the color scale.
-    pub fn domain(mut self, domain: ScaleDomain) -> Self {
+    pub fn with_domain(mut self, domain: ScaleDomain) -> Self {
         self.domain = Some(domain);
         self
     }
 
     /// Configures the expansion padding for the color scale.
-    pub fn expand(mut self, expand: Expansion) -> Self {
+    pub fn with_expand(mut self, expand: Expansion) -> Self {
         self.expand = Some(expand);
         self
     }
@@ -72,12 +72,12 @@ impl Color {
     }
 
     /// Returns the name of the data field used for color encoding.
-    pub fn field(&self) -> &str {
+    pub fn get_field(&self) -> &str {
         &self.field
     }
 
     /// Returns a reference to the resolved scale instance.
-    pub fn resolved_scale(&self) -> Option<&Arc<dyn ScaleTrait>> {
+    pub fn get_resolved_scale(&self) -> Option<&Arc<dyn ScaleTrait>> {
         self.resolved_scale.as_ref()
     }
 }
@@ -87,8 +87,8 @@ impl Color {
 /// # Example
 /// ```
 /// let c = color("magnitude")
-///     .scale(Scale::Linear)
-///     .expand(Expansion::default());
+///     .with_scale(Scale::Linear)
+///     .with_expand(Expansion::default());
 /// ```
 pub fn color(field: &str) -> Color {
     Color::new(field)

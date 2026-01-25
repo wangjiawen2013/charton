@@ -60,7 +60,7 @@ impl X {
     }
 
     /// Sets the preferred scale type (e.g., `Scale::Linear`, `Scale::Log`).
-    pub fn scale(mut self, scale_type: Scale) -> Self {
+    pub fn with_scale(mut self, scale_type: Scale) -> Self {
         self.scale_type = Some(scale_type);
         self
     }
@@ -69,19 +69,19 @@ impl X {
     ///
     /// Setting this will prevent the engine from automatically calculating 
     /// the range based on the data.
-    pub fn domain(mut self, domain: ScaleDomain) -> Self {
+    pub fn with_domain(mut self, domain: ScaleDomain) -> Self {
         self.domain = Some(domain);
         self
     }
 
     /// Configures the expansion padding for the axis.
-    pub fn expand(mut self, expand: Expansion) -> Self {
+    pub fn with_expand(mut self, expand: Expansion) -> Self {
         self.expand = Some(expand);
         self
     }
 
     /// Determines if the scale must include the zero value.
-    pub fn zero(mut self, zero: bool) -> Self {
+    pub fn with_zero(mut self, zero: bool) -> Self {
         self.zero = Some(zero);
         self
     }
@@ -95,7 +95,7 @@ impl X {
     }
 
     /// Returns the name of the data field used for this encoding.
-    pub fn field(&self) -> &str {
+    pub fn get_field(&self) -> &str {
         &self.field
     }
 
@@ -103,7 +103,7 @@ impl X {
     /// 
     /// Marks should call this during their `render` pass to convert 
     /// data values into visual coordinates.
-    pub fn resolved_scale(&self) -> Option<&Arc<dyn ScaleTrait>> {
+    pub fn get_resolved_scale(&self) -> Option<&Arc<dyn ScaleTrait>> {
         self.resolved_scale.as_ref()
     }
 }
@@ -113,8 +113,8 @@ impl X {
 /// # Example
 /// ```
 /// let encoding = x("gdp_per_capita")
-///     .scale(Scale::Log)
-///     .zero(false);
+///     .with_scale(Scale::Log)
+///     .with_zero(false);
 /// ```
 pub fn x(field: &str) -> X {
     X::new(field)

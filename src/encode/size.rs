@@ -55,7 +55,7 @@ impl Size {
     /// # Errors
     /// Returns `ChartonError::Scale` if `Scale::Discrete` is provided, as size 
     /// is semantically intended for continuous or ordered data.
-    pub fn scale(mut self, scale_type: Scale) -> Result<Self, ChartonError> {
+    pub fn with_scale(mut self, scale_type: Scale) -> Result<Self, ChartonError> {
         if matches!(scale_type, Scale::Discrete) {
             return Err(ChartonError::Scale(
                 "Size encoding cannot use Scale::Discrete as size requires continuous data".to_string()
@@ -66,13 +66,13 @@ impl Size {
     }
 
     /// Explicitly sets the data domain for the size scale.
-    pub fn domain(mut self, domain: ScaleDomain) -> Self {
+    pub fn with_domain(mut self, domain: ScaleDomain) -> Self {
         self.domain = Some(domain);
         self
     }
 
     /// Configures the expansion padding for the size scale.
-    pub fn expand(mut self, expand: Expansion) -> Self {
+    pub fn with_expand(mut self, expand: Expansion) -> Self {
         self.expand = Some(expand);
         self
     }
@@ -83,12 +83,12 @@ impl Size {
     }
 
     /// Returns the name of the data field used for size encoding.
-    pub fn field(&self) -> &str {
+    pub fn get_field(&self) -> &str {
         &self.field
     }
 
     /// Returns a reference to the resolved scale instance.
-    pub fn resolved_scale(&self) -> Option<&Arc<dyn ScaleTrait>> {
+    pub fn get_resolved_scale(&self) -> Option<&Arc<dyn ScaleTrait>> {
         self.resolved_scale.as_ref()
     }
 }
@@ -97,7 +97,7 @@ impl Size {
 ///
 /// # Example
 /// ```
-/// let s = size("population").domain(ScaleDomain::Continuous(0.0, 1e9));
+/// let s = size("population").with_domain(ScaleDomain::Continuous(0.0, 1e9));
 /// ```
 pub fn size(field: &str) -> Size {
     Size::new(field)
