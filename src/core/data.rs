@@ -154,27 +154,62 @@ pub(crate) fn convert_numeric_types(df_source: DataFrameSource) -> Result<DataFr
     Ok(DataFrameSource::new(new_df))
 }
 
+use polars::datatypes::DataType;
 
-// Define data type category enumeration
-#[derive(Debug, Clone, PartialEq)]
+/// Represents the high-level semantic category of a data column.
+/// 
+/// This categorization is used during the Scale Resolution phase to:
+/// 1. Validate that multiple layers on the same axis have compatible data types.
+/// 2. Determine the default Scale type (e.g., Linear vs Temporal vs Discrete) when not specified.
+/// 3. Select the appropriate domain aggregation logic (Min/Max vs Unique Labels).
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum DataTypeCategory {
+    /// Numeric data that can be mapped to a continuous range (e.g., f32, i64).
+    /// Maps to: LinearScale, LogScale.
     Continuous,
+    
+    /// Categorical or qualitative data (e.g., String, Boolean, Categorical).
+    /// Maps to: DiscreteScale.
     Discrete,
+    
+    /// Date, Time, or Datetime data.
+    /// Maps to: TemporalScale.
+    Temporal,
 }
 
-// A helper function to determine data type category of polars data type
-pub(crate) fn determine_data_type_category(dtype: &polars::datatypes::DataType) -> DataTypeCategory {
+/// Determines the semantic [DataTypeCategory] for a given Polars [DataType].
+/// 
+/// This helper handles the mapping between physical storage types in Polars 
+/// and logical visualization categories in Charton.
+pub(crate) fn determine_data_type_category(dtype: &DataType) -> DataTypeCategory {
     match dtype {
-        // Float types -> Always Continuous
-        Float32 | Float64 => DataTypeCategory::Continuous,
+        // --- CONTINUOUS (Numeric) ---
+        // Floating point numbers are always treated as continuous.
+        DataType::Float32 | DataType::Float64 => DataTypeCategory::Continuous,
         
-        // String/Categorical/Boolean -> Always Discrete
-        String | Categorical(_, _) | Boolean => DataTypeCategory::Discrete,
+        // Integers are treated as continuous by default in visualization.
+        // Users can override this by explicitly requesting a Discrete scale if needed.
+        DataType::UInt8  | DataType::UInt16 | DataType::UInt32 | DataType::UInt64 |
+        DataType::Int8   | DataType::Int16  | DataType::Int32  | DataType::Int64  | 
+        DataType::Int128 => DataTypeCategory::Continuous,
+
+        // --- TEMPORAL (Date/Time) ---
+        // Polars time-related types map to our Temporal category.
+        // This ensures they use TemporalScale for proper date formatting on axes.
+        DataType::Date | DataType::Datetime(_, _) | DataType::Time | DataType::Duration(_) => {
+            DataTypeCategory::Temporal
+        }
+
+        // --- DISCRETE (Categorical) ---
+        // Strings and optimized Categorical types are always discrete.
+        DataType::String | DataType::Categorical(_, _) => DataTypeCategory::Discrete,
         
-        // Integer types -> Default to Continuous
-        UInt8 | UInt16 | UInt32 | UInt64 | Int8 | Int16 | Int32 | Int64 | Int128 => DataTypeCategory::Continuous,
-        
-        // Other types default to discrete
+        // Booleans are inherently discrete (True/False).
+        DataType::Boolean => DataTypeCategory::Discrete,
+
+        // --- FALLBACK ---
+        // Binary data, Lists, Structs, or Nulls are treated as Discrete for safety,
+        // though they may fail further validation during the encoding process.
         _ => DataTypeCategory::Discrete,
     }
 }
