@@ -17,9 +17,7 @@ use self::{
     size::Size,
     text::Text,
 };
-
-use crate::scale::{Scale, ScaleDomain, Expansion, ScaleTrait};
-use std::sync::Arc;
+use crate::scale::{Scale, ScaleDomain, Expansion};
 
 /// Represents the various visual aesthetics that can be mapped to data.
 /// 
@@ -122,21 +120,6 @@ impl Encoding {
             Channel::X => self.x.as_ref().and_then(|v| v.zero) == Some(true),
             Channel::Y => self.y.as_ref().and_then(|v| v.zero) == Some(true),
             _ => false,
-        }
-    }
-
-    /// Injects a fully trained scale into the appropriate channel.
-    ///
-    /// This is the "back-filling" step of the rendering pipeline. Once the engine 
-    /// has calculated the global domain and applied visual mapping (like color ranges), 
-    /// it pushes the resulting `ScaleTrait` object back into the encoding.
-    pub fn set_resolved_scale_by_channel(&mut self, channel: Channel, scale: Arc<dyn ScaleTrait>) {
-        match channel {
-            Channel::X => if let Some(ref mut c) = self.x { c.set_resolved_scale(scale); },
-            Channel::Y => if let Some(ref mut c) = self.y { c.set_resolved_scale(scale); },
-            Channel::Color => if let Some(ref mut c) = self.color { c.set_resolved_scale(scale); },
-            Channel::Shape => if let Some(ref mut c) = self.shape { c.set_resolved_scale(scale); },
-            Channel::Size => if let Some(ref mut c) = self.size { c.set_resolved_scale(scale); },
         }
     }
 

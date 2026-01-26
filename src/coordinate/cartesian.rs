@@ -10,6 +10,10 @@ use std::sync::Arc;
 pub struct Cartesian2D {
     pub x_scale: Arc<dyn ScaleTrait>,
     pub y_scale: Arc<dyn ScaleTrait>,
+    /// Stores field names. During faceting, this ensures the coordinate 
+    /// system identifies its corresponding raw data columns.
+    pub x_field: String,
+    pub y_field: String,
     /// If true, the X and Y axes are swapped (equivalent to ggplot2's coord_flip).
     /// Data X maps to physical Height, Data Y maps to physical Width.
     pub flipped: bool,
@@ -20,11 +24,15 @@ impl Cartesian2D {
     pub fn new(
         x_scale: Arc<dyn ScaleTrait>,
         y_scale: Arc<dyn ScaleTrait>,
+        x_field: String,
+        y_field: String,
         flipped: bool,
     ) -> Self {
         Self {
             x_scale,
             y_scale,
+            x_field,
+            y_field,
             flipped,
         }
     }
@@ -57,14 +65,31 @@ impl CoordinateTrait for Cartesian2D {
         (final_x, final_y)
     }
 
-    /// Returns references to the underlying scales.
-    /// The renderer uses these to access domain info and generate ticks.
+    // Arc retrieval methods
+    fn get_x_arc(&self) -> Arc<dyn ScaleTrait> {
+        // This clones the pointer, giving the caller shared ownership
+        self.x_scale.clone()
+    }
+
+    fn get_y_arc(&self) -> Arc<dyn ScaleTrait> {
+        self.y_scale.clone()
+    }
+
+    /// Standard methods for quick access during rendering.
     fn get_x_scale(&self) -> &dyn ScaleTrait {
         self.x_scale.as_ref()
     }
 
     fn get_y_scale(&self) -> &dyn ScaleTrait {
         self.y_scale.as_ref()
+    }
+
+    fn get_x_label(&self) -> &str {
+        &self.x_field
+    }
+
+    fn get_y_label(&self) -> &str {
+        &self.y_field
     }
 
     fn is_flipped(&self) -> bool {

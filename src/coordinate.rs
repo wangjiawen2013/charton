@@ -1,6 +1,7 @@
 pub mod cartesian;
 
 use crate::scale::ScaleTrait;
+use std::sync::Arc;
 
 /// A simple rectangle representing a physical area on the canvas.
 /// This defines where the coordinate system is allowed to draw.
@@ -36,11 +37,26 @@ pub trait CoordinateTrait {
     /// A tuple of (x_pixel, y_pixel).
     fn transform(&self, x_norm: f32, y_norm: f32, panel: &Rect) -> (f32, f32);
 
+    /// Returns a shared pointer (Arc) to the X scale. 
+    /// Essential for "injecting" the scale into layers.
+    fn get_x_arc(&self) -> Arc<dyn ScaleTrait>;
+
+    /// Returns a shared pointer (Arc) to the Y scale.
+    fn get_y_arc(&self) -> Arc<dyn ScaleTrait>;
+
+    /// Borrowed version for quick access during rendering.
     /// Get the scale for the first dimension (e.g., X).
     fn get_x_scale(&self) -> &dyn ScaleTrait;
 
+    /// Borrowed version for quick access during rendering.
     /// Get the scale for the second dimension (e.g., Y).
     fn get_y_scale(&self) -> &dyn ScaleTrait;
+
+    /// Returns the label for the X axis.
+    fn get_x_label(&self) -> &str;
+
+    /// Returns the label for the Y axis.
+    fn get_y_label(&self) -> &str;
 
     /// Returns whether the X and Y logical axes are swapped.
     /// Default is false for systems that don't support flipping.

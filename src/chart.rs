@@ -13,7 +13,9 @@ pub mod text_chart;
 use crate::core::data::*;
 use crate::core::layer::{Layer, MarkRenderer};
 use crate::encode::{Channel, Encoding, IntoEncoding};
-use crate::scale::{Scale, ScaleDomain, ScaleTrait, Expansion};
+use crate::scale::{Scale, ScaleDomain, Expansion};
+use crate::coordinate::CoordinateTrait;
+use crate::core::aesthetics::GlobalAesthetics;
 use crate::error::ChartonError;
 use crate::mark::Mark;
 use polars::prelude::*;
@@ -523,4 +525,57 @@ where
             }
         }
     } 
+
+    /// Injects resolved scales into the Optional encoding channels.
+    ///
+    /// This method traverses each defined visual channel (X, Y, Color, etc.) 
+    /// and populates their internal `RwLock<Option<Arc<dyn ScaleTrait>>>` with 
+    /// the results from the global resolution phase.
+    fn inject_resolved_scales(&self, coord: Arc<dyn CoordinateTrait>, aesthetics: &GlobalAesthetics) {
+        
+        // 1. Inject Position Scales (X & Y)
+        // We only inject if the channel was actually configured by the user.
+        if let Some(ref x_enc) = self.encoding.x {
+            if let Ok(mut guard) = x_enc.resolved_scale.write() {
+                *guard = Some(coord.get_x_arc());
+            }
+        }
+        
+        if let Some(ref y_enc) = self.encoding.y {
+            if let Ok(mut guard) = y_enc.resolved_scale.write() {
+                *guard = Some(coord.get_y_arc());
+            }
+        }
+
+        // 2. Inject Aesthetic Scales (Color, Shape, Size)
+        // We perform a "Field Match" check to ensure the global scale matches this layer's intent.
+
+        // --- Color Channel ---
+        // Use .as_ref() to match against a reference instead of moving the value
+        if let (Some(enc), Some(map)) = (self.encoding.color.as_ref(), aesthetics.color.as_ref()) {
+            if enc.field == map.field {
+                if let Ok(mut guard) = enc.resolved_scale.write() {
+                    *guard = Some(map.scale_impl.clone());
+                }
+            }
+        }
+
+        // --- Shape Channel ---
+        if let (Some(enc), Some(map)) = (self.encoding.shape.as_ref(), aesthetics.shape.as_ref()) {
+            if enc.field == map.field {
+                if let Ok(mut guard) = enc.resolved_scale.write() {
+                    *guard = Some(map.scale_impl.clone());
+                }
+            }
+        }
+
+        // --- Size Channel ---
+        if let (Some(enc), Some(map)) = (self.encoding.size.as_ref(), aesthetics.size.as_ref()) {
+            if enc.field == map.field {
+                if let Ok(mut guard) = enc.resolved_scale.write() {
+                    *guard = Some(map.scale_impl.clone());
+                }
+            }
+        }
+    }
 }

@@ -1,5 +1,5 @@
 use crate::scale::{Scale, ScaleDomain, ScaleTrait, Expansion};
-use std::sync::Arc;
+use std::sync::{Arc, RwLock};
 
 /// Represents a Y-axis encoding specification for chart elements.
 ///
@@ -39,10 +39,9 @@ pub struct Y {
 
     // --- System Resolution (Result/Outputs) ---
     
-    /// Stores the concrete, trained scale instance for rendering.
-    /// We use `OnceLock` to provide interior mutability, allowing the global 
-    /// resolution phase to "back-fill" this field while the layer is held by an `Arc`.
-    pub(crate) resolved_scale: std::sync::OnceLock<Arc<dyn ScaleTrait>>,
+    /// Stores the resolved scale instance. Using RwLock to support 
+    /// back-filling updates across multiple render calls.
+    pub(crate) resolved_scale: RwLock<Option<Arc<dyn ScaleTrait>>>,
 }
 
 impl Y {
@@ -57,7 +56,7 @@ impl Y {
             bins: None,
             normalize: false, // Default to false (raw counts)
             stack: false, // Default to false (regular bar chart)
-            resolved_scale: std::sync::OnceLock::new(),
+            resolved_scale: RwLock::new(None),
         }
     }
 
