@@ -1,5 +1,4 @@
 use crate::scale::{ScaleTrait, Scale};
-use crate::scale::mapper::VisualMapper;
 use std::sync::Arc;
 
 /// Represents a complete mapping pipeline from a data field to a visual property.
@@ -17,9 +16,6 @@ pub struct AestheticMapping {
     
     /// The mathematical implementation that normalizes data to [0, 1].
     pub scale_impl: Arc<dyn ScaleTrait>,
-    
-    /// The visual transformer that turns normalized values into colors, shapes, or sizes.
-    pub mapper: VisualMapper,
 }
 
 /// GlobalAesthetics maintains the unified visual language of the chart.

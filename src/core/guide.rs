@@ -51,19 +51,20 @@ impl GuideSpec {
         let mut is_continuous_color = false;
 
         for m in &mappings {
-            match &m.mapper {
-                // Size and Shape require discrete symbol keys
-                VisualMapper::Size { .. } | VisualMapper::Shape { .. } => {
-                    has_complex_geometry = true;
+            if let Some(mapper) = m.scale_impl.mapper() {
+                match mapper {
+                    // Size and Shape require discrete symbol keys
+                    VisualMapper::Size { .. } | VisualMapper::Shape { .. } => {
+                        has_complex_geometry = true;
+                    }
+                    // Continuous color can potentially use a gradient bar
+                    VisualMapper::ContinuousColor { .. } => {
+                        is_continuous_color = true;
+                    }
+                    _ => {}
                 }
-                // Continuous color can potentially use a gradient bar
-                VisualMapper::ContinuousColor { .. } => {
-                    is_continuous_color = true;
-                }
-                _ => {}
             }
         }
-
         // If it involves symbols (Shape/Size) or mixed channels, we use Legend mode.
         // ColorBar is reserved for pure continuous color mapping.
         let kind = if is_continuous_color && !has_complex_geometry {

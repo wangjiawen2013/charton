@@ -1,5 +1,5 @@
 use crate::scale::{Scale, ScaleDomain, ScaleTrait, Expansion};
-use std::sync::Arc;
+use std::sync::{Arc, RwLock};
 
 /// Represents a color encoding specification for chart elements.
 ///
@@ -28,10 +28,9 @@ pub struct Color {
 
     // --- System Resolution (Result/Outputs) ---
     
-    /// Stores the concrete, trained scale instance for rendering.
-    /// We use `OnceLock` to provide interior mutability, allowing the global 
-    /// resolution phase to "back-fill" this field while the layer is held by an `Arc`.
-    pub(crate) resolved_scale: std::sync::OnceLock<Arc<dyn ScaleTrait>>,
+    /// Stores the resolved scale instance. Using RwLock to support 
+    /// back-filling updates across multiple render calls.
+    pub(crate) resolved_scale: RwLock<Option<Arc<dyn ScaleTrait>>>,
 }
 
 impl Color {
@@ -42,7 +41,7 @@ impl Color {
             scale_type: None,
             domain: None,
             expand: None,
-            resolved_scale: std::sync::OnceLock::new(),
+            resolved_scale: RwLock::new(None),
         }
     }
 

@@ -475,7 +475,6 @@ impl LayeredChart {
                 field: spec.field,
                 scale_type: spec.scale_type,
                 scale_impl, // This is now an Arc<dyn ScaleTrait>
-                mapper,
             })
         } else { None };
 
@@ -487,7 +486,6 @@ impl LayeredChart {
                 field: spec.field,
                 scale_type: spec.scale_type,
                 scale_impl,
-                mapper,
             })
         } else { None };
 
@@ -499,7 +497,6 @@ impl LayeredChart {
                 field: spec.field,
                 scale_type: spec.scale_type,
                 scale_impl,
-                mapper,
             })
         } else { None };
 
@@ -520,6 +517,8 @@ impl LayeredChart {
             CoordSystem::Cartesian2D => Arc::new(crate::coordinate::cartesian::Cartesian2D::new(
                 x_scale, 
                 y_scale, 
+                x_spec.field.clone(),
+                y_spec.field.clone(),
                 self.flipped
             )),
             CoordSystem::Polar => todo!("Polar coordinate resolution is planned for the next release"),
@@ -557,7 +556,7 @@ impl LayeredChart {
         );
 
         let temp_ctx = SharedRenderingContext::new(
-            &*final_coord, // Deref Arc to &dyn CoordinateTrait
+            final_coord.clone(),
             temp_panel,
             self.legend_position,
             self.legend_margin,
@@ -682,8 +681,8 @@ impl LayeredChart {
         // We only render axes if the theme allows and at least one layer requires them.
         if self.theme.show_axes && self.layers.iter().any(|l| l.requires_axes()) {
             // Labels are now derived directly from the resolved coordinate scales' fields.
-            let x_label = coord.get_x_scale_field(); // Assume this helper exists on Coord
-            let y_label = coord.get_y_scale_field();
+            let x_label = coord.get_x_label();
+            let y_label = coord.get_y_label();
 
             crate::render::axis_renderer::render_axes(
                 svg, 

@@ -138,7 +138,7 @@ impl LayoutEngine {
         y_label: &str,
     ) -> AxisLayoutConstraints {
         let mut constraints = AxisLayoutConstraints::default();
-        let coord = ctx.coord;
+        let coord = ctx.coord.clone();
         let is_flipped = coord.is_flipped();
 
         // 1. Resolve which Scale belongs to which physical edge based on Coordinate System
