@@ -15,7 +15,6 @@ thiserror = "2.0"
 time = { version = "0.3", features = ["macros", "formatting"] }
 kernel-density-estimation = "0.2"
 resvg = "0.45"
-dyn-clone = "1.0"
 csscolorparser = "0.8"
 
 # --- Conditional Compilation Block ---

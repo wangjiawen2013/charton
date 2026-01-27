@@ -326,7 +326,6 @@ version = "0.2.1"
 dependencies = [
  "base64",
  "csscolorparser",
- "dyn-clone",
  "kernel-density-estimation",
  "polars",
  "polars-io",

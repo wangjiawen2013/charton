@@ -54,12 +54,6 @@ pub struct Theme {
     /// The physical length of the tick marks extending from the axis.
     pub(crate) tick_length: f32,
 
-    // --- Default Mark (Geometry) Properties ---
-    /// The fallback size for geometries (e.g., point radius) when 'size' is not mapped to data.
-    pub(crate) default_mark_size: f32,
-    /// The fallback color for geometries when 'color' is not mapped to data.
-    pub(crate) default_mark_color: SingleColor,
-
     // --- Legend Styling ---
     /// Font size for the title of the legend.
     pub(crate) legend_title_size: f32,
@@ -301,9 +295,6 @@ impl Default for Theme {
             axis_width: 1.0,
             tick_width: 1.0,
             tick_length: 6.0,
-
-            default_mark_size: 4.0,
-            default_mark_color: "#4682b4".into(), // SteelBlue
 
             legend_title_size: 14.0,
             legend_label_size: 12.0,

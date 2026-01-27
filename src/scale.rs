@@ -15,7 +15,6 @@ use std::sync::Arc;
 use time::OffsetDateTime;
 use polars::datatypes::AnyValue;
 use polars::prelude::*;
-use dyn_clone::{DynClone, clone_trait_object};
 
 /// Defines how much a scale's domain should be expanded beyond the data limits.
 /// 
@@ -51,7 +50,7 @@ pub struct Tick {
 }
 
 /// The mathematical strategy for mapping data to a [0, 1] normalized space.
-#[derive(Clone, Debug, PartialEq)]
+#[derive(Clone, Debug, Copy, PartialEq)]
 pub enum Scale {
     Linear,
     Log,
@@ -92,7 +91,7 @@ impl Scale {
 }
 
 /// A type-safe container for data boundaries.
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, PartialEq)]
 pub enum ScaleDomain {
     Continuous(f32, f32),
     Discrete(Vec<String>),
@@ -104,7 +103,11 @@ pub enum ScaleDomain {
 /// A `ScaleTrait` is responsible for two things:
 /// 1. Mathematical: Mapping raw data values to a normalized [0.0, 1.0] range.
 /// 2. Visual: Linking to a `VisualMapper` that converts normalized values to colors/shapes.
-pub trait ScaleTrait: DynClone + std::fmt::Debug + Send + Sync {
+pub trait ScaleTrait: std::fmt::Debug + Send + Sync {
+    /// Returns the high-level category of this scale.
+    /// Used for branching logic in legends and axis rendering.
+    fn scale_type(&self) -> Scale;
+
     /// Maps a numerical value to a normalized [0, 1] value.
     fn normalize(&self, value: f32) -> f32;
 
@@ -207,5 +210,3 @@ pub fn get_normalized_value(
         }
     }
 }
-
-clone_trait_object!(ScaleTrait);

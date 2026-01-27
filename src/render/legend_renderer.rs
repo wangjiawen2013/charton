@@ -118,13 +118,28 @@ impl LegendRenderer {
 
         // A. Sample Gradient Stops
         let mut stops = Vec::new();
+
+        // Safely access the color mapping from the aesthetics context
         if let Some(ref mapping) = ctx.aesthetics.color {
-            let n_samples = 15; 
-            for i in 0..=n_samples {
-                let ratio = i as f32 / n_samples as f32;
-                // Reverse sampling (1.0 - ratio) so high values appear at the top of the bar
-                let color = mapping.mapper.map_to_color(1.0 - ratio, 1.0);
-                stops.push((ratio, color));
+            // Access the mapper via the scale implementation's trait method.
+            // This maintains the single source of truth for visual transformations.
+            if let Some(mapper) = mapping.scale_impl.mapper() {
+                let n_samples = 15;
+
+                // Retrieve the logical maximum (e.g., number of categories - 1 for discrete scales)
+                // to ensure correct color indexing during sampling.
+                let l_max = mapping.scale_impl.logical_max();
+
+                for i in 0..=n_samples {
+                    // Calculate the stop position ratio [0.0, 1.0]
+                    let ratio = i as f32 / n_samples as f32;
+
+                    // Reverse sampling (1.0 - ratio) ensures that high data values 
+                    // are mapped to the top of the visual color bar.
+                    let color = mapper.map_to_color(1.0 - ratio, l_max);
+
+                    stops.push((ratio, color));
+                }
             }
         }
 
@@ -240,7 +255,7 @@ impl LegendRenderer {
         // 1. Retrieve Ticks instead of just strings for non-categorical domains.
         // This gives us access to both 'tick.value' (for mapping) and 'tick.label' (for display).
         let (labels, values_f32): (Vec<String>, Vec<f32>) = match &spec.domain {
-            ScaleDomain::Categorical(values) => {
+            ScaleDomain::Discrete(values) => {
                 // For categories, value and label are treated as the same string.
                 (values.clone(), Vec::new())
             }
@@ -260,10 +275,27 @@ impl LegendRenderer {
         let mut sizes = Vec::new();
 
         let has_color = spec.mappings.iter().any(|m| {
-            matches!(m.mapper, VisualMapper::DiscreteColor { .. } | VisualMapper::ContinuousColor { .. })
+            // Access the mapper through the scale implementation.
+            // If a scale doesn't have a mapper, it cannot contribute to color rendering.
+            if let Some(mapper) = m.scale_impl.mapper() {
+                matches!(
+                    mapper, 
+                    VisualMapper::DiscreteColor { .. } | VisualMapper::ContinuousColor { .. }
+                )
+            } else {
+                false
+            }
         });
-        let has_shape = spec.mappings.iter().any(|m| matches!(m.mapper, VisualMapper::Shape { .. }));
-        let has_size = spec.mappings.iter().any(|m| matches!(m.mapper, VisualMapper::Size { .. }));
+
+        // Check if any mapping involves a geometric shape mapper
+        let has_shape = spec.mappings.iter().any(|m| {
+            m.scale_impl.mapper().map_or(false, |v| matches!(v, VisualMapper::Shape { .. }))
+        });
+
+        // Check if any mapping involves a physical size mapper
+        let has_size = spec.mappings.iter().any(|m| {
+            m.scale_impl.mapper().map_or(false, |v| matches!(v, VisualMapper::Size { .. }))
+        });
 
         for (i, label_str) in labels.iter().enumerate() {
             // 2. Determine the numeric value for this sample if applicable.
@@ -272,9 +304,15 @@ impl LegendRenderer {
             // 3. Resolve Color
             if has_color {
                 if let Some(ref mapping) = ctx.aesthetics.color {
+                    // Get the normalized value [0, 1] from the scale
                     let norm = val_f32.map(|v| mapping.scale_impl.normalize(v))
                         .unwrap_or_else(|| mapping.scale_impl.normalize_string(label_str));
-                    colors.push(mapping.mapper.map_to_color(norm, mapping.scale_impl.logical_max()));
+
+                    // Access the mapper via the scale implementation
+                    let color = mapping.scale_impl.mapper()
+                        .map(|m| m.map_to_color(norm, mapping.scale_impl.logical_max()))
+                        .unwrap_or_else(|| "#333333".into());
+                    colors.push(color);
                 }
             } else { colors.push("#333333".into()); }
 
@@ -283,7 +321,11 @@ impl LegendRenderer {
                 if let Some(ref mapping) = ctx.aesthetics.shape {
                     let norm = val_f32.map(|v| mapping.scale_impl.normalize(v))
                         .unwrap_or_else(|| mapping.scale_impl.normalize_string(label_str));
-                    shapes.push(mapping.mapper.map_to_shape(norm, mapping.scale_impl.logical_max()));
+
+                    let shape = mapping.scale_impl.mapper()
+                        .map(|m| m.map_to_shape(norm, mapping.scale_impl.logical_max()))
+                        .unwrap_or(PointShape::Circle);
+                    shapes.push(shape);
                 }
             } else { shapes.push(PointShape::Circle); }
 
@@ -292,7 +334,11 @@ impl LegendRenderer {
                 if let Some(ref mapping) = ctx.aesthetics.size {
                     let norm = val_f32.map(|v| mapping.scale_impl.normalize(v))
                         .unwrap_or_else(|| mapping.scale_impl.normalize_string(label_str));
-                    sizes.push(mapping.mapper.map_to_size(norm));
+
+                    let size = mapping.scale_impl.mapper()
+                        .map(|m| m.map_to_size(norm))
+                        .unwrap_or(5.0);
+                    sizes.push(size);
                 }
             } else { sizes.push(5.0); }
         }

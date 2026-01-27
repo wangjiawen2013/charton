@@ -473,7 +473,6 @@ impl LayeredChart {
             let scale_impl = create_scale(&spec.scale_type, spec.domain, spec.expand, Some(mapper.clone()))?;
             Some(AestheticMapping {
                 field: spec.field,
-                scale_type: spec.scale_type,
                 scale_impl, // This is now an Arc<dyn ScaleTrait>
             })
         } else { None };
@@ -484,7 +483,6 @@ impl LayeredChart {
             let scale_impl = create_scale(&spec.scale_type, spec.domain, spec.expand, Some(mapper.clone()))?;
             Some(AestheticMapping {
                 field: spec.field,
-                scale_type: spec.scale_type,
                 scale_impl,
             })
         } else { None };
@@ -495,7 +493,6 @@ impl LayeredChart {
             let scale_impl = create_scale(&spec.scale_type, spec.domain, spec.expand, Some(mapper.clone()))?;
             Some(AestheticMapping {
                 field: spec.field,
-                scale_type: spec.scale_type,
                 scale_impl,
             })
         } else { None };
@@ -566,8 +563,6 @@ impl LayeredChart {
         let axis_box = crate::core::layout::LayoutEngine::calculate_axis_constraints(
             &temp_ctx,
             &self.theme,
-            &x_spec.field,
-            &y_spec.field
         );
 
         // --- STEP 5: FINAL PANEL RESOLUTION & DEFENSE ---

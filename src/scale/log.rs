@@ -1,4 +1,4 @@
-use super::{ScaleTrait, ScaleDomain, Tick, mapper::VisualMapper};
+use super::{ScaleTrait, Scale, ScaleDomain, Tick, mapper::VisualMapper};
 use crate::error::ChartonError;
 
 /// A scale that performs logarithmic transformation.
@@ -51,6 +51,8 @@ impl LogScale {
 }
 
 impl ScaleTrait for LogScale {
+    fn scale_type(&self) -> Scale { Scale::Log }
+
     /// Transforms a value from the domain to a normalized [0, 1] ratio.
     /// 
     /// The transformation follows the formula:

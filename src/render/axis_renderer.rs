@@ -74,7 +74,7 @@ fn draw_ticks_and_labels(
     ctx: &SharedRenderingContext,
     is_bottom: bool,
 ) -> Result<(), ChartonError> {
-    let coord = ctx.coord;
+    let coord = ctx.coord.clone();
     let panel = &ctx.panel;
     let is_flipped = coord.is_flipped();
     
@@ -142,7 +142,7 @@ fn draw_axis_title(
     if label.is_empty() { return Ok(()); }
     
     let panel = &ctx.panel;
-    let coord = ctx.coord;
+    let coord = ctx.coord.clone();
     let is_flipped = coord.is_flipped();
 
     let tick_line_len = 6.0;
