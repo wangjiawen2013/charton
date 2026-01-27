@@ -1,4 +1,4 @@
-use crate::scale::{ScaleTrait, Scale};
+use crate::scale::ScaleTrait;
 use std::sync::Arc;
 
 /// Represents a complete mapping pipeline from a data field to a visual property.
@@ -9,10 +9,6 @@ pub struct AestheticMapping {
     /// The name of the data field being mapped (e.g., "mpg", "gear").
     /// This is crucial for merging different aesthetics into a single legend block.
     pub field: String,
-    
-    /// The high-level type of the scale (Linear, Discrete, etc.).
-    /// Used for quick logic branching (e.g., determining if we need a Colorbar).
-    pub scale_type: Scale,
     
     /// The mathematical implementation that normalizes data to [0, 1].
     pub scale_impl: Arc<dyn ScaleTrait>,

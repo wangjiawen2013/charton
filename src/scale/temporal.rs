@@ -1,4 +1,4 @@
-use super::{ScaleTrait, ScaleDomain, Tick, mapper::VisualMapper};
+use super::{ScaleTrait, Scale, ScaleDomain, Tick, mapper::VisualMapper};
 use time::{OffsetDateTime, Duration};
 
 /// A scale for temporal (date/time) data using the `time` crate.
@@ -71,6 +71,8 @@ impl TemporalScale {
 }
 
 impl ScaleTrait for TemporalScale {
+    fn scale_type(&self) -> Scale { Scale::Temporal }
+
     /// Transforms a timestamp (as f32 nanoseconds) into a normalized [0, 1] ratio.
     /// 
     /// The transformation is linear based on the elapsed nanoseconds from the domain start.

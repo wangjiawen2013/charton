@@ -131,28 +131,30 @@ impl LayoutEngine {
     }
 
     /// Calculates axis space using scale ticks and text measurement.
+    /// Labels are now retrieved directly from the coordinate system.
     pub fn calculate_axis_constraints(
         ctx: &SharedRenderingContext,
         theme: &Theme,
-        x_label: &str,
-        y_label: &str,
     ) -> AxisLayoutConstraints {
         let mut constraints = AxisLayoutConstraints::default();
         let coord = ctx.coord.clone();
         let is_flipped = coord.is_flipped();
 
-        // 1. Resolve which Scale belongs to which physical edge based on Coordinate System
+        // 1. Resolve Bottom Axis:
+        // Uses X-scale by default; uses Y-scale if the coordinate system is flipped.
         let (b_scale, b_angle, b_title, b_pad) = if is_flipped {
-            (coord.get_y_scale(), theme.y_tick_label_angle, y_label, theme.label_padding)
+            (coord.get_y_scale(), theme.y_tick_label_angle, coord.get_y_label(), theme.label_padding)
         } else {
-            (coord.get_x_scale(), theme.x_tick_label_angle, x_label, theme.label_padding)
+            (coord.get_x_scale(), theme.x_tick_label_angle, coord.get_x_label(), theme.label_padding)
         };
         constraints.bottom = Self::estimate_axis_dimension(b_scale, b_angle, b_title, b_pad, theme, true);
 
+        // 2. Resolve Left Axis:
+        // Uses Y-axis by default, or X-axis if flipped.
         let (l_scale, l_angle, l_title, l_pad) = if is_flipped {
-            (coord.get_x_scale(), theme.x_tick_label_angle, x_label, theme.label_padding)
+            (coord.get_x_scale(), theme.x_tick_label_angle, coord.get_x_label(), theme.label_padding)
         } else {
-            (coord.get_y_scale(), theme.y_tick_label_angle, y_label, theme.label_padding)
+            (coord.get_y_scale(), theme.y_tick_label_angle, coord.get_y_label(), theme.label_padding)
         };
         constraints.left = Self::estimate_axis_dimension(l_scale, l_angle, l_title, l_pad, theme, false);
 

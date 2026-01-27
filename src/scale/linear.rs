@@ -1,4 +1,4 @@
-use super::{ScaleTrait, ScaleDomain, Tick, mapper::VisualMapper};
+use super::{ScaleTrait, Scale, ScaleDomain, Tick, mapper::VisualMapper};
 
 /// A scale that maps a continuous data domain to a normalized [0, 1] range.
 /// 
@@ -61,6 +61,8 @@ impl LinearScale {
 }
 
 impl ScaleTrait for LinearScale {
+    fn scale_type(&self) -> Scale { Scale::Linear }
+
     /// Maps a raw data value to a normalized [0.0, 1.0] float.
     /// 
     /// Formula: `(value - min) / (max - min)`. 

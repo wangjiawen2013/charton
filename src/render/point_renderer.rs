@@ -2,7 +2,6 @@ use crate::core::layer::{MarkRenderer, RenderBackend};
 use crate::core::context::SharedRenderingContext;
 use crate::chart::Chart;
 use crate::mark::point::MarkPoint;
-use crate::scale::Scale;
 use crate::error::ChartonError;
 use crate::visual::shape::PointShape;
 use crate::visual::color::SingleColor;
@@ -13,93 +12,131 @@ use crate::visual::color::SingleColor;
 
 impl MarkRenderer for Chart<MarkPoint> {
     /// Orchestrates the transformation of raw data rows into visual point geometries.
-    ///
-    /// Updated to use SingleColor for aesthetics, ensuring that "none" states
-    /// and complex colors are handled via structured objects rather than magic strings.
+    /// 
+    /// This implementation follows a robust data-to-visual pipeline:
+    /// 1. **Validation**: Uses .ok_or_else to ensure encodings exist, providing clear error context.
+    /// 2. **Positioning**: Retrieves Scales from the Coordinate system and performs vectorized 
+    ///    normalization using Polars for high performance.
+    /// 3. **Aesthetic Resolution**: Maps data to Color, Shape, and Size using Sampler-Mapper pairs 
+    ///    encapsulated within the ScaleTrait.
+    /// 4. **Projection**: Transforms normalized [0, 1] units to physical panel pixels and 
+    ///    dispatches draw calls to the backend.
     fn render_marks(
         &self,
         backend: &mut dyn RenderBackend,
         context: &SharedRenderingContext,
     ) -> Result<(), ChartonError> {
         let df_source = &self.data;
-        if df_source.df.height() == 0 { return Ok(()); }
+        
+        // Return early if there is no data to render to avoid unnecessary overhead.
+        if df_source.df.height() == 0 { 
+            return Ok(()); 
+        }
 
-        let x_enc = self.encoding.x.as_ref().unwrap();
-        let y_enc = self.encoding.y.as_ref().unwrap();
-        let mark_config = self.mark.as_ref().unwrap();
+        // --- STEP 1: ENCODING VALIDATION ---
+        // We avoid .unwrap() to ensure the library fails gracefully with descriptive error messages.
+        let x_enc = self.encoding.x.as_ref()
+            .ok_or_else(|| ChartonError::Encoding("X-axis encoding is missing from specification".to_string()))?;
+        let y_enc = self.encoding.y.as_ref()
+            .ok_or_else(|| ChartonError::Encoding("Y-axis encoding is missing from specification".to_string()))?;
+        
+        let mark_config = self.mark.as_ref()
+            .ok_or_else(|| ChartonError::Mark("MarkPoint configuration is missing".to_string()))?;
 
-        // --- STEP 1: POSITION NORMALIZATION ---
-        // Project raw data into the [0, 1] normalized unit space of the panel.
+        // --- STEP 2: POSITION NORMALIZATION (Vectorized) ---
+        // Extract raw data columns as Polars Series.
         let x_series = df_source.column(&x_enc.field)?;
         let y_series = df_source.column(&y_enc.field)?;
 
-        let x_norms = x_enc.scale.as_ref().unwrap_or(&Scale::Linear)
-            .normalize_series(context.coord.get_x_scale(), &x_series)?;
-        
-        let y_norms = y_enc.scale.as_ref().unwrap_or(&Scale::Linear)
-            .normalize_series(context.coord.get_y_scale(), &y_series)?;
+        // Access trait objects from the coordinate system (the single source of truth for layout).
+        let x_scale_trait = context.coord.get_x_scale();
+        let y_scale_trait = context.coord.get_y_scale();
 
-        // --- STEP 2: COLOR MAPPING ---
-        // Resolve either a data-driven color scale or a static mark color.
-        // The iterator now yields SingleColor objects directly.
+        // Perform vectorized normalization by dispatching based on the Scale enum type 
+        // returned by the trait implementation.
+        let x_norms = x_scale_trait.scale_type().normalize_series(x_scale_trait, &x_series)?;
+        let y_norms = y_scale_trait.scale_type().normalize_series(y_scale_trait, &y_series)?;
+
+        // --- STEP 3: COLOR MAPPING ---
+        // Resolve data-driven color scale or fallback to a static mark color.
         let color_iter: Box<dyn Iterator<Item = SingleColor>> = if let Some(ref mapping) = context.aesthetics.color {
             let s = df_source.column(&mapping.field)?;
-            let logical_max = mapping.scale_impl.logical_max();
-            let norms = mapping.scale_type.normalize_series(mapping.scale_impl.as_ref(), &s)?;
+            let s_trait = mapping.scale_impl.as_ref();
+            
+            // Normalize the aesthetic series using the mapper's specific scale logic.
+            let norms = s_trait.scale_type().normalize_series(s_trait, &s)?;
+            let l_max = s_trait.logical_max();
             
             let color_vec: Vec<SingleColor> = norms.into_iter()
-                .map(|opt_n| mapping.mapper.map_to_color(opt_n.unwrap_or(0.0), logical_max))
+                .map(|opt_n| {
+                    // Extract the visual mapper from the scale implementation.
+                    s_trait.mapper()
+                        .map(|m| m.map_to_color(opt_n.unwrap_or(0.0), l_max))
+                        .unwrap_or_else(|| SingleColor::from("#333333"))
+                })
                 .collect();
             Box::new(color_vec.into_iter())
         } else {
-            // Use the Mark configuration's color or fallback to black.
-            let default_c = mark_config.color.clone();
-            Box::new(std::iter::repeat(default_c))
+            Box::new(std::iter::repeat(mark_config.color.clone()))
         };
 
-        // --- STEP 3: SHAPE MAPPING ---
+        // --- STEP 4: SHAPE MAPPING ---
         let shape_iter: Box<dyn Iterator<Item = PointShape>> = if let Some(ref mapping) = context.aesthetics.shape {
             let s = df_source.column(&mapping.field)?;
-            let logical_max = mapping.scale_impl.logical_max();
-            let norms = mapping.scale_type.normalize_series(mapping.scale_impl.as_ref(), &s)?;
+            let s_trait = mapping.scale_impl.as_ref();
+            
+            let norms = s_trait.scale_type().normalize_series(s_trait, &s)?;
+            let l_max = s_trait.logical_max();
             
             let shape_vec: Vec<PointShape> = norms.into_iter()
-                .map(|opt_n| mapping.mapper.map_to_shape(opt_n.unwrap_or(0.0), logical_max))
+                .map(|opt_n| {
+                    s_trait.mapper()
+                        .map(|m| m.map_to_shape(opt_n.unwrap_or(0.0), l_max))
+                        .unwrap_or(PointShape::Circle)
+                })
                 .collect();
             Box::new(shape_vec.into_iter())
         } else {
             Box::new(std::iter::repeat(mark_config.shape.clone()))
         };
 
-        // --- STEP 4: SIZE MAPPING ---
+        // --- STEP 5: SIZE MAPPING ---
         let size_iter: Box<dyn Iterator<Item = f32>> = if let Some(ref mapping) = context.aesthetics.size {
             let s = df_source.column(&mapping.field)?;
-            let norms = mapping.scale_type.normalize_series(mapping.scale_impl.as_ref(), &s)?;
+            let s_trait = mapping.scale_impl.as_ref();
+            
+            let norms = s_trait.scale_type().normalize_series(s_trait, &s)?;
             
             let size_vec: Vec<f32> = norms.into_iter()
-                .map(|opt_n| mapping.mapper.map_to_size(opt_n.unwrap_or(0.0)) as f32)
+                .map(|opt_n| {
+                    s_trait.mapper()
+                        .map(|m| m.map_to_size(opt_n.unwrap_or(0.0)) as f32)
+                        .unwrap_or(mark_config.size as f32)
+                })
                 .collect();
             Box::new(size_vec.into_iter())
         } else {
             Box::new(std::iter::repeat(mark_config.size as f32))
         };
 
-        // --- STEP 5: MASTER PROJECTION & RENDERING ---
-        // Prepare the fallback stroke color (default to "none" if not specified)
+        // --- STEP 6: GEOMETRY PROJECTION & RENDERING ---
         let stroke_color = mark_config.stroke.clone();
 
+        // Zip all aesthetic streams into a single loop to emit draw calls for each row.
         for ((((x_n, y_n), fill_color), current_shape), size) in x_norms.into_iter()
             .zip(y_norms.into_iter()) 
             .zip(color_iter) 
             .zip(shape_iter)
             .zip(size_iter)
         {
+            // Default to 0.0 for missing data points.
             let x_norm = x_n.unwrap_or(0.0) as f32;
             let y_norm = y_n.unwrap_or(0.0) as f32;
             
-            // Transform unit coordinates [0, 1] to absolute panel pixels.
+            // Convert normalized [0, 1] units to physical panel pixels (e.g. SVG coordinates).
             let (px, py) = context.transform(x_norm, y_norm);
 
+            // Emit the final command to the rendering backend (SVG, Canvas, etc.).
             self.emit_draw_call(
                 backend,
                 &current_shape,

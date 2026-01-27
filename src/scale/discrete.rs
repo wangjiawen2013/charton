@@ -1,4 +1,4 @@
-use super::{ScaleTrait, ScaleDomain, Tick, mapper::VisualMapper};
+use super::{ScaleTrait, Scale, ScaleDomain, Tick, mapper::VisualMapper};
 use std::collections::HashMap;
 
 /// A scale for categorical data that maps discrete values to normalized slots.
@@ -73,6 +73,8 @@ impl DiscreteScale {
 }
 
 impl ScaleTrait for DiscreteScale {
+    fn scale_type(&self) -> Scale { Scale::Discrete }
+
     /// Transforms a categorical index into a normalized [0, 1] ratio.
     /// 
     /// Because of the `expanded_range`, an index of 0 will not map to 0.0 on screen,

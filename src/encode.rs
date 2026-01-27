@@ -84,11 +84,11 @@ impl Encoding {
     /// Retrieves the user-defined scale type (e.g., Linear, Log, Time) for a channel.
     pub fn get_scale_by_channel(&self, channel: Channel) -> Option<Scale> {
         match channel {
-            Channel::X => self.x.as_ref().and_then(|v| v.scale_type.clone()),
-            Channel::Y => self.y.as_ref().and_then(|v| v.scale_type.clone()),
-            Channel::Color => self.color.as_ref().and_then(|v| v.scale_type.clone()),
-            Channel::Shape => self.shape.as_ref().and_then(|v| v.scale_type.clone()),
-            Channel::Size => self.size.as_ref().and_then(|v| v.scale_type.clone()),
+            Channel::X => self.x.as_ref().and_then(|v| v.scale_type),
+            Channel::Y => self.y.as_ref().and_then(|v| v.scale_type),
+            Channel::Color => self.color.as_ref().and_then(|v| v.scale_type),
+            Channel::Shape => self.shape.as_ref().and_then(|v| v.scale_type),
+            Channel::Size => self.size.as_ref().and_then(|v| v.scale_type),
         }
     }
 
@@ -117,10 +117,11 @@ impl Encoding {
     /// Checks if the channel is explicitly configured to include zero in its axis range.
     pub fn get_zero_by_channel(&self, channel: Channel) -> bool {
         match channel {
-            Channel::X => self.x.as_ref().and_then(|v| v.zero) == Some(true),
-            Channel::Y => self.y.as_ref().and_then(|v| v.zero) == Some(true),
-            _ => false,
+            Channel::X => self.x.as_ref().and_then(|v| v.zero),
+            Channel::Y => self.y.as_ref().and_then(|v| v.zero),
+            _ => None,
         }
+        .unwrap_or(false)
     }
 
     /// Returns a list of all data fields currently active in this encoding.
