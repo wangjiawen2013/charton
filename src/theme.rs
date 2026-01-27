@@ -1,5 +1,6 @@
 use crate::prelude::SingleColor;
 use crate::visual::color::{ColorMap, ColorPalette};
+use crate::core::guide::LegendPosition;
 
 /// A `Theme` defines the visual "look and feel" of a chart, independent of the data mapping.
 /// 
@@ -73,6 +74,11 @@ pub struct Theme {
     pub(crate) legend_title_gap: f32,
     /// Spacing between the legend marker (symbol) and its text label.
     pub(crate) legend_marker_text_gap: f32,
+
+    // --- Legend Logic ---
+    pub(crate) legend_title: Option<String>,
+    pub(crate) legend_position: LegendPosition,
+    pub(crate) legend_margin: f32,
 
     // --- Layout Defense Thresholds ---
     /// The minimum allowed size for the data panel before rendering fails or truncates.
@@ -237,6 +243,23 @@ impl Theme {
         self
     }
 
+    // --- Legend Logic ---
+
+    pub fn with_legend_title(mut self, title: impl Into<String>) -> Self {
+        self.legend_title = Some(title.into());
+        self
+    }
+
+    pub fn with_legend_position(mut self, position: LegendPosition) -> Self {
+        self.legend_position = position;
+        self
+    }
+
+    pub fn with_legend_margin(mut self, margin: f32) -> Self {
+        self.legend_margin = margin;
+        self
+    }
+
     // --- Layout Defense ---
 
     pub fn with_min_panel_size(mut self, size: f32) -> Self {
@@ -305,6 +328,10 @@ impl Default for Theme {
             legend_col_h_gap: 15.0,
             legend_title_gap: 7.0,
             legend_marker_text_gap: 8.0,
+
+            legend_title: None,
+            legend_position: LegendPosition::Right,
+            legend_margin: 15.0,
 
             min_panel_size: 100.0,
             panel_defense_ratio: 0.2,

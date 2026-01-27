@@ -1,5 +1,5 @@
-use super::context::SharedRenderingContext;
-use super::guide::{GuideSpec, LegendPosition}; // Note: Renamed LegendSpec to GuideSpec as per your guide.rs
+use super::context::PanelContext;
+use super::guide::{GuideSpec, LegendPosition};
 use super::utils::estimate_text_width;
 use crate::theme::Theme;
 
@@ -133,7 +133,7 @@ impl LayoutEngine {
     /// Calculates axis space using scale ticks and text measurement.
     /// Labels are now retrieved directly from the coordinate system.
     pub fn calculate_axis_constraints(
-        ctx: &SharedRenderingContext,
+        ctx: &PanelContext,
         theme: &Theme,
     ) -> AxisLayoutConstraints {
         let mut constraints = AxisLayoutConstraints::default();

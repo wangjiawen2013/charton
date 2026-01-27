@@ -4,24 +4,31 @@ use crate::theme::Theme;
 use crate::core::layer::RenderBackend;
 use super::backend::svg::SvgBackend;
 use crate::core::guide::{GuideSpec, LegendPosition, GuideSize, GuideKind};
-use crate::core::context::SharedRenderingContext;
+use crate::core::context::PanelContext;
 use crate::scale::ScaleDomain;
 use crate::scale::mapper::VisualMapper;
 
 /// LegendRenderer translates abstract GuideSpecs into visual SVG representations.
-/// It handles both discrete "Legends" (categories) and continuous "ColorBars" (gradients).
+/// 
+/// It operates globally on the chart canvas but uses a PanelContext to anchor itself 
+/// relative to the primary plotting area.
 pub struct LegendRenderer;
 
 impl LegendRenderer {
-    /// The primary entry point for rendering the legend area.
-    /// Handles macro-layout, including block wrapping and positioning relative to the plot panel.
+    /// The primary entry point for rendering all legends and colorbars.
+    /// 
+    /// It coordinates the layout flow (wrapping blocks) based on the available space 
+    /// around the provided PanelContext.
     pub fn render_legend(
         buffer: &mut String,
         specs: &[GuideSpec],
         theme: &Theme,
-        ctx: &SharedRenderingContext,
+        ctx: &PanelContext,
     ) {
-        if specs.is_empty() || matches!(ctx.legend_position, LegendPosition::None) {
+        // Resolve the legend position from the theme.
+        let position = theme.legend_position;
+        
+        if specs.is_empty() || matches!(position, LegendPosition::None) {
             return;
         }
 
@@ -30,10 +37,10 @@ impl LegendRenderer {
         let font_family = &theme.legend_label_family;
         
         // Layout orientation: Top/Bottom positions are horizontal; Left/Right are vertical.
-        let is_horizontal = matches!(ctx.legend_position, LegendPosition::Top | LegendPosition::Bottom);
+        let is_horizontal = matches!(position, LegendPosition::Top | LegendPosition::Bottom);
 
-        // Determine starting coordinates based on margins and axis buffers.
-        let (start_x, start_y) = Self::calculate_initial_anchor(ctx, specs, theme, is_horizontal);
+        // Determine starting coordinates relative to the panel's bounding box.
+        let (start_x, start_y) = Self::calculate_initial_anchor(ctx, theme, is_horizontal);
 
         let mut current_x = start_x;
         let mut current_y = start_y;
@@ -41,12 +48,13 @@ impl LegendRenderer {
         let block_gap = theme.legend_block_gap;
 
         for spec in specs {
-            // Estimate size for layout calculation.
+            // Estimate size for wrapping calculations. 
+            // In faceted plots, we typically use the full height of the plot area.
             let block_size = spec.estimate_size(theme, if is_horizontal { 150.0 } else { ctx.panel.height });
 
             // --- Macro-Layout Wrapping ---
+            // If the next legend block exceeds the panel's bounds, wrap to a new row/column.
             if !is_horizontal {
-                // Vertical layout: wrap to a new column if panel height is exceeded.
                 if current_y + block_size.height > start_y + ctx.panel.height && current_y > start_y {
                     current_x += max_dim_in_row_col + block_gap;
                     current_y = start_y;
@@ -55,7 +63,6 @@ impl LegendRenderer {
                     max_dim_in_row_col = f32::max(max_dim_in_row_col, block_size.width);
                 }
             } else {
-                // Horizontal layout: wrap to a new row if panel width is exceeded.
                 if current_x + block_size.width > start_x + ctx.panel.width && current_x > start_x {
                     current_y += max_dim_in_row_col + block_gap;
                     current_x = start_x;
@@ -65,7 +72,7 @@ impl LegendRenderer {
                 }
             }
 
-            // 1. Draw Title
+            // 1. Draw Legend Block Title
             backend.draw_text(
                 &spec.title,
                 current_x,
@@ -78,7 +85,7 @@ impl LegendRenderer {
 
             let content_y_offset = current_y + (font_size * 1.1) + theme.legend_title_gap;
 
-            // 2. Render content based on GuideKind
+            // 2. Render content based on GuideKind (Continuous Gradient vs. Discrete Symbols)
             let actual_block_size = match spec.kind {
                 GuideKind::ColorBar => {
                     Self::draw_colorbar(&mut backend, spec, ctx, current_x, content_y_offset, theme)
@@ -93,7 +100,7 @@ impl LegendRenderer {
                 }
             };
 
-            // 3. Advance cursor for the next guide block
+            // 3. Advance the cursor
             if !is_horizontal {
                 current_y += actual_block_size.height + block_gap;
             } else {
@@ -102,11 +109,11 @@ impl LegendRenderer {
         }
     }
 
-    /// Renders a continuous color gradient bar with associated ticks and labels.
+    /// Renders a continuous color gradient bar (ColorBar).
     fn draw_colorbar(
         backend: &mut dyn RenderBackend,
         spec: &GuideSpec,
-        ctx: &SharedRenderingContext,
+        ctx: &PanelContext,
         x: f32,
         y: f32,
         theme: &Theme,
@@ -116,38 +123,26 @@ impl LegendRenderer {
         let font_size = theme.legend_label_size;
         let font_family = &theme.legend_label_family;
 
-        // A. Sample Gradient Stops
         let mut stops = Vec::new();
 
-        // Safely access the color mapping from the aesthetics context
-        if let Some(ref mapping) = ctx.aesthetics.color {
-            // Access the mapper via the scale implementation's trait method.
-            // This maintains the single source of truth for visual transformations.
+        // Access the color aesthetics from the central spec
+        if let Some(ref mapping) = ctx.spec.aesthetics.color {
             if let Some(mapper) = mapping.scale_impl.mapper() {
                 let n_samples = 15;
-
-                // Retrieve the logical maximum (e.g., number of categories - 1 for discrete scales)
-                // to ensure correct color indexing during sampling.
                 let l_max = mapping.scale_impl.logical_max();
 
                 for i in 0..=n_samples {
-                    // Calculate the stop position ratio [0.0, 1.0]
                     let ratio = i as f32 / n_samples as f32;
-
-                    // Reverse sampling (1.0 - ratio) ensures that high data values 
-                    // are mapped to the top of the visual color bar.
+                    // Reverse sampling so higher values appear at the top.
                     let color = mapper.map_to_color(1.0 - ratio, l_max);
-
                     stops.push((ratio, color));
                 }
             }
         }
 
-        // B. Render Color Strip
         backend.draw_gradient_rect(x, y, bar_w, bar_h, &stops, true, &spec.field);
         backend.draw_rect(x, y, bar_w, bar_h, &SingleColor::new("none"), &theme.title_color, 1.0, 1.0);
 
-        // C. Render Ticks and Labels
         let mut max_label_w = 0.0;
         if let Some(mapping) = spec.mappings.first() {
             let ticks = mapping.scale_impl.ticks(5);
@@ -155,7 +150,6 @@ impl LegendRenderer {
                 let norm = mapping.scale_impl.normalize(tick.value);
                 let tick_y = y + (bar_h * (1.0 - norm));
 
-                // Interior tick markers (White for contrast against the gradient)
                 backend.draw_line(x, tick_y, x + 3.0, tick_y, &"#FFFFFF".into(), 1.0);
                 backend.draw_line(x + bar_w - 3.0, tick_y, x + bar_w, tick_y, &"#FFFFFF".into(), 1.0);
 
@@ -180,7 +174,7 @@ impl LegendRenderer {
         }
     }
 
-    /// Renders a discrete legend group (categorical markers + text).
+    /// Renders a group of categorical symbols and labels.
     fn draw_spec_group(
         backend: &mut dyn RenderBackend,
         _spec: &GuideSpec,
@@ -208,7 +202,6 @@ impl LegendRenderer {
             let row_w = fixed_container_size + theme.legend_marker_text_gap + text_w;
             let row_h = f32::max(fixed_container_size, font_size);
 
-            // Column Wrapping within a block
             if item_y + row_h > y + max_h && i > 0 {
                 total_w += current_col_w + theme.legend_col_h_gap;
                 col_x += current_col_w + theme.legend_col_h_gap;
@@ -243,26 +236,14 @@ impl LegendRenderer {
         }
     }
 
-    /// Resolves data samples into physical visual properties by querying GlobalAesthetics.
-    /// 
-    /// This method maps data values to visual attributes (Color, Shape, Size). 
-    /// For continuous scales, it utilizes the raw numeric values from Ticks to ensure 
-    /// precision, avoiding the fragility of parsing formatted strings back into floats.
+    /// Maps data values into visual properties using the GlobalAesthetics context.
     fn resolve_mappings(
         spec: &GuideSpec,
-        ctx: &SharedRenderingContext,
+        ctx: &PanelContext,
     ) -> (Vec<String>, Vec<SingleColor>, Option<Vec<PointShape>>, Option<Vec<f32>>) {
-        // 1. Retrieve Ticks instead of just strings for non-categorical domains.
-        // This gives us access to both 'tick.value' (for mapping) and 'tick.label' (for display).
         let (labels, values_f32): (Vec<String>, Vec<f32>) = match &spec.domain {
-            ScaleDomain::Discrete(values) => {
-                // For categories, value and label are treated as the same string.
-                (values.clone(), Vec::new())
-            }
+            ScaleDomain::Discrete(values) => (values.clone(), Vec::new()),
             _ => {
-                // For Continuous/Log/Temporal, we fetch synced ticks.
-                // Note: We need a small helper or to modify GuideSpec to return Ticks here.
-                // Assuming get_sampling_ticks() returns Vec<Tick> with aligned labels.
                 let ticks = spec.get_sampling_ticks(); 
                 let l = ticks.iter().map(|t| t.label.clone()).collect();
                 let v = ticks.iter().map(|t| t.value).collect();
@@ -274,41 +255,26 @@ impl LegendRenderer {
         let mut shapes = Vec::new();
         let mut sizes = Vec::new();
 
+        // Check availability of specific mappers
         let has_color = spec.mappings.iter().any(|m| {
-            // Access the mapper through the scale implementation.
-            // If a scale doesn't have a mapper, it cannot contribute to color rendering.
-            if let Some(mapper) = m.scale_impl.mapper() {
-                matches!(
-                    mapper, 
-                    VisualMapper::DiscreteColor { .. } | VisualMapper::ContinuousColor { .. }
-                )
-            } else {
-                false
-            }
+            m.scale_impl.mapper().map_or(false, |v| matches!(v, VisualMapper::DiscreteColor {..} | VisualMapper::ContinuousColor {..}))
         });
-
-        // Check if any mapping involves a geometric shape mapper
         let has_shape = spec.mappings.iter().any(|m| {
             m.scale_impl.mapper().map_or(false, |v| matches!(v, VisualMapper::Shape { .. }))
         });
-
-        // Check if any mapping involves a physical size mapper
         let has_size = spec.mappings.iter().any(|m| {
             m.scale_impl.mapper().map_or(false, |v| matches!(v, VisualMapper::Size { .. }))
         });
 
         for (i, label_str) in labels.iter().enumerate() {
-            // 2. Determine the numeric value for this sample if applicable.
             let val_f32 = values_f32.get(i).cloned();
 
-            // 3. Resolve Color
+            // Resolve Color
             if has_color {
-                if let Some(ref mapping) = ctx.aesthetics.color {
-                    // Get the normalized value [0, 1] from the scale
+                if let Some(ref mapping) = ctx.spec.aesthetics.color {
                     let norm = val_f32.map(|v| mapping.scale_impl.normalize(v))
                         .unwrap_or_else(|| mapping.scale_impl.normalize_string(label_str));
 
-                    // Access the mapper via the scale implementation
                     let color = mapping.scale_impl.mapper()
                         .map(|m| m.map_to_color(norm, mapping.scale_impl.logical_max()))
                         .unwrap_or_else(|| "#333333".into());
@@ -316,9 +282,9 @@ impl LegendRenderer {
                 }
             } else { colors.push("#333333".into()); }
 
-            // 4. Resolve Shape
+            // Resolve Shape
             if has_shape {
-                if let Some(ref mapping) = ctx.aesthetics.shape {
+                if let Some(ref mapping) = ctx.spec.aesthetics.shape {
                     let norm = val_f32.map(|v| mapping.scale_impl.normalize(v))
                         .unwrap_or_else(|| mapping.scale_impl.normalize_string(label_str));
 
@@ -329,9 +295,9 @@ impl LegendRenderer {
                 }
             } else { shapes.push(PointShape::Circle); }
 
-            // 5. Resolve Size
+            // Resolve Size
             if has_size {
-                if let Some(ref mapping) = ctx.aesthetics.size {
+                if let Some(ref mapping) = ctx.spec.aesthetics.size {
                     let norm = val_f32.map(|v| mapping.scale_impl.normalize(v))
                         .unwrap_or_else(|| mapping.scale_impl.normalize_string(label_str));
 
@@ -362,14 +328,18 @@ impl LegendRenderer {
         }
     }
 
-    fn calculate_initial_anchor(ctx: &SharedRenderingContext, _: &[GuideSpec], theme: &Theme, _: bool) -> (f32, f32) {
+    /// Calculates the initial (x, y) anchor for the legend block based on the panel position.
+    fn calculate_initial_anchor(ctx: &PanelContext, theme: &Theme, _: bool) -> (f32, f32) {
         let mut x = ctx.panel.x;
         let mut y = ctx.panel.y;
-        match ctx.legend_position {
-            LegendPosition::Right => x = ctx.panel.x + ctx.panel.width + ctx.legend_margin,
-            LegendPosition::Left => x = (ctx.panel.x - ctx.legend_margin - theme.axis_reserve_buffer).max(10.0),
-            LegendPosition::Top => y = (ctx.panel.y - ctx.legend_margin - (theme.axis_reserve_buffer * 0.8)).max(10.0),
-            LegendPosition::Bottom => y = ctx.panel.y + ctx.panel.height + ctx.legend_margin,
+        let margin = theme.legend_margin;
+        let axis_buffer = theme.axis_reserve_buffer;
+
+        match theme.legend_position {
+            LegendPosition::Right => x = ctx.panel.x + ctx.panel.width + margin,
+            LegendPosition::Left => x = (ctx.panel.x - margin - axis_buffer).max(10.0),
+            LegendPosition::Top => y = (ctx.panel.y - margin - (axis_buffer * 0.8)).max(10.0),
+            LegendPosition::Bottom => y = ctx.panel.y + ctx.panel.height + margin,
             _ => {}
         }
         (x, y)

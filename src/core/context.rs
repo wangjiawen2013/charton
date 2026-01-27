@@ -1,93 +1,79 @@
 use crate::coordinate::{CoordinateTrait, Rect};
 use crate::core::aesthetics::GlobalAesthetics;
-use crate::core::guide::LegendPosition;
+use crate::theme::Theme;
 use std::sync::Arc;
 
-/// `SharedRenderingContext` provides the environmental data and transformation tools 
-/// required by any `Layer` to render its content.
+/// `ChartSpec` (Chart Specification) represents the global blueprint of a chart.
 ///
-/// It encapsulates the coordinate system logic, the physical drawing area (panel),
-/// and a reference to the global aesthetic mappings.
-pub struct SharedRenderingContext<'a> {
-    /// The coordinate system used to map normalized values [0, 1] to screen pixels.
-    /// Now uses Arc for shared ownership. This allows the context to be passed 
-    /// easily across threads or cached without complex lifetime issues.
-    pub coord: Arc<dyn CoordinateTrait>,
-
-    /// The physical rectangular area (in pixels) designated for the plot.
-    pub panel: Rect,
-    pub legend_position: LegendPosition,
-    pub legend_margin: f32,
-
-    /// Refers to global aesthetic rules (Color, Shape, Size).
-    /// Aesthetics still uses a reference '&'a' because GlobalAesthetics 
-    /// is usually a temporary collection of Arcs created during resolve_scene.
+/// It encapsulates the "static" visual rules that apply to the entire visualization, 
+/// regardless of how many individual panels (facets) are rendered. This includes 
+/// aesthetic scales (color, shape, etc.) and the visual theme.
+pub struct ChartSpec<'a> {
+    /// Global aesthetic mappings resolved from data (e.g., color palettes, shape sets).
     pub aesthetics: &'a GlobalAesthetics,
+
+    /// The visual theme defining the look and feel (fonts, grid lines, margins).
+    pub theme: &'a Theme,
 }
 
-impl<'a> SharedRenderingContext<'a> {
-    /// Creates a new shared rendering context by borrowing components.
+/// `PanelContext` provides the localized rendering environment for a specific 2D area.
+///
+/// This struct acts as a "toolbox" for `MarkRenderer`, providing access to both 
+/// the global `spec` and the local `coord` system.
+pub struct PanelContext<'a> {
+    /// Reference to the global chart specification.
+    /// Named `spec` to avoid confusion with the top-level `Chart` struct.
+    pub spec: &'a ChartSpec<'a>,
+
+    /// The coordinate system for this specific panel. 
+    pub coord: Arc<dyn CoordinateTrait>,
+
+    /// The physical rectangular area (in pixels) on the canvas for this panel.
+    pub panel: Rect,
+}
+
+impl<'a> PanelContext<'a> {
     pub fn new(
+        spec: &'a ChartSpec<'a>,
         coord: Arc<dyn CoordinateTrait>,
         panel: Rect,
-        legend_position: LegendPosition,
-        legend_margin: f32,
-        aesthetics: &'a GlobalAesthetics,
     ) -> Self {
-        Self {
-            coord,
-            panel,
-            legend_position,
-            legend_margin,
-            aesthetics,
-        }
+        Self { spec, coord, panel }
     }
 
-    /// Transforms normalized data coordinates (range [0, 1]) to absolute canvas pixel coordinates.
+    /// Maps normalized data values ([0.0, 1.0]) to absolute screen pixels.
     ///
-    /// # Arguments
-    /// * `x_norm` - The normalized X value.
-    /// * `y_norm` - The normalized Y value.
-    ///
-    /// # Returns
-    /// A tuple `(x_pixel, y_pixel)`.
+    /// # Performance Note: #[inline]
+    /// We use `#[inline]` here because this method is called inside tight loops 
+    /// (e.g., rendering 10,000+ scatter points). Inlining allows the compiler 
+    /// to eliminate the function call overhead by embedding the transformation 
+    /// logic directly into the caller's loop, significantly boosting performance.
+    #[inline]
     pub fn transform(&self, x_norm: f32, y_norm: f32) -> (f32, f32) {
         self.coord.transform(x_norm, y_norm, &self.panel)
     }
 
-    /// Transforms only the normalized X coordinate to a pixel X position.
-    ///
-    /// Useful for drawing vertical elements like grid lines or X-axis ticks.
+    /// Convenience helper for X-axis transformation.
+    /// Also inlined to maintain high-throughput rendering.
+    #[inline]
     pub fn x_to_px(&self, x_norm: f32) -> f32 {
-        // We pass 0.0 for Y as it doesn't affect the X result in Cartesian systems.
         self.transform(x_norm, 0.0).0
     }
 
-    /// Transforms only the normalized Y coordinate to a pixel Y position.
-    ///
-    /// Useful for drawing horizontal elements like grid lines or Y-axis ticks.
+    /// Convenience helper for Y-axis transformation.
+    /// Also inlined to maintain high-throughput rendering.
+    #[inline]
     pub fn y_to_px(&self, y_norm: f32) -> f32 {
-        // We pass 0.0 for X as it doesn't affect the Y result in Cartesian systems.
         self.transform(0.0, y_norm).1
     }
 
-    /// Returns the width of the plotting panel in pixels.
-    pub fn width(&self) -> f32 {
-        self.panel.width
+    /// Provides direct access to the global theme.
+    pub fn theme(&self) -> &Theme {
+        self.spec.theme
     }
 
-    /// Returns the height of the plotting panel in pixels.
-    pub fn height(&self) -> f32 {
-        self.panel.height
-    }
-
-    /// Returns the left-most pixel coordinate of the panel.
-    pub fn x0(&self) -> f32 {
-        self.panel.x
-    }
-
-    /// Returns the top-most pixel coordinate of the panel.
-    pub fn y0(&self) -> f32 {
-        self.panel.y
+    /// Provides direct access to the global aesthetic scales.
+    pub fn aesthetics(&self) -> &GlobalAesthetics {
+        self.spec.aesthetics
     }
 }
