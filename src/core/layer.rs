@@ -1,7 +1,7 @@
 use crate::error::ChartonError;
 use crate::prelude::SingleColor;
 use crate::scale::{Scale, ScaleDomain, Expansion};
-use crate::core::context::SharedRenderingContext;
+use crate::core::context::PanelContext;
 use crate::coordinate::CoordinateTrait;
 use super::aesthetics::GlobalAesthetics;
 use crate::encode::Channel;
@@ -100,15 +100,26 @@ pub trait RenderBackend {
     // other methods for drawing lines, etc.
 }
 
-/// Trait for rendering the actual geometric marks (points, lines, bars).
+/// `MarkRenderer` defines the contract for drawing geometric primitives.
+///
+/// Implementations of this trait (like PointRenderer or LineRenderer) focus 
+/// purely on the visual output using the provided coordinate tools.
 pub trait MarkRenderer {
     /// Executes the drawing logic for this layer's marks.
     /// 
-    /// This is called after all scales have been "trained" and resolved.
+    /// # Arguments
+    /// * `backend`: The drawing engine (e.g., SVG, Canvas) that provides low-level primitives.
+    /// * `context`: The localized `PanelContext` containing the coordinate system 
+    ///   and the physical area for this specific rendering pass.
+    /// 
+    /// # Faceting Logic:
+    /// In a faceted chart, this method may be called multiple times for a single layer,
+    /// each time receiving a different `PanelContext` with a new `Rect` and potentially 
+    /// different `Scale` bounds.
     fn render_marks(
         &self,
         backend: &mut dyn RenderBackend,
-        context: &SharedRenderingContext,
+        context: &PanelContext,
     ) -> Result<(), ChartonError>;
 }
 
@@ -118,40 +129,47 @@ pub trait MarkRenderer {
 /// Regression line, or a Bar set). It integrates metadata discovery 
 /// with the actual rendering logic.
 ///
-/// The lifecycle of a Layer during rendering is:
-/// 1. **Discovery**: `LayeredChart` queries `get_data_bounds` for all active channels.
-/// 2. **Training**: The engine calculates a global domain based on all layers.
-/// 3. **Resolution**: The engine calls `set_resolved_scale` to inject the final scale.
-/// 4. **Rendering**: The engine calls `render_marks`.
+/// The lifecycle of a Layer during the rendering pipeline is:
+/// 1. **Discovery**: `LayeredChart` queries `get_data_bounds` to understand data ranges.
+/// 2. **Training**: The engine aggregates bounds from all layers to build global scales.
+/// 3. **Injection**: The engine calls `inject_resolved_scales` to "back-fill" the final scales into the layer.
+/// 4. **Rendering**: The engine calls `render_marks` to produce the final geometry.
 pub trait Layer: MarkRenderer + Send + Sync {
     // --- Metadata Discovery Phase ---
 
-    /// Returns true if this layer requires coordinate axes to be drawn.
+    /// Returns true if this layer requires coordinate axes (X/Y) to be drawn.
+    /// Some layers, like annotations or background fills, might not need them.
     fn requires_axes(&self) -> bool;
 
-    /// Returns the data field name mapped to a specific visual channel.
+    /// Returns the data field name mapped to a specific visual channel (e.g., "horsepower" -> Color).
     fn get_field(&self, channel: Channel) -> Option<String>;
 
-    /// Returns the user's preferred scale type (e.g., Linear, Log) for a channel.
+    /// Returns the preferred scale type (e.g., Linear, Log, Discrete) for a channel.
     fn get_scale(&self, channel: Channel) -> Option<Scale>;
 
-    /// Returns the user-defined domain override for a channel, if any.
+    /// Returns any explicit user-defined domain override (e.g., fixed axis limits [0, 100]).
     fn get_domain(&self, channel: Channel) -> Option<ScaleDomain>;
     
-    /// Returns the expansion/padding rules for a channel.
+    /// Returns the expansion rules (padding/margins) requested by this layer for a channel.
     fn get_expand(&self, channel: Channel) -> Option<Expansion>;
 
-    /// Calculates the raw data boundaries (Min/Max or Unique Categories) for this layer.
+    /// Calculates the raw data boundaries (Min/Max for continuous, unique labels for discrete)
+    /// contained within this specific layer's dataset.
     /// 
-    /// This is the primary input for the "Training" phase where global scales are built.
+    /// This is the primary input for the "Training" phase where unified global scales are resolved.
     fn get_data_bounds(&self, channel: Channel) -> Result<ScaleDomain, ChartonError>;
 
     // --- State Resolution (The "Back-filling" Phase) ---
 
-    /// Injects the complete resolved environmental state into the layer.
+    /// Injects the resolved global state (Coordinate system and Aesthetic mappings) into the layer.
     /// 
-    /// Instead of &mut self, we use &self. 
-    /// Implementations should use 'OnceLock' or 'RwLock' for interior mutability.
+    /// This ensures the layer has access to the final, unified scales before rendering starts.
+    /// We use `&self` here; implementations typically use interior mutability (e.g., `OnceLock` 
+    /// or `RwLock`) to cache these values safely.
+    /// 
+    /// # Arguments
+    /// * `coord`: The shared coordinate system (containing X and Y scales).
+    /// * `aesthetics`: The shared global aesthetics (containing Color, Shape, and Size scales).
     fn inject_resolved_scales(
         &self, 
         coord: Arc<dyn CoordinateTrait>, 

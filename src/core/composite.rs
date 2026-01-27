@@ -2,8 +2,8 @@ use crate::coordinate::{CoordinateTrait, CoordSystem, Rect};
 use crate::chart::Chart;
 use crate::encode::Channel;
 use crate::core::layer::Layer;
-use crate::core::guide::{GuideSpec, LegendPosition};
-use crate::core::context::SharedRenderingContext;
+use crate::core::guide::GuideSpec;
+use crate::core::context::{ChartSpec, PanelContext};
 use crate::core::aesthetics::GlobalAesthetics;
 use crate::scale::{Scale, ScaleDomain, Expansion, create_scale, mapper::VisualMapper};
 use crate::core::aesthetics::AestheticMapping;
@@ -74,11 +74,6 @@ pub struct LayeredChart {
     pub(crate) size_expand: Option<Expansion>,
 
     pub(crate) flipped: bool,
-
-    // --- Legend Logic ---
-    pub(crate) legend_title: Option<String>,
-    pub(crate) legend_position: LegendPosition,
-    pub(crate) legend_margin: f32,
 }
 
 impl LayeredChart {
@@ -118,10 +113,6 @@ impl LayeredChart {
             size_expand: None,
 
             flipped: false,
-
-            legend_title: None,
-            legend_position: LegendPosition::Right,
-            legend_margin: 15.0,
         }
     }
 
@@ -241,23 +232,6 @@ impl LayeredChart {
         self
     }
 
-    // --- Legend Logic ---
-
-    pub fn with_legend_title(mut self, title: impl Into<String>) -> Self {
-        self.legend_title = Some(title.into());
-        self
-    }
-
-    pub fn with_legend_position(mut self, position: LegendPosition) -> Self {
-        self.legend_position = position;
-        self
-    }
-
-    pub fn with_legend_margin(mut self, margin: f32) -> Self {
-        self.legend_margin = margin;
-        self
-    }
-
     /// Resolves the unified visual specification for a given channel across all layers.
     ///
     /// This method performs the critical "Scale Arbitration" process. It ensures that 
@@ -337,7 +311,7 @@ impl LayeredChart {
         let (manual_domain, manual_label, manual_expand) = match channel {
             Channel::X => (self.x_domain.clone(), self.x_label.clone(), self.x_expand),
             Channel::Y => (self.y_domain.clone(), self.y_label.clone(), self.y_expand),
-            Channel::Color => (self.color_domain.clone(), self.legend_title.clone(), self.color_expand),
+            Channel::Color => (self.color_domain.clone(), self.theme.legend_title.clone(), self.color_expand),
             Channel::Shape => (self.shape_domain.clone(), None, self.shape_expand),
             Channel::Size => (self.size_domain.clone(), None, self.size_expand),
         };
@@ -459,57 +433,45 @@ impl LayeredChart {
     /// 3. **Guide Generation**: Collects legend specifications based on merged fields.
     /// 4. **Layout Measurement**: Calculates the physical pixel Rect for the plot panel.
     ///
-    /// Using `Arc` for Traits ensures that scales and coordinates can be shared safely 
-    /// across multiple layers and threads without expensive deep-copying of data.
+    /// The output is the "Final Blueprint" required to begin the actual drawing phase.
     pub fn resolve_scene(&self) -> Result<(Arc<dyn CoordinateTrait>, Rect, GlobalAesthetics, Vec<GuideSpec>), ChartonError> {
         
         // --- STEP 1: RESOLVE GLOBAL AESTHETIC MAPPINGS ---
         // We resolve non-positional encodings (Color, Shape, Size) across all layers.
-        // The `resolve_scale_spec` handles domain merging and expansion automatically.
-
-        // 1a. Color Mapping
+        
         let color_mapping = if let Some(spec) = self.resolve_scale_spec(Channel::Color)? {
             let mapper = VisualMapper::new_color_default(&spec.scale_type, &self.theme);
             let scale_impl = create_scale(&spec.scale_type, spec.domain, spec.expand, Some(mapper.clone()))?;
-            Some(AestheticMapping {
-                field: spec.field,
-                scale_impl, // This is now an Arc<dyn ScaleTrait>
-            })
+            Some(AestheticMapping { field: spec.field, scale_impl })
         } else { None };
 
-        // 1b. Shape Mapping
         let shape_mapping = if let Some(spec) = self.resolve_scale_spec(Channel::Shape)? {
             let mapper = VisualMapper::new_shape_default();
             let scale_impl = create_scale(&spec.scale_type, spec.domain, spec.expand, Some(mapper.clone()))?;
-            Some(AestheticMapping {
-                field: spec.field,
-                scale_impl,
-            })
+            Some(AestheticMapping { field: spec.field, scale_impl })
         } else { None };
 
-        // 1c. Size Mapping
         let size_mapping = if let Some(spec) = self.resolve_scale_spec(Channel::Size)? {
             let mapper = VisualMapper::new_size_default(2.0, 9.0);
             let scale_impl = create_scale(&spec.scale_type, spec.domain, spec.expand, Some(mapper.clone()))?;
-            Some(AestheticMapping {
-                field: spec.field,
-                scale_impl,
-            })
+            Some(AestheticMapping { field: spec.field, scale_impl })
         } else { None };
 
-        // Wrap mappings into GlobalAesthetics for unified access.
         let aesthetics = GlobalAesthetics::new(color_mapping, shape_mapping, size_mapping);
 
+        // Create the global ChartSpec (Blueprint) early so it can be used for measurement.
+        let chart_spec = ChartSpec {
+            aesthetics: &aesthetics,
+            theme: &self.theme,
+        };
+
         // --- STEP 2: RESOLVE COORDINATE SCALES (X & Y) ---
-        // Position scales map data to the [0, 1] normalized range.
-        // We expect a valid spec for X/Y, falling back to a default unit scale if empty.
         let x_spec = self.resolve_scale_spec(Channel::X)?.unwrap();
         let y_spec = self.resolve_scale_spec(Channel::Y)?.unwrap();
 
         let x_scale = create_scale(&x_spec.scale_type, x_spec.domain, x_spec.expand, None)?;
         let y_scale = create_scale(&y_spec.scale_type, y_spec.domain, y_spec.expand, None)?;
 
-        // Construct the coordinate system as an Arc to allow shared access during rendering.
         let final_coord: Arc<dyn CoordinateTrait> = match self.coord_system {
             CoordSystem::Cartesian2D => Arc::new(crate::coordinate::cartesian::Cartesian2D::new(
                 x_scale, 
@@ -518,33 +480,33 @@ impl LayeredChart {
                 y_spec.field.clone(),
                 self.flipped
             )),
-            CoordSystem::Polar => todo!("Polar coordinate resolution is planned for the next release"),
+            CoordSystem::Polar => todo!("Polar coordinate resolution is planned for future release"),
         };
 
         // --- STEP 3: GUIDE GENERATION ---
-        // Group aesthetic mappings by field name to create unified legends/colorbars.
         let guide_specs = crate::core::guide::GuideManager::collect_guides(&aesthetics);
 
         // --- STEP 4: PHYSICAL MEASUREMENT (LAYOUT ENGINE) ---
         let w = self.width as f32;
         let h = self.height as f32;
 
-        // A. Theoretical Maximum Plot Area (Total size minus static chart margins).
         let initial_plot_w = w * (1.0 - self.left_margin - self.right_margin);
         let initial_plot_h = h * (1.0 - self.top_margin - self.bottom_margin);
 
-        // B. Measure Legend Constraints based on guide specifications.
+        // A. Measure Legend Constraints.
         let legend_box = crate::core::layout::LayoutEngine::calculate_legend_constraints(
             &guide_specs,
-            self.legend_position,
+            self.theme.legend_position,
             w, h,
             initial_plot_w,
             initial_plot_h,
-            self.legend_margin,
+            self.theme.legend_margin,
             &self.theme
         );
 
-        // C. Measure Axis Constraints using a temporary SharedRenderingContext.
+        // B. Measure Axis Constraints using a temporary PanelContext.
+        // We calculate a 'rough' panel area first to allow the engine to estimate 
+        // tick density and label overlap.
         let temp_panel = Rect::new(
             (self.left_margin * w) + legend_box.left,
             (self.top_margin * h) + legend_box.top,
@@ -552,12 +514,11 @@ impl LayeredChart {
             (initial_plot_h - legend_box.top - legend_box.bottom).max(10.0)
         );
 
-        let temp_ctx = SharedRenderingContext::new(
+        // Create the temporary context required for layout measurement.
+        let temp_ctx = PanelContext::new(
+            &chart_spec,
             final_coord.clone(),
             temp_panel,
-            self.legend_position,
-            self.legend_margin,
-            &aesthetics
         );
 
         let axis_box = crate::core::layout::LayoutEngine::calculate_axis_constraints(
@@ -565,19 +526,19 @@ impl LayeredChart {
             &self.theme,
         );
 
-        // --- STEP 5: FINAL PANEL RESOLUTION & DEFENSE ---
+        // --- STEP 5: FINAL PANEL RESOLUTION ---
         let final_left = (self.left_margin * w) + legend_box.left + axis_box.left;
         let final_right = (self.right_margin * w) + legend_box.right;
         let final_top = (self.top_margin * h) + legend_box.top;
         let final_bottom = (self.bottom_margin * h) + legend_box.bottom + axis_box.bottom;
 
-        // Apply "Defense" rule: Ensure the panel never shrinks below the theme's minimum size.
+        // Apply final dimensions with a safety floor (min_panel_size).
         let plot_w = (w - final_left - final_right).max(self.theme.min_panel_size);
         let plot_h = (h - final_top - final_bottom).max(self.theme.min_panel_size);
 
-        let panel = Rect::new(final_left, final_top, plot_w, plot_h);
+        let final_panel_rect = Rect::new(final_left, final_top, plot_w, plot_h);
 
-        Ok((final_coord, panel, aesthetics, guide_specs))
+        Ok((final_coord, final_panel_rect, aesthetics, guide_specs))
     }
 
     /// Renders the chart title at the top-center of the SVG canvas.
@@ -633,11 +594,8 @@ impl LayeredChart {
 
     /// Renders the entire layered chart to the provided SVG string.
     ///
-    /// This implementation coordinates the final rendering pipeline:
-    /// 1. **Scene Resolution**: Performs the "Industrial Defense" layout and scale training.
-    /// 2. **Context Setup**: Wraps resolved components into a shared rendering environment.
-    /// 3. **Layer Injection**: Provides layers with the final scales required for geometry calculation.
-    /// 4. **Orchestrated Drawing**: Renders titles, axes, data marks, and legends.
+    /// This implementation coordinates the final rendering pipeline with a clear separation 
+    /// between global specifications (ChartSpec) and local drawing environments (PanelContext).
     pub fn render(&mut self, svg: &mut String) -> Result<(), ChartonError> {
         // 0. Guard: Ensure there's something to render.
         if self.layers.is_empty() { 
@@ -645,62 +603,72 @@ impl LayeredChart {
         }
 
         // --- STEP 1: SCENE RESOLUTION ---
-        // Performs scale training, unified aesthetic mapping, and physical layout measurement.
-        // Returns Arc-wrapped components for safe, shared access.
+        // Resolve scale training, unified aesthetic mapping, and physical layout measurement.
+        // Returns the final unified coordinate system, the plotting rect, 
+        // global aesthetics, and the calculated legend specifications.
         let (coord, panel, aesthetics, guide_specs) = self.resolve_scene()?;
 
-        // --- STEP 2: CONTEXT INITIALIZATION ---
-        // Construct the Source of Truth for the rendering pass.
-        // Cloning the 'coord' Arc is cheap and maintains thread-safety.
-        let context = SharedRenderingContext::new(
-            coord.clone(), 
-            panel,
-            self.legend_position,
-            self.legend_margin,
-            &aesthetics
-        );
+        // --- STEP 2: GLOBAL SPECIFICATION SETUP ---
+        // We initialize the ChartSpec, which serves as the "Global Source of Truth".
+        // This spec is immutable and shared across all potential panels (facets).
+        let spec = ChartSpec {
+            aesthetics: &aesthetics,
+            theme: &self.theme,
+        };
 
-        // --- STEP 3: LAYER SYNCHRONIZATION (The New "Back-fill") ---
-        // Instead of manually syncing individual domains, we inject the resolved 
-        // aesthetic Arcs directly into the layers.
+        // --- STEP 3: LAYER SYNCHRONIZATION (The "Back-fill") ---
+        // Inject the resolved global state into each layer. This allows layers to 
+        // prepare for rendering (e.g., pre-calculating aesthetic mappings).
         for layer in self.layers.iter() {
             layer.inject_resolved_scales(coord.clone(), &aesthetics);
         }
 
         // --- STEP 4: ORCHESTRATED DRAWING ---
+        // NOTE: In the future, for Faceted plots, this section will wrap in a loop 
+        // that iterates over multiple PanelContexts created by a 'FacetEngine'.
+        
+        // 4a. Initialize the Primary Panel Context.
+        let primary_panel_ctx = PanelContext::new(&spec, coord.clone(), panel);
 
-        // 4a. Render Chart Title
-        self.render_title(svg, &context.panel)?;
+        // 4b. Render Chart Title.
+        // Title is typically global to the entire chart canvas.
+        self.render_title(svg, &primary_panel_ctx.panel)?;
 
-        // 4b. Render Axes (X and Y)
-        // We only render axes if the theme allows and at least one layer requires them.
+        // 4c. Render Axes (X and Y).
+        // Only render axes if the theme allows and at least one layer requires them.
         if self.theme.show_axes && self.layers.iter().any(|l| l.requires_axes()) {
-            // Labels are now derived directly from the resolved coordinate scales' fields.
             let x_label = coord.get_x_label();
             let y_label = coord.get_y_label();
 
+            // The axis_renderer now consumes the modern PanelContext.
             crate::render::axis_renderer::render_axes(
                 svg, 
                 &self.theme, 
-                &context, 
+                &primary_panel_ctx, 
                 &x_label, 
                 &y_label
             )?;
         }
 
-        // 4c. Render Marks (Data Geometries)
-        // Layers now use their internal cached scales to calculate vertices.
-        let mut backend = crate::render::backend::svg::SvgBackend::new(svg, Some(&context.panel));
+        // 4d. Render Marks (Data Geometries).
+        // We create a backend with a clipping region defined by the current panel.
+        let mut backend = crate::render::backend::svg::SvgBackend::new(
+            svg, 
+            Some(&primary_panel_ctx.panel)
+        );
+        
         for layer in &self.layers {
-            layer.render_marks(&mut backend, &context)?;
+            // Each layer renders its marks within the provided PanelContext.
+            layer.render_marks(&mut backend, &primary_panel_ctx)?;
         }
 
-        // 4d. Render Unified Legends & Guides
+        // 4e. Render Unified Legends & Guides.
+        // Legends are rendered globally, using the ChartSpec for visual rules.
         crate::render::legend_renderer::LegendRenderer::render_legend(
             svg, 
             &guide_specs, 
             &self.theme, 
-            &context
+            &primary_panel_ctx
         );
 
         Ok(())

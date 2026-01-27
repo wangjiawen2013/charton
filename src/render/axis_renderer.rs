@@ -1,21 +1,20 @@
-use crate::core::context::SharedRenderingContext;
+use crate::core::context::PanelContext;
 use crate::theme::Theme;
 use crate::error::ChartonError;
 use std::fmt::Write;
 
-/// Orchestrates the visual rendering of both horizontal and vertical axes.
+/// Orchestrates the visual rendering of both horizontal and vertical axes for a panel.
 /// 
-/// This manager decouples data scales from physical positions. By rendering based 
-/// on physical orientation (Bottom/Left) rather than logical axes (X/Y), it ensures 
-/// that the chart frame remains stable even when coordinates are flipped.
+/// This function is "Panel-aware": it renders axes relative to the `Rect` provided 
+/// in the `PanelContext`. In a faceted chart, this is called for each individual panel.
 pub fn render_axes(
     svg: &mut String,
     theme: &Theme,
-    ctx: &SharedRenderingContext,
+    ctx: &PanelContext,
     x_label: &str,
     y_label: &str,
 ) -> Result<(), ChartonError> {
-    // Resolve which data label belongs to which physical position.
+    // Determine which data label belongs to which physical position based on flip state.
     // If flipped, the Y-scale data is projected onto the visual Bottom axis.
     let (bottom_label, left_label) = if ctx.coord.is_flipped() {
         (y_label, x_label)
@@ -23,12 +22,12 @@ pub fn render_axes(
         (x_label, y_label)
     };
 
-    // 1. Process the Physical Bottom Axis
+    // 1. Process the Physical Bottom Axis (X-axis in standard, Y-axis in flipped)
     draw_axis_line(svg, theme, ctx, true)?;
     draw_ticks_and_labels(svg, theme, ctx, true)?;
     draw_axis_title(svg, theme, ctx, bottom_label, true)?;
 
-    // 2. Process the Physical Left Axis
+    // 2. Process the Physical Left Axis (Y-axis in standard, X-axis in flipped)
     draw_axis_line(svg, theme, ctx, false)?;
     draw_ticks_and_labels(svg, theme, ctx, false)?;
     draw_axis_title(svg, theme, ctx, left_label, false)?;
@@ -36,23 +35,20 @@ pub fn render_axes(
     Ok(())
 }
 
-/// Renders the structural spine of an axis.
-///
-/// NOTE: We avoid `coord.transform` here because the axis spine is a part of the 
-/// static physical frame. We define its position directly using panel boundaries.
+/// Renders the straight line (spine) of the axis.
 fn draw_axis_line(
     svg: &mut String,
     theme: &Theme,
-    ctx: &SharedRenderingContext,
+    ctx: &PanelContext,
     is_bottom: bool,
 ) -> Result<(), ChartonError> {
     let panel = &ctx.panel;
 
     let (x1, y1, x2, y2) = if is_bottom {
-        // Horizontal line at the bottom of the panel
+        // Horizontal line at the bottom edge of the panel
         (panel.x, panel.y + panel.height, panel.x + panel.width, panel.y + panel.height)
     } else {
-        // Vertical line at the left of the panel
+        // Vertical line at the left edge of the panel
         (panel.x, panel.y, panel.x, panel.y + panel.height)
     };
 
@@ -64,27 +60,25 @@ fn draw_axis_line(
     Ok(())
 }
 
-/// Renders tick marks and text labels.
-///
-/// It determines the correct `Scale` based on the flip state and calculates 
-/// pixel positions by interpolating within the physical panel dimensions.
+/// Renders the tick marks and their corresponding text labels.
 fn draw_ticks_and_labels(
     svg: &mut String,
     theme: &Theme,
-    ctx: &SharedRenderingContext,
+    ctx: &PanelContext,
     is_bottom: bool,
 ) -> Result<(), ChartonError> {
-    let coord = ctx.coord.clone();
+    let coord = &ctx.coord;
     let panel = &ctx.panel;
     let is_flipped = coord.is_flipped();
     
-    // Select the scale based on physical orientation and flip state.
+    // Select the correct scale object based on orientation and flip state.
     let target_scale = if is_flipped {
         if is_bottom { coord.get_y_scale() } else { coord.get_x_scale() }
     } else {
         if is_bottom { coord.get_x_scale() } else { coord.get_y_scale() }
     };
     
+    // TODO: The number of ticks could eventually be part of the Theme or Scale spec.
     let ticks = target_scale.ticks(8); 
     let tick_len = 6.0;
     let angle = if is_bottom { theme.x_tick_label_angle } else { theme.y_tick_label_angle };
@@ -92,14 +86,15 @@ fn draw_ticks_and_labels(
     for tick in ticks {
         let norm_pos = target_scale.normalize(tick.value);
         
-        // Calculate pixel anchors directly from panel boundaries to bypass logic swapping.
+        // Calculate the anchor point on the axis line.
         let (px, py) = if is_bottom {
             (panel.x + norm_pos * panel.width, panel.y + panel.height)
         } else {
-            // SVG Y-axis is inverted: 1.0 (top) is panel.y, 0.0 (bottom) is panel.y + height.
+            // SVG Y-coordinates increase downwards, so 0.0 (bottom) is at y + height.
             (panel.x, panel.y + (1.0 - norm_pos) * panel.height)
         };
 
+        // Determine text alignment and tick direction.
         let (x2, y2, dx, dy, anchor, baseline) = if is_bottom {
             let x_anchor = if angle == 0.0 { "middle" } else { "end" };
             (px, py + tick_len, 0.0, tick_len + theme.tick_label_padding, x_anchor, "hanging")
@@ -107,11 +102,11 @@ fn draw_ticks_and_labels(
             (px - tick_len, py, -(tick_len + theme.tick_label_padding + 1.0), 0.0, "end", "central")
         };
         
-        // Draw Tick Line
+        // Render the Tick Line
         writeln!(svg, r#"<line x1="{:.2}" y1="{:.2}" x2="{:.2}" y2="{:.2}" stroke="{}" stroke-width="{:.1}"/>"#,
             px, py, x2, y2, theme.label_color.as_str(), theme.tick_width)?;
 
-        // Draw Label Text
+        // Render the Label Text
         let final_x = px + dx;
         let final_y = py + dy;
         let transform = if angle != 0.0 {
@@ -128,21 +123,18 @@ fn draw_ticks_and_labels(
     Ok(())
 }
 
-/// Renders the axis title (e.g., "mpg") with collision avoidance.
-///
-/// It uses trigonometric projection to calculate the offset needed to clear 
-/// rotated tick labels, ensuring the title stays within the allocated margins.
+/// Renders the axis title, calculating offsets to avoid overlapping with tick labels.
 fn draw_axis_title(
     svg: &mut String,
     theme: &Theme,
-    ctx: &SharedRenderingContext,
+    ctx: &PanelContext,
     label: &str,
     is_bottom: bool,
 ) -> Result<(), ChartonError> {
     if label.is_empty() { return Ok(()); }
     
     let panel = &ctx.panel;
-    let coord = ctx.coord.clone();
+    let coord = &ctx.coord;
     let is_flipped = coord.is_flipped();
 
     let tick_line_len = 6.0;
@@ -165,7 +157,7 @@ fn draw_axis_title(
             .map(|t| {
                 let w = crate::core::utils::estimate_text_width(&t.label, theme.tick_label_size);
                 let h = theme.tick_label_size;
-                // An empirical algorithm to account for the rotation
+                // Empirical layout calculation for rotated text footprint.
                 if is_flipped {
                     (w.abs() * angle_rad.cos().abs() + h * angle_rad.sin().abs()) + 3.0
                 } else {
@@ -186,7 +178,6 @@ fn draw_axis_title(
             .map(|t| {
                 let w = crate::core::utils::estimate_text_width(&t.label, theme.tick_label_size);
                 let h = theme.tick_label_size;
-                // An empirical algorithm to account for the rotation
                 if is_flipped {
                     w.abs() * angle_rad.sin().abs() + h * angle_rad.cos().abs() - 4.0
                 } else {
