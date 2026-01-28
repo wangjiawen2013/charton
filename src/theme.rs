@@ -17,7 +17,7 @@ pub struct Theme {
 
     // --- Title Properties ---
     /// Font size for the main chart title.
-    pub(crate) title_size: f32,
+    pub(crate) title_size: f64,
     /// Font family stack for the main chart title.
     pub(crate) title_family: String,
     /// Text color for the main chart title.
@@ -25,74 +25,86 @@ pub struct Theme {
 
     // --- Axis Title (Label) Properties ---
     /// Font size for axis titles (e.g., "Price", "Distance").
-    pub(crate) label_size: f32,
+    pub(crate) label_size: f64,
     /// Font family for axis titles.
     pub(crate) label_family: String,
     /// Text color for axis titles.
     pub(crate) label_color: SingleColor,
     /// Additional spacing between the axis title and the tick labels.
-    pub(crate) label_padding: f32,
+    pub(crate) label_padding: f64,
 
     // --- Tick Label Properties (The numbers on the axes) ---
     /// Font size for the text next to axis ticks.
-    pub(crate) tick_label_size: f32,
+    pub(crate) tick_label_size: f64,
     /// Font family for the text next to axis ticks.
     pub(crate) tick_label_family: String,
     /// Text color for the text next to axis ticks.
     pub(crate) tick_label_color: SingleColor,
     /// Distance between the tick mark and the tick text.
-    pub(crate) tick_label_padding: f32,
+    pub(crate) tick_label_padding: f64,
     /// Rotation angle in degrees for X-axis tick labels.
-    pub(crate) x_tick_label_angle: f32,
+    pub(crate) x_tick_label_angle: f64,
     /// Rotation angle in degrees for Y-axis tick labels.
-    pub(crate) y_tick_label_angle: f32,
+    pub(crate) y_tick_label_angle: f64,
 
     // --- Geometry & Stroke Properties ---
     /// Width of the main axis lines.
-    pub(crate) axis_width: f32,
+    pub(crate) axis_width: f64,
     /// Width of the small tick marks.
-    pub(crate) tick_width: f32,
+    pub(crate) tick_width: f64,
     /// The physical length of the tick marks extending from the axis.
-    pub(crate) tick_length: f32,
+    pub(crate) tick_length: f64,
 
     // --- Legend Styling ---
     /// Font size for the title of the legend.
-    pub(crate) legend_title_size: f32,
+    pub(crate) legend_title_size: f64,
     /// Font size for legend item labels.
-    pub(crate) legend_label_size: f32,
+    pub(crate) legend_label_size: f64,
     /// Font family for all legend text.
     pub(crate) legend_label_family: String,
     /// Text color for all legend text.
     pub(crate) legend_label_color: SingleColor,
     /// Gap between separate legend blocks (e.g., between Color legend and Size legend).
-    pub(crate) legend_block_gap: f32,
+    pub(crate) legend_block_gap: f64,
     /// Vertical gap between individual items within a legend.
-    pub(crate) legend_item_v_gap: f32,
+    pub(crate) legend_item_v_gap: f64,
     /// Horizontal gap between columns in a multi-column legend.
-    pub(crate) legend_col_h_gap: f32,
+    pub(crate) legend_col_h_gap: f64,
     /// Spacing between the legend title and the first legend item.
-    pub(crate) legend_title_gap: f32,
+    pub(crate) legend_title_gap: f64,
     /// Spacing between the legend marker (symbol) and its text label.
-    pub(crate) legend_marker_text_gap: f32,
+    pub(crate) legend_marker_text_gap: f64,
 
     // --- Legend Logic ---
     pub(crate) legend_title: Option<String>,
     pub(crate) legend_position: LegendPosition,
-    pub(crate) legend_margin: f32,
+    pub(crate) legend_margin: f64,
 
     // --- Layout Defense Thresholds ---
     /// The minimum allowed size for the data panel before rendering fails or truncates.
-    pub(crate) min_panel_size: f32,
+    pub(crate) min_panel_size: f64,
     /// Maximum percentage of the total canvas that axes/margins can consume.
-    pub(crate) panel_defense_ratio: f32,
+    pub(crate) panel_defense_ratio: f64,
     /// Pre-allocated pixel buffer for axis labels to prevent overlapping.
-    pub(crate) axis_reserve_buffer: f32,
+    pub(crate) axis_reserve_buffer: f64,
 
     // --- Aesthetic Defaults (Candidates for Scale Resolution) ---
     /// The default color map for continuous data if no specific scale is provided.
     pub(crate) default_color_map: ColorMap,
     /// The default categorical palette for discrete data if no specific scale is provided.
     pub(crate) default_palette: ColorPalette,
+
+    // --- Facet Styling ---
+    /// The font size for the facet labels (the text in the strip).
+    pub facet_label_size: f64,
+    /// The color of the facet label text.
+    pub facet_label_color: SingleColor,
+    /// The background color of the facet strip (the header box).
+    pub facet_strip_fill: SingleColor,
+    /// The spacing between individual facet panels (both horizontal and vertical).
+    pub facet_spacing: f64,
+    /// The padding inside the facet strip.
+    pub facet_strip_padding: f64,
 }
 
 impl Theme {
@@ -110,7 +122,7 @@ impl Theme {
 
     // --- Title ---
 
-    pub fn with_title_size(mut self, size: f32) -> Self {
+    pub fn with_title_size(mut self, size: f64) -> Self {
         self.title_size = size;
         self
     }
@@ -127,7 +139,7 @@ impl Theme {
 
     // --- Axis Label ---
 
-    pub fn with_label_size(mut self, size: f32) -> Self {
+    pub fn with_label_size(mut self, size: f64) -> Self {
         self.label_size = size;
         self
     }
@@ -142,14 +154,14 @@ impl Theme {
         self
     }
 
-    pub fn with_label_padding(mut self, padding: f32) -> Self {
+    pub fn with_label_padding(mut self, padding: f64) -> Self {
         self.label_padding = padding;
         self
     }
 
     // --- Tick Label ---
 
-    pub fn with_tick_label_size(mut self, size: f32) -> Self {
+    pub fn with_tick_label_size(mut self, size: f64) -> Self {
         self.tick_label_size = size;
         self
     }
@@ -164,46 +176,46 @@ impl Theme {
         self
     }
 
-    pub fn with_tick_label_padding(mut self, padding: f32) -> Self {
+    pub fn with_tick_label_padding(mut self, padding: f64) -> Self {
         self.tick_label_padding = padding;
         self
     }
 
-    pub fn with_x_tick_label_angle(mut self, angle: f32) -> Self {
+    pub fn with_x_tick_label_angle(mut self, angle: f64) -> Self {
         self.x_tick_label_angle = angle;
         self
     }
 
-    pub fn with_y_tick_label_angle(mut self, angle: f32) -> Self {
+    pub fn with_y_tick_label_angle(mut self, angle: f64) -> Self {
         self.y_tick_label_angle = angle;
         self
     }
 
     // --- Geometry Strokes ---
 
-    pub fn with_axis_width(mut self, width: f32) -> Self {
+    pub fn with_axis_width(mut self, width: f64) -> Self {
         self.axis_width = width;
         self
     }
 
-    pub fn with_tick_width(mut self, width: f32) -> Self {
+    pub fn with_tick_width(mut self, width: f64) -> Self {
         self.tick_width = width;
         self
     }
     
-    pub fn with_tick_length(mut self, length: f32) -> Self {
+    pub fn with_tick_length(mut self, length: f64) -> Self {
         self.tick_length = length;
         self
     }
 
     // --- Legend Styling ---
 
-    pub fn with_legend_title_size(mut self, size: f32) -> Self {
+    pub fn with_legend_title_size(mut self, size: f64) -> Self {
         self.legend_title_size = size;
         self
     }
 
-    pub fn with_legend_label_size(mut self, size: f32) -> Self {
+    pub fn with_legend_label_size(mut self, size: f64) -> Self {
         self.legend_label_size = size;
         self
     }
@@ -218,27 +230,27 @@ impl Theme {
         self
     }
 
-    pub fn with_legend_block_gap(mut self, gap: f32) -> Self {
+    pub fn with_legend_block_gap(mut self, gap: f64) -> Self {
         self.legend_block_gap = gap;
         self
     }
 
-    pub fn with_legend_item_v_gap(mut self, gap: f32) -> Self {
+    pub fn with_legend_item_v_gap(mut self, gap: f64) -> Self {
         self.legend_item_v_gap = gap;
         self
     }
 
-    pub fn with_legend_col_h_gap(mut self, gap: f32) -> Self {
+    pub fn with_legend_col_h_gap(mut self, gap: f64) -> Self {
         self.legend_col_h_gap = gap;
         self
     }
 
-    pub fn with_legend_title_gap(mut self, gap: f32) -> Self {
+    pub fn with_legend_title_gap(mut self, gap: f64) -> Self {
         self.legend_title_gap = gap;
         self
     }
 
-    pub fn with_legend_marker_text_gap(mut self, gap: f32) -> Self {
+    pub fn with_legend_marker_text_gap(mut self, gap: f64) -> Self {
         self.legend_marker_text_gap = gap;
         self
     }
@@ -255,24 +267,24 @@ impl Theme {
         self
     }
 
-    pub fn with_legend_margin(mut self, margin: f32) -> Self {
+    pub fn with_legend_margin(mut self, margin: f64) -> Self {
         self.legend_margin = margin;
         self
     }
 
     // --- Layout Defense ---
 
-    pub fn with_min_panel_size(mut self, size: f32) -> Self {
+    pub fn with_min_panel_size(mut self, size: f64) -> Self {
         self.min_panel_size = size;
         self
     }
 
-    pub fn with_panel_defense_ratio(mut self, ratio: f32) -> Self {
+    pub fn with_panel_defense_ratio(mut self, ratio: f64) -> Self {
         self.panel_defense_ratio = ratio;
         self
     }
 
-    pub fn with_axis_reserve_buffer(mut self, buffer: f32) -> Self {
+    pub fn with_axis_reserve_buffer(mut self, buffer: f64) -> Self {
         self.axis_reserve_buffer = buffer;
         self
     }
@@ -286,6 +298,36 @@ impl Theme {
 
     pub fn with_default_palette(mut self, palette: ColorPalette) -> Self {
         self.default_palette = palette;
+        self
+    }
+
+    // --- Facet Styling ---
+    /// The font size for the facet labels (the text in the strip).
+    pub fn with_facet_label_size(mut self, size: f64) -> Self {
+        self.facet_label_size = size;
+        self
+    }
+
+    /// The color of the facet label text.
+    pub fn with_facet_label_color(mut self, color: impl Into<SingleColor>) -> Self {
+        self.facet_label_color = color.into();
+        self
+    }
+
+    /// The background color of the facet strip (the header box).
+    pub fn with_facet_strip_fill(mut self, color: impl Into<SingleColor>) -> Self {
+        self.facet_strip_fill = color.into();
+        self
+    }
+
+    /// The spacing between individual facet panels (both horizontal and vertical).
+    pub fn with_facet_spacing(mut self, spacing: f64) -> Self {
+        self.facet_spacing = spacing;
+        self
+    }
+    /// The padding inside the facet strip.
+    pub fn with_facet_strip_padding(mut self, padding: f64) -> Self {
+        self.facet_strip_padding = padding;
         self
     }
 }
@@ -339,6 +381,12 @@ impl Default for Theme {
 
             default_color_map: ColorMap::Viridis,
             default_palette: ColorPalette::Tab10,
+
+            facet_label_size: 11.0,
+            facet_label_color: "#333".into(),
+            facet_strip_fill: "lightgray".into(),
+            facet_spacing: 10.0,
+            facet_strip_padding: 5.0,
         }
     }
 }

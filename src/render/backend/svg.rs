@@ -39,11 +39,11 @@ impl<'a> SvgBackend<'a> {
 impl<'a> RenderBackend for SvgBackend<'a> {
     fn draw_circle(
         &mut self,
-        x: f32, y: f32, radius: f32,
+        x: f64, y: f64, radius: f64,
         fill: &SingleColor,
         stroke: &SingleColor,
-        stroke_width: f32,
-        opacity: f32,
+        stroke_width: f64,
+        opacity: f64,
     ) {
         // Direct call to as_str() - SingleColor already knows if it's "none"
         if fill.is_none() && stroke.is_none() { return; }
@@ -57,11 +57,11 @@ impl<'a> RenderBackend for SvgBackend<'a> {
 
     fn draw_rect(
         &mut self,
-        x: f32, y: f32, width: f32, height: f32,
+        x: f64, y: f64, width: f64, height: f64,
         fill: &SingleColor,
         stroke: &SingleColor,
-        stroke_width: f32,
-        opacity: f32,
+        stroke_width: f64,
+        opacity: f64,
     ) {
         if fill.is_none() && stroke.is_none() { return; }
 
@@ -72,7 +72,7 @@ impl<'a> RenderBackend for SvgBackend<'a> {
         );
     }
 
-    fn draw_path(&mut self, points: &[(f32, f32)], stroke: &SingleColor, stroke_width: f32, opacity: f32) {
+    fn draw_path(&mut self, points: &[(f64, f64)], stroke: &SingleColor, stroke_width: f64, opacity: f64) {
         if points.is_empty() || stroke.is_none() { return; }
         
         let mut path_data = String::new();
@@ -90,11 +90,11 @@ impl<'a> RenderBackend for SvgBackend<'a> {
 
     fn draw_polygon(
         &mut self,
-        points: &[(f32, f32)],
+        points: &[(f64, f64)],
         fill: &SingleColor,
         stroke: &SingleColor,
-        stroke_width: f32,
-        opacity: f32,
+        stroke_width: f64,
+        opacity: f64,
     ) {
         if points.is_empty() || (fill.is_none() && stroke.is_none()) { return; }
         
@@ -112,13 +112,13 @@ impl<'a> RenderBackend for SvgBackend<'a> {
     fn draw_text(
         &mut self,
         text: &str,
-        x: f32, y: f32,
-        font_size: f32,
+        x: f64, y: f64,
+        font_size: f64,
         font_family: &str,
         color: &SingleColor,
         text_anchor: &str,
         font_weight: &str,
-        opacity: f32,
+        opacity: f64,
     ) {
         if color.is_none() { return; }
         let safe_text = text.replace('&', "&amp;").replace('<', "&lt;").replace('>', "&gt;");
@@ -130,7 +130,7 @@ impl<'a> RenderBackend for SvgBackend<'a> {
         );
     }
 
-    fn draw_line(&mut self, x1: f32, y1: f32, x2: f32, y2: f32, color: &SingleColor, width: f32) {
+    fn draw_line(&mut self, x1: f64, y1: f64, x2: f64, y2: f64, color: &SingleColor, width: f64) {
         if color.is_none() { return; }
         let _ = writeln!(
             self.buffer,
@@ -141,8 +141,8 @@ impl<'a> RenderBackend for SvgBackend<'a> {
 
     fn draw_gradient_rect(
         &mut self,
-        x: f32, y: f32, width: f32, height: f32,
-        stops: &[(f32, SingleColor)],
+        x: f64, y: f64, width: f64, height: f64,
+        stops: &[(f64, SingleColor)],
         is_vertical: bool,
         id_suffix: &str,
     ) {

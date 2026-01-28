@@ -6,7 +6,7 @@ use crate::theme::Theme;
 /// Defines how normalized data values [0.0, 1.0] are mapped to physical visual properties.
 /// 
 /// This enum acts as the final stage of the scale pipeline, converting abstract 
-/// mathematical ratios into concrete types like `SingleColor`, `PointShape`, or `f32`.
+/// mathematical ratios into concrete types like `SingleColor`, `PointShape`, or `f64`.
 #[derive(Debug, Clone)]
 pub enum VisualMapper {
     /// Continuous color mapping for numerical data (Gradients).
@@ -25,7 +25,7 @@ pub enum VisualMapper {
     /// Size mapping for numerical data (Linear Interpolation).
     Size {
         /// Tuple representing (min_size, max_size) in physical units (pixels/points).
-        range: (f32, f32),
+        range: (f64, f64),
     },
 }
 
@@ -49,7 +49,7 @@ impl VisualMapper {
     }
 
     /// Creates a default size mapper with a specified physical range.
-    pub fn new_size_default(min: f32, max: f32) -> Self {
+    pub fn new_size_default(min: f64, max: f64) -> Self {
         VisualMapper::Size {
             range: (min, max),
         }
@@ -70,7 +70,7 @@ impl VisualMapper {
     /// # Arguments
     /// * `norm` - The normalized value from the scale (0.0 to 1.0).
     /// * `logical_max` - For discrete scales, represents the highest index (n-1).
-    pub fn map_to_color(&self, norm: f32, logical_max: f32) -> SingleColor {
+    pub fn map_to_color(&self, norm: f64, logical_max: f64) -> SingleColor {
         match self {
             VisualMapper::ContinuousColor { map } => {
                 // Interpolates within the continuous gradient
@@ -91,7 +91,7 @@ impl VisualMapper {
     /// # Arguments
     /// * `norm` - The normalized value from the scale.
     /// * `logical_max` - The maximum index (number_of_categories - 1).
-    pub fn map_to_shape(&self, norm: f32, logical_max: f32) -> PointShape {
+    pub fn map_to_shape(&self, norm: f64, logical_max: f64) -> PointShape {
         match self {
             VisualMapper::Shape { custom_shapes } => {
                 let shapes = custom_shapes
@@ -115,7 +115,7 @@ impl VisualMapper {
     /// Maps a normalized value to a physical size (radius or width).
     /// 
     /// Performs linear interpolation: size = min + norm * (max - min).
-    pub fn map_to_size(&self, norm: f32) -> f32 {
+    pub fn map_to_size(&self, norm: f64) -> f64 {
         match self {
             VisualMapper::Size { range } => {
                 range.0 + norm * (range.1 - range.0)

@@ -60,7 +60,7 @@ impl LegendRenderer {
                     current_y = start_y;
                     max_dim_in_row_col = block_size.width;
                 } else {
-                    max_dim_in_row_col = f32::max(max_dim_in_row_col, block_size.width);
+                    max_dim_in_row_col = f64::max(max_dim_in_row_col, block_size.width);
                 }
             } else {
                 if current_x + block_size.width > start_x + ctx.panel.width && current_x > start_x {
@@ -68,7 +68,7 @@ impl LegendRenderer {
                     current_x = start_x;
                     max_dim_in_row_col = block_size.height;
                 } else {
-                    max_dim_in_row_col = f32::max(max_dim_in_row_col, block_size.height);
+                    max_dim_in_row_col = f64::max(max_dim_in_row_col, block_size.height);
                 }
             }
 
@@ -114,8 +114,8 @@ impl LegendRenderer {
         backend: &mut dyn RenderBackend,
         spec: &GuideSpec,
         ctx: &PanelContext,
-        x: f32,
-        y: f32,
+        x: f64,
+        y: f64,
         theme: &Theme,
     ) -> GuideSize {
         let bar_w = 15.0;
@@ -132,7 +132,7 @@ impl LegendRenderer {
                 let l_max = mapping.scale_impl.logical_max();
 
                 for i in 0..=n_samples {
-                    let ratio = i as f32 / n_samples as f32;
+                    let ratio = i as f64 / n_samples as f64;
                     // Reverse sampling so higher values appear at the top.
                     let color = mapper.map_to_color(1.0 - ratio, l_max);
                     stops.push((ratio, color));
@@ -164,7 +164,7 @@ impl LegendRenderer {
                 );
                 
                 let lw = crate::core::utils::estimate_text_width(&tick.label, font_size);
-                max_label_w = f32::max(max_label_w, lw);
+                max_label_w = f64::max(max_label_w, lw);
             }
         }
 
@@ -181,12 +181,12 @@ impl LegendRenderer {
         labels: &[String],
         colors: &[SingleColor],
         shapes: Option<&[PointShape]>,
-        sizes: Option<&[f32]>,
-        x: f32,
-        y: f32,
-        font_size: f32,
+        sizes: Option<&[f64]>,
+        x: f64,
+        y: f64,
+        font_size: f64,
         theme: &Theme,
-        max_h: f32,
+        max_h: f64,
     ) -> GuideSize {
         let mut col_x = x;
         let mut item_y = y;
@@ -200,7 +200,7 @@ impl LegendRenderer {
             let r = sizes.and_then(|s| s.get(i)).cloned().unwrap_or(5.0);
             let text_w = crate::core::utils::estimate_text_width(label, font_size);
             let row_w = fixed_container_size + theme.legend_marker_text_gap + text_w;
-            let row_h = f32::max(fixed_container_size, font_size);
+            let row_h = f64::max(fixed_container_size, font_size);
 
             if item_y + row_h > y + max_h && i > 0 {
                 total_w += current_col_w + theme.legend_col_h_gap;
@@ -208,7 +208,7 @@ impl LegendRenderer {
                 item_y = y;
                 current_col_w = row_w;
             } else {
-                current_col_w = f32::max(current_col_w, row_w);
+                current_col_w = f64::max(current_col_w, row_w);
             }
 
             let shape = shapes.and_then(|s| s.get(i)).unwrap_or(&PointShape::Circle);
@@ -240,8 +240,8 @@ impl LegendRenderer {
     fn resolve_mappings(
         spec: &GuideSpec,
         ctx: &PanelContext,
-    ) -> (Vec<String>, Vec<SingleColor>, Option<Vec<PointShape>>, Option<Vec<f32>>) {
-        let (labels, values_f32): (Vec<String>, Vec<f32>) = match &spec.domain {
+    ) -> (Vec<String>, Vec<SingleColor>, Option<Vec<PointShape>>, Option<Vec<f64>>) {
+        let (labels, values_f64): (Vec<String>, Vec<f64>) = match &spec.domain {
             ScaleDomain::Discrete(values) => (values.clone(), Vec::new()),
             _ => {
                 let ticks = spec.get_sampling_ticks(); 
@@ -267,12 +267,12 @@ impl LegendRenderer {
         });
 
         for (i, label_str) in labels.iter().enumerate() {
-            let val_f32 = values_f32.get(i).cloned();
+            let val_f64 = values_f64.get(i).cloned();
 
             // Resolve Color
             if has_color {
                 if let Some(ref mapping) = ctx.spec.aesthetics.color {
-                    let norm = val_f32.map(|v| mapping.scale_impl.normalize(v))
+                    let norm = val_f64.map(|v| mapping.scale_impl.normalize(v))
                         .unwrap_or_else(|| mapping.scale_impl.normalize_string(label_str));
 
                     let color = mapping.scale_impl.mapper()
@@ -285,7 +285,7 @@ impl LegendRenderer {
             // Resolve Shape
             if has_shape {
                 if let Some(ref mapping) = ctx.spec.aesthetics.shape {
-                    let norm = val_f32.map(|v| mapping.scale_impl.normalize(v))
+                    let norm = val_f64.map(|v| mapping.scale_impl.normalize(v))
                         .unwrap_or_else(|| mapping.scale_impl.normalize_string(label_str));
 
                     let shape = mapping.scale_impl.mapper()
@@ -298,7 +298,7 @@ impl LegendRenderer {
             // Resolve Size
             if has_size {
                 if let Some(ref mapping) = ctx.spec.aesthetics.size {
-                    let norm = val_f32.map(|v| mapping.scale_impl.normalize(v))
+                    let norm = val_f64.map(|v| mapping.scale_impl.normalize(v))
                         .unwrap_or_else(|| mapping.scale_impl.normalize_string(label_str));
 
                     let size = mapping.scale_impl.mapper()
@@ -312,7 +312,7 @@ impl LegendRenderer {
         (labels, colors, if has_shape { Some(shapes) } else { None }, if has_size { Some(sizes) } else { None })
     }
 
-    fn draw_symbol(backend: &mut dyn RenderBackend, shape: &PointShape, cx: f32, cy: f32, r: f32, color: &SingleColor) {
+    fn draw_symbol(backend: &mut dyn RenderBackend, shape: &PointShape, cx: f64, cy: f64, r: f64, color: &SingleColor) {
         match shape {
             PointShape::Circle => backend.draw_circle(cx, cy, r, color, &SingleColor::new("none"), 0.0, 1.0),
             PointShape::Square => backend.draw_rect(cx - r, cy - r, r * 2.0, r * 2.0, color, &SingleColor::new("none"), 0.0, 1.0),
@@ -329,7 +329,7 @@ impl LegendRenderer {
     }
 
     /// Calculates the initial (x, y) anchor for the legend block based on the panel position.
-    fn calculate_initial_anchor(ctx: &PanelContext, theme: &Theme, _: bool) -> (f32, f32) {
+    fn calculate_initial_anchor(ctx: &PanelContext, theme: &Theme, _: bool) -> (f64, f64) {
         let mut x = ctx.panel.x;
         let mut y = ctx.panel.y;
         let margin = theme.legend_margin;

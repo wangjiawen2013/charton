@@ -1,5 +1,5 @@
 use crate::core::layer::{MarkRenderer, RenderBackend};
-use crate::core::context::SharedRenderingContext;
+use crate::core::context::PanelContext;
 use crate::chart::Chart;
 use crate::mark::point::MarkPoint;
 use crate::error::ChartonError;
@@ -24,7 +24,7 @@ impl MarkRenderer for Chart<MarkPoint> {
     fn render_marks(
         &self,
         backend: &mut dyn RenderBackend,
-        context: &SharedRenderingContext,
+        context: &PanelContext,
     ) -> Result<(), ChartonError> {
         let df_source = &self.data;
         
@@ -59,7 +59,7 @@ impl MarkRenderer for Chart<MarkPoint> {
 
         // --- STEP 3: COLOR MAPPING ---
         // Resolve data-driven color scale or fallback to a static mark color.
-        let color_iter: Box<dyn Iterator<Item = SingleColor>> = if let Some(ref mapping) = context.aesthetics.color {
+        let color_iter: Box<dyn Iterator<Item = SingleColor>> = if let Some(ref mapping) = context.spec.aesthetics.color {
             let s = df_source.column(&mapping.field)?;
             let s_trait = mapping.scale_impl.as_ref();
             
@@ -81,7 +81,7 @@ impl MarkRenderer for Chart<MarkPoint> {
         };
 
         // --- STEP 4: SHAPE MAPPING ---
-        let shape_iter: Box<dyn Iterator<Item = PointShape>> = if let Some(ref mapping) = context.aesthetics.shape {
+        let shape_iter: Box<dyn Iterator<Item = PointShape>> = if let Some(ref mapping) = context.spec.aesthetics.shape {
             let s = df_source.column(&mapping.field)?;
             let s_trait = mapping.scale_impl.as_ref();
             
@@ -101,22 +101,22 @@ impl MarkRenderer for Chart<MarkPoint> {
         };
 
         // --- STEP 5: SIZE MAPPING ---
-        let size_iter: Box<dyn Iterator<Item = f32>> = if let Some(ref mapping) = context.aesthetics.size {
+        let size_iter: Box<dyn Iterator<Item = f64>> = if let Some(ref mapping) = context.spec.aesthetics.size {
             let s = df_source.column(&mapping.field)?;
             let s_trait = mapping.scale_impl.as_ref();
             
             let norms = s_trait.scale_type().normalize_series(s_trait, &s)?;
             
-            let size_vec: Vec<f32> = norms.into_iter()
+            let size_vec: Vec<f64> = norms.into_iter()
                 .map(|opt_n| {
                     s_trait.mapper()
-                        .map(|m| m.map_to_size(opt_n.unwrap_or(0.0)) as f32)
-                        .unwrap_or(mark_config.size as f32)
+                        .map(|m| m.map_to_size(opt_n.unwrap_or(0.0)) as f64)
+                        .unwrap_or(mark_config.size as f64)
                 })
                 .collect();
             Box::new(size_vec.into_iter())
         } else {
-            Box::new(std::iter::repeat(mark_config.size as f32))
+            Box::new(std::iter::repeat(mark_config.size as f64))
         };
 
         // --- STEP 6: GEOMETRY PROJECTION & RENDERING ---
@@ -130,8 +130,8 @@ impl MarkRenderer for Chart<MarkPoint> {
             .zip(size_iter)
         {
             // Default to 0.0 for missing data points.
-            let x_norm = x_n.unwrap_or(0.0) as f32;
-            let y_norm = y_n.unwrap_or(0.0) as f32;
+            let x_norm = x_n.unwrap_or(0.0) as f64;
+            let y_norm = y_n.unwrap_or(0.0) as f64;
             
             // Convert normalized [0, 1] units to physical panel pixels (e.g. SVG coordinates).
             let (px, py) = context.transform(x_norm, y_norm);
@@ -144,8 +144,8 @@ impl MarkRenderer for Chart<MarkPoint> {
                 size,
                 &fill_color,
                 &stroke_color,
-                mark_config.stroke_width as f32,
-                mark_config.opacity as f32
+                mark_config.stroke_width as f64,
+                mark_config.opacity as f64
             );
         }
 
@@ -165,13 +165,13 @@ impl Chart<MarkPoint> {
         &self,
         backend: &mut dyn RenderBackend,
         shape: &PointShape,
-        px: f32,
-        py: f32,
-        size: f32,
+        px: f64,
+        py: f64,
+        size: f64,
         fill: &SingleColor,
         stroke: &SingleColor,
-        stroke_width: f32,
-        opacity: f32,
+        stroke_width: f64,
+        opacity: f64,
     ) {
         match shape {
             PointShape::Circle => {
@@ -186,11 +186,11 @@ impl Chart<MarkPoint> {
                 backend.draw_polygon(&points, fill, stroke, stroke_width, opacity);
             }
             PointShape::Triangle => {
-                let points = self.calculate_polygon(px, py, size * 1.1, 3, -std::f32::consts::FRAC_PI_2);
+                let points = self.calculate_polygon(px, py, size * 1.1, 3, -std::f64::consts::FRAC_PI_2);
                 backend.draw_polygon(&points, fill, stroke, stroke_width, opacity);
             }
             PointShape::Pentagon => {
-                let points = self.calculate_polygon(px, py, size, 5, -std::f32::consts::FRAC_PI_2);
+                let points = self.calculate_polygon(px, py, size, 5, -std::f64::consts::FRAC_PI_2);
                 backend.draw_polygon(&points, fill, stroke, stroke_width, opacity);
             }
             PointShape::Hexagon => {
@@ -198,7 +198,7 @@ impl Chart<MarkPoint> {
                 backend.draw_polygon(&points, fill, stroke, stroke_width, opacity);
             }
             PointShape::Octagon => {
-                let points = self.calculate_polygon(px, py, size, 8, std::f32::consts::FRAC_PI_8);
+                let points = self.calculate_polygon(px, py, size, 8, std::f64::consts::FRAC_PI_8);
                 backend.draw_polygon(&points, fill, stroke, stroke_width, opacity);
             }
             PointShape::Star => {
@@ -208,22 +208,22 @@ impl Chart<MarkPoint> {
         }
     }
 
-    /// Computes vertices for regular polygons using f32 for performance.
-    fn calculate_polygon(&self, cx: f32, cy: f32, radius: f32, sides: usize, rotation: f32) -> Vec<(f32, f32)> {
+    /// Computes vertices for regular polygons using f64 for performance.
+    fn calculate_polygon(&self, cx: f64, cy: f64, radius: f64, sides: usize, rotation: f64) -> Vec<(f64, f64)> {
         (0..sides)
             .map(|i| {
-                let angle = rotation + 2.0 * std::f32::consts::PI * (i as f32) / (sides as f32);
+                let angle = rotation + 2.0 * std::f64::consts::PI * (i as f64) / (sides as f64);
                 (cx + radius * angle.cos(), cy + radius * angle.sin())
             })
             .collect()
     }
 
     /// Computes vertices for a star shape.
-    fn calculate_star(&self, cx: f32, cy: f32, outer_r: f32, inner_r: f32, points: usize) -> Vec<(f32, f32)> {
+    fn calculate_star(&self, cx: f64, cy: f64, outer_r: f64, inner_r: f64, points: usize) -> Vec<(f64, f64)> {
         let total_points = points * 2;
         (0..total_points)
             .map(|i| {
-                let angle = -std::f32::consts::FRAC_PI_2 + std::f32::consts::PI * (i as f32) / (points as f32);
+                let angle = -std::f64::consts::FRAC_PI_2 + std::f64::consts::PI * (i as f64) / (points as f64);
                 let r = if i % 2 == 0 { outer_r } else { inner_r };
                 (cx + r * angle.cos(), cy + r * angle.sin())
             })

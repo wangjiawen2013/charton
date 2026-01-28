@@ -13,59 +13,59 @@ pub trait RenderBackend {
     /// Draws a circle with optional fill and stroke.
     fn draw_circle(
         &mut self,
-        x: f32,
-        y: f32,
-        radius: f32,
+        x: f64,
+        y: f64,
+        radius: f64,
         fill: &SingleColor,
         stroke: &SingleColor,
-        stroke_width: f32,
-        opacity: f32,
+        stroke_width: f64,
+        opacity: f64,
     );
 
     /// Draws a rectangle with optional fill and stroke.
     fn draw_rect(
         &mut self,
-        x: f32,
-        y: f32,
-        width: f32,
-        height: f32,
+        x: f64,
+        y: f64,
+        width: f64,
+        height: f64,
         fill: &SingleColor,
         stroke: &SingleColor,
-        stroke_width: f32,
-        opacity: f32,
+        stroke_width: f64,
+        opacity: f64,
     );
 
     /// Draws an open path (e.g., for lines or curves) with a stroke.
     fn draw_path(
         &mut self, 
-        points: &[(f32, f32)], 
+        points: &[(f64, f64)], 
         stroke: &SingleColor, 
-        stroke_width: f32, 
-        opacity: f32
+        stroke_width: f64, 
+        opacity: f64
     );
 
     /// Draws a closed polygon with optional fill and stroke.
     fn draw_polygon(
         &mut self,
-        points: &[(f32, f32)],
+        points: &[(f64, f64)],
         fill: &SingleColor,
         stroke: &SingleColor,
-        stroke_width: f32,
-        opacity: f32,
+        stroke_width: f64,
+        opacity: f64,
     );
 
     /// Renders text with specific alignment and weight.
     fn draw_text(
         &mut self,
         text: &str,
-        x: f32,
-        y: f32,
-        font_size: f32,
+        x: f64,
+        y: f64,
+        font_size: f64,
         font_family: &str,
         color: &SingleColor,
         text_anchor: &str, // "start", "middle", "end"
         font_weight: &str, // "normal", "bold"
-        opacity: f32,
+        opacity: f64,
     );
 
     /// Draws a simple straight line between two points.
@@ -73,12 +73,12 @@ pub trait RenderBackend {
     /// Commonly used for rendering axis ticks or custom markers within guides.
     fn draw_line(
         &mut self, 
-        x1: f32, 
-        y1: f32, 
-        x2: f32, 
-        y2: f32, 
+        x1: f64, 
+        y1: f64, 
+        x2: f64, 
+        y2: f64, 
         color: &SingleColor, 
-        width: f32
+        width: f64
     );
 
     /// Draws a rectangle filled with a linear gradient.
@@ -89,11 +89,11 @@ pub trait RenderBackend {
     /// * `id_suffix` - A unique identifier used to define the gradient ID in the backend (e.g., SVG <defs>).
     fn draw_gradient_rect(
         &mut self,
-        x: f32,
-        y: f32,
-        width: f32,
-        height: f32,
-        stops: &[(f32, SingleColor)],
+        x: f64,
+        y: f64,
+        width: f64,
+        height: f64,
+        stops: &[(f64, SingleColor)],
         is_vertical: bool,
         id_suffix: &str,
     );

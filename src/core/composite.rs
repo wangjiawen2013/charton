@@ -35,10 +35,10 @@ pub struct LayeredChart {
     pub(crate) height: u32,
 
     // --- Layout Margins (Proportions 0.0 to 1.0) ---
-    pub(crate) left_margin: f32,
-    pub(crate) right_margin: f32,
-    pub(crate) top_margin: f32,
-    pub(crate) bottom_margin: f32,
+    pub(crate) left_margin: f64,
+    pub(crate) right_margin: f64,
+    pub(crate) top_margin: f64,
+    pub(crate) bottom_margin: f64,
 
     // --- Aesthetic Styling ---
     pub(crate) theme: Theme,
@@ -127,28 +127,28 @@ impl LayeredChart {
 
     // --- Layout Margins ---
 
-    pub fn with_left_margin(mut self, margin: f32) -> Self {
+    pub fn with_left_margin(mut self, margin: f64) -> Self {
         self.left_margin = margin;
         self
     }
 
-    pub fn with_right_margin(mut self, margin: f32) -> Self {
+    pub fn with_right_margin(mut self, margin: f64) -> Self {
         self.right_margin = margin;
         self
     }
 
-    pub fn with_top_margin(mut self, margin: f32) -> Self {
+    pub fn with_top_margin(mut self, margin: f64) -> Self {
         self.top_margin = margin;
         self
     }
 
-    pub fn with_bottom_margin(mut self, margin: f32) -> Self {
+    pub fn with_bottom_margin(mut self, margin: f64) -> Self {
         self.bottom_margin = margin;
         self
     }
 
     /// Convenience method to set all margins at once.
-    pub fn with_margins(mut self, top: f32, right: f32, bottom: f32, left: f32) -> Self {
+    pub fn with_margins(mut self, top: f64, right: f64, bottom: f64, left: f64) -> Self {
         self.top_margin = top;
         self.right_margin = right;
         self.bottom_margin = bottom;
@@ -192,7 +192,7 @@ impl LayeredChart {
     // --- Axis Data & Scale Configuration ---
 
     /// Set the global X-axis domain, overriding automatic data range calculation.
-    pub fn with_x_domain(mut self, min: f32, max: f32) -> Self {
+    pub fn with_x_domain(mut self, min: f64, max: f64) -> Self {
         self.x_domain = Some(ScaleDomain::Continuous(min, max));
         self
     }
@@ -205,7 +205,7 @@ impl LayeredChart {
     }
 
     /// Set the global Y-axis domain.
-    pub fn with_y_domain(mut self, min: f32, max: f32) -> Self {
+    pub fn with_y_domain(mut self, min: f64, max: f64) -> Self {
         self.y_domain = Some(ScaleDomain::Continuous(min, max));
         self
     }
@@ -249,15 +249,15 @@ impl LayeredChart {
         let mut inferred_type: Option<Scale> = None;
         
         // Domain accumulators
-        let mut cont_min = f32::INFINITY;
-        let mut cont_max = f32::NEG_INFINITY;
+        let mut cont_min = f64::INFINITY;
+        let mut cont_max = f64::NEG_INFINITY;
         let mut all_labels: Vec<String> = Vec::new();
         let mut temp_start: Option<time::OffsetDateTime> = None;
         let mut temp_end: Option<time::OffsetDateTime> = None;
 
         // Expansion accumulators (Finding the "Maximum Room" requested by layers)
-        let mut max_mult = (0.0f32, 0.0f32);
-        let mut max_add = (0.0f32, 0.0f32);
+        let mut max_mult = (0.0f64, 0.0f64);
+        let mut max_add = (0.0f64, 0.0f64);
         let mut has_expansion_info = false;
 
         // --- Step 1: Scan Layers ---
@@ -487,8 +487,8 @@ impl LayeredChart {
         let guide_specs = crate::core::guide::GuideManager::collect_guides(&aesthetics);
 
         // --- STEP 4: PHYSICAL MEASUREMENT (LAYOUT ENGINE) ---
-        let w = self.width as f32;
-        let h = self.height as f32;
+        let w = self.width as f64;
+        let h = self.height as f64;
 
         let initial_plot_w = w * (1.0 - self.left_margin - self.right_margin);
         let initial_plot_h = h * (1.0 - self.top_margin - self.bottom_margin);
@@ -556,7 +556,7 @@ impl LayeredChart {
 
         // 2. Horizontal Positioning:
         // Use the full canvas width to find the absolute horizontal center.
-        let center_x = self.width as f32 / 2.0;
+        let center_x = self.width as f64 / 2.0;
         
         // 3. Vertical Positioning Logic:
         // Instead of a hardcoded '25.0', we calculate the available vertical space 

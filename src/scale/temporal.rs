@@ -32,11 +32,6 @@ impl TemporalScale {
         Self { domain, mapper }
     }
 
-    /// Helper method to transform an `OffsetDateTime` directly to a normalized [0, 1] value.
-    pub fn normalize_time(&self, value: OffsetDateTime) -> f32 {
-        self.normalize(value.unix_timestamp_nanos() as f32)
-    }
-
     /// Determines the best time interval and a label format key based on the domain duration.
     /// 
     /// This heuristic ensures that axis labels remain readable regardless of whether 
@@ -73,38 +68,41 @@ impl TemporalScale {
 impl ScaleTrait for TemporalScale {
     fn scale_type(&self) -> Scale { Scale::Temporal }
 
-    /// Transforms a timestamp (as f32 nanoseconds) into a normalized [0, 1] ratio.
+    /// Transforms an absolute timestamp (as f64 nanoseconds) into a [0, 1] ratio.
     /// 
-    /// The transformation is linear based on the elapsed nanoseconds from the domain start.
-    fn normalize(&self, value: f32) -> f32 {
-        let d_min = self.domain.0.unix_timestamp_nanos() as f32;
-        let d_max = self.domain.1.unix_timestamp_nanos() as f32;
+    /// By using f64, we maintain enough precision to represent individual seconds 
+    /// even within a 100-year time span, avoiding the "clumping" of data points.
+    fn normalize(&self, value: f64) -> f64 {
+        let start_ns = self.domain.0.unix_timestamp_nanos() as f64;
+        let end_ns = self.domain.1.unix_timestamp_nanos() as f64;
 
-        let diff = d_max - d_min;
-        if diff.abs() < f32::EPSILON {
-            // Default to center if the time domain is a single point
+        let diff = end_ns - start_ns;
+        
+        // Safety check for zero-length domains
+        if diff.abs() < 1e-9 {
             return 0.5;
         }
 
-        (value - d_min) / diff
+        // Calculation stays in f64 until the very last step
+        ((value - start_ns) / diff) as f64
     }
 
     /// Temporal scales are continuous and do not use string-based normalization.
-    fn normalize_string(&self, _value: &str) -> f32 {
+    fn normalize_string(&self, _value: &str) -> f64 {
         0.0
     }
 
-    /// Returns the domain boundaries converted to Unix nanosecond timestamps (f32).
-    fn domain(&self) -> (f32, f32) {
+    /// Returns the domain boundaries converted to Unix nanosecond timestamps (f64).
+    fn domain(&self) -> (f64, f64) {
         (
-            self.domain.0.unix_timestamp_nanos() as f32,
-            self.domain.1.unix_timestamp_nanos() as f32,
+            self.domain.0.unix_timestamp_nanos() as f64,
+            self.domain.1.unix_timestamp_nanos() as f64,
         )
     }
 
     /// For temporal scales, the logical maximum is 1.0, treating time
     /// as a continuous dimension for visual encodings.
-    fn logical_max(&self) -> f32 {
+    fn logical_max(&self) -> f64 {
         1.0
     }
 
@@ -115,28 +113,48 @@ impl ScaleTrait for TemporalScale {
 
     /// Generates human-readable temporal ticks.
     /// 
-    /// Selects an appropriate time unit (e.g., Days, Months, Years)
-    /// based on the domain duration.
-    fn ticks(&self, _count: usize) -> Vec<Tick> {
+    /// This implementation uses the `count` argument (derived from physical pixel space)
+    /// to dynamically choose the most appropriate time interval (e.g., daily vs monthly)
+    /// to prevent label overlapping while maintaining a consistent visual rhythm.
+    fn ticks(&self, count: usize) -> Vec<Tick> {
         let (start, end) = self.domain;
-        let (interval, format_key) = self.get_interval_info();
+        let total_duration = end - start;
+        let total_seconds = total_duration.whole_seconds().abs() as f64;
+
+        // Calculate the target density: how many seconds should each tick represent?
+        // This links the mathematical scale to the physical 50px-step requirement.
+        let seconds_per_tick = total_seconds / (count.max(1) as f64);
         
+        // Adaptive Interval Selection:
+        // Choose the smallest logical time unit that fits within the requested density.
+        let (interval, format_key) = if seconds_per_tick > 365.0 * 24.0 * 3600.0 {
+            (Duration::days(365), "year")
+        } else if seconds_per_tick > 30.0 * 24.0 * 3600.0 {
+            (Duration::days(30), "month")
+        } else if seconds_per_tick > 24.0 * 3600.0 {
+            (Duration::days(1), "day")
+        } else if seconds_per_tick > 3600.0 {
+            (Duration::hours(1), "hour")
+        } else {
+            (Duration::seconds(1), "second")
+        };
+
         let mut ticks = Vec::new();
         let mut curr = start;
         let mut iterations = 0;
 
-        while curr <= end && iterations < 50 {
-            let label = self.format_dt(curr, format_key);
-
+        // Ensure we don't enter an infinite loop and stay within the domain.
+        // We use a safety margin (count * 2) to handle interval alignment issues.
+        while curr <= end && iterations < count * 2 {
             ticks.push(Tick {
-                value: curr.unix_timestamp_nanos() as f32,
-                label,
+                value: curr.unix_timestamp_nanos() as f64,
+                label: self.format_dt(curr, format_key),
             });
             
-            match curr.checked_add(interval) {
-                Some(next) => curr = next,
+            curr = match curr.checked_add(interval) {
+                Some(next) => next,
                 None => break,
-            }
+            };
             iterations += 1;
         }
         
@@ -148,10 +166,12 @@ impl ScaleTrait for TemporalScale {
         ScaleDomain::Temporal(self.domain.0, self.domain.1)
     }
 
+
     /// Force-samples the temporal domain into N equidistant time points.
     /// 
-    /// Useful for generating colorbars or legends that represent a timeline
-    /// with uniform visual density.
+    /// Unlike `ticks`, this guarantees exactly `n` points. It uses the same 
+    /// adaptive formatting logic to ensure labels remain clean and appropriate 
+    /// for the time span.
     fn sample_n(&self, n: usize) -> Vec<Tick> {
         let (start_dt, end_dt) = self.domain;
         
@@ -159,20 +179,25 @@ impl ScaleTrait for TemporalScale {
         if n == 1 {
             let (_, format_key) = self.get_interval_info();
             return vec![Tick {
-                value: start_dt.unix_timestamp_nanos() as f32,
+                value: start_dt.unix_timestamp_nanos() as f64,
                 label: self.format_dt(start_dt, format_key),
             }];
         }
 
-        let start_ns = start_dt.unix_timestamp_nanos() as f32;
-        let end_ns = end_dt.unix_timestamp_nanos() as f32;
-        let step_ns = (end_ns - start_ns) / (n - 1) as f32;
+        let start_ns = start_dt.unix_timestamp_nanos() as f64;
+        let end_ns = end_dt.unix_timestamp_nanos() as f64;
+        let step_ns = (end_ns - start_ns) / (n - 1) as f64;
 
-        let (_, format_key) = self.get_interval_info();
+        // Determine formatting based on the step size between samples
+        let seconds_per_sample = step_ns / 1e9;
+        let format_key = if seconds_per_sample > 365.0 * 24.0 * 3600.0 { "year" }
+            else if seconds_per_sample > 30.0 * 24.0 * 3600.0 { "month" }
+            else if seconds_per_sample > 24.0 * 3600.0 { "day" }
+            else if seconds_per_sample > 3600.0 { "hour" }
+            else { "second" };
 
         (0..n).map(|i| {
-            let current_ns = if i == n - 1 { end_ns } else { start_ns + i as f32 * step_ns };
-            
+            let current_ns = if i == n - 1 { end_ns } else { start_ns + i as f64 * step_ns };
             let dt = OffsetDateTime::from_unix_timestamp_nanos(current_ns as i128)
                 .unwrap_or(start_dt);
 

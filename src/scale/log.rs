@@ -14,10 +14,10 @@ use crate::error::ChartonError;
 pub struct LogScale {
     /// The input data boundaries. Must be strictly positive (> 0).
     /// These represent the visual limits of the axis in raw data units.
-    domain: (f32, f32),
+    domain: (f64, f64),
     
     /// The logarithm base, typically 10.0 (common log) or 2.0 (binary log).
-    base: f32,
+    base: f64,
 
     /// The optional visual mapper used to convert normalized log-ratios 
     /// into aesthetics like colors or sizes.
@@ -34,7 +34,7 @@ impl LogScale {
     ///
     /// # Errors
     /// Returns `ChartonError::Scale` if domain values are <= 0 or base <= 1.
-    pub fn new(domain: (f32, f32), base: f32, mapper: Option<VisualMapper>) -> Result<Self, ChartonError> {
+    pub fn new(domain: (f64, f64), base: f64, mapper: Option<VisualMapper>) -> Result<Self, ChartonError> {
         if domain.0 <= 0.0 || domain.1 <= 0.0 {
             return Err(ChartonError::Scale("Log scale domain must be strictly positive".into()));
         }
@@ -45,7 +45,7 @@ impl LogScale {
     }
 
     /// Returns the logarithm base used by this scale.
-    pub fn base(&self) -> f32 {
+    pub fn base(&self) -> f64 {
         self.base
     }
 }
@@ -60,7 +60,7 @@ impl ScaleTrait for LogScale {
     /// 
     /// Values are clamped to the domain minimum to prevent undefined 
     /// results from non-positive inputs.
-    fn normalize(&self, value: f32) -> f32 {
+    fn normalize(&self, value: f64) -> f64 {
         let (d_min, d_max) = self.domain;
 
         // Use natural log internally as it is more efficient and base-agnostic for ratios.
@@ -71,7 +71,7 @@ impl ScaleTrait for LogScale {
         let log_val = value.max(d_min).ln();
 
         let diff = log_max - log_min;
-        if diff.abs() < f32::EPSILON {
+        if diff.abs() < f64::EPSILON {
             return 0.5;
         }
 
@@ -79,18 +79,18 @@ impl ScaleTrait for LogScale {
     }
 
     /// Continuous logarithmic scales return a default for categorical inputs.
-    fn normalize_string(&self, _value: &str) -> f32 {
+    fn normalize_string(&self, _value: &str) -> f64 {
         0.0
     }
 
     /// Returns the data boundaries (min, max).
-    fn domain(&self) -> (f32, f32) { 
+    fn domain(&self) -> (f64, f64) { 
         self.domain 
     }
 
     /// For continuous log scales, the logical maximum is 1.0, 
     /// representing 100% of the gradient or range.
-    fn logical_max(&self) -> f32 {
+    fn logical_max(&self) -> f64 {
         1.0
     }
 
@@ -143,17 +143,8 @@ impl ScaleTrait for LogScale {
             tick_values.dedup_by(|a, b| (*a - *b).abs() < 1e-9);
         }
 
-        // 3. Format Labels with logic for scientific vs decimal notation
-        tick_values.into_iter().map(|v| {
-            let label = if v >= 1e6 || v <= 1e-3 {
-                format!("{:.1e}", v)
-            } else if v >= 1.0 {
-                format!("{:.0}", v)
-            } else {
-                format!("{:.3}", v).trim_end_matches('0').trim_end_matches('.').to_string()
-            };
-            Tick { value: v, label }
-        }).collect()
+        // 3. Call super::format_ticks to ensure consistent axis-wide formatting (automatic scientific notation)
+        super::format_ticks(&tick_values)
     }
 
     /// Returns the domain boundaries wrapped in the continuous enum variant.
@@ -172,26 +163,19 @@ impl ScaleTrait for LogScale {
         
         if n == 0 { return Vec::new(); }
         if n == 1 {
-            return vec![Tick { value: min, label: format!("{:.1}", min) }];
+            return super::format_ticks(&[min]);
         }
 
         let log_min = min.ln();
         let log_max = max.ln();
-        let log_step = (log_max - log_min) / (n - 1) as f32;
+        let log_step = (log_max - log_min) / (n - 1) as f64;
 
-        (0..n).map(|i| {
-            let log_val = if i == n - 1 { log_max } else { log_min + i as f32 * log_step };
-            let val = log_val.exp();
+        let values: Vec<f64> = (0..n).map(|i| {
+            let log_val = if i == n - 1 { log_max } else { log_min + i as f64 * log_step };
+            log_val.exp()
+        }).collect();
 
-            let label = if val >= 1e6 || val <= 1e-3 {
-                format!("{:.1e}", val)
-            } else if val >= 1.0 {
-                format!("{:.1}", val).trim_end_matches('0').trim_end_matches('.').to_string()
-            } else {
-                format!("{:.3}", val).trim_end_matches('0').trim_end_matches('.').to_string()
-            };
-
-            Tick { value: val, label }
-        }).collect()
+        // Call super::format_ticks to ensure consistent axis-wide formatting (automatic scientific notation)
+        super::format_ticks(&values)
     }
 }

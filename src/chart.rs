@@ -89,7 +89,7 @@ impl<T: Mark> Chart<T> {
             mark: None,
         };
 
-        // Automatically convert numeric types to f32
+        // Automatically convert numeric types to f64
         chart.data = convert_numeric_types(chart.data.clone())?;
 
         Ok(chart)
@@ -148,26 +148,6 @@ impl<T: Mark> Chart<T> {
     {
         enc.apply(&mut self.encoding);
 
-        // Validate that DataFrame only contains supported data types
-        let schema = self.data.df.schema();
-        for (col_name, dtype) in schema.iter() {
-            use polars::datatypes::DataType::*;
-            match dtype {
-                // Supported numeric types
-                UInt8 | UInt16 | UInt32 | UInt64 | Int8 | Int16 | Int32 | Int64 | Int128
-                | Float32 | Float64 | String => {
-                    // These types are supported, continue
-                }
-                // Unsupported types
-                _ => {
-                    return Err(ChartonError::Data(format!(
-                        "Column '{}' has unsupported data type {:?}. Only numeric types and String are supported.",
-                        col_name, dtype
-                    )));
-                }
-            }
-        }
-
         // A mark is required to determine chart type - cannot proceed without it
         let mark = self
             .mark
@@ -225,49 +205,49 @@ impl<T: Mark> Chart<T> {
             expected_types.insert(shape_enc.field.as_str(), vec![DataType::String]);
         }
 
-        // Add type checking for size encoding - must be continuous (f32)
+        // Add type checking for size encoding - must be continuous (f64)
         if let Some(size_enc) = &self.encoding.size {
-            // we've already converted all numeric types to f32 when building the chart
-            expected_types.insert(size_enc.field.as_str(), vec![DataType::Float32]);
+            // we've already converted all numeric types to f64 when building the chart
+            expected_types.insert(size_enc.field.as_str(), vec![DataType::Float64]);
         }
 
-        // Add type checking for errorbar charts - y and y2 encodings must be f32 (continuous)
+        // Add type checking for errorbar charts - y and y2 encodings must be f64 (continuous)
         if mark.mark_type() == "errorbar" {
-            // we've already converted all numeric types to f32 when building the chart
+            // we've already converted all numeric types to f64 when building the chart
             expected_types.insert(
                 self.encoding.y.as_ref().unwrap().field.as_str(),
-                vec![DataType::Float32],
+                vec![DataType::Float64],
             );
 
-            // If y2 encoding exists, it must also be f32
+            // If y2 encoding exists, it must also be f64
             if let Some(y2_encoding) = &self.encoding.y2 {
-                expected_types.insert(y2_encoding.field.as_str(), vec![DataType::Float32]);
+                expected_types.insert(y2_encoding.field.as_str(), vec![DataType::Float64]);
             }
         }
 
-        // Add type checking for histogram charts - x encoding must be f32 (continuous)
+        // Add type checking for histogram charts - x encoding must be f64 (continuous)
         if mark.mark_type() == "hist" {
             active_fields
                 .retain(|&field| field != self.encoding.y.as_ref().unwrap().field.as_str());
-            // we've already converted all numeric types to f32 when building the chart
+            // we've already converted all numeric types to f64 when building the chart
             expected_types.insert(
                 self.encoding.x.as_ref().unwrap().field.as_str(),
-                vec![DataType::Float32],
+                vec![DataType::Float64],
             );
         }
 
-        // Add type checking for rect charts - color encoding must be f32 (continuous) for proper color mapping
+        // Add type checking for rect charts - color encoding must be f64 (continuous) for proper color mapping
         if mark.mark_type() == "rect" {
-            // we've already converted all numeric types to f32 when building the chart
+            // we've already converted all numeric types to f64 when building the chart
             expected_types.insert(
                 self.encoding.color.as_ref().unwrap().field.as_str(),
-                vec![DataType::Float32],
+                vec![DataType::Float64],
             );
         }
 
-        // Add type checking for boxplot charts - y encoding must be f32 (continuous)
+        // Add type checking for boxplot charts - y encoding must be f64 (continuous)
         if mark.mark_type() == "boxplot" {
-            // we've already converted all numeric types to f32 when building the chart
+            // we've already converted all numeric types to f64 when building the chart
             // Boxplot requires x to be discrete and y to be continuous (numeric)
             expected_types.insert(
                 self.encoding.x.as_ref().unwrap().field.as_str(),
@@ -275,13 +255,13 @@ impl<T: Mark> Chart<T> {
             );
             expected_types.insert(
                 self.encoding.y.as_ref().unwrap().field.as_str(),
-                vec![DataType::Float32],
+                vec![DataType::Float64],
             );
         }
 
-        // Add type checking for bar charts - y encoding must be f32 (continuous)
+        // Add type checking for bar charts - y encoding must be f64 (continuous)
         if mark.mark_type() == "bar" {
-            // we've already converted all numeric types to f32 when building the chart
+            // we've already converted all numeric types to f64 when building the chart
             // Boxplot requires x to be discrete and y to be continuous (numeric)
             expected_types.insert(
                 self.encoding.x.as_ref().unwrap().field.as_str(),
@@ -289,21 +269,21 @@ impl<T: Mark> Chart<T> {
             );
             expected_types.insert(
                 self.encoding.y.as_ref().unwrap().field.as_str(),
-                vec![DataType::Float32],
+                vec![DataType::Float64],
             );
         }
 
-        // Add type checking for rule charts - y and y2 encodings must be f32 (continuous)
+        // Add type checking for rule charts - y and y2 encodings must be f64 (continuous)
         if mark.mark_type() == "rule" {
-            // we've already converted all numeric types to f32 when building the chart
+            // we've already converted all numeric types to f64 when building the chart
             expected_types.insert(
                 self.encoding.y.as_ref().unwrap().field.as_str(),
-                vec![DataType::Float32],
+                vec![DataType::Float64],
             );
 
-            // If y2 encoding exists, it must also be f32
+            // If y2 encoding exists, it must also be f64
             if let Some(y2_encoding) = &self.encoding.y2 {
-                expected_types.insert(y2_encoding.field.as_str(), vec![DataType::Float32]);
+                expected_types.insert(y2_encoding.field.as_str(), vec![DataType::Float64]);
             }
         }
 
@@ -481,8 +461,8 @@ where
         match semantic_type {
             // --- CONTINUOUS: Numeric ranges ---
             SemanticType::Continuous => {
-                let min_val = series.min::<f32>()?.unwrap_or(0.0);
-                let max_val = series.max::<f32>()?.unwrap_or(1.0);
+                let min_val = series.min::<f64>()?.unwrap_or(0.0);
+                let max_val = series.max::<f64>()?.unwrap_or(1.0);
 
                 // Aesthetic Rule: Bar-like marks (bars, areas, histograms) 
                 // typically require the axis to include zero to avoid visual bias.
@@ -516,12 +496,24 @@ where
                 Ok(ScaleDomain::Discrete(labels))
             }
 
-            // --- TEMPORAL: Date/Time converted to continuous numeric range ---
+            // --- TEMPORAL: Date/Time converted to consistent Temporal domain ---
             SemanticType::Temporal => {
-                let min_val = series.min::<f64>()?.unwrap_or(0.0) as f32;
-                let max_val = series.max::<f64>()?.unwrap_or(1.0) as f32;
+                // Polars Datetime columns can be accessed as i64 (nanoseconds)
+                let min_ns = series.min::<i64>()?.ok_or_else(|| {
+                    ChartonError::Data(format!("Column '{}' has no valid time data", field_name))
+                })?;
+                let max_ns = series.max::<i64>()?.ok_or_else(|| {
+                    ChartonError::Data(format!("Column '{}' has no valid time data", field_name))
+                })?;
                 
-                Ok(ScaleDomain::Continuous(min_val, max_val))
+                // Convert i64 nanoseconds to time::OffsetDateTime
+                let start_dt = time::OffsetDateTime::from_unix_timestamp_nanos(min_ns as i128)
+                    .map_err(|_| ChartonError::Data("Invalid timestamp in start".into()))?;
+                let end_dt = time::OffsetDateTime::from_unix_timestamp_nanos(max_ns as i128)
+                    .map_err(|_| ChartonError::Data("Invalid timestamp in end".into()))?;
+
+                // Return the specific Temporal variant!
+                Ok(ScaleDomain::Temporal(start_dt, end_dt))
             }
         }
     } 

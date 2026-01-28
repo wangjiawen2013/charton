@@ -5,7 +5,7 @@ use csscolorparser::Color;
 // https://docs.rs/colorous/latest/colorous/index.html
 
 /// Continuous color mapping schemes (colormaps) for numerical data visualization.
-/// Optimized for direct SingleColor (f32) output to support high-performance rendering.
+/// Optimized for direct SingleColor (f64) output to support high-performance rendering.
 #[derive(Clone, Copy, Debug, PartialEq)]
 pub enum ColorMap {
     // Perceptually Uniform (Best for accurate data representation)
@@ -47,8 +47,8 @@ pub enum ColorMap {
 impl ColorMap {
     /// Returns a SingleColor based on a normalized value between 0.0 and 1.0.
     /// Following standard convention, the alpha channel is set to 1.0 (opaque).
-    pub(crate) fn get_color(&self, value: f32) -> SingleColor {
-        let t = value.clamp(0.0, 1.0) as f32;
+    pub(crate) fn get_color(&self, value: f64) -> SingleColor {
+        let t = value.clamp(0.0, 1.0) as f64;
 
         match self {
             ColorMap::Viridis => Self::interpolate_stops(&[
@@ -357,7 +357,7 @@ impl ColorMap {
     }
 
     /// Linearly interpolates between RGB stops. Alpha remains 1.0 by convention.
-    fn interpolate_stops(stops: &[(f32, f32, f32, f32)], t: f32) -> SingleColor {
+    fn interpolate_stops(stops: &[(f64, f64, f64, f64)], t: f64) -> SingleColor {
         let first = stops[0];
         let last = stops[stops.len() - 1];
 
@@ -375,7 +375,7 @@ impl ColorMap {
         SingleColor::from_rgba(first.1, first.2, first.3, 1.0)
     }
 
-    fn hsv_to_rgb(h: f32, s: f32, v: f32) -> SingleColor {
+    fn hsv_to_rgb(h: f64, s: f64, v: f64) -> SingleColor {
         // Ensure hue is within [0.0, 360.0) range using Euclidean remainder
         let h = h.rem_euclid(360.0);
         
@@ -404,7 +404,7 @@ impl ColorMap {
 
 
 /// Discrete color palettes for categorical data visualization.
-/// Optimized to return `SingleColor` with pre-calculated f32 RGBA values.
+/// Optimized to return `SingleColor` with pre-calculated f64 RGBA values.
 #[derive(Clone, Copy, Debug, PartialEq)]
 pub enum ColorPalette {
     Tab10,
@@ -427,9 +427,9 @@ impl ColorPalette {
         SingleColor::from_rgba(r, g, b, 1.0)
     }
 
-    /// Internal storage of palette colors as normalized (r, g, b) f32 tuples.
+    /// Internal storage of palette colors as normalized (r, g, b) f64 tuples.
     /// This avoids hex string parsing at runtime.
-    fn rgba_colors(&self) -> &'static [(f32, f32, f32)] {
+    fn rgba_colors(&self) -> &'static [(f64, f64, f64)] {
         match self {
             ColorPalette::Tab10 => &[
                 (0.122, 0.467, 0.706), (1.000, 0.498, 0.055), (0.173, 0.627, 0.173), (0.839, 0.153, 0.157),
@@ -484,7 +484,7 @@ impl ColorPalette {
 ///
 /// This dual-representation allows `Charton` to support:
 /// 1. **SVG Backend**: Uses the `raw` string to generate clean, human-readable XML.
-/// 2. **GPU Backends (wgpu/Vulkan)**: Uses the `rgba` array to pass normalized `f32` 
+/// 2. **GPU Backends (wgpu/Vulkan)**: Uses the `rgba` array to pass normalized `f64` 
 ///    values directly to vertex buffers or uniform globals without runtime parsing.
 #[derive(Clone, Debug)]
 pub struct SingleColor {
@@ -494,7 +494,7 @@ pub struct SingleColor {
     /// Pre-parsed RGBA normalized values [0.0 - 1.0]. Used for wgpu.
     /// Even if opacity is a separate field in Mark, we keep Alpha here 
     /// to support CSS rgba() strings or the "none" state.
-    rgba: [f32; 4],
+    rgba: [f64; 4],
 }
 
 impl SingleColor {
@@ -517,7 +517,7 @@ impl SingleColor {
 
         Self {
             raw: color.to_string(),
-            rgba: parsed.to_array().map(|x| x as f32),
+            rgba: parsed.to_array().map(|x| x as f64),
         }
     }
 
@@ -529,7 +529,7 @@ impl SingleColor {
     /// # Arguments
     /// * `r`, `g`, `b` - Color components in the range [0.0, 1.0].
     /// * `a` - Alpha (opacity) component in the range [0.0, 1.0].
-    pub fn from_rgba(r: f32, g: f32, b: f32, a: f32) -> Self {
+    pub fn from_rgba(r: f64, g: f64, b: f64, a: f64) -> Self {
         // Clamp values to ensure they stay within [0.0, 1.0] range
         let r = r.clamp(0.0, 1.0);
         let g = g.clamp(0.0, 1.0);
@@ -558,7 +558,7 @@ impl SingleColor {
 
     /// For wgpu: returns [r, g, b, a].
     /// You can multiply the 'a' here with your Mark's 'opacity' field.
-    pub fn to_rgba_f32(&self) -> [f32; 4] {
+    pub fn to_rgba_f64(&self) -> [f64; 4] {
         self.rgba
     }
 

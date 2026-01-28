@@ -77,9 +77,21 @@ fn draw_ticks_and_labels(
     } else {
         if is_bottom { coord.get_x_scale() } else { coord.get_y_scale() }
     };
+
+    // --- Adaptive Tick Decimation Strategy ---
+    // Define a minimum physical distance (in pixels) between tick marks to ensure 
+    // visual clarity and prevent label overlap.
+    let pixel_step = 50.0; 
+    let available_space = if is_bottom { panel.width } else { panel.height };
     
-    // TODO: The number of ticks could eventually be part of the Theme or Scale spec.
-    let ticks = target_scale.ticks(8); 
+    // Calculate the ideal number of ticks based on available screen real estate.
+    // We ensure at least 2 ticks (start and end) are always requested.
+    let suggested_count = (available_space / pixel_step).floor() as usize;
+    let final_count = suggested_count.max(2);
+
+    // Delegate the mathematical selection of "pretty" values to the specific Scale implementation.
+    let ticks = target_scale.ticks(final_count); 
+
     let tick_len = 6.0;
     let angle = if is_bottom { theme.x_tick_label_angle } else { theme.y_tick_label_angle };
 
@@ -164,7 +176,7 @@ fn draw_axis_title(
                     w.abs() * angle_rad.sin().abs() + h * angle_rad.cos().abs()
                 }
             })
-            .fold(0.0, f32::max);
+            .fold(0.0, f64::max);
 
         let v_offset = tick_line_len + max_tick_height + theme.label_padding + title_gap;
         let y = panel.y + panel.height + v_offset; 
@@ -184,7 +196,7 @@ fn draw_axis_title(
                     w.abs() * angle_rad.cos().abs() + h * angle_rad.sin().abs()
                 }
             })
-            .fold(0.0, f32::max);
+            .fold(0.0, f64::max);
 
         let h_offset = tick_line_len + max_tick_width + theme.label_padding + title_gap + theme.label_size;
         let x = panel.x - h_offset; 
