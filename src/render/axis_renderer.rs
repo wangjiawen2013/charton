@@ -55,7 +55,7 @@ fn draw_axis_line(
     writeln!(
         svg,
         r#"<line x1="{:.2}" y1="{:.2}" x2="{:.2}" y2="{:.2}" stroke="{}" stroke-width="{}" stroke-linecap="square"/>"#,
-        x1, y1, x2, y2, theme.label_color.as_str(), theme.axis_width
+        x1, y1, x2, y2, theme.label_color.to_css_string(), theme.axis_width
     )?;
     Ok(())
 }
@@ -116,7 +116,7 @@ fn draw_ticks_and_labels(
         
         // Render the Tick Line
         writeln!(svg, r#"<line x1="{:.2}" y1="{:.2}" x2="{:.2}" y2="{:.2}" stroke="{}" stroke-width="{:.1}"/>"#,
-            px, py, x2, y2, theme.label_color.as_str(), theme.tick_width)?;
+            px, py, x2, y2, theme.label_color.to_css_string(), theme.tick_width)?;
 
         // Render the Label Text
         let final_x = px + dx;
@@ -129,7 +129,7 @@ fn draw_ticks_and_labels(
 
         writeln!(svg, r#"<text x="{:.2}" y="{:.2}" font-size="{}" font-family="{}" fill="{}" text-anchor="{}" dominant-baseline="{}"{}>{}</text>"#,
             final_x, final_y, theme.tick_label_size, theme.tick_label_family,
-            theme.tick_label_color.as_str(), anchor, baseline, transform, tick.label
+            theme.tick_label_color.to_css_string(), anchor, baseline, transform, tick.label
         )?;
     }
     Ok(())
@@ -182,7 +182,7 @@ fn draw_axis_title(
         let y = panel.y + panel.height + v_offset; 
         
         writeln!(svg, r#"<text x="{:.2}" y="{:.2}" text-anchor="middle" font-size="{}" font-family="{}" fill="{}" font-weight="bold" dominant-baseline="hanging">{}</text>"#,
-            x, y, theme.label_size, theme.label_family, theme.label_color.as_str(), label
+            x, y, theme.label_size, theme.label_family, theme.label_color.to_css_string(), label
         )?;
     } else {
         let y = panel.y + panel.height / 2.0;
@@ -202,7 +202,7 @@ fn draw_axis_title(
         let x = panel.x - h_offset; 
         
         writeln!(svg, r#"<text x="{:.2}" y="{:.2}" text-anchor="middle" font-size="{}" font-family="{}" fill="{}" font-weight="bold" transform="rotate(-90, {:.2}, {:.2})" dominant-baseline="middle">{}</text>"#,
-            x, y, theme.label_size, theme.label_family, theme.label_color.as_str(), x, y, label
+            x, y, theme.label_size, theme.label_family, theme.label_color.to_css_string(), x, y, label
         )?;
     }
     Ok(())

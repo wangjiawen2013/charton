@@ -48,7 +48,7 @@ pub(crate) fn render_line(svg: &mut String, config: LineConfig) -> std::fmt::Res
     writeln!(
         svg,
         r#"<path d="{}" fill="none" stroke="{}" stroke-width="{}" opacity="{}" stroke-linejoin="round" stroke-linecap="round"/>"#,
-        path_data, config.color.as_str(), config.stroke_width, config.opacity
+        path_data, config.color.to_css_string(), config.stroke_width, config.opacity
     )
 }
 
