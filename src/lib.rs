@@ -53,3 +53,19 @@ pub mod prelude {
 
 /// Temporary column name used internally by Polars to avoid naming conflicts.
 pub(crate) const TEMP_SUFFIX: &str = "n9jh3z8";
+
+/// Represents the floating-point precision used specifically for the rendering stage.
+///
+/// While data processing and coordinate transformations should be performed in `f64` 
+/// to maintain computational accuracy and prevent rounding errors, we convert to 
+/// `Precision` (f32) during the final draw calls for the following reasons:
+/// 
+/// 1. **GPU Hardware Native**: Modern Graphics APIs (WGPU, Metal) are optimized for `f32`. 
+///    Using `f32` for rendering structures allows direct GPU memory mapping.
+/// 
+/// 2. **Memory Efficiency**: Halves the memory footprint for large point sets (e.g., in 
+///    scatter plots) when passing data to the rendering backends.
+/// 
+/// 3. **SVG Size Reduction**: `f32` provides sufficient precision for screen-space 
+///    while keeping the generated XML string lengths shorter.
+pub type Precision = f32;

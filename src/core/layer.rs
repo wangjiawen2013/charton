@@ -5,99 +5,106 @@ use crate::core::context::PanelContext;
 use crate::coordinate::CoordinateTrait;
 use super::aesthetics::GlobalAesthetics;
 use crate::encode::Channel;
+use crate::Precision;
 use std::sync::Arc;
+
+pub struct CircleConfig {
+    pub x: Precision,
+    pub y: Precision,
+    pub radius: Precision,
+    pub fill: SingleColor,
+    pub stroke: SingleColor,
+    pub stroke_width: Precision,
+    pub opacity: Precision,
+}
+
+pub struct RectConfig {
+    pub x: Precision,
+    pub y: Precision,
+    pub width: Precision,
+    pub height: Precision,
+    pub fill: SingleColor,
+    pub stroke: SingleColor,
+    pub stroke_width: Precision,
+    pub opacity: Precision,
+}
+
+pub struct PathConfig {
+    pub points: Vec<(Precision, Precision)>,
+    pub stroke: SingleColor,
+    pub stroke_width: Precision,
+    pub opacity: Precision,
+}
+
+pub struct PolygonConfig {
+    pub points: Vec<(Precision, Precision)>,
+    pub fill: SingleColor,
+    pub stroke: SingleColor,
+    pub stroke_width: Precision,
+    pub opacity: Precision,
+}
+
+pub struct TextConfig {
+    pub text: String,
+    pub x: Precision,
+    pub y: Precision,
+    pub font_size: Precision,
+    pub font_family: String,
+    pub color: SingleColor,
+    pub text_anchor: String,    // "start", "middle", "end"
+    pub font_weight: String,    // "normal", "bold"
+    pub opacity: Precision,
+}
+
+pub struct LineConfig { 
+    pub x1: Precision,
+    pub y1: Precision,
+    pub x2: Precision,
+    pub y2: Precision,
+    pub color: SingleColor,
+    pub width: Precision,
+}
+
+/// 
+/// # Fields
+/// * `stops` - A slice of tuples containing (offset, color), where offset is 0.0 to 1.0.
+/// * `is_vertical` - If true, gradient runs from top to bottom; otherwise, left to right.
+/// * `id_suffix` - A unique identifier used to define the gradient ID in the backend (e.g., SVG <defs>).
+pub struct GradientRectConfig {
+    pub x: Precision,
+    pub y: Precision,
+    pub width: Precision,
+    pub height: Precision,
+    pub stops: Vec<(Precision, SingleColor)>,
+    pub is_vertical: bool,
+    pub id_suffix: String,
+}
 
 /// Abstract backend for rendering shapes.
 /// Implementations could be SvgBackend (String) or WgpuBackend (GPU Buffers).
 pub trait RenderBackend {
     /// Draws a circle with optional fill and stroke.
-    fn draw_circle(
-        &mut self,
-        x: f64,
-        y: f64,
-        radius: f64,
-        fill: &SingleColor,
-        stroke: &SingleColor,
-        stroke_width: f64,
-        opacity: f64,
-    );
+    fn draw_circle(&mut self, config: CircleConfig);
 
     /// Draws a rectangle with optional fill and stroke.
-    fn draw_rect(
-        &mut self,
-        x: f64,
-        y: f64,
-        width: f64,
-        height: f64,
-        fill: &SingleColor,
-        stroke: &SingleColor,
-        stroke_width: f64,
-        opacity: f64,
-    );
+    fn draw_rect(&mut self, config: RectConfig);
 
     /// Draws an open path (e.g., for lines or curves) with a stroke.
-    fn draw_path(
-        &mut self, 
-        points: &[(f64, f64)], 
-        stroke: &SingleColor, 
-        stroke_width: f64, 
-        opacity: f64
-    );
+    fn draw_path(&mut self, config: PathConfig);
 
     /// Draws a closed polygon with optional fill and stroke.
-    fn draw_polygon(
-        &mut self,
-        points: &[(f64, f64)],
-        fill: &SingleColor,
-        stroke: &SingleColor,
-        stroke_width: f64,
-        opacity: f64,
-    );
+    fn draw_polygon(&mut self, config: PolygonConfig);
 
     /// Renders text with specific alignment and weight.
-    fn draw_text(
-        &mut self,
-        text: &str,
-        x: f64,
-        y: f64,
-        font_size: f64,
-        font_family: &str,
-        color: &SingleColor,
-        text_anchor: &str, // "start", "middle", "end"
-        font_weight: &str, // "normal", "bold"
-        opacity: f64,
-    );
+    fn draw_text(&mut self, config: TextConfig);
 
     /// Draws a simple straight line between two points.
     /// 
     /// Commonly used for rendering axis ticks or custom markers within guides.
-    fn draw_line(
-        &mut self, 
-        x1: f64, 
-        y1: f64, 
-        x2: f64, 
-        y2: f64, 
-        color: &SingleColor, 
-        width: f64
-    );
+    fn draw_line(&mut self, config: LineConfig);
 
     /// Draws a rectangle filled with a linear gradient.
-    /// 
-    /// # Arguments
-    /// * `stops` - A slice of tuples containing (offset, color), where offset is 0.0 to 1.0.
-    /// * `is_vertical` - If true, gradient runs from top to bottom; otherwise, left to right.
-    /// * `id_suffix` - A unique identifier used to define the gradient ID in the backend (e.g., SVG <defs>).
-    fn draw_gradient_rect(
-        &mut self,
-        x: f64,
-        y: f64,
-        width: f64,
-        height: f64,
-        stops: &[(f64, SingleColor)],
-        is_vertical: bool,
-        id_suffix: &str,
-    );
-    // other methods for drawing lines, etc.
+    fn draw_gradient_rect(&mut self, config: GradientRectConfig);
 }
 
 /// `MarkRenderer` defines the contract for drawing geometric primitives.

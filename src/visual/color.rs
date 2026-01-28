@@ -1,4 +1,5 @@
 use csscolorparser::Color;
+use crate::Precision;
 
 // Continuous color mapping schemes (colormaps) for numerical data visualization.
 // The color was got from https://hauselin.github.io/colorpalettejs/ and
@@ -478,112 +479,114 @@ impl ColorPalette {
     }
 }
 
-
-/// A robust color representation that bridges high-level CSS string definitions 
-/// with low-level RGBA numerical values.
-///
-/// This dual-representation allows `Charton` to support:
-/// 1. **SVG Backend**: Uses the `raw` string to generate clean, human-readable XML.
-/// 2. **GPU Backends (wgpu/Vulkan)**: Uses the `rgba` array to pass normalized `f64` 
-///    values directly to vertex buffers or uniform globals without runtime parsing.
-#[derive(Clone, Debug)]
+/// A lightweight, copyable color representation using normalized RGBA values.
+/// 
+/// By storing only numerical values, this struct is optimized for:
+/// 1. **Memory Efficiency**: It implements `Copy`, allowing it to be passed 
+///    by value without heap allocations.
+/// 2. **GPU Performance**: The `[Precision; 4]` array maps directly to 
+///    GPU vertex buffers (f32) without runtime conversion.
+/// 3. **Backend Agnostic**: SVG strings are generated on-the-fly only when 
+///    needed, ensuring no redundant memory is used for thousands of points.
+/// 
+/// This version integrates `csscolorparser` to allow creation from CSS strings
+/// (like "#ff0000" or "rgba(255,0,0,0.5)") while maintaining a stack-allocated 
+/// internal structure for performance.
+#[derive(Clone, Copy, Debug, Default, PartialEq)]
 pub struct SingleColor {
-    /// The CSS color string (e.g., "red", "#ff0000"). Used for SVG.
-    raw: String,
-    
-    /// Pre-parsed RGBA normalized values [0.0 - 1.0]. Used for wgpu.
-    /// Even if opacity is a separate field in Mark, we keep Alpha here 
-    /// to support CSS rgba() strings or the "none" state.
-    rgba: [f64; 4],
+    /// Pre-parsed RGBA normalized values [0.0 - 1.0].
+    rgba: [Precision; 4],
 }
 
 impl SingleColor {
-    /// Create a new color from a CSS string.
-    pub fn new(color: &str) -> Self {
-        let color_lc = color.to_lowercase();
+    /// Creates a new `SingleColor` by parsing a CSS color string.
+    /// 
+    /// If parsing fails, it defaults to opaque black.
+    /// Supports: Hex, RGB, RGBA, HSL, and named colors.
+    pub fn new(color_str: &str) -> Self {
+        let color_lc = color_str.to_lowercase();
         
-        // Handle "none" specifically: in graphics, this is a zeroed RGBA.
+        // Handle the "none" state which is common in SVG but not always 
+        // in standard CSS parsers.
         if color_lc == "none" || color_lc == "transparent" {
-            return Self {
-                raw: "none".to_string(),
-                rgba: [0.0, 0.0, 0.0, 0.0],
-            };
+            return Self::none();
         }
 
-        let parsed = color.parse::<Color>().unwrap_or_else(|_| {
-            // Default fallback: Opaque Black
+        // Parse using csscolorparser
+        let parsed = color_str.parse::<Color>().unwrap_or_else(|_| {
+            // Fallback to opaque black on error
             Color::new(0.0, 0.0, 0.0, 1.0)
         });
 
         Self {
-            raw: color.to_string(),
-            rgba: parsed.to_array().map(|x| x as f64),
+            rgba: [
+                parsed.r as Precision,
+                parsed.g as Precision,
+                parsed.b as Precision,
+                parsed.a as Precision,
+            ],
         }
     }
 
-    /// Creates a new `SingleColor` instance directly from RGBA components.
-    /// 
-    /// This method is highly efficient as it bypasses the CSS string parsing logic.
-    /// It automatically generates a fallback CSS-compatible string for the `raw` field.
-    ///
-    /// # Arguments
-    /// * `r`, `g`, `b` - Color components in the range [0.0, 1.0].
-    /// * `a` - Alpha (opacity) component in the range [0.0, 1.0].
+    pub fn none() -> Self {
+        Self { rgba: [0.0, 0.0, 0.0, 0.0] }
+    }
+
     pub fn from_rgba(r: f64, g: f64, b: f64, a: f64) -> Self {
-        // Clamp values to ensure they stay within [0.0, 1.0] range
-        let r = r.clamp(0.0, 1.0);
-        let g = g.clamp(0.0, 1.0);
-        let b = b.clamp(0.0, 1.0);
-        let a = a.clamp(0.0, 1.0);
-
         Self {
-            // Generates a standard CSS string to ensure compatibility with 
-            // SVG, Canvas, and other web-based visualization tools.
-            raw: format!(
-                "rgba({}, {}, {}, {})",
-                (r * 255.0).round() as u8,
-                (g * 255.0).round() as u8,
-                (b * 255.0).round() as u8,
-                a
-            ),
-            rgba: [r, g, b, a],
+            rgba: [
+                r.clamp(0.0, 1.0) as Precision,
+                g.clamp(0.0, 1.0) as Precision,
+                b.clamp(0.0, 1.0) as Precision,
+                a.clamp(0.0, 1.0) as Precision,
+            ],
         }
     }
 
-    /// Returns the internal CSS-compatible string reference.
-    /// This is used primarily by the SVG backend.
-    pub fn as_str(&self) -> &str {
-        &self.raw
-    }
-
-    /// For wgpu: returns [r, g, b, a].
-    /// You can multiply the 'a' here with your Mark's 'opacity' field.
-    pub fn to_rgba_f64(&self) -> [f64; 4] {
+    pub fn rgba(&self) -> [Precision; 4] {
         self.rgba
     }
 
-    /// Check if this color represents "no fill" or "no stroke".
     pub fn is_none(&self) -> bool {
-        self.raw == "none" || self.rgba[3] == 0.0
+        self.rgba[3] <= 0.0
+    }
+
+    /// Generates a CSS-compatible string. 
+    /// Note: This allocates a new String. Use sparingly in tight loops.
+    pub fn to_css_string(&self) -> String {
+        if self.is_none() {
+            "none".to_string()
+        } else {
+            let c = self.rgba;
+            format!(
+                "rgba({},{},{},{:.3})",
+                (c[0] * 255.0).round() as u8,
+                (c[1] * 255.0).round() as u8,
+                (c[2] * 255.0).round() as u8,
+                c[3]
+            )
+        }
     }
 }
 
 // --- Fluent API Support ---
 
 impl From<&str> for SingleColor {
+    /// Allows: let c: SingleColor = "#ff0000".into();
     fn from(s: &str) -> Self {
         Self::new(s)
     }
 }
 
 impl From<String> for SingleColor {
+    /// Allows: let c: SingleColor = String::from("red").into();
     fn from(s: String) -> Self {
         Self::new(&s)
     }
 }
 
-impl Default for SingleColor {
-    fn default() -> Self {
-        Self::new("black")
+impl From<[f64; 4]> for SingleColor {
+    fn from(c: [f64; 4]) -> Self {
+        Self::from_rgba(c[0], c[1], c[2], c[3])
     }
 }
