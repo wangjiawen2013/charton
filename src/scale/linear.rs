@@ -12,7 +12,7 @@ use super::{ScaleTrait, Scale, ScaleDomain, Tick, mapper::VisualMapper};
 pub struct LinearScale {
     /// The input data boundaries: (min_value, max_value).
     /// These values typically include expansion padding calculated during training.
-    domain: (f32, f32),
+    domain: (f64, f64),
 
     /// The optional visual mapper that defines how the normalized [0, 1] value
     /// is converted into concrete aesthetics like colors or physical sizes.
@@ -25,7 +25,7 @@ impl LinearScale {
     /// # Arguments
     /// * `domain` - A tuple of (min, max) representing the expanded data range.
     /// * `mapper` - An optional `VisualMapper` for non-positional aesthetics.
-    pub fn new(domain: (f32, f32), mapper: Option<VisualMapper>) -> Self {
+    pub fn new(domain: (f64, f64), mapper: Option<VisualMapper>) -> Self {
         Self { domain, mapper }
     }
 
@@ -34,7 +34,7 @@ impl LinearScale {
     /// This ensures that the intervals between ticks are intuitive for human readers.
     /// It uses the range of the domain and a target tick count to find the 
     /// optimal power-of-ten interval.
-    fn calculate_nice_step(&self, count: usize) -> f32 {
+    fn calculate_nice_step(&self, count: usize) -> f64 {
         let (min, max) = self.domain;
         let range = max - min;
         
@@ -43,10 +43,10 @@ impl LinearScale {
             return 1.0; 
         }
 
-        let rough_step = range / (count.max(2) as f32);
+        let rough_step = range / (count.max(2) as f64);
         
         // Magnitude (power of 10) of the rough step.
-        let exp = 10f32.powf(rough_step.log10().floor());
+        let exp = 10f64.powf(rough_step.log10().floor());
         
         // Normalize the step to the [1, 10] range to pick the best "nice" factor.
         let f = rough_step / exp;
@@ -68,11 +68,11 @@ impl ScaleTrait for LinearScale {
     /// Formula: `(value - min) / (max - min)`. 
     /// If the value is within the expansion padding, the result will be 
     /// slightly inside the [0, 1] range.
-    fn normalize(&self, value: f32) -> f32 {
+    fn normalize(&self, value: f64) -> f64 {
         let (d_min, d_max) = self.domain;
         let diff = d_max - d_min;
         
-        if diff.abs() < f32::EPSILON { 
+        if diff.abs() < f64::EPSILON { 
             return 0.5; // Default to center for zero-width domains.
         }
         
@@ -80,18 +80,18 @@ impl ScaleTrait for LinearScale {
     }
 
     /// Continuous linear scales return a fallback for categorical string inputs.
-    fn normalize_string(&self, _value: &str) -> f32 {
+    fn normalize_string(&self, _value: &str) -> f64 {
         0.0
     }
 
     /// Returns the data boundaries used by this scale.
-    fn domain(&self) -> (f32, f32) { 
+    fn domain(&self) -> (f64, f64) { 
         self.domain 
     }
 
     /// For continuous scales, the logical maximum is always 1.0, 
     /// representing 100% of the mapping range.
-    fn logical_max(&self) -> f32 {
+    fn logical_max(&self) -> f64 {
         1.0
     }
 
@@ -110,30 +110,23 @@ impl ScaleTrait for LinearScale {
     fn ticks(&self, count: usize) -> Vec<Tick> {
         let (min, max) = self.domain;
         let step = self.calculate_nice_step(count);
-        
-        // Determine precision based on step size (e.g., step of 0.1 -> precision 1).
-        let precision = (-(step.log10().floor()) as i32).max(0) as usize;
         let tolerance = step * 1e-9;
         
-        // Start at the first nice value >= min.
         let start = (min / step).ceil() * step;
-        let mut ticks = Vec::new();
+        let mut values = Vec::new();
         let mut curr = start;
 
         let mut iterations = 0;
-        while curr <= max + tolerance && iterations < 100 {
+        while curr <= max + tolerance && iterations < count * 2 {
             let clean_val = if curr.abs() < 1e-12 { 0.0 } else { curr };
-            
-            ticks.push(Tick {
-                value: clean_val,
-                label: format!("{:.1$}", clean_val, precision),
-            });
+            values.push(clean_val);
             
             curr += step;
             iterations += 1;
         }
         
-        ticks
+        // Ensure consistent axis-wide formatting (automatic scientific notation)
+        super::format_ticks(&values)
     }
 
     /// Returns the domain specification for chart guide and legend logic.
@@ -150,29 +143,17 @@ impl ScaleTrait for LinearScale {
         
         if n == 0 { return Vec::new(); }
         if n == 1 {
-            return vec![Tick {
-                value: min,
-                label: format!("{:.1}", min),
-            }];
+            return super::format_ticks(&[min]);
         }
 
-        let step = (max - min) / (n - 1) as f32;
-        let precision = if step > 0.0 {
-            (-(step.log10().floor()) as i32).max(0).min(4) as usize
-        } else {
-            1
-        };
-
-        (0..n)
+        let step = (max - min) / (n - 1) as f64;
+        let values: Vec<f64> = (0..n)
             .map(|i| {
-                let val = if i == n - 1 { max } else { min + i as f32 * step };
-                let clean_val = if val.abs() < 1e-12 { 0.0 } else { val };
-
-                Tick {
-                    value: clean_val,
-                    label: format!("{:.1$}", clean_val, precision),
-                }
+                let val = if i == n - 1 { max } else { min + i as f64 * step };
+                if val.abs() < 1e-12 { 0.0 } else { val }
             })
-            .collect()
+            .collect();
+
+        super::format_ticks(&values)
     }
 }

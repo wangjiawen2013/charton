@@ -10,10 +10,10 @@ use crate::visual::shape::PointShape;
 pub struct MarkPoint {
     pub(crate) color: SingleColor,
     pub(crate) shape: PointShape,
-    pub(crate) size: f32,
-    pub(crate) opacity: f32,
+    pub(crate) size: f64,
+    pub(crate) opacity: f64,
     pub(crate) stroke: SingleColor,
-    pub(crate) stroke_width: f32,
+    pub(crate) stroke_width: f64,
 }
 
 impl MarkPoint {
@@ -50,7 +50,7 @@ impl MarkPoint {
     }
 
     /// Sets the size (radius or scale factor) of the point.
-    pub fn with_size(mut self, size: f32) -> Self {
+    pub fn with_size(mut self, size: f64) -> Self {
         self.size = size;
         self
     }
@@ -58,7 +58,7 @@ impl MarkPoint {
     /// Sets the opacity of the point mark.
     /// 
     /// Value should be between 0.0 (transparent) and 1.0 (opaque).
-    pub fn with_opacity(mut self, opacity: f32) -> Self {
+    pub fn with_opacity(mut self, opacity: f64) -> Self {
         self.opacity = opacity.clamp(0.0, 1.0);
         self
     }
@@ -70,7 +70,7 @@ impl MarkPoint {
     }
 
     /// Sets the thickness of the point's outline.
-    pub fn with_stroke_width(mut self, width: f32) -> Self {
+    pub fn with_stroke_width(mut self, width: f64) -> Self {
         self.stroke_width = width;
         self
     }

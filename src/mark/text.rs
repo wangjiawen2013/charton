@@ -9,8 +9,8 @@ use crate::visual::color::SingleColor;
 #[derive(Debug, Clone)]
 pub struct MarkText {
     pub(crate) color: SingleColor,
-    pub(crate) size: f32,
-    pub(crate) opacity: f32,
+    pub(crate) size: f64,
+    pub(crate) opacity: f64,
     pub(crate) text: String,
     pub(crate) anchor: TextAnchor,
     pub(crate) baseline: TextBaseline,
@@ -63,7 +63,7 @@ impl MarkText {
     }
 
     /// Sets the font size of the text.
-    pub fn with_size(mut self, size: f32) -> Self {
+    pub fn with_size(mut self, size: f64) -> Self {
         self.size = size;
         self
     }
@@ -71,7 +71,7 @@ impl MarkText {
     /// Sets the opacity of the text mark.
     /// 
     /// Value should be between 0.0 (transparent) and 1.0 (opaque).
-    pub fn with_opacity(mut self, opacity: f32) -> Self {
+    pub fn with_opacity(mut self, opacity: f64) -> Self {
         self.opacity = opacity.clamp(0.0, 1.0);
         self
     }

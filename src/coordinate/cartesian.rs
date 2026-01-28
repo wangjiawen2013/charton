@@ -46,7 +46,7 @@ impl CoordinateTrait for Cartesian2D {
     /// Following standard screen coordinates:
     /// - X increases from Left to Right.
     /// - Y increases from Top to Bottom (so we invert the normalized Y).
-    fn transform(&self, x_norm: f32, y_norm: f32, panel: &Rect) -> (f32, f32) {
+    fn transform(&self, x_norm: f64, y_norm: f64, panel: &Rect) -> (f64, f64) {
         let (mut x_p, mut y_p) = (x_norm, y_norm);
 
         // 1. Handle axis swapping (coord_flip)

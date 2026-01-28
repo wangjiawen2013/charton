@@ -25,9 +25,9 @@ use polars::prelude::*;
 pub struct Expansion {
     /// Multiplicative factors (lower_mult, upper_mult). 
     /// e.g., (0.05, 0.05) adds 5% padding relative to the data range.
-    pub mult: (f32, f32),
+    pub mult: (f64, f64),
     /// Additive constants in data units (lower_add, upper_add).
-    pub add: (f32, f32),
+    pub add: (f64, f64),
 }
 
 impl Default for Expansion {
@@ -44,7 +44,7 @@ impl Default for Expansion {
 #[derive(Debug, Clone)]
 pub struct Tick {
     /// The raw value in data space.
-    pub value: f32,
+    pub value: f64,
     /// The formatted label for display (e.g., "1k", "2026-01").
     pub label: String,
 }
@@ -67,10 +67,10 @@ impl Scale {
         &self,
         scale_trait: &dyn ScaleTrait,
         series: &Series,
-    ) -> Result<Float32Chunked, ChartonError> {
+    ) -> Result<Float64Chunked, ChartonError> {
         match self {
             Scale::Discrete => {
-                let out: Float32Chunked = series.iter().map(|val| {
+                let out: Float64Chunked = series.iter().map(|val| {
                     let norm = match val {
                         AnyValue::String(s) => scale_trait.normalize_string(s),
                         AnyValue::StringOwned(s) => scale_trait.normalize_string(&s),
@@ -81,9 +81,9 @@ impl Scale {
                 Ok(out)
             }
             _ => {
-                let casted = series.cast(&DataType::Float32)
+                let casted = series.cast(&DataType::Float64)
                     .map_err(|e| ChartonError::Data(e.to_string()))?;
-                let ca = casted.f32().unwrap();
+                let ca = casted.f64().unwrap();
                 Ok(ca.apply(|opt_v| opt_v.map(|v| scale_trait.normalize(v))))
             }
         }
@@ -93,7 +93,7 @@ impl Scale {
 /// A type-safe container for data boundaries.
 #[derive(Debug, Clone, PartialEq)]
 pub enum ScaleDomain {
-    Continuous(f32, f32),
+    Continuous(f64, f64),
     Discrete(Vec<String>),
     Temporal(OffsetDateTime, OffsetDateTime),
 }
@@ -109,16 +109,17 @@ pub trait ScaleTrait: std::fmt::Debug + Send + Sync {
     fn scale_type(&self) -> Scale;
 
     /// Maps a numerical value to a normalized [0, 1] value.
-    fn normalize(&self, value: f32) -> f32;
+    /// Value must be f64 to keep the time accurate.
+    fn normalize(&self, value: f64) -> f64;
 
     /// Maps a discrete string to a normalized [0, 1] value.
-    fn normalize_string(&self, value: &str) -> f32;
+    fn normalize_string(&self, value: &str) -> f64;
 
     /// Returns the data-space boundaries of the scale.
-    fn domain(&self) -> (f32, f32);
+    fn domain(&self) -> (f64, f64);
 
     /// Returns the maximum logical index for discrete scales, or 1.0 for continuous.
-    fn logical_max(&self) -> f32;
+    fn logical_max(&self) -> f64;
 
     /// Returns the visual mapper associated with this scale, if any.
     /// This allows marks to resolve colors, shapes, or sizes directly from the scale.
@@ -176,9 +177,9 @@ pub fn create_scale(
         },
         Scale::Temporal => {
             if let ScaleDomain::Temporal(start, end) = domain_data {
-                let diff_secs = (end - start).as_seconds_f32();
-                let lower_pad = time::Duration::seconds_f32(diff_secs * expand.mult.0 + expand.add.0);
-                let upper_pad = time::Duration::seconds_f32(diff_secs * expand.mult.1 + expand.add.1);
+                let diff_secs = (end - start).as_seconds_f64();
+                let lower_pad = time::Duration::seconds_f64(diff_secs * expand.mult.0 + expand.add.0);
+                let upper_pad = time::Duration::seconds_f64(diff_secs * expand.mult.1 + expand.add.1);
                 Box::new(TemporalScale::new((start - lower_pad, end + upper_pad), mapper))
             } else {
                 return Err(ChartonError::Scale("Time scale requires Temporal domain".into()));
@@ -194,7 +195,7 @@ pub fn get_normalized_value(
     scale_trait: &dyn ScaleTrait,
     scale_type: &Scale,
     value: &AnyValue,
-) -> f32 {
+) -> f64 {
     match scale_type {
         Scale::Discrete => {
             match value {
@@ -204,9 +205,37 @@ pub fn get_normalized_value(
             }
         }
         _ => {
-            value.try_extract::<f32>()
+            value.try_extract::<f64>()
                 .map(|v| scale_trait.normalize(v))
                 .unwrap_or(0.0)
         }
     }
+}
+
+/// Formats a set of tick values consistently.
+/// If any value is too large or too small, the entire set uses scientific notation.
+pub(crate) fn format_ticks(values: &[f64]) -> Vec<Tick> {
+    if values.is_empty() { return vec![]; }
+
+    // 1. Check if any value triggers scientific notation
+    let needs_scientific = values.iter().any(|&v| {
+        let abs_v = v.abs();
+        abs_v != 0.0 && (abs_v >= 10000.0 || abs_v <= 0.001)
+    });
+
+    // 2. Apply uniform formatting
+    values.iter().map(|&v| {
+        let label = if needs_scientific {
+            // Consistent scientific notation (e.g., 1.0e6)
+            format!("{:.1e}", v)
+        } else {
+            // Clean decimal notation
+            if v.abs() >= 1.0 {
+                format!("{:.0}", v) // No decimals for integers
+            } else {
+                format!("{:.3}", v).trim_end_matches('0').trim_end_matches('.').to_string()
+            }
+        };
+        Tick { value: v, label }
+    }).collect()
 }

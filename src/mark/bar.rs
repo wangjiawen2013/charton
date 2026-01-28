@@ -9,12 +9,12 @@ use crate::visual::color::SingleColor;
 #[derive(Debug, Clone)]
 pub struct MarkBar {
     pub(crate) color: SingleColor,
-    pub(crate) opacity: f32,
+    pub(crate) opacity: f64,
     pub(crate) stroke: SingleColor,
-    pub(crate) stroke_width: f32,
-    pub(crate) width: f32,
-    pub(crate) spacing: f32,
-    pub(crate) span: f32,
+    pub(crate) stroke_width: f64,
+    pub(crate) width: f64,
+    pub(crate) spacing: f64,
+    pub(crate) span: f64,
 }
 
 impl MarkBar {
@@ -42,7 +42,7 @@ impl MarkBar {
     /// Sets the opacity of the bar mark.
     /// 
     /// Value should be between 0.0 (transparent) and 1.0 (opaque).
-    pub fn with_opacity(mut self, opacity: f32) -> Self {
+    pub fn with_opacity(mut self, opacity: f64) -> Self {
         self.opacity = opacity.clamp(0.0, 1.0);
         self
     }
@@ -54,13 +54,13 @@ impl MarkBar {
     }
 
     /// Sets the thickness of the bar's outline.
-    pub fn with_stroke_width(mut self, width: f32) -> Self {
+    pub fn with_stroke_width(mut self, width: f64) -> Self {
         self.stroke_width = width;
         self
     }
 
     /// Sets the maximal width of a bar (as a ratio or absolute value depending on coordinate system).
-    pub fn with_width(mut self, width: f32) -> Self {
+    pub fn with_width(mut self, width: f64) -> Self {
         self.width = width;
         self
     }
@@ -68,7 +68,7 @@ impl MarkBar {
     /// Sets the relative spacing between bars within a group.
     /// 
     /// Value is clamped between 0.0 and 1.0.
-    pub fn with_spacing(mut self, spacing: f32) -> Self {
+    pub fn with_spacing(mut self, spacing: f64) -> Self {
         self.spacing = spacing.clamp(0.0, 1.0);
         self
     }
@@ -76,7 +76,7 @@ impl MarkBar {
     /// Sets the total span of a bar group.
     /// 
     /// Value is clamped between 0.0 and 1.0.
-    pub fn with_span(mut self, span: f32) -> Self {
+    pub fn with_span(mut self, span: f64) -> Self {
         self.span = span.clamp(0.0, 1.0);
         self
     }

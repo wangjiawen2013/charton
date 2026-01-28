@@ -10,11 +10,11 @@ use crate::visual::color::SingleColor;
 #[derive(Clone)]
 pub struct MarkLine {
     pub(crate) color: SingleColor,
-    pub(crate) stroke_width: f32,
-    pub(crate) opacity: f32,
+    pub(crate) stroke_width: f64,
+    pub(crate) opacity: f64,
     pub(crate) interpolation: PathInterpolation,
     pub(crate) use_loess: bool,
-    pub(crate) loess_bandwidth: f32,
+    pub(crate) loess_bandwidth: f64,
 }
 
 impl MarkLine {
@@ -38,7 +38,7 @@ impl MarkLine {
     }
 
     /// Sets the thickness of the line.
-    pub fn with_stroke_width(mut self, width: f32) -> Self {
+    pub fn with_stroke_width(mut self, width: f64) -> Self {
         self.stroke_width = width;
         self
     }
@@ -46,7 +46,7 @@ impl MarkLine {
     /// Sets the opacity of the line mark.
     /// 
     /// Value should be between 0.0 (transparent) and 1.0 (opaque).
-    pub fn with_opacity(mut self, opacity: f32) -> Self {
+    pub fn with_opacity(mut self, opacity: f64) -> Self {
         self.opacity = opacity.clamp(0.0, 1.0);
         self
     }
@@ -68,7 +68,7 @@ impl MarkLine {
     /// Sets the bandwidth parameter for LOESS smoothing.
     /// 
     /// Controls the smoothness; value should be between 0.0 and 1.0.
-    pub fn with_loess_bandwidth(mut self, bandwidth: f32) -> Self {
+    pub fn with_loess_bandwidth(mut self, bandwidth: f64) -> Self {
         self.loess_bandwidth = bandwidth.clamp(0.0, 1.0);
         self
     }

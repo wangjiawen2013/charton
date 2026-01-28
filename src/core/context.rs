@@ -49,21 +49,21 @@ impl<'a> PanelContext<'a> {
     /// to eliminate the function call overhead by embedding the transformation 
     /// logic directly into the caller's loop, significantly boosting performance.
     #[inline]
-    pub fn transform(&self, x_norm: f32, y_norm: f32) -> (f32, f32) {
+    pub fn transform(&self, x_norm: f64, y_norm: f64) -> (f64, f64) {
         self.coord.transform(x_norm, y_norm, &self.panel)
     }
 
     /// Convenience helper for X-axis transformation.
     /// Also inlined to maintain high-throughput rendering.
     #[inline]
-    pub fn x_to_px(&self, x_norm: f32) -> f32 {
+    pub fn x_to_px(&self, x_norm: f64) -> f64 {
         self.transform(x_norm, 0.0).0
     }
 
     /// Convenience helper for Y-axis transformation.
     /// Also inlined to maintain high-throughput rendering.
     #[inline]
-    pub fn y_to_px(&self, y_norm: f32) -> f32 {
+    pub fn y_to_px(&self, y_norm: f64) -> f64 {
         self.transform(0.0, y_norm).1
     }
 

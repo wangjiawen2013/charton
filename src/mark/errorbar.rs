@@ -9,9 +9,9 @@ use crate::visual::color::SingleColor;
 #[derive(Clone)]
 pub struct MarkErrorBar {
     pub(crate) color: SingleColor,
-    pub(crate) opacity: f32,
-    pub(crate) stroke_width: f32,
-    pub(crate) cap_length: f32,
+    pub(crate) opacity: f64,
+    pub(crate) stroke_width: f64,
+    pub(crate) cap_length: f64,
     pub(crate) show_center: bool,
 }
 
@@ -38,19 +38,19 @@ impl MarkErrorBar {
     /// Sets the opacity of the error bar mark.
     /// 
     /// Value should be between 0.0 (transparent) and 1.0 (opaque).
-    pub fn with_opacity(mut self, opacity: f32) -> Self {
+    pub fn with_opacity(mut self, opacity: f64) -> Self {
         self.opacity = opacity.clamp(0.0, 1.0);
         self
     }
 
     /// Sets the thickness of the error bar lines.
-    pub fn with_stroke_width(mut self, width: f32) -> Self {
+    pub fn with_stroke_width(mut self, width: f64) -> Self {
         self.stroke_width = width;
         self
     }
 
     /// Sets the length of the horizontal caps at the ends of the error bar.
-    pub fn with_cap_length(mut self, length: f32) -> Self {
+    pub fn with_cap_length(mut self, length: f64) -> Self {
         self.cap_length = length;
         self
     }

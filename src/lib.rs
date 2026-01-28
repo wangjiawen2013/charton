@@ -19,6 +19,7 @@ pub mod stats;
 pub mod theme;
 pub mod transform;
 pub mod visual;
+pub mod facets;
 
 #[cfg(not(target_arch = "wasm32"))]
 pub mod bridge;
