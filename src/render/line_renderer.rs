@@ -1,5 +1,11 @@
+use crate::core::layer::{MarkRenderer, RenderBackend, PathConfig};
+use crate::core::context::PanelContext;
+use crate::chart::Chart;
+use crate::Precision;
+use crate::mark::line::MarkLine;
+use crate::error::ChartonError;
 use crate::visual::color::SingleColor;
-use std::fmt::Write;
+use polars::prelude::*;
 
 /// Interpolation methods for line paths
 #[derive(Debug, Clone, Default)]
@@ -42,122 +48,121 @@ impl From<&str> for PathInterpolation {
     }
 }
 
-pub(crate) struct LineConfig {
-    pub points: Vec<(f64, f64)>,
-    pub color: SingleColor,
-    pub stroke_width: f64,
-    pub opacity: f64,
-    pub interpolation: PathInterpolation,
-}
+// ============================================================================
+// MARK RENDERING
+// ============================================================================
 
-/// Renders a line as an SVG path element and appends it to the provided SVG string.
-///
-/// This function takes a series of points and renders them as a line using the specified
-/// interpolation method. The line is styled with the given color, stroke width, and opacity.
-///
-/// # Arguments
-///
-/// * `svg` - A mutable reference to a String where the generated SVG path element will be appended.
-/// * `config` - Configuration parameters for the line
-///
-/// # Returns
-///
-/// Returns a `std::fmt::Result` indicating success or failure of the write operation.
-pub(crate) fn render_line(svg: &mut String, config: LineConfig) -> std::fmt::Result {
-    if config.points.is_empty() {
-        return Ok(());
-    }
+impl MarkRenderer for Chart<MarkLine> {
+    fn render_marks(
+        &self,
+        backend: &mut dyn RenderBackend,
+        context: &PanelContext,
+    ) -> Result<(), ChartonError> {
+        let df_source = &self.data;
+        if df_source.df.height() == 0 { return Ok(()); }
 
-    let path_data = match config.interpolation {
-        PathInterpolation::Linear => generate_linear_path(&config.points),
-        PathInterpolation::StepAfter => generate_step_after_path(&config.points),
-        PathInterpolation::StepBefore => generate_step_before_path(&config.points),
-    };
+        let mark_config = self.mark.as_ref()
+            .ok_or_else(|| ChartonError::Mark("MarkLine configuration is missing".to_string()))?;
 
-    writeln!(
-        svg,
-        r#"<path d="{}" fill="none" stroke="{}" stroke-width="{}" opacity="{}" stroke-linejoin="round" stroke-linecap="round"/>"#,
-        path_data, config.color.to_css_string(), config.stroke_width, config.opacity
-    )
-}
+        // 1. Determine Grouping
+        // We partition the dataframe so each group (e.g., "Sine", "Cosine") is a separate line.
+        let group_column = context.spec.aesthetics.color.as_ref().map(|c| c.field.as_str());
+        
+        let groups = match group_column {
+            Some(col_name) => df_source.df.partition_by([col_name], true)?,
+            None => vec![df_source.df.clone()],
+        };
 
-// Generate SVG path data for linear interpolation
-fn generate_linear_path(points: &[(f64, f64)]) -> String {
-    let mut path = format!(
-        "M {} {}",
-        format_coordinate(points[0].0),
-        format_coordinate(points[0].1)
-    );
-    let mut prev_point = points[0];
+        for group_df in groups {
+            // 2. Resolve Aesthetics for this group
+            let group_color = self.resolve_group_color(&group_df, context, &mark_config.color)?;
+            
+            // 3. Extract and Sort Coordinates
+            // Lines must be sorted by X-axis to avoid zig-zagging artifacts.
+            let x_enc = self.encoding.x.as_ref().ok_or(ChartonError::Encoding("X missing".into()))?;
+            let y_enc = self.encoding.y.as_ref().ok_or(ChartonError::Encoding("Y missing".into()))?;
 
-    for &point in &points[1..] {
-        // Skip duplicate consecutive points in case of duplicated start or end points
-        if point != prev_point {
-            path.push_str(&format!(
-                " L {} {}",
-                format_coordinate(point.0),
-                format_coordinate(point.1)
-            ));
-            prev_point = point;
+            // We sort ascending by X-axis to ensure the line path flows correctly.
+            let sorted_df = group_df.sort(
+                [x_enc.field.as_str()],
+                 SortMultipleOptions::default()
+                    .with_order_descending(false) // Ascending order
+                    .with_nulls_last(true) // Keep valid data at the front
+            )?;
+            let x_series = sorted_df.column(&x_enc.field)?.as_materialized_series();
+            let y_series = sorted_df.column(&y_enc.field)?.as_materialized_series();
+
+            // 4. Normalize and Transform to Physical Pixels
+            let x_scale_trait = context.coord.get_x_scale();
+            let y_scale_trait = context.coord.get_y_scale();
+
+            let x_norms = x_scale_trait.scale_type().normalize_series(x_scale_trait, x_series)?;
+            let y_norms = y_scale_trait.scale_type().normalize_series(y_scale_trait, y_series)?;
+
+            let raw_points: Vec<(f64, f64)> = x_norms.into_iter().zip(y_norms.into_iter())
+                .map(|(opt_x, opt_y)| context.transform(opt_x.unwrap_or(0.0), opt_y.unwrap_or(0.0)))
+                .collect();
+
+            if raw_points.is_empty() { continue; }
+
+            // 5. Apply Interpolation Expansion
+            let final_points = match mark_config.interpolation {
+                PathInterpolation::Linear => raw_points,
+                PathInterpolation::StepAfter => self.expand_step_after(raw_points),
+                PathInterpolation::StepBefore => self.expand_step_before(raw_points),
+            };
+            let final_points = final_points.into_iter().map(|(x, y)| (x as Precision, y as Precision)).collect();
+            // 6. Dispatch to Backend
+            backend.draw_path(PathConfig {
+                points: final_points,
+                stroke: group_color,
+                stroke_width: mark_config.stroke_width as Precision,
+                opacity: mark_config.opacity as Precision,
+            });
         }
+
+        Ok(())
     }
-    path
 }
 
-// Generate SVG path data for step-after interpolation (appropriate for ECDF)
-fn generate_step_after_path(points: &[(f64, f64)]) -> String {
-    let mut path = format!(
-        "M {} {}",
-        format_coordinate(points[0].0),
-        format_coordinate(points[0].1)
-    );
-    let mut prev_point = points[0];
-
-    for &point in &points[1..] {
-        // Skip duplicate consecutive points in case of duplicated start or end points
-        if point != prev_point {
-            path.push_str(&format!(
-                " H {} V {}",
-                format_coordinate(point.0),
-                format_coordinate(point.1)
-            ));
-            prev_point = point;
+impl Chart<MarkLine> {
+    /// Injects corner points for Step-After interpolation.
+    fn expand_step_after(&self, points: Vec<(f64, f64)>) -> Vec<(f64, f64)> {
+        let mut expanded = Vec::with_capacity(points.len() * 2);
+        for i in 0..points.len() - 1 {
+            let (x1, y1) = points[i];
+            let (x2, _y2) = points[i+1];
+            expanded.push((x1, y1));
+            expanded.push((x2, y1)); // The "Step"
         }
+        expanded.push(*points.last().unwrap());
+        expanded
     }
-    path
-}
 
-// Generate SVG path data for step-before interpolation
-fn generate_step_before_path(points: &[(f64, f64)]) -> String {
-    let mut path = format!(
-        "M {} {}",
-        format_coordinate(points[0].0),
-        format_coordinate(points[0].1)
-    );
-    let mut prev_point = points[0];
-
-    for &point in &points[1..] {
-        // Skip duplicate consecutive points in case of duplicated start or end points
-        if point != prev_point {
-            path.push_str(&format!(
-                " V {} H {}",
-                format_coordinate(point.1),
-                format_coordinate(point.0)
-            ));
-            prev_point = point;
+    /// Injects corner points for Step-Before interpolation.
+    fn expand_step_before(&self, points: Vec<(f64, f64)>) -> Vec<(f64, f64)> {
+        let mut expanded = Vec::with_capacity(points.len() * 2);
+        for i in 0..points.len() - 1 {
+            let (x1, y1) = points[i];
+            let (_x2, y2) = points[i+1];
+            expanded.push((x1, y1));
+            expanded.push((x1, y2)); // The "Step"
         }
+        expanded.push(*points.last().unwrap());
+        expanded
     }
-    path
-}
 
-// Format coordinate with adaptive precision
-fn format_coordinate(value: f64) -> String {
-    // For very large or very small numbers, use scientific notation
-    if value.abs() >= 1e10 || (value.abs() < 1e-4 && value != 0.0) {
-        format!("{:.6e}", value)
-    } else {
-        // For normal ranges, use regular formatting with trimming
-        let s = format!("{:.10}", value);
-        s.trim_end_matches('0').trim_end_matches('.').to_string()
+    /// Resolves the color for a specific group of data.
+    fn resolve_group_color(&self, df: &DataFrame, context: &PanelContext, fallback: &SingleColor) -> Result<SingleColor, ChartonError> {
+        if let Some(ref mapping) = context.spec.aesthetics.color {
+            let s = df.column(&mapping.field)?.as_materialized_series();
+            let s_trait = mapping.scale_impl.as_ref();
+            // Since all points in a group share the same category, we just map the first value
+            let first_val = s_trait.scale_type().normalize_series(s_trait, &s.head(Some(1)))?;
+            let norm = first_val.get(0).unwrap_or(0.0);
+            Ok(s_trait.mapper().map(|m| m.map_to_color(norm, s_trait.logical_max())).unwrap_or_else(|| fallback.clone()))
+        } else {
+            Ok(fallback.clone())
+        }
     }
 }
