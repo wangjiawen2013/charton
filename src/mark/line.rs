@@ -13,7 +13,7 @@ pub struct MarkLine {
     pub(crate) stroke_width: f64,
     pub(crate) opacity: f64,
     pub(crate) interpolation: PathInterpolation,
-    pub(crate) use_loess: bool,
+    pub(crate) loess: bool,
     pub(crate) loess_bandwidth: f64,
 }
 
@@ -24,7 +24,7 @@ impl MarkLine {
             stroke_width: 2.0,
             opacity: 1.0,
             interpolation: PathInterpolation::Linear,
-            use_loess: false,
+            loess: false,
             loess_bandwidth: 0.75,
         }
     }
@@ -60,8 +60,8 @@ impl MarkLine {
     }
 
     /// Enables or disables LOESS (Locally Estimated Scatterplot Smoothing).
-    pub fn with_use_loess(mut self, use_loess: bool) -> Self {
-        self.use_loess = use_loess;
+    pub fn with_loess(mut self, use_loess: bool) -> Self {
+        self.loess = use_loess;
         self
     }
 
