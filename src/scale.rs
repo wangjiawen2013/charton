@@ -217,25 +217,52 @@ pub fn get_normalized_value(
 pub(crate) fn format_ticks(values: &[f64]) -> Vec<Tick> {
     if values.is_empty() { return vec![]; }
 
-    // 1. Check if any value triggers scientific notation
+    // 1. Determine if we need scientific notation based on range
     let needs_scientific = values.iter().any(|&v| {
         let abs_v = v.abs();
         abs_v != 0.0 && (abs_v >= 10000.0 || abs_v <= 0.001)
     });
 
-    // 2. Apply uniform formatting
-    values.iter().map(|&v| {
-        let label = if needs_scientific {
-            // Consistent scientific notation (e.g., 1.0e6)
-            format!("{:.1e}", v)
+    // 2. Calculate the common step size to determine precision
+    let step = if values.len() > 1 {
+        (values[1] - values[0]).abs()
+    } else {
+        values[0].abs()
+    };
+
+    if needs_scientific {
+        // Calculate precision for scientific notation:
+        // We look at the step relative to the magnitude of the largest value.
+        let max_val = values.iter().map(|v| v.abs()).fold(0.0, f64::max);
+        let magnitude = max_val.log10().floor();
+        
+        // Precision is how many decimals we need to show the 'step' at this magnitude
+        let sci_precision = if step > 0.0 {
+            let step_magnitude = step.log10().floor();
+            let p = (magnitude - step_magnitude).abs() as usize;
+            p.clamp(0, 6)
         } else {
-            // Clean decimal notation
-            if v.abs() >= 1.0 {
-                format!("{:.0}", v) // No decimals for integers
-            } else {
-                format!("{:.3}", v).trim_end_matches('0').trim_end_matches('.').to_string()
-            }
+            1
         };
-        Tick { value: v, label }
-    }).collect()
+
+        values.iter().map(|&v| {
+            Tick { 
+                value: v, 
+                label: format!("{:.*e}", sci_precision, v).replace("e", "E") 
+            }
+        }).collect()
+    } else {
+        // 3. Standard decimal precision (same as before, but more robust)
+        let precision = if step > 0.0 && step < 1.0 {
+            let p = (-step.log10()).ceil() as usize;
+            p.clamp(0, 6)
+        } else {
+            0
+        };
+
+        values.iter().map(|&v| {
+            let label = format!("{:.*}", precision, v);
+            Tick { value: v, label }
+        }).collect()
+    }
 }
