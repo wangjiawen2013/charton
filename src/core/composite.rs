@@ -585,7 +585,7 @@ impl LayeredChart {
             center_y,
             font_family,
             font_size,
-            font_color.as_str(),
+            font_color.to_css_string(),
             title_text
         )?;
 
@@ -701,7 +701,7 @@ impl LayeredChart {
         // We render a full-size rectangle using the theme's background_color.
         svg_content.push_str(&format!(
             r#"<rect width="100%" height="100%" fill="{}" />"#,
-            self.theme.background_color.as_str()
+            self.theme.background_color.to_css_string()
         ));
 
         // 3. Local State Training & Rendering

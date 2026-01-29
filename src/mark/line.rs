@@ -53,7 +53,7 @@ impl MarkLine {
 
     /// Sets the interpolation method for connecting data points.
     /// 
-    /// Accepts `PathInterpolation` variants or string literals like "basis" or "step".
+    /// Accepts `PathInterpolation` variants or string literals like "linear" or "step".
     pub fn with_interpolation(mut self, interpolation: impl Into<PathInterpolation>) -> Self {
         self.interpolation = interpolation.into();
         self

@@ -1,7 +1,11 @@
 use crate::visual::color::SingleColor;
 use crate::visual::shape::PointShape;
 use crate::theme::Theme;
-use crate::core::layer::RenderBackend;
+use crate::core::layer::{
+    CircleConfig, GradientRectConfig, LineConfig, PolygonConfig, RectConfig,
+    RenderBackend, TextConfig,
+};
+use crate::Precision;
 use super::backend::svg::SvgBackend;
 use crate::core::guide::{GuideSpec, LegendPosition, GuideSize, GuideKind};
 use crate::core::context::PanelContext;
@@ -73,15 +77,18 @@ impl LegendRenderer {
             }
 
             // 1. Draw Legend Block Title
-            backend.draw_text(
-                &spec.title,
-                current_x,
-                current_y + (font_size * 0.8),
-                font_size * 1.1,
-                font_family,
-                &theme.title_color,
-                "start", "bold", 1.0,
-            );
+            let text_config = TextConfig {
+                text: spec.title.clone(),
+                x: current_x as Precision,
+                y: (current_y + (font_size * 0.8)) as Precision,
+                font_size: (font_size * 1.1) as Precision,
+                font_family: font_family.clone(),
+                color: theme.title_color,
+                text_anchor: "start".to_string(),
+                font_weight: "bold".to_string(),
+                opacity: 1.0,
+            };
+            backend.draw_text(text_config);
 
             let content_y_offset = current_y + (font_size * 1.1) + theme.legend_title_gap;
 
@@ -135,13 +142,33 @@ impl LegendRenderer {
                     let ratio = i as f64 / n_samples as f64;
                     // Reverse sampling so higher values appear at the top.
                     let color = mapper.map_to_color(1.0 - ratio, l_max);
-                    stops.push((ratio, color));
+                    stops.push((ratio as Precision, color));
                 }
             }
         }
 
-        backend.draw_gradient_rect(x, y, bar_w, bar_h, &stops, true, &spec.field);
-        backend.draw_rect(x, y, bar_w, bar_h, &SingleColor::new("none"), &theme.title_color, 1.0, 1.0);
+        let gradient_rect_config = GradientRectConfig {
+            x: x as Precision,
+            y: y as Precision,
+            width: bar_w as Precision,
+            height: bar_h as Precision,
+            stops: stops,
+            is_vertical: true,
+            id_suffix: spec.field.clone(),
+        };
+        backend.draw_gradient_rect(gradient_rect_config);
+
+        let rect_config = RectConfig {
+            x: x as Precision,
+            y: y as Precision,
+            width: bar_w as Precision,
+            height: bar_h as Precision,
+            fill: SingleColor::new("none"),
+            stroke: theme.title_color,
+            stroke_width: 1.0,
+            opacity: 1.0,
+        };
+        backend.draw_rect(rect_config);
 
         let mut max_label_w = 0.0;
         if let Some(mapping) = spec.mappings.first() {
@@ -150,18 +177,38 @@ impl LegendRenderer {
                 let norm = mapping.scale_impl.normalize(tick.value);
                 let tick_y = y + (bar_h * (1.0 - norm));
 
-                backend.draw_line(x, tick_y, x + 3.0, tick_y, &"#FFFFFF".into(), 1.0);
-                backend.draw_line(x + bar_w - 3.0, tick_y, x + bar_w, tick_y, &"#FFFFFF".into(), 1.0);
+                let line_config = LineConfig { 
+                    x1: x as Precision,
+                    y1: tick_y as Precision,
+                    x2: (x + 3.0) as Precision,
+                    y2: tick_y as Precision,
+                    color: "#FFFFFF".into(),
+                    width: 1.0,
+                };
+                backend.draw_line(line_config);
 
-                backend.draw_text(
-                    &tick.label,
-                    x + bar_w + theme.legend_marker_text_gap,
-                    tick_y + (font_size * 0.3),
-                    font_size,
-                    font_family,
-                    &theme.legend_label_color,
-                    "start", "normal", 1.0,
-                );
+                let line_config = LineConfig { 
+                    x1: (x + bar_w - 3.0) as Precision,
+                    y1: tick_y as Precision,
+                    x2: (x + bar_w) as Precision,
+                    y2: tick_y as Precision,
+                    color: "#FFFFFF".into(),
+                    width: 1.0,
+                };
+                backend.draw_line(line_config);
+
+                let text_config = TextConfig {
+                    text: tick.label.clone(),
+                    x: (x + bar_w + theme.legend_marker_text_gap) as Precision,
+                    y: (tick_y + font_size * 0.3) as Precision,
+                    font_size: font_size as Precision,
+                    font_family: font_family.clone(),
+                    color: theme.legend_label_color,
+                    text_anchor: "start".to_string(),
+                    font_weight: "normal".to_string(),
+                    opacity: 1.0,
+                };
+                backend.draw_text(text_config);
                 
                 let lw = crate::core::utils::estimate_text_width(&tick.label, font_size);
                 max_label_w = f64::max(max_label_w, lw);
@@ -219,13 +266,18 @@ impl LegendRenderer {
                 item_y + (row_h / 2.0), r, colors.get(i).unwrap_or(&"#333333".into())
             );
 
-            backend.draw_text(
-                label,
-                col_x + fixed_container_size + theme.legend_marker_text_gap,
-                item_y + (row_h * 0.75),
-                font_size, font_family, &theme.legend_label_color,
-                "start", "normal", 1.0,
-            );
+                let text_config = TextConfig {
+                    text: label.clone(),
+                    x: (col_x + fixed_container_size + theme.legend_marker_text_gap) as Precision,
+                    y: (item_y + row_h * 0.75) as Precision,
+                    font_size: font_size as Precision,
+                    font_family: font_family.clone(),
+                    color: theme.legend_label_color,
+                    text_anchor: "start".to_string(),
+                    font_weight: "normal".to_string(),
+                    opacity: 1.0,
+                };
+            backend.draw_text(text_config);
 
             item_y += row_h + theme.legend_item_v_gap;
         }
@@ -314,17 +366,74 @@ impl LegendRenderer {
 
     fn draw_symbol(backend: &mut dyn RenderBackend, shape: &PointShape, cx: f64, cy: f64, r: f64, color: &SingleColor) {
         match shape {
-            PointShape::Circle => backend.draw_circle(cx, cy, r, color, &SingleColor::new("none"), 0.0, 1.0),
-            PointShape::Square => backend.draw_rect(cx - r, cy - r, r * 2.0, r * 2.0, color, &SingleColor::new("none"), 0.0, 1.0),
+            PointShape::Circle => {
+                let circle_config = CircleConfig {
+                    x: cx as Precision,
+                    y: cy as Precision,
+                    radius: r as Precision,
+                    fill: color.clone(),
+                    stroke: SingleColor::new("none"),
+                    stroke_width: 0.0,
+                    opacity: 1.0,
+                };
+                backend.draw_circle(circle_config);
+            },
+            PointShape::Square => {
+                let rect_config = RectConfig {
+                    x: (cx - r) as Precision,
+                    y: (cy - r) as Precision,
+                    width: (r * 2.0) as Precision,
+                    height: (r * 2.0) as Precision,
+                    fill: color.clone(),
+                    stroke: SingleColor::new("none"),
+                    stroke_width: 0.0,
+                    opacity: 1.0,
+                };
+                backend.draw_rect(rect_config);
+            },
             PointShape::Triangle => {
-                let pts = vec![(cx, cy - r), (cx - r, cy + r), (cx + r, cy + r)];
-                backend.draw_polygon(&pts, color, &SingleColor::new("none"), 0.0, 1.0);
+                let pts = vec![
+                    (cx as Precision, (cy - r) as Precision),
+                    ((cx - r) as Precision, (cy + r) as Precision),
+                    ((cx + r) as Precision, (cy + r) as Precision)
+                ];
+                let polygon_config = PolygonConfig {
+                    points: pts,
+                    fill: color.clone(),
+                    stroke: SingleColor::new("none"),
+                    stroke_width: 0.0,
+                    opacity: 1.0,
+                };
+                backend.draw_polygon(polygon_config);
             },
             PointShape::Diamond => {
-                let pts = vec![(cx, cy - r), (cx + r, cy), (cx, cy + r), (cx - r, cy)];
-                backend.draw_polygon(&pts, color, &SingleColor::new("none"), 0.0, 1.0);
+                let pts = vec![
+                    (cx as Precision, (cy - r) as Precision),
+                    ((cx + r) as Precision, cy as Precision),
+                    (cx as Precision, (cy + r) as Precision),
+                    ((cx - r) as Precision, cy as Precision)
+                ];
+                let polygon_config = PolygonConfig {
+                    points: pts,
+                    fill: color.clone(),
+                    stroke: SingleColor::new("none"),
+                    stroke_width: 0.0,
+                    opacity: 1.0,
+                };
+                backend.draw_polygon(polygon_config);
             },
-            _ => backend.draw_circle(cx, cy, r, color, &SingleColor::new("none"), 0.0, 1.0),
+            _ => {
+                let circle_config = CircleConfig {
+                    x: cx as Precision,
+                    y: cy as Precision,
+                    radius: r as Precision,
+                    fill: color.clone(),
+                    stroke: SingleColor::new("none"),
+                    stroke_width: 0.0,
+                    opacity: 1.0,
+                };
+                backend.draw_circle(circle_config);
+            }
         }
     }
 

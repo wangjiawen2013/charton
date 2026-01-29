@@ -13,6 +13,35 @@ pub enum PathInterpolation {
     StepBefore,
 }
 
+/// Implements conversion from string slices to `PathInterpolation`.
+/// 
+/// This enables a more ergonomic Fluent API, allowing users to pass string literals 
+/// like `.interpolation("step")` instead of the more verbose `PathInterpolation::StepAfter`.
+impl From<&str> for PathInterpolation {
+    /// Performs the conversion.
+    /// 
+    /// # Arguments
+    /// * `s` - A string slice representing the interpolation method (case-insensitive).
+    fn from(s: &str) -> Self {
+        // Convert to lowercase to ensure the API is case-insensitive (e.g., "Linear" vs "linear").
+        match s.to_lowercase().as_str() {
+            // Step-after: The value changes at the next data point. 
+            // Often used for step functions or ECDF visualizations.
+            "step" | "step-after" => PathInterpolation::StepAfter,
+            
+            // Step-before: The value changes immediately at the current data point.
+            "step-before" => PathInterpolation::StepBefore,
+            
+            // Linear: Simple straight line segments between data points (Standard).
+            "linear" => PathInterpolation::Linear,
+            
+            // Fallback: If the input string is unrecognized, default to Linear interpolation 
+            // to ensure the rendering pipeline does not fail.
+            _ => PathInterpolation::Linear,
+        }
+    }
+}
+
 pub(crate) struct LineConfig {
     pub points: Vec<(f64, f64)>,
     pub color: SingleColor,

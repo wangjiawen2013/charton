@@ -1,5 +1,6 @@
 use crate::error::ChartonError;
-use crate::prelude::SingleColor;
+use crate::visual::color::SingleColor;
+use crate::visual::shape::PointShape;
 use crate::scale::{Scale, ScaleDomain, Expansion};
 use crate::core::context::PanelContext;
 use crate::coordinate::CoordinateTrait;
@@ -7,6 +8,21 @@ use super::aesthetics::GlobalAesthetics;
 use crate::encode::Channel;
 use crate::Precision;
 use std::sync::Arc;
+
+/// PointElementConfig is a high-level representation of a point-based mark.
+/// It acts as a bridge between the Layer logic and the specific geometric
+/// draw calls of the RenderBackend.
+#[derive(Clone, Copy, Debug)]
+pub struct PointElementConfig {
+    pub x: f64,
+    pub y: f64,
+    pub shape: PointShape,
+    pub size: f64,
+    pub fill: SingleColor,
+    pub stroke: SingleColor,
+    pub stroke_width: f64,
+    pub opacity: f64,
+}
 
 pub struct CircleConfig {
     pub x: Precision,

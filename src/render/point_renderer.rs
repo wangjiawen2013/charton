@@ -1,6 +1,7 @@
-use crate::core::layer::{MarkRenderer, RenderBackend};
+use crate::core::layer::{MarkRenderer, RenderBackend, PointElementConfig, CircleConfig, PolygonConfig, RectConfig};
 use crate::core::context::PanelContext;
 use crate::chart::Chart;
+use crate::Precision;
 use crate::mark::point::MarkPoint;
 use crate::error::ChartonError;
 use crate::visual::shape::PointShape;
@@ -110,13 +111,13 @@ impl MarkRenderer for Chart<MarkPoint> {
             let size_vec: Vec<f64> = norms.into_iter()
                 .map(|opt_n| {
                     s_trait.mapper()
-                        .map(|m| m.map_to_size(opt_n.unwrap_or(0.0)) as f64)
-                        .unwrap_or(mark_config.size as f64)
+                        .map(|m| m.map_to_size(opt_n.unwrap_or(0.0)))
+                        .unwrap_or(mark_config.size)
                 })
                 .collect();
             Box::new(size_vec.into_iter())
         } else {
-            Box::new(std::iter::repeat(mark_config.size as f64))
+            Box::new(std::iter::repeat(mark_config.size))
         };
 
         // --- STEP 6: GEOMETRY PROJECTION & RENDERING ---
@@ -130,23 +131,24 @@ impl MarkRenderer for Chart<MarkPoint> {
             .zip(size_iter)
         {
             // Default to 0.0 for missing data points.
-            let x_norm = x_n.unwrap_or(0.0) as f64;
-            let y_norm = y_n.unwrap_or(0.0) as f64;
+            let x_norm = x_n.unwrap_or(0.0);
+            let y_norm = y_n.unwrap_or(0.0);
             
             // Convert normalized [0, 1] units to physical panel pixels (e.g. SVG coordinates).
             let (px, py) = context.transform(x_norm, y_norm);
 
             // Emit the final command to the rendering backend (SVG, Canvas, etc.).
-            self.emit_draw_call(
-                backend,
-                &current_shape,
-                px, py,
-                size,
-                &fill_color,
-                &stroke_color,
-                mark_config.stroke_width as f64,
-                mark_config.opacity as f64
-            );
+            let point_element_config = PointElementConfig {
+                x: px,
+                y: py,
+                shape: current_shape,
+                size: size,
+                fill: fill_color,
+                stroke: stroke_color,
+                stroke_width: mark_config.stroke_width,
+                opacity: mark_config.opacity,
+            };
+            self.emit_draw_call(backend, point_element_config);
         }
 
         Ok(())
@@ -161,49 +163,107 @@ impl Chart<MarkPoint> {
     /// Dispatches the appropriate backend draw call for the given PointShape.
     /// 
     /// Updated to match RenderBackend's non-optional &SingleColor signatures.
-    fn emit_draw_call(
-        &self,
-        backend: &mut dyn RenderBackend,
-        shape: &PointShape,
-        px: f64,
-        py: f64,
-        size: f64,
-        fill: &SingleColor,
-        stroke: &SingleColor,
-        stroke_width: f64,
-        opacity: f64,
-    ) {
+    fn emit_draw_call(&self, backend: &mut dyn RenderBackend, config: PointElementConfig) {
+        let PointElementConfig {x, y, shape, size, fill, stroke, stroke_width, opacity} = config;
+
         match shape {
             PointShape::Circle => {
-                backend.draw_circle(px, py, size, fill, stroke, stroke_width, opacity);
+                let circle_config = CircleConfig {
+                    x: x as Precision,
+                    y: y as Precision,
+                    radius: size as Precision,
+                    fill: fill,
+                    stroke: stroke,
+                    stroke_width: stroke_width as Precision,
+                    opacity: opacity as Precision,
+                };
+                backend.draw_circle(circle_config);
             }
             PointShape::Square => {
                 let side = size * 2.0;
-                backend.draw_rect(px - size, py - size, side, side, fill, stroke, stroke_width, opacity);
+                let rect_config = RectConfig {
+                    x: (x - size) as Precision,
+                    y: (y - size) as Precision,
+                    width: side as Precision,
+                    height: side as Precision,
+                    fill: fill,
+                    stroke: stroke,
+                    stroke_width: stroke_width as Precision,
+                    opacity: opacity as Precision,
+                };
+                backend.draw_rect(rect_config);
             }
             PointShape::Diamond => {
-                let points = self.calculate_polygon(px, py, size * 1.2, 4, 0.0);
-                backend.draw_polygon(&points, fill, stroke, stroke_width, opacity);
+                let points = self.calculate_polygon(x, y, size * 1.2, 4, 0.0)
+                    .iter().map(|p| (p.0 as Precision, p.1 as Precision)).collect();
+                let polygon_config = PolygonConfig {
+                    points: points,
+                    fill: fill,
+                    stroke: stroke,
+                    stroke_width: stroke_width as Precision,
+                    opacity: opacity as Precision,
+                };
+                backend.draw_polygon(polygon_config);
             }
             PointShape::Triangle => {
-                let points = self.calculate_polygon(px, py, size * 1.1, 3, -std::f64::consts::FRAC_PI_2);
-                backend.draw_polygon(&points, fill, stroke, stroke_width, opacity);
+                let points = self.calculate_polygon(x, y, size * 1.1, 3, -std::f64::consts::FRAC_PI_2)
+                    .iter().map(|p| (p.0 as Precision, p.1 as Precision)).collect();
+                let polygon_config = PolygonConfig {
+                    points: points,
+                    fill: fill,
+                    stroke: stroke,
+                    stroke_width: stroke_width as Precision,
+                    opacity: opacity as Precision,
+                };
+                backend.draw_polygon(polygon_config);
             }
             PointShape::Pentagon => {
-                let points = self.calculate_polygon(px, py, size, 5, -std::f64::consts::FRAC_PI_2);
-                backend.draw_polygon(&points, fill, stroke, stroke_width, opacity);
+                let points = self.calculate_polygon(x, y, size, 5, -std::f64::consts::FRAC_PI_2)
+                    .iter().map(|p| (p.0 as Precision, p.1 as Precision)).collect();
+                let polygon_config = PolygonConfig {
+                    points: points,
+                    fill: fill,
+                    stroke: stroke,
+                    stroke_width: stroke_width as Precision,
+                    opacity: opacity as Precision,
+                };
+                backend.draw_polygon(polygon_config);
             }
             PointShape::Hexagon => {
-                let points = self.calculate_polygon(px, py, size, 6, 0.0);
-                backend.draw_polygon(&points, fill, stroke, stroke_width, opacity);
+                let points = self.calculate_polygon(x, y, size, 6, 0.0)
+                    .iter().map(|p| (p.0 as Precision, p.1 as Precision)).collect();
+                let polygon_config = PolygonConfig {
+                    points: points,
+                    fill: fill,
+                    stroke: stroke,
+                    stroke_width: stroke_width as Precision,
+                    opacity: opacity as Precision,
+                };
+                backend.draw_polygon(polygon_config);
             }
             PointShape::Octagon => {
-                let points = self.calculate_polygon(px, py, size, 8, std::f64::consts::FRAC_PI_8);
-                backend.draw_polygon(&points, fill, stroke, stroke_width, opacity);
+                let points = self.calculate_polygon(x, y, size, 8, std::f64::consts::FRAC_PI_8)
+                    .iter().map(|p| (p.0 as Precision, p.1 as Precision)).collect();
+                let polygon_config = PolygonConfig {
+                    points: points,
+                    fill: fill,
+                    stroke: stroke,
+                    stroke_width: stroke_width as Precision,
+                    opacity: opacity as Precision,
+                };
+                backend.draw_polygon(polygon_config);
             }
             PointShape::Star => {
-                let points = self.calculate_star(px, py, size * 1.2, size * 0.5, 5);
-                backend.draw_polygon(&points, fill, stroke, stroke_width, opacity);
+                let points = self.calculate_star(x, y, size * 1.2, size * 0.5, 5)
+                    .iter().map(|p| (p.0 as Precision, p.1 as Precision)).collect();
+                let polygon_config = PolygonConfig {
+                    points: points,
+                    fill: fill,
+                    stroke: stroke,
+                    stroke_width: stroke_width as Precision,
+                    opacity: opacity as Precision,
+                };
+                backend.draw_polygon(polygon_config);
             }
         }
     }
