@@ -89,18 +89,39 @@ impl MarkRenderer for Chart<MarkLine> {
                     .with_order_descending(false) // Ascending order
                     .with_nulls_last(true) // Keep valid data at the front
             )?;
+
+            // 4. Extract Series data and convert to Vec<f64> for statistical processing.
+            // Using into_no_null_iter() assumes data has been pre-filtered for nulls
+            // to maximize performance via contiguous memory (Vec).
             let x_series = sorted_df.column(&x_enc.field)?.as_materialized_series();
             let y_series = sorted_df.column(&y_enc.field)?.as_materialized_series();
+            let x_vals: Vec<f64> = x_series.f64()?.into_no_null_iter().collect();
+            let y_vals: Vec<f64> = y_series.f64()?.into_no_null_iter().collect();
 
-            // 4. Normalize and Transform to Physical Pixels
+            // 5. Apply LOESS (Locally Estimated Scatterplot Smoothing) if enabled for this mark.
+            // This is performed in data space (before normalization) to maintain statistical integrity.
+            let (calc_x, calc_y) = if mark_config.loess {
+                crate::stats::stat_loess::loess(&x_vals, &y_vals, mark_config.loess_bandwidth)
+            } else {
+                (x_vals, y_vals)
+            };
+
+            // 6. Normalization and Coordinate Transformation.
+            // Map raw data values to the [0.0, 1.0] normalized range, then transform to physical pixels.
             let x_scale_trait = context.coord.get_x_scale();
             let y_scale_trait = context.coord.get_y_scale();
 
-            let x_norms = x_scale_trait.scale_type().normalize_series(x_scale_trait, x_series)?;
-            let y_norms = y_scale_trait.scale_type().normalize_series(y_scale_trait, y_series)?;
-
-            let raw_points: Vec<(f64, f64)> = x_norms.into_iter().zip(y_norms.into_iter())
-                .map(|(opt_x, opt_y)| context.transform(opt_x.unwrap_or(0.0), opt_y.unwrap_or(0.0)))
+            // Instead of converting to Series, we do a "Manual Vectorization"
+            // This is just as fast as Polars' .apply() because it's a simple tight loop.
+            let raw_points: Vec<(f64, f64)> = calc_x.into_iter()
+                .zip(calc_y.into_iter())
+                .map(|(x, y)| {
+                    // Direct access to the normalization logic without Series overhead
+                    let nx = x_scale_trait.normalize(x);
+                    let ny = y_scale_trait.normalize(y);
+                    
+                    context.transform(nx, ny)
+                })
                 .collect();
 
             if raw_points.is_empty() { continue; }

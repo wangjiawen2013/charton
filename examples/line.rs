@@ -20,6 +20,7 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
     // Create a line chart with multiple groups
     let chart = Chart::build(&df)?
         .mark_line()
+        .configure_line(|l| l.with_loess(true).with_loess_bandwidth(0.2))
         .encode((
             x("x"),
             y("y"),
