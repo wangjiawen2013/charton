@@ -61,14 +61,14 @@ pub struct PolygonConfig {
 }
 
 pub struct TextConfig {
-    pub text: String,
     pub x: Precision,
     pub y: Precision,
+    pub text: String,
     pub font_size: Precision,
     pub font_family: String,
     pub color: SingleColor,
     pub text_anchor: String,    // "start", "middle", "end"
-    pub font_weight: String,    // "normal", "bold"
+    pub font_weight: String,    // "normal", "bold", or numeric "400"
     pub opacity: Precision,
 }
 

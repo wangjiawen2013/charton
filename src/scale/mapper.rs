@@ -37,12 +37,12 @@ impl VisualMapper {
         match scale_type {
             Scale::Discrete => {
                 VisualMapper::DiscreteColor {
-                    palette: theme.default_palette,
+                    palette: theme.palette,
                 }
             }
             _ => {
                 VisualMapper::ContinuousColor {
-                    map: theme.default_color_map,
+                    map: theme.color_map,
                 }
             }
         }
