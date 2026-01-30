@@ -1752,7 +1752,8 @@ Charton supports multiple color control strategies.
 
 **1. Mark-Level Colors**
 ```rust
-mark_point().with_point_color("steelblue")
+mark_point()
+    .configure_point(|p| p.with_point_color("steelblue"))
 ```
 This always takes precedence.
 
