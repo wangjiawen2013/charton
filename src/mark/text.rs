@@ -8,12 +8,49 @@ use crate::visual::color::SingleColor;
 /// color, and content.
 #[derive(Debug, Clone)]
 pub struct MarkText {
-    pub(crate) color: SingleColor,
-    pub(crate) size: f64,
-    pub(crate) opacity: f64,
     pub(crate) text: String,
-    pub(crate) anchor: TextAnchor,
-    pub(crate) baseline: TextBaseline,
+    pub(crate) color: SingleColor,
+    pub(crate) font_size: f64,
+    pub(crate) font_family: String,
+    pub(crate) font_weight: FontWeight,
+    pub(crate) text_anchor: TextAnchor,
+    pub(crate) opacity: f64,
+}
+
+/// Font weight options for text elements.
+#[derive(Debug, Clone, Default)]
+pub enum FontWeight {
+    /// Normal font weight (equivalent to 400).
+    #[default]
+    Normal,
+    /// Bold font weight (equivalent to 700).
+    Bold,
+    /// Specific numeric weight (e.g., 100, 300, 900).
+    Weight(u16),
+}
+
+impl From<&str> for FontWeight {
+    fn from(s: &str) -> Self {
+        match s.to_lowercase().as_str() {
+            "bold" => FontWeight::Bold,
+            "normal" => FontWeight::Normal,
+            _ => {
+                // Try to parse numeric strings like "300"
+                s.parse::<u16>().map(FontWeight::Weight).unwrap_or(FontWeight::Normal)
+            }
+        }
+    }
+}
+
+// Helper for backend conversion.
+impl std::fmt::Display for FontWeight {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        match self {
+            FontWeight::Normal => write!(f, "normal"),
+            FontWeight::Bold => write!(f, "bold"),
+            FontWeight::Weight(w) => write!(f, "{}", w),
+        }
+    }
 }
 
 /// Horizontal alignment options for text elements.
@@ -28,29 +65,38 @@ pub enum TextAnchor {
     End,
 }
 
-/// Vertical alignment options for text elements.
-#[derive(Debug, Clone, Default)]
-pub enum TextBaseline {
-    /// Browser-determined default.
-    #[default]
-    Auto,
-    /// Vertical center.
-    Middle,
-    /// Top-aligned.
-    Hanging,
+impl From<&str> for TextAnchor {
+    fn from(s: &str) -> Self {
+        match s.to_lowercase().as_str() {
+            "start" | "left" => TextAnchor::Start,
+            "end" | "right"  => TextAnchor::End,
+            _ => TextAnchor::Middle, // Default
+        }
+    }
+}
+
+// Facilitates conversion for the rendering backend.
+impl std::fmt::Display for TextAnchor {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        match self {
+            TextAnchor::Start => write!(f, "start"),
+            TextAnchor::Middle => write!(f, "middle"),
+            TextAnchor::End => write!(f, "end"),
+        }
+    }
 }
 
 impl MarkText {
     /// Create a new text mark with default properties.
     pub(crate) fn new() -> Self {
         Self {
-            // (1.000, 0.498, 0.153, 0.016), // #7f2704
-            color: SingleColor::new("black"),
-            size: 12.0,
-            opacity: 1.0,
             text: String::new(),
-            anchor: TextAnchor::default(),
-            baseline: TextBaseline::default(),
+            color: SingleColor::new("black"),
+            font_size: 12.0,
+            font_family: "sans-serif".to_string(),
+            font_weight: "normal".into(),
+            text_anchor: TextAnchor::default(),
+            opacity: 1.0,
         }
     }
 
@@ -64,15 +110,7 @@ impl MarkText {
 
     /// Sets the font size of the text.
     pub fn with_size(mut self, size: f64) -> Self {
-        self.size = size;
-        self
-    }
-
-    /// Sets the opacity of the text mark.
-    /// 
-    /// Value should be between 0.0 (transparent) and 1.0 (opaque).
-    pub fn with_opacity(mut self, opacity: f64) -> Self {
-        self.opacity = opacity.clamp(0.0, 1.0);
+        self.font_size = size;
         self
     }
 
@@ -82,15 +120,23 @@ impl MarkText {
         self
     }
 
-    /// Sets the horizontal text anchor point.
-    pub fn with_anchor(mut self, anchor: impl Into<TextAnchor>) -> Self {
-        self.anchor = anchor.into();
+    /// Sets the font weight of the text.
+    pub fn with_weight(mut self, anchor: impl Into<FontWeight>) -> Self {
+        self.font_weight = anchor.into();
         self
     }
 
-    /// Sets the vertical text baseline positioning.
-    pub fn with_baseline(mut self, baseline: impl Into<TextBaseline>) -> Self {
-        self.baseline = baseline.into();
+    /// Sets the horizontal text anchor point.
+    pub fn with_anchor(mut self, anchor: impl Into<TextAnchor>) -> Self {
+        self.text_anchor = anchor.into();
+        self
+    }
+
+    /// Sets the opacity of the text mark.
+    /// 
+    /// Value should be between 0.0 (transparent) and 1.0 (opaque).
+    pub fn with_opacity(mut self, opacity: f64) -> Self {
+        self.opacity = opacity.clamp(0.0, 1.0);
         self
     }
 }

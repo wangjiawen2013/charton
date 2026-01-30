@@ -90,9 +90,9 @@ pub struct Theme {
 
     // --- Aesthetic Defaults (Candidates for Scale Resolution) ---
     /// The default color map for continuous data if no specific scale is provided.
-    pub(crate) default_color_map: ColorMap,
+    pub(crate) color_map: ColorMap,
     /// The default categorical palette for discrete data if no specific scale is provided.
-    pub(crate) default_palette: ColorPalette,
+    pub(crate) palette: ColorPalette,
 
     // --- Facet Styling ---
     /// The font size for the facet labels (the text in the strip).
@@ -292,12 +292,12 @@ impl Theme {
     // --- Color & Palette Defaults ---
 
     pub fn with_default_color_map(mut self, map: ColorMap) -> Self {
-        self.default_color_map = map;
+        self.color_map = map;
         self
     }
 
     pub fn with_default_palette(mut self, palette: ColorPalette) -> Self {
-        self.default_palette = palette;
+        self.palette = palette;
         self
     }
 
@@ -379,8 +379,8 @@ impl Default for Theme {
             panel_defense_ratio: 0.2,
             axis_reserve_buffer: 60.0,
 
-            default_color_map: ColorMap::Viridis,
-            default_palette: ColorPalette::Tab10,
+            color_map: ColorMap::Viridis,
+            palette: ColorPalette::Tab10,
 
             facet_label_size: 11.0,
             facet_label_color: "#333".into(),
