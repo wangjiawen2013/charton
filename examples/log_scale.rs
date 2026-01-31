@@ -18,7 +18,7 @@ fn main() -> Result<(), Box<dyn Error>> {
     LayeredChart::new()
         .with_size(500, 400)
         .add_layer(point_chart)
-        .configure_theme(|t| t.with_y_tick_label_angle(-45.0))
+        .configure_theme(|t| t.with_x_tick_label_angle(-45.0))
         .coord_flip()
         .save("./examples/log_scale.svg")?;
 
