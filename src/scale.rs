@@ -212,55 +212,74 @@ pub fn get_normalized_value(
     }
 }
 
-/// Formats a set of tick values consistently.
-/// If any value is too large or too small, the entire set uses scientific notation.
+/// A universal tick formatter following data visualization best practices.
+/// Suitable for linear, power, and log scales.
 pub(crate) fn format_ticks(values: &[f64]) -> Vec<Tick> {
     if values.is_empty() { return vec![]; }
 
-    // 1. Determine if we need scientific notation based on range
-    let needs_scientific = values.iter().any(|&v| {
-        let abs_v = v.abs();
-        abs_v != 0.0 && (abs_v >= 10000.0 || abs_v <= 0.001)
+    // 1. Detect if scientific notation is required for the entire set.
+    // Standard practice: Use 'E' for values >= 10,000 or <= 0.001.
+    let use_sci = values.iter().any(|&v| {
+        let a = v.abs();
+        a != 0.0 && (a >= 10000.0 || a <= 0.001)
     });
 
-    // 2. Calculate the common step size to determine precision
+    // 2. Calculate the step size to derive precision.
+    // The "Step" dictates how many decimals are needed for distinctness.
     let step = if values.len() > 1 {
         (values[1] - values[0]).abs()
     } else {
         values[0].abs()
     };
 
-    if needs_scientific {
-        // Calculate precision for scientific notation:
-        // We look at the step relative to the magnitude of the largest value.
+    // 3. Precision calculation based on notation mode.
+    let mut precision = if use_sci {
         let max_val = values.iter().map(|v| v.abs()).fold(0.0, f64::max);
-        let magnitude = max_val.log10().floor();
-        
-        // Precision is how many decimals we need to show the 'step' at this magnitude
-        let sci_precision = if step > 0.0 {
-            let step_magnitude = step.log10().floor();
-            let p = (magnitude - step_magnitude).abs() as usize;
-            p.clamp(0, 6)
-        } else {
-            1
-        };
-
-        values.iter().map(|&v| {
-            let label = format!("{:.*e}", sci_precision, v).replace("e", "E");
-            Tick { value: v, label }
-        }).collect()
+        let magnitude = if max_val > 0.0 { max_val.log10().floor() } else { 0.0 };
+        let step_mag = if step > 0.0 { step.log10().floor() } else { magnitude };
+        ((magnitude - step_mag).max(0.0) as usize).clamp(0, 6)
     } else {
-        // 3. Standard decimal precision (same as before, but more robust)
-        let precision = if step > 0.0 && step < 1.0 {
-            let p = (-step.log10()).ceil() as usize;
-            p.clamp(0, 6)
+        if step > 0.0 && step < 0.9999 {
+            ((-step.log10()).ceil() as usize).clamp(0, 6)
         } else {
             0
-        };
+        }
+    };
 
-        values.iter().map(|&v| {
-            let label = format!("{:.*}", precision, v);
-            Tick { value: v, label }
-        }).collect()
+    // 4. Initial Formatting Pass
+    let mut labels: Vec<String> = values.iter().map(|&v| {
+        if use_sci {
+            format!("{:.*e}", precision, v).replace("e", "E")
+        } else {
+            format!("{:.*}", precision, v)
+        }
+    }).collect();
+
+    // 5. Global Redundancy Check (The "Smart" part)
+    // If every single label in the set has '.000' decimals, they are all removed.
+    // This preserves alignment if even ONE label needs the decimal.
+    if precision > 0 {
+        let all_redundant = labels.iter().all(|l| {
+            if let Some(dot_idx) = l.find('.') {
+                // Check characters between '.' and end (or 'E' suffix)
+                let end_idx = l.find('E').unwrap_or(l.len());
+                l[dot_idx + 1..end_idx].chars().all(|c| c == '0')
+            } else {
+                true
+            }
+        });
+
+        if all_redundant {
+            precision = 0;
+            labels = values.iter().map(|&v| {
+                if use_sci {
+                    format!("{:.*e}", precision, v).replace("e", "E")
+                } else {
+                    format!("{:.*}", precision, v)
+                }
+            }).collect();
+        }
     }
+
+    values.iter().zip(labels).map(|(&v, l)| Tick { value: v, label: l }).collect()
 }

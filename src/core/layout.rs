@@ -165,52 +165,73 @@ impl LayoutEngine {
         constraints
     }
 
-    /// Estimates the 'depth' (width for Y, height for X) required for an axis.
-    /// It considers tick marks, rotated labels, and axis titles.
+    /// Estimates the total physical 'depth' required for an axis.
+    /// 
+    /// For a Bottom axis, this represents the total height (from the X-axis line down to the SVG edge).
+    /// For a Left axis, this represents the total width (from the Y-axis line left to the SVG edge).
+    /// 
+    /// It accounts for:
+    /// 1. Tick mark lines.
+    /// 2. Padding between ticks and labels.
+    /// 3. The bounding box of rotated labels (using trigonometry).
+    /// 4. Padding between labels and the axis title.
+    /// 5. The height of the title text itself.
+    /// 6. A final safety buffer for the SVG edge.
     fn estimate_axis_dimension(
         scale: &dyn crate::scale::ScaleTrait,
         angle_deg: f64,
         title: &str,
-        label_padding: f64,
+        label_padding: f64, // The padding between labels and title (theme.label_padding)
         theme: &Theme,
         is_horizontal_axis: bool,
         available_space: f64, 
     ) -> f64 {
+        // Physical constants (should match those used in draw_ticks_and_labels)
         let tick_line_len = 6.0;
-        let title_gap = 5.0; // Must match the gap in the renderer
-        let edge_buffer = 10.0;
+        let title_gap = 5.0;      // Distance between labels and the title text
+        let edge_buffer = 10.0;   // Prevents the title from touching the very edge of the SVG
         let angle_rad = angle_deg.to_radians();
 
-        // 1. Predictive Tick Generation (Matching the renderer's density)
+        // 1. Predictive Tick Generation
+        // We must generate the same number of ticks as the renderer to ensure we 
+        // measure the actual strings (like "1.0000E7") that will be displayed.
         let final_count = theme.suggest_tick_count(available_space);
         let ticks = scale.ticks(final_count);
 
         // 2. Compute the physical footprint of the labels
+        // Rotated text creates a bounding box. We need the projection of this box
+        // onto the axis perpendicular to the chart.
         let max_label_footprint = ticks.iter()
             .map(|t| {
+                // Approximation of string width based on character weights
                 let w = estimate_text_width(&t.label, theme.tick_label_size);
+                // The height of the font (cap-height approximation)
                 let h = theme.tick_label_size;
+                
+                // Formula for the height/width of a rotated rectangle:
+                // For Bottom axis (horizontal), we need vertical depth: |w*sin| + |h*cos|
+                // For Left axis (vertical), we need horizontal depth: |w*cos| + |h*sin|
                 if is_horizontal_axis {
-                    // Vertical footprint: How deep do the labels go?
                     w.abs() * angle_rad.sin().abs() + h * angle_rad.cos().abs()
                 } else {
-                    // Horizontal footprint: How wide do the labels go?
                     w.abs() * angle_rad.cos().abs() + h * angle_rad.sin().abs()
                 }
             })
             .fold(0.0, f64::max);
 
-        // 3. Title Displacement
-        // In the renderer, we added (label_size / 2.0) for vertical axes because of middle alignment,
-        // and label_size for horizontal axes. To be safe and consistent:
+        // 3. Title Area Calculation
+        // If a title exists, we need to reserve space for the gap and the text height.
         let title_area = if title.is_empty() { 
             0.0 
         } else { 
-            // Gap + Title Text height/width + Padding
-            theme.label_size + title_gap + label_padding
+            // We reserve the full height of the title font (label_size) plus the 
+            // padding and the gap. This ensures the title doesn't overlap labels
+            // and doesn't get clipped by the SVG boundary.
+            title_gap + theme.label_size + label_padding
         };
 
-        // Total reserved dimension
+        // 4. Summation of Layout Segments
+        // Total Depth = [Tick] + [Padding] + [Label Box] + [Title Area] + [Edge Buffer]
         tick_line_len + theme.tick_label_padding + max_label_footprint + title_area + edge_buffer
     }
 }
