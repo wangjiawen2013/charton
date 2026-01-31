@@ -246,10 +246,8 @@ pub(crate) fn format_ticks(values: &[f64]) -> Vec<Tick> {
         };
 
         values.iter().map(|&v| {
-            Tick { 
-                value: v, 
-                label: format!("{:.*e}", sci_precision, v).replace("e", "E") 
-            }
+            let label = format!("{:.*e}", sci_precision, v).replace("e", "E");
+            Tick { value: v, label }
         }).collect()
     } else {
         // 3. Standard decimal precision (same as before, but more robust)

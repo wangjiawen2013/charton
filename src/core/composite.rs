@@ -505,6 +505,8 @@ impl LayeredChart {
         let axis_box = crate::core::layout::LayoutEngine::calculate_axis_constraints(
             &temp_ctx,
             &self.theme,
+            temp_panel.width,
+            temp_panel.height,
         );
 
         // --- STEP 5: FINAL PANEL RESOLUTION ---
