@@ -4,4 +4,5 @@ pub(crate) mod density;
 pub(crate) mod errorbar_transform;
 pub(crate) mod hist_transform;
 pub(crate) mod rect_transform;
+pub(crate) mod box_tranform;
 pub(crate) mod window;
