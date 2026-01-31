@@ -30,6 +30,7 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
     LayeredChart::new()
         .add_layer(chart)
         .configure_theme(|t| t.with_x_tick_label_angle(-45.0))
+        .coord_flip()
         .save("./examples/line.svg")?;
 
     Ok(())

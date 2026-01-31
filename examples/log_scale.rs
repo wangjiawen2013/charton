@@ -18,6 +18,7 @@ fn main() -> Result<(), Box<dyn Error>> {
     LayeredChart::new()
         .with_size(500, 400)
         .add_layer(point_chart)
+        .coord_flip()
         .save("./examples/log_scale.svg")?;
 
     Ok(())
