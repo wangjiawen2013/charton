@@ -54,6 +54,10 @@ pub struct Theme {
     pub(crate) tick_width: f64,
     /// The physical length of the tick marks extending from the axis.
     pub(crate) tick_length: f64,
+    /// The minimum physical distance (in pixels) between axis ticks.
+    /// This prevents label overlap and ensures a clean visual density.
+    /// Default: 50.0
+    pub(crate) tick_min_spacing: f64,
 
     // --- Legend Styling ---
     /// Font size for the title of the legend.
@@ -208,6 +212,11 @@ impl Theme {
         self
     }
 
+    pub fn with_tick_min_spacing(mut self, spacing: f64) -> Self {
+        self.tick_min_spacing = spacing;
+        self
+    }
+
     // --- Legend Styling ---
 
     pub fn with_legend_title_size(mut self, size: f64) -> Self {
@@ -291,12 +300,12 @@ impl Theme {
 
     // --- Color & Palette Defaults ---
 
-    pub fn with_default_color_map(mut self, map: ColorMap) -> Self {
+    pub fn with_color_map(mut self, map: ColorMap) -> Self {
         self.color_map = map;
         self
     }
 
-    pub fn with_default_palette(mut self, palette: ColorPalette) -> Self {
+    pub fn with_palette(mut self, palette: ColorPalette) -> Self {
         self.palette = palette;
         self
     }
@@ -330,6 +339,13 @@ impl Theme {
         self.facet_strip_padding = padding;
         self
     }
+
+    /// Calculates a suggested number of ticks based on the available 
+    /// physical space and the theme's density settings.
+    pub fn suggest_tick_count(&self, available_pixels: f64) -> usize {
+        // We ensure at least 2 ticks (start and end) are always present.
+        ((available_pixels / self.tick_min_spacing).floor() as usize).max(2)
+    }
 }
 
 impl Default for Theme {
@@ -360,6 +376,7 @@ impl Default for Theme {
             axis_width: 1.0,
             tick_width: 1.0,
             tick_length: 6.0,
+            tick_min_spacing: 50.0,
 
             legend_title_size: 14.0,
             legend_label_size: 12.0,

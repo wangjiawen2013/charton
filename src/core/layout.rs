@@ -130,11 +130,15 @@ impl LayoutEngine {
         constraints
     }
 
-    /// Calculates axis space using scale ticks and text measurement.
-    /// Labels are now retrieved directly from the coordinate system.
+    /// Calculates layout constraints based on predicted axis dimensions.
+    /// 
+    /// This method uses the chart's reference dimensions to estimate the "worst-case" 
+    /// margin required for labels and titles.
     pub fn calculate_axis_constraints(
         ctx: &PanelContext,
         theme: &Theme,
+        reference_width: f64,
+        reference_height: f64,
     ) -> AxisLayoutConstraints {
         let mut constraints = AxisLayoutConstraints::default();
         let coord = ctx.coord.clone();
@@ -147,7 +151,7 @@ impl LayoutEngine {
         } else {
             (coord.get_x_scale(), theme.x_tick_label_angle, coord.get_x_label(), theme.label_padding)
         };
-        constraints.bottom = Self::estimate_axis_dimension(b_scale, b_angle, b_title, b_pad, theme, true);
+        constraints.bottom = Self::estimate_axis_dimension(b_scale, b_angle, b_title, b_pad, theme, true, reference_width);
 
         // 2. Resolve Left Axis:
         // Uses Y-axis by default, or X-axis if flipped.
@@ -156,7 +160,7 @@ impl LayoutEngine {
         } else {
             (coord.get_y_scale(), theme.y_tick_label_angle, coord.get_y_label(), theme.label_padding)
         };
-        constraints.left = Self::estimate_axis_dimension(l_scale, l_angle, l_title, l_pad, theme, false);
+        constraints.left = Self::estimate_axis_dimension(l_scale, l_angle, l_title, l_pad, theme, false, reference_height);
 
         constraints
     }
@@ -170,36 +174,43 @@ impl LayoutEngine {
         label_padding: f64,
         theme: &Theme,
         is_horizontal_axis: bool,
+        available_space: f64, 
     ) -> f64 {
         let tick_line_len = 6.0;
+        let title_gap = 5.0; // Must match the gap in the renderer
         let edge_buffer = 10.0;
         let angle_rad = angle_deg.to_radians();
-        
-        // Use the scale's own tick generation logic for measurement
-        let ticks = scale.ticks(8);
 
-        // Compute the "footprint" of labels. 
-        // If rotated 90 degrees, a wide label becomes a deep axis.
+        // 1. Predictive Tick Generation (Matching the renderer's density)
+        let final_count = theme.suggest_tick_count(available_space);
+        let ticks = scale.ticks(final_count);
+
+        // 2. Compute the physical footprint of the labels
         let max_label_footprint = ticks.iter()
             .map(|t| {
                 let w = estimate_text_width(&t.label, theme.tick_label_size);
                 let h = theme.tick_label_size;
                 if is_horizontal_axis {
-                    // Vertical footprint for Bottom Axis: w*sin + h*cos
+                    // Vertical footprint: How deep do the labels go?
                     w.abs() * angle_rad.sin().abs() + h * angle_rad.cos().abs()
                 } else {
-                    // Horizontal footprint for Left Axis: w*cos + h*sin
+                    // Horizontal footprint: How wide do the labels go?
                     w.abs() * angle_rad.cos().abs() + h * angle_rad.sin().abs()
                 }
             })
             .fold(0.0, f64::max);
 
+        // 3. Title Displacement
+        // In the renderer, we added (label_size / 2.0) for vertical axes because of middle alignment,
+        // and label_size for horizontal axes. To be safe and consistent:
         let title_area = if title.is_empty() { 
             0.0 
         } else { 
-            theme.label_size + label_padding + 5.0 
+            // Gap + Title Text height/width + Padding
+            theme.label_size + title_gap + label_padding
         };
 
+        // Total reserved dimension
         tick_line_len + theme.tick_label_padding + max_label_footprint + title_area + edge_buffer
     }
 }
