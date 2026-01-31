@@ -56,7 +56,7 @@ impl MarkErrorBar {
     }
 
     /// Determines whether to display a marker at the center (mean/median) of the error bar.
-    pub fn with_show_center(mut self, show: bool) -> Self {
+    pub fn with_center(mut self, show: bool) -> Self {
         self.show_center = show;
         self
     }
