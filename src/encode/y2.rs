@@ -1,6 +1,3 @@
-use crate::scale::ScaleTrait;
-use std::sync::{Arc, RwLock};
-
 /// Represents a secondary Y-axis encoding specification (Y2).
 ///
 /// `Y2` is typically used for visual marks that require two vertical coordinates,
@@ -20,9 +17,9 @@ pub struct Y2 {
 
     // --- System Resolution (Result/Outputs) ---
     
-    /// Stores the resolved scale instance. Using RwLock to support 
-    /// back-filling updates across multiple render calls.
-    pub(crate) resolved_scale: RwLock<Option<Arc<dyn ScaleTrait>>>,
+    // Stores the resolved scale instance. Using RwLock to support 
+    // back-filling updates across multiple render calls.
+    //pub(crate) resolved_scale: RwLock<Option<Arc<dyn ScaleTrait>>>,
 }
 
 impl Y2 {
@@ -30,7 +27,7 @@ impl Y2 {
     pub fn new(field: &str) -> Self {
         Self {
             field: field.to_string(),
-            resolved_scale: RwLock::new(None),
+            //resolved_scale: RwLock::new(None),
         }
     }
 }

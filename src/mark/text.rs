@@ -89,11 +89,12 @@ impl std::fmt::Display for TextAnchor {
 impl MarkText {
     /// Create a new text mark with default properties.
     pub(crate) fn new() -> Self {
+        let font_stack = "Inter, -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, 'PingFang SC', 'Microsoft YaHei', Ubuntu, Cantarell, 'Noto Sans', sans-serif".to_string();
         Self {
             text: String::new(),
             color: SingleColor::new("black"),
             font_size: 12.0,
-            font_family: "sans-serif".to_string(),
+            font_family: font_stack,
             font_weight: "normal".into(),
             text_anchor: TextAnchor::default(),
             opacity: 1.0,

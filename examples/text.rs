@@ -26,8 +26,8 @@ fn main() -> Result<(), Box<dyn Error>> {
     LayeredChart::new()
         .with_x_label("GDP (Trillion USD)")
         .with_y_label("Population (Millions)")
+        .with_x_expand(Expansion { mult: (0.1, 0.1), add: (0.1, 0.1)})
         .add_layer(text_chart)
-        .coord_flip()
         .save("./examples/text.svg")?;
 
     Ok(())

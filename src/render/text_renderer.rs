@@ -2,7 +2,7 @@ use crate::core::layer::{MarkRenderer, RenderBackend, TextConfig};
 use crate::core::context::PanelContext;
 use crate::chart::Chart;
 use crate::Precision;
-use crate::mark::text::{MarkText, TextAnchor};
+use crate::mark::text::MarkText;
 use crate::error::ChartonError;
 use crate::visual::color::SingleColor;
 use polars::prelude::*;

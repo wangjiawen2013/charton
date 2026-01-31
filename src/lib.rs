@@ -33,7 +33,7 @@ pub mod prelude {
     pub use crate::chart::Chart;
     pub use crate::core::data::{DataFrameSource, load_dataset};
     pub use crate::core::composite::LayeredChart;
-    pub use crate::scale::Scale;
+    pub use crate::scale::{Scale, Expansion};
 
     pub use crate::transform::{
         density::{BandwidthType, DensityTransform, KernelType},
