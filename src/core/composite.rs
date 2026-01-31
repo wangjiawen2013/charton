@@ -8,7 +8,6 @@ use crate::core::aesthetics::GlobalAesthetics;
 use crate::scale::{Scale, ScaleDomain, Expansion, create_scale, mapper::VisualMapper};
 use crate::core::aesthetics::AestheticMapping;
 use crate::theme::Theme;
-use crate::visual::color::{ColorMap, ColorPalette};
 use crate::error::ChartonError;
 use std::fmt::Write;
 use std::sync::Arc;
@@ -60,10 +59,6 @@ pub struct LayeredChart {
     pub(crate) y_label: Option<String>,
     pub(crate) y_expand: Option<Expansion>,
 
-    /// Override the theme's default color map for continuous data.
-    pub(crate) color_map_override: Option<ColorMap>,
-    /// Override the theme's default palette for categorical data.
-    pub(crate) palette_override: Option<ColorPalette>,
     pub(crate) color_domain: Option<ScaleDomain>,
     pub(crate) color_expand: Option<Expansion>,
 
@@ -102,8 +97,6 @@ impl LayeredChart {
             y_label: None,
             y_expand: None,
 
-            color_map_override: None,
-            palette_override: None,
             color_domain: None,
             color_expand: None,
 
@@ -160,18 +153,6 @@ impl LayeredChart {
 
     pub fn with_theme(mut self, theme: Theme) -> Self {
         self.theme = theme;
-        self
-    }
-
-    /// Set a custom ColorMap for continuous color scales.
-    pub fn with_color_continuous(mut self, map: ColorMap) -> Self {
-        self.color_map_override = Some(map);
-        self
-    }
-
-    /// Set a custom Palette for categorical color scales.
-    pub fn with_color_discrete(mut self, palette: ColorPalette) -> Self {
-        self.palette_override = Some(palette);
         self
     }
 
