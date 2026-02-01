@@ -333,6 +333,10 @@ impl<T: Mark> Chart<T> {
 
         // Perform chart-specific data transformations based on mark type
         match mark.mark_type() {
+            "boxplot" => {
+                // Apply boxplot-specific data transformations
+                self = self.transform_boxplot_data()?;
+            }
             "errorbar" => {
                 // Apply errorbar-specific data transformations only when y2 encoding is not present
                 if self.encoding.y2.is_none() {
@@ -494,10 +498,6 @@ where
                     // Specific to errobar chart
                     columns_to_scan.push(format!("{}_{}_min", TEMP_SUFFIX, field_name));
                     columns_to_scan.push(format!("{}_{}_max", TEMP_SUFFIX, field_name));
-
-                    // Specific to boxplot chart
-                    columns_to_scan.push(format!("{}_global_min", TEMP_SUFFIX));
-                    columns_to_scan.push(format!("{}_global_max", TEMP_SUFFIX));
                 }
 
                 // Scan all candidate columns and calculate the union of their extents

@@ -1,10 +1,10 @@
 use crate::chart::Chart;
+use crate::mark::Mark;
 use crate::error::ChartonError;
-use crate::mark::boxplot::MarkBoxplot;
 use crate::TEMP_SUFFIX;
 use polars::prelude::*;
 
-impl Chart<MarkBoxplot> {
+impl <T: Mark> Chart<T> {
     /// Performs high-performance statistical aggregation for Box Plots.
     ///
     /// This transform supports grouped box plots with "Dodge" alignment:
@@ -40,10 +40,19 @@ impl Chart<MarkBoxplot> {
                 col(y_name).median().alias(format!("{}_median", TEMP_SUFFIX)),
                 col(y_name).quantile(lit(0.75), QuantileMethod::Linear).alias(format!("{}_q3", TEMP_SUFFIX)),
                 col(y_name).implode().alias(format!("{}_raw_values", TEMP_SUFFIX)),
-                lit(global_min).alias(format!("{}_global_min", TEMP_SUFFIX)),
-                lit(global_max).alias(format!("{}_global_max", TEMP_SUFFIX)),
+                col(y_name).first().alias(y_name),  // We need to keep the original y name here
             ])
             .collect()?;
+
+        // Replace the original Y column with the global extent to ensure get_data_bounds captures the full range.
+        let mut y_col = df_stats.column(y_name)?.f64()?.to_vec();
+        if y_col.len() >= 2 {
+            y_col[0] = Some(global_min);
+            y_col[1] = Some(global_max);
+        } else if y_col.len() == 1 {
+            y_col[0] = Some(global_max); 
+        }
+        df_stats.with_column(Series::new(y_name.into(), y_col))?;
 
         // --- STEP 4: CALCULATE GLOBAL DODGE PARAMETERS ---
         // We calculate fixed indices for colors to ensure boxes stay in their "slots"
@@ -124,6 +133,7 @@ impl Chart<MarkBoxplot> {
         df_stats.with_column(Series::new(format!("{}_groups_count", TEMP_SUFFIX).into(), vec![groups_count; df_stats.height()]))?;
 
         self.data.df = df_stats;
+        println!("{}", self.data.df);
         Ok(self)
     }
 }
