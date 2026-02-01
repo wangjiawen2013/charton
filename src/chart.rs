@@ -18,6 +18,7 @@ use crate::coordinate::CoordinateTrait;
 use crate::core::aesthetics::GlobalAesthetics;
 use crate::error::ChartonError;
 use crate::mark::Mark;
+use crate::TEMP_SUFFIX;
 use polars::prelude::*;
 use std::sync::Arc;
 
@@ -483,15 +484,20 @@ where
                 // Build a list of candidate columns that contribute to this channel's domain
                 let mut columns_to_scan = vec![field_name.to_string()];
 
-                // Only scan for secondary/temp columns on the Y-axis.
-                // Note: X-axis extent logic is omitted here as horizontal error bars are
-                // handled via coordinate flipping.
+                // Add potential auxiliary columns for Y-axis
                 if channel == Channel::Y {
+                    // Standard secondary field
                     if let Some(y2_enc) = &self.encoding.y2 {
                         columns_to_scan.push(y2_enc.field.clone());
                     }
-                    columns_to_scan.push(format!("__charton_temp_{}_min", field_name));
-                    columns_to_scan.push(format!("__charton_temp_{}_max", field_name));
+
+                    // Specific to errobar chart
+                    columns_to_scan.push(format!("{}_{}_min", TEMP_SUFFIX, field_name));
+                    columns_to_scan.push(format!("{}_{}_max", TEMP_SUFFIX, field_name));
+
+                    // Specific to boxplot chart
+                    columns_to_scan.push(format!("{}_global_min", TEMP_SUFFIX));
+                    columns_to_scan.push(format!("{}_global_max", TEMP_SUFFIX));
                 }
 
                 // Scan all candidate columns and calculate the union of their extents
