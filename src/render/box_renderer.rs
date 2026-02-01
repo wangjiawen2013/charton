@@ -56,14 +56,28 @@ impl MarkRenderer for Chart<MarkBoxplot> {
         let sub_idx_col = df_source.column(&format!("{}_sub_idx", TEMP_SUFFIX))?;
         let sub_idx_col = sub_idx_col.f64()?;
 
+        // --- NEW: Calculate the normalization factor for discrete steps ---
+        // We need to know how much 1.0 unit in data space represents in normalized [0,1] space.
+        // This is crucial because your width/span are relative to the tick-to-tick distance.
+        let n0 = x_scale.normalize(0.0);
+        let n1 = x_scale.normalize(1.0);
+        let unit_step_norm = (n1 - n0).abs();
+
         for i in 0..df_source.df.height() {
             let total_groups = groups_count_col.get(i).unwrap();
             let sub_idx = sub_idx_col.get(i).unwrap();
 
-            let box_width_norm = mark_config.width.min(
+            // Calculate the width of the box in normalized coordinates.
+            // box_width_data is the fraction of the tick-to-tick distance (1.0).
+            let box_width_data = mark_config.width.min(
                 mark_config.span / (total_groups + (total_groups - 1.0) * mark_config.spacing)
             );
+
+            // Convert data-space width to normalized-space width.
+            let box_width_norm = box_width_data * unit_step_norm;
             let spacing_norm = box_width_norm * mark_config.spacing;
+
+            // Calculate offset in normalized space.
             let offset_norm = (sub_idx - (total_groups - 1.0) / 2.0) * (box_width_norm + spacing_norm);
             
             let x_center_n = x_norms.get(i).unwrap() + offset_norm;
@@ -96,14 +110,12 @@ impl MarkRenderer for Chart<MarkBoxplot> {
             let (_, py_q1) = context.transform(x_center_n, n_q1);
             let (_, py_q3) = context.transform(x_center_n, n_q3);
 
-            // Whisker from Min to Q1
             backend.draw_line(LineConfig { 
                 x1: cx as Precision, y1: py_min as Precision, 
                 x2: cx as Precision, y2: py_q1 as Precision, 
                 color: mark_config.stroke.clone(),
                 width: mark_config.stroke_width as Precision,
             });
-            // Whisker from Max to Q3
             backend.draw_line(LineConfig { 
                 x1: cx as Precision, y1: py_max as Precision, 
                 x2: cx as Precision, y2: py_q3 as Precision, 

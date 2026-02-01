@@ -34,7 +34,7 @@ impl <T: Mark> Chart<T> {
         // --- STEP 3: AGGREGATION ---
         // Note: We include our global bounds in the group_by/agg so they persist
         let mut df_stats = self.data.df.clone().lazy()
-            .group_by(group_cols)
+            .group_by_stable(group_cols)
             .agg([
                 col(y_name).quantile(lit(0.25), QuantileMethod::Linear).alias(format!("{}_q1", TEMP_SUFFIX)),
                 col(y_name).median().alias(format!("{}_median", TEMP_SUFFIX)),
@@ -89,7 +89,7 @@ impl <T: Mark> Chart<T> {
             // No color: every box is in slot 0, and there's only 1 box per X
             df_stats.with_column(Series::new(format!("{}_sub_idx", TEMP_SUFFIX).into(), vec![0.0; df_stats.height()]))?;
         }
-        println!{"{}", df_stats};
+
         // --- STEP 5: REFINED STATS CALCULATION (WHISKERS & OUTLIERS) ---
         let q1_col = df_stats.column(&format!("{}_q1", TEMP_SUFFIX))?.f64()?;
         let q3_col = df_stats.column(&format!("{}_q3", TEMP_SUFFIX))?.f64()?;
@@ -140,7 +140,7 @@ impl <T: Mark> Chart<T> {
         self.data.df.drop_many(&cols_to_remove);
 
         self.data.df = df_stats;
-        println!("{}", self.data.df);
+
         Ok(self)
     }
 }
