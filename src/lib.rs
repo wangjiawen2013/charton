@@ -52,7 +52,7 @@ pub mod prelude {
 }
 
 /// Temporary column name used internally by Polars to avoid naming conflicts.
-pub(crate) const TEMP_SUFFIX: &str = "n9jh3z8";
+pub(crate) const TEMP_SUFFIX: &str = "__charton_temp_n9jh3z8";
 
 /// Represents the floating-point precision used specifically for the rendering stage.
 ///
