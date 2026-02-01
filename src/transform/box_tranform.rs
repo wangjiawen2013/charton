@@ -74,9 +74,10 @@ impl <T: Mark> Chart<T> {
             
             // Create a mapping DataFrame: [ColorName, sub_idx]
             let sub_idx_series = Series::new(
-                "sub_idx".into(), 
+                format!("{}_sub_idx", TEMP_SUFFIX).into(), 
                 (0..unique_colors.len()).map(|i| i as f64).collect::<Vec<f64>>()
             );
+
             let map_df = DataFrame::new(vec![
                 unique_colors.with_name(color_field.clone().into()), 
                 sub_idx_series.into()
@@ -86,9 +87,9 @@ impl <T: Mark> Chart<T> {
             df_stats = df_stats.left_join(&map_df, [color_field], [color_field])?;
         } else {
             // No color: every box is in slot 0, and there's only 1 box per X
-            df_stats.with_column(Series::new("sub_idx".into(), vec![0.0; df_stats.height()]))?;
+            df_stats.with_column(Series::new(format!("{}_sub_idx", TEMP_SUFFIX).into(), vec![0.0; df_stats.height()]))?;
         }
-
+        println!{"{}", df_stats};
         // --- STEP 5: REFINED STATS CALCULATION (WHISKERS & OUTLIERS) ---
         let q1_col = df_stats.column(&format!("{}_q1", TEMP_SUFFIX))?.f64()?;
         let q3_col = df_stats.column(&format!("{}_q3", TEMP_SUFFIX))?.f64()?;
@@ -131,6 +132,12 @@ impl <T: Mark> Chart<T> {
         df_stats.with_column(Series::new(format!("{}_max", TEMP_SUFFIX).into(), whisker_maxs))?;
         df_stats.with_column(Series::new(format!("{}_outliers", TEMP_SUFFIX).into(), outliers_list))?;
         df_stats.with_column(Series::new(format!("{}_groups_count", TEMP_SUFFIX).into(), vec![groups_count; df_stats.height()]))?;
+
+        // Remove the temporary columns
+        let cols_to_remove = [
+            format!("{}_raw_values", TEMP_SUFFIX),
+        ];
+        self.data.df.drop_many(&cols_to_remove);
 
         self.data.df = df_stats;
         println!("{}", self.data.df);

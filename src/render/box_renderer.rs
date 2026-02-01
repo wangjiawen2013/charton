@@ -53,8 +53,8 @@ impl MarkRenderer for Chart<MarkBoxplot> {
         let groups_count_col = df_source.column(&format!("{}_groups_count", TEMP_SUFFIX))?;
         let groups_count_col = groups_count_col.f64()?;
 
-        let sub_ids_col = df_source.column(&format!("{}_sub_ids", TEMP_SUFFIX))?;
-        let sub_idx_col = sub_ids_col.f64()?;
+        let sub_idx_col = df_source.column(&format!("{}_sub_idx", TEMP_SUFFIX))?;
+        let sub_idx_col = sub_idx_col.f64()?;
 
         for i in 0..df_source.df.height() {
             let total_groups = groups_count_col.get(i).unwrap();
