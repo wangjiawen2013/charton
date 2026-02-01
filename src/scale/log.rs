@@ -101,13 +101,14 @@ impl ScaleTrait for LogScale {
 
     /// Generates logarithmic tick marks.
     /// 
-    /// This algorithm prioritizes major ticks at powers of the base (e.g., 1, 10, 100).
-    /// If the data spans few decades, it injects minor ticks (multipliers like 2 and 5)
-    /// to provide better visual context.
-    fn ticks(&self, count: usize) -> Vec<Tick> {
+    /// This version focuses exclusively on "Major Ticks" (integer powers of the base).
+    /// It includes a safety fallback to ensure at least two ticks are returned 
+    /// even if the data range is smaller than a single decade.
+    fn ticks(&self, _count: usize) -> Vec<Tick> {
         let (min, max) = self.domain;
         let mut tick_values = Vec::new();
         
+        // Logarithmic calculations to find the range of exponents
         let log_base = self.base.ln();
         let log_min = min.ln() / log_base;
         let log_max = max.ln() / log_base;
@@ -116,6 +117,8 @@ impl ScaleTrait for LogScale {
         let end_exp = log_max.ceil() as i32;
 
         // 1. Generate Major Ticks (powers of the base)
+        // We use a small epsilon (0.99/1.01) to account for floating point inaccuracies
+        // ensuring that boundary values are captured.
         for exp in start_exp..=end_exp {
             let val = self.base.powi(exp);
             if val >= min * 0.99 && val <= max * 1.01 {
@@ -123,27 +126,19 @@ impl ScaleTrait for LogScale {
             }
         }
 
-        // 2. Generate Minor Ticks (if density is low)
-        let n_decades = (end_exp - start_exp).abs();
-        if n_decades < (count as i32) {
-            let mut minor_ticks = Vec::new();
-            let multipliers = [2.0, 5.0];
-            
-            for exp in (start_exp - 1)..=end_exp {
-                let base_val = self.base.powi(exp);
-                for &m in &multipliers {
-                    let val = base_val * m;
-                    if val > min && val < max {
-                        minor_ticks.push(val);
-                    }
-                }
-            }
-            tick_values.extend(minor_ticks);
-            tick_values.sort_by(|a, b| a.partial_cmp(b).unwrap());
-            tick_values.dedup_by(|a, b| (*a - *b).abs() < 1e-9);
+        // 2. Fallback Logic
+        // If the domain is very narrow (e.g., between 120 and 150), no integer power 
+        // of 10 exists within it. In such cases, we provide the min and max 
+        // as ticks so the axis isn't blank.
+        if tick_values.len() < 2 {
+            tick_values.clear();
+            tick_values.push(min);
+            tick_values.push(max);
         }
 
-        // 3. Call super::format_ticks to ensure consistent axis-wide formatting (automatic scientific notation)
+        // 3. Formatting
+        // Delegate to the shared formatter which handles scientific notation
+        // and converts raw f64 values into Tick objects.
         super::format_ticks(&tick_values)
     }
 
