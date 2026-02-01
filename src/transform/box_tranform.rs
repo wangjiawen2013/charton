@@ -1,6 +1,7 @@
 use crate::chart::Chart;
 use crate::error::ChartonError;
 use crate::mark::boxplot::MarkBoxplot;
+use crate::TEMP_SUFFIX;
 use polars::prelude::*;
 
 impl Chart<MarkBoxplot> {
@@ -14,7 +15,14 @@ impl Chart<MarkBoxplot> {
         let x_name = &self.encoding.x.as_ref().unwrap().field;
         let y_name = &self.encoding.y.as_ref().unwrap().field;
 
-        // --- STEP 1: IDENTIFY GROUPING COLUMNS ---
+        // --- STEP 1: CALCULATE GLOBAL BOUNDS FROM RAW DATA ---
+        // We calculate global boundaries once here to ensure Y-axis scales correctly 
+        // in get_data_bounds later, encompassing all whiskers and outliers.
+        let raw_y = self.data.column(y_name)?;
+        let global_min = raw_y.min::<f64>()?.unwrap_or(0.0);
+        let global_max = raw_y.max::<f64>()?.unwrap_or(1.0);
+
+        // --- STEP 2: IDENTIFY GROUPING COLUMNS ---
         let mut group_cols = vec![col(x_name)];
         let mut color_field_name: Option<String> = None;
 
@@ -23,18 +31,21 @@ impl Chart<MarkBoxplot> {
             color_field_name = Some(color_enc.field.clone());
         }
 
-        // --- STEP 2: INITIAL AGGREGATION ---
+        // --- STEP 3: AGGREGATION ---
+        // Note: We include our global bounds in the group_by/agg so they persist
         let mut df_stats = self.data.df.clone().lazy()
             .group_by(group_cols)
             .agg([
-                col(y_name).quantile(lit(0.25), QuantileMethod::Linear).alias("q1"),
-                col(y_name).median().alias("median"),
-                col(y_name).quantile(lit(0.75), QuantileMethod::Linear).alias("q3"),
-                col(y_name).implode().alias("raw_values"), 
+                col(y_name).quantile(lit(0.25), QuantileMethod::Linear).alias(format!("{}_q1", TEMP_SUFFIX)),
+                col(y_name).median().alias(format!("{}_median", TEMP_SUFFIX)),
+                col(y_name).quantile(lit(0.75), QuantileMethod::Linear).alias(format!("{}_q3", TEMP_SUFFIX)),
+                col(y_name).implode().alias(format!("{}_raw_values", TEMP_SUFFIX)),
+                lit(global_min).alias(format!("{}_global_min", TEMP_SUFFIX)),
+                lit(global_max).alias(format!("{}_global_max", TEMP_SUFFIX)),
             ])
             .collect()?;
 
-        // --- STEP 3: CALCULATE GLOBAL DODGE PARAMETERS ---
+        // --- STEP 4: CALCULATE GLOBAL DODGE PARAMETERS ---
         // We calculate fixed indices for colors to ensure boxes stay in their "slots"
         let mut groups_count = 1.0;
         
@@ -69,10 +80,10 @@ impl Chart<MarkBoxplot> {
             df_stats.with_column(Series::new("sub_idx".into(), vec![0.0; df_stats.height()]))?;
         }
 
-        // --- STEP 4: REFINED STATS CALCULATION (WHISKERS & OUTLIERS) ---
-        let q1_col = df_stats.column("q1")?.f64()?;
-        let q3_col = df_stats.column("q3")?.f64()?;
-        let raw_list_col = df_stats.column("raw_values")?.list()?;
+        // --- STEP 5: REFINED STATS CALCULATION (WHISKERS & OUTLIERS) ---
+        let q1_col = df_stats.column(&format!("{}_q1", TEMP_SUFFIX))?.f64()?;
+        let q3_col = df_stats.column(&format!("{}_q3", TEMP_SUFFIX))?.f64()?;
+        let raw_list_col = df_stats.column(&format!("{}_raw_values", TEMP_SUFFIX))?.list()?;
 
         let mut whisker_mins = Vec::with_capacity(df_stats.height());
         let mut whisker_maxs = Vec::with_capacity(df_stats.height());
@@ -106,11 +117,11 @@ impl Chart<MarkBoxplot> {
             outliers_list.push(Series::new("outlier".into(), group_outliers));
         }
 
-        // --- STEP 5: FINAL ASSEMBLY ---
-        df_stats.with_column(Series::new("min".into(), whisker_mins))?;
-        df_stats.with_column(Series::new("max".into(), whisker_maxs))?;
-        df_stats.with_column(Series::new("outliers".into(), outliers_list))?;
-        df_stats.with_column(Series::new("groups_count".into(), vec![groups_count; df_stats.height()]))?;
+        // --- STEP 6: FINAL ASSEMBLY ---
+        df_stats.with_column(Series::new(format!("{}_min", TEMP_SUFFIX).into(), whisker_mins))?;
+        df_stats.with_column(Series::new(format!("{}_max", TEMP_SUFFIX).into(), whisker_maxs))?;
+        df_stats.with_column(Series::new(format!("{}_outliers", TEMP_SUFFIX).into(), outliers_list))?;
+        df_stats.with_column(Series::new(format!("{}_groups_count", TEMP_SUFFIX).into(), vec![groups_count; df_stats.height()]))?;
 
         self.data.df = df_stats;
         Ok(self)

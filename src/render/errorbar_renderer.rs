@@ -2,6 +2,7 @@ use crate::core::layer::{MarkRenderer, RenderBackend, LineConfig, CircleConfig};
 use crate::core::context::PanelContext;
 use crate::chart::Chart;
 use crate::Precision;
+use crate::TEMP_SUFFIX;
 use crate::mark::errorbar::MarkErrorBar;
 use crate::error::ChartonError;
 
@@ -36,8 +37,8 @@ impl MarkRenderer for Chart<MarkErrorBar> {
             (y_field.to_string(), y2.field.clone())
         } else {
             (
-                format!("__charton_temp_{}_min", y_field),
-                format!("__charton_temp_{}_max", y_field),
+                format!("{}_{}_min", TEMP_SUFFIX, y_field),
+                format!("{}_{}_max", TEMP_SUFFIX, y_field),
             )
         };
 
