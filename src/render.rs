@@ -5,5 +5,6 @@ pub(crate) mod errorbar_renderer;
 pub(crate) mod text_renderer;
 pub(crate) mod rule_renderer;
 pub(crate) mod box_renderer;
+pub(crate) mod area_renderer;
 pub(crate) mod axis_renderer;
 pub(crate) mod legend_renderer;

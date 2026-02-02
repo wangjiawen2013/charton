@@ -24,7 +24,7 @@ pub(crate) fn loess(x: &[f64], y: &[f64], bandwidth: f64) -> (Vec<f64>, Vec<f64>
 
     let mut smoothed_y = Vec::with_capacity(n);
     
-    // PERF(Performance): Reuse a single distance buffer to avoid O(N) allocations.
+    // PERF: Reuse a single distance buffer to avoid O(N) allocations.
     let mut distances: Vec<(usize, f64)> = Vec::with_capacity(n);
 
     for i in 0..n {
@@ -36,7 +36,7 @@ pub(crate) fn loess(x: &[f64], y: &[f64], bandwidth: f64) -> (Vec<f64>, Vec<f64>
             distances.push((j, (val - target_x).abs()));
         }
 
-        // 2. PERF: Partial sort using Quickselect (select_nth_unstable_by).
+        // 2. PERF(Performance): Partial sort using Quickselect (select_nth_unstable_by).
         // This finds the k-nearest neighbors in O(N) average time, 
         // significantly faster than a full O(N log N) sort.
         // We use partial_cmp().unwrap_or because distances are non-NaN f64s.

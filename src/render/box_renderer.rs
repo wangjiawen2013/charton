@@ -21,7 +21,8 @@ impl MarkRenderer for Chart<MarkBoxplot> {
         let x_scale = context.coord.get_x_scale();
         let y_scale = context.coord.get_y_scale();
 
-        // Vectorized normalization
+        // --- STEP 1: Vectorized Normalization ---
+        // Map data values to [0, 1] normalized space for both axes.
         let x_norms = x_scale.scale_type().normalize_series(x_scale, &df_source.column(x_name)?)?;
         let q1_n = y_scale.scale_type().normalize_series(y_scale, &df_source.column(&format!("{}_q1", TEMP_SUFFIX))?)?;
         let q3_n = y_scale.scale_type().normalize_series(y_scale, &df_source.column(&format!("{}_q3", TEMP_SUFFIX))?)?;
@@ -32,7 +33,7 @@ impl MarkRenderer for Chart<MarkBoxplot> {
         let outlier_series = df_source.column(&format!("{}_outliers", TEMP_SUFFIX))?;
         let outliers_col = outlier_series.list()?;
 
-        // Color mapping logic
+        // --- STEP 2: Color Mapping ---
         let color_vec: Vec<SingleColor> = if let Some(ref mapping) = context.spec.aesthetics.color {
             let s = df_source.column(&mapping.field)?;
             let s_trait = mapping.scale_impl.as_ref();
@@ -52,44 +53,43 @@ impl MarkRenderer for Chart<MarkBoxplot> {
 
         let groups_count_col = df_source.column(&format!("{}_groups_count", TEMP_SUFFIX))?;
         let groups_count_col = groups_count_col.f64()?;
-
         let sub_idx_col = df_source.column(&format!("{}_sub_idx", TEMP_SUFFIX))?;
         let sub_idx_col = sub_idx_col.f64()?;
 
-        // --- NEW: Calculate the normalization factor for discrete steps ---
-        // We need to know how much 1.0 unit in data space represents in normalized [0,1] space.
-        // This is crucial because your width/span are relative to the tick-to-tick distance.
+        // --- STEP 3: Calculate Unit Step in Normalized Space ---
+        // This calculates how wide "1.0 data unit" is in the [0, 1] normalized range.
+        // It accounts for padding/expansion in DiscreteScale.
         let n0 = x_scale.normalize(0.0);
         let n1 = x_scale.normalize(1.0);
         let unit_step_norm = (n1 - n0).abs();
 
+        // --- STEP 4: Render Loop ---
         for i in 0..df_source.df.height() {
             let total_groups = groups_count_col.get(i).unwrap();
             let sub_idx = sub_idx_col.get(i).unwrap();
 
-            // Calculate the width of the box in normalized coordinates.
-            // box_width_data is the fraction of the tick-to-tick distance (1.0).
+            // Apply dodge logic: calculate box width and spacing relative to unit_step_norm
             let box_width_data = mark_config.width.min(
                 mark_config.span / (total_groups + (total_groups - 1.0) * mark_config.spacing)
             );
-
-            // Convert data-space width to normalized-space width.
             let box_width_norm = box_width_data * unit_step_norm;
             let spacing_norm = box_width_norm * mark_config.spacing;
 
-            // Calculate offset in normalized space.
+            // Offset the box center from the category tick position
             let offset_norm = (sub_idx - (total_groups - 1.0) / 2.0) * (box_width_norm + spacing_norm);
-            
             let x_center_n = x_norms.get(i).unwrap() + offset_norm;
+            
             let current_color = &color_vec[i];
 
+            // Get normalized Y-stats
             let n_q1 = q1_n.get(i).unwrap();
             let n_q3 = q3_n.get(i).unwrap();
             let n_med = med_n.get(i).unwrap();
             let n_min = min_n.get(i).unwrap();
             let n_max = max_n.get(i).unwrap();
 
-            // 1. Draw Rect (The Box)
+            // --- 5. Draw Rect (The Box) ---
+            // Transform both corners. context.transform handles coord_flip automatically.
             let (bx1, by1) = context.transform(x_center_n - box_width_norm / 2.0, n_q1);
             let (bx2, by2) = context.transform(x_center_n + box_width_norm / 2.0, n_q3);
             
@@ -104,26 +104,30 @@ impl MarkRenderer for Chart<MarkBoxplot> {
                 opacity: mark_config.opacity as Precision,
             });
 
-            // 2. Draw Whiskers (The Vertical Lines)
-            let (cx, py_min) = context.transform(x_center_n, n_min);
-            let (_, py_max) = context.transform(x_center_n, n_max);
-            let (_, py_q1) = context.transform(x_center_n, n_q1);
-            let (_, py_q3) = context.transform(x_center_n, n_q3);
+            // --- 6. Draw Whiskers ---
+            // We transform the full (x, y) pairs to avoid mixing axes manually.
+            // This ensures whiskers orient correctly whether vertical or horizontal.
+            let (p_min_x, p_min_y) = context.transform(x_center_n, n_min);
+            let (p_max_x, p_max_y) = context.transform(x_center_n, n_max);
+            let (p_q1_x, p_q1_y) = context.transform(x_center_n, n_q1);
+            let (p_q3_x, p_q3_y) = context.transform(x_center_n, n_q3);
 
+            // Lower whisker: Min to Q1
             backend.draw_line(LineConfig { 
-                x1: cx as Precision, y1: py_min as Precision, 
-                x2: cx as Precision, y2: py_q1 as Precision, 
+                x1: p_min_x as Precision, y1: p_min_y as Precision, 
+                x2: p_q1_x as Precision, y2: p_q1_y as Precision, 
                 color: mark_config.stroke.clone(),
                 width: mark_config.stroke_width as Precision,
             });
+            // Upper whisker: Max to Q3
             backend.draw_line(LineConfig { 
-                x1: cx as Precision, y1: py_max as Precision, 
-                x2: cx as Precision, y2: py_q3 as Precision, 
+                x1: p_max_x as Precision, y1: p_max_y as Precision, 
+                x2: p_q3_x as Precision, y2: p_q3_y as Precision, 
                 color: mark_config.stroke.clone(),
                 width: mark_config.stroke_width as Precision,
             });
 
-            // 3. Draw Median Line
+            // --- 7. Draw Median Line ---
             let (m1x, m1y) = context.transform(x_center_n - box_width_norm / 2.0, n_med);
             let (m2x, m2y) = context.transform(x_center_n + box_width_norm / 2.0, n_med);
             backend.draw_line(LineConfig {
@@ -133,23 +137,24 @@ impl MarkRenderer for Chart<MarkBoxplot> {
                 width: (mark_config.stroke_width * 2.0) as Precision,
             });
 
-            // 4. Draw Outliers
-            let s_outliers = outliers_col.get_as_series(i).unwrap();
-            if s_outliers.len() > 0 {
-                let n_outliers = y_scale.scale_type().normalize_series(y_scale, &s_outliers)?;
-
-                for n_o_opt in n_outliers.into_iter() {
-                    if let Some(n_o) = n_o_opt {
-                        let (ox, oy) = context.transform(x_center_n, n_o);
-                        backend.draw_circle(CircleConfig {
-                            x: ox as Precision,
-                            y: oy as Precision,
-                            radius: mark_config.outlier_size as Precision,
-                            fill: mark_config.outlier_color.clone(),
-                            stroke: SingleColor::new("none"),
-                            stroke_width: 0.0,
-                            opacity: mark_config.opacity as Precision,
-                        });
+            // --- 8. Draw Outliers ---
+            if let Some(s_outliers) = outliers_col.get_as_series(i) {
+                if s_outliers.len() > 0 {
+                    let n_outliers = y_scale.scale_type().normalize_series(y_scale, &s_outliers)?;
+                    for n_o_opt in n_outliers.into_iter() {
+                        if let Some(n_o) = n_o_opt {
+                            // Outliers also need full (x, y) transform to follow the flip.
+                            let (ox, oy) = context.transform(x_center_n, n_o);
+                            backend.draw_circle(CircleConfig {
+                                x: ox as Precision,
+                                y: oy as Precision,
+                                radius: mark_config.outlier_size as Precision,
+                                fill: mark_config.outlier_color.clone(),
+                                stroke: SingleColor::new("none"),
+                                stroke_width: 0.0,
+                                opacity: mark_config.opacity as Precision,
+                            });
+                        }
                     }
                 }
             }
