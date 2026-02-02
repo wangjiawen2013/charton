@@ -360,44 +360,67 @@ impl<T: Mark> Chart<T> {
             }
         }
 
-        // Set default scale types based on data types
-        if let Some(ref mut x_encoding) = self.encoding.x {
-            if x_encoding.scale_type.is_none() {
-                let dtype = self.data.df.schema().get(&x_encoding.field).unwrap();
-                let semantic_type = interpret_semantic_type(dtype);
-                x_encoding.scale_type = match semantic_type {
-                    SemanticType::Continuous => Some(Scale::Linear),
-                    SemanticType::Discrete => Some(Scale::Discrete),
-                    SemanticType::Temporal => Some(Scale::Temporal),
-                };
-            }
-        }
-
-        if let Some(ref mut y_encoding) = self.encoding.y {
-            if y_encoding.scale_type.is_none() {
-                let dtype = self.data.df.schema().get(&y_encoding.field).unwrap();
-                let semantic_type = interpret_semantic_type(dtype);
-                y_encoding.scale_type = match semantic_type {
-                    SemanticType::Continuous => Some(Scale::Linear),
-                    SemanticType::Discrete => Some(Scale::Discrete),
-                    SemanticType::Temporal => Some(Scale::Temporal),
-                };
-            }
-        }
-
-        if let Some(ref mut color_encoding) = self.encoding.color {
-            if color_encoding.scale_type.is_none() {
-                let dtype = self.data.df.schema().get(&color_encoding.field).unwrap();
-                let semantic_type = interpret_semantic_type(dtype);
-                color_encoding.scale_type = match semantic_type {
-                    SemanticType::Continuous => Some(Scale::Linear),
-                    SemanticType::Discrete => Some(Scale::Discrete),
-                    SemanticType::Temporal => Some(Scale::Temporal),
-                };
-            }
-        }
+        // Set default encodings
+        self.apply_default_encodings();
 
         Ok(self)
+    }
+
+    /// Completes the chart's encoding configuration by inferring missing metadata.
+    ///
+    /// This method is the "Intelligence Layer" that populates resolved states:
+    /// 1. **Scale Mapping**: Automatically maps DataFrame column types to high-level Scale 
+    ///    types (Linear, Discrete, or Temporal).
+    /// 2. **Visual Integrity**: Enforces the "Zero-Baseline" rule for quantitative 
+    ///    marks (Area, Bar, Hist) to ensure the visual area represents the data magnitude accurately.
+    ///
+    /// # Safety/Preconditions
+    /// This method uses `unwrap()` on X/Y encodings and Schema lookups because it 
+    /// assumes `check_schema` and mandatory field validation have already passed 
+    /// in the `encode` pipeline.
+    fn apply_default_encodings(&mut self) {
+        // --- 1. RESOLVE X CHANNEL ---
+        // Mandatory: x_enc and its field are guaranteed to exist by earlier validation
+        let x_enc = self.encoding.x.as_mut().unwrap();
+        let x_dtype = self.data.df.schema().get(&x_enc.field).unwrap();
+        
+        x_enc.scale_type = Some(match interpret_semantic_type(x_dtype) {
+            SemanticType::Continuous => Scale::Linear,
+            SemanticType::Discrete   => Scale::Discrete,
+            SemanticType::Temporal   => Scale::Temporal,
+        });
+
+        // --- 2. RESOLVE Y CHANNEL ---
+        // Mandatory: y_enc and its field are guaranteed to exist
+        let y_enc = self.encoding.y.as_mut().unwrap();
+        let y_dtype = self.data.df.schema().get(&y_enc.field).unwrap();
+        
+        y_enc.scale_type = Some(match interpret_semantic_type(y_dtype) {
+            SemanticType::Continuous => Scale::Linear,
+            SemanticType::Discrete   => Scale::Discrete,
+            SemanticType::Temporal   => Scale::Temporal,
+        });
+
+        // --- 3. RESOLVE Y-ZERO BASELINE ---
+        // Apply the Grammar of Graphics rule: Quantitative bars and areas should start at zero.
+        if y_enc.scale_type == Some(Scale::Linear) {
+            let mt = self.mark.as_ref().unwrap().mark_type();
+            if ["area", "bar", "hist"].contains(&mt) {
+                y_enc.zero = Some(true);
+            }
+        }
+
+        // --- 4. RESOLVE OPTIONAL COLOR CHANNEL ---
+        if let Some(ref mut color_enc) = self.encoding.color {
+            // Field existence for color was also verified by check_schema
+            let c_dtype = self.data.df.schema().get(&color_enc.field).unwrap();
+            
+            color_enc.scale_type = Some(match interpret_semantic_type(c_dtype) {
+                SemanticType::Continuous => Scale::Linear,
+                SemanticType::Discrete   => Scale::Discrete,
+                SemanticType::Temporal   => Scale::Temporal,
+            });
+        }
     }
 }
 
@@ -520,13 +543,8 @@ where
                     global_max = primary_series.max::<f64>()?.unwrap_or(1.0);
                 }
 
-                // Apply Bar-like logic (Force Zero)
-                let is_bar_like = self.mark.as_ref().map_or(false, |m| {
-                    matches!(m.mark_type(), "bar" | "area" | "hist")
-                });
                 let force_zero = self.encoding.get_zero_by_channel(channel);
-
-                if is_bar_like || force_zero {
+                if force_zero {
                     global_min = global_min.min(0.0);
                     global_max = global_max.max(0.0);
                 }
