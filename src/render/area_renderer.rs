@@ -1,4 +1,4 @@
-use crate::core::layer::{MarkRenderer, RenderBackend, PolygonConfig};
+use crate::core::layer::{MarkRenderer, RenderBackend, PolygonConfig, PathConfig, LineConfig};
 use crate::core::context::PanelContext;
 use crate::chart::Chart;
 use crate::Precision;
@@ -18,21 +18,47 @@ impl MarkRenderer for Chart<MarkArea> {
         let mark_config = self.mark.as_ref()
             .ok_or_else(|| ChartonError::Mark("MarkArea configuration is missing".to_string()))?;
 
-        // 1. GROUPING
+        let x_enc = self.encoding.x.as_ref().ok_or(ChartonError::Encoding("X missing".into()))?;
+        let y_enc = self.encoding.y.as_ref().ok_or(ChartonError::Encoding("Y missing".into()))?;
+
+        let x_scale = context.coord.get_x_scale();
+        let y_scale = context.coord.get_y_scale();
+
+        // --- STEP 1: RENDER ZERO LINE (Baseline) ---
+        // We draw the zero line first so it sits behind the data.
+        // It is only drawn if 0.0 is within the visible Y-axis domain.
+        let (y_min, y_max) = y_scale.domain();
+        if y_min <= 0.0 && y_max >= 0.0 {
+            let baseline_y_norm = y_scale.normalize(0.0);
+            
+            // Map the normalized 0.0 to physical coordinates across the full width (x: 0.0 to 1.0)
+            let (x_start, y_zero) = context.transform(0.0, baseline_y_norm);
+            let (x_end, _) = context.transform(1.0, baseline_y_norm);
+
+            backend.draw_line(LineConfig {
+                x1: x_start as Precision,
+                y1: y_zero as Precision,
+                x2: x_end as Precision,
+                y2: y_zero as Precision,
+                color: "#888888".into(), // Subtle gray for reference
+                width: 1.0,
+                opacity: 0.5,
+                dash: Some(vec![4.0, 4.0]), // Dashed pattern: 4px dash, 4px gap
+            });
+        }
+
+        // --- STEP 2: GROUPING ---
         let group_column = context.spec.aesthetics.color.as_ref().map(|c| c.field.as_str());
         let groups = match group_column {
             Some(col_name) => df_source.df.partition_by([col_name], true)?,
             None => vec![df_source.df.clone()],
         };
 
-        let x_enc = self.encoding.x.as_ref().ok_or(ChartonError::Encoding("X missing".into()))?;
-        let y_enc = self.encoding.y.as_ref().ok_or(ChartonError::Encoding("Y missing".into()))?;
-
         for group_df in groups {
-            // 2. AESTHETICS (Now calling the helper moved to Chart impl)
-            let group_fill = self.resolve_group_color(&group_df, context, &mark_config.color)?;
+            // Determine the color for this specific group/category
+            let group_base_color = self.resolve_group_color(&group_df, context, &mark_config.color)?;
 
-            // 3. SORTING
+            // 3. SORTING: Area charts must be sorted by X to prevent "zigzag" artifacts
             let sorted_df = group_df.sort(
                 [x_enc.field.as_str()],
                 SortMultipleOptions::default().with_order_descending(false)
@@ -46,34 +72,51 @@ impl MarkRenderer for Chart<MarkArea> {
 
             if x_vals.is_empty() { continue; }
 
-            // 4. PROJECTION
-            let x_scale = context.coord.get_x_scale();
-            let y_scale = context.coord.get_y_scale();
+            // --- STEP 4: PROJECTION & POINT DECOUPLING ---
             let baseline_y_norm = y_scale.normalize(0.0);
+            
+            // fill_points: A closed loop including the baseline for the color fill.
+            // stroke_points: An open sequence of points for the top boundary line.
+            let mut fill_points: Vec<(Precision, Precision)> = Vec::with_capacity(x_vals.len() * 2);
+            let mut stroke_points: Vec<(Precision, Precision)> = Vec::with_capacity(x_vals.len());
 
-            // Construct the closed polygon path
-            let mut polygon_points: Vec<(Precision, Precision)> = Vec::with_capacity(x_vals.len() * 2);
-
-            // Forward (Upper Boundary)
+            // A: Construct Upper Boundary (The actual data points)
             for (&x, &y) in x_vals.iter().zip(y_vals.iter()) {
                 let (px, py) = context.transform(x_scale.normalize(x), y_scale.normalize(y));
-                polygon_points.push((px as Precision, py as Precision));
+                let point = (px as Precision, py as Precision);
+                
+                stroke_points.push(point); // Add to the open path for the spine
+                fill_points.push(point);   // Add to the polygon for the fill area
             }
 
-            // Backward (Lower Boundary / Baseline)
+            // B: Construct Lower Boundary (Closing the polygon back along the baseline)
             for &x in x_vals.iter().rev() {
                 let (px, py_base) = context.transform(x_scale.normalize(x), baseline_y_norm);
-                polygon_points.push((px as Precision, py_base as Precision));
+                fill_points.push((px as Precision, py_base as Precision));
             }
 
-            // 5. DISPATCH (Fixed variable name to polygon_points)
+            // --- STEP 5: TWO-LAYER RENDERING ---
+            
+            // Layer 1: The Area Fill
+            // We set stroke to None. This ensures that the bottom and sides of the area 
+            // do not have thick borders that clash with the axes or zero line.
             backend.draw_polygon(PolygonConfig {
-                points: polygon_points,
-                fill: group_fill,
-                stroke: group_fill,
-                stroke_width: mark_config.stroke_width as Precision,
+                points: fill_points,
+                fill: group_base_color.clone(),
+                stroke: "none".into(), // No stroke on the polygon layer
+                stroke_width: 0.0,
                 fill_opacity: mark_config.opacity as Precision,
-                stroke_opacity: 1.0,
+                stroke_opacity: 0.0,
+            });
+
+            // Layer 2: The Top Boundary Path
+            // Using draw_path ensures we only stroke the "peaks" of the area chart.
+            // This provides a sharp, professional look similar to ggplot2 or Altair.
+            backend.draw_path(PathConfig {
+                points: stroke_points,
+                stroke: group_base_color,
+                stroke_width: mark_config.stroke_width as Precision,
+                opacity: 1.0, // Top line is opaque to stand out
             });
         }
 

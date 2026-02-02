@@ -87,6 +87,8 @@ impl MarkRenderer for Chart<MarkErrorBar> {
                 x1, y1, x2, y2,
                 color: color.clone(),
                 width,
+                opacity: mark_config.opacity as Precision,
+                dash: None,
             });
 
             // 2. Draw Caps (Perpendicular to whisker)
@@ -95,20 +97,28 @@ impl MarkRenderer for Chart<MarkErrorBar> {
                 backend.draw_line(LineConfig {
                     x1: x1 - cap_len, y1, x2: x1 + cap_len, y2: y1,
                     color: color.clone(), width,
+                    opacity: mark_config.opacity as Precision,
+                    dash: None,
                 });
                 backend.draw_line(LineConfig {
                     x1: x2 - cap_len, y1: y2, x2: x2 + cap_len, y2,
                     color: color.clone(), width,
+                    opacity: mark_config.opacity as Precision,
+                    dash: None,
                 });
             } else {
                 // Flipped: Vertical Caps
                 backend.draw_line(LineConfig {
                     x1, y1: y1 - cap_len, x2: x1, y2: y1 + cap_len,
                     color: color.clone(), width,
+                    opacity: mark_config.opacity as Precision,
+                    dash: None,
                 });
                 backend.draw_line(LineConfig {
                     x1: x2, y1: y2 - cap_len, x2: x2, y2: y2 + cap_len,
                     color: color.clone(), width,
+                    opacity: mark_config.opacity as Precision,
+                    dash: None,
                 });
             }
 

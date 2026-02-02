@@ -118,6 +118,8 @@ impl MarkRenderer for Chart<MarkBoxplot> {
                 x2: p_q1_x as Precision, y2: p_q1_y as Precision, 
                 color: mark_config.stroke.clone(),
                 width: mark_config.stroke_width as Precision,
+                opacity: mark_config.opacity as Precision,
+                dash: None,
             });
             // Upper whisker: Max to Q3
             backend.draw_line(LineConfig { 
@@ -125,6 +127,8 @@ impl MarkRenderer for Chart<MarkBoxplot> {
                 x2: p_q3_x as Precision, y2: p_q3_y as Precision, 
                 color: mark_config.stroke.clone(),
                 width: mark_config.stroke_width as Precision,
+                opacity: mark_config.opacity as Precision,
+                dash: None,
             });
 
             // --- 7. Draw Median Line ---
@@ -135,6 +139,8 @@ impl MarkRenderer for Chart<MarkBoxplot> {
                 x2: m2x as Precision, y2: m2y as Precision,
                 color: mark_config.stroke.clone(),
                 width: (mark_config.stroke_width * 2.0) as Precision,
+                opacity: mark_config.opacity as Precision,
+                dash: None,
             });
 
             // --- 8. Draw Outliers ---

@@ -80,6 +80,8 @@ pub struct LineConfig {
     pub y2: Precision,
     pub color: SingleColor,
     pub width: Precision,
+    pub opacity: Precision,
+    pub dash: Option<Vec<Precision>>,  // dash pattern, e.g., [5, 5] for a dashed line
 }
 
 /// 
