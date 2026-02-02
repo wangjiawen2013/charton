@@ -184,6 +184,8 @@ impl LegendRenderer {
                     y2: tick_y as Precision,
                     color: "#FFFFFF".into(),
                     width: 1.0,
+                    opacity: 1.0,
+                    dash: None,
                 };
                 backend.draw_line(line_config);
 
@@ -194,6 +196,8 @@ impl LegendRenderer {
                     y2: tick_y as Precision,
                     color: "#FFFFFF".into(),
                     width: 1.0,
+                    opacity: 1.0,
+                    dash: None,
                 };
                 backend.draw_line(line_config);
 

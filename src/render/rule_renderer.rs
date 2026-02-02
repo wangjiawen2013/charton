@@ -95,6 +95,8 @@ impl MarkRenderer for Chart<MarkRule> {
                 y2: final_y2 as Precision,
                 color: mapped_color,
                 width: stroke_width,
+                opacity: mark_config.opacity as Precision,
+                dash: None,
             });
         }
 

@@ -159,10 +159,20 @@ impl<'a> RenderBackend for SvgBackend<'a> {
     }
 
     fn draw_line(&mut self, config: LineConfig) {
-        let LineConfig { x1, y1, x2, y2, color, width } = config;
+        let LineConfig { x1, y1, x2, y2, color, width, opacity, dash } = config;
         let _ = write!(self.buffer, r#"<line x1="{:.3}" y1="{:.3}" x2="{:.3}" y2="{:.3}" stroke=""#, x1, y1, x2, y2);
         self.write_color(&color);
-        let _ = write!(self.buffer, r#"" stroke-width="{:.3}" />"#, width);
+        let _ = write!(self.buffer, r#"" stroke-width="{:.3}" stroke-opacity="{:.3}""#, width, opacity);
+
+        // Dash line style
+        if let Some(dash_array) = dash {
+                if !dash_array.is_empty() {
+                    let dash_str: Vec<String> = dash_array.iter().map(|d| format!("{:.1}", d)).collect();
+                    let _ = write!(self.buffer, r#" stroke-dasharray="{}""#, dash_str.join(","));
+                }
+            }
+
+        let _ = self.buffer.write_str(" />\n");
     }
 
     fn draw_gradient_rect(&mut self, config: GradientRectConfig) {
