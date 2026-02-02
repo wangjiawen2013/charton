@@ -22,6 +22,7 @@ fn main() -> Result<(), Box<dyn Error>> {
         .with_x_label("Depth")
         .with_y_label("Net Generation")
         .add_layer(area_chart)
+        .coord_flip()
         .save("./examples/area.svg")?;
 
     Ok(())
