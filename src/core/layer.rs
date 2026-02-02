@@ -57,7 +57,8 @@ pub struct PolygonConfig {
     pub fill: SingleColor,
     pub stroke: SingleColor,
     pub stroke_width: Precision,
-    pub opacity: Precision,
+    pub fill_opacity: Precision,
+    pub stroke_opacity: Precision,
 }
 
 pub struct TextConfig {

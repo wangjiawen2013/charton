@@ -70,9 +70,10 @@ impl MarkRenderer for Chart<MarkArea> {
             backend.draw_polygon(PolygonConfig {
                 points: polygon_points,
                 fill: group_fill,
-                stroke: mark_config.stroke.clone(),
+                stroke: group_fill,
                 stroke_width: mark_config.stroke_width as Precision,
-                opacity: mark_config.opacity as Precision,
+                fill_opacity: mark_config.opacity as Precision,
+                stroke_opacity: 1.0,
             });
         }
 

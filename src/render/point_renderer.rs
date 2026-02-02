@@ -201,7 +201,8 @@ impl Chart<MarkPoint> {
                     fill: fill,
                     stroke: stroke,
                     stroke_width: stroke_width as Precision,
-                    opacity: opacity as Precision,
+                    fill_opacity: opacity as Precision,
+                    stroke_opacity: 1.0,
                 };
                 backend.draw_polygon(polygon_config);
             }
@@ -213,7 +214,8 @@ impl Chart<MarkPoint> {
                     fill: fill,
                     stroke: stroke,
                     stroke_width: stroke_width as Precision,
-                    opacity: opacity as Precision,
+                    fill_opacity: opacity as Precision,
+                    stroke_opacity: 1.0,
                 };
                 backend.draw_polygon(polygon_config);
             }
@@ -225,7 +227,8 @@ impl Chart<MarkPoint> {
                     fill: fill,
                     stroke: stroke,
                     stroke_width: stroke_width as Precision,
-                    opacity: opacity as Precision,
+                    fill_opacity: opacity as Precision,
+                    stroke_opacity: 1.0,
                 };
                 backend.draw_polygon(polygon_config);
             }
@@ -237,7 +240,8 @@ impl Chart<MarkPoint> {
                     fill: fill,
                     stroke: stroke,
                     stroke_width: stroke_width as Precision,
-                    opacity: opacity as Precision,
+                    fill_opacity: opacity as Precision,
+                    stroke_opacity: 1.0,
                 };
                 backend.draw_polygon(polygon_config);
             }
@@ -249,7 +253,8 @@ impl Chart<MarkPoint> {
                     fill: fill,
                     stroke: stroke,
                     stroke_width: stroke_width as Precision,
-                    opacity: opacity as Precision,
+                    fill_opacity: opacity as Precision,
+                    stroke_opacity: 1.0,
                 };
                 backend.draw_polygon(polygon_config);
             }
@@ -261,7 +266,8 @@ impl Chart<MarkPoint> {
                     fill: fill,
                     stroke: stroke,
                     stroke_width: stroke_width as Precision,
-                    opacity: opacity as Precision,
+                    fill_opacity: opacity as Precision,
+                    stroke_opacity: 1.0,
                 };
                 backend.draw_polygon(polygon_config);
             }
