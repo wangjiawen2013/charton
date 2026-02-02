@@ -402,7 +402,8 @@ impl LegendRenderer {
                     fill: color.clone(),
                     stroke: SingleColor::new("none"),
                     stroke_width: 0.0,
-                    opacity: 1.0,
+                    fill_opacity: 1.0,
+                    stroke_opacity: 1.0,
                 };
                 backend.draw_polygon(polygon_config);
             },
@@ -418,7 +419,8 @@ impl LegendRenderer {
                     fill: color.clone(),
                     stroke: SingleColor::new("none"),
                     stroke_width: 0.0,
-                    opacity: 1.0,
+                    fill_opacity: 1.0,
+                    stroke_opacity: 1.0,
                 };
                 backend.draw_polygon(polygon_config);
             },

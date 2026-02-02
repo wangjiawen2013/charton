@@ -119,7 +119,7 @@ impl<'a> RenderBackend for SvgBackend<'a> {
     }
 
     fn draw_polygon(&mut self, config: PolygonConfig) {
-        let PolygonConfig { points, fill, stroke, stroke_width, opacity } = config;
+        let PolygonConfig { points, fill, stroke, stroke_width, fill_opacity, stroke_opacity } = config;
         if points.is_empty() { return; }
         
         let _ = self.buffer.write_str(r#"<polygon points=""#);
@@ -131,7 +131,7 @@ impl<'a> RenderBackend for SvgBackend<'a> {
         self.write_color(&fill);
         let _ = write!(self.buffer, r#"" stroke=""#);
         self.write_color(&stroke);
-        let _ = write!(self.buffer, r#"" stroke-width="{:.3}" fill-opacity="{:.3}" stroke-opacity="{:.3}""#, stroke_width, opacity, opacity);
+        let _ = write!(self.buffer, r#"" stroke-width="{:.3}" fill-opacity="{:.3}" stroke-opacity="{:.3}""#, stroke_width, fill_opacity, stroke_opacity);
         self.write_clip_attr();
         let _ = self.buffer.write_str(" />\n");
     }
