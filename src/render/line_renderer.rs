@@ -4,7 +4,6 @@ use crate::chart::Chart;
 use crate::Precision;
 use crate::mark::line::MarkLine;
 use crate::error::ChartonError;
-use crate::visual::color::SingleColor;
 use polars::prelude::*;
 
 /// Interpolation methods for line paths
@@ -89,16 +88,16 @@ impl MarkRenderer for Chart<MarkLine> {
                     .with_order_descending(false) // Ascending order
                     .with_nulls_last(true) // Keep valid data at the front
             )?;
-
-            // 4. Extract Series data and convert to Vec<f64> for statistical processing.
-            // Using into_no_null_iter() assumes data has been pre-filtered for nulls
-            // to maximize performance via contiguous memory (Vec).
             let x_series = sorted_df.column(&x_enc.field)?.as_materialized_series();
             let y_series = sorted_df.column(&y_enc.field)?.as_materialized_series();
+
+            // Extract Series data and convert to Vec<f64> for statistical processing.
+            // Using into_no_null_iter() assumes data has been pre-filtered for nulls 
+            // to maximize performance via contiguous memory (Vec).
             let x_vals: Vec<f64> = x_series.f64()?.into_no_null_iter().collect();
             let y_vals: Vec<f64> = y_series.f64()?.into_no_null_iter().collect();
 
-            // 5. Apply LOESS (Locally Estimated Scatterplot Smoothing) if enabled for this mark.
+            // 4. Apply LOESS (Locally Estimated Scatterplot Smoothing) if enabled for this mark.
             // This is performed in data space (before normalization) to maintain statistical integrity.
             let (calc_x, calc_y) = if mark_config.loess {
                 crate::stats::stat_loess::loess(&x_vals, &y_vals, mark_config.loess_bandwidth)
@@ -106,8 +105,7 @@ impl MarkRenderer for Chart<MarkLine> {
                 (x_vals, y_vals)
             };
 
-            // 6. Normalization and Coordinate Transformation.
-            // Map raw data values to the [0.0, 1.0] normalized range, then transform to physical pixels.
+            // 5. Normalize and Transform to Physical Pixels
             let x_scale_trait = context.coord.get_x_scale();
             let y_scale_trait = context.coord.get_y_scale();
 
@@ -126,7 +124,7 @@ impl MarkRenderer for Chart<MarkLine> {
 
             if raw_points.is_empty() { continue; }
 
-            // 5. Apply Interpolation Expansion
+            // 6. Apply Interpolation Expansion
             let final_points = match mark_config.interpolation {
                 PathInterpolation::Linear => raw_points,
                 PathInterpolation::StepAfter => self.expand_step_after(raw_points),
@@ -143,47 +141,5 @@ impl MarkRenderer for Chart<MarkLine> {
         }
 
         Ok(())
-    }
-}
-
-impl Chart<MarkLine> {
-    /// Injects corner points for Step-After interpolation.
-    fn expand_step_after(&self, points: Vec<(f64, f64)>) -> Vec<(f64, f64)> {
-        let mut expanded = Vec::with_capacity(points.len() * 2);
-        for i in 0..points.len() - 1 {
-            let (x1, y1) = points[i];
-            let (x2, _y2) = points[i+1];
-            expanded.push((x1, y1));
-            expanded.push((x2, y1)); // The "Step"
-        }
-        expanded.push(*points.last().unwrap());
-        expanded
-    }
-
-    /// Injects corner points for Step-Before interpolation.
-    fn expand_step_before(&self, points: Vec<(f64, f64)>) -> Vec<(f64, f64)> {
-        let mut expanded = Vec::with_capacity(points.len() * 2);
-        for i in 0..points.len() - 1 {
-            let (x1, y1) = points[i];
-            let (_x2, y2) = points[i+1];
-            expanded.push((x1, y1));
-            expanded.push((x1, y2)); // The "Step"
-        }
-        expanded.push(*points.last().unwrap());
-        expanded
-    }
-
-    /// Resolves the color for a specific group of data.
-    fn resolve_group_color(&self, df: &DataFrame, context: &PanelContext, fallback: &SingleColor) -> Result<SingleColor, ChartonError> {
-        if let Some(ref mapping) = context.spec.aesthetics.color {
-            let s = df.column(&mapping.field)?.as_materialized_series();
-            let s_trait = mapping.scale_impl.as_ref();
-            // Since all points in a group share the same category, we just map the first value
-            let first_val = s_trait.scale_type().normalize_series(s_trait, &s.head(Some(1)))?;
-            let norm = first_val.get(0).unwrap_or(0.0);
-            Ok(s_trait.mapper().map(|m| m.map_to_color(norm, s_trait.logical_max())).unwrap_or_else(|| fallback.clone()))
-        } else {
-            Ok(fallback.clone())
-        }
     }
 }
