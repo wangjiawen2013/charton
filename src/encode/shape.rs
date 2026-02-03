@@ -25,7 +25,7 @@ pub struct Shape {
     pub(crate) domain: Option<ScaleDomain>,
 
     /// Rules for adding padding or spacing between the discrete categories.
-    pub(crate) expand: Option<Expansion>,
+    pub(crate) expansion: Option<Expansion>,
 
     // --- System Resolution (Result/Outputs) ---
     
@@ -42,7 +42,7 @@ impl Shape {
             // Shapes default to a Discrete scale logic.
             scale_type: Some(Scale::Discrete), 
             domain: None,
-            expand: None,
+            expansion: None,
             resolved_scale: RwLock::new(None),
         }
     }
@@ -62,8 +62,8 @@ impl Shape {
     }
 
     /// Configures the expansion padding (spacing) for the categorical axis.
-    pub fn with_expand(mut self, expand: Expansion) -> Self {
-        self.expand = Some(expand);
+    pub fn with_expansion(mut self, expansion: Expansion) -> Self {
+        self.expansion = Some(expansion);
         self
     }
 }
@@ -73,7 +73,7 @@ impl Shape {
 /// # Example
 /// ```
 /// // Map the 'category' field to shapes with a default expansion
-/// let s = shape("category").with_expand(Expansion::default());
+/// let s = shape("category").with_expansion(Expansion::default());
 /// ```
 pub fn shape(field: &str) -> Shape {
     Shape::new(field)

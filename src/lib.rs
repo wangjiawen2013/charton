@@ -36,8 +36,8 @@ pub mod prelude {
     pub use crate::scale::{Scale, Expansion};
 
     pub use crate::transform::{
-        density::{BandwidthType, DensityTransform, KernelType},
-        window::{WindowFieldDef, WindowOnlyOp, WindowTransform},
+        density_transform::{BandwidthType, DensityTransform, KernelType},
+        window_transform::{WindowFieldDef, WindowOnlyOp, WindowTransform},
     };
 
     pub use crate::render::line_renderer::PathInterpolation;

@@ -24,7 +24,7 @@ pub struct Color {
     pub(crate) domain: Option<ScaleDomain>,
 
     /// Rules for adding padding or buffer to the ends of the color scale domain.
-    pub(crate) expand: Option<Expansion>,
+    pub(crate) expansion: Option<Expansion>,
 
     // --- System Resolution (Result/Outputs) ---
     
@@ -40,7 +40,7 @@ impl Color {
             field: field.to_string(),
             scale_type: None,
             domain: None,
-            expand: None,
+            expansion: None,
             resolved_scale: RwLock::new(None),
         }
     }
@@ -58,8 +58,8 @@ impl Color {
     }
 
     /// Configures the expansion padding for the color scale.
-    pub fn with_expand(mut self, expand: Expansion) -> Self {
-        self.expand = Some(expand);
+    pub fn with_expandsion(mut self, expansion: Expansion) -> Self {
+        self.expansion = Some(expansion);
         self
     }
 }
@@ -70,7 +70,7 @@ impl Color {
 /// ```
 /// let c = color("magnitude")
 ///     .with_scale(Scale::Linear)
-///     .with_expand(Expansion::default());
+///     .with_expansion(Expansion::default());
 /// ```
 pub fn color(field: &str) -> Color {
     Color::new(field)

@@ -106,11 +106,11 @@ impl Encoding {
     /// Retrieves the expansion (padding) preferences for a channel.
     pub fn get_expand_by_channel(&self, channel: Channel) -> Option<Expansion> {
         match channel {
-            Channel::X => self.x.as_ref().and_then(|v| v.expand),
-            Channel::Y => self.y.as_ref().and_then(|v| v.expand),
-            Channel::Color => self.color.as_ref().and_then(|v| v.expand),
-            Channel::Shape => self.shape.as_ref().and_then(|v| v.expand),
-            Channel::Size => self.size.as_ref().and_then(|v| v.expand),
+            Channel::X => self.x.as_ref().and_then(|v| v.expansion),
+            Channel::Y => self.y.as_ref().and_then(|v| v.expansion),
+            Channel::Color => self.color.as_ref().and_then(|v| v.expansion),
+            Channel::Shape => self.shape.as_ref().and_then(|v| v.expansion),
+            Channel::Size => self.size.as_ref().and_then(|v| v.expansion),
         }
     }
 

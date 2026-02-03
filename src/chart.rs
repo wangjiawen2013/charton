@@ -361,66 +361,75 @@ impl<T: Mark> Chart<T> {
         }
 
         // Set default encodings
-        self.apply_default_encodings();
+        self.apply_default_encodings()?;
 
         Ok(self)
     }
 
     /// Completes the chart's encoding configuration by inferring missing metadata.
     ///
-    /// This method is the "Intelligence Layer" that populates resolved states:
-    /// 1. **Scale Mapping**: Automatically maps DataFrame column types to high-level Scale 
-    ///    types (Linear, Discrete, or Temporal).
-    /// 2. **Visual Integrity**: Enforces the "Zero-Baseline" rule for quantitative 
-    ///    marks (Area, Bar, Hist) to ensure the visual area represents the data magnitude accurately.
-    ///
-    /// # Safety/Preconditions
-    /// This method uses `unwrap()` on X/Y encodings and Schema lookups because it 
-    /// assumes `check_schema` and mandatory field validation have already passed 
-    /// in the `encode` pipeline.
-    fn apply_default_encodings(&mut self) {
+    /// This implementation respects existing configurations: it only infers 
+    /// `scale_type` if it is currently `None`.
+    fn apply_default_encodings(&mut self) -> Result<(), ChartonError> {
         // --- 1. RESOLVE X CHANNEL ---
-        // Mandatory: x_enc and its field are guaranteed to exist by earlier validation
         let x_enc = self.encoding.x.as_mut().unwrap();
-        let x_dtype = self.data.df.schema().get(&x_enc.field).unwrap();
-        
-        x_enc.scale_type = Some(match interpret_semantic_type(x_dtype) {
-            SemanticType::Continuous => Scale::Linear,
-            SemanticType::Discrete   => Scale::Discrete,
-            SemanticType::Temporal   => Scale::Temporal,
-        });
-
-        // --- 2. RESOLVE Y CHANNEL ---
-        // Mandatory: y_enc and its field are guaranteed to exist
-        let y_enc = self.encoding.y.as_mut().unwrap();
-        let y_dtype = self.data.df.schema().get(&y_enc.field).unwrap();
-        
-        y_enc.scale_type = Some(match interpret_semantic_type(y_dtype) {
-            SemanticType::Continuous => Scale::Linear,
-            SemanticType::Discrete   => Scale::Discrete,
-            SemanticType::Temporal   => Scale::Temporal,
-        });
-
-        // --- 3. RESOLVE Y-ZERO BASELINE ---
-        // Apply the Grammar of Graphics rule: Quantitative bars and areas should start at zero.
-        if y_enc.scale_type == Some(Scale::Linear) {
-            let mt = self.mark.as_ref().unwrap().mark_type();
-            if ["area", "bar", "hist"].contains(&mt) {
-                y_enc.zero = Some(true);
-            }
-        }
-
-        // --- 4. RESOLVE OPTIONAL COLOR CHANNEL ---
-        if let Some(ref mut color_enc) = self.encoding.color {
-            // Field existence for color was also verified by check_schema
-            let c_dtype = self.data.df.schema().get(&color_enc.field).unwrap();
-            
-            color_enc.scale_type = Some(match interpret_semantic_type(c_dtype) {
+        // Only infer if the user hasn't explicitly set a scale type (e.g., forcing a Log scale)
+        if x_enc.scale_type.is_none() {
+            let x_dtype = self.data.df.schema().get(&x_enc.field).unwrap();
+            x_enc.scale_type = Some(match interpret_semantic_type(x_dtype) {
                 SemanticType::Continuous => Scale::Linear,
                 SemanticType::Discrete   => Scale::Discrete,
                 SemanticType::Temporal   => Scale::Temporal,
             });
         }
+
+        // --- 2. RESOLVE Y CHANNEL ---
+        let y_enc = self.encoding.y.as_mut().unwrap();
+        // Only infer if scale_type is None to allow manual overrides (Linear vs Log vs Sqrt)
+        if y_enc.scale_type.is_none() {
+            let y_dtype = self.data.df.schema().get(&y_enc.field).unwrap();
+            y_enc.scale_type = Some(match interpret_semantic_type(y_dtype) {
+                SemanticType::Continuous => Scale::Linear,
+                SemanticType::Discrete   => Scale::Discrete,
+                SemanticType::Temporal   => Scale::Temporal,
+            });
+        }
+
+        // --- 3. RESOLVE Y-ZERO BASELINE & SMART EXPANSION ---
+        if y_enc.scale_type == Some(Scale::Linear) {
+            let mt = self.mark.as_ref().unwrap().mark_type();
+            if ["area", "bar", "hist"].contains(&mt) {
+                y_enc.zero = Some(true);
+
+                if let Ok(y_series) = self.data.column(&y_enc.field) {
+                    let y_min = y_series.min::<f64>()?.unwrap_or(0.0);
+                    let y_max = y_series.max::<f64>()?.unwrap_or(0.0);
+
+                    y_enc.expansion = Some(if y_min >= 0.0 {
+                        Expansion { mult: (0.0, 0.05), add: (0.0, 0.0) }
+                    } else if y_max <= 0.0 {
+                        Expansion { mult: (0.05, 0.0), add: (0.0, 0.0) }
+                    } else {
+                        Expansion::default()
+                    });
+                }
+            }
+        }
+
+        // --- 4. RESOLVE OPTIONAL COLOR CHANNEL ---
+        if let Some(ref mut color_enc) = self.encoding.color {
+            // Only infer the color scale type if it isn't predefined
+            if color_enc.scale_type.is_none() {
+                let c_dtype = self.data.df.schema().get(&color_enc.field).unwrap();
+                color_enc.scale_type = Some(match interpret_semantic_type(c_dtype) {
+                    SemanticType::Continuous => Scale::Linear,
+                    SemanticType::Discrete   => Scale::Discrete,
+                    SemanticType::Temporal   => Scale::Temporal,
+                });
+            }
+        }
+
+        Ok(())
     }
 }
 
