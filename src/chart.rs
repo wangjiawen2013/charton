@@ -367,13 +367,49 @@ impl<T: Mark> Chart<T> {
     }
 
     /// Completes the chart's encoding configuration by inferring missing metadata.
-    ///
-    /// This implementation respects existing configurations: it only infers 
-    /// `scale_type` if it is currently `None`.
     fn apply_default_encodings(&mut self) -> Result<(), ChartonError> {
-        // --- 1. RESOLVE X CHANNEL ---
+        // Determine the mark type early to apply specific defaults (e.g., Rect, Hist)
+        let mt = self.mark.as_ref().unwrap().mark_type();
+        
         let x_enc = self.encoding.x.as_mut().unwrap();
-        // Only infer if the user hasn't explicitly set a scale type (e.g., forcing a Log scale)
+        let y_enc = self.encoding.y.as_mut().unwrap();
+
+        // --- 1. RESOLVE BINS (PRE-COMPUTATION) ---
+        // For chart types that require discretization (Rect, Hist), we infer the number of bins
+        // if the user hasn't explicitly provided one. This ensures consistency between 
+        // data transformation and coordinate scaling.
+        if ["rect", "hist"].contains(&mt) {
+            // Resolve X-axis bins
+            // Only infer bins for continuous data; discrete data uses unique categories naturally
+            if x_enc.bins.is_none() {
+                let series = self.data.column(&x_enc.field)?;
+                if matches!(interpret_semantic_type(series.dtype()), SemanticType::Continuous) {
+                    let unique_count = series.n_unique()?;
+                    // Square root rule for binning: sqrt(N) clamped between 5 and 50
+                    x_enc.bins = Some(if unique_count <= 1 { 
+                        1 
+                    } else { 
+                        ((unique_count as f64).sqrt() as usize).clamp(5, 50) 
+                    });
+                }
+            }
+            
+            // Resolve Y-axis bins (specifically for Heatmaps/Rect charts)
+            if mt == "rect" {
+                if y_enc.bins.is_none() {
+                    let series = self.data.column(&y_enc.field)?;
+                    if matches!(interpret_semantic_type(series.dtype()), SemanticType::Continuous) {
+                        let unique_count = series.n_unique()?;
+                        y_enc.bins = Some(if unique_count <= 1 { 1 } else { 
+                            ((unique_count as f64).sqrt() as usize).clamp(5, 50) 
+                        });
+                    }
+                }
+            }
+        }
+
+        // --- 2. RESOLVE SCALE TYPES ---
+        // Infer the semantic scale type (Linear, Discrete, or Temporal) based on the column's DataType
         if x_enc.scale_type.is_none() {
             let x_dtype = self.data.df.schema().get(&x_enc.field).unwrap();
             x_enc.scale_type = Some(match interpret_semantic_type(x_dtype) {
@@ -383,9 +419,6 @@ impl<T: Mark> Chart<T> {
             });
         }
 
-        // --- 2. RESOLVE Y CHANNEL ---
-        let y_enc = self.encoding.y.as_mut().unwrap();
-        // Only infer if scale_type is None to allow manual overrides (Linear vs Log vs Sqrt)
         if y_enc.scale_type.is_none() {
             let y_dtype = self.data.df.schema().get(&y_enc.field).unwrap();
             y_enc.scale_type = Some(match interpret_semantic_type(y_dtype) {
@@ -395,16 +428,18 @@ impl<T: Mark> Chart<T> {
             });
         }
 
-        // --- 3. RESOLVE Y-ZERO BASELINE & SMART EXPANSION ---
+        // --- 3. RESOLVE SPECIAL PADDING & BASELINES ---
+        // Apply chart-specific visual rules (e.g., bar charts should start at zero)
         if y_enc.scale_type == Some(Scale::Linear) {
-            let mt = self.mark.as_ref().unwrap().mark_type();
             if ["area", "bar", "hist"].contains(&mt) {
+                // Force zero baseline for statistical accuracy in magnitude-based charts
                 y_enc.zero = Some(true);
 
                 if let Ok(y_series) = self.data.column(&y_enc.field) {
                     let y_min = y_series.min::<f64>()?.unwrap_or(0.0);
                     let y_max = y_series.max::<f64>()?.unwrap_or(0.0);
 
+                    // Asymmetric expansion: only add padding away from the zero baseline
                     y_enc.expansion = Some(if y_min >= 0.0 {
                         Expansion { mult: (0.0, 0.05), add: (0.0, 0.0) }
                     } else if y_max <= 0.0 {
@@ -416,16 +451,15 @@ impl<T: Mark> Chart<T> {
             }
         }
 
-        // --- 4. RESOLVE OPTIONAL COLOR CHANNEL ---
-        if let Some(ref mut color_enc) = self.encoding.color {
-            // Only infer the color scale type if it isn't predefined
-            if color_enc.scale_type.is_none() {
-                let c_dtype = self.data.df.schema().get(&color_enc.field).unwrap();
-                color_enc.scale_type = Some(match interpret_semantic_type(c_dtype) {
-                    SemanticType::Continuous => Scale::Linear,
-                    SemanticType::Discrete   => Scale::Discrete,
-                    SemanticType::Temporal   => Scale::Temporal,
-                });
+        // Rect charts (Heatmaps) should flush to the edges of the panel
+        if mt == "rect" {
+            // Set expansion to zero to ensure rectangles perfectly fill the plot area
+            // without leaving whitespace between the marks and the axis lines.
+            if x_enc.expansion.is_none() {
+                x_enc.expansion = Some(Expansion { mult: (0.0, 0.0), add: (0.0, 0.0) });
+            }
+            if y_enc.expansion.is_none() {
+                y_enc.expansion = Some(Expansion { mult: (0.0, 0.0), add: (0.0, 0.0) });
             }
         }
 
