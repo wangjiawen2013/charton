@@ -25,7 +25,7 @@ pub struct X {
     pub(crate) domain: Option<ScaleDomain>,
 
     /// Rules for adding padding/buffer to the ends of the axis domain.
-    pub(crate) expand: Option<Expansion>,
+    pub(crate) expansion: Option<Expansion>,
 
     /// Whether to force the inclusion of zero in the axis range.
     /// This is common for bar charts to avoid misleading visual scales.
@@ -47,7 +47,7 @@ impl X {
             field: field.to_string(),
             scale_type: None,
             domain: None,
-            expand: None,
+            expansion: None,
             zero: None,
             bins: None,
             resolved_scale: RwLock::new(None),
@@ -70,8 +70,8 @@ impl X {
     }
 
     /// Configures the expansion padding for the axis.
-    pub fn with_expand(mut self, expand: Expansion) -> Self {
-        self.expand = Some(expand);
+    pub fn with_expansion(mut self, expansion: Expansion) -> Self {
+        self.expansion = Some(expansion);
         self
     }
 

@@ -26,7 +26,7 @@ pub struct Size {
     pub(crate) domain: Option<ScaleDomain>,
 
     /// Rules for adding padding or buffer to the ends of the size domain.
-    pub(crate) expand: Option<Expansion>,
+    pub(crate) expansion: Option<Expansion>,
 
     // --- System Resolution (Result/Outputs) ---
     
@@ -42,7 +42,7 @@ impl Size {
             field: field.to_string(),
             scale_type: Some(Scale::Linear),
             domain: None,
-            expand: None,
+            expansion: None,
             resolved_scale: RwLock::new(None),
         }
     }
@@ -69,8 +69,8 @@ impl Size {
     }
 
     /// Configures the expansion padding for the size scale.
-    pub fn with_expand(mut self, expand: Expansion) -> Self {
-        self.expand = Some(expand);
+    pub fn with_expansion(mut self, expansion: Expansion) -> Self {
+        self.expansion = Some(expansion);
         self
     }
 }

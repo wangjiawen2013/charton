@@ -27,7 +27,7 @@ pub struct Y {
     pub(crate) domain: Option<ScaleDomain>,
 
     /// Rules for adding padding or buffer to the top and bottom of the axis.
-    pub(crate) expand: Option<Expansion>,
+    pub(crate) expansion: Option<Expansion>,
 
     /// Whether to force the inclusion of zero in the axis range.
     /// This is crucial for charts like Bar or Area to ensure visual integrity.
@@ -51,7 +51,7 @@ impl Y {
             field: field.to_string(),
             scale_type: None,
             domain: None,
-            expand: None,
+            expansion: None,
             zero: None,
             bins: None,
             normalize: false, // Default to false (raw counts)
@@ -75,8 +75,8 @@ impl Y {
     }
 
     /// Configures the expansion padding for the axis.
-    pub fn with_expand(mut self, expand: Expansion) -> Self {
-        self.expand = Some(expand);
+    pub fn with_expansion(mut self, expansion: Expansion) -> Self {
+        self.expansion = Some(expansion);
         self
     }
 

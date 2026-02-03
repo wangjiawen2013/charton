@@ -31,15 +31,15 @@ impl MarkRenderer for Chart<MarkArea> {
         if y_min <= 0.0 && y_max >= 0.0 {
             let baseline_y_norm = y_scale.normalize(0.0);
             
-            // Map the normalized 0.0 to physical coordinates across the full width (x: 0.0 to 1.0)
-            let (x_start, y_zero) = context.transform(0.0, baseline_y_norm);
-            let (x_end, _) = context.transform(1.0, baseline_y_norm);
+            // Map the normalized 0.0 to physical coordinates across the full width/height.
+            let (px1, py1) = context.transform(0.0, baseline_y_norm);
+            let (px2, py2) = context.transform(1.0, baseline_y_norm);
 
             backend.draw_line(LineConfig {
-                x1: x_start as Precision,
-                y1: y_zero as Precision,
-                x2: x_end as Precision,
-                y2: y_zero as Precision,
+                x1: px1 as Precision,
+                y1: py1 as Precision,
+                x2: px2 as Precision,
+                y2: py2 as Precision,
                 color: "#888888".into(), // Subtle gray for reference
                 width: 1.0,
                 opacity: 0.5,
