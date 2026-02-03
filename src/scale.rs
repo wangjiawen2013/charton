@@ -142,15 +142,15 @@ pub trait ScaleTrait: std::fmt::Debug + Send + Sync {
 pub fn create_scale(
     scale_type: &Scale,
     domain_data: ScaleDomain,
-    expand: Expansion,
+    expansion: Expansion,
     mapper: Option<VisualMapper>, // Added: Associate visual mapping logic at creation
 ) -> Result<Arc<dyn ScaleTrait>, ChartonError> {
     let scale: Box<dyn ScaleTrait> = match scale_type {
         Scale::Linear => {
             if let ScaleDomain::Continuous(min, max) = domain_data {
                 let range = max - min;
-                let lower_padding = range * expand.mult.0 + expand.add.0;
-                let upper_padding = range * expand.mult.1 + expand.add.1;
+                let lower_padding = range * expansion.mult.0 + expansion.add.0;
+                let upper_padding = range * expansion.mult.1 + expansion.add.1;
                 Box::new(LinearScale::new((min - lower_padding, max + upper_padding), mapper))
             } else {
                 return Err(ChartonError::Scale("Linear scale requires Continuous domain".into()));
@@ -161,8 +161,8 @@ pub fn create_scale(
                 let log_min = min.ln();
                 let log_max = max.ln();
                 let log_range = log_max - log_min;
-                let expanded_min = (log_min - log_range * expand.mult.0).exp();
-                let expanded_max = (log_max + log_range * expand.mult.1).exp();
+                let expanded_min = (log_min - log_range * expansion.mult.0).exp();
+                let expanded_max = (log_max + log_range * expansion.mult.1).exp();
                 Box::new(LogScale::new((expanded_min, expanded_max), 10.0, mapper)?)
             } else {
                 return Err(ChartonError::Scale("Log scale requires Continuous domain".into()));
@@ -170,7 +170,7 @@ pub fn create_scale(
         },
         Scale::Discrete => {
             if let ScaleDomain::Discrete(categories) = domain_data {
-                Box::new(DiscreteScale::new(categories, expand, mapper))
+                Box::new(DiscreteScale::new(categories, expansion, mapper))
             } else {
                 return Err(ChartonError::Scale("Discrete scale requires Categorical domain".into()));
             }
@@ -178,8 +178,8 @@ pub fn create_scale(
         Scale::Temporal => {
             if let ScaleDomain::Temporal(start, end) = domain_data {
                 let diff_secs = (end - start).as_seconds_f64();
-                let lower_pad = time::Duration::seconds_f64(diff_secs * expand.mult.0 + expand.add.0);
-                let upper_pad = time::Duration::seconds_f64(diff_secs * expand.mult.1 + expand.add.1);
+                let lower_pad = time::Duration::seconds_f64(diff_secs * expansion.mult.0 + expansion.add.0);
+                let upper_pad = time::Duration::seconds_f64(diff_secs * expansion.mult.1 + expansion.add.1);
                 Box::new(TemporalScale::new((start - lower_pad, end + upper_pad), mapper))
             } else {
                 return Err(ChartonError::Scale("Time scale requires Temporal domain".into()));
