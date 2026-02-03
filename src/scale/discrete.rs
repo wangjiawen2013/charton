@@ -36,7 +36,7 @@ impl DiscreteScale {
     /// * `mapper` - Optional visual mapping logic for categorical aesthetics.
     pub fn new(
         domain: Vec<String>, 
-        expand: crate::scale::Expansion,
+        expansion: crate::scale::Expansion,
         mapper: Option<VisualMapper>
     ) -> Self {
         let mut index_map = HashMap::with_capacity(domain.len());
@@ -52,8 +52,8 @@ impl DiscreteScale {
             // ggplot2 default: mult: (0, 0), add: (0.6, 0.6).
             let range = (n - 1) as f64;
             
-            let lower_padding = range * expand.mult.0 + expand.add.0;
-            let upper_padding = range * expand.mult.1 + expand.add.1;
+            let lower_padding = range * expansion.mult.0 + expansion.add.0;
+            let upper_padding = range * expansion.mult.1 + expansion.add.1;
 
             (0.0 - lower_padding, range + upper_padding)
         };
