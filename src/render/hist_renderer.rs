@@ -1,134 +1,148 @@
+use crate::core::layer::{MarkRenderer, RenderBackend, RectConfig};
+use crate::core::context::PanelContext;
+use crate::chart::Chart;
+use crate::mark::histogram::MarkHist;
 use crate::visual::color::SingleColor;
-use std::fmt::Write;
+use crate::error::ChartonError;
+use crate::Precision;
+use polars::prelude::*;
 
-pub(crate) struct VerticalHistogramBarConfig {
-    pub x_center: f64,
-    pub y_zero: f64,
-    pub y_value: f64,
-    pub width: f64,
-    pub fill_color: Option<SingleColor>,
-    pub stroke_color: Option<SingleColor>,
-    pub stroke_width: f64,
-    pub opacity: f64,
+/// Implementation of `MarkRenderer` for Histogram charts.
+/// 
+/// This renderer consumes the DataFrame pre-processed by `transform_histogram_data`,
+/// where X is already binned (mapped to bin middles) and Y is the calculated frequency.
+impl MarkRenderer for Chart<MarkHist> {
+    fn render_marks(
+        &self,
+        backend: &mut dyn RenderBackend,
+        context: &PanelContext,
+    ) -> Result<(), ChartonError> {
+        let df_source = &self.data.df;
+        if df_source.height() == 0 {
+            return Ok(());
+        }
+
+        let mark_config = self.mark.as_ref()
+            .ok_or_else(|| ChartonError::Mark("MarkHist configuration is missing".into()))?;
+
+        // --- STEP 1: RESOLVE ENCODINGS ---
+        let x_enc = self.encoding.x.as_ref().ok_or(ChartonError::Encoding("X missing".into()))?;
+        let y_enc = self.encoding.y.as_ref().ok_or(ChartonError::Encoding("Y missing".into()))?;
+        
+        let x_scale = context.coord.get_x_scale();
+        let y_scale = context.coord.get_y_scale();
+
+        // --- STEP 2: GROUPING BY COLOR ---
+        // Your transform logic ensures that if color encoding is used, the DF 
+        // contains that column. We partition the DF to draw each group with its color.
+        let group_column = context.spec.aesthetics.color.as_ref().map(|c| c.field.as_str());
+        let groups = match group_column {
+            Some(col_name) => df_source.partition_by([col_name], true)?,
+            None => vec![df_source.clone()],
+        };
+
+        // Calculate the physical bar width. 
+        // Note: transform_histogram_data provides 'bins' in x_enc which we use here.
+        let bar_width = self.calculate_hist_bar_size(context);
+
+        // --- STEP 3: RENDER GROUPS ---
+        for group_df in groups {
+            // Determine the group's color using the same logic as your Area renderer.
+            let group_color = self.resolve_group_color(&group_df, context, &mark_config.color)?;
+
+            let x_series = group_df.column(&x_enc.field)?.as_materialized_series();
+            let y_series = group_df.column(&y_enc.field)?.as_materialized_series();
+
+            // Transform data values into normalized [0, 1] space.
+            let x_norms = x_scale.scale_type().normalize_series(x_scale, x_series)?;
+            let y_norms = y_scale.scale_type().normalize_series(y_scale, y_series)?;
+            
+            // Baseline is always 0.0 in normalized space for frequency histograms.
+            let y_baseline_norm = 0.0;
+
+            for (opt_x, opt_y) in x_norms.into_iter().zip(y_norms.into_iter()) {
+                let x_n = opt_x.unwrap_or(0.0);
+                let y_n = opt_y.unwrap_or(0.0);
+
+                // Convert normalized coordinates to screen pixels.
+                // context.transform handles coordinate flipping and padding automatically.
+                let (px, py_top) = context.transform(x_n, y_n);
+                let (_, py_bottom) = context.transform(x_n, y_baseline_norm);
+
+                let rect_height = (py_bottom - py_top).abs();
+
+                backend.draw_rect(RectConfig {
+                    // Bars are centered horizontally at the bin middle's pixel position.
+                    x: (px - bar_width / 2.0) as Precision,
+                    // min() ensures we handle the top of the bar correctly regardless of coordinate direction.
+                    y: py_top.min(py_bottom) as Precision,
+                    width: bar_width as Precision,
+                    height: rect_height as Precision,
+                    fill: group_color.clone(),
+                    stroke: mark_config.stroke.clone(),
+                    stroke_width: mark_config.stroke_width as Precision,
+                    opacity: mark_config.opacity as Precision,
+                });
+            }
+        }
+
+        Ok(())
+    }
 }
 
-pub(crate) struct HorizontalHistogramBarConfig {
-    pub x_zero: f64,
-    pub x_value: f64,
-    pub y_center: f64,
-    pub height: f64,
-    pub fill_color: Option<SingleColor>,
-    pub stroke_color: Option<SingleColor>,
-    pub stroke_width: f64,
-    pub opacity: f64,
-}
+// --- HELPER METHODS ---
 
-/// Renders a vertical histogram bar into the SVG string
-///
-/// # Parameters
-/// * `svg` - A mutable reference to the SVG string being built
-/// * `config` - Configuration parameters for the vertical histogram bar
-///
-/// # Returns
-/// Result indicating success or failure of the operation
-pub(crate) fn render_vertical_histogram_bar(
-    svg: &mut String,
-    config: VerticalHistogramBarConfig,
-) -> std::fmt::Result {
-    // Calculate bar edges based on the center position
-    let x_left = config.x_center - config.width / 2.0;
+impl Chart<MarkHist> {
+    /// Calculates the consistent pixel width for bars.
+    /// 
+    /// It uses the 'bins' count resolved during data transformation to ensure 
+    /// each bar takes its fair share of the available X-axis space.
+    pub(crate) fn calculate_hist_bar_size(&self, context: &PanelContext) -> f64 {
+        let x_bins = self.encoding.x.as_ref().and_then(|e| e.bins).unwrap_or(1);
+        let x_logical_step = 1.0 / (x_bins as f64);
 
-    // Determine the top and bottom of the bar
-    let (y_top, y_bottom) = if config.y_value < config.y_zero {
-        (config.y_value, config.y_zero)
-    } else {
-        (config.y_zero, config.y_value)
-    };
+        // Transform the width of one bin to pixel distance.
+        let (p0_x, _) = context.transform(0.0, 0.0);
+        let (p1_x, _) = context.transform(x_logical_step, 0.0);
 
-    // Calculate dimensions
-    let rect_width = config.width;
-    let rect_height = (y_bottom - y_top).abs();
+        // Multiply by 0.95 to provide a subtle visual gap between bars.
+        (p1_x - p0_x).abs() * 0.95
+    }
 
-    // Determine fill color
-    let fill_str = if let Some(color) = &config.fill_color {
-        color.get_color()
-    } else {
-        "none".to_string() // Default histogram color
-    };
-
-    // Determine stroke
-    let stroke_str = if let Some(color) = &config.stroke_color {
-        color.get_color()
-    } else {
-        "none".to_string()
-    };
-
-    // Add the rectangle to the SVG
-    writeln!(
-        svg,
-        r#"<rect x="{}" y="{}" width="{}" height="{}" fill="{}" stroke="{}" stroke-width="{}" opacity="{}" />"#,
-        x_left,
-        y_top,
-        rect_width,
-        rect_height,
-        fill_str,
-        stroke_str,
-        config.stroke_width,
-        config.opacity
-    )
-}
-
-/// Renders a horizontal histogram bar into the SVG string
-///
-/// # Parameters
-/// * `svg` - A mutable reference to the SVG string being built
-/// * `config` - Configuration parameters for the horizontal histogram bar
-///
-/// # Returns
-/// Result indicating success or failure of the operation
-pub(crate) fn render_horizontal_histogram_bar(
-    svg: &mut String,
-    config: HorizontalHistogramBarConfig,
-) -> std::fmt::Result {
-    // Calculate bar edges based on the center position
-    let y_top = config.y_center - config.height / 2.0;
-
-    // Determine the left and right of the bar
-    let (x_left, x_right) = if config.x_value < config.x_zero {
-        (config.x_value, config.x_zero)
-    } else {
-        (config.x_zero, config.x_value)
-    };
-
-    // Calculate dimensions
-    let rect_width = (x_right - x_left).abs();
-    let rect_height = config.height;
-
-    // Determine fill color
-    let fill_str = if let Some(color) = &config.fill_color {
-        color.get_color()
-    } else {
-        "none".to_string() // Default histogram color
-    };
-
-    // Determine stroke
-    let stroke_str = if let Some(color) = &config.stroke_color {
-        color.get_color()
-    } else {
-        "none".to_string()
-    };
-
-    // Add the rectangle to the SVG
-    writeln!(
-        svg,
-        r#"<rect x="{}" y="{}" width="{}" height="{}" fill="{}" stroke="{}" stroke-width="{}" opacity="{}" />"#,
-        x_left,
-        y_top,
-        rect_width,
-        rect_height,
-        fill_str,
-        stroke_str,
-        config.stroke_width,
-        config.opacity
-    )
+/// Resolves a single fill color for the entire histogram group.
+    /// 
+    /// This method is used when data is partitioned by a color aesthetic. 
+    /// It ensures visual consistency by:
+    /// 1. Identifying the data column associated with the color mapping.
+    /// 2. Extracting the first value of that group (since all members of a group 
+    ///    share the same categorical color).
+    /// 3. Normalizing that value and mapping it to a specific `SingleColor` 
+    ///    using the scale's palette or gradient mapper.
+    /// 
+    /// If no color encoding is provided, it returns the provided `fallback` color.
+    pub(crate) fn resolve_group_color(
+        &self, 
+        df: &DataFrame, 
+        context: &PanelContext, 
+        fallback: &SingleColor
+    ) -> Result<SingleColor, ChartonError> {
+        if let Some(ref mapping) = context.spec.aesthetics.color {
+            // Get the column mapped to the color aesthetic
+            let s = df.column(&mapping.field)?.as_materialized_series();
+            let s_trait = mapping.scale_impl.as_ref();
+            
+            // Map the first value of the group to a color to represent the whole series.
+            // We use .head(Some(1)) to efficiently grab the representative value.
+            let first_val_norm = s_trait.scale_type().normalize_series(s_trait, &s.head(Some(1)))?;
+            let norm = first_val_norm.get(0).unwrap_or(0.0);
+            
+            // Perform the final mapping from normalized value to a physical color.
+            Ok(s_trait.mapper()
+                .map(|m| m.map_to_color(norm, s_trait.logical_max()))
+                .unwrap_or_else(|| fallback.clone()))
+        } else {
+            // No color encoding: Use the static color defined in the Mark configuration.
+            Ok(fallback.clone())
+        }
+    }
 }
