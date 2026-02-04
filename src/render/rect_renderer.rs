@@ -29,18 +29,20 @@ impl MarkRenderer for Chart<MarkRect> {
         let x_series = df.column(&x_enc.field)?.as_materialized_series();
         let y_series = df.column(&y_enc.field)?.as_materialized_series();
 
+        // Standardize data to [0.0, 1.0] normalized space
         let x_norms = x_scale.scale_type().normalize_series(x_scale, x_series)?;
         let y_norms = y_scale.scale_type().normalize_series(y_scale, y_series)?;
 
         // --- STEP 2: SIZE CALCULATION ---
-        // 使用 Float64Chunked 的唯一值数量来计算步长
-        let (rect_width, rect_height) = self.calculate_rect_size(context, &x_norms, &y_norms);
+        // We now calculate sizes based on the pre-resolved 'bins' count.
+        // This ensures the rectangles fill the exact width/height allocated by the scale.
+        let (rect_width, rect_height) = self.calculate_rect_size(context);
 
         // --- STEP 3: COLOR MAPPING ---
         let color_iter = self.resolve_rect_colors(df, context, &mark_config.color)?;
 
         // --- STEP 4: RENDERING LOOP ---
-        // 使用 Polars 迭代器高效遍历归一化后的数据
+        // Iterate through normalized coordinates and draw centered rectangles
         for ((opt_x, opt_y), fill_color) in x_norms.into_iter()
             .zip(y_norms.into_iter())
             .zip(color_iter) 
@@ -48,9 +50,11 @@ impl MarkRenderer for Chart<MarkRect> {
             let x_n = opt_x.unwrap_or(0.0);
             let y_n = opt_y.unwrap_or(0.0);
 
+            // Convert normalized [0,1] to pixel coordinates
             let (px, py) = context.transform(x_n, y_n);
 
             backend.draw_rect(RectConfig {
+                // px/py are centers; we offset by half-width/height to get the top-left corner
                 x: (px - rect_width / 2.0) as Precision,
                 y: (py - rect_height / 2.0) as Precision,
                 width: rect_width as Precision,
@@ -67,22 +71,29 @@ impl MarkRenderer for Chart<MarkRect> {
 }
 
 impl Chart<MarkRect> {
-    /// 计算矩形尺寸：基于归一化空间中唯一值的密度
-    fn calculate_rect_size(&self, context: &PanelContext, x_ca: &Float64Chunked, y_ca: &Float64Chunked) -> (f64, f64) {
-        // Polars 的 n_unique() 非常快
-        let x_count = x_ca.n_unique().unwrap_or(1);
-        let y_count = y_ca.n_unique().unwrap_or(1);
+    /// Calculates the pixel dimensions for a single rectangle tile.
+    /// It uses the 'bins' hint resolved during the encoding phase to ensure 
+    /// visual consistency with the coordinate axes.
+    fn calculate_rect_size(&self, context: &PanelContext) -> (f64, f64) {
+        // Retrieve bin counts from encodings (resolved in apply_default_encodings)
+        let x_bins = self.encoding.x.as_ref().and_then(|e| e.bins).unwrap_or(1);
+        let y_bins = self.encoding.y.as_ref().and_then(|e| e.bins).unwrap_or(1);
 
-        let x_step = if x_count > 1 { 1.0 / (x_count as f64 - 1.0) } else { 0.1 };
-        let y_step = if y_count > 1 { 1.0 / (y_count as f64 - 1.0) } else { 0.1 };
+        // Calculate the logical step size in normalized [0, 1] space.
+        // If we have 10 bins, each bin occupies exactly 1/10th of the available space.
+        let x_logical_step = 1.0 / (x_bins as f64);
+        let y_logical_step = 1.0 / (y_bins as f64);
 
+        // Transform the logical width into pixel width.
+        // We measure the distance between the start (0,0) and the first step.
         let (p0_x, p0_y) = context.transform(0.0, 0.0);
-        let (p1_x, p1_y) = context.transform(x_step, y_step);
+        let (p1_x, p1_y) = context.transform(x_logical_step, y_logical_step);
 
         ((p1_x - p0_x).abs(), (p1_y - p0_y).abs())
     }
 
-    /// 解析颜色流：支持数据驱动映射或静态回退
+    /// Resolves the color stream for each rectangle, either from a mapped data 
+    /// column or a fallback static color.
     fn resolve_rect_colors(
         &self, 
         df: &DataFrame, 
@@ -93,7 +104,6 @@ impl Chart<MarkRect> {
             let s = df.column(&mapping.field)?.as_materialized_series();
             let s_trait = mapping.scale_impl.as_ref();
             
-            // 使用新的 normalize_series 接口
             let norms = s_trait.scale_type().normalize_series(s_trait, s)?;
             let l_max = s_trait.logical_max();
 
@@ -106,6 +116,7 @@ impl Chart<MarkRect> {
                 .collect();
             Ok(Box::new(colors.into_iter()))
         } else {
+            // No color mapping: return an infinite iterator of the fallback color
             Ok(Box::new(std::iter::repeat(fallback.clone())))
         }
     }
