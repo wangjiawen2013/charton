@@ -1,5 +1,6 @@
 use crate::error::ChartonError;
 use polars::prelude::*;
+use polars::datatypes::DataType;
 use std::collections::HashMap;
 use std::vec::Vec;
 
@@ -153,7 +154,6 @@ pub(crate) fn convert_numeric_types(df_source: DataFrameSource) -> Result<DataFr
     Ok(DataFrameSource::new(new_df))
 }
 
-use polars::datatypes::DataType;
 /// Represents the high-level semantic category of a data column.
 /// 
 /// We use Continuous/Discrete to distinguish between data that requires
@@ -192,37 +192,46 @@ pub(crate) fn interpret_semantic_type(dtype: &DataType) -> SemanticType {
     }
 }
 
-
-// Checks if a DataFrame contains the required columns, and optionally verifies the data types
-//
-// # Arguments
-// * `df` - The DataFrame to check
-// * `required_columns` - A slice of column names that must exist
-// * `expected_types` - Map of column names to expected DataTypes; only columns in the map are checked
-//
-// # Returns
-// * `Ok(())` if all required columns exist and match one of the expected types (if provided)
-// * `Err(String)` if a column is missing or a type does not match any of the expected types
+/// Validates that the DataFrame contains the required columns and that their 
+/// data types align with the expected semantic categories (Continuous, Discrete, Temporal).
+///
+/// This validation ensures that aesthetic mappings (e.g., color, size) are mathematically 
+/// compatible with the underlying data. For instance, a 'size' encoding typically 
+/// requires 'Continuous' data to map values to pixel diameters.
+///
+/// # Arguments
+/// * `df` - The Polars DataFrame to validate.
+/// * `required_columns` - A list of column names that must be present in the data.
+/// * `expected_semantics` - A map linking column names to their allowed [SemanticType]s.
+///
+/// # Returns
+/// * `Ok(())` if all requirements are met.
+/// * `Err(ChartonError::Encoding)` if a column is missing.
+/// * `Err(ChartonError::Data)` if a column's semantic type is incompatible.
 pub(crate) fn check_schema(
     df: &mut DataFrame,
     required_columns: &[&str],
-    expected_types: &HashMap<&str, Vec<DataType>>,
+    expected_semantics: &HashMap<&str, Vec<SemanticType>>,
 ) -> Result<(), ChartonError> {
     let schema = df.schema();
 
     for &col_name in required_columns {
-        let actual_type = schema.get(col_name).ok_or_else(|| {
+        // 1. Ensure the column exists in the current schema
+        let actual_dtype = schema.get(col_name).ok_or_else(|| {
             ChartonError::Encoding(format!("Column '{}' not found in DataFrame", col_name))
         })?;
 
-        // Check type if it's specified in the expected_types map
-        if let Some(expected_types_vec) = expected_types.get(col_name)
-            && !expected_types_vec.contains(actual_type)
-        {
-            return Err(ChartonError::Data(format!(
-                "Column '{}' has type {:?}, but expected one of {:?}",
-                col_name, actual_type, expected_types_vec
-            )));
+        // 2. Map the low-level Polars DataType to our high-level SemanticType
+        let actual_semantic = interpret_semantic_type(actual_dtype);
+
+        // 3. If semantic constraints are provided for this column, validate them
+        if let Some(allowed_semantics) = expected_semantics.get(col_name) {
+            if !allowed_semantics.contains(&actual_semantic) {
+                return Err(ChartonError::Data(format!(
+                    "Column '{}' (Type: {:?}) is categorized as {:?}, but expected one of {:?}",
+                    col_name, actual_dtype, actual_semantic, allowed_semantics
+                )));
+            }
         }
     }
 

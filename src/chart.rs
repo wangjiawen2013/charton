@@ -147,159 +147,91 @@ impl<T: Mark> Chart<T> {
     where
         U: IntoEncoding,
     {
+        // 1. Apply the user-provided encoding specifications
         enc.apply(&mut self.encoding);
 
-        // A mark is required to determine chart type - cannot proceed without it
-        // We get the type, then the block ends, releasing the borrow on `self`.
+        // 2. Mark identification: A mark is required to determine the chart's structural rules.
+        // We convert the mark type to a String to release the borrow on `self`.
         let mark_type = self
             .mark
             .as_ref()
             .map(|m| m.mark_type().to_string())
             .ok_or_else(|| ChartonError::Mark("A mark is required to create a chart".into()))?;
 
-        // Validate mandatory encodings - these are the minimum required fields for each chart type and cannot be omitted
+        // --- Step 3: Mandatory Encoding Validation ---
+        // Ensure the minimum required visual channels are present for the chosen mark type.
         match mark_type.as_str() {
-            // Marks that require both x and y encodings
-            "errorbar" | "bar" | "hist" | "line" | "point" | "area" | "boxplot" | "text"
-            | "rule" => {
+            "errorbar" | "bar" | "hist" | "line" | "point" | "area" | "boxplot" | "text" | "rule" => {
                 if self.encoding.x.is_none() || self.encoding.y.is_none() {
                     return Err(ChartonError::Encoding(format!(
-                        "{} chart requires both x and y encodings",
-                        mark_type
+                        "{} chart requires both x and y encodings", mark_type
                     )));
                 }
             }
-            // Rect charts require x, y, and color encodings
             "rect" => {
-                if self.encoding.x.is_none()
-                    || self.encoding.y.is_none()
-                    || self.encoding.color.is_none()
-                {
-                    return Err(ChartonError::Encoding(
-                        "Rect chart requires x, y, and color encodings".into(),
-                    ));
+                if self.encoding.x.is_none() || self.encoding.y.is_none() || self.encoding.color.is_none() {
+                    return Err(ChartonError::Encoding("Rect chart requires x, y, and color encodings".into()));
                 }
             }
-            // Marks with specialized requirements - arc charts require theta and color encodings
             "arc" => {
-                // For arc charts, we need theta encoding (for the pie slice sizes) and color encoding (for segments)
                 if self.encoding.theta.is_none() || self.encoding.color.is_none() {
-                    return Err(ChartonError::Encoding(
-                        "Arc chart requires both theta and color encodings".into(),
-                    ));
+                    return Err(ChartonError::Encoding("Arc chart requires both theta and color encodings".into()));
                 }
             }
-            // This match is exhaustive - all possible mark types are covered above
-            // If we reach here, it indicates a programming error where an unknown mark type was created
             _ => {
-                return Err(ChartonError::Mark(format!(
-                    "Unknown mark type: {}. This is a programming error - all mark types should be handled explicitly.",
-                    mark_type
-                )));
+                return Err(ChartonError::Mark(format!("Unknown mark type: {}", mark_type)));
             }
         }
 
-        // Build required columns and expected types
-        let mut active_fields = self.encoding.active_fields();
-        let mut expected_types = std::collections::HashMap::new();
+        // --- Step 4: Semantic Type Validation ---
+        // Instead of checking for raw Polars DataTypes (like Float64), we check for 
+        // high-level SemanticCategories. This is more robust as we've already 
+        // normalized numeric types to f64.
+        let active_fields = self.encoding.active_fields();
+        let mut expected_semantics = std::collections::HashMap::new();
 
-        // Add type checking for shape encoding - must be discrete (String)
+        // A. Universal Aesthetic Channels
+        // Channels like Size and Opacity are mathematically mapped to continuous scales.
         if let Some(shape_enc) = &self.encoding.shape {
-            expected_types.insert(shape_enc.field.as_str(), vec![DataType::String]);
+            expected_semantics.insert(shape_enc.field.as_str(), vec![SemanticType::Discrete]);
         }
-
-        // Add type checking for size encoding - must be continuous (f64)
         if let Some(size_enc) = &self.encoding.size {
-            // we've already converted all numeric types to f64 when building the chart
-            expected_types.insert(size_enc.field.as_str(), vec![DataType::Float64]);
+            expected_semantics.insert(size_enc.field.as_str(), vec![SemanticType::Continuous]);
         }
 
-        // Add type checking for errorbar charts - y and y2 encodings must be f64 (continuous)
-        if mark_type.as_str() == "errorbar" {
-            // we've already converted all numeric types to f64 when building the chart
-            expected_types.insert(
-                self.encoding.y.as_ref().unwrap().field.as_str(),
-                vec![DataType::Float64],
-            );
-
-            // If y2 encoding exists, it must also be f64
-            if let Some(y2_encoding) = &self.encoding.y2 {
-                expected_types.insert(y2_encoding.field.as_str(), vec![DataType::Float64]);
+        // B. Mark-Specific Semantic Requirements
+        match mark_type.as_str() {
+            "bar" | "boxplot" => {
+                // Standard categorical plots require a discrete axis (X) and a numeric axis (Y).
+                expected_semantics.insert(self.encoding.x.as_ref().unwrap().field.as_str(), vec![SemanticType::Discrete]);
+                expected_semantics.insert(self.encoding.y.as_ref().unwrap().field.as_str(), vec![SemanticType::Continuous]);
             }
-        }
-
-        // Add type checking for histogram charts - x encoding must be f64 (continuous)
-        if mark_type.as_str() == "hist" {
-            active_fields
-                .retain(|&field| field != self.encoding.y.as_ref().unwrap().field.as_str());
-            // we've already converted all numeric types to f64 when building the chart
-            expected_types.insert(
-                self.encoding.x.as_ref().unwrap().field.as_str(),
-                vec![DataType::Float64],
-            );
-        }
-
-        // Add type checking for rect charts - color encoding must be f64 (continuous) for proper color mapping
-        if mark_type.as_str() == "rect" {
-            // we've already converted all numeric types to f64 when building the chart
-            expected_types.insert(
-                self.encoding.color.as_ref().unwrap().field.as_str(),
-                vec![DataType::Float64],
-            );
-        }
-
-        // Add type checking for boxplot charts - y encoding must be f64 (continuous)
-        if mark_type.as_str() == "boxplot" {
-            // we've already converted all numeric types to f64 when building the chart
-            // Boxplot requires x to be discrete and y to be continuous (numeric)
-            expected_types.insert(
-                self.encoding.x.as_ref().unwrap().field.as_str(),
-                vec![DataType::String],
-            );
-            expected_types.insert(
-                self.encoding.y.as_ref().unwrap().field.as_str(),
-                vec![DataType::Float64],
-            );
-        }
-
-        // Add type checking for bar charts - y encoding must be f64 (continuous)
-        if mark_type.as_str() == "bar" {
-            // we've already converted all numeric types to f64 when building the chart
-            // Boxplot requires x to be discrete and y to be continuous (numeric)
-            expected_types.insert(
-                self.encoding.x.as_ref().unwrap().field.as_str(),
-                vec![DataType::String],
-            );
-            expected_types.insert(
-                self.encoding.y.as_ref().unwrap().field.as_str(),
-                vec![DataType::Float64],
-            );
-        }
-
-        // Add type checking for rule charts - y and y2 encodings must be f64 (continuous)
-        if mark_type.as_str() == "rule" {
-            // we've already converted all numeric types to f64 when building the chart
-            expected_types.insert(
-                self.encoding.y.as_ref().unwrap().field.as_str(),
-                vec![DataType::Float64],
-            );
-
-            // If y2 encoding exists, it must also be f64
-            if let Some(y2_encoding) = &self.encoding.y2 {
-                expected_types.insert(y2_encoding.field.as_str(), vec![DataType::Float64]);
+            "hist" => {
+                // Histograms bin continuous data on the X axis.
+                expected_semantics.insert(self.encoding.x.as_ref().unwrap().field.as_str(), vec![SemanticType::Continuous]);
             }
+            "rect" => {
+                // Heatmaps map continuous values to a color gradient.
+                expected_semantics.insert(self.encoding.color.as_ref().unwrap().field.as_str(), vec![SemanticType::Continuous]);
+            }
+            "errorbar" | "rule" => {
+                // Ranges require continuous values for both start (y) and end (y2) points.
+                expected_semantics.insert(self.encoding.y.as_ref().unwrap().field.as_str(), vec![SemanticType::Continuous]);
+                if let Some(y2) = &self.encoding.y2 {
+                    expected_semantics.insert(y2.field.as_str(), vec![SemanticType::Continuous]);
+                }
+            }
+            "text" => {
+                if let Some(text_enc) = &self.encoding.text {
+                    expected_semantics.insert(text_enc.field.as_str(), vec![SemanticType::Discrete]);
+                }
+            }
+            _ => {} // Other marks like 'point' or 'line' are flexible with their axis types.
         }
 
-        // Add type checking for text charts - text encoding must be String
-        if mark_type.as_str() == "text"
-            && let Some(text_enc) = &self.encoding.text
-        {
-            expected_types.insert(text_enc.field.as_str(), vec![DataType::String]);
-        }
-
-        // Use check_schema to validate columns exist in the dataframe and have correct types
-        check_schema(&mut self.data.df, &active_fields, &expected_types).map_err(|e| {
-            eprintln!("Error validating encoding fields: {}", e);
+        // 5. Schema Integrity Check: Validate columns exist and match semantic expectations.
+        check_schema(&mut self.data.df, &active_fields, &expected_semantics).map_err(|e| {
+            eprintln!("Error validating encoding fields for {}: {}", mark_type, e);
             e
         })?;
 
