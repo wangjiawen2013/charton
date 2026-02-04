@@ -49,7 +49,6 @@ impl DiscreteScale {
             (0.0, 0.0)
         } else {
             // Calculate padding in index space.
-            // ggplot2 default: mult: (0, 0), add: (0.6, 0.6).
             let range = (n - 1) as f64;
             
             let lower_padding = range * expansion.mult.0 + expansion.add.0;
@@ -75,7 +74,7 @@ impl DiscreteScale {
 impl ScaleTrait for DiscreteScale {
     fn scale_type(&self) -> Scale { Scale::Discrete }
 
-        /// Transforms a categorical index into a normalized [0, 1] ratio.
+    /// Transforms a categorical index into a normalized [0, 1] ratio.
     /// 
     /// Because of the `expanded_range`, an index of 0 will not map to 0.0 on screen,
     /// but rather to a slightly offset value, ensuring the first category 

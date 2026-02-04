@@ -150,20 +150,22 @@ impl<T: Mark> Chart<T> {
         enc.apply(&mut self.encoding);
 
         // A mark is required to determine chart type - cannot proceed without it
-        let mark = self
+        // We get the type, then the block ends, releasing the borrow on `self`.
+        let mark_type = self
             .mark
             .as_ref()
+            .map(|m| m.mark_type().to_string())
             .ok_or_else(|| ChartonError::Mark("A mark is required to create a chart".into()))?;
 
         // Validate mandatory encodings - these are the minimum required fields for each chart type and cannot be omitted
-        match mark.mark_type() {
+        match mark_type.as_str() {
             // Marks that require both x and y encodings
             "errorbar" | "bar" | "hist" | "line" | "point" | "area" | "boxplot" | "text"
             | "rule" => {
                 if self.encoding.x.is_none() || self.encoding.y.is_none() {
                     return Err(ChartonError::Encoding(format!(
                         "{} chart requires both x and y encodings",
-                        mark.mark_type()
+                        mark_type
                     )));
                 }
             }
@@ -192,7 +194,7 @@ impl<T: Mark> Chart<T> {
             _ => {
                 return Err(ChartonError::Mark(format!(
                     "Unknown mark type: {}. This is a programming error - all mark types should be handled explicitly.",
-                    mark.mark_type()
+                    mark_type
                 )));
             }
         }
@@ -213,7 +215,7 @@ impl<T: Mark> Chart<T> {
         }
 
         // Add type checking for errorbar charts - y and y2 encodings must be f64 (continuous)
-        if mark.mark_type() == "errorbar" {
+        if mark_type.as_str() == "errorbar" {
             // we've already converted all numeric types to f64 when building the chart
             expected_types.insert(
                 self.encoding.y.as_ref().unwrap().field.as_str(),
@@ -227,7 +229,7 @@ impl<T: Mark> Chart<T> {
         }
 
         // Add type checking for histogram charts - x encoding must be f64 (continuous)
-        if mark.mark_type() == "hist" {
+        if mark_type.as_str() == "hist" {
             active_fields
                 .retain(|&field| field != self.encoding.y.as_ref().unwrap().field.as_str());
             // we've already converted all numeric types to f64 when building the chart
@@ -238,7 +240,7 @@ impl<T: Mark> Chart<T> {
         }
 
         // Add type checking for rect charts - color encoding must be f64 (continuous) for proper color mapping
-        if mark.mark_type() == "rect" {
+        if mark_type.as_str() == "rect" {
             // we've already converted all numeric types to f64 when building the chart
             expected_types.insert(
                 self.encoding.color.as_ref().unwrap().field.as_str(),
@@ -247,7 +249,7 @@ impl<T: Mark> Chart<T> {
         }
 
         // Add type checking for boxplot charts - y encoding must be f64 (continuous)
-        if mark.mark_type() == "boxplot" {
+        if mark_type.as_str() == "boxplot" {
             // we've already converted all numeric types to f64 when building the chart
             // Boxplot requires x to be discrete and y to be continuous (numeric)
             expected_types.insert(
@@ -261,7 +263,7 @@ impl<T: Mark> Chart<T> {
         }
 
         // Add type checking for bar charts - y encoding must be f64 (continuous)
-        if mark.mark_type() == "bar" {
+        if mark_type.as_str() == "bar" {
             // we've already converted all numeric types to f64 when building the chart
             // Boxplot requires x to be discrete and y to be continuous (numeric)
             expected_types.insert(
@@ -275,7 +277,7 @@ impl<T: Mark> Chart<T> {
         }
 
         // Add type checking for rule charts - y and y2 encodings must be f64 (continuous)
-        if mark.mark_type() == "rule" {
+        if mark_type.as_str() == "rule" {
             // we've already converted all numeric types to f64 when building the chart
             expected_types.insert(
                 self.encoding.y.as_ref().unwrap().field.as_str(),
@@ -289,7 +291,7 @@ impl<T: Mark> Chart<T> {
         }
 
         // Add type checking for text charts - text encoding must be String
-        if mark.mark_type() == "text"
+        if mark_type.as_str() == "text"
             && let Some(text_enc) = &self.encoding.text
         {
             expected_types.insert(text_enc.field.as_str(), vec![DataType::String]);
@@ -331,8 +333,11 @@ impl<T: Mark> Chart<T> {
             self.data = DataFrameSource { df: filtered_df };
         }
 
+        // Set default encodings
+        self.apply_default_encodings()?;
+
         // Perform chart-specific data transformations based on mark type
-        match mark.mark_type() {
+        match mark_type.as_str() {
             "boxplot" => {
                 // Apply boxplot-specific data transformations
                 self = self.transform_boxplot_data()?;
@@ -360,9 +365,6 @@ impl<T: Mark> Chart<T> {
             }
         }
 
-        // Set default encodings
-        self.apply_default_encodings()?;
-
         Ok(self)
     }
 
@@ -379,30 +381,41 @@ impl<T: Mark> Chart<T> {
         // if the user hasn't explicitly provided one. This ensures consistency between 
         // data transformation and coordinate scaling.
         if ["rect", "hist"].contains(&mt) {
-            // Resolve X-axis bins
-            // Only infer bins for continuous data; discrete data uses unique categories naturally
+            // --- A. Resolve X-axis bins (Common for both Rect and Hist) ---
             if x_enc.bins.is_none() {
                 let series = self.data.column(&x_enc.field)?;
-                if matches!(interpret_semantic_type(series.dtype()), SemanticType::Continuous) {
-                    let unique_count = series.n_unique()?;
-                    // Square root rule for binning: sqrt(N) clamped between 5 and 50
-                    x_enc.bins = Some(if unique_count <= 1 { 
-                        1 
-                    } else { 
-                        ((unique_count as f64).sqrt() as usize).clamp(5, 50) 
-                    });
+                match interpret_semantic_type(series.dtype()) {
+                    SemanticType::Continuous => {
+                        let unique_count = series.n_unique()?;
+                        // Square root rule for binning: sqrt(N) clamped between 5 and 50
+                        x_enc.bins = Some(if unique_count <= 1 { 1 } else { 
+                            ((unique_count as f64).sqrt() as usize).clamp(5, 50) 
+                        });
+                    }
+                    SemanticType::Discrete => {
+                        // For Discrete X in a Heatmap, bins = category count
+                        x_enc.bins = Some(series.n_unique()?);
+                    }
+                    _ => {}
                 }
             }
-            
-            // Resolve Y-axis bins (specifically for Heatmaps/Rect charts)
+
+            // --- B. Resolve Y-axis bins (Specific to Heatmaps/Rect) ---
+            // We use a parallel 'if' because Histograms usually don't bin the Y axis
             if mt == "rect" {
                 if y_enc.bins.is_none() {
                     let series = self.data.column(&y_enc.field)?;
-                    if matches!(interpret_semantic_type(series.dtype()), SemanticType::Continuous) {
-                        let unique_count = series.n_unique()?;
-                        y_enc.bins = Some(if unique_count <= 1 { 1 } else { 
-                            ((unique_count as f64).sqrt() as usize).clamp(5, 50) 
-                        });
+                    match interpret_semantic_type(series.dtype()) {
+                        SemanticType::Continuous => {
+                            let unique_count = series.n_unique()?;
+                            y_enc.bins = Some(if unique_count <= 1 { 1 } else { 
+                                ((unique_count as f64).sqrt() as usize).clamp(5, 50) 
+                            });
+                        }
+                        SemanticType::Discrete => {
+                            y_enc.bins = Some(series.n_unique()?);
+                        }
+                        _ => {}
                     }
                 }
             }
@@ -451,18 +464,73 @@ impl<T: Mark> Chart<T> {
             }
         }
 
-        // Rect charts (Heatmaps) should flush to the edges of the panel
+        // --- 4. HALF-STEP EXPANSION FOR DISCRETE AXES ---
+        // For marks with "thickness" (Bar, Boxplot, Rect) on a Discrete axis, we add a 0.5 
+        // unit padding. This ensures the first and last marks have enough space and 
+        // don't overlap with the axis lines.
+        let needs_discrete_padding = ["bar", "boxplot", "rect"].contains(&mt);
+        if needs_discrete_padding {
+            // Apply to X axis (Common for Bar/Boxplot)
+            if x_enc.scale_type == Some(Scale::Discrete) && x_enc.expansion.is_none() {
+                x_enc.expansion = Some(Expansion { mult: (0.0, 0.0), add: (0.5, 0.5) });
+            }
+            // Apply to Y axis (Specific to Discrete Heatmaps)
+            if y_enc.scale_type == Some(Scale::Discrete) && y_enc.expansion.is_none() {
+                y_enc.expansion = Some(Expansion { mult: (0.0, 0.0), add: (0.5, 0.5) });
+            }
+        }
+
+        // --- 5. FLUSH EXPANSION FOR CONTINUOUS RECT ---
+        // Rect charts (Heatmaps) on continuous axes should flush to the edges.
+        // Since we already apply "Half-bin Compensation" in get_data_bounds, 
+        // we set Expansion to zero here to avoid double-padding.
         if mt == "rect" {
-            // Set expansion to zero to ensure rectangles perfectly fill the plot area
-            // without leaving whitespace between the marks and the axis lines.
-            if x_enc.expansion.is_none() {
+            if x_enc.scale_type != Some(Scale::Discrete) && x_enc.expansion.is_none() {
                 x_enc.expansion = Some(Expansion { mult: (0.0, 0.0), add: (0.0, 0.0) });
             }
-            if y_enc.expansion.is_none() {
+            if y_enc.scale_type != Some(Scale::Discrete) && y_enc.expansion.is_none() {
                 y_enc.expansion = Some(Expansion { mult: (0.0, 0.0), add: (0.0, 0.0) });
             }
         }
 
+        // --- 6. RESOLVE OPTIONAL COLOR CHANNEL ---
+        if let Some(ref mut color_enc) = self.encoding.color {
+            // Only infer the color scale type if it isn't predefined
+            if color_enc.scale_type.is_none() {
+                let c_dtype = self.data.df.schema().get(&color_enc.field).unwrap();
+                color_enc.scale_type = Some(match interpret_semantic_type(c_dtype) {
+                    SemanticType::Continuous => Scale::Linear,
+                    SemanticType::Discrete   => Scale::Discrete,
+                    SemanticType::Temporal   => Scale::Temporal,
+                });
+            }
+        }
+
+        // --- 7. RESOLVE OPTIONAL SHAPE CHANNEL ---
+        if let Some(ref mut shape_enc) = self.encoding.shape {
+            // Only infer the shape scale type if it isn't predefined
+            if shape_enc.scale_type.is_none() {
+                let s_dtype = self.data.df.schema().get(&shape_enc.field).unwrap();
+                shape_enc.scale_type = Some(match interpret_semantic_type(s_dtype) {
+                    SemanticType::Continuous => Scale::Linear,
+                    SemanticType::Discrete   => Scale::Discrete,
+                    SemanticType::Temporal   => Scale::Temporal,
+                });
+            }
+        }
+
+        // --- 8. RESOLVE OPTIONAL SIZE CHANNEL ---
+        if let Some(ref mut size_enc) = self.encoding.size {
+            // Only infer the size scale type if it isn't predefined
+            if size_enc.scale_type.is_none() {
+                let s_dtype = self.data.df.schema().get(&size_enc.field).unwrap();
+                size_enc.scale_type = Some(match interpret_semantic_type(s_dtype) {
+                    SemanticType::Continuous => Scale::Linear,
+                    SemanticType::Discrete   => Scale::Discrete,
+                    SemanticType::Temporal   => Scale::Temporal,
+                });
+            }
+        }
         Ok(())
     }
 }
@@ -517,12 +585,10 @@ where
             ChartonError::Data(format!("No field mapped to channel {:?}", channel))
         })?;
 
-        // 1. Identify the primary series to determine the semantic type
         let primary_series = self.data.column(field_name)?;
         let semantic_type = interpret_semantic_type(primary_series.dtype());
 
         match semantic_type {
-            // --- DISCRETE: Categorical labels (X-axis of ErrorBars, etc.) ---
             SemanticType::Discrete => {
                 let labels = primary_series
                     .unique_stable()?
@@ -534,7 +600,6 @@ where
                 Ok(ScaleDomain::Discrete(labels))
             }
 
-            // --- TEMPORAL: Time-based ranges ---
             SemanticType::Temporal => {
                 let min_ns = primary_series.min::<i64>()?.unwrap_or(0);
                 let max_ns = primary_series.max::<i64>()?.unwrap_or(0);
@@ -545,28 +610,20 @@ where
                 Ok(ScaleDomain::Temporal(start_dt, end_dt))
             }
 
-            // --- CONTINUOUS: Quantitative ranges (The heart of ErrorBar scaling) ---
             SemanticType::Continuous => {
                 let mut global_min = f64::INFINITY;
                 let mut global_max = f64::NEG_INFINITY;
                 let mut found_data = false;
 
-                // Build a list of candidate columns that contribute to this channel's domain
                 let mut columns_to_scan = vec![field_name.to_string()];
-
-                // Add potential auxiliary columns for Y-axis
                 if channel == Channel::Y {
-                    // Standard secondary field
                     if let Some(y2_enc) = &self.encoding.y2 {
                         columns_to_scan.push(y2_enc.field.clone());
                     }
-
-                    // Specific to errobar chart
                     columns_to_scan.push(format!("{}_{}_min", TEMP_SUFFIX, field_name));
                     columns_to_scan.push(format!("{}_{}_max", TEMP_SUFFIX, field_name));
                 }
 
-                // Scan all candidate columns and calculate the union of their extents
                 for col_name in &columns_to_scan {
                     if let Ok(series) = self.data.column(col_name) {
                         if let Ok(Some(m)) = series.min::<f64>() { 
@@ -580,12 +637,35 @@ where
                     }
                 }
 
-                // Fallback if no valid data was found (e.g., temp columns not yet generated)
                 if !found_data {
                     global_min = primary_series.min::<f64>()?.unwrap_or(0.0);
                     global_max = primary_series.max::<f64>()?.unwrap_or(1.0);
                 }
 
+                // --- HALF-BIN COMPENSATION LOGIC ---
+                // For binned data (e.g., Rect/Heatmap), the current min/max represent bin centers.
+                // We expand the domain by half a bin width on both sides so the scale covers 
+                // the full visual extent of the rectangles.
+                let bins = match channel {
+                    Channel::X => self.encoding.x.as_ref().and_then(|e| e.bins),
+                    Channel::Y => self.encoding.y.as_ref().and_then(|e| e.bins),
+                    _ => None,
+                };
+
+                if let Some(n_bins) = bins {
+                    if n_bins > 1 && global_max > global_min {
+                        // The distance between the first and last center covers (n-1) intervals.
+                        let bin_width = (global_max - global_min) / (n_bins as f64 - 1.0);
+                        global_min -= bin_width / 2.0;
+                        global_max += bin_width / 2.0;
+                    } else if n_bins == 1 {
+                        // Single bin case: expand by an arbitrary unit to give the block volume
+                        global_min -= 0.5;
+                        global_max += 0.5;
+                    }
+                }
+
+                // Ensure zero baseline if requested (e.g., for bar/hist charts)
                 let force_zero = self.encoding.get_zero_by_channel(channel);
                 if force_zero {
                     global_min = global_min.min(0.0);
