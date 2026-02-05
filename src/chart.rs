@@ -187,8 +187,21 @@ impl<T: Mark> Chart<T> {
         // Instead of checking for raw Polars DataTypes (like Float64), we check for 
         // high-level SemanticCategories. This is more robust as we've already 
         // normalized numeric types to f64.
-        let active_fields = self.encoding.active_fields();
+        let mut active_fields = self.encoding.active_fields();
         let mut expected_semantics = std::collections::HashMap::new();
+
+        // Histogram Virtual Column Handling.
+        // Histograms are a special case where the Y-axis (frequency/count) is a 
+        // "virtual" column produced by the statistical transformation.
+        // Because this column is not present in the raw source DataFrame, we 
+        // remove it from the validation set to avoid "field not found" errors.
+        if mark_type.as_str() == "hist" {
+            // Safety: Both X and Y are guaranteed to exist by Step 3.
+            let y_field = self.encoding.y.as_ref().unwrap().field.as_str();
+            
+            // Retain only fields that actually exist in the raw input data.
+            active_fields.retain(|&field| field != y_field);
+        }
 
         // A. Universal Aesthetic Channels
         // Channels like Size and Opacity are mathematically mapped to continuous scales.
@@ -266,7 +279,7 @@ impl<T: Mark> Chart<T> {
         }
 
         // Set default encodings
-        self.apply_default_encodings()?;
+        self.resolve_pre_transform_encodings()?;
 
         // Perform chart-specific data transformations based on mark type
         match mark_type.as_str() {
@@ -297,63 +310,62 @@ impl<T: Mark> Chart<T> {
             }
         }
 
+        // Set default encodings
+        self.apply_post_transform_defaults()?;
+
         Ok(self)
     }
 
+    /// Resolves binning configuration required before data transformation.
+    fn resolve_pre_transform_encodings(&mut self) -> Result<(), ChartonError> {
+        let mt = self.mark.as_ref().unwrap().mark_type();
+        let x_enc = self.encoding.x.as_mut().unwrap();
+        let y_enc = self.encoding.y.as_mut().unwrap();
+
+        // --- RESOLVE BINS ---
+        // Histograms and Heatmaps need bin counts to group the data.
+        if ["rect", "hist"].contains(&mt) {
+            // Resolve X-axis bins
+            if x_enc.bins.is_none() {
+                let series = self.data.column(&x_enc.field)?;
+                match interpret_semantic_type(series.dtype()) {
+                    SemanticType::Continuous => {
+                        let unique_count = series.n_unique()?;
+                        x_enc.bins = Some(if unique_count <= 1 { 1 } else { 
+                            ((unique_count as f64).sqrt() as usize).clamp(5, 50) 
+                        });
+                    }
+                    SemanticType::Discrete => x_enc.bins = Some(series.n_unique()?),
+                    _ => {}
+                }
+            }
+
+            // Resolve Y-axis bins (Only for Rect/Heatmaps)
+            if mt == "rect" && y_enc.bins.is_none() {
+                let series = self.data.column(&y_enc.field)?;
+                match interpret_semantic_type(series.dtype()) {
+                    SemanticType::Continuous => {
+                        let unique_count = series.n_unique()?;
+                        y_enc.bins = Some(if unique_count <= 1 { 1 } else { 
+                            ((unique_count as f64).sqrt() as usize).clamp(5, 50) 
+                        });
+                    }
+                    SemanticType::Discrete => y_enc.bins = Some(series.n_unique()?),
+                    _ => {}
+                }
+            }
+        }
+        Ok(())
+    }
     /// Completes the chart's encoding configuration by inferring missing metadata.
-    fn apply_default_encodings(&mut self) -> Result<(), ChartonError> {
+    fn apply_post_transform_defaults(&mut self) -> Result<(), ChartonError> {
         // Determine the mark type early to apply specific defaults (e.g., Rect, Hist)
         let mt = self.mark.as_ref().unwrap().mark_type();
         
         let x_enc = self.encoding.x.as_mut().unwrap();
         let y_enc = self.encoding.y.as_mut().unwrap();
 
-        // --- 1. RESOLVE BINS (PRE-COMPUTATION) ---
-        // For chart types that require discretization (Rect, Hist), we infer the number of bins
-        // if the user hasn't explicitly provided one. This ensures consistency between 
-        // data transformation and coordinate scaling.
-        if ["rect", "hist"].contains(&mt) {
-            // --- A. Resolve X-axis bins (Common for both Rect and Hist) ---
-            if x_enc.bins.is_none() {
-                let series = self.data.column(&x_enc.field)?;
-                match interpret_semantic_type(series.dtype()) {
-                    SemanticType::Continuous => {
-                        let unique_count = series.n_unique()?;
-                        // Square root rule for binning: sqrt(N) clamped between 5 and 50
-                        x_enc.bins = Some(if unique_count <= 1 { 1 } else { 
-                            ((unique_count as f64).sqrt() as usize).clamp(5, 50) 
-                        });
-                    }
-                    SemanticType::Discrete => {
-                        // For Discrete X in a Heatmap, bins = category count
-                        x_enc.bins = Some(series.n_unique()?);
-                    }
-                    _ => {}
-                }
-            }
-
-            // --- B. Resolve Y-axis bins (Specific to Heatmaps/Rect) ---
-            // We use a parallel 'if' because Histograms usually don't bin the Y axis
-            if mt == "rect" {
-                if y_enc.bins.is_none() {
-                    let series = self.data.column(&y_enc.field)?;
-                    match interpret_semantic_type(series.dtype()) {
-                        SemanticType::Continuous => {
-                            let unique_count = series.n_unique()?;
-                            y_enc.bins = Some(if unique_count <= 1 { 1 } else { 
-                                ((unique_count as f64).sqrt() as usize).clamp(5, 50) 
-                            });
-                        }
-                        SemanticType::Discrete => {
-                            y_enc.bins = Some(series.n_unique()?);
-                        }
-                        _ => {}
-                    }
-                }
-            }
-        }
-
-        // --- 2. RESOLVE SCALE TYPES ---
+        // --- 1. RESOLVE SCALE TYPES ---
         // Infer the semantic scale type (Linear, Discrete, or Temporal) based on the column's DataType
         if x_enc.scale_type.is_none() {
             let x_dtype = self.data.df.schema().get(&x_enc.field).unwrap();
@@ -373,7 +385,7 @@ impl<T: Mark> Chart<T> {
             });
         }
 
-        // --- 3. RESOLVE SPECIAL PADDING & BASELINES ---
+        // --- 2. RESOLVE SPECIAL PADDING & BASELINES ---
         // Apply chart-specific visual rules (e.g., bar charts should start at zero)
         if y_enc.scale_type == Some(Scale::Linear) {
             if ["area", "bar", "hist"].contains(&mt) {
@@ -396,7 +408,7 @@ impl<T: Mark> Chart<T> {
             }
         }
 
-        // --- 4. HALF-STEP EXPANSION FOR DISCRETE AXES ---
+        // --- 3. HALF-STEP EXPANSION FOR DISCRETE AXES ---
         // For marks with "thickness" (Bar, Boxplot, Rect) on a Discrete axis, we add a 0.5 
         // unit padding. This ensures the first and last marks have enough space and 
         // don't overlap with the axis lines.
@@ -412,7 +424,7 @@ impl<T: Mark> Chart<T> {
             }
         }
 
-        // --- 5. FLUSH EXPANSION FOR CONTINUOUS RECT ---
+        // --- 4. FLUSH EXPANSION FOR CONTINUOUS RECT ---
         // Rect charts (Heatmaps) on continuous axes should flush to the edges.
         // Since we already apply "Half-bin Compensation" in get_data_bounds, 
         // we set Expansion to zero here to avoid double-padding.
@@ -425,7 +437,7 @@ impl<T: Mark> Chart<T> {
             }
         }
 
-        // --- 6. RESOLVE OPTIONAL COLOR CHANNEL ---
+        // --- 5. RESOLVE OPTIONAL COLOR CHANNEL ---
         if let Some(ref mut color_enc) = self.encoding.color {
             // Only infer the color scale type if it isn't predefined
             if color_enc.scale_type.is_none() {
@@ -438,7 +450,7 @@ impl<T: Mark> Chart<T> {
             }
         }
 
-        // --- 7. RESOLVE OPTIONAL SHAPE CHANNEL ---
+        // --- 6. RESOLVE OPTIONAL SHAPE CHANNEL ---
         if let Some(ref mut shape_enc) = self.encoding.shape {
             // Only infer the shape scale type if it isn't predefined
             if shape_enc.scale_type.is_none() {
@@ -451,7 +463,7 @@ impl<T: Mark> Chart<T> {
             }
         }
 
-        // --- 8. RESOLVE OPTIONAL SIZE CHANNEL ---
+        // --- 7. RESOLVE OPTIONAL SIZE CHANNEL ---
         if let Some(ref mut size_enc) = self.encoding.size {
             // Only infer the size scale type if it isn't predefined
             if size_enc.scale_type.is_none() {

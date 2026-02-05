@@ -43,7 +43,7 @@ impl MarkRenderer for Chart<MarkHist> {
 
         // Calculate the physical bar width. 
         // Note: transform_histogram_data provides 'bins' in x_enc which we use here.
-        let bar_width = self.calculate_hist_bar_size(context);
+        let bar_width = self.calculate_hist_bar_size(context)?;
 
         // --- STEP 3: RENDER GROUPS ---
         for group_df in groups {
@@ -93,23 +93,56 @@ impl MarkRenderer for Chart<MarkHist> {
 // --- HELPER METHODS ---
 
 impl Chart<MarkHist> {
-    /// Calculates the consistent pixel width for bars.
+    /// Calculates the bar width by measuring the raw data span (pre-expansion).
     /// 
-    /// It uses the 'bins' count resolved during data transformation to ensure 
-    /// each bar takes its fair share of the available X-axis space.
-    pub(crate) fn calculate_hist_bar_size(&self, context: &PanelContext) -> f64 {
-        let x_bins = self.encoding.x.as_ref().and_then(|e| e.bins).unwrap_or(1);
-        let x_logical_step = 1.0 / (x_bins as f64);
+    /// This is the most accurate approach because it:
+    /// 1. Uses the actual data min/max to define the "true" data unit.
+    /// 2. Uses the resolved 'bins' from encoding to divide that unit.
+    /// 3. Normalizes this data-space width through the scale to account for any offsets.
+    fn calculate_hist_bar_size(&self, context: &PanelContext) -> Result<f64, ChartonError> {
+        // 1. Get the pre-resolved bin count.
+        let n_bins = self.encoding.x.as_ref()
+            .and_then(|x| x.bins)
+            .ok_or_else(|| ChartonError::Encoding("Bin count not resolved".into()))? as f64;
 
-        // Transform the width of one bin to pixel distance.
-        let (p0_x, _) = context.transform(0.0, 0.0);
-        let (p1_x, _) = context.transform(x_logical_step, 0.0);
+        let x_field = &self.encoding.x.as_ref().unwrap().field;
+        let x_scale = context.coord.get_x_scale();
 
-        // Multiply by 0.95 to provide a subtle visual gap between bars.
-        (p1_x - p0_x).abs() * 0.95
+        // 2. Access the transformed DataFrame to get the RAW data boundaries.
+        let s = self.data.column(x_field)?;
+
+        // 3. Find the actual data min and max (the bin centers' extent).
+        let v_min = s.min::<f64>()?.ok_or(ChartonError::Data("X column is empty".into()))?;
+        let v_max = s.max::<f64>()?.ok_or(ChartonError::Data("X column is empty".into()))?;
+        
+        // 4. Calculate the true data-space step between bins.
+        // If there are N unique bins, the distance from the first center to the last 
+        // center represents (N - 1) full bin widths.
+        let data_step = if n_bins > 1.0 {
+            (v_max - v_min) / (n_bins - 1.0)
+        } else {
+            // Fallback: if only one bin, we can't measure a step. 
+            // We use a default fraction of the scale's domain.
+            let (d0, d1) = x_scale.domain();
+            (d1 - d0) * 0.5
+        };
+
+        // 5. Convert this data-space width into normalized [0, 1] distance.
+        // We must use subtraction of two points to cancel out the Scale's internal expansion/offsets.
+        let norm0 = x_scale.normalize(v_min);
+        let norm1 = x_scale.normalize(v_min + data_step);
+
+        // 6. Map to physical pixels.
+        let (p0, _) = context.transform(norm0, 0.0);
+        let (p1, _) = context.transform(norm1, 0.0);
+
+        // 7. Calculate final width with a 0.95 gap factor.
+        let theoretical_width = (p1 - p0).abs();
+        
+        Ok(theoretical_width * 0.95)
     }
 
-/// Resolves a single fill color for the entire histogram group.
+    /// Resolves a single fill color for the entire histogram group.
     /// 
     /// This method is used when data is partitioned by a color aesthetic. 
     /// It ensures visual consistency by:
@@ -120,7 +153,7 @@ impl Chart<MarkHist> {
     ///    using the scale's palette or gradient mapper.
     /// 
     /// If no color encoding is provided, it returns the provided `fallback` color.
-    pub(crate) fn resolve_group_color(
+    fn resolve_group_color(
         &self, 
         df: &DataFrame, 
         context: &PanelContext, 
