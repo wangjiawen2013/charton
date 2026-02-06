@@ -20,18 +20,21 @@ pub mod theme;
 pub mod transform;
 pub mod visual;
 pub mod facets;
+pub mod macros;
 
 #[cfg(not(target_arch = "wasm32"))]
 pub mod bridge;
 
 pub mod prelude {
+    pub use crate::core::data::{IntoChartonSource, DataFrameSource, load_dataset};
+    pub use crate::register_polars_bridge;
+
     pub use crate::encode::{
         color::color, Encoding, shape::shape, size::size,
         text::text, theta::theta, x::x, y::y, y2::y2,
     };
 
     pub use crate::chart::Chart;
-    pub use crate::core::data::{DataFrameSource, load_dataset};
     pub use crate::core::composite::LayeredChart;
     pub use crate::scale::{Scale, Expansion};
 

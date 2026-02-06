@@ -34,6 +34,7 @@ For most use cases involving single-layer charts, Charton provides a streamlined
 use charton::prelude::*;
 use polars::prelude::*;
 use std::error::Error;
+// register_polars_bridge!();  // Use this if you're using Polars not compatible with polars 0.49
 
 fn main() -> Result<(), Box<dyn Error>> {
     // Create a polars dataframe

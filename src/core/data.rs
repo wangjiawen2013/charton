@@ -3,6 +3,13 @@ use polars::prelude::*;
 use polars::datatypes::DataType;
 use std::collections::HashMap;
 use std::vec::Vec;
+use std::io::Cursor;
+
+/// A bridge trait that defines how data enters Charton.
+/// It allows us to support local DataFrames (0.49) and external versions (via Parquet).
+pub trait IntoChartonSource {
+    fn into_source(self) -> Result<DataFrameSource, ChartonError>;
+}
 
 /// A wrapper around a Polars DataFrame that provides plotting-specific functionality.
 ///
@@ -41,6 +48,14 @@ impl DataFrameSource {
         Self { df }
     }
 
+    /// The "Universal Port": Deserializes Parquet bytes into the library's Polars version.
+    /// This is the key to cross-version compatibility.
+    pub fn from_parquet_bytes(bytes: &[u8]) -> Result<Self, ChartonError> {
+        let cursor = Cursor::new(bytes);
+        let df = ParquetReader::new(cursor).finish()?;
+        Ok(Self::new(df))
+    }
+
     // Retrieves column data by name and returns a Series object
     pub(crate) fn column(&self, name: &str) -> Result<Series, ChartonError> {
         // 1. Get the Column object. In Polars 0.49, df.column(name) returns Result<&Column, PolarsError>
@@ -56,78 +71,26 @@ impl DataFrameSource {
     }
 }
 
-// Implementation for converting &DataFrame to DataFrameSource
-impl TryFrom<&DataFrame> for DataFrameSource {
-    type Error = ChartonError;
-
-    /// Creates a new DataFrameSource from a reference to a DataFrame.
-    ///
-    /// This creates a clone of the DataFrame when Polars versions match,
-    /// or suggests using Parquet serialization for version compatibility.
-    ///
-    /// # Arguments
-    /// * `df` - A reference to the DataFrame to wrap in a DataFrameSource
-    ///
-    /// # Returns
-    /// A new DataFrameSource instance containing a clone of the provided DataFrame.
-    ///
-    /// # Note
-    /// For cross-version compatibility, serialize your DataFrame to Parquet format
-    /// and use `DataFrameSource::try_from(Vec<u8>)` instead.
-    fn try_from(df: &DataFrame) -> Result<Self, Self::Error> {
-        Ok(DataFrameSource::new(df.clone()))
+// Support for native &DataFrame (0.49)
+impl IntoChartonSource for &DataFrame {
+    fn into_source(self) -> Result<DataFrameSource, ChartonError> {
+        Ok(DataFrameSource::new(self.clone()))
     }
 }
 
-// Implementation for converting &LazyFrame to DataFrameSource
-impl TryFrom<&LazyFrame> for DataFrameSource {
-    type Error = ChartonError;
-
-    /// Creates a new DataFrameSource from a reference to a LazyFrame.
-    ///
-    /// This collects the LazyFrame into a DataFrame when Polars versions match,
-    /// or suggests using Parquet serialization for version compatibility.
-    ///
-    /// # Arguments
-    /// * `lf` - A reference to the LazyFrame to collect and wrap
-    ///
-    /// # Returns
-    /// A new DataFrameSource instance containing the collected DataFrame
-    ///
-    /// # Note
-    /// For cross-version compatibility with Polars, first collect your LazyFrame
-    /// into a DataFrame and then serialize it to Parquet format before creating
-    /// a DataFrameSource.
-    ///
-    /// # Errors
-    /// Returns a ChartonError if the LazyFrame fails to collect into a DataFrame.
-    fn try_from(lf: &LazyFrame) -> Result<Self, Self::Error> {
-        let df = lf.clone().collect()?;
+// Support for native &LazyFrame (0.49)
+impl IntoChartonSource for &LazyFrame {
+    fn into_source(self) -> Result<DataFrameSource, ChartonError> {
+        // .collect() consumes the LazyFrame, so we clone the reference first
+        let df = self.clone().collect()?;
         Ok(DataFrameSource::new(df))
     }
 }
 
-// Implementation for converting Vec<u8> (Parquet data) to DataFrameSource
-impl TryFrom<&Vec<u8>> for DataFrameSource {
-    type Error = ChartonError;
-
-    /// Creates a new DataFrameSource from Parquet data.
-    ///
-    /// This allows users to pass DataFrame serialized as Parquet data,
-    /// enabling interoperability between different Polars versions.
-    ///
-    /// # Arguments
-    /// * `parquet_data` - A reference to the vector of bytes containing Parquet-serialized DataFrame
-    ///
-    /// # Returns
-    /// A new DataFrameSource instance containing the deserialized DataFrame
-    ///
-    /// # Errors
-    /// Returns a ChartonError if the Parquet data cannot be read into a DataFrame.
-    fn try_from(parquet_data: &Vec<u8>) -> Result<Self, Self::Error> {
-        let cursor = std::io::Cursor::new(parquet_data);
-        let df = ParquetReader::new(cursor).finish()?;
-        Ok(DataFrameSource::new(df))
+// Support for the Parquet bridge
+impl IntoChartonSource for &[u8] {
+    fn into_source(self) -> Result<DataFrameSource, ChartonError> {
+        DataFrameSource::from_parquet_bytes(self)
     }
 }
 
