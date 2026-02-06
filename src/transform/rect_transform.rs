@@ -2,6 +2,7 @@ use crate::chart::Chart;
 use crate::core::data::{SemanticType, interpret_semantic_type};
 use crate::error::ChartonError;
 use crate::mark::Mark;
+use crate::prelude::IntoChartonSource;
 use polars::prelude::*;
 
 impl<T: Mark> Chart<T> {
@@ -277,7 +278,7 @@ impl<T: Mark> Chart<T> {
             df
         };
 
-        self.data = (&final_df).try_into()?;
+        self.data = (&final_df).into_source()?;
         Ok(self)
     }
 }

@@ -1,6 +1,7 @@
 use crate::chart::Chart;
 use crate::error::ChartonError;
 use crate::mark::Mark;
+use crate::prelude::IntoChartonSource;
 use polars::prelude::*;
 
 impl<T: Mark> Chart<T> {
@@ -197,7 +198,7 @@ impl<T: Mark> Chart<T> {
             result_df
         };
 
-        self.data = (&processed_df).try_into()?;
+        self.data = (&processed_df).into_source()?;
         Ok(self)
     }
 }

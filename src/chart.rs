@@ -80,9 +80,9 @@ impl<T: Mark> Chart<T> {
     /// ```
     pub fn build<S>(source: S) -> Result<Self, ChartonError>
     where
-        S: TryInto<DataFrameSource, Error = ChartonError>,
+        S: IntoChartonSource,
     {
-        let source = source.try_into()?;
+        let source = source.into_source()?;
 
         let mut chart = Self {
             data: source,
