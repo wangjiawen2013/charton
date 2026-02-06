@@ -559,28 +559,53 @@ where
                 let mut global_max = f64::NEG_INFINITY;
                 let mut found_data = false;
 
-                let mut columns_to_scan = vec![field_name.to_string()];
-                if channel == Channel::Y {
-                    if let Some(y2_enc) = &self.encoding.y2 {
-                        columns_to_scan.push(y2_enc.field.clone());
+                // --- STACKED BAR LOGIC ---
+                // For stacked charts, boundaries are determined by the sum of values 
+                // in each group rather than individual rows.
+                let is_y_stacked = channel == Channel::Y 
+                    && self.encoding.y.as_ref().map_or(false, |e| e.stack)
+                    && self.encoding.color.is_some();
+
+                if is_y_stacked {
+                    let x_field = &self.encoding.x.as_ref().unwrap().field;
+                    let y_field = &self.encoding.y.as_ref().unwrap().field;
+                    
+                    // Aggregate sums per X-axis category to find the true visual peak
+                    let grouped_sums = self.data.df.clone()
+                        .lazy()
+                        .group_by([col(x_field)])
+                        .agg([col(y_field).sum().alias("stack_sum")])
+                        .collect()?;
+
+                    let sum_series = grouped_sums.column("stack_sum")?.as_materialized_series();
+                    global_min = sum_series.min::<f64>()?.unwrap_or(0.0);
+                    global_max = sum_series.max::<f64>()?.unwrap_or(0.0);
+                    found_data = true;
+                } else {
+                    let mut columns_to_scan = vec![field_name.to_string()];
+                    if channel == Channel::Y {
+                        if let Some(y2_enc) = &self.encoding.y2 {
+                            columns_to_scan.push(y2_enc.field.clone());
+                        }
+                        columns_to_scan.push(format!("{}_{}_min", TEMP_SUFFIX, field_name));
+                        columns_to_scan.push(format!("{}_{}_max", TEMP_SUFFIX, field_name));
                     }
-                    columns_to_scan.push(format!("{}_{}_min", TEMP_SUFFIX, field_name));
-                    columns_to_scan.push(format!("{}_{}_max", TEMP_SUFFIX, field_name));
+
+                    for col_name in &columns_to_scan {
+                        if let Ok(series) = self.data.column(col_name) {
+                            if let Ok(Some(m)) = series.min::<f64>() { 
+                                global_min = global_min.min(m); 
+                                found_data = true;
+                            }
+                            if let Ok(Some(m)) = series.max::<f64>() { 
+                                global_max = global_max.max(m); 
+                                found_data = true;
+                            }
+                        }
+                    }
                 }
 
-                for col_name in &columns_to_scan {
-                    if let Ok(series) = self.data.column(col_name) {
-                        if let Ok(Some(m)) = series.min::<f64>() { 
-                            global_min = global_min.min(m); 
-                            found_data = true;
-                        }
-                        if let Ok(Some(m)) = series.max::<f64>() { 
-                            global_max = global_max.max(m); 
-                            found_data = true;
-                        }
-                    }
-                }
-
+                // Fallback if no data was found during scan
                 if !found_data {
                     global_min = primary_series.min::<f64>()?.unwrap_or(0.0);
                     global_max = primary_series.max::<f64>()?.unwrap_or(1.0);

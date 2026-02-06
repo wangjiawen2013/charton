@@ -8,5 +8,6 @@ pub(crate) mod box_renderer;
 pub(crate) mod rect_renderer;
 pub(crate) mod area_renderer;
 pub(crate) mod hist_renderer;
+pub(crate) mod bar_renderer;
 pub(crate) mod axis_renderer;
 pub(crate) mod legend_renderer;
