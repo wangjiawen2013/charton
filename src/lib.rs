@@ -20,15 +20,12 @@ pub mod theme;
 pub mod transform;
 pub mod visual;
 pub mod facets;
-pub mod macros;
 
 #[cfg(not(target_arch = "wasm32"))]
 pub mod bridge;
 
 pub mod prelude {
-    pub use crate::core::data;
     pub use crate::core::data::{IntoChartonSource, DataFrameSource, load_dataset};
-    pub use crate::register_polars_bridge;
 
     pub use crate::encode::{
         color::color, Encoding, shape::shape, size::size,
