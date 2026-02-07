@@ -2,8 +2,8 @@
 macro_rules! register_polars_bridge {
     () => {
         /// Implement the bridge for &polars::prelude::DataFrame
-        impl $crate::data::IntoChartonSource for &polars::prelude::DataFrame {
-            fn into_source(self) -> Result<$crate::data::DataFrameSource, $crate::error::ChartonError> {
+        impl $crate::core::data::IntoChartonSource for &polars::prelude::DataFrame {
+            fn into_source(self) -> Result<$crate::core::data::DataFrameSource, $crate::error::ChartonError> {
                 use polars::prelude::{ParquetWriter, ParquetCompression};
                 use std::io::Cursor;
 
@@ -19,13 +19,13 @@ macro_rules! register_polars_bridge {
                     ))?;
 
                 // Pass the serialized bytes to Charton
-                $crate::data::IntoChartonSource::into_source(buf.as_slice())
+                $crate::core::data::IntoChartonSource::into_source(buf.as_slice())
             }
         }
 
         /// Implement the bridge for &polars::prelude::LazyFrame
-        impl $crate::data::IntoChartonSource for &polars::prelude::LazyFrame {
-            fn into_source(self) -> Result<$crate::data::DataFrameSource, $crate::error::ChartonError> {
+        impl $crate::core::data::IntoChartonSource for &polars::prelude::LazyFrame {
+            fn into_source(self) -> Result<$crate::core::data::DataFrameSource, $crate::error::ChartonError> {
                 // Collect the user's LazyFrame into a user's DataFrame first
                 let df = self.clone().collect()
                     .map_err(|e| $crate::error::ChartonError::Data(
@@ -33,7 +33,7 @@ macro_rules! register_polars_bridge {
                     ))?;
                 
                 // Use the &DataFrame implementation above to finish the bridge
-                $crate::data::IntoChartonSource::into_source(&df)
+                $crate::core::data::IntoChartonSource::into_source(&df)
             }
         }
     };
