@@ -94,9 +94,12 @@ impl IntoChartonSource for &[u8] {
 }
 
 // Support for the Parquet bridge through Vec of bytes
+// Note: we cannot use from_parquet_bytes here without unknown reasons
 impl IntoChartonSource for &Vec<u8> {
     fn into_source(self) -> Result<DataFrameSource, ChartonError> {
-        DataFrameSource::from_parquet_bytes(self.as_slice())
+        let cursor = Cursor::new(self);
+        let df = ParquetReader::new(cursor).finish()?;
+        Ok(DataFrameSource::new(df))
     }
 }
 
