@@ -86,10 +86,17 @@ impl IntoChartonSource for &LazyFrame {
     }
 }
 
-// Support for the Parquet bridge
+// Support for the Parquet bridge through array of bytes
 impl IntoChartonSource for &[u8] {
     fn into_source(self) -> Result<DataFrameSource, ChartonError> {
         DataFrameSource::from_parquet_bytes(self)
+    }
+}
+
+// Support for the Parquet bridge through Vec of bytes
+impl IntoChartonSource for &Vec<u8> {
+    fn into_source(self) -> Result<DataFrameSource, ChartonError> {
+        DataFrameSource::from_parquet_bytes(self.as_slice())
     }
 }
 
