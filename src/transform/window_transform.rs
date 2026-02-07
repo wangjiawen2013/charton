@@ -246,7 +246,7 @@ impl<T: Mark> Chart<T> {
         let group_field_name = params
             .groupby
             .clone()
-            .unwrap_or_else(|| format!("__charton_temp_group_{}", crate::TEMP_SUFFIX));
+            .unwrap_or_else(|| format!("{}_group", crate::TEMP_SUFFIX));
 
         // Create a working DataFrame with grouping column
         let working_df = if let Some(ref group_field) = params.groupby {
@@ -271,9 +271,9 @@ impl<T: Mark> Chart<T> {
             // WINDOW TRANSFORM: CUMULATIVE DISTRIBUTION (ECDF)
             // ============================================================================
             WindowOnlyOp::CumeDist => {
-                let cumulative_freq_col = format!("__charton_temp_cum_{}", crate::TEMP_SUFFIX);
-                let total_freq_col = format!("__charton_temp_total_{}", crate::TEMP_SUFFIX);
-                let group_order_col = format!("__charton_temp_order_{}", crate::TEMP_SUFFIX);
+                let cumulative_freq_col = format!("{}_cum", crate::TEMP_SUFFIX);
+                let total_freq_col = format!("{}_total", crate::TEMP_SUFFIX);
+                let group_order_col = format!("{}_order", crate::TEMP_SUFFIX);
 
                 // --- STEP 1: CALCULATE GLOBAL BOUNDARIES ---
                 // To align multiple groups, we must find the global min/max of the X-axis (field_name).
@@ -326,10 +326,15 @@ impl<T: Mark> Chart<T> {
 
                 // A. Starting points: All groups start at (global_min, 0.0)
                 let min_padding = groups_lf.clone()
+                    .join(
+                        total_frequency_per_group.clone(),
+                        [col(&group_field_name)],
+                        [col(&group_field_name)],
+                        JoinArgs::new(JoinType::Left)
+                    )
                     .with_columns([
                         lit(global_min).alias(field_name),
                         lit(0.0).alias(&cumulative_freq_col),
-                        lit(0.0).alias(&total_freq_col), // Schema alignment
                     ]);
 
                 // B. Ending points: All groups extend to (global_max, group_max_count)
@@ -405,7 +410,8 @@ impl<T: Mark> Chart<T> {
         if params.groupby.is_none() {
             self.data.df = self.data.df.lazy().drop([group_field_name]).collect()?;
         }
-
+        println!("{}", normalize);
+        println!("{}", self.data.df);
         Ok(self)
     }
 }
