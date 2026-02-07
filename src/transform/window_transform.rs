@@ -267,89 +267,128 @@ impl<T: Mark> Chart<T> {
 
         // Apply window operations using the working_df with guaranteed group column
         match window_op {
+            // ============================================================================
+            // WINDOW TRANSFORM: CUMULATIVE DISTRIBUTION (ECDF)
+            // ============================================================================
             WindowOnlyOp::CumeDist => {
-                // Use uuid as column name to avoid column name conflicts
-                let cumulative_freq_col = format!(
-                    "__charton_temp_cumulative_freq_{}",
-                    crate::TEMP_SUFFIX
-                );
-                let total_freq_col =
-                    format!("__charton_temp_total_freq_{}", crate::TEMP_SUFFIX);
-                let group_order_col =
-                    format!("__charton_temp_group_order_{}", crate::TEMP_SUFFIX);
+                let cumulative_freq_col = format!("__charton_temp_cum_{}", crate::TEMP_SUFFIX);
+                let total_freq_col = format!("__charton_temp_total_{}", crate::TEMP_SUFFIX);
+                let group_order_col = format!("__charton_temp_order_{}", crate::TEMP_SUFFIX);
 
-                // Compute original group appearance order
-                let group_order_df = working_df
-                    .clone()
-                    .lazy()
+                // --- STEP 1: CALCULATE GLOBAL BOUNDARIES ---
+                // To align multiple groups, we must find the global min/max of the X-axis (field_name).
+                // This ensures every line starts and ends at the same horizontal position.
+                let global_min = self.data.df.column(field_name)?.f64()?.min().unwrap_or(0.0);
+                let global_max = self.data.df.column(field_name)?.f64()?.max().unwrap_or(0.0);
+
+                // --- STEP 2: STABLE GROUP ORDERING ---
+                // Record the original appearance order of groups to prevent shuffling during joins.
+                let group_order_df = working_df.clone().lazy()
                     .select([col(&group_field_name)])
-                    .unique_stable(None, UniqueKeepStrategy::First) // Keep first occurrence
-                    .with_row_index(&group_order_col, None); // Assign sequential numbers to each group
+                    .unique_stable(None, UniqueKeepStrategy::First)
+                    .with_row_index(&group_order_col, None);
 
-                // Compute cumulative frequency per group (optionally normalized)
-                let mut dataset = working_df
-                    .lazy()
-                    .with_columns([as_struct(vec![col(field_name)])
-                        .rank(
-                            RankOptions {
-                                method: RankMethod::Max, // Take maximum rank when tied
-                                descending: false, // The smallest value gets rank = 1, otherwise the largest value gets rank = 1
-                            },
-                            None,
-                        )
-                        .over([col(&group_field_name)]) // Rank within groups
-                        .cast(DataType::Float64)
-                        .alias(&cumulative_freq_col)])
-                    // Join group order back
+                // --- STEP 3: COMPUTE EMPIRICAL CUMULATIVE VALUES ---
+                let mut dataset = working_df.lazy()
+                    .with_columns([
+                        as_struct(vec![col(field_name)])
+                            .rank(RankOptions {
+                                method: RankMethod::Max, // Standard for ECDF: count points <= current X
+                                descending: false,
+                            }, None)
+                            .over([col(&group_field_name)])
+                            .cast(DataType::Float64)
+                            .alias(&cumulative_freq_col)
+                    ])
                     .join(
                         group_order_df,
                         [col(&group_field_name)],
                         [col(&group_field_name)],
                         JoinArgs::new(JoinType::Left),
-                    )
-                    // Sort: first by group appearance order, then by field ascending within groups
-                    .sort_by_exprs(
-                        &[col(&group_order_col), col(field_name)],
-                        SortMultipleOptions::default()
-                            .with_order_descending_multi(vec![false, false]),
-                    )
-                    .drop([group_order_col]) // Drop temporary column after use
-                    // Deduplicate: keep only first occurrence of cumulative frequency within each group
-                    .unique_stable(
-                        Some(vec![
-                            group_field_name.clone().into(),
-                            cumulative_freq_col.clone().into(),
-                        ]),
-                        UniqueKeepStrategy::First,
                     );
 
-                // Compute total frequency per group
-                let total_frequency_per_group = dataset
-                    .clone()
+                // --- STEP 4: AGGREGATE TOTALS PER GROUP ---
+                // Needed for both normalization (0.0 to 1.0) and padding the end of the line.
+                let total_frequency_per_group = dataset.clone()
                     .group_by([col(&group_field_name)])
                     .agg([col(&cumulative_freq_col).max().alias(&total_freq_col)]);
 
-                // Join the total frequency back to the main dataset
                 dataset = dataset.join(
-                    total_frequency_per_group,
+                    total_frequency_per_group.clone(),
                     [col(&group_field_name)],
                     [col(&group_field_name)],
                     JoinArgs::new(JoinType::Left),
                 );
 
-                // Conditionally normalize cumulative frequency
-                // Using `when().then().otherwise()` keeps it within the lazy pipeline
-                let dataset = dataset
-                    .with_columns([
-                        when(lit(normalize))
-                            .then(col(&cumulative_freq_col) / col(&total_freq_col))
-                            .otherwise(col(&cumulative_freq_col))
-                            .alias(output_field_name), // Use output_field_name as final column name
-                    ])
-                    // Drop temporary columns to clean up the final result
-                    .drop([cumulative_freq_col, total_freq_col]);
+                // --- STEP 5: DOMAIN EXPANSION (PADDING) ---
+                // Create virtual points to ensure lines don't "hang" in mid-air.
+                let groups_lf = dataset.clone().select([col(&group_field_name)]).unique_stable(None, UniqueKeepStrategy::First);
 
-                self.data.df = dataset.collect()?;
+                // A. Starting points: All groups start at (global_min, 0.0)
+                let min_padding = groups_lf.clone()
+                    .with_columns([
+                        lit(global_min).alias(field_name),
+                        lit(0.0).alias(&cumulative_freq_col),
+                        lit(0.0).alias(&total_freq_col), // Schema alignment
+                    ]);
+
+                // B. Ending points: All groups extend to (global_max, group_max_count)
+                let max_padding = groups_lf
+                    .join(
+                        total_frequency_per_group,
+                        [col(&group_field_name)],
+                        [col(&group_field_name)],
+                        JoinArgs::new(JoinType::Left)
+                    )
+                    .with_columns([
+                        lit(global_max).alias(field_name),
+                        col(&total_freq_col).alias(&cumulative_freq_col),
+                    ]);
+
+                // --- STEP 6: CONCAT, NORMALIZE, SORT, AND DEDUPLICATE ---
+
+                // Define the exact column set we want for the union.
+                // Based on your error, these are the 4 essential columns.
+                let schema = vec![
+                    col(&group_field_name),
+                    col(field_name),
+                    col(&cumulative_freq_col),
+                    col(&total_freq_col),
+                ];
+
+                // Apply .select(schema) to every part to force column and order alignment.
+                let final_lazy = concat(
+                    [
+                        min_padding.select(schema.clone()),
+                        dataset.select(schema.clone()),
+                        max_padding.select(schema),
+                    ],
+                    UnionArgs::default()
+                )?
+                // Now that schemas match, we can safely normalize and sort
+                .with_columns([
+                    when(lit(normalize))
+                        .then(col(&cumulative_freq_col) / col(&total_freq_col))
+                        .otherwise(col(&cumulative_freq_col))
+                        .alias(output_field_name),
+                ])
+                // Note: We don't need group_order_col for the union. 
+                // We can just sort by the group name directly now.
+                .sort_by_exprs(
+                    [col(&group_field_name), col(field_name)],
+                    SortMultipleOptions::default()
+                )
+                .unique_stable(
+                    Some(vec![
+                        group_field_name.clone().into(),
+                        field_name.into(),
+                        output_field_name.into(),
+                    ]),
+                    UniqueKeepStrategy::First,
+                )
+                .drop([cumulative_freq_col.as_str(), total_freq_col.as_str()]);
+
+                self.data.df = final_lazy.collect()?;
             }
             WindowOnlyOp::RowNumber => {
                 // Add row number column using Polars' lazy API with grouping
