@@ -4,15 +4,15 @@ macro_rules! register_polars_bridge {
         /// Implement the bridge for &polars::prelude::DataFrame
         impl $crate::core::data::IntoChartonSource for &polars::prelude::DataFrame {
             fn into_source(self) -> Result<$crate::core::data::DataFrameSource, $crate::error::ChartonError> {
-                use polars::prelude::{ParquetWriter, ParquetCompression};
+                use polars_io::parquet::{ParquetWriter, ParquetCompression};
                 use std::io::Cursor;
 
                 let mut buf = Vec::new();
                 let mut wrapper = Cursor::new(&mut buf);
 
                 // Serialize the user's DataFrame into a byte buffer
-                polars::prelude::ParquetWriter::new(&mut wrapper)
-                    .with_compression(polars::prelude::ParquetCompression::Uncompressed)
+                polars_io::parquet::ParquetWriter::new(&mut wrapper)
+                    .with_compression(polars_io::parquet::ParquetCompression::Uncompressed)
                     .finish(&mut self.clone())
                     .map_err(|e| $crate::error::ChartonError::Data(
                         format!("Cross-version DataFrame bridge failure: {}", e)
