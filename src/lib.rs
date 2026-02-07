@@ -25,14 +25,8 @@ pub mod macros;
 #[cfg(not(target_arch = "wasm32"))]
 pub mod bridge;
 
-/// Re-export for macro internal use. 
-/// This ensures the bridge macro can access Parquet serialization 
-/// even if the user hasn't enabled the "parquet" feature in their own crate.
-#[doc(hidden)]
-pub use polars_io as __private_polars_io;
-
 pub mod prelude {
-    pub use crate::core::data::{IntoChartonSource, DataFrameSource, load_dataset};
+    pub use crate::core::data::{self, IntoChartonSource, DataFrameSource, load_dataset};
     pub use crate::register_polars_bridge;
 
     pub use crate::encode::{
