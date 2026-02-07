@@ -1,34 +1,3 @@
-    /// A macro that creates a `InputData` instance from a variable.
-    ///
-    /// This macro simplifies the creation of `InputData` instances by automatically
-    /// using the variable's name as the string identifier. It converts the variable
-    /// identifier to a string using `stringify!` and wraps the variable's value
-    /// in a `InputData` container.
-    ///
-    /// # Parameters
-    /// * `$var` - An identifier for a variable whose name will be used as the identifier
-    ///   and whose value will be stored in the `InputData`
-    ///
-    /// # Example
-    /// ```
-    /// let dataframe = DataFrame::new(...);
-    /// let named_value = data!(&dataframe)?;
-    /// // This will use TryFrom implementation to convert the data
-    /// ```
-    ///
-    /// # Returns
-    /// A `InputData` instance with the variable's name as the identifier and the
-    /// variable's value as the contained data.
-    #[macro_export]
-    macro_rules! data {
-        (&$var:ident) => {
-            <$crate::bridge::base::InputData as ::std::convert::TryFrom<_>>::try_from((
-                stringify!($var),
-                &$var,
-            ))
-        };
-    }
-
 #[macro_export]
 macro_rules! register_polars_bridge {
     () => {

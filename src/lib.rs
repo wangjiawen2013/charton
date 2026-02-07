@@ -26,7 +26,8 @@ pub mod macros;
 pub mod bridge;
 
 pub mod prelude {
-    pub use crate::core::data::{self, IntoChartonSource, DataFrameSource, load_dataset};
+    pub use crate::core::data;
+    pub use crate::core::data::{IntoChartonSource, DataFrameSource, load_dataset};
     pub use crate::register_polars_bridge;
 
     pub use crate::encode::{
