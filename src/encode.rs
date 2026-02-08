@@ -2,7 +2,6 @@ pub mod color;
 pub mod shape;
 pub mod size;
 pub mod text;
-pub mod theta;
 pub mod x;
 pub mod y;
 pub mod y2;
@@ -11,7 +10,6 @@ use self::{
     x::X,
     y::Y,
     y2::Y2,
-    theta::Theta,
     color::Color,
     shape::Shape,
     size::Size,
@@ -55,7 +53,6 @@ pub struct Encoding {
     pub(crate) x: Option<X>,
     pub(crate) y: Option<Y>,
     pub(crate) y2: Option<Y2>,
-    pub(crate) theta: Option<Theta>,
     pub(crate) color: Option<Color>,
     pub(crate) shape: Option<Shape>,
     pub(crate) size: Option<Size>,
@@ -144,7 +141,6 @@ impl Encoding {
 
         // Handle specialty channels not yet in the main Channel enum
         if let Some(ref y2) = self.y2 { fields.push(y2.field.as_str()); }
-        if let Some(ref t) = self.theta { fields.push(t.field.as_str()); }
         if let Some(ref txt) = self.text { fields.push(txt.field.as_str()); }
 
         fields
@@ -163,10 +159,6 @@ impl IntoEncoding for Y {
 
 impl IntoEncoding for Y2 {
     fn apply(self, enc: &mut Encoding) { enc.y2 = Some(self); }
-}
-
-impl IntoEncoding for Theta {
-    fn apply(self, enc: &mut Encoding) { enc.theta = Some(self); }
 }
 
 impl IntoEncoding for Color {

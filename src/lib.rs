@@ -29,13 +29,14 @@ pub mod prelude {
 
     pub use crate::encode::{
         color::color, Encoding, shape::shape, size::size,
-        text::text, theta::theta, x::x, y::y, y2::y2,
+        text::text, x::x, y::y, y2::y2,
     };
 
     pub use crate::chart::Chart;
     pub use crate::core::composite::LayeredChart;
     pub use crate::scale::{Scale, Expansion};
 
+    pub use crate::coordinate::CoordSystem;
     pub use crate::transform::{
         density_transform::{BandwidthType, DensityTransform, KernelType},
         window_transform::{WindowFieldDef, WindowOnlyOp, WindowTransform},

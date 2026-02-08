@@ -173,11 +173,6 @@ impl<T: Mark> Chart<T> {
                     return Err(ChartonError::Encoding("Rect chart requires x, y, and color encodings".into()));
                 }
             }
-            "arc" => {
-                if self.encoding.theta.is_none() || self.encoding.color.is_none() {
-                    return Err(ChartonError::Encoding("Arc chart requires both theta and color encodings".into()));
-                }
-            }
             _ => {
                 return Err(ChartonError::Mark(format!("Unknown mark type: {}", mark_type)));
             }
