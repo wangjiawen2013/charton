@@ -1,4 +1,5 @@
 pub mod cartesian;
+pub mod polar;
 
 use crate::scale::ScaleTrait;
 use std::sync::Arc;
@@ -36,6 +37,23 @@ pub trait CoordinateTrait {
     /// # Returns
     /// A tuple of (x_pixel, y_pixel).
     fn transform(&self, x_norm: f64, y_norm: f64, panel: &Rect) -> (f64, f64);
+
+    /// Transforms a sequence of normalized points into pixel coordinates.
+    /// 
+    /// The default implementation performs a simple point-by-point linear mapping.
+    /// Non-linear coordinate systems (like Polar) should override this method 
+    /// to perform **adaptive interpolation**, ensuring that logical straight lines 
+    /// (e.g., the top edge of a bar) appear correctly curved in the final output.
+    ///
+    /// This is the primary interface for Renderers to generate geometry.
+    fn transform_path(&self, points: &[(f64, f64)], is_closed: bool, panel: &Rect) -> Vec<(f64, f64)> {
+        let _ = is_closed;
+        // Default behavior: Simple point-to-point mapping without interpolation.
+        // This is efficient for Cartesian systems where straight lines remain straight.
+        points.iter()
+            .map(|(x, y)| self.transform(*x, *y, panel))
+            .collect()
+    }
 
     /// Returns a shared pointer (Arc) to the X scale. 
     /// Essential for "injecting" the scale into layers.

@@ -109,6 +109,14 @@ pub struct Theme {
     pub facet_spacing: f64,
     /// The padding inside the facet strip.
     pub facet_strip_padding: f64,
+
+    // --- Polar Specific Defaults ---
+    /// The default starting angle for polar charts (e.g., -PI/2 for 12 o'clock).
+    pub(crate) polar_start_angle: f64,
+    /// The default total angular span (e.g., 2*PI for a full circle).
+    pub(crate) polar_end_angle: f64,
+    /// The default inner radius ratio [0.0, 1.0]. 0.0 = Pie, 0.5 = Donut.
+    pub(crate) polar_inner_radius: f64
 }
 
 impl Theme {
@@ -404,6 +412,10 @@ impl Default for Theme {
             facet_strip_fill: "lightgray".into(),
             facet_spacing: 10.0,
             facet_strip_padding: 5.0,
+
+            polar_start_angle: -std::f64::consts::FRAC_PI_2, 
+            polar_end_angle: 3.0 * std::f64::consts::FRAC_PI_2, // start + 2*PI
+            polar_inner_radius: 0.0,
         }
     }
 }

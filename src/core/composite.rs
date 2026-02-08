@@ -69,6 +69,11 @@ pub struct LayeredChart {
     pub(crate) size_expand: Option<Expansion>,
 
     pub(crate) flipped: bool,
+
+    // --- Polar Overrides ---
+    pub(crate) polar_start_angle: Option<f64>,
+    pub(crate) polar_end_angle: Option<f64>,
+    pub(crate) polar_inner_radius: Option<f64>,
 }
 
 impl LayeredChart {
@@ -106,6 +111,10 @@ impl LayeredChart {
             size_expand: None,
 
             flipped: false,
+
+            polar_start_angle: None,
+            polar_end_angle: None,
+            polar_inner_radius: None,
         }
     }
 
@@ -210,6 +219,27 @@ impl LayeredChart {
 
     pub fn coord_flip(mut self) -> Self {
         self.flipped = true;
+        self
+    }
+
+    /// Sets the starting angle for polar coordinates (in radians).
+    /// Typically, -PI/2 starts at the 12 o'clock position.
+    pub fn with_start_angle(mut self, angle: f64) -> Self {
+        self.polar_start_angle = Some(angle);
+        self
+    }
+
+    /// Sets the total angular span for polar coordinates (in radians).
+    /// Use 2*PI for a full circle, or PI for a semi-circle.
+    pub fn with_end_angle(mut self, angle: f64) -> Self {
+        self.polar_end_angle = Some(angle);
+        self
+    }
+
+    /// Sets the inner radius ratio (0.0 to 1.0).
+    /// 0.0 creates a Pie chart, while values > 0.0 (e.g., 0.5) create a Donut chart.
+    pub fn with_inner_radius(mut self, radius: f64) -> Self {
+        self.polar_inner_radius = Some(radius);
         self
     }
 
@@ -461,7 +491,29 @@ impl LayeredChart {
                 y_spec.field.clone(),
                 self.flipped
             )),
-            CoordSystem::Polar => todo!("Polar coordinate resolution is planned for future release"),
+            CoordSystem::Polar => {
+                // 1. Resolve parameters by prioritizing User Overrides > Theme Defaults.
+                // This 'Late Binding' ensures the chart remains responsive to theme changes 
+                // unless the user explicitly locks a value.
+                let start_angle = self.polar_start_angle.unwrap_or(self.theme.polar_start_angle);
+                let end_angle = self.polar_end_angle.unwrap_or(self.theme.polar_end_angle);
+                let inner_radius = self.polar_inner_radius.unwrap_or(self.theme.polar_inner_radius);
+
+                // 2. Initialize the Polar coordinate system with resolved scales and data fields.
+                let mut polar = crate::coordinate::polar::Polar::new(
+                    x_scale, 
+                    y_scale, 
+                    x_spec.field.clone(), 
+                    y_spec.field.clone()
+                );
+                
+                // 3. Inject the finalized geometric parameters into the execution instance.
+                polar.start_angle = start_angle;
+                polar.end_angle = end_angle;
+                polar.inner_radius = inner_radius;
+
+                Arc::new(polar)
+            }
         };
 
         // --- STEP 3: GUIDE GENERATION ---
