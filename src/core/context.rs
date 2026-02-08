@@ -53,6 +53,28 @@ impl<'a> PanelContext<'a> {
         self.coord.transform(x_norm, y_norm, &self.panel)
     }
 
+    /// Transforms a sequence of normalized points ([0, 1]) into absolute pixel coordinates.
+    ///
+    /// This method is the high-level entry point for rendering complex geometries (like bars, 
+    /// areas, or polygons) that must respect the geometric properties of the coordinate system.
+    ///
+    /// # Adaptive Interpolation
+    /// Unlike a simple point-to-point mapping, this method leverages the coordinate system's 
+    /// `transform_path` logic. In non-linear systems like **Polar**, straight lines in 
+    /// data space (e.g., the top of a bar) must be rendered as curves (arcs) in pixel space. 
+    /// This method ensures those curves are automatically generated via interpolation.
+    ///
+    /// # Arguments
+    /// * `points` - A slice of (x_norm, y_norm) tuples.
+    /// * `is_closed` - Whether the path should be treated as a closed shape (e.g., a polygon). 
+    ///                 If true, the segment connecting the last point back to the first 
+    ///                 will also be interpolated.
+    pub fn transform_path(&self, points: &[(f64, f64)], is_closed: bool) -> Vec<(f64, f64)> {
+        // Delegates the transformation to the coordinate implementation, 
+        // automatically injecting the current panel's physical boundaries.
+        self.coord.transform_path(points, is_closed, &self.panel)
+    }
+
     /// Convenience helper for X-axis transformation.
     /// Also inlined to maintain high-throughput rendering.
     #[inline]

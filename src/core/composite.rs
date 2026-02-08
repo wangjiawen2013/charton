@@ -222,6 +222,13 @@ impl LayeredChart {
         self
     }
 
+    /// Sets the coordinate system for the chart.
+    /// Use `CoordSystem::Cartesian2D` for standard plots or `CoordSystem::Polar` for circular plots.
+    pub fn with_coord(mut self, coord: CoordSystem) -> Self {
+        self.coord_system = coord;
+        self
+    }
+
     /// Sets the starting angle for polar coordinates (in radians).
     /// Typically, -PI/2 starts at the 12 o'clock position.
     pub fn with_start_angle(mut self, angle: f64) -> Self {
