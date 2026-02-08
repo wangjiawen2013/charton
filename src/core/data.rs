@@ -103,6 +103,12 @@ impl IntoChartonSource for &Vec<u8> {
     }
 }
 
+impl IntoChartonSource for Vec<u8> {
+    fn into_source(self) -> Result<DataFrameSource, ChartonError> {
+        DataFrameSource::from_parquet_bytes(self.as_slice())
+    }
+}
+
 // A helper function to convert numeric columns to f64
 pub(crate) fn convert_numeric_types(df_source: DataFrameSource) -> Result<DataFrameSource, ChartonError> {
     let mut new_columns = Vec::new();
