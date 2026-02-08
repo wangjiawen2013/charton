@@ -1,9 +1,9 @@
 pub mod point_chart;
 pub mod line_chart;
 pub mod bar_chart;
+pub mod arc_chart;
 pub mod hist_chart;
 pub mod box_chart;
-pub mod pie_chart;
 pub mod area_chart;
 pub mod rect_chart;
 pub mod rule_chart;
@@ -166,6 +166,14 @@ impl<T: Mark> Chart<T> {
                     return Err(ChartonError::Encoding(format!(
                         "{} chart requires both x and y encodings", mark_type
                     )));
+                }
+            }
+            "arc" => {
+                // Validation for Arc:
+                // Unlike Bar, we explicitly allow X (Radius) to be None.
+                // We only strictly require Y (Theta).
+                if self.encoding.y.is_none() {
+                    return Err(ChartonError::Encoding("Arc marks require a 'theta' (Y) encoding.".into()));
                 }
             }
             "rect" => {
