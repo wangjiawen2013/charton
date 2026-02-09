@@ -1,9 +1,9 @@
 pub mod point_chart;
 pub mod line_chart;
 pub mod bar_chart;
-pub mod arc_chart;
 pub mod hist_chart;
 pub mod box_chart;
+pub mod pie_chart;
 pub mod area_chart;
 pub mod rect_chart;
 pub mod rule_chart;
@@ -168,17 +168,6 @@ impl<T: Mark> Chart<T> {
                     )));
                 }
             }
-            "arc" => {
-                // 1. Theta (Y) is mandatory to define the angular size of segments.
-                if self.encoding.y.is_none() {
-                    return Err(ChartonError::Encoding("Arc charts require a 'theta' (Y) encoding.".into()));
-                }
-                // 2. Color is mandatory to partition the data into distinct slices.
-                // Without color, the chart would render as a single solid circle.
-                if self.encoding.color.is_none() {
-                    return Err(ChartonError::Encoding("Arc charts require a 'color' encoding to create sectors.".into()));
-                }
-            }
             "rect" => {
                 if self.encoding.x.is_none() || self.encoding.y.is_none() || self.encoding.color.is_none() {
                     return Err(ChartonError::Encoding("Rect chart requires x, y, and color encodings".into()));
@@ -186,43 +175,6 @@ impl<T: Mark> Chart<T> {
             }
             _ => {
                 return Err(ChartonError::Mark(format!("Unknown mark type: {}", mark_type)));
-            }
-        }
-
-        // --- Step 3.5: Arc Semantic Inference ---
-        // This step determines the chart flavor: Pie, Rose, or Nightingale Rose.
-        if mark_type.as_str() == "arc" {
-            // Theta (Y) is mandatory for arcs to define angular distribution.
-            let y_enc = self.encoding.y.as_mut().unwrap();
-            
-            // Get the semantic category of the data mapped to Theta (Y).
-            let y_dtype = self.data.df.schema().get(&y_enc.field).unwrap();
-            let y_semantic = interpret_semantic_type(y_dtype);
-
-            // --- AUTOMATIC INFERENCE RULES ---
-            
-            // Rule A: Standard Pie Chart
-            // If Radius (X) is None AND Theta (Y) is Continuous:
-            // Intent: Single-variable proportion (e.g., share of market).
-            if self.encoding.x.is_none() && y_semantic == SemanticType::Continuous {
-                y_enc.stack = true;
-            }
-            
-            // Rule B: Standard Rose Chart (Equal-Angle)
-            // If Theta (Y) is Discrete (Categories):
-            // Intent: Compare categories by radius (e.g., wind speed by direction).
-            // Stacking is disabled so each category gets its own equal angular segment.
-            if y_semantic == SemanticType::Discrete {
-                y_enc.stack = false;
-            }
-
-            // Rule C: Nightingale Rose Chart (Data-Driven Radius & Angle)
-            // If both Radius (X) and Theta (Y) are provided and Continuous:
-            // Intent: Area represents value, where both width (angle) and 
-            // height (radius) are determined by data.
-            if self.encoding.x.is_some() && y_semantic == SemanticType::Continuous {
-                // We enable stacking so the segments don't overlap on the same angle.
-                y_enc.stack = true; 
             }
         }
 
@@ -257,36 +209,6 @@ impl<T: Mark> Chart<T> {
 
         // B. Mark-Specific Semantic Requirements
         match mark_type.as_str() {
-            "arc" => {
-                // 1. Color Encoding: Primary partitioning channel must be Discrete.
-                let color_enc = self.encoding.color.as_ref().unwrap();
-                expected_semantics.insert(color_enc.field.as_str(), vec![SemanticType::Discrete]);
-
-                // 2. Axis Semantics:
-                let y_enc = self.encoding.y.as_ref().unwrap();
-                let x_opt = self.encoding.x.as_ref();
-
-                if y_enc.stack {
-                    // SCENARIO: Pie Chart OR Nightingale Rose
-                    // Theta (Y) is used for angular proportions, so it must be Continuous.
-                    expected_semantics.insert(y_enc.field.as_str(), vec![SemanticType::Continuous]);
-                    
-                    // If X exists in a stacked scenario, it's a Nightingale Rose.
-                    // Radius (X) must be numeric to represent length.
-                    if let Some(x_enc) = x_opt {
-                        expected_semantics.insert(x_enc.field.as_str(), vec![SemanticType::Continuous]);
-                    }
-                } else {
-                    // SCENARIO: Standard Rose Chart (Equal-Angle)
-                    // Theta (Y) represents categorical slots around the circle.
-                    expected_semantics.insert(y_enc.field.as_str(), vec![SemanticType::Discrete]);
-                    
-                    // Radius (X) must exist and be numeric to represent magnitude.
-                    if let Some(x_enc) = x_opt {
-                        expected_semantics.insert(x_enc.field.as_str(), vec![SemanticType::Continuous]);
-                    }
-                }
-            }
             "bar" | "boxplot" => {
                 // Standard categorical plots require a discrete axis (X) and a numeric axis (Y).
                 expected_semantics.insert(self.encoding.x.as_ref().unwrap().field.as_str(), vec![SemanticType::Discrete]);
@@ -392,12 +314,12 @@ impl<T: Mark> Chart<T> {
     /// Resolves binning configuration required before data transformation.
     fn resolve_pre_transform_encodings(&mut self) -> Result<(), ChartonError> {
         let mt = self.mark.as_ref().unwrap().mark_type();
+        let x_enc = self.encoding.x.as_mut().unwrap();
+        let y_enc = self.encoding.y.as_mut().unwrap();
 
         // --- RESOLVE BINS ---
         // Histograms and Heatmaps need bin counts to group the data.
         if ["rect", "hist"].contains(&mt) {
-            let x_enc = self.encoding.x.as_mut().unwrap();
-            let y_enc = self.encoding.y.as_mut().unwrap();
             // Resolve X-axis bins
             if x_enc.bins.is_none() {
                 let series = self.data.column(&x_enc.field)?;
@@ -430,31 +352,25 @@ impl<T: Mark> Chart<T> {
         }
         Ok(())
     }
-
     /// Completes the chart's encoding configuration by inferring missing metadata.
-    /// This step ensures all scales have concrete types (Linear, Discrete, etc.) 
-    /// and applies visual defaults like zero-baselines or padding based on the mark type.
     fn apply_post_transform_defaults(&mut self) -> Result<(), ChartonError> {
         // Determine the mark type early to apply specific defaults (e.g., Rect, Hist)
         let mt = self.mark.as_ref().unwrap().mark_type();
         
+        let x_enc = self.encoding.x.as_mut().unwrap();
+        let y_enc = self.encoding.y.as_mut().unwrap();
+
         // --- 1. RESOLVE SCALE TYPES ---
-        
-        // Surgical Fix: Radius (X) is optional in Arc marks (Pie Charts).
-        // We use 'if let' to safely resolve the scale type only if the encoding exists.
-        if let Some(x_enc) = self.encoding.x.as_mut() {
-            if x_enc.scale_type.is_none() {
-                let x_dtype = self.data.df.schema().get(&x_enc.field).unwrap();
-                x_enc.scale_type = Some(match interpret_semantic_type(x_dtype) {
-                    SemanticType::Continuous => Scale::Linear,
-                    SemanticType::Discrete   => Scale::Discrete,
-                    SemanticType::Temporal   => Scale::Temporal,
-                });
-            }
+        // Infer the semantic scale type (Linear, Discrete, or Temporal) based on the column's DataType
+        if x_enc.scale_type.is_none() {
+            let x_dtype = self.data.df.schema().get(&x_enc.field).unwrap();
+            x_enc.scale_type = Some(match interpret_semantic_type(x_dtype) {
+                SemanticType::Continuous => Scale::Linear,
+                SemanticType::Discrete   => Scale::Discrete,
+                SemanticType::Temporal   => Scale::Temporal,
+            });
         }
 
-        // Theta/Y is mandatory for all current mark types to define the primary dimension.
-        let y_enc = self.encoding.y.as_mut().ok_or(ChartonError::Encoding("Y/Theta encoding missing".into()))?;
         if y_enc.scale_type.is_none() {
             let y_dtype = self.data.df.schema().get(&y_enc.field).unwrap();
             y_enc.scale_type = Some(match interpret_semantic_type(y_dtype) {
@@ -465,16 +381,17 @@ impl<T: Mark> Chart<T> {
         }
 
         // --- 2. RESOLVE SPECIAL PADDING & BASELINES ---
-        // Force zero baseline for statistical accuracy in magnitude-based charts (Area, Bar, Hist).
+        // Apply chart-specific visual rules (e.g., bar charts should start at zero)
         if y_enc.scale_type == Some(Scale::Linear) {
             if ["area", "bar", "hist"].contains(&mt) {
+                // Force zero baseline for statistical accuracy in magnitude-based charts
                 y_enc.zero = Some(true);
 
                 if let Ok(y_series) = self.data.column(&y_enc.field) {
                     let y_min = y_series.min::<f64>()?.unwrap_or(0.0);
                     let y_max = y_series.max::<f64>()?.unwrap_or(0.0);
 
-                    // Asymmetric expansion: only add padding away from the zero baseline.
+                    // Asymmetric expansion: only add padding away from the zero baseline
                     y_enc.expansion = Some(if y_min >= 0.0 {
                         Expansion { mult: (0.0, 0.05), add: (0.0, 0.0) }
                     } else if y_max <= 0.0 {
@@ -487,39 +404,37 @@ impl<T: Mark> Chart<T> {
         }
 
         // --- 3. HALF-STEP EXPANSION FOR DISCRETE AXES ---
-        // For marks with "thickness" (Bar, Boxplot, Rect), we add 0.5 unit padding 
-        // to prevent marks from clipping against the axis boundaries.
+        // For marks with "thickness" (Bar, Boxplot, Rect) on a Discrete axis, we add a 0.5 
+        // unit padding. This ensures the first and last marks have enough space and 
+        // don't overlap with the axis lines.
         let needs_discrete_padding = ["bar", "boxplot", "rect"].contains(&mt);
         if needs_discrete_padding {
-            // Apply to X axis if it exists and is Discrete.
-            if let Some(x_enc) = self.encoding.x.as_mut() {
-                if x_enc.scale_type == Some(Scale::Discrete) && x_enc.expansion.is_none() {
-                    x_enc.expansion = Some(Expansion { mult: (0.0, 0.0), add: (0.5, 0.5) });
-                }
+            // Apply to X axis (Common for Bar/Boxplot)
+            if x_enc.scale_type == Some(Scale::Discrete) && x_enc.expansion.is_none() {
+                x_enc.expansion = Some(Expansion { mult: (0.0, 0.0), add: (0.5, 0.5) });
             }
-            // Apply to Y axis (Specific to Discrete Heatmaps).
+            // Apply to Y axis (Specific to Discrete Heatmaps)
             if y_enc.scale_type == Some(Scale::Discrete) && y_enc.expansion.is_none() {
                 y_enc.expansion = Some(Expansion { mult: (0.0, 0.0), add: (0.5, 0.5) });
             }
         }
 
         // --- 4. FLUSH EXPANSION FOR CONTINUOUS RECT ---
-        // Continuous Heatmaps should flush to edges to avoid white gaps.
+        // Rect charts (Heatmaps) on continuous axes should flush to the edges.
+        // Since we already apply "Half-bin Compensation" in get_data_bounds, 
+        // we set Expansion to zero here to avoid double-padding.
         if mt == "rect" {
-            if let Some(x_enc) = self.encoding.x.as_mut() {
-                if x_enc.scale_type != Some(Scale::Discrete) && x_enc.expansion.is_none() {
-                    x_enc.expansion = Some(Expansion { mult: (0.0, 0.0), add: (0.0, 0.0) });
-                }
+            if x_enc.scale_type != Some(Scale::Discrete) && x_enc.expansion.is_none() {
+                x_enc.expansion = Some(Expansion { mult: (0.0, 0.0), add: (0.0, 0.0) });
             }
             if y_enc.scale_type != Some(Scale::Discrete) && y_enc.expansion.is_none() {
                 y_enc.expansion = Some(Expansion { mult: (0.0, 0.0), add: (0.0, 0.0) });
             }
         }
 
-        // --- 5. RESOLVE OPTIONAL AESTHETIC CHANNELS ---
-        // Helper logic to infer scale types for Color, Shape, and Size.
-        
+        // --- 5. RESOLVE OPTIONAL COLOR CHANNEL ---
         if let Some(ref mut color_enc) = self.encoding.color {
+            // Only infer the color scale type if it isn't predefined
             if color_enc.scale_type.is_none() {
                 let c_dtype = self.data.df.schema().get(&color_enc.field).unwrap();
                 color_enc.scale_type = Some(match interpret_semantic_type(c_dtype) {
@@ -530,7 +445,9 @@ impl<T: Mark> Chart<T> {
             }
         }
 
+        // --- 6. RESOLVE OPTIONAL SHAPE CHANNEL ---
         if let Some(ref mut shape_enc) = self.encoding.shape {
+            // Only infer the shape scale type if it isn't predefined
             if shape_enc.scale_type.is_none() {
                 let s_dtype = self.data.df.schema().get(&shape_enc.field).unwrap();
                 shape_enc.scale_type = Some(match interpret_semantic_type(s_dtype) {
@@ -541,7 +458,9 @@ impl<T: Mark> Chart<T> {
             }
         }
 
+        // --- 7. RESOLVE OPTIONAL SIZE CHANNEL ---
         if let Some(ref mut size_enc) = self.encoding.size {
+            // Only infer the size scale type if it isn't predefined
             if size_enc.scale_type.is_none() {
                 let s_dtype = self.data.df.schema().get(&size_enc.field).unwrap();
                 size_enc.scale_type = Some(match interpret_semantic_type(s_dtype) {
@@ -551,7 +470,6 @@ impl<T: Mark> Chart<T> {
                 });
             }
         }
-
         Ok(())
     }
 }
@@ -644,28 +562,17 @@ where
                     && self.encoding.color.is_some();
 
                 if is_y_stacked {
-                    // RESOLUTION: X might be None for Pie charts.
-                    // If X exists, we group by it (Stacked Bar).
-                    // If X is None, we treat the whole dataset as one group (Pie/Donut).
+                    let x_field = &self.encoding.x.as_ref().unwrap().field;
                     let y_field = &self.encoding.y.as_ref().unwrap().field;
                     
-                    let grouped_sums = if let Some(x_enc) = &self.encoding.x {
-                        // Standard Stacked Bar: Group by X axis categories
-                        self.data.df.clone()
-                            .lazy()
-                            .group_by([col(&x_enc.field)])
-                            .agg([col(y_field).sum().alias(format!("{}_stack_sum", TEMP_SUFFIX))])
-                            .collect()?
-                    } else {
-                        // Stacked Pie: No X axis. Sum everything into a single total.
-                        // We use a literal placeholder "all" to satisfy the group_by API.
-                        self.data.df.clone()
-                            .lazy()
-                            .select([col(y_field).sum().alias(format!("{}_stack_sum", TEMP_SUFFIX))])
-                            .collect()?
-                    };
+                    // Aggregate sums per X-axis category to find the true visual peak
+                    let grouped_sums = self.data.df.clone()
+                        .lazy()
+                        .group_by([col(x_field)])
+                        .agg([col(y_field).sum().alias("stack_sum")])
+                        .collect()?;
 
-                    let sum_series = grouped_sums.column(&format!("{}_stack_sum", TEMP_SUFFIX))?.as_materialized_series();
+                    let sum_series = grouped_sums.column("stack_sum")?.as_materialized_series();
                     global_min = sum_series.min::<f64>()?.unwrap_or(0.0);
                     global_max = sum_series.max::<f64>()?.unwrap_or(0.0);
                     found_data = true;
