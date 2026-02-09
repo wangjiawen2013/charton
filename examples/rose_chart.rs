@@ -12,7 +12,7 @@ fn main() -> Result<(), Box<dyn Error>> {
 
     let bar = Chart::build(&df)?
         .mark_bar()
-        .configure_bar(|b| b.with_width(1.0))
+        .configure_bar(|b| b.with_width(1.0).with_span(1.0))
         .encode((x("type"), y("value")))?;
 
     // Create a layered chart and add the errorbar chart as a layer
@@ -20,7 +20,7 @@ fn main() -> Result<(), Box<dyn Error>> {
         .add_layer(bar)
         .with_y_label("value")
         .with_coord(CoordSystem::Polar)
-        .save("./examples/pie_chart.svg")?;
+        .save("./examples/rose_chart.svg")?;
 
     Ok(())
 }

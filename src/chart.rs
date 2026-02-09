@@ -3,7 +3,6 @@ pub mod line_chart;
 pub mod bar_chart;
 pub mod hist_chart;
 pub mod box_chart;
-pub mod pie_chart;
 pub mod area_chart;
 pub mod rect_chart;
 pub mod rule_chart;
