@@ -1,152 +1,118 @@
-use crate::core::layer::{MarkRenderer, RenderBackend, PolygonConfig};
-use crate::core::context::PanelContext;
-use crate::chart::Chart;
-use crate::mark::arc::MarkArc;
 use crate::visual::color::SingleColor;
-use crate::error::ChartonError;
-use crate::Precision;
-use polars::prelude::*;
+use std::fmt::Write;
 
-impl MarkRenderer for Chart<MarkArc> {
-    fn render_marks(
-        &self,
-        backend: &mut dyn RenderBackend,
-        context: &PanelContext,
-    ) -> Result<(), ChartonError> {
-        let df = &self.data.df;
-        if df.height() == 0 { return Ok(()); }
-
-        let mark_config = self.mark.as_ref()
-            .ok_or_else(|| ChartonError::Mark("MarkArc configuration missing".into()))?;
-
-        // --- STEP 1: DIMENSION MAPPING ---
-        // Data Y (Value) -> Angle (Theta)
-        // Data X (Category) -> Radius (r)
-        let y_enc = self.encoding.y.as_ref()
-            .ok_or(ChartonError::Encoding("Theta (Y) encoding missing".into()))?;
-        let is_stacked = y_enc.stack;
-
-        // --- STEP 2: CALCULATE TOTAL SUM FOR NORMALIZATION ---
-        // We need the total sum of all Y values to map them to [0, 1] (0 to 2π)
-        let total_sum: f64 = df.column(&y_enc.field)?
-            .f64()?
-            .sum()
-            .unwrap_or(0.0);
-
-        if total_sum <= 0.0 && is_stacked {
-            return Ok(()); // Avoid division by zero
-        }
-
-        // --- STEP 3: GROUPING ---
-        let color_field = self.encoding.color.as_ref().map(|c| c.field.as_str());
-        let groups = match color_field {
-            Some(col) => df.partition_by_stable([col], true)?,
-            None => vec![df.clone()],
-        };
-
-        // Normalized padding angle
-        let pad_angle_norm = mark_config.pad_angle / (2.0 * std::f64::consts::PI);
-
-        // --- STEP 4: RENDER LOOP ---
-        let mut global_stack_pos = 0.0; // Cumulative raw value for stacking
-
-        for group_df in groups.iter() {
-            let group_color = self.resolve_group_color(group_df, context, &mark_config.color)?;
-            let y_series = group_df.column(&y_enc.field)?.as_materialized_series();
-            let y_vals_raw: Vec<f64> = y_series.f64()?.into_no_null_iter().collect();
-
-            // Radius (X) Scale: Used for Nightingale/Rose charts
-            let radius_scale = context.coord.get_y_scale();
-            let radius_norms = if let Some(x_enc) = self.encoding.x.as_ref() {
-                let x_series = group_df.column(&x_enc.field)?.as_materialized_series();
-                Some(radius_scale.scale_type().normalize_series(radius_scale, x_series)?)
-            } else {
-                None
-            };
-
-            for (i, y_val_raw) in y_vals_raw.into_iter().enumerate() {
-                
-                // --- A. CALCULATE THETA BOUNDS (SCHEME A) ---
-                let (mut theta_start_n, mut theta_end_n) = if is_stacked {
-                    // Normalize raw stacked values against the total sum
-                    let start_n = global_stack_pos / total_sum;
-                    let end_n = (global_stack_pos + y_val_raw) / total_sum;
-                    
-                    global_stack_pos += y_val_raw; // Increment stack
-                    (start_n, end_n)
-                } else {
-                    // Rose Chart: Use the scale's categorical normalization
-                    let theta_scale = context.coord.get_x_scale();
-                    let center_n = theta_scale.scale_type().normalize_series(theta_scale, y_series)?.get(i).unwrap_or(0.0);
-                    let angular_step = 1.0 / (theta_scale.logical_max() as f64).max(1.0);
-                    let half_span = (angular_step * mark_config.width) / 2.0;
-                    (center_n - half_span, center_n + half_span)
-                };
-
-                // Apply Padding
-                if (theta_end_n - theta_start_n) > pad_angle_norm * 2.0 {
-                    theta_start_n += pad_angle_norm;
-                    theta_end_n -= pad_angle_norm;
-                }
-
-                // --- B. CALCULATE RADIAL BOUNDS ---
-                // IMPORTANT: r_outer_n must be a ratio [0, 1]. 
-                // We multiply the data-driven radius by the mark's radius config.
-                let r_inner_n = mark_config.inner_radius; 
-                let r_outer_n = match &radius_norms {
-                    Some(norms) => norms.get(i).unwrap_or(0.0) * mark_config.outer_radius,
-                    None => mark_config.outer_radius, 
-                };
-
-                // --- C. TRANSFORM & DRAW ---
-                let sector_points = vec![
-                    (theta_start_n, r_inner_n),
-                    (theta_start_n, r_outer_n),
-                    (theta_end_n,   r_outer_n),
-                    (theta_end_n,   r_inner_n),
-                ];
-
-                let pixel_points = context.transform_path(&sector_points, true);
-                println!("pixel_points: {:?}", pixel_points);
-
-                backend.draw_polygon(PolygonConfig {
-                    points: pixel_points.into_iter()
-                        .map(|(px, py)| (px as Precision, py as Precision))
-                        .collect(),
-                    fill: group_color.clone(),
-                    stroke: mark_config.stroke.clone(),
-                    stroke_width: mark_config.stroke_width as Precision,
-                    fill_opacity: mark_config.opacity as Precision,
-                    stroke_opacity: mark_config.opacity as Precision,
-                });
-            }
-        }
-        Ok(())
-    }
+pub(crate) struct ArcSliceConfig {
+    pub center_x: f64,
+    pub center_y: f64,
+    pub radius: f64,
+    pub inner_radius_ratio: f64,
+    pub start_angle: f64,
+    pub end_angle: f64,
+    pub fill_color: Option<SingleColor>,
+    pub stroke_color: Option<SingleColor>,
+    pub stroke_width: f64,
+    pub opacity: f64,
 }
 
-impl Chart<MarkArc> {
-    /// Resolves the color for a specific data group (sector).
-    /// Maps the first value of the grouping column to the designated color scale.
-    fn resolve_group_color(
-        &self, 
-        df: &DataFrame, 
-        context: &PanelContext, 
-        fallback: &SingleColor
-    ) -> Result<SingleColor, ChartonError> {
-        if let Some(ref mapping) = context.spec.aesthetics.color {
-            let s = df.column(&mapping.field)?.as_materialized_series();
-            let s_trait = mapping.scale_impl.as_ref();
-            
-            // Take the first value of the series to determine the color for this slice.
-            let norms = s_trait.scale_type().normalize_series(s_trait, &s.head(Some(1)))?;
-            let norm = norms.get(0).unwrap_or(0.0);
-            
-            Ok(s_trait.mapper()
-                .map(|m| m.map_to_color(norm, s_trait.logical_max()))
-                .unwrap_or_else(|| fallback.clone()))
-        } else {
-            Ok(fallback.clone())
-        }
+/// Renders an arc slice (a pie/wedge shape) into the SVG string
+///
+/// This function calculates the path for an arc slice based on center coordinates,
+/// radius, and start/end angles, then appends the corresponding SVG path element
+/// to the provided string.
+///
+/// # Parameters
+/// * `svg` - A mutable reference to the SVG string being built
+/// * `config` - Configuration parameters for the arc slice
+///
+/// # Returns
+/// Result indicating success or failure of the operation
+pub(crate) fn render_arc_slice(svg: &mut String, config: ArcSliceConfig) -> std::fmt::Result {
+    // Determine inner radius based on mark settings
+    let inner_radius = config.radius * config.inner_radius_ratio;
+
+    // Calculate points
+    let cos_start = config.start_angle.cos();
+    let sin_start = config.start_angle.sin();
+    let cos_end = config.end_angle.cos();
+    let sin_end = config.end_angle.sin();
+
+    // Outer arc points
+    let outer_start_x = config.center_x + config.radius * cos_start;
+    let outer_start_y = config.center_y + config.radius * sin_start;
+    let outer_end_x = config.center_x + config.radius * cos_end;
+    let outer_end_y = config.center_y + config.radius * sin_end;
+
+    // Determine if this is a large arc (greater than 180 degrees)
+    let large_arc_flag = if config.end_angle - config.start_angle > std::f64::consts::PI {
+        1
+    } else {
+        0
+    };
+
+    let fill_color_str = config
+        .fill_color
+        .as_ref()
+        .map(|c| c.get_color())
+        .unwrap_or_else(|| "none".to_string());
+
+    let stroke_str = if let Some(stroke) = &config.stroke_color {
+        stroke.get_color()
+    } else {
+        "none".to_string()
+    };
+
+    if inner_radius > 0.0 {
+        // Donut slice - create a path with both outer and inner arcs
+        let inner_start_x = config.center_x + inner_radius * cos_start;
+        let inner_start_y = config.center_y + inner_radius * sin_start;
+        let inner_end_x = config.center_x + inner_radius * cos_end;
+        let inner_end_y = config.center_y + inner_radius * sin_end;
+
+        // Create the path for the donut slice
+        writeln!(
+            svg,
+            r#"<path d="M {} {} A {} {} 0 {} 1 {} {} L {} {} A {} {} 0 {} 0 {} {} L {} {} Z" fill="{}" stroke="{}" stroke-width="{}" opacity="{}"/>"#,
+            outer_start_x,
+            outer_start_y, // Move to outer start
+            config.radius,
+            config.radius,  // Outer arc radii
+            large_arc_flag, // Large arc flag
+            outer_end_x,
+            outer_end_y, // Outer arc end point
+            inner_end_x,
+            inner_end_y, // Line to inner end
+            inner_radius,
+            inner_radius,   // Inner arc radii
+            large_arc_flag, // Large arc flag (same as outer)
+            inner_start_x,
+            inner_start_y, // Inner arc end point (which is start of outer)
+            outer_start_x,
+            outer_start_y, // Line back to outer start
+            fill_color_str,
+            stroke_str,
+            config.stroke_width,
+            config.opacity,
+        )
+    } else {
+        // Regular pie slice
+        writeln!(
+            svg,
+            r#"<path d="M {} {} L {} {} A {} {} 0 {} 1 {} {} L {} {} Z" fill="{}" stroke="{}" stroke-width="{}" opacity="{}"/>"#,
+            config.center_x,
+            config.center_y, // Move to center
+            outer_start_x,
+            outer_start_y, // Line to outer start
+            config.radius,
+            config.radius,  // Arc radii
+            large_arc_flag, // Large arc flag
+            outer_end_x,
+            outer_end_y, // Arc end point
+            config.center_x,
+            config.center_y, // Line back to center
+            fill_color_str,
+            stroke_str,
+            config.stroke_width,
+            config.opacity,
+        )
     }
 }
