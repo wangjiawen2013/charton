@@ -484,17 +484,36 @@ impl LayeredChart {
         };
 
         // --- STEP 2: RESOLVE COORDINATE SCALES (X & Y) ---
-        let x_spec = self.resolve_scale_spec(Channel::X)?.unwrap();
+        // Resolve X (Radius/Horizontal) - This may be None for Pie Charts
+        let x_spec_opt = self.resolve_scale_spec(Channel::X)?;
         let y_spec = self.resolve_scale_spec(Channel::Y)?.unwrap();
 
-        let x_scale = create_scale(&x_spec.scale_type, x_spec.domain, x_spec.expand, None)?;
+        // Create the X scale. If no spec exists (Pie Chart/Donut Chart), we create a synthetic 
+        // 0.0-1.0 scale to keep the coordinate system and renderers happy.
+        let x_scale = if let Some(ref spec) = x_spec_opt {
+            create_scale(&spec.scale_type, spec.domain.clone(), spec.expand, None)?
+        } else {
+            create_scale(
+                &Scale::Linear, 
+                ScaleDomain::Continuous(0.0, 1.0), 
+                Expansion {mult: (0.0, 0.0), add: (0.0, 0.0)}, 
+                None
+            )?
+        };
         let y_scale = create_scale(&y_spec.scale_type, y_spec.domain, y_spec.expand, None)?;
+
+        // Extract the field name from X spec if it exists, otherwise use a placeholder.
+        // This is crucial for Arc marks where X encoding might be None.
+        let x_field = x_spec_opt
+            .as_ref()
+            .map(|s| s.field.clone())
+            .unwrap_or_else(|| "radius_placeholder".to_string());
 
         let final_coord: Arc<dyn CoordinateTrait> = match self.coord_system {
             CoordSystem::Cartesian2D => Arc::new(crate::coordinate::cartesian::Cartesian2D::new(
                 x_scale, 
                 y_scale, 
-                x_spec.field.clone(),
+                x_field,
                 y_spec.field.clone(),
                 self.flipped
             )),
@@ -507,13 +526,15 @@ impl LayeredChart {
                 let inner_radius = self.polar_inner_radius.unwrap_or(self.theme.polar_inner_radius);
 
                 // 2. Initialize the Polar coordinate system with resolved scales and data fields.
+                // SWAP: Data Y (Theta) becomes Coordinate X (Angle)
+                // SWAP: Data X (Radius) becomes Coordinate Y (Radius)
                 let mut polar = crate::coordinate::polar::Polar::new(
-                    x_scale, 
-                    y_scale, 
-                    x_spec.field.clone(), 
-                    y_spec.field.clone()
+                    y_scale,           // Coordinate Angular Scale <- Data Theta
+                    x_scale,           // Coordinate Radial Scale  <- Data Radius
+                    y_spec.field.clone(), // Coordinate Angular Field
+                    x_field,           // Coordinate Radial Field
                 );
-                
+
                 // 3. Inject the finalized geometric parameters into the execution instance.
                 polar.start_angle = start_angle;
                 polar.end_angle = end_angle;

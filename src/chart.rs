@@ -430,25 +430,31 @@ impl<T: Mark> Chart<T> {
         }
         Ok(())
     }
+
     /// Completes the chart's encoding configuration by inferring missing metadata.
+    /// This step ensures all scales have concrete types (Linear, Discrete, etc.) 
+    /// and applies visual defaults like zero-baselines or padding based on the mark type.
     fn apply_post_transform_defaults(&mut self) -> Result<(), ChartonError> {
         // Determine the mark type early to apply specific defaults (e.g., Rect, Hist)
         let mt = self.mark.as_ref().unwrap().mark_type();
         
-        let x_enc = self.encoding.x.as_mut().unwrap();
-        let y_enc = self.encoding.y.as_mut().unwrap();
-
         // --- 1. RESOLVE SCALE TYPES ---
-        // Infer the semantic scale type (Linear, Discrete, or Temporal) based on the column's DataType
-        if x_enc.scale_type.is_none() {
-            let x_dtype = self.data.df.schema().get(&x_enc.field).unwrap();
-            x_enc.scale_type = Some(match interpret_semantic_type(x_dtype) {
-                SemanticType::Continuous => Scale::Linear,
-                SemanticType::Discrete   => Scale::Discrete,
-                SemanticType::Temporal   => Scale::Temporal,
-            });
+        
+        // Surgical Fix: Radius (X) is optional in Arc marks (Pie Charts).
+        // We use 'if let' to safely resolve the scale type only if the encoding exists.
+        if let Some(x_enc) = self.encoding.x.as_mut() {
+            if x_enc.scale_type.is_none() {
+                let x_dtype = self.data.df.schema().get(&x_enc.field).unwrap();
+                x_enc.scale_type = Some(match interpret_semantic_type(x_dtype) {
+                    SemanticType::Continuous => Scale::Linear,
+                    SemanticType::Discrete   => Scale::Discrete,
+                    SemanticType::Temporal   => Scale::Temporal,
+                });
+            }
         }
 
+        // Theta/Y is mandatory for all current mark types to define the primary dimension.
+        let y_enc = self.encoding.y.as_mut().ok_or(ChartonError::Encoding("Y/Theta encoding missing".into()))?;
         if y_enc.scale_type.is_none() {
             let y_dtype = self.data.df.schema().get(&y_enc.field).unwrap();
             y_enc.scale_type = Some(match interpret_semantic_type(y_dtype) {
@@ -459,17 +465,16 @@ impl<T: Mark> Chart<T> {
         }
 
         // --- 2. RESOLVE SPECIAL PADDING & BASELINES ---
-        // Apply chart-specific visual rules (e.g., bar charts should start at zero)
+        // Force zero baseline for statistical accuracy in magnitude-based charts (Area, Bar, Hist).
         if y_enc.scale_type == Some(Scale::Linear) {
             if ["area", "bar", "hist"].contains(&mt) {
-                // Force zero baseline for statistical accuracy in magnitude-based charts
                 y_enc.zero = Some(true);
 
                 if let Ok(y_series) = self.data.column(&y_enc.field) {
                     let y_min = y_series.min::<f64>()?.unwrap_or(0.0);
                     let y_max = y_series.max::<f64>()?.unwrap_or(0.0);
 
-                    // Asymmetric expansion: only add padding away from the zero baseline
+                    // Asymmetric expansion: only add padding away from the zero baseline.
                     y_enc.expansion = Some(if y_min >= 0.0 {
                         Expansion { mult: (0.0, 0.05), add: (0.0, 0.0) }
                     } else if y_max <= 0.0 {
@@ -482,37 +487,39 @@ impl<T: Mark> Chart<T> {
         }
 
         // --- 3. HALF-STEP EXPANSION FOR DISCRETE AXES ---
-        // For marks with "thickness" (Bar, Boxplot, Rect) on a Discrete axis, we add a 0.5 
-        // unit padding. This ensures the first and last marks have enough space and 
-        // don't overlap with the axis lines.
+        // For marks with "thickness" (Bar, Boxplot, Rect), we add 0.5 unit padding 
+        // to prevent marks from clipping against the axis boundaries.
         let needs_discrete_padding = ["bar", "boxplot", "rect"].contains(&mt);
         if needs_discrete_padding {
-            // Apply to X axis (Common for Bar/Boxplot)
-            if x_enc.scale_type == Some(Scale::Discrete) && x_enc.expansion.is_none() {
-                x_enc.expansion = Some(Expansion { mult: (0.0, 0.0), add: (0.5, 0.5) });
+            // Apply to X axis if it exists and is Discrete.
+            if let Some(x_enc) = self.encoding.x.as_mut() {
+                if x_enc.scale_type == Some(Scale::Discrete) && x_enc.expansion.is_none() {
+                    x_enc.expansion = Some(Expansion { mult: (0.0, 0.0), add: (0.5, 0.5) });
+                }
             }
-            // Apply to Y axis (Specific to Discrete Heatmaps)
+            // Apply to Y axis (Specific to Discrete Heatmaps).
             if y_enc.scale_type == Some(Scale::Discrete) && y_enc.expansion.is_none() {
                 y_enc.expansion = Some(Expansion { mult: (0.0, 0.0), add: (0.5, 0.5) });
             }
         }
 
         // --- 4. FLUSH EXPANSION FOR CONTINUOUS RECT ---
-        // Rect charts (Heatmaps) on continuous axes should flush to the edges.
-        // Since we already apply "Half-bin Compensation" in get_data_bounds, 
-        // we set Expansion to zero here to avoid double-padding.
+        // Continuous Heatmaps should flush to edges to avoid white gaps.
         if mt == "rect" {
-            if x_enc.scale_type != Some(Scale::Discrete) && x_enc.expansion.is_none() {
-                x_enc.expansion = Some(Expansion { mult: (0.0, 0.0), add: (0.0, 0.0) });
+            if let Some(x_enc) = self.encoding.x.as_mut() {
+                if x_enc.scale_type != Some(Scale::Discrete) && x_enc.expansion.is_none() {
+                    x_enc.expansion = Some(Expansion { mult: (0.0, 0.0), add: (0.0, 0.0) });
+                }
             }
             if y_enc.scale_type != Some(Scale::Discrete) && y_enc.expansion.is_none() {
                 y_enc.expansion = Some(Expansion { mult: (0.0, 0.0), add: (0.0, 0.0) });
             }
         }
 
-        // --- 5. RESOLVE OPTIONAL COLOR CHANNEL ---
+        // --- 5. RESOLVE OPTIONAL AESTHETIC CHANNELS ---
+        // Helper logic to infer scale types for Color, Shape, and Size.
+        
         if let Some(ref mut color_enc) = self.encoding.color {
-            // Only infer the color scale type if it isn't predefined
             if color_enc.scale_type.is_none() {
                 let c_dtype = self.data.df.schema().get(&color_enc.field).unwrap();
                 color_enc.scale_type = Some(match interpret_semantic_type(c_dtype) {
@@ -523,9 +530,7 @@ impl<T: Mark> Chart<T> {
             }
         }
 
-        // --- 6. RESOLVE OPTIONAL SHAPE CHANNEL ---
         if let Some(ref mut shape_enc) = self.encoding.shape {
-            // Only infer the shape scale type if it isn't predefined
             if shape_enc.scale_type.is_none() {
                 let s_dtype = self.data.df.schema().get(&shape_enc.field).unwrap();
                 shape_enc.scale_type = Some(match interpret_semantic_type(s_dtype) {
@@ -536,9 +541,7 @@ impl<T: Mark> Chart<T> {
             }
         }
 
-        // --- 7. RESOLVE OPTIONAL SIZE CHANNEL ---
         if let Some(ref mut size_enc) = self.encoding.size {
-            // Only infer the size scale type if it isn't predefined
             if size_enc.scale_type.is_none() {
                 let s_dtype = self.data.df.schema().get(&size_enc.field).unwrap();
                 size_enc.scale_type = Some(match interpret_semantic_type(s_dtype) {
@@ -548,6 +551,7 @@ impl<T: Mark> Chart<T> {
                 });
             }
         }
+
         Ok(())
     }
 }
@@ -640,17 +644,28 @@ where
                     && self.encoding.color.is_some();
 
                 if is_y_stacked {
-                    let x_field = &self.encoding.x.as_ref().unwrap().field;
+                    // RESOLUTION: X might be None for Pie charts.
+                    // If X exists, we group by it (Stacked Bar).
+                    // If X is None, we treat the whole dataset as one group (Pie/Donut).
                     let y_field = &self.encoding.y.as_ref().unwrap().field;
                     
-                    // Aggregate sums per X-axis category to find the true visual peak
-                    let grouped_sums = self.data.df.clone()
-                        .lazy()
-                        .group_by([col(x_field)])
-                        .agg([col(y_field).sum().alias("stack_sum")])
-                        .collect()?;
+                    let grouped_sums = if let Some(x_enc) = &self.encoding.x {
+                        // Standard Stacked Bar: Group by X axis categories
+                        self.data.df.clone()
+                            .lazy()
+                            .group_by([col(&x_enc.field)])
+                            .agg([col(y_field).sum().alias(format!("{}_stack_sum", TEMP_SUFFIX))])
+                            .collect()?
+                    } else {
+                        // Stacked Pie: No X axis. Sum everything into a single total.
+                        // We use a literal placeholder "all" to satisfy the group_by API.
+                        self.data.df.clone()
+                            .lazy()
+                            .select([col(y_field).sum().alias(format!("{}_stack_sum", TEMP_SUFFIX))])
+                            .collect()?
+                    };
 
-                    let sum_series = grouped_sums.column("stack_sum")?.as_materialized_series();
+                    let sum_series = grouped_sums.column(&format!("{}_stack_sum", TEMP_SUFFIX))?.as_materialized_series();
                     global_min = sum_series.min::<f64>()?.unwrap_or(0.0);
                     global_max = sum_series.max::<f64>()?.unwrap_or(0.0);
                     found_data = true;
