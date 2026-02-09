@@ -1,4 +1,3 @@
-pub(crate) mod arc;
 pub(crate) mod area;
 pub(crate) mod bar;
 pub(crate) mod boxplot;
