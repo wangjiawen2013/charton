@@ -31,6 +31,7 @@ pub mod prelude {
         color::color, Encoding, shape::shape, size::size,
         text::text, x::x, y::y, y2::y2,
     };
+    pub use crate::chart::arc_chart::{theta, radius};
 
     pub use crate::chart::Chart;
     pub use crate::core::composite::LayeredChart;

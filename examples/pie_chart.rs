@@ -3,23 +3,24 @@ use polars::prelude::*;
 use std::error::Error;
 
 fn main() -> Result<(), Box<dyn Error>> {
-    // Create sample data with x and y values
-    let df = df! [
-        "type" => ["a", "b", "c", "d"],
-        "value" => [4.9, 5.3, 5.5, 6.5],
-        "value_std" => [0.3, 0.39, 0.34, 0.20]
+    // Create sample data frame for pie chart
+    let df = df![
+        "category" => ["A", "B", "C", "E", "D", "E"],
+        "value" => [25.0, 30.0, 15.0, 30.0, 20.0, 10.0]
     ]?;
 
-    let bar = Chart::build(&df)?
-        .mark_bar()
-        .configure_bar(|b| b.with_width(1.0))
-        .encode((x("type"), y("value")))?;
+    // Create pie chart
+    let pie_chart = Chart::build(&df)?
+        .mark_arc() // Use arc mark for pie charts
+        .encode((
+            theta("value"),    // theta encoding for pie slices
+            color("category"), // color encoding for different segments
+        ))?;
+        //.with_inner_radius_ratio(0.5); // Creates a donut chart
 
-    // Create a layered chart and add the errorbar chart as a layer
+    // Create a layered chart and add the pie chart as a layer
     LayeredChart::new()
-        .add_layer(bar)
-        .with_y_label("value")
-        .with_coord(CoordSystem::Polar)
+        .add_layer(pie_chart)
         .save("./examples/pie_chart.svg")?;
 
     Ok(())
