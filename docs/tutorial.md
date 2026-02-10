@@ -4546,3 +4546,9 @@ Code structure, contribution guidelines, and development workflow.
 
 ## 11.7 Community & resources
 Links to docs, repo, issues, examples, and community channels.
+
+# Chapter 12 · Layout
+
+# Chapter 13 · Coordinate Systems
+## 13.1 Cartesian
+## 13.2 Polar
