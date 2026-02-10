@@ -1,5 +1,6 @@
-use super::{CoordinateTrait, Rect};
+use super::{CoordinateTrait, CoordLayout, Rect};
 use crate::scale::ScaleTrait;
+use crate::visual::color::SingleColor;
 use std::sync::Arc;
 use std::f64::consts::PI;
 
@@ -117,4 +118,23 @@ impl CoordinateTrait for Polar {
     fn get_x_label(&self) -> &str { &self.x_field }
     fn get_y_label(&self) -> &str { &self.y_field }
     fn is_flipped(&self) -> bool { false }
+
+    /// Returns layout hints optimized for radial/circular plots.
+    fn layout_hints(&self) -> CoordLayout {
+        CoordLayout {
+            default_bar_stroke: SingleColor::new("white"),
+            // Sectors occupy 100% of their angular slot to remain adjacent.
+            default_bar_width: 1.0,
+            
+            // No spacing between sectors by default to maintain a solid circular shape.
+            default_bar_spacing: 0.0,
+            
+            // The group spans the entire available angular step (full coverage).
+            default_bar_span: 1.0,
+            
+            // Crucial: Straight horizontal edges in data space must be 
+            // curved to follow the arc in Polar space.
+            needs_interpolation: true,
+        }
+    }
 }

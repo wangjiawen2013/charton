@@ -2,6 +2,7 @@ pub mod cartesian;
 pub mod polar;
 
 use crate::scale::ScaleTrait;
+use crate::visual::color::SingleColor;
 use std::sync::Arc;
 
 /// A simple rectangle representing a physical area on the canvas.
@@ -18,6 +19,31 @@ impl Rect {
     pub fn new(x: f64, y: f64, width: f64, height: f64) -> Self {
         Self { x, y, width, height }
     }
+}
+
+/// Describes the layout preferences and geometric behaviors of a coordinate system.
+/// 
+/// Different coordinate systems (Cartesian, Polar, Geo) require different 
+/// default settings for marks like bars to look "correct" out of the box.
+pub struct CoordLayout {
+    /// Default stroke color for bars in this coordinate system.
+    pub default_bar_stroke: SingleColor,
+
+    /// Suggested relative width for a single bar (0.0 to 1.0).
+    /// Typically 0.5 for Cartesian to leave space, 1.0 for Polar (Pie/Rose).
+    pub default_bar_width: f64,
+
+    /// Suggested relative spacing between bars in a group (0.0 to 1.0).
+    /// Typically 0.1 for Cartesian dodge, 0.0 for Polar.
+    pub default_bar_spacing: f64,
+
+    /// Suggested total span of a bar group (0.0 to 1.0).
+    /// Defines the maximum coverage within a discrete category step.
+    pub default_bar_span: f64,
+
+    /// Whether the coordinate system distorts straight lines into curves.
+    /// When true, the renderer should prefer path-based drawing over simple primitives.
+    pub needs_interpolation: bool,
 }
 
 /// The core interface for all coordinate systems in Charton.
@@ -86,6 +112,10 @@ pub trait CoordinateTrait {
     fn is_clipped(&self) -> bool {
         true
     }
+
+    /// Returns the layout hints for this coordinate system.
+    /// Default implementation provides Cartesian-friendly defaults.
+    fn layout_hints(&self) -> CoordLayout;
 }
 
 /// Supported coordinate systems for the chart.
