@@ -1,5 +1,6 @@
-use super::{CoordinateTrait, Rect};
+use super::{CoordinateTrait, CoordLayout, Rect};
 use crate::scale::ScaleTrait;
+use crate::visual::color::SingleColor;
 use std::sync::Arc;
 
 /// A 2D Cartesian coordinate system.
@@ -99,5 +100,24 @@ impl CoordinateTrait for Cartesian2D {
     /// Cartesian coordinates typically clip data that falls outside the panel.
     fn is_clipped(&self) -> bool {
         true
+    }
+
+    /// Returns layout hints optimized for rectangular grids.
+    fn layout_hints(&self) -> CoordLayout {
+        CoordLayout {
+            default_bar_stroke: SingleColor::new("black"),
+            // Bars occupy 50% of the available slot width by default.
+            default_bar_width: 0.5,
+            
+            // Provides a 0% gap between bars within the same group (dodge).
+            default_bar_spacing: 0.0,
+            
+            // The entire group covers 70% of the categorical band.
+            default_bar_span: 0.7,
+            
+            // Cartesian systems map straight lines to straight lines; 
+            // no extra points are needed between vertices.
+            needs_interpolation: false,
+        }
     }
 }
