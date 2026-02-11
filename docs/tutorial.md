@@ -1,3 +1,4 @@
+# Charton: Grammar of Graphics in Rust
 # Chapter 1 · Introduction
 ## 1.1 What is Charton? (The Core Idea)
 Charton is a modern Rust visualization library designed around a simple, declarative framework for data visualization.
