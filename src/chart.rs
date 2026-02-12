@@ -184,13 +184,19 @@ impl<T: Mark> Chart<T> {
         let mut active_fields = self.encoding.active_fields();
         let mut expected_semantics = std::collections::HashMap::new();
 
+        // If x_field is "", it's a virtual column for Pie/Rose charts.
+        // We remove it from active_fields so check_schema doesn't look for it in the raw data.
+        let x_field = self.encoding.x.as_ref().map(|x| x.field.clone()).unwrap_or_default();
+        if x_field == "" {
+            active_fields.retain(|&field| field != "");
+        }
+
         // Histogram Virtual Column Handling.
         // Histograms are a special case where the Y-axis (frequency/count) is a 
         // "virtual" column produced by the statistical transformation.
         // Because this column is not present in the raw source DataFrame, we 
         // remove it from the validation set to avoid "field not found" errors.
         if mark_type.as_str() == "hist" {
-            // Safety: Both X and Y are guaranteed to exist by Step 3.
             let y_field = self.encoding.y.as_ref().unwrap().field.as_str();
             
             // Retain only fields that actually exist in the raw input data.
@@ -380,22 +386,38 @@ impl<T: Mark> Chart<T> {
         }
 
         // --- 2. RESOLVE SPECIAL PADDING & BASELINES ---
-        // Apply chart-specific visual rules (e.g., bar charts should start at zero)
+        // Apply chart-specific visual rules to ensure statistical integrity and optimal layout.
         if y_enc.scale_type == Some(Scale::Linear) {
+            // These mark types represent magnitudes and generally require a zero-based coordinate system.
             if ["area", "bar", "hist"].contains(&mt) {
-                // Force zero baseline for statistical accuracy in magnitude-based charts
+                // Ensure the scale includes zero to avoid misleading truncated axes.
                 y_enc.zero = Some(true);
+
+                // Detection of Pie/Donut mode:
+                // In this framework, an empty X field signifies that all data points are 
+                // mapped to a single angular slot, which characterizes a Pie chart.
+                let is_pie_mode = x_enc.field == "";
 
                 if let Ok(y_series) = self.data.column(&y_enc.field) {
                     let y_min = y_series.min::<f64>()?.unwrap_or(0.0);
                     let y_max = y_series.max::<f64>()?.unwrap_or(0.0);
 
-                    // Asymmetric expansion: only add padding away from the zero baseline
-                    y_enc.expansion = Some(if y_min >= 0.0 {
+                    // Configure Scale Expansion (Padding):
+                    y_enc.expansion = Some(if is_pie_mode {
+                        // CRITICAL: Pie charts map the Y-axis to the angular span (0 to 2π).
+                        // Any expansion (e.g., the standard 5% padding) would create a 
+                        // "gap" or "crack" in the circle because the data sum wouldn't 
+                        // reach the expanded scale maximum. We force zero expansion here.
+                        Expansion { mult: (0.0, 0.0), add: (0.0, 0.0) }
+                    } else if y_min >= 0.0 {
+                        // For standard bars, add a 5% buffer at the top to prevent 
+                        // the marks from touching the chart boundary.
                         Expansion { mult: (0.0, 0.05), add: (0.0, 0.0) }
                     } else if y_max <= 0.0 {
+                        // Add buffer at the bottom for negative-only charts.
                         Expansion { mult: (0.05, 0.0), add: (0.0, 0.0) }
                     } else {
+                        // Use default behavior for charts spanning across zero.
                         Expansion::default()
                     });
                 }

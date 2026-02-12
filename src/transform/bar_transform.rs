@@ -17,12 +17,28 @@ impl<T: Mark> Chart<T> {
     pub(crate) fn transform_bar_data(mut self) -> Result<Self, ChartonError> {
         // --- STEP 1: Extract Encoding Context ---
         // Basic requirement: X and Y must exist. Color is optional.
+        // Get mutable references so we can modify properties like 'stack' for Pie charts.
+        let y_enc = self.encoding.y.as_mut().unwrap(); 
         let x_enc = self.encoding.x.as_ref().unwrap();
-        let y_enc = self.encoding.y.as_ref().unwrap();
         let color_enc_opt = self.encoding.color.as_ref();
 
         let x_field = &x_enc.field;
         let y_field = &y_enc.field;
+
+        // --- NEW: PIE/SINGLE-AXIS MODE HANDLING ---
+        // If x_field is an empty string, it signifies a single-axis layout (Pie Chart).
+        // 1. Force 'stack' to true: Essential for pie slices to chain head-to-tail.
+        // 2. Inject virtual column: Ensure Polars can find the "" column for grouping.
+        if x_field == "" {
+            y_enc.stack = true; 
+
+            if !self.data.df.get_column_names().contains(&&PlSmallStr::from_static("")) {
+                self.data.df = self.data.df.clone().lazy()
+                    .with_column(lit("").alias(""))
+                    .collect()?;
+            }
+        }
+
 
         // --- STEP 2: Aggregation & Grouping ---
         // We define the grouping strategy based on field overlap.
@@ -41,7 +57,7 @@ impl<T: Mark> Chart<T> {
                 .clone()
                 .lazy()
                 .group_by_stable(group_selectors)
-                .agg([col(y_field).mean().alias(y_field)])
+                .agg([col(y_field).sum().alias(y_field)])
                 .collect()?
         } else {
             // Simple case: No color mapping, group by X only.
@@ -50,7 +66,7 @@ impl<T: Mark> Chart<T> {
                 .clone()
                 .lazy()
                 .group_by_stable([col(x_field)])
-                .agg([col(y_field).mean().alias(y_field)])
+                .agg([col(y_field).sum().alias(y_field)])
                 .collect()?
         };
 
