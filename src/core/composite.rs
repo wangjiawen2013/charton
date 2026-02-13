@@ -22,55 +22,76 @@ pub struct ResolvedSpec {
 
 /// `LayeredChart` is the central orchestrator of the visualization.
 ///
-/// It manages:
-/// 1. The list of plot layers ([Layer]).
-/// 2. The global coordinate system ([CoordSystem]).
-/// 3. Scale Overrides (User-defined domains, expansions, and color schemes).
-/// 4. The visual [Theme].
+/// It follows the "Specification" pattern:
+/// 1. It holds the structural intent (layers, coordinates, data labels).
+/// 2. It stores "Overrides" (User-defined domains or layout tweaks) that 
+///    take precedence over the [Theme] defaults.
 #[derive(Clone)]
 pub struct LayeredChart {
-    // --- Physical Dimensions ---
+    // --- Physical Canvas Dimensions ---
+    /// The target width of the rendered output in pixels.
     pub(crate) width: u32,
+    /// The target height of the rendered output in pixels.
     pub(crate) height: u32,
 
-    // --- Layout Margins (Proportions 0.0 to 1.0) ---
-    pub(crate) left_margin: f64,
-    pub(crate) right_margin: f64,
-    pub(crate) top_margin: f64,
-    pub(crate) bottom_margin: f64,
-
-    // --- Aesthetic Styling ---
+    // --- Aesthetic Context ---
+    /// The active visual theme. Used as the source for all visual constants 
+    /// and default layout ratios unless overridden below.
     pub(crate) theme: Theme,
-    pub(crate) title: Option<String>,
 
-    // --- Chart Components ---
-    /// Using Arc (Atomic Reference Counter) allows the chart to be cloned 
-    /// cheaply without deep-copying the underlying data layers.
+    // --- Content ---
+    /// The text content of the chart title. Styled by `theme.title_size/color`.
+    pub(crate) title: Option<String>,
+    /// The collection of plot layers (points, lines, bars, etc.).
     pub(crate) layers: Vec<Arc<dyn Layer>>,
+    /// The logical coordinate system (e.g., Cartesian, Polar).
     pub(crate) coord_system: CoordSystem,
 
+    // --- Layout Overrides (The "Override" Pattern) ---
+    /// Manual override for chart margins [top, right, bottom, left]. 
+    /// If `None`, `theme.default_margins` will be used during layout resolution.
+    pub(crate) top_margin: Option<f64>,
+    pub(crate) right_margin: Option<f64>,
+    pub(crate) bottom_margin: Option<f64>,
+    pub(crate) left_margin: Option<f64>,
+
     // --- Axis & Scale Overrides (The "Brain") ---
-    // These fields store explicit user intents that override automatic data inference.
+    // These fields define how data is mapped and labeled, overriding automatic inference.
+    
+    /// User-defined range for the X-axis.
     pub(crate) x_domain: Option<ScaleDomain>,
+    /// Explicit title for the X-axis (e.g., "Time", "GDP").
     pub(crate) x_label: Option<String>,
+    /// Custom expansion/padding rules for the X-axis.
     pub(crate) x_expand: Option<Expansion>,
 
+    /// User-defined range for the Y-axis.
     pub(crate) y_domain: Option<ScaleDomain>,
+    /// Explicit title for the Y-axis.
     pub(crate) y_label: Option<String>,
+    /// Custom expansion/padding rules for the Y-axis.
     pub(crate) y_expand: Option<Expansion>,
 
+    /// User-defined domain for the Color channel (legend).
     pub(crate) color_domain: Option<ScaleDomain>,
+    /// Explicit title for the Color legend.
+    pub(crate) color_label: Option<String>,
     pub(crate) color_expand: Option<Expansion>,
 
     pub(crate) shape_domain: Option<ScaleDomain>,
+    pub(crate) shape_label: Option<String>,
     pub(crate) shape_expand: Option<Expansion>,
 
     pub(crate) size_domain: Option<ScaleDomain>,
+    pub(crate) size_label: Option<String>,
     pub(crate) size_expand: Option<Expansion>,
 
+    // --- Structural Modifiers ---
+    /// Whether to swap the X and Y axes (common for horizontal bar charts).
     pub(crate) flipped: bool,
 
-    // --- Polar Overrides ---
+    // --- Polar Context Overrides ---
+    // These override the defaults in `theme.polar_xxx` for specific chart needs.
     pub(crate) polar_start_angle: Option<f64>,
     pub(crate) polar_end_angle: Option<f64>,
     pub(crate) polar_inner_radius: Option<f64>,
@@ -82,16 +103,16 @@ impl LayeredChart {
             width: 500,
             height: 400,
 
-            left_margin: 0.06,
-            right_margin: 0.03,
-            top_margin: 0.10,
-            bottom_margin: 0.08,
-
             theme: Theme::default(),
             title: None,
 
             layers: Vec::new(),
             coord_system: CoordSystem::default(),
+
+            top_margin: None,
+            right_margin: None,
+            bottom_margin: None,
+            left_margin: None,
 
             // Initializing all overrides as None (defer to automatic inference)
             x_domain: None,
@@ -103,11 +124,15 @@ impl LayeredChart {
             y_expand: None,
 
             color_domain: None,
+            color_label: None,
             color_expand: None,
 
             shape_domain: None,
+            shape_label: None,
             shape_expand: None,
+
             size_domain: None,
+            size_label: None,
             size_expand: None,
 
             flipped: false,
@@ -129,32 +154,32 @@ impl LayeredChart {
 
     // --- Layout Margins ---
 
-    pub fn with_left_margin(mut self, margin: f64) -> Self {
-        self.left_margin = margin;
+    pub fn with_top_margin(mut self, margin: f64) -> Self {
+        self.top_margin = Some(margin);
         self
     }
 
     pub fn with_right_margin(mut self, margin: f64) -> Self {
-        self.right_margin = margin;
-        self
-    }
-
-    pub fn with_top_margin(mut self, margin: f64) -> Self {
-        self.top_margin = margin;
+        self.right_margin = Some(margin);
         self
     }
 
     pub fn with_bottom_margin(mut self, margin: f64) -> Self {
-        self.bottom_margin = margin;
+        self.bottom_margin = Some(margin);
+        self
+    }
+
+    pub fn with_left_margin(mut self, margin: f64) -> Self {
+        self.left_margin = Some(margin);
         self
     }
 
     /// Convenience method to set all margins at once.
     pub fn with_margins(mut self, top: f64, right: f64, bottom: f64, left: f64) -> Self {
-        self.top_margin = top;
-        self.right_margin = right;
-        self.bottom_margin = bottom;
-        self.left_margin = left;
+        self.top_margin = Some(top);
+        self.right_margin = Some(right);
+        self.bottom_margin = Some(bottom);
+        self.left_margin = Some(left);
         self
     }
 
@@ -214,6 +239,16 @@ impl LayeredChart {
 
     pub fn with_y_label(mut self, label: impl Into<String>) -> Self {
         self.y_label = Some(label.into());
+        self
+    }
+
+    pub fn with_shape_label(mut self, label: impl Into<String>) -> Self {
+        self.shape_label = Some(label.into());
+        self
+    }
+
+    pub fn with_size_label(mut self, label: impl Into<String>) -> Self {
+        self.size_label = Some(label.into());
         self
     }
 
@@ -329,7 +364,7 @@ impl LayeredChart {
         let (manual_domain, manual_label, manual_expand) = match channel {
             Channel::X => (self.x_domain.clone(), self.x_label.clone(), self.x_expand),
             Channel::Y => (self.y_domain.clone(), self.y_label.clone(), self.y_expand),
-            Channel::Color => (self.color_domain.clone(), self.theme.legend_title.clone(), self.color_expand),
+            Channel::Color => (self.color_domain.clone(), self.color_label.clone(), self.color_expand),
             Channel::Shape => (self.shape_domain.clone(), None, self.shape_expand),
             Channel::Size => (self.size_domain.clone(), None, self.size_expand),
         };
@@ -530,8 +565,8 @@ impl LayeredChart {
         let w = self.width as f64;
         let h = self.height as f64;
 
-        let initial_plot_w = w * (1.0 - self.left_margin - self.right_margin);
-        let initial_plot_h = h * (1.0 - self.top_margin - self.bottom_margin);
+        let initial_plot_w = w * (1.0 - self.left_margin.unwrap_or(self.theme.left_margin) - self.right_margin.unwrap_or(self.theme.right_margin));
+        let initial_plot_h = h * (1.0 - self.top_margin.unwrap_or(self.theme.top_margin) - self.bottom_margin.unwrap_or(self.theme.bottom_margin));
 
         // A. Measure Legend Constraints.
         let legend_box = crate::core::layout::LayoutEngine::calculate_legend_constraints(
@@ -548,8 +583,8 @@ impl LayeredChart {
         // We calculate a 'rough' panel area first to allow the engine to estimate 
         // tick density and label overlap.
         let temp_panel = Rect::new(
-            (self.left_margin * w) + legend_box.left,
-            (self.top_margin * h) + legend_box.top,
+            (self.left_margin.unwrap_or(self.theme.left_margin) * w) + legend_box.left,
+            (self.top_margin.unwrap_or(self.theme.top_margin) * h) + legend_box.top,
             (initial_plot_w - legend_box.left - legend_box.right).max(10.0),
             (initial_plot_h - legend_box.top - legend_box.bottom).max(10.0)
         );
@@ -569,10 +604,10 @@ impl LayeredChart {
         );
 
         // --- STEP 5: FINAL PANEL RESOLUTION ---
-        let final_left = (self.left_margin * w) + legend_box.left + axis_box.left;
-        let final_right = (self.right_margin * w) + legend_box.right;
-        let final_top = (self.top_margin * h) + legend_box.top;
-        let final_bottom = (self.bottom_margin * h) + legend_box.bottom + axis_box.bottom;
+        let final_left = (self.left_margin.unwrap_or(self.theme.left_margin) * w) + legend_box.left + axis_box.left;
+        let final_right = (self.right_margin.unwrap_or(self.theme.right_margin) * w) + legend_box.right;
+        let final_top = (self.top_margin.unwrap_or(self.theme.top_margin) * h) + legend_box.top;
+        let final_bottom = (self.bottom_margin.unwrap_or(self.theme.bottom_margin) * h) + legend_box.bottom + axis_box.bottom;
 
         // Apply final dimensions with a safety floor (min_panel_size).
         let plot_w = (w - final_left - final_right).max(self.theme.min_panel_size);

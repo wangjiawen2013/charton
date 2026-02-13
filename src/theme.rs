@@ -2,20 +2,25 @@ use crate::prelude::SingleColor;
 use crate::visual::color::{ColorMap, ColorPalette};
 use crate::core::guide::LegendPosition;
 
-/// A `Theme` defines the visual "look and feel" of a chart, independent of the data mapping.
+/// A `Theme` defines the visual "look and feel" of a chart.
 /// 
-/// Following best practices from ggplot2 and Altair, this struct manages aesthetic properties 
-/// like colors, fonts, and strokes. It delegates data-logic concerns (such as Scale Domains, 
-/// Expansions, and Coordinate transformations) to the `LayeredChart` or `Scale` resolution logic.
+/// It stores constants for aesthetics (colors, fonts) and layout preferences (margins, spacing).
+/// It does NOT store data-specific content like titles or domain limits.
 #[derive(Clone)]
 pub struct Theme {
-    // --- Global Canvas Properties ---
+    // --- Global Canvas & Layout ---
     /// The fill color of the entire chart background.
     pub(crate) background_color: SingleColor,
-    /// Whether to render the axis lines, ticks, and labels.
+    /// Default relative margins for the chart (top, right, bottom, left).
+    /// Expressed as a ratio [0.0, 1.0] of the canvas size.
+    pub(crate) top_margin: f64,
+    pub(crate) right_margin: f64,
+    pub(crate) bottom_margin: f64,
+    pub(crate) left_margin: f64,
+    /// Whether to render axes by default.
     pub(crate) show_axes: bool,
 
-    // --- Title Properties ---
+    // --- Main Title Styling ---
     /// Font size for the main chart title.
     pub(crate) title_size: f64,
     /// Font family stack for the main chart title.
@@ -23,28 +28,28 @@ pub struct Theme {
     /// Text color for the main chart title.
     pub(crate) title_color: SingleColor,
 
-    // --- Axis Title (Label) Properties ---
-    /// Font size for axis titles (e.g., "Price", "Distance").
+    // --- Axis Title (Label) Styling ---
+    /// Font size for axis titles (e.g., "Price").
     pub(crate) label_size: f64,
     /// Font family for axis titles.
     pub(crate) label_family: String,
     /// Text color for axis titles.
     pub(crate) label_color: SingleColor,
-    /// Additional spacing between the axis title and the tick labels.
+    /// Spacing between the axis title and the tick labels.
     pub(crate) label_padding: f64,
 
-    // --- Tick Label Properties (The numbers on the axes) ---
+    // --- Tick Label Styling (The numbers/categories on axes) ---
     /// Font size for the text next to axis ticks.
     pub(crate) tick_label_size: f64,
-    /// Font family for the text next to axis ticks.
+    /// Font family for tick labels.
     pub(crate) tick_label_family: String,
-    /// Text color for the text next to axis ticks.
+    /// Text color for tick labels.
     pub(crate) tick_label_color: SingleColor,
     /// Distance between the tick mark and the tick text.
     pub(crate) tick_label_padding: f64,
-    /// Rotation angle in degrees for X-axis tick labels.
+    /// Default rotation angle in degrees for X-axis tick labels.
     pub(crate) x_tick_label_angle: f64,
-    /// Rotation angle in degrees for Y-axis tick labels.
+    /// Default rotation angle in degrees for Y-axis tick labels.
     pub(crate) y_tick_label_angle: f64,
 
     // --- Geometry & Stroke Properties ---
@@ -52,15 +57,13 @@ pub struct Theme {
     pub(crate) axis_width: f64,
     /// Width of the small tick marks.
     pub(crate) tick_width: f64,
-    /// The physical length of the tick marks extending from the axis.
+    /// The physical length of the tick marks.
     pub(crate) tick_length: f64,
-    /// The minimum physical distance (in pixels) between axis ticks.
-    /// This prevents label overlap and ensures a clean visual density.
-    /// Default: 50.0
+    /// Minimum pixel spacing between ticks to ensure visual density.
     pub(crate) tick_min_spacing: f64,
 
     // --- Legend Styling ---
-    /// Font size for the title of the legend.
+    /// Font size for the legend's title.
     pub(crate) legend_title_size: f64,
     /// Font size for legend item labels.
     pub(crate) legend_label_size: f64,
@@ -68,55 +71,54 @@ pub struct Theme {
     pub(crate) legend_label_family: String,
     /// Text color for all legend text.
     pub(crate) legend_label_color: SingleColor,
-    /// Gap between separate legend blocks (e.g., between Color legend and Size legend).
+    /// Default position of the legend relative to the plot.
+    pub(crate) legend_position: LegendPosition,
+    /// Spacing between the plot area and the legend.
+    pub(crate) legend_margin: f64,
+    /// Gap between separate legend blocks (e.g., Color vs Size).
     pub(crate) legend_block_gap: f64,
-    /// Vertical gap between individual items within a legend.
+    /// Vertical gap between items within a legend.
     pub(crate) legend_item_v_gap: f64,
     /// Horizontal gap between columns in a multi-column legend.
     pub(crate) legend_col_h_gap: f64,
-    /// Spacing between the legend title and the first legend item.
+    /// Spacing between the legend title and its items.
     pub(crate) legend_title_gap: f64,
-    /// Spacing between the legend marker (symbol) and its text label.
+    /// Spacing between the legend marker (e.g., circle) and its label text.
     pub(crate) legend_marker_text_gap: f64,
 
-    // --- Legend Logic ---
-    pub(crate) legend_title: Option<String>,
-    pub(crate) legend_position: LegendPosition,
-    pub(crate) legend_margin: f64,
-
-    // --- Layout Defense Thresholds ---
-    /// The minimum allowed size for the data panel before rendering fails or truncates.
+    // --- Layout Defense & Auto-Sizing ---
+    /// The minimum size (pixels) the data panel must maintain.
     pub(crate) min_panel_size: f64,
-    /// Maximum percentage of the total canvas that axes/margins can consume.
+    /// Max ratio of the canvas that axes and margins can occupy.
     pub(crate) panel_defense_ratio: f64,
-    /// Pre-allocated pixel buffer for axis labels to prevent overlapping.
+    /// Reserved pixel buffer for axis labels to prevent cropping.
     pub(crate) axis_reserve_buffer: f64,
 
-    // --- Aesthetic Defaults (Candidates for Scale Resolution) ---
-    /// The default color map for continuous data if no specific scale is provided.
+    // --- Aesthetic Defaults ---
+    /// Default color map for continuous data mapping.
     pub(crate) color_map: ColorMap,
-    /// The default categorical palette for discrete data if no specific scale is provided.
+    /// Default categorical palette for discrete data mapping.
     pub(crate) palette: ColorPalette,
 
-    // --- Facet Styling ---
-    /// The font size for the facet labels (the text in the strip).
-    pub facet_label_size: f64,
-    /// The color of the facet label text.
-    pub facet_label_color: SingleColor,
-    /// The background color of the facet strip (the header box).
-    pub facet_strip_fill: SingleColor,
-    /// The spacing between individual facet panels (both horizontal and vertical).
-    pub facet_spacing: f64,
-    /// The padding inside the facet strip.
-    pub facet_strip_padding: f64,
+    // --- Facet (Subplot) Styling ---
+    /// Font size for facet strip labels.
+    pub(crate) facet_label_size: f64,
+    /// Color for facet label text.
+    pub(crate) facet_label_color: SingleColor,
+    /// Background fill for the facet strip header.
+    pub(crate) facet_strip_fill: SingleColor,
+    /// Spacing between individual facet panels.
+    pub(crate) facet_spacing: f64,
+    /// Padding inside the facet strip.
+    pub(crate) facet_strip_padding: f64,
 
-    // --- Polar Specific Defaults ---
-    /// The default starting angle for polar charts (e.g., -PI/2 for 12 o'clock).
+    // --- Polar Chart Defaults ---
+    /// Default starting angle for polar charts (e.g., 12 o'clock).
     pub(crate) polar_start_angle: f64,
-    /// The default total angular span (e.g., 2*PI for a full circle).
+    /// Default angular span (e.g., 360 degrees).
     pub(crate) polar_end_angle: f64,
-    /// The default inner radius ratio [0.0, 1.0]. 0.0 = Pie, 0.5 = Donut.
-    pub(crate) polar_inner_radius: f64
+    /// Default inner radius ratio (e.g., 0.5 for a donut chart).
+    pub(crate) polar_inner_radius: f64,
 }
 
 impl Theme {
@@ -124,6 +126,26 @@ impl Theme {
 
     pub fn with_background_color(mut self, color: impl Into<SingleColor>) -> Self {
         self.background_color = color.into();
+        self
+    }
+
+    pub fn with_top_margin(mut self, margin: f64) -> Self {
+        self.top_margin = margin;
+        self
+    }
+
+    pub fn with_right_margin(mut self, margin: f64) -> Self {
+        self.right_margin = margin;
+        self
+    }
+
+    pub fn with_bottom_margin(mut self, margin: f64) -> Self {
+        self.bottom_margin = margin;
+        self
+    }
+
+    pub fn with_left_margin(mut self, margin: f64) -> Self {
+        self.top_margin = margin;
         self
     }
 
@@ -274,11 +296,6 @@ impl Theme {
 
     // --- Legend Logic ---
 
-    pub fn with_legend_title(mut self, title: impl Into<String>) -> Self {
-        self.legend_title = Some(title.into());
-        self
-    }
-
     pub fn with_legend_position(mut self, position: LegendPosition) -> Self {
         self.legend_position = position;
         self
@@ -362,6 +379,10 @@ impl Default for Theme {
 
         Self {
             background_color: "white".into(),
+            top_margin: 0.10,
+            right_margin: 0.03,
+            bottom_margin: 0.08,
+            left_margin: 0.06,
             show_axes: true,
 
             title_size: 18.0,
@@ -396,7 +417,6 @@ impl Default for Theme {
             legend_title_gap: 7.0,
             legend_marker_text_gap: 8.0,
 
-            legend_title: None,
             legend_position: LegendPosition::Right,
             legend_margin: 15.0,
 
