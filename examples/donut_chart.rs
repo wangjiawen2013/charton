@@ -3,26 +3,26 @@ use polars::prelude::*;
 use std::error::Error;
 
 fn main() -> Result<(), Box<dyn Error>> {
-    // Create sample data frame for pie chart
+    // Create sample data frame for donut chart
     let df = df![
         "category" => ["A", "B", "C", "E", "D", "E"],
         "value" => [25.0, 30.0, 15.0, 30.0, 20.0, 10.0]
     ]?;
 
-    // Create pie chart
-    let pie_chart = Chart::build(&df)?
+    // Create donut chart
+    let donut = Chart::build(&df)?
         .mark_bar()
         .encode((
-            x(""),                 // x encoding for pie chart (empty string for pie chart)
-            y("value"),              // theta encoding for pie slices
-            color("category"),    // color encoding for different segments
+            x(""),                 // x encoding for donut chart (empty string for donut chart)
+            y("value"),            // theta encoding for donut slices
+            color("category"),     // color encoding for different segments
         ))?;
-        //.with_inner_radius_ratio(0.5);  // Creates a donut chart
 
-    // Create a layered chart and add the pie chart as a layer
+    // Create a layered chart and add the donut chart as a layer
     LayeredChart::new()
-        .add_layer(pie_chart)
+        .add_layer(donut)
         .with_coord(CoordSystem::Polar)
+        .with_inner_radius(0.5)  // Creates a donut chart
         .save("./examples/donut.svg")?;
 
     Ok(())
