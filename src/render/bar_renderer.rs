@@ -29,34 +29,33 @@ impl MarkRenderer for Chart<MarkBar> {
         let x_field = &x_enc.field;
         let color_field = self.encoding.color.as_ref().map(|c| c.field.as_str());
 
-        // --- NEW: PIE MODE DETECTION ---
-        // In the Grammar of Graphics, a Pie chart is a bar chart where the x-axis 
-        // is a constant (empty string) and the y-axis is stacked.
+        // PIE MODE: An empty X field indicates a single-axis radial layout.
         let is_pie_mode = x_field == "";
 
-        // --- STEP 2: Resolve Coordinate Layout Hints ---
+        // --- STEP 2: Coordinate & Mode Detection ---
         let hints = context.coord.layout_hints();
+        
+        // NIGHTINGALE MODE: Active if using Polar coordinates for categorical data.
+        // Requires square-root transformation of the radius to maintain Area = Value.
+        let is_polar = hints.needs_interpolation;
+        let needs_nightingale_sqrt = is_polar && !is_pie_mode;
 
-        // --- STEP 3: Parameter Resolution ---
+        // --- STEP 3: Visual Parameter Resolution ---
         let eff_width   = mark_config.width.unwrap_or(hints.default_bar_width);
         let eff_spacing = mark_config.spacing.unwrap_or(hints.default_bar_spacing);
         let eff_span    = mark_config.span.unwrap_or(hints.default_bar_span);
         let eff_stroke  = mark_config.stroke.clone().unwrap_or(hints.default_bar_stroke.clone());
 
-        // --- STEP 4: Calculate Unit Step in Normalized Space ---
+        // --- STEP 4: X-Axis Step Calculation ---
         let n0 = x_scale.normalize(0.0);
         let n1 = x_scale.normalize(1.0);
         let unit_step_norm = (n1 - n0).abs();
 
-        // --- STEP 5: Grouping & Row-Stub Layout Strategy ---
+        // --- STEP 5: Grouping & Layout Strategy ---
         let x_uniques_count = df.column(x_field)?.n_unique()?;
         let total_rows = df.height();
         
-        // If in Pie Mode, we force n_groups to 1 because all slices exist in the 
-        // same angular slot; they distinguish themselves via stacking, not dodging.
-        let n_groups = if is_pie_mode { 
-            1.0 
-        } else { 
+        let n_groups = if is_pie_mode { 1.0 } else { 
             (total_rows as f64 / x_uniques_count as f64).max(1.0) 
         };
 
@@ -82,9 +81,7 @@ impl MarkRenderer for Chart<MarkBar> {
         for (group_idx, group_df) in groups.iter().enumerate() {
             let group_color_fixed = if !is_self_mapping {
                 Some(self.resolve_group_color(group_df, context, &mark_config.color)?)
-            } else {
-                None 
-            };
+            } else { None };
             
             let x_series = group_df.column(x_field)?.as_materialized_series();
             let y_series = group_df.column(&y_enc.field)?.as_materialized_series();
@@ -104,48 +101,52 @@ impl MarkRenderer for Chart<MarkBar> {
 
                 let x_tick_n = opt_x_n.unwrap_or(0.0);
 
+                // --- RESOLVE Y-BOUNDS (Radius Calculation) ---
+                // The most direct logic: Normalize first to [0, 1] using the Scale's domain, 
+                // then take the Sqrt if in Nightingale mode. This respects both stacked 
+                // totals and axis expansion padding automatically.
                 let (y_low_n, y_high_n) = if is_stacked {
                     if stack_acc.len() <= i { stack_acc.push(0.0); }
                     let start = stack_acc[i];
                     let end = start + y_val;
                     stack_acc[i] = end;
-                    (y_scale.normalize(start), y_scale.normalize(end))
+
+                    if needs_nightingale_sqrt {
+                        (y_scale.normalize(start).sqrt(), y_scale.normalize(end).sqrt())
+                    } else {
+                        (y_scale.normalize(start), y_scale.normalize(end))
+                    }
                 } else {
-                    (y_scale.normalize(0.0), y_scale.normalize(y_val))
+                    let n_val = y_scale.normalize(y_val);
+                    let final_n = if needs_nightingale_sqrt { n_val.sqrt() } else { n_val };
+                    (y_scale.normalize(0.0), final_n)
                 };
 
+                // --- POSITIONING & DODGING ---
                 let offset_norm = if !is_stacked && n_groups > 1.0 {
                     (group_idx as f64 - (n_groups - 1.0) / 2.0) * (bar_width_norm + spacing_norm)
-                } else {
-                    0.0
-                };
+                } else { 0.0 };
 
                 let x_center_n = x_tick_n + offset_norm;
                 let left_n = x_center_n - bar_width_norm / 2.0;
                 let right_n = x_center_n + bar_width_norm / 2.0;
 
                 // --- GEOMETRIC TRANSFORMATION ---
-                // For a standard Rose/Bar chart: X maps to Angle, Y maps to Radius.
-                // For a Pie chart: Y (the stacked value) MUST map to Angle, and X (the slot) to Radius.
                 let rect_path = if is_pie_mode {
-                    // PIE MODE: Stacked Y bounds define the angular start/end.
-                    // X bounds (left/right) define the radial thickness.
+                    // PIE Layout: Y -> Angle, X -> Radius
                     vec![
-                        (y_low_n, left_n),   // Inner Start Angle
-                        (y_low_n, right_n),  // Outer Start Angle
-                        (y_high_n, right_n), // Outer End Angle
-                        (y_high_n, left_n),  // Inner End Angle
+                        (y_low_n, left_n), (y_low_n, right_n),
+                        (y_high_n, right_n), (y_high_n, left_n),
                     ]
                 } else {
-                    // STANDARD MODE (Rose/Bar):
+                    // BAR/ROSE Layout: X -> Angle, Y -> Radius
                     vec![
-                        (left_n, y_low_n),   // Bottom-Left
-                        (left_n, y_high_n),  // Top-Left
-                        (right_n, y_high_n), // Top-Right
-                        (right_n, y_low_n),  // Bottom-Right
+                        (left_n, y_low_n), (left_n, y_high_n),
+                        (right_n, y_high_n), (right_n, y_low_n),
                     ]
                 };
 
+                // Project path to pixels (interpolation creates arcs in polar space)
                 let pixel_points = if hints.needs_interpolation {
                     context.transform_path(&rect_path, true)
                 } else {
