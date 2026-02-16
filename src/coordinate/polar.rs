@@ -1,6 +1,8 @@
 use super::{CoordinateTrait, CoordLayout, Rect};
+use crate::theme::Theme;
 use crate::scale::ScaleTrait;
 use crate::visual::color::SingleColor;
+use crate::error::ChartonError;
 use std::sync::Arc;
 use std::f64::consts::PI;
 
@@ -53,6 +55,17 @@ impl Polar {
 }
 
 impl CoordinateTrait for Polar {
+    fn render_axes(
+        &self,
+        svg: &mut String,
+        theme: &Theme,
+        panel: &Rect,
+        x_label: &str,
+        y_label: &str,
+    ) -> Result<(), ChartonError> {
+        crate::render::axis_renderer::render_cartesian_axes(svg, theme, panel, self, x_label, y_label)
+    }
+
     /// Transforms a single normalized point to pixel space.
     fn transform(&self, x_norm: f64, y_norm: f64, panel: &Rect) -> (f64, f64) {
         let (theta, r_norm) = self.map_to_polar(x_norm, y_norm);

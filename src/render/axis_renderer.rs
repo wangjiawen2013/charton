@@ -1,4 +1,4 @@
-use crate::core::context::PanelContext;
+use crate::coordinate::{Rect, CoordinateTrait};
 use crate::theme::Theme;
 use crate::error::ChartonError;
 use std::fmt::Write;
@@ -7,30 +7,31 @@ use std::fmt::Write;
 /// 
 /// This function is "Panel-aware": it renders axes relative to the `Rect` provided 
 /// in the `PanelContext`. In a faceted chart, this is called for each individual panel.
-pub fn render_axes(
+pub fn render_cartesian_axes(
     svg: &mut String,
     theme: &Theme,
-    ctx: &PanelContext,
+    panel: &Rect,
+    coord: &dyn CoordinateTrait,
     x_label: &str,
     y_label: &str,
 ) -> Result<(), ChartonError> {
     // Determine which data label belongs to which physical position based on flip state.
     // If flipped, the Y-scale data is projected onto the visual Bottom axis.
-    let (bottom_label, left_label) = if ctx.coord.is_flipped() {
+    let (bottom_label, left_label) = if coord.is_flipped() {
         (y_label, x_label)
     } else {
         (x_label, y_label)
     };
 
     // 1. Process the Physical Bottom Axis (X-axis in standard, Y-axis in flipped)
-    draw_axis_line(svg, theme, ctx, true)?;
-    draw_ticks_and_labels(svg, theme, ctx, true)?;
-    draw_axis_title(svg, theme, ctx, bottom_label, true)?;
+    draw_axis_line(svg, theme, panel, true)?;
+    draw_ticks_and_labels(svg, theme, panel, coord, true)?;
+    draw_axis_title(svg, theme, panel, coord, bottom_label, true)?;
 
     // 2. Process the Physical Left Axis (Y-axis in standard, X-axis in flipped)
-    draw_axis_line(svg, theme, ctx, false)?;
-    draw_ticks_and_labels(svg, theme, ctx, false)?;
-    draw_axis_title(svg, theme, ctx, left_label, false)?;
+    draw_axis_line(svg, theme, panel, false)?;
+    draw_ticks_and_labels(svg, theme, panel, coord, false)?;
+    draw_axis_title(svg, theme, panel, coord, left_label, false)?;
 
     Ok(())
 }
@@ -39,11 +40,9 @@ pub fn render_axes(
 fn draw_axis_line(
     svg: &mut String,
     theme: &Theme,
-    ctx: &PanelContext,
+    panel: &Rect,
     is_bottom: bool,
 ) -> Result<(), ChartonError> {
-    let panel = &ctx.panel;
-
     let (x1, y1, x2, y2) = if is_bottom {
         // Horizontal line at the bottom edge of the panel
         (panel.x, panel.y + panel.height, panel.x + panel.width, panel.y + panel.height)
@@ -68,11 +67,10 @@ fn draw_axis_line(
 fn draw_ticks_and_labels(
     svg: &mut String,
     theme: &Theme,
-    ctx: &PanelContext,
+    panel: &Rect,
+    coord: &dyn CoordinateTrait,
     is_bottom: bool,
 ) -> Result<(), ChartonError> {
-    let coord = &ctx.coord;
-    let panel = &ctx.panel;
     let is_flipped = coord.is_flipped();
     
     // Select the logical scale currently occupying this physical axis.
@@ -138,14 +136,13 @@ fn draw_ticks_and_labels(
 fn draw_axis_title(
     svg: &mut String,
     theme: &Theme,
-    ctx: &PanelContext,
+    panel: &Rect,
+    coord: &dyn CoordinateTrait,
     label: &str,
     is_bottom: bool,
 ) -> Result<(), ChartonError> {
     if label.is_empty() { return Ok(()); }
 
-    let panel = &ctx.panel;
-    let coord = &ctx.coord;
     let is_flipped = coord.is_flipped();
 
     let tick_line_len = 6.0;
