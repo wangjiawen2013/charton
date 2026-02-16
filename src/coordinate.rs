@@ -2,6 +2,8 @@ pub mod cartesian;
 pub mod polar;
 
 use crate::scale::ScaleTrait;
+use crate::theme::Theme;
+use crate::error::ChartonError;
 use crate::visual::color::SingleColor;
 use std::sync::Arc;
 
@@ -53,6 +55,20 @@ pub struct CoordLayout {
 /// 2. Defining the shape of the plotting area (Cartesian, Polar, etc.).
 /// 3. Providing metadata for rendering axes and grids.
 pub trait CoordinateTrait {
+    /// Orchestrates the visual rendering of axes, grid lines, and titles.
+    /// 
+    /// Different coordinate systems implement this to reflect their geometry:
+    /// - **Cartesian**: Renders straight horizontal and vertical lines.
+    /// - **Polar**: Renders concentric circles (radius) and radial lines (angle).
+    fn render_axes(
+        &self,
+        svg: &mut String,
+        theme: &Theme,
+        panel: &Rect,
+        x_label: &str,
+        y_label: &str,
+    ) -> Result<(), ChartonError>;
+
     /// Transforms normalized data values into absolute pixel coordinates.
     /// 
     /// # Arguments

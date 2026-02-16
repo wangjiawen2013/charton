@@ -717,11 +717,10 @@ impl LayeredChart {
             let x_label = coord.get_x_label();
             let y_label = coord.get_y_label();
 
-            // The axis_renderer now consumes the modern PanelContext.
-            crate::render::axis_renderer::render_axes(
+            primary_panel_ctx.coord.render_axes(
                 svg, 
                 &self.theme, 
-                &primary_panel_ctx, 
+                &primary_panel_ctx.panel,
                 &x_label, 
                 &y_label
             )?;

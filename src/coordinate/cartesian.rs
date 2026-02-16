@@ -1,6 +1,8 @@
 use super::{CoordinateTrait, CoordLayout, Rect};
+use crate::theme::Theme;
 use crate::scale::ScaleTrait;
 use crate::visual::color::SingleColor;
+use crate::error::ChartonError;
 use std::sync::Arc;
 
 /// A 2D Cartesian coordinate system.
@@ -40,6 +42,17 @@ impl Cartesian2D {
 }
 
 impl CoordinateTrait for Cartesian2D {
+    fn render_axes(
+        &self,
+        svg: &mut String,
+        theme: &Theme,
+        panel: &Rect,
+        x_label: &str,
+        y_label: &str,
+    ) -> Result<(), ChartonError> {
+        crate::render::axis_renderer::render_cartesian_axes(svg, theme, panel, self, x_label, y_label)
+    }
+
     /// Transforms logical data coordinates [0, 1] into physical screen pixels. 
     /// Use this for rendering Mark geometries; for Axis rendering, calculate positions 
     /// directly from the panel boundaries to ensure the visual frame remains fixed.
