@@ -63,7 +63,7 @@ impl CoordinateTrait for Polar {
         x_label: &str,
         y_label: &str,
     ) -> Result<(), ChartonError> {
-        crate::render::cartesian2d_axis_renderer::render_cartesian_axes(svg, theme, panel, self, x_label, y_label)
+        crate::render::polar_axis_renderer::render_polar_axes(svg, theme, panel, self, x_label, y_label)
     }
 
     /// Transforms a single normalized point to pixel space.

@@ -1,4 +1,4 @@
-use crate::coordinate::{Rect, CoordinateTrait};
+use crate::coordinate::{Rect, CoordinateTrait, cartesian::Cartesian2D};
 use crate::theme::Theme;
 use crate::error::ChartonError;
 use std::fmt::Write;
@@ -11,7 +11,7 @@ pub fn render_cartesian_axes(
     svg: &mut String,
     theme: &Theme,
     panel: &Rect,
-    coord: &dyn CoordinateTrait,
+    coord: &Cartesian2D,
     x_label: &str,
     y_label: &str,
 ) -> Result<(), ChartonError> {
