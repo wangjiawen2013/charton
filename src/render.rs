@@ -10,4 +10,5 @@ pub(crate) mod area_renderer;
 pub(crate) mod hist_renderer;
 pub(crate) mod bar_renderer;
 pub(crate) mod cartesian2d_axis_renderer;
+pub(crate) mod polar_axis_renderer;
 pub(crate) mod legend_renderer;
