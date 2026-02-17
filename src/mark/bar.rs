@@ -11,7 +11,7 @@ pub struct MarkBar {
     pub(crate) color: SingleColor,
     pub(crate) opacity: f64,
     pub(crate) stroke: Option<SingleColor>,
-    pub(crate) stroke_width: f64,
+    pub(crate) stroke_width: Option<f64>,
     
     /// Dimensional override for bar width. 
     /// If None, the coordinate system's `default_bar_width` is used.
@@ -36,7 +36,7 @@ impl MarkBar {
             color: SingleColor::new("steelblue"),
             opacity: 1.0,
             stroke: None,
-            stroke_width: 1.0,
+            stroke_width: None,
             width: None,   // The maximal percentage of a bar's width relative to the tick interval. Defer to CoordLayout
             spacing: None, // The percentage of the space between bars within a group reltative to the bar width. Defer to CoordLayout
             span: None,    // The (width+spacing) of all bars in a group. Defer to CoordLayout
@@ -65,7 +65,7 @@ impl MarkBar {
 
     /// Sets the thickness of the bar's outline in pixels.
     pub fn with_stroke_width(mut self, width: f64) -> Self {
-        self.stroke_width = width;
+        self.stroke_width = Some(width);
         self
     }
 

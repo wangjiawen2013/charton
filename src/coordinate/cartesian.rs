@@ -119,6 +119,8 @@ impl CoordinateTrait for Cartesian2D {
     fn layout_hints(&self) -> CoordLayout {
         CoordLayout {
             default_bar_stroke: SingleColor::new("black"),
+
+            default_bar_stroke_width: 1.0,
             // Bars occupy 50% of the available slot width by default.
             default_bar_width: 0.5,
             

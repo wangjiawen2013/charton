@@ -45,6 +45,7 @@ impl MarkRenderer for Chart<MarkBar> {
         let eff_spacing = mark_config.spacing.unwrap_or(hints.default_bar_spacing);
         let eff_span    = mark_config.span.unwrap_or(hints.default_bar_span);
         let eff_stroke  = mark_config.stroke.clone().unwrap_or(hints.default_bar_stroke.clone());
+        let eff_stroke_width  = mark_config.stroke_width.unwrap_or(hints.default_bar_stroke_width);
 
         // --- STEP 4: X-Axis Step Calculation ---
         let n0 = x_scale.normalize(0.0);
@@ -161,7 +162,7 @@ impl MarkRenderer for Chart<MarkBar> {
                         .collect(),
                     fill: final_color,
                     stroke: eff_stroke.clone(),
-                    stroke_width: mark_config.stroke_width as Precision,
+                    stroke_width: eff_stroke_width as Precision,
                     fill_opacity: mark_config.opacity as Precision,
                     stroke_opacity: mark_config.opacity as Precision,
                 });

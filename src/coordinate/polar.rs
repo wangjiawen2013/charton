@@ -135,7 +135,9 @@ impl CoordinateTrait for Polar {
     /// Returns layout hints optimized for radial/circular plots.
     fn layout_hints(&self) -> CoordLayout {
         CoordLayout {
-            default_bar_stroke: SingleColor::new("white"),
+            default_bar_stroke: SingleColor::new("#E0E0E0"),
+            default_bar_stroke_width: 0.5,
+
             // Sectors occupy 100% of their angular slot to remain adjacent.
             default_bar_width: 1.0,
             

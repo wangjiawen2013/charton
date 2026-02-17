@@ -31,8 +31,10 @@ pub struct CoordLayout {
     /// Default stroke color for bars in this coordinate system.
     pub default_bar_stroke: SingleColor,
 
+    /// Default stroke width for bars in this coordinate system.
+    pub default_bar_stroke_width: f64,
+
     /// Suggested relative width for a single bar (0.0 to 1.0).
-    /// Typically 0.5 for Cartesian to leave space, 1.0 for Polar (Pie/Rose).
     pub default_bar_width: f64,
 
     /// Suggested relative spacing between bars in a group (0.0 to 1.0).
