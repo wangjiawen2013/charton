@@ -138,7 +138,7 @@ impl<'a> RenderBackend for SvgBackend<'a> {
 
     fn draw_text(&mut self, config: TextConfig) {
         let TextConfig { x, y, text, font_size, font_family, color, text_anchor, font_weight, opacity } = config;
-        
+
         let _ = write!(self.buffer, r#"<text x="{:.3}" y="{:.3}" font-size="{:.1}" font-family="{}" fill=""#, x, y, font_size, font_family);
         self.write_color(&color);
         let _ = write!(self.buffer, r#"" fill-opacity="{:.3}" text-anchor="{}" font-weight="{}""#, opacity, text_anchor, font_weight);
