@@ -68,7 +68,7 @@ pub fn render_polar_axes(
         // Radial spokes (Grid lines)
         writeln!(
             svg,
-            r#"<line x1="{:.2}" y1="{:.2}" x2="{:.2}" y2="{:.2}" stroke="{}" stroke-width="{:.2}" opacity="0.3"/>"#,
+            r#"<line x1="{:.2}" y1="{:.2}" x2="{:.2}" y2="{:.2}" stroke="{}" stroke-width="{:.2}" opacity="0.5"/>"#,
             x1, y1, x2, y2, theme.grid_color.to_css_string(), theme.grid_width
         )?;
 

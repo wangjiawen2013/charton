@@ -12,7 +12,6 @@ fn main() -> Result<(), Box<dyn Error>> {
     // Create a bar chart with color encoding
     let colored_bar_chart = Chart::build(&df)?
         .mark_bar()
-        .configure_bar(|b| b.with_stroke_width(0.0))
         .encode((
             x("Month"),
             y("Revenue").with_stack(true).with_normalize(false),

@@ -121,7 +121,7 @@ pub struct Theme {
     pub(crate) polar_inner_radius: f64,
 
     /// Color for the grid lines. 
-    /// Typically a faint gray like #E5E5E5 or a semi-transparent version of label_color.
+    /// Typically a faint gray like #BDBDBD or a semi-transparent version of label_color.
     pub(crate) grid_color: SingleColor,
     /// Width of the grid lines (usually thinner than axis_width).
     pub(crate) grid_width: f64,
@@ -377,6 +377,16 @@ impl Theme {
         // We ensure at least 2 ticks (start and end) are always present.
         ((available_pixels / self.tick_min_spacing).floor() as usize).max(2)
     }
+
+    pub fn with_grid_color(mut self, color: impl Into<SingleColor>) -> Self {
+        self.grid_color = color.into();
+        self
+    }
+
+    pub fn with_grid_width(mut self, width: f64) -> Self {
+        self.grid_width = width;
+        self
+    }
 }
 
 impl Default for Theme {
@@ -443,7 +453,7 @@ impl Default for Theme {
             polar_end_angle: 3.0 * std::f64::consts::FRAC_PI_2, // start + 2*PI
             polar_inner_radius: 0.0,
 
-            grid_color: " #CCCCCC".into(),
+            grid_color: " #BDBDBD".into(),
             grid_width: 1.0,
         }
     }
