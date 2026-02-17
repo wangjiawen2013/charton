@@ -34,9 +34,6 @@ impl MarkRenderer for Chart<MarkBar> {
 
         // --- STEP 2: Coordinate & Mode Detection ---
         let hints = context.coord.layout_hints();
-        
-        // NIGHTINGALE MODE: Active if using Polar coordinates for categorical data.
-        // Requires square-root transformation of the radius to maintain Area = Value.
         let is_polar = hints.needs_interpolation;
         let needs_nightingale_sqrt = is_polar && !is_pie_mode;
 
@@ -45,7 +42,7 @@ impl MarkRenderer for Chart<MarkBar> {
         let eff_spacing = mark_config.spacing.unwrap_or(hints.default_bar_spacing);
         let eff_span    = mark_config.span.unwrap_or(hints.default_bar_span);
         let eff_stroke  = mark_config.stroke.clone().unwrap_or(hints.default_bar_stroke.clone());
-        let eff_stroke_width  = mark_config.stroke_width.unwrap_or(hints.default_bar_stroke_width);
+        let eff_stroke_width = mark_config.stroke_width.unwrap_or(hints.default_bar_stroke_width);
 
         // --- STEP 4: X-Axis Step Calculation ---
         let n0 = x_scale.normalize(0.0);
@@ -69,11 +66,22 @@ impl MarkRenderer for Chart<MarkBar> {
         let bar_width_norm = bar_width_data * unit_step_norm;
         let spacing_norm = bar_width_norm * eff_spacing;
 
-        // --- STEP 6: Partitioning for Rendering ---
+        // --- STEP 6: Partitioning ---
         let is_self_mapping = color_field.map_or(false, |cf| cf == x_field);
         let groups = match color_field {
             Some(col) if !is_self_mapping => df.partition_by_stable([col], true)?,
             _ => vec![df.clone()],
+        };
+
+        // --- STEP 7.0: Global Total Calculation (CRITICAL FOR PIE PERCENTAGES) ---
+        // We calculate this before the loop to ensure percentages are relative to the whole.
+        let global_total = if is_pie_mode {
+            df.column(&y_enc.field)?
+                .f64()?
+                .sum()
+                .unwrap_or(1.0)
+        } else {
+            1.0 
         };
 
         let mut stack_acc = Vec::new();
@@ -103,9 +111,6 @@ impl MarkRenderer for Chart<MarkBar> {
                 let x_tick_n = opt_x_n.unwrap_or(0.0);
 
                 // --- RESOLVE Y-BOUNDS (Radius Calculation) ---
-                // The most direct logic: Normalize first to [0, 1] using the Scale's domain, 
-                // then take the Sqrt if in Nightingale mode. This respects both stacked 
-                // totals and axis expansion padding automatically.
                 let (y_low_n, y_high_n) = if is_stacked {
                     if stack_acc.len() <= i { stack_acc.push(0.0); }
                     let start = stack_acc[i];
@@ -134,20 +139,17 @@ impl MarkRenderer for Chart<MarkBar> {
 
                 // --- GEOMETRIC TRANSFORMATION ---
                 let rect_path = if is_pie_mode {
-                    // PIE Layout: Y -> Angle, X -> Radius
                     vec![
                         (y_low_n, left_n), (y_low_n, right_n),
                         (y_high_n, right_n), (y_high_n, left_n),
                     ]
                 } else {
-                    // BAR/ROSE Layout: X -> Angle, Y -> Radius
                     vec![
                         (left_n, y_low_n), (left_n, y_high_n),
                         (right_n, y_high_n), (right_n, y_low_n),
                     ]
                 };
 
-                // Project path to pixels (interpolation creates arcs in polar space)
                 let pixel_points = if hints.needs_interpolation {
                     context.transform_path(&rect_path, true)
                 } else {
@@ -166,6 +168,41 @@ impl MarkRenderer for Chart<MarkBar> {
                     fill_opacity: mark_config.opacity as Precision,
                     stroke_opacity: mark_config.opacity as Precision,
                 });
+
+                // --- 8. PIE/DONUT CENTERED LABELING ---
+                if is_pie_mode {
+                    let theme = context.spec.theme;
+                    
+                    // Calculate percentage using the pre-calculated global_total.
+                    let percentage = if y_enc.normalize {
+                        y_val * 100.0
+                    } else {
+                        (y_val / global_total) * 100.0
+                    };
+
+                    // Only render labels for sectors > 3% to maintain clarity.
+                    if percentage > 3.0 {
+                        let label_text = format!("{:.1}%", percentage);
+
+                        // Centroid logic: Midpoint of angular and radial spans.
+                        let mid_angle_n = (y_low_n + y_high_n) / 2.0;
+                        let mid_radius_n = (left_n + right_n) / 2.0;
+
+                        let (lx, ly) = context.coord.transform(mid_angle_n, mid_radius_n, &context.panel);
+
+                        backend.draw_text(crate::core::layer::TextConfig {
+                            x: lx as Precision,
+                            y: ly as Precision,
+                            text: label_text,
+                            font_size: (theme.tick_label_size - 1.0) as Precision,
+                            font_family: theme.tick_label_family.clone(),
+                            color: SingleColor::new("white"),
+                            text_anchor: "middle".into(),
+                            font_weight: "bold".into(),
+                            opacity: mark_config.opacity as Precision,
+                        });
+                    }
+                }
             }
         }
         Ok(())
