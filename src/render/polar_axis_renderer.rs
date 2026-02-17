@@ -3,12 +3,12 @@ use crate::theme::Theme;
 use crate::error::ChartonError;
 use std::fmt::Write;
 
-/// Renders the polar coordinate system axes.
-///
-/// This implementation ensures that:
-/// 1. Radial ticks (Y-axis) are rendered UNDER the data marks to avoid cluttering sectors.
-/// 2. Angular labels (X-axis) use "Smart Anchoring" to grow away from the boundary circle.
-/// 3. Vertical alignment (baseline) is adjusted so text never overlaps the outer ring.
+/// Renders the polar coordinate system axes (Radial and Angular).
+/// 
+/// Refinements included:
+/// 1. Radial Axis (Y): Only displays the maximum domain value to keep the center clean.
+/// 2. Smart Positioning: Labels use quadrant-aware anchoring to "grow" away from lines.
+/// 3. Padding: Added theme-based padding to prevent text from touching the outer ring.
 pub fn render_polar_axes(
     svg: &mut String,
     theme: &Theme,
@@ -20,16 +20,15 @@ pub fn render_polar_axes(
     let x_scale = coord.get_x_scale();
     let y_scale = coord.get_y_scale();
 
-    // Geometric constants
+    // Geometric constants for polar-to-cartesian projection
     let center_x = panel.x + panel.width / 2.0;
     let center_y = panel.y + panel.height / 2.0;
     let max_r = panel.width.min(panel.height) / 2.0;
 
     // --- 1. RADIAL AXIS (Y-Axis) ---
-    // Note: Rendered first so that data marks (rendered later) can mask internal labels.
-    let y_ticks = y_scale.ticks(theme.suggest_tick_count(max_r));
+    // We draw the outer boundary and a single label for the maximum value.
     
-    // Boundary circle at 1.0 normalization.
+    // Draw the boundary circle (The 100% or Max limit line)
     writeln!(
         svg,
         r#"<circle cx="{:.2}" cy="{:.2}" r="{:.2}" fill="none" stroke="{}" stroke-width="{:.2}" opacity="0.5"/>"#,
@@ -37,35 +36,60 @@ pub fn render_polar_axes(
         theme.grid_color.to_css_string(), theme.grid_width
     )?;
 
-    for tick in y_ticks {
-        let y_n = y_scale.normalize(tick.value);
-        let r_px = (coord.inner_radius + y_n * (1.0 - coord.inner_radius)) * max_r;
+    // Fetch and format the Maximum Value using the Scale's internal formatter
+    let y_domain = y_scale.domain();
+    let max_val = y_domain.1;
 
-        if r_px <= 0.0 { continue; }
+    // In a Pie Chart, x_scale domain is typically empty and the sum at the edge is redundant.
+    let is_pie = x_label.is_empty();
 
-        let tx = center_x + r_px * coord.start_angle.cos();
-        let ty = center_y + r_px * coord.start_angle.sin();
+    let y_ticks = crate::scale::format_ticks(&[max_val]); 
+    let max_label = y_ticks.get(0).map(|t| t.label.as_str()).unwrap_or("");
+
+    if !is_pie && !max_label.is_empty() {
+        // Apply padding so the label floats just outside the max radius
+        let label_r = max_r + theme.tick_label_padding + 2.0;
+        let theta_start = coord.start_angle;
         
+        let tx = center_x + label_r * theta_start.cos();
+        let ty = center_y + label_r * theta_start.sin();
+
+        // Quadrant-based alignment logic (Synchronized with X-axis logic below)
+        let cos_s = theta_start.cos();
+        let sin_s = theta_start.sin();
+
+        let anchor = if cos_s > 0.1 { "start" } else if cos_s < -0.1 { "end" } else { "middle" };
+        let baseline = if sin_s > 0.5 { 
+            "hanging"  // Bottom: Text hangs below the point
+        } else if sin_s < -0.5 { 
+            "auto"     // Top: Text stands above the point
+        } else { 
+            "middle"   // Sides: Vertically centered
+        };
+
         writeln!(
             svg,
-            r#"<text x="{:.2}" y="{:.2}" font-size="{}" font-family="{}" fill="{}" text-anchor="middle" dominant-baseline="middle" opacity="0.8">{}</text>"#,
-            tx, ty, theme.tick_label_size - 2.0, theme.tick_label_family, 
-            theme.tick_label_color.to_css_string(), tick.label
+            r#"<text x="{:.2}" y="{:.2}" font-size="{}" font-family="{}" fill="{}" text-anchor="{}" dominant-baseline="{}" opacity="0.9">{}</text>"#,
+            tx, ty, theme.tick_label_size - 1.0, theme.tick_label_family, 
+            theme.tick_label_color.to_css_string(), anchor, baseline, max_label
         )?;
     }
 
     // --- 2. ANGULAR AXIS (X-Axis) ---
+    // Renders radial grid lines and circumferential category/value labels.
     let x_ticks = x_scale.ticks(theme.suggest_tick_count(2.0 * std::f64::consts::PI * max_r));
+    
     for tick in x_ticks {
         let x_n = x_scale.normalize(tick.value);
         let theta = coord.start_angle + x_n * (coord.end_angle - coord.start_angle);
         
+        // Calculate grid line endpoints
         let x1 = center_x + (coord.inner_radius * max_r) * theta.cos();
         let y1 = center_y + (coord.inner_radius * max_r) * theta.sin();
         let x2 = center_x + max_r * theta.cos();
         let y2 = center_y + max_r * theta.sin();
 
-        // Radial spokes (Grid lines)
+        // Radial Spokes (Grid lines separating sectors)
         writeln!(
             svg,
             r#"<line x1="{:.2}" y1="{:.2}" x2="{:.2}" y2="{:.2}" stroke="{}" stroke-width="{:.2}" opacity="0.5"/>"#,
@@ -73,27 +97,23 @@ pub fn render_polar_axes(
         )?;
 
         // Circumference labels with "Smart Positioning"
-        let label_r = max_r + theme.tick_label_padding;
+        let label_r = max_r + theme.tick_label_padding + 2.0;
         let lx = center_x + label_r * theta.cos();
         let ly = center_y + label_r * theta.sin();
         
         let cos_t = theta.cos();
         let sin_t = theta.sin();
 
-        // 💡 HORIZONTAL ANCHORING
-        // start: text is to the right of point | end: text is to the left | middle: centered
+        // Horizontal Anchoring: Decides if text grows left, right, or center
         let anchor = if cos_t > 0.1 { "start" } else if cos_t < -0.1 { "end" } else { "middle" };
 
-        // 💡 VERTICAL ALIGNMENT (Dominant Baseline)
-        // hanging: text hangs below point (for bottom labels)
-        // auto/alphabetic: text stands above point (for top labels)
-        // middle: text centered on point (for side labels)
+        // Vertical Alignment: Prevents text from overlapping the circular boundary
         let baseline = if sin_t > 0.5 { 
-            "hanging"  // Bottom labels: push text FURTHER DOWN
+            "hanging"  // Bottom labels
         } else if sin_t < -0.5 { 
-            "auto"     // Top labels: push text FURTHER UP
+            "auto"     // Top labels
         } else { 
-            "middle"   // Side labels: center vertically
+            "middle"   // Side labels
         };
 
         writeln!(
@@ -104,7 +124,7 @@ pub fn render_polar_axes(
         )?;
     }
 
-    // Explicitly ignore labels to satisfy compiler
+    // Explicitly ignore labels to satisfy compiler if unused
     let _ = (x_label, y_label);
 
     Ok(())
