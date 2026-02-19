@@ -6,19 +6,6 @@ use crate::mark::errorbar::MarkErrorBar;
 /// Error bars are used to visualize statistical uncertainty, showing 
 /// confidence intervals or standard deviations around a central value.
 impl Chart<MarkErrorBar> {
-    
-    /// Initializes a new `MarkErrorBar` layer.
-    /// 
-    /// If an error bar configuration already exists in this layer, it is preserved; 
-    /// otherwise, a new `MarkErrorBar` with default settings (black stroke, no center) 
-    /// is created.
-    pub fn mark_errorbar(mut self) -> Self {
-        if self.mark.is_none() {
-            self.mark = Some(MarkErrorBar::default());
-        }
-        self
-    }
-
     /// Configures the visual properties of the error bar mark using a closure.
     /// 
     /// This allows for detailed customization of the error bar's appearance, 

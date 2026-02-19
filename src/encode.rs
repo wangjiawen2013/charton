@@ -64,6 +64,20 @@ impl Encoding {
         Default::default()
     }
 
+    /// Checks if any visual channels have been mapped to data fields.
+    /// 
+    /// This is used by the Chart state machine to determine if validation 
+    /// and data transformation should be triggered during a mark transition.
+    pub fn is_empty(&self) -> bool {
+        self.x.is_none() 
+            && self.y.is_none() 
+            && self.y2.is_none() 
+            && self.color.is_none() 
+            && self.shape.is_none() 
+            && self.size.is_none() 
+            && self.text.is_none()
+    }
+
     /// Returns the data field name associated with a specific visual channel.
     ///
     /// This is used by the `LayeredChart` to discover which columns in the 

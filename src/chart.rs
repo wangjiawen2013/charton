@@ -16,66 +16,63 @@ use crate::scale::{Scale, ScaleDomain, Expansion};
 use crate::coordinate::CoordinateTrait;
 use crate::core::aesthetics::GlobalAesthetics;
 use crate::error::ChartonError;
-use crate::mark::Mark;
+use crate::mark::{
+    Mark,
+    no_mark::NoMark,
+    point::MarkPoint,
+    line::MarkLine,
+    bar::MarkBar,
+    area::MarkArea,
+    text::MarkText,
+    rule::MarkRule,
+    boxplot::MarkBoxplot,
+    histogram::MarkHist,
+    rect::MarkRect,
+    errorbar::MarkErrorBar
+};
 use crate::TEMP_SUFFIX;
 use polars::prelude::*;
 use std::sync::Arc;
 
-/// Generic Chart structure - chart-specific properties only
+/// Generic Chart structure representing a single visualization layer.
 ///
-/// This struct represents a single-layer chart with a specific mark type. It holds
-/// all the necessary data and configuration for rendering a chart, including the
-/// data source, encoding mappings, mark properties, and styling options.
-///
-/// The generic parameter `T` represents the mark type, which determines the
-/// visualization type (e.g., bar, line, point, area, etc.).
+/// This struct acts as a state machine. It begins in the [NoMark] state where
+/// data and visual encodings are defined. It can then be transitioned into a 
+/// specific chart type (like `Chart<MarkPoint>`) or a faceted view.
 ///
 /// # Type Parameters
 ///
-/// * `T` - The mark type that implements the `Mark` trait, determining the chart type
+/// * `T` - The mark type implementing the [Mark] trait. Defaults to [NoMark],
+///         enabling the "Base Chart" pattern similar to Altair.
 ///
 /// # Fields
 ///
-/// * `data` - The data source for the chart as a DataFrame
-/// * `encoding` - Encoding mappings that define how data fields map to visual properties
-/// * `mark` - Optional mark configuration specific to the chart type
-pub struct Chart<T: Mark> {
+/// * `data` - The underlying data source (normalized to f64 for numeric columns).
+/// * `encoding` - Mapping between data fields and visual channels (x, y, color, etc.).
+/// * `mark` - The specific visual mark configuration. Is `None` when `T` is [NoMark].
+pub struct Chart<T: Mark = NoMark> {
     pub(crate) data: DataFrameSource,
     pub(crate) encoding: Encoding,
     pub(crate) mark: Option<T>,
 }
 
-impl<T: Mark> Chart<T> {
-    /// Create a new chart instance with the provided data source
+impl Chart<NoMark> {
+    /// Create a new base chart instance with the provided data source.
     ///
-    /// This is the entry point for creating a new chart. It initializes a chart with the
-    /// provided data source and sets up default values for all other chart properties.
-    /// The chart is not yet fully configured and requires additional method calls to
-    /// specify the mark type, encoding mappings, and other properties.
-    ///
-    /// The data source can be any type that implements `Into<DataFrameSource>`, which
-    /// includes `&DataFrame`, `&LazyFrame`, and other compatible types.
+    /// This is the standard entry point for the "Base Chart" pattern. It initializes 
+    /// a `Chart<NoMark>` which can be configured with encodings and subsequently 
+    /// converted into specific mark types or faceted.
     ///
     /// # Arguments
     ///
-    /// * `source` - The data source for the chart, convertible to DataFrameSource
-    ///
-    /// # Returns
-    ///
-    /// Returns a Result containing the new Chart instance or a ChartonError if initialization fails
+    /// * `source` - Anything that can be converted into a `DataFrameSource`.
     ///
     /// # Example
     ///
     /// ```
-    /// use charton::prelude::*;
-    /// use polars::prelude::*;
-    ///
-    /// let df = df![
-    ///     "x" => [1, 2, 3, 4, 5],
-    ///     "y" => [10, 20, 30, 40, 50]
-    /// ]?;
-    ///
-    /// let chart = Chart::<MarkPoint>::build(&df)?;
+    /// let df = df!["x" => [1, 2], "y" => [3, 4]]?;
+    /// // Returns a Chart<NoMark>
+    /// let base = Chart::build(&df)?; 
     /// ```
     pub fn build<S>(source: S) -> Result<Self, ChartonError>
     where
@@ -89,76 +86,248 @@ impl<T: Mark> Chart<T> {
             mark: None,
         };
 
-        // Automatically convert numeric types to f64
+        // Standardize numeric columns to f64 for consistent scale calculation
         chart.data = convert_numeric_types(chart.data.clone())?;
 
         Ok(chart)
     }
 
-    /// Apply encoding mappings to the chart
+    /// Transitions the base chart into a Point chart.
+    /// 
+    /// This consumes the NoMark chart and returns a Chart<MarkPoint>.
+    pub fn mark_point(self) -> Result<Chart<MarkPoint>, ChartonError> {
+        let chart = Chart::<MarkPoint> {
+            data: self.data,
+            encoding: self.encoding,
+            mark: Some(MarkPoint::default()),
+        };
+
+        // If the user called .encode() before .mark_point(), 
+        // we need to trigger the validation logic here.
+        if !chart.encoding.is_empty() {
+            return chart.validate_and_transform();
+        }
+
+        Ok(chart)
+    }
+
+    /// Transitions the base chart into a Line chart.
+    pub fn mark_line(self) -> Result<Chart<MarkLine>, ChartonError> {
+        let chart = Chart::<MarkLine> {
+            data: self.data,
+            encoding: self.encoding,
+            mark: Some(MarkLine::default()),
+        };
+
+        if !chart.encoding.is_empty() {
+            return chart.validate_and_transform();
+        }
+
+        Ok(chart)
+    }
+
+    /// Transitions the base chart into a Bar chart.
+    pub fn mark_bar(self) -> Result<Chart<MarkBar>, ChartonError> {
+        let chart = Chart::<MarkBar> {
+            data: self.data,
+            encoding: self.encoding,
+            mark: Some(MarkBar::default()),
+        };
+
+        if !chart.encoding.is_empty() {
+            return chart.validate_and_transform();
+        }
+
+        Ok(chart)
+    }
+
+    /// Transitions the base chart into a Area chart.
+    pub fn mark_area(self) -> Result<Chart<MarkArea>, ChartonError> {
+        let chart = Chart::<MarkArea> {
+            data: self.data,
+            encoding: self.encoding,
+            mark: Some(MarkArea::default()),
+        };
+
+        if !chart.encoding.is_empty() {
+            return chart.validate_and_transform();
+        }
+
+        Ok(chart)
+    }
+
+    /// Transitions the base chart into a Text chart.
+    pub fn mark_text(self) -> Result<Chart<MarkText>, ChartonError> {
+        let chart = Chart::<MarkText> {
+            data: self.data,
+            encoding: self.encoding,
+            mark: Some(MarkText::default()),
+        };
+
+        if !chart.encoding.is_empty() {
+            return chart.validate_and_transform();
+        }
+
+        Ok(chart)
+    }
+
+    /// Transitions the base chart into a Rule chart.
+    pub fn mark_rule(self) -> Result<Chart<MarkRule>, ChartonError> {
+        let chart = Chart::<MarkRule> {
+            data: self.data,
+            encoding: self.encoding,
+            mark: Some(MarkRule::default()),
+        };
+
+        if !chart.encoding.is_empty() {
+            return chart.validate_and_transform();
+        }
+
+        Ok(chart)
+    }
+
+    /// Transitions the base chart into a Boxplot chart.
+    pub fn mark_boxplot(self) -> Result<Chart<MarkBoxplot>, ChartonError> {
+        let chart = Chart::<MarkBoxplot> {
+            data: self.data,
+            encoding: self.encoding,
+            mark: Some(MarkBoxplot::default()),
+        };
+
+        if !chart.encoding.is_empty() {
+            return chart.validate_and_transform();
+        }
+
+        Ok(chart)
+    }
+
+    /// Transitions the base chart into a Histogram chart.
+    pub fn mark_hist(self) -> Result<Chart<MarkHist>, ChartonError> {
+        let chart = Chart::<MarkHist> {
+            data: self.data,
+            encoding: self.encoding,
+            mark: Some(MarkHist::default()),
+        };
+
+        if !chart.encoding.is_empty() {
+            return chart.validate_and_transform();
+        }
+
+        Ok(chart)
+    }
+
+    /// Transitions the base chart into a Rect chart.
+    pub fn mark_rect(self) -> Result<Chart<MarkRect>, ChartonError> {
+        let chart = Chart::<MarkRect> {
+            data: self.data,
+            encoding: self.encoding,
+            mark: Some(MarkRect::default()),
+        };
+
+        if !chart.encoding.is_empty() {
+            return chart.validate_and_transform();
+        }
+
+        Ok(chart)
+    }
+
+    /// Transitions the base chart into a Errorbart chart.
+    pub fn mark_errorbar(self) -> Result<Chart<MarkErrorBar>, ChartonError> {
+        let chart = Chart::<MarkErrorBar> {
+            data: self.data,
+            encoding: self.encoding,
+            mark: Some(MarkErrorBar::default()),
+        };
+
+        if !chart.encoding.is_empty() {
+            return chart.validate_and_transform();
+        }
+
+        Ok(chart)
+    }
+
+    // Creates a faceted view of the chart based on a specific data field.
+    //
+    // Faceting (also known as small multiples) splits the data into multiple subsets 
+    // based on the unique values of the provided `field`, creating a grid of sub-charts. 
+    //
+    // Since faceting is a structural transformation of the data rather than a visual 
+    // mark property, this method is defined on the base [Chart<NoMark>]. This allows 
+    // you to define global encodings once and then apply a specific mark to all facets.
+    //
+    // # Arguments
+    //
+    // * `field` - The name of the column in the DataFrame to use for partitioning the data.
+    //
+    // # Returns
+    //
+    // Returns a `Result` containing a `FacetChart` or a `ChartonError` if the field 
+    // does not exist in the data source.
+    //
+    // # Example
+    //
+    //pub fn facet(self, _field: &str) -> Result<FacetChart, ChartonError> {
+        // TODO: Implement the FacetChart structure and partitioning logic.
+        // This will likely involve grouping the Polars DataFrame and 
+        // mapping each group to a sub-chart layer.
+        //Err(ChartonError::NotImplemented("Faceting is not yet implemented".into()))
+    //}
+}
+
+impl<T: Mark> Chart<T> {
+    /// Apply encoding mappings to the chart.
     ///
-    /// This method sets up the visual encoding mappings that define how data fields map to
-    /// visual properties of the chart marks. These encodings determine how your data is
-    /// visually represented in the chart.
-    ///
-    /// The method performs several important validations:
-    /// 1. Checks that all data columns have supported data types
-    /// 2. Ensures the required mark type has been set
-    /// 3. Validates that mandatory encodings are provided for the specific chart type
-    /// 4. Verifies data types match encoding requirements
-    /// 5. Filters out rows with null values in encoded columns
-    /// 6. Applies chart-specific data transformations when needed
-    ///
-    /// Different chart types have different encoding requirements:
-    /// - Most charts require both x and y encodings
-    /// - Rect charts require x, y, and color encodings
-    /// - Arc charts require theta and color encodings
+    /// This method defines how data fields map to visual properties (channels). 
+    /// If the chart is in the [NoMark] state, mappings are stored without immediate 
+    /// validation to allow for late-binding of the mark type.
+    /// 
+    /// If a specific mark type is already assigned (e.g., `Chart<MarkPoint>`), this 
+    /// method will immediately trigger the validation pipeline, including:
+    /// 1. Mandatory channel checks (e.g., Bar charts need X and Y).
+    /// 2. Semantic type validation (e.g., Histogram X must be continuous).
+    /// 3. Data cleaning (dropping nulls from active encoding columns).
+    /// 4. Statistical transformations (binning, aggregation for Boxplots, etc.).
     ///
     /// # Arguments
     ///
-    /// * `enc` - An encoding specification that implements IntoEncoding trait
+    /// * `enc` - An encoding specification that implements [IntoEncoding].
     ///
     /// # Returns
     ///
-    /// Returns a Result containing the updated Chart instance or a ChartonError if validation fails
-    ///
-    /// # Example
-    ///
-    /// ```
-    /// use charton::prelude::*;
-    /// use polars::prelude::*;
-    ///
-    /// let df = df![
-    ///     "x" => [1, 2, 3, 4, 5],
-    ///     "y" => [10, 20, 30, 40, 50],
-    ///     "category" => ["A", "B", "A", "B", "A"]
-    /// ]?;
-    ///
-    /// let chart = Chart::<MarkPoint>::build(&df)?
-    ///     .mark_point()
-    ///     .encode(
-    ///         x("x").scale(Scale::Linear),
-    ///         y("y").scale(Scale::Linear),
-    ///         color("category")
-    ///     )?;
-    /// ```
+    /// Returns a `Result` containing the updated Chart instance.
     pub fn encode<U>(mut self, enc: U) -> Result<Self, ChartonError>
     where
         U: IntoEncoding,
     {
-        // 1. Apply the user-provided encoding specifications
+        // 1. Update the internal encoding mappings
         enc.apply(&mut self.encoding);
 
-        // 2. Mark identification: A mark is required to determine the chart's structural rules.
-        // We convert the mark type to a String to release the borrow on `self`.
+        // 2. Check if we are in the base (NoMark) state.
+        // If so, we defer validation until a specific mark is assigned via .mark_xxx().
+        if std::any::TypeId::of::<T>() == std::any::TypeId::of::<NoMark>() {
+            return Ok(self);
+        }
+
+        // 3. If a specific mark is present, execute the validation and transformation pipeline.
+        self.validate_and_transform()
+    }
+
+    /// The core validation and data processing pipeline.
+    ///
+    /// This internal method synchronizes the data with the encoding rules 
+    /// specific to the assigned mark type. It ensures schema integrity 
+    /// and prepares the data for rendering.
+    pub(crate) fn validate_and_transform(mut self) -> Result<Self, ChartonError> {
+        // --- Step 1: Mark Identification ---
+        // We ensure the mark is present before proceeding with mark-specific rules.
         let mark_type = self
             .mark
             .as_ref()
             .map(|m| m.mark_type().to_string())
-            .ok_or_else(|| ChartonError::Mark("A mark is required to create a chart".into()))?;
+            .ok_or_else(|| ChartonError::Mark("A mark is required for validation".into()))?;
 
-        // --- Step 3: Mandatory Encoding Validation ---
-        // Ensure the minimum required visual channels are present for the chosen mark type.
+        // --- Step 2: Mandatory Encoding Validation ---
+        // Verify that the minimum required visual channels are mapped.
         match mark_type.as_str() {
             "errorbar" | "bar" | "hist" | "line" | "point" | "area" | "boxplot" | "text" | "rule" => {
                 if self.encoding.x.is_none() || self.encoding.y.is_none() {
@@ -172,39 +341,27 @@ impl<T: Mark> Chart<T> {
                     return Err(ChartonError::Encoding("Rect chart requires x, y, and color encodings".into()));
                 }
             }
-            _ => {
-                return Err(ChartonError::Mark(format!("Unknown mark type: {}", mark_type)));
-            }
+            "none" => return Ok(self), // NoMark state requires no further validation
+            _ => return Err(ChartonError::Mark(format!("Unknown mark type: {}", mark_type))),
         }
 
-        // --- Step 4: Semantic Type Validation ---
-        // Instead of checking for raw Polars DataTypes (like Float64), we check for 
-        // high-level SemanticCategories. This is more robust as we've already 
-        // normalized numeric types to f64.
+        // --- Step 3: Semantic Type & Schema Validation ---
+        // Check if data columns exist and their types match the mark's requirements.
         let mut active_fields = self.encoding.active_fields();
         let mut expected_semantics = std::collections::HashMap::new();
 
-        // If x_field is "", it's a virtual column for Pie/Rose charts.
-        // We remove it from active_fields so check_schema doesn't look for it in the raw data.
+        // Handle virtual columns for specific transformations
         let x_field = self.encoding.x.as_ref().map(|x| x.field.clone()).unwrap_or_default();
         if x_field == "" {
             active_fields.retain(|&field| field != "");
         }
 
-        // Histogram Virtual Column Handling.
-        // Histograms are a special case where the Y-axis (frequency/count) is a 
-        // "virtual" column produced by the statistical transformation.
-        // Because this column is not present in the raw source DataFrame, we 
-        // remove it from the validation set to avoid "field not found" errors.
         if mark_type.as_str() == "hist" {
             let y_field = self.encoding.y.as_ref().unwrap().field.as_str();
-            
-            // Retain only fields that actually exist in the raw input data.
-            active_fields.retain(|&field| field != y_field);
+            active_fields.retain(|&field| field != y_field); // Y is generated by hist transform
         }
 
-        // A. Universal Aesthetic Channels
-        // Channels like Size and Opacity are mathematically mapped to continuous scales.
+        // Assign semantic requirements (Discrete/Continuous) based on mark rules
         if let Some(shape_enc) = &self.encoding.shape {
             expected_semantics.insert(shape_enc.field.as_str(), vec![SemanticType::Discrete]);
         }
@@ -212,23 +369,18 @@ impl<T: Mark> Chart<T> {
             expected_semantics.insert(size_enc.field.as_str(), vec![SemanticType::Continuous]);
         }
 
-        // B. Mark-Specific Semantic Requirements
         match mark_type.as_str() {
             "bar" | "boxplot" => {
-                // Standard categorical plots require a discrete axis (X) and a numeric axis (Y).
                 expected_semantics.insert(self.encoding.x.as_ref().unwrap().field.as_str(), vec![SemanticType::Discrete]);
                 expected_semantics.insert(self.encoding.y.as_ref().unwrap().field.as_str(), vec![SemanticType::Continuous]);
             }
             "hist" => {
-                // Histograms bin continuous data on the X axis.
                 expected_semantics.insert(self.encoding.x.as_ref().unwrap().field.as_str(), vec![SemanticType::Continuous]);
             }
             "rect" => {
-                // Heatmaps map continuous values to a color gradient.
                 expected_semantics.insert(self.encoding.color.as_ref().unwrap().field.as_str(), vec![SemanticType::Continuous]);
             }
             "errorbar" | "rule" => {
-                // Ranges require continuous values for both start (y) and end (y2) points.
                 expected_semantics.insert(self.encoding.y.as_ref().unwrap().field.as_str(), vec![SemanticType::Continuous]);
                 if let Some(y2) = &self.encoding.y2 {
                     expected_semantics.insert(y2.field.as_str(), vec![SemanticType::Continuous]);
@@ -239,78 +391,42 @@ impl<T: Mark> Chart<T> {
                     expected_semantics.insert(text_enc.field.as_str(), vec![SemanticType::Discrete]);
                 }
             }
-            _ => {} // Other marks like 'point' or 'line' are flexible with their axis types.
+            _ => {}
         }
 
-        // 5. Schema Integrity Check: Validate columns exist and match semantic expectations.
-        check_schema(&mut self.data.df, &active_fields, &expected_semantics).map_err(|e| {
-            eprintln!("Error validating encoding fields for {}: {}", mark_type, e);
-            e
-        })?;
+        check_schema(&mut self.data.df, &active_fields, &expected_semantics)?;
 
-        // Filter out null values
-        let filtered_df = self
-            .data
-            .df
-            .drop_nulls(Some(
-                &active_fields
-                    .iter()
-                    .map(|&s| s.to_string()) // Convert &str to String
-                    .collect::<Vec<_>>(),
-            ))
-            .map_err(|e| {
-                eprintln!(
-                    "Error filtering null values from columns {:?}: {}",
-                    active_fields, e
-                );
-                e
-            })?;
+        // --- Step 4: Data Cleaning ---
+        // Drop rows with null values in any column used for encoding.
+        let filtered_df = self.data.df.drop_nulls(Some(
+            &active_fields.iter().map(|&s| s.to_string()).collect::<Vec<_>>()
+        ))?;
 
-        // Check if the filtered DataFrame is empty
         if filtered_df.height() == 0 {
-            eprintln!(
-                "Warning: No valid data remaining after filtering null values from columns: {:?}",
-                active_fields
-            );
             self.data = DataFrameSource { df: filtered_df };
-            return Ok(self); // Return early to avoid unnecessary processing
-        } else {
-            self.data = DataFrameSource { df: filtered_df };
+            return Ok(self);
         }
+        self.data = DataFrameSource { df: filtered_df };
 
-        // Set default encodings
+        // --- Step 5: Statistical Transformations ---
+        // Resolve bins (required before transformations like histograms)
         self.resolve_pre_transform_encodings()?;
 
-        // Perform chart-specific data transformations based on mark type
+        // Apply mark-specific data transformations
         match mark_type.as_str() {
-            "boxplot" => {
-                // Apply boxplot-specific data transformations
-                self = self.transform_boxplot_data()?;
-            }
+            "boxplot" => self = self.transform_boxplot_data()?,
             "errorbar" => {
-                // Apply errorbar-specific data transformations only when y2 encoding is not present
                 if self.encoding.y2.is_none() {
                     self = self.transform_errorbar_data()?;
                 }
             }
-            "rect" => {
-                // Apply rect-specific data transformations
-                self = self.transform_rect_data()?;
-            }
-            "bar" => {
-                // Apply bar-specific data transformations
-                self = self.transform_bar_data()?;
-            }
-            "hist" => {
-                // Apply histogram-specific data transformations
-                self = self.transform_histogram_data()?;
-            }
-            _ => {
-                // Nothing to do for other marks
-            }
+            "rect" => self = self.transform_rect_data()?,
+            "bar" => self = self.transform_bar_data()?,
+            "hist" => self = self.transform_histogram_data()?,
+            _ => {}
         }
 
-        // Set default encodings
+        // Apply defaults for scales/axes based on the transformed data
         self.apply_post_transform_defaults()?;
 
         Ok(self)

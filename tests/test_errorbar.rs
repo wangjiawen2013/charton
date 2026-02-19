@@ -13,7 +13,7 @@ fn test_errorbar_1() -> Result<(), Box<dyn Error>> {
 
     // Create error bar chart
     let errorbar_chart = Chart::build(&df)?
-        .mark_errorbar()
+        .mark_errorbar()?
         .configure_errorbar(|e| e
             .with_color(SingleColor::new("blue"))
             .with_stroke_width(2.0)

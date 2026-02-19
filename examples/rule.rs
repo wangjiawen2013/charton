@@ -13,7 +13,7 @@ fn main() -> Result<(), Box<dyn Error>> {
 
     // Create a chart with rule marks using the consistent API style
     let chart = Chart::build(&df)?
-        .mark_rule()
+        .mark_rule()?
         .encode((x("x"), y("y"), y2("y2"), color("color")))?
         .into_layered()
         .with_title("Rule Chart with Y and Y2")

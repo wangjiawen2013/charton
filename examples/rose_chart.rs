@@ -12,7 +12,7 @@ fn main() -> Result<(), Box<dyn Error>> {
     ]?;
 
     let bar = Chart::build(&df)?
-        .mark_bar()
+        .mark_bar()?
         .encode((x("type"), y("value"), color("type")))?;
 
     // Create a layered chart and add the errorbar chart as a layer

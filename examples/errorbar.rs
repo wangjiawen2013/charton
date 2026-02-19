@@ -17,7 +17,7 @@ fn main() -> Result<(), Box<dyn Error>> {
             (col("value") - col("value_std")).alias("value_min"), // ymin = y - std
             (col("value") + col("value_std")).alias("value_max"), // ymax = y + std
         )?
-        .mark_errorbar()
+        .mark_errorbar()?
         .encode((x("type"), y("value_min"), y2("value_max")))?;
 
     // Create a layered chart and add the errorbar chart as a layer

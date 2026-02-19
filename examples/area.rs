@@ -12,7 +12,7 @@ fn main() -> Result<(), Box<dyn Error>> {
 
     // Create an area chart
     let area_chart = Chart::build(&df)?
-        .mark_area()
+        .mark_area()?
         .configure_area(|a| a.with_opacity(0.3).with_stroke("black"))
         .encode((x("depth"), y("net_generation"), color("source")))?;
 
