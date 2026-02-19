@@ -10,6 +10,7 @@ use crate::core::aesthetics::AestheticMapping;
 use crate::theme::Theme;
 use crate::error::ChartonError;
 use std::fmt::Write;
+use html_escape::encode_safe;
 use std::sync::Arc;
 
 /// A complete specification for a visual channel before the final Scale object is created.
@@ -663,7 +664,7 @@ impl LayeredChart {
             font_family,
             font_size,
             font_color.to_css_string(),
-            title_text
+            encode_safe(title_text)
         )?;
 
         Ok(())

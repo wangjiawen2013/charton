@@ -1,6 +1,7 @@
 use crate::coordinate::{Rect, CoordinateTrait, cartesian::Cartesian2D};
 use crate::theme::Theme;
 use crate::error::ChartonError;
+use html_escape::encode_safe;
 use std::fmt::Write;
 
 /// Orchestrates the visual rendering of both horizontal and vertical axes for a panel.
@@ -190,7 +191,7 @@ fn draw_axis_title(
         let y = panel.y + panel.height + v_offset;
 
         writeln!(svg, r#"<text x="{:.2}" y="{:.2}" text-anchor="middle" font-size="{}" font-family="{}" fill="{}" font-weight="bold" dominant-baseline="hanging">{}</text>"#,
-            x, y, theme.label_size, theme.label_family, theme.label_color.to_css_string(), label
+            x, y, theme.label_size, theme.label_family, theme.label_color.to_css_string(), encode_safe(label)
         )?;
     } else {
         let y = panel.y + panel.height / 2.0;
@@ -211,7 +212,7 @@ fn draw_axis_title(
         let x = panel.x - h_offset;
 
         writeln!(svg, r#"<text x="{:.2}" y="{:.2}" text-anchor="middle" font-size="{}" font-family="{}" fill="{}" font-weight="bold" transform="rotate(-90, {:.2}, {:.2})" dominant-baseline="middle">{}</text>"#,
-            x, y, theme.label_size, theme.label_family, theme.label_color.to_css_string(), x, y, label
+            x, y, theme.label_size, theme.label_family, theme.label_color.to_css_string(), x, y, encode_safe(label)
         )?;
     }
 
