@@ -11,7 +11,7 @@ use self::discrete::DiscreteScale;
 use self::temporal::TemporalScale;
 use self::mapper::VisualMapper;
 
-use std::sync::Arc;
+use std::sync::{Arc, RwLock};
 use time::OffsetDateTime;
 use polars::datatypes::AnyValue;
 use polars::prelude::*;
@@ -282,4 +282,37 @@ pub(crate) fn format_ticks(values: &[f64]) -> Vec<Tick> {
     }
 
     values.iter().zip(labels).map(|(&v, l)| Tick { value: v, label: l }).collect()
+}
+
+
+/// A thread-safe wrapper for the resolved scale that handles the cloning logic.
+/// 
+/// Since std::sync::RwLock does not implement Clone, we manually implement it
+/// by creating a new lock that shares the same internal Arc pointer.
+#[derive(Debug)]
+pub struct ResolvedScale(pub(crate) RwLock<Option<Arc<dyn ScaleTrait>>>);
+
+impl ResolvedScale {
+    pub fn new(scale: Option<Arc<dyn ScaleTrait>>) -> Self {
+        Self(RwLock::new(scale))
+    }
+
+    /// A helper to create an empty scale without messy type casting in callers
+    pub fn none() -> Self {
+        Self::new(None)
+    }
+}
+
+impl Clone for ResolvedScale {
+    fn clone(&self) -> Self {
+        // Step 1: Acquire a read lock on the current scale.
+        let guard = self.0.read().unwrap();
+        
+        // Step 2: Clone the Option<Arc<...>>. 
+        // This only increments the reference count of the Arc, which is very fast.
+        let inner_clone = guard.clone();
+        
+        // Step 3: Wrap the cloned reference in a brand new RwLock.
+        Self(RwLock::new(inner_clone))
+    }
 }

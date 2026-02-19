@@ -9,6 +9,7 @@
 /// Instead, it maps a different data field onto the **same** scale as `Y`. 
 /// For instance, in an Area chart, `Y` might map to "high_price" and `Y2` to "low_price",
 /// but both must use the same vertical coordinate system to be visually coherent.
+#[derive(Debug, Clone)]
 pub struct Y2 {
     // --- User Configuration (Intent/Inputs) ---
     

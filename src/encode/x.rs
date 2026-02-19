@@ -1,5 +1,4 @@
-use crate::scale::{Scale, ScaleDomain, ScaleTrait, Expansion};
-use std::sync::{Arc, RwLock};
+use crate::scale::{Expansion, ResolvedScale, Scale, ScaleDomain};
 
 /// Represents an X-axis encoding specification for chart elements.
 ///
@@ -10,6 +9,7 @@ use std::sync::{Arc, RwLock};
 /// Using `Arc<dyn ScaleTrait>` allows multiple layers in a `LayeredChart` to share the 
 /// exact same coordinate system instance efficiently without deep-copying data like 
 /// large color gradient tables.
+#[derive(Debug, Clone)]
 pub struct X {
     // --- User Configuration (Intent/Inputs) ---
     
@@ -37,7 +37,7 @@ pub struct X {
     
     /// Stores the resolved scale instance. Using RwLock to support 
     /// back-filling updates across multiple render calls.
-    pub(crate) resolved_scale: RwLock<Option<Arc<dyn ScaleTrait>>>,
+    pub(crate) resolved_scale: ResolvedScale,
 }
 
 impl X {
@@ -50,7 +50,7 @@ impl X {
             expansion: None,
             zero: None,
             bins: None,
-            resolved_scale: RwLock::new(None),
+            resolved_scale: ResolvedScale::none(),
         }
     }
 

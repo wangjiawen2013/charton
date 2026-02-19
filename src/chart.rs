@@ -56,6 +56,23 @@ pub struct Chart<T: Mark = NoMark> {
     pub(crate) mark: Option<T>,
 }
 
+/// Manual Clone for the Base Chart.
+/// We only need to implement this for NoMark to support the "Base Chart" pattern.
+impl Clone for Chart<NoMark> {
+    fn clone(&self) -> Self {
+        Self {
+            // DataFrameSource usually contains an Arc<DataFrame>, so this is shallow and fast.
+            data: self.data.clone(),
+            
+            // Encoding now derives Clone successfully thanks to our ResolvedScale wrapper.
+            encoding: self.encoding.clone(),
+            
+            // NoMark is always None.
+            mark: None,
+        }
+    }
+}
+
 impl Chart<NoMark> {
     /// Create a new base chart instance with the provided data source.
     ///
@@ -788,13 +805,13 @@ where
         // 1. Inject Position Scales (X & Y)
         // We only inject if the channel was actually configured by the user.
         if let Some(ref x_enc) = self.encoding.x {
-            if let Ok(mut guard) = x_enc.resolved_scale.write() {
+            if let Ok(mut guard) = x_enc.resolved_scale.0.write() {
                 *guard = Some(coord.get_x_arc());
             }
         }
         
         if let Some(ref y_enc) = self.encoding.y {
-            if let Ok(mut guard) = y_enc.resolved_scale.write() {
+            if let Ok(mut guard) = y_enc.resolved_scale.0.write() {
                 *guard = Some(coord.get_y_arc());
             }
         }
@@ -806,7 +823,7 @@ where
         // Use .as_ref() to match against a reference instead of moving the value
         if let (Some(enc), Some(map)) = (self.encoding.color.as_ref(), aesthetics.color.as_ref()) {
             if enc.field == map.field {
-                if let Ok(mut guard) = enc.resolved_scale.write() {
+                if let Ok(mut guard) = enc.resolved_scale.0.write() {
                     *guard = Some(map.scale_impl.clone());
                 }
             }
@@ -815,7 +832,7 @@ where
         // --- Shape Channel ---
         if let (Some(enc), Some(map)) = (self.encoding.shape.as_ref(), aesthetics.shape.as_ref()) {
             if enc.field == map.field {
-                if let Ok(mut guard) = enc.resolved_scale.write() {
+                if let Ok(mut guard) = enc.resolved_scale.0.write() {
                     *guard = Some(map.scale_impl.clone());
                 }
             }
@@ -824,7 +841,7 @@ where
         // --- Size Channel ---
         if let (Some(enc), Some(map)) = (self.encoding.size.as_ref(), aesthetics.size.as_ref()) {
             if enc.field == map.field {
-                if let Ok(mut guard) = enc.resolved_scale.write() {
+                if let Ok(mut guard) = enc.resolved_scale.0.write() {
                     *guard = Some(map.scale_impl.clone());
                 }
             }
