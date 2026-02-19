@@ -1,5 +1,4 @@
-use crate::scale::{Scale, ScaleDomain, ScaleTrait, Expansion};
-use std::sync::{Arc, RwLock};
+use crate::scale::{Expansion, ResolvedScale, Scale, ScaleDomain};
 
 /// Represents a Y-axis encoding specification for chart elements.
 ///
@@ -12,6 +11,7 @@ use std::sync::{Arc, RwLock};
 /// 2. **Resolution**: The `LayeredChart` trains the scale based on the data and constraints.
 /// 3. **Back-filling**: A concrete `ScaleTrait` instance is wrapped in an `Arc` and injected into 
 ///    the `resolved_scale` field.
+#[derive(Debug, Clone)]
 pub struct Y {
     // --- User Configuration (Intent/Inputs) ---
     
@@ -41,7 +41,7 @@ pub struct Y {
     
     /// Stores the resolved scale instance. Using RwLock to support 
     /// back-filling updates across multiple render calls.
-    pub(crate) resolved_scale: RwLock<Option<Arc<dyn ScaleTrait>>>,
+    pub(crate) resolved_scale: ResolvedScale,
 }
 
 impl Y {
@@ -56,7 +56,7 @@ impl Y {
             bins: None,
             normalize: false, // Default to false (raw counts)
             stack: false, // Default to false (regular bar chart)
-            resolved_scale: RwLock::new(None),
+            resolved_scale: ResolvedScale::none(),
         }
     }
 

@@ -1,5 +1,4 @@
-use crate::scale::{Scale, ScaleDomain, ScaleTrait, Expansion};
-use std::sync::{Arc, RwLock};
+use crate::scale::{Expansion, ResolvedScale, Scale, ScaleDomain};
 
 /// Represents a color encoding specification for chart elements.
 ///
@@ -11,6 +10,7 @@ use std::sync::{Arc, RwLock};
 /// until the `LayeredChart` resolves the final scale. This is where your specific 
 /// orange-ish color gradient will be stored:
 /// `(0.000, 1.000, 0.961, 0.922), // #fff5eb ...`
+#[derive(Debug, Clone)]
 pub struct Color {
     // --- User Configuration (Intent/Inputs) ---
     
@@ -30,7 +30,7 @@ pub struct Color {
     
     /// Stores the resolved scale instance. Using RwLock to support 
     /// back-filling updates across multiple render calls.
-    pub(crate) resolved_scale: RwLock<Option<Arc<dyn ScaleTrait>>>,
+    pub(crate) resolved_scale: ResolvedScale,
 }
 
 impl Color {
@@ -41,7 +41,7 @@ impl Color {
             scale_type: None,
             domain: None,
             expansion: None,
-            resolved_scale: RwLock::new(None),
+            resolved_scale: ResolvedScale::none(),
         }
     }
 

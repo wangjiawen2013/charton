@@ -9,6 +9,7 @@
 /// of data values to strings. However, it still holds a `resolved_scale` to 
 /// allow for potential future features like data formatting (e.g., date 
 /// formatting or number rounding) before the text is rendered.
+#[derive(Clone, Debug)]
 pub struct Text {
     // --- User Configuration (Intent/Inputs) ---
     

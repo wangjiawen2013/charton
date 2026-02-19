@@ -1,5 +1,4 @@
-use crate::scale::{Scale, ScaleDomain, ScaleTrait, Expansion};
-use std::sync::{Arc, RwLock};
+use crate::scale::{Expansion, ResolvedScale, Scale, ScaleDomain};
 
 /// Represents a shape encoding specification for chart elements.
 ///
@@ -12,6 +11,7 @@ use std::sync::{Arc, RwLock};
 /// category. Using `Arc<dyn ScaleTrait>` ensures that even if different marks 
 /// (points, ticks, or custom symbols) are used in superimposed layers, they 
 /// consistently map the same data category to the same visual shape.
+#[derive(Debug, Clone)]
 pub struct Shape {
     // --- User Configuration (Intent/Inputs) ---
     
@@ -31,7 +31,7 @@ pub struct Shape {
     
     /// Stores the resolved scale instance. Using RwLock to support 
     /// back-filling updates across multiple render calls.
-    pub(crate) resolved_scale: RwLock<Option<Arc<dyn ScaleTrait>>>,
+    pub(crate) resolved_scale: ResolvedScale,
 }
 
 impl Shape {
@@ -43,7 +43,7 @@ impl Shape {
             scale_type: Some(Scale::Discrete), 
             domain: None,
             expansion: None,
-            resolved_scale: RwLock::new(None),
+            resolved_scale: ResolvedScale::none(),
         }
     }
 

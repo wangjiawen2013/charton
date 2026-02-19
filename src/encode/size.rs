@@ -1,6 +1,5 @@
-use crate::scale::{Scale, ScaleDomain, ScaleTrait, Expansion};
+use crate::scale::{Expansion, ResolvedScale, Scale, ScaleDomain};
 use crate::error::ChartonError;
-use std::sync::{Arc, RwLock};
 
 /// Represents a size encoding specification for chart elements.
 ///
@@ -12,6 +11,7 @@ use std::sync::{Arc, RwLock};
 /// Size follows the "Intent vs. Resolution" pattern. During the training phase,
 /// the engine ensures that the data range is mapped to a sensible range of 
 /// visual sizes (e.g., mapping a domain of [0, 1000] to a range of [1px, 20px]).
+#[derive(Debug, Clone)]
 pub struct Size {
     // --- User Configuration (Intent/Inputs) ---
     
@@ -32,7 +32,7 @@ pub struct Size {
     
     /// Stores the resolved scale instance. Using RwLock to support 
     /// back-filling updates across multiple render calls.
-    pub(crate) resolved_scale: RwLock<Option<Arc<dyn ScaleTrait>>>,
+    pub(crate) resolved_scale: ResolvedScale,
 }
 
 impl Size {
@@ -43,7 +43,7 @@ impl Size {
             scale_type: Some(Scale::Linear),
             domain: None,
             expansion: None,
-            resolved_scale: RwLock::new(None),
+            resolved_scale: ResolvedScale::none(),
         }
     }
 

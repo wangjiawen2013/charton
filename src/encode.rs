@@ -48,7 +48,7 @@ pub trait IntoEncoding {
 ///
 /// By using the `Channel` enum, this container can be accessed dynamically 
 /// by the rendering engine during the "Resolution" phase.
-#[derive(Default)]
+#[derive(Default, Clone)]
 pub struct Encoding {
     pub(crate) x: Option<X>,
     pub(crate) y: Option<Y>,
