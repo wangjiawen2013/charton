@@ -35,7 +35,7 @@ fn main() -> Result<(), Box<dyn Error>> {
     // 3. Build the chart configuration
     // By setting the scale to Temporal, Charton will use your new adaptive tick logic.
     let temporal_chart = Chart::build(&df)?
-        .mark_point() 
+        .mark_point()? 
         .encode((
             //x("date").with_scale(Scale::Temporal),
             x("date"),

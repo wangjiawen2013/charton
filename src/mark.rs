@@ -8,6 +8,7 @@ pub(crate) mod point;
 pub(crate) mod rect;
 pub(crate) mod rule;
 pub(crate) mod text;
+pub(crate) mod no_mark;
 
 use crate::prelude::SingleColor;
 /// A trait representing a visual mark in a plot.
@@ -30,7 +31,7 @@ use crate::prelude::SingleColor;
 /// - `stroke`: Returns the stroke color (defaults to None)
 /// - `shape`: Returns the point shape (defaults to Circle)
 /// - `opacity`: Returns the opacity value (defaults to 1.0)
-pub trait Mark: Clone {
+pub trait Mark: Clone + 'static {
     /// Used to identify mark type
     fn mark_type(&self) -> &'static str;
 

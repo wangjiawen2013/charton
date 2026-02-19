@@ -19,7 +19,7 @@ fn main() -> Result<(), Box<dyn Error>> {
             //.with_groupby("species")
             .with_normalize(false),
         )?
-        .mark_line()
+        .mark_line()?
         .configure_line(|l| l.with_interpolation("step")) // Add step interpolation
         //.encode((x("sepal_length"), y("ecdf"), color("species")))?;
         .encode((x("sepal_length"), y("ecdf")))?;

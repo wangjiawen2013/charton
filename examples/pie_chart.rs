@@ -11,7 +11,7 @@ fn main() -> Result<(), Box<dyn Error>> {
 
     // Create donut chart
     let donut = Chart::build(&df)?
-        .mark_bar()
+        .mark_bar()?
         .encode((
             x(""),                 // x encoding for donut chart (empty string for donut chart)
             y("value"),            // theta encoding for donut slices

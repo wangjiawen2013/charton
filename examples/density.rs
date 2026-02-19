@@ -10,7 +10,7 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
                 .with_as("sepal_length", "density")
                 .with_groupby("species"),
         )?
-        .mark_area()
+        .mark_area()?
         .configure_area(|a| a.with_opacity(0.5))
         .encode((x("sepal_length"), y("density"), color("species")))?
         .into_layered()

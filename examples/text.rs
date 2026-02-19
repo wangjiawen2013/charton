@@ -13,7 +13,7 @@ fn main() -> Result<(), Box<dyn Error>> {
 
     // Create a text chart showing countries with GDP vs Population using the new API
     let text_chart = Chart::build(&df)?
-        .mark_text()
+        .mark_text()?
         .configure_text(|t| t.with_size(12.0))
         .encode((
             x("GDP"),
