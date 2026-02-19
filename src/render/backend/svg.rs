@@ -145,16 +145,9 @@ impl<'a> RenderBackend for SvgBackend<'a> {
         self.write_clip_attr();
         let _ = self.buffer.write_str(">");
         
-        // Manual character escaping for XML safety to avoid temporary String allocations
-        for c in text.chars() {
-            match c {
-                '&' => self.buffer.push_str("&amp;"),
-                '<' => self.buffer.push_str("&lt;"),
-                '>' => self.buffer.push_str("&gt;"),
-                '"' => self.buffer.push_str("&quot;"),
-                _ => self.buffer.push(c),
-            }
-        }
+        // Character escaping for XML safety
+        self.buffer.push_str(&html_escape::encode_safe(&text));
+
         let _ = self.buffer.write_str("</text>\n");
     }
 
