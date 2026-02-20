@@ -17,24 +17,24 @@
 <line x1="75" y1="340" x2="450" y2="340" stroke="black" stroke-dasharray="5,5" />
 <line x1="75" y1="340" x2="450" y2="340" stroke="black" stroke-width="1"/>
 <line x1="128.57142857142856" y1="340" x2="128.57142857142856" y2="345" stroke="black" stroke-width="1"/>
-<text x="128.57142857142856" y="358" font-size="13" font-family="sans-serif" fill="#333" text-anchor="middle">a</text>
+<text x="128.57142857142856" y="358" font-size="13" font-family="Inter, -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, 'PingFang SC', 'Microsoft YaHei', Ubuntu, Cantarell, 'Noto Sans', sans-serif" fill="#333" text-anchor="middle">a</text>
 <line x1="217.85714285714286" y1="340" x2="217.85714285714286" y2="345" stroke="black" stroke-width="1"/>
-<text x="217.85714285714286" y="358" font-size="13" font-family="sans-serif" fill="#333" text-anchor="middle">b</text>
+<text x="217.85714285714286" y="358" font-size="13" font-family="Inter, -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, 'PingFang SC', 'Microsoft YaHei', Ubuntu, Cantarell, 'Noto Sans', sans-serif" fill="#333" text-anchor="middle">b</text>
 <line x1="307.1428571428571" y1="340" x2="307.1428571428571" y2="345" stroke="black" stroke-width="1"/>
-<text x="307.1428571428571" y="358" font-size="13" font-family="sans-serif" fill="#333" text-anchor="middle">c</text>
+<text x="307.1428571428571" y="358" font-size="13" font-family="Inter, -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, 'PingFang SC', 'Microsoft YaHei', Ubuntu, Cantarell, 'Noto Sans', sans-serif" fill="#333" text-anchor="middle">c</text>
 <line x1="396.4285714285714" y1="340" x2="396.4285714285714" y2="345" stroke="black" stroke-width="1"/>
-<text x="396.4285714285714" y="358" font-size="13" font-family="sans-serif" fill="#333" text-anchor="middle">d</text>
-<text x="262.5" y="363" font-size="15" font-family="sans-serif" fill="#333" text-anchor="middle" dominant-baseline="text-before-edge">type</text>
+<text x="396.4285714285714" y="358" font-size="13" font-family="Inter, -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, 'PingFang SC', 'Microsoft YaHei', Ubuntu, Cantarell, 'Noto Sans', sans-serif" fill="#333" text-anchor="middle">d</text>
+<text x="262.5" y="363" font-size="15" font-family="Inter, -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, 'PingFang SC', 'Microsoft YaHei', Ubuntu, Cantarell, 'Noto Sans', sans-serif" fill="#333" text-anchor="middle" dominant-baseline="text-before-edge">type</text>
 <line x1="75" y1="40" x2="75" y2="340" stroke="black" stroke-width="1"/>
 <line x1="70" y1="340" x2="75" y2="340" stroke="black" stroke-width="1"/>
-<text x="67" y="340" font-size="13" font-family="sans-serif" fill="#333" text-anchor="end" dominant-baseline="middle">0</text>
+<text x="67" y="340" font-size="13" font-family="Inter, -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, 'PingFang SC', 'Microsoft YaHei', Ubuntu, Cantarell, 'Noto Sans', sans-serif" fill="#333" text-anchor="end" dominant-baseline="middle">0</text>
 <line x1="70" y1="274" x2="75" y2="274" stroke="black" stroke-width="1"/>
-<text x="67" y="274" font-size="13" font-family="sans-serif" fill="#333" text-anchor="end" dominant-baseline="middle">2</text>
+<text x="67" y="274" font-size="13" font-family="Inter, -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, 'PingFang SC', 'Microsoft YaHei', Ubuntu, Cantarell, 'Noto Sans', sans-serif" fill="#333" text-anchor="end" dominant-baseline="middle">2</text>
 <line x1="70" y1="208" x2="75" y2="208" stroke="black" stroke-width="1"/>
-<text x="67" y="208" font-size="13" font-family="sans-serif" fill="#333" text-anchor="end" dominant-baseline="middle">4</text>
+<text x="67" y="208" font-size="13" font-family="Inter, -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, 'PingFang SC', 'Microsoft YaHei', Ubuntu, Cantarell, 'Noto Sans', sans-serif" fill="#333" text-anchor="end" dominant-baseline="middle">4</text>
 <line x1="70" y1="142" x2="75" y2="142" stroke="black" stroke-width="1"/>
-<text x="67" y="142" font-size="13" font-family="sans-serif" fill="#333" text-anchor="end" dominant-baseline="middle">6</text>
+<text x="67" y="142" font-size="13" font-family="Inter, -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, 'PingFang SC', 'Microsoft YaHei', Ubuntu, Cantarell, 'Noto Sans', sans-serif" fill="#333" text-anchor="end" dominant-baseline="middle">6</text>
 <line x1="70" y1="76" x2="75" y2="76" stroke="black" stroke-width="1"/>
-<text x="67" y="76" font-size="13" font-family="sans-serif" fill="#333" text-anchor="end" dominant-baseline="middle">8</text>
-<text x="47.85" y="190" font-size="15" font-family="sans-serif" fill="#333" text-anchor="middle" transform="rotate(-90, 47.85, 190)">value</text>
+<text x="67" y="76" font-size="13" font-family="Inter, -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, 'PingFang SC', 'Microsoft YaHei', Ubuntu, Cantarell, 'Noto Sans', sans-serif" fill="#333" text-anchor="end" dominant-baseline="middle">8</text>
+<text x="47.85" y="190" font-size="15" font-family="Inter, -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, 'PingFang SC', 'Microsoft YaHei', Ubuntu, Cantarell, 'Noto Sans', sans-serif" fill="#333" text-anchor="middle" transform="rotate(-90, 47.85, 190)">value</text>
 </svg>
