@@ -25,10 +25,6 @@
 
 [Introduction](README.md)
 
-# 🚀 Getting Started
-- [Quick Start](concepts/getting_started.md)
-- [Core Concepts & Architecture](concepts/architecture.md)
-- [Coordinate Systems](concepts/coordinate_systems.md)
 
 # 📊 Chart Components
 - [Line Chart](charts/line.md)
