@@ -291,6 +291,59 @@ Chart::build(&df)
 Expected:
 A rich multi-dimensional visualization of `mtcars`.
 
+## Configuring Encodings (The Intent Pattern)
+Charton uses a unified interface where you define your **Intent** (e.g., "I want this column to be on the X-axis using a Log scale"), and the engine handles the **Resolution** (calculating the actual pixel coordinates).
+
+Each encoding (like `X`, `Color`, or `Size`) follows a **Fluent Builder Pattern**. You can refine how the mapping behaves by chaining methods on the encoding object *before* passing it to the chart.
+
+**Position Encoding (`x`, `y`)**
+
+Position encodings control the spatial layout.
+
+```rust
+chart.encode((
+    x("gdp")
+        .with_scale(Scale::Log)      // Use logarithmic transformation
+        .with_domain(ScaleDomain::Continuous(0.0, 100.0)) // Force limits
+        .with_zero(false)            // Don't force 0.0 into view
+        .with_bins(10),              // Aggregate data into 10 bins
+    y("population")
+))?
+```
+
+**Aesthetic Encoding (`shape`, `size`, `opacity`)**
+
+These control the "look" of the marks based on data values.
+
+```rust
+chart.encode((
+    color("species")
+        .with_scale(Scale::Ordinal), // Explicitly treat as categorical
+    size("magnitude")
+        .with_domain(ScaleDomain::Continuous(1.0, 10.0))
+))?
+```
+
+**The "Intent vs. Resulution" Architecture**
+
+One of the most powerful features of Charton's encoding system is the separation of **User Intent** and **System Resolution**.
+
+1. **Intent (Inputs)**: When you call `x("price").with_scale(Scale::Log)`, you are defining a **specification**.
+2. **Resolution (Outputs)**: During the `build()` phase, Charton's engine scans the data, finds the min/max values, applies your overrides, and "back-fills" a `ResolvedScale`.
+
+**Why this matters:**
+
+Because the `resolved_scale` is stored inside the encoding (often wrapped in an `Arc`), **multiple layers can share the same scale**. If you have a scatter plot and a regression line in the same chart, they will automatically synchronize their axes because they refer to the same resolved intent.
+
+**Avoiding "Mega-Methods"**
+
+Charton avoids polluting the main `Chart` API. Notice that methods like `with_bins` belong to the `X` or `Y` structs, not the `Chart` itself.
+
+- **Incorrect**: `chart.set_x_bins(10)` (Bloats the main API)
+- **Correct**: `chart.encode(x("col").with_bins(10))` (Keeps logic namespaced)
+
+This ensures that as Charton adds more complex encoding features (like time-unit formatting or custom color palettes), the top-level API remains clean and easy to navigate.
+
 ## Tips & Best Practices
 
 **✔ Use color for major categories**

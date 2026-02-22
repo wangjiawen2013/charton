@@ -263,6 +263,59 @@ Chart::build(&df)?
         color("Continent"),
     ))?
 ```
+
+## Advanced Mark Configuration (Mark Styling)
+While **Encodings** link data to visual properties, you often need to set **fixed** visual constants for a specific layer—for example, making all points red regardless of data, or adding a specific stroke to a line.
+
+Charton provides a **Closure-based Configuration** for every mark type. This is the highest level of styling precedence.
+
+**Why Closures?**
+
+1. **Type Safety**: You only see methods relevant to that specific mark (e.g., you can't set "stroke width" on a property that doesn't support it).
+2. **Fluent Chaining**: You can update multiple properties in a single, readable block.
+3. **Encapsulation**: Mark properties remain private to the rendering engine, accessible only through this controlled interface.
+4. **Namespace Hygience & API Scalability**
+
+Charton’s closure-based design solves two major architectural challenges:
+
+- **Namespace Isolation**: It prevents naming collisions between different mark types. For example, both `MarkPoint` and `MarkText` can expose a `.with_size()` method without ambiguity, as they exist only within their respective closures.
+- **Avoiding API Bloat**: It prevents the main `Chart` and `LayeredChart` structs from becoming "mega-structs" with hundreds of prefixed methods (like `.with_point_shape()` or `.with_bar_padding()`). This keeps the top-level API clean and ensures that the IDE's auto-completion remains helpful and intuitive.
+
+**The `configure_xxx` Pattern**
+Each mark has a corresponding configuration method (e.g., `configure_point`, `configure_bar`). These methods allow you to "reach inside" the mark and tweak its properties fluently.
+
+```rust
+Chart::build(&df)?
+    .mark_point()
+    // This closure provides direct access to the MarkPoint struct
+    .configure_point(|m| {
+        m.with_color("steelblue")
+         .with_size(10.0)
+         .with_stroke("white")
+         .with_stroke_width(1.5)
+         .with_opacity(0.8)
+    })
+    .encode((x("time"), y("value")))?
+```
+
+**Precedence: Style vs. Encoding**
+
+It is important to remember the **Override Rule**:
+1. **Mark Closures** (`configure_xxx`) take absolute priority.
+2. **Encodings** (`encode`) come second.
+3. **Theme Defaults** are the fallback.
+
+**Note**: If you set `m.with_color("red")` in a closure, any `color("column_name")` mapping in your encoding will be ignored for that specific property.
+
+**Common Configuration Methods**
+
+|Mark Type|Config Method|Key Properties to Tweak|
+|---------|-------------|-----------------------|
+|Point|`configure_point`|`shape`,`size`,`stroke`,`stroke_width`|
+|Line|`configure_line`|`stroke_width`,`interpolate`,`dash_array`|
+|Bar|`configure_bar`|`width`,`spacing`,`corner_radius`|
+|Text|`configure_text`|`font_size`,`angle`,`align`,`baseline`|
+
 ## Summary
 * Each mark defines a visual primitive.
 * Marks are combined with *encodings* to bind data to graphics.
