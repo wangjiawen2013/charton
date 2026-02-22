@@ -16,6 +16,7 @@
 - [Global Themes](styling/themes.md)
 - [Axes & Legends](styling/axes_styling.md)
 - [Colors & Palettes](styling/colors.md)
+- [The Styling Model (Hybrid Pattern)](style/styling_model.md)
 
 # 📊 Chart Gallery
 - [Basic Plots (Line, Scatter, Area)](gallery/basic_charts.md)
