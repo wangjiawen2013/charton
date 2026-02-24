@@ -1,33 +1,32 @@
-<svg width="600" height="400" viewBox="0 0 600 400" xmlns="http://www.w3.org/2000/svg"><rect width="100%" height="100%" fill="white" /><text x="300" y="18" font-size="18" font-family="sans-serif" fill="#333" text-anchor="middle">Salary by Department</text>
-<circle cx="110" cy="91.75000000000009" r="3" fill="black" stroke="none" stroke-width="0" opacity="1"/>
-<circle cx="210" cy="226.75000000000006" r="3" fill="black" stroke="none" stroke-width="0" opacity="1"/>
-<circle cx="310" cy="260.50000000000006" r="3" fill="black" stroke="none" stroke-width="0" opacity="1"/>
-<circle cx="410" cy="294.25000000000006" r="3" fill="black" stroke="none" stroke-width="0" opacity="1"/>
-<circle cx="510" cy="159.25000000000009" r="3" fill="black" stroke="none" stroke-width="0" opacity="1"/>
-<circle cx="110" cy="58.000000000000114" r="3" fill="black" stroke="none" stroke-width="0" opacity="1"/>
-<circle cx="210" cy="206.50000000000006" r="3" fill="black" stroke="none" stroke-width="0" opacity="1"/>
-<line x1="90" y1="340" x2="540" y2="340" stroke="black" stroke-width="1"/>
-<line x1="110" y1="340" x2="110" y2="345" stroke="black" stroke-width="1"/>
-<text x="110" y="358" font-size="13" font-family="sans-serif" fill="#333" text-anchor="middle">Engineering</text>
-<line x1="210" y1="340" x2="210" y2="345" stroke="black" stroke-width="1"/>
-<text x="210" y="358" font-size="13" font-family="sans-serif" fill="#333" text-anchor="middle">Marketing</text>
-<line x1="310" y1="340" x2="310" y2="345" stroke="black" stroke-width="1"/>
-<text x="310" y="358" font-size="13" font-family="sans-serif" fill="#333" text-anchor="middle">Sales</text>
-<line x1="410" y1="340" x2="410" y2="345" stroke="black" stroke-width="1"/>
-<text x="410" y="358" font-size="13" font-family="sans-serif" fill="#333" text-anchor="middle">HR</text>
-<line x1="510" y1="340" x2="510" y2="345" stroke="black" stroke-width="1"/>
-<text x="510" y="358" font-size="13" font-family="sans-serif" fill="#333" text-anchor="middle">Finance</text>
-<text x="315" y="363" font-size="15" font-family="sans-serif" fill="#333" text-anchor="middle" dominant-baseline="text-before-edge">department</text>
-<line x1="90" y1="40" x2="90" y2="340" stroke="black" stroke-width="1"/>
-<line x1="85" y1="328" x2="90" y2="328" stroke="black" stroke-width="1"/>
-<text x="82" y="328" font-size="13" font-family="sans-serif" fill="#333" text-anchor="end" dominant-baseline="middle">50000</text>
-<line x1="85" y1="260.5" x2="90" y2="260.5" stroke="black" stroke-width="1"/>
-<text x="82" y="260.5" font-size="13" font-family="sans-serif" fill="#333" text-anchor="end" dominant-baseline="middle">60000</text>
-<line x1="85" y1="193.00000000000009" x2="90" y2="193.00000000000009" stroke="black" stroke-width="1"/>
-<text x="82" y="193.00000000000009" font-size="13" font-family="sans-serif" fill="#333" text-anchor="end" dominant-baseline="middle">70000</text>
-<line x1="85" y1="125.50000000000009" x2="90" y2="125.50000000000009" stroke="black" stroke-width="1"/>
-<text x="82" y="125.50000000000009" font-size="13" font-family="sans-serif" fill="#333" text-anchor="end" dominant-baseline="middle">80000</text>
-<line x1="85" y1="58" x2="90" y2="58" stroke="black" stroke-width="1"/>
-<text x="82" y="58" font-size="13" font-family="sans-serif" fill="#333" text-anchor="end" dominant-baseline="middle">90000</text>
-<text x="34.25" y="190" font-size="15" font-family="sans-serif" fill="#333" text-anchor="middle" transform="rotate(-90, 34.25, 190)">salary</text>
+<svg width="600" height="400" viewBox="0 0 600 400" xmlns="http://www.w3.org/2000/svg"><rect width="100%" height="100%" fill="rgba(255,255,255,1.000)" /><text x="300.00" y="8.00" text-anchor="middle" dominant-baseline="middle" font-family="Inter, -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, 'PingFang SC', 'Microsoft YaHei', Ubuntu, Cantarell, 'Noto Sans', sans-serif" font-size="18" fill="rgba(51,51,51,1.000)" font-weight="bold">Salary by Department</text>
+<line x1="108.80" y1="316.00" x2="582.00" y2="316.00" stroke="rgba(51,51,51,1.000)" stroke-width="1" stroke-linecap="square"/>
+<line x1="148.23" y1="316.00" x2="148.23" y2="322.00" stroke="rgba(51,51,51,1.000)" stroke-width="1.0"/>
+<text x="148.23" y="325.00" font-size="13" font-family="Inter, -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, 'PingFang SC', 'Microsoft YaHei', Ubuntu, Cantarell, 'Noto Sans', sans-serif" fill="rgba(51,51,51,1.000)" text-anchor="middle" dominant-baseline="hanging">Engineering</text>
+<line x1="246.82" y1="316.00" x2="246.82" y2="322.00" stroke="rgba(51,51,51,1.000)" stroke-width="1.0"/>
+<text x="246.82" y="325.00" font-size="13" font-family="Inter, -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, 'PingFang SC', 'Microsoft YaHei', Ubuntu, Cantarell, 'Noto Sans', sans-serif" fill="rgba(51,51,51,1.000)" text-anchor="middle" dominant-baseline="hanging">Marketing</text>
+<line x1="345.40" y1="316.00" x2="345.40" y2="322.00" stroke="rgba(51,51,51,1.000)" stroke-width="1.0"/>
+<text x="345.40" y="325.00" font-size="13" font-family="Inter, -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, 'PingFang SC', 'Microsoft YaHei', Ubuntu, Cantarell, 'Noto Sans', sans-serif" fill="rgba(51,51,51,1.000)" text-anchor="middle" dominant-baseline="hanging">Sales</text>
+<line x1="443.98" y1="316.00" x2="443.98" y2="322.00" stroke="rgba(51,51,51,1.000)" stroke-width="1.0"/>
+<text x="443.98" y="325.00" font-size="13" font-family="Inter, -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, 'PingFang SC', 'Microsoft YaHei', Ubuntu, Cantarell, 'Noto Sans', sans-serif" fill="rgba(51,51,51,1.000)" text-anchor="middle" dominant-baseline="hanging">HR</text>
+<line x1="542.57" y1="316.00" x2="542.57" y2="322.00" stroke="rgba(51,51,51,1.000)" stroke-width="1.0"/>
+<text x="542.57" y="325.00" font-size="13" font-family="Inter, -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, 'PingFang SC', 'Microsoft YaHei', Ubuntu, Cantarell, 'Noto Sans', sans-serif" fill="rgba(51,51,51,1.000)" text-anchor="middle" dominant-baseline="hanging">Finance</text>
+<text x="345.40" y="340.00" text-anchor="middle" font-size="15" font-family="Inter, -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, 'PingFang SC', 'Microsoft YaHei', Ubuntu, Cantarell, 'Noto Sans', sans-serif" fill="rgba(51,51,51,1.000)" font-weight="bold" dominant-baseline="hanging">department</text>
+<line x1="108.80" y1="40.00" x2="108.80" y2="316.00" stroke="rgba(51,51,51,1.000)" stroke-width="1" stroke-linecap="square"/>
+<line x1="108.80" y1="267.61" x2="102.80" y2="267.61" stroke="rgba(51,51,51,1.000)" stroke-width="1.0"/>
+<text x="98.80" y="267.61" font-size="13" font-family="Inter, -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, 'PingFang SC', 'Microsoft YaHei', Ubuntu, Cantarell, 'Noto Sans', sans-serif" fill="rgba(51,51,51,1.000)" text-anchor="end" dominant-baseline="central">6E4</text>
+<line x1="108.80" y1="195.92" x2="102.80" y2="195.92" stroke="rgba(51,51,51,1.000)" stroke-width="1.0"/>
+<text x="98.80" y="195.92" font-size="13" font-family="Inter, -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, 'PingFang SC', 'Microsoft YaHei', Ubuntu, Cantarell, 'Noto Sans', sans-serif" fill="rgba(51,51,51,1.000)" text-anchor="end" dominant-baseline="central">7E4</text>
+<line x1="108.80" y1="124.23" x2="102.80" y2="124.23" stroke="rgba(51,51,51,1.000)" stroke-width="1.0"/>
+<text x="98.80" y="124.23" font-size="13" font-family="Inter, -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, 'PingFang SC', 'Microsoft YaHei', Ubuntu, Cantarell, 'Noto Sans', sans-serif" fill="rgba(51,51,51,1.000)" text-anchor="end" dominant-baseline="central">8E4</text>
+<line x1="108.80" y1="52.55" x2="102.80" y2="52.55" stroke="rgba(51,51,51,1.000)" stroke-width="1.0"/>
+<text x="98.80" y="52.55" font-size="13" font-family="Inter, -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, 'PingFang SC', 'Microsoft YaHei', Ubuntu, Cantarell, 'Noto Sans', sans-serif" fill="rgba(51,51,51,1.000)" text-anchor="end" dominant-baseline="central">9E4</text>
+<text x="64.55" y="178.00" text-anchor="middle" font-size="15" font-family="Inter, -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, 'PingFang SC', 'Microsoft YaHei', Ubuntu, Cantarell, 'Noto Sans', sans-serif" fill="rgba(51,51,51,1.000)" font-weight="bold" transform="rotate(-90, 64.55, 178.00)" dominant-baseline="middle">salary</text>
+<defs><clipPath id="plot-clip-area"><rect x="108.800" y="40.000" width="473.200" height="276.000" /></clipPath></defs>
+<circle cx="148.233" cy="88.390" r="3.000" fill="rgba(0,0,0,1.000)" stroke="none" stroke-width="0.000" fill-opacity="1.000" stroke-opacity="1.000" clip-path="url(#plot-clip-area)" />
+<circle cx="246.817" cy="231.766" r="3.000" fill="rgba(0,0,0,1.000)" stroke="none" stroke-width="0.000" fill-opacity="1.000" stroke-opacity="1.000" clip-path="url(#plot-clip-area)" />
+<circle cx="345.400" cy="267.610" r="3.000" fill="rgba(0,0,0,1.000)" stroke="none" stroke-width="0.000" fill-opacity="1.000" stroke-opacity="1.000" clip-path="url(#plot-clip-area)" />
+<circle cx="443.983" cy="303.455" r="3.000" fill="rgba(0,0,0,1.000)" stroke="none" stroke-width="0.000" fill-opacity="1.000" stroke-opacity="1.000" clip-path="url(#plot-clip-area)" />
+<circle cx="542.567" cy="160.078" r="3.000" fill="rgba(0,0,0,1.000)" stroke="none" stroke-width="0.000" fill-opacity="1.000" stroke-opacity="1.000" clip-path="url(#plot-clip-area)" />
+<circle cx="148.233" cy="52.545" r="3.000" fill="rgba(0,0,0,1.000)" stroke="none" stroke-width="0.000" fill-opacity="1.000" stroke-opacity="1.000" clip-path="url(#plot-clip-area)" />
+<circle cx="246.817" cy="210.260" r="3.000" fill="rgba(0,0,0,1.000)" stroke="none" stroke-width="0.000" fill-opacity="1.000" stroke-opacity="1.000" clip-path="url(#plot-clip-area)" />
 </svg>
