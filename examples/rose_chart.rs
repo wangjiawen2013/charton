@@ -3,24 +3,34 @@ use polars::prelude::*;
 use std::error::Error;
 
 fn main() -> Result<(), Box<dyn Error>> {
-    // Create sample data with x and y values
+    // 1. Create a DataFrame with high-variance values to emphasize radial differences.
+    // We use 6 categories ("A" through "F") to fill the polar coordinate space evenly.
     let df = df! [
-        "type" => ["a", "b", "c", "d"],
-        "type2" => ["a", "b", "c", "d"],
-        "value" => [4.9, 5.3, 5.5, 6.5],
-        "value_std" => [0.3, 0.39, 0.34, 0.20]
+        "type" => ["A", "B", "C", "D", "E", "F"],
+        // Data values range from 2.0 to 12.0 to create a clear "petal" effect
+        "value" => [3.0, 11.5, 4.2, 9.8, 2.5, 7.0], 
     ]?;
 
+    // 2. Build the bar chart layer.
+    // In a Polar Coordinate system, x-axis maps to the Angle (theta) 
+    // and y-axis maps to the Radius (r).
     let bar = Chart::build(&df)?
         .mark_bar()?
-        .encode((x("type"), y("value"), color("type")))?;
+        .encode((
+            x("type"),      // Each category represents a slice of the circle
+            y("value"),     // The height of the bar becomes the radius of the slice
+            color("type")   // Distinct colors for each "petal"
+        ))?;
 
-    // Create a layered chart and add the errorbar chart as a layer
+    // 3. Assemble the layered chart and apply Polar Transformation.
     LayeredChart::new()
         .add_layer(bar)
-        .with_y_label("value")
-        .with_coord(CoordSystem::Polar)
-        .save("./examples/rose_chart.svg")?;
+        .with_y_label("Intensity")
+        // CoordSystem::Polar transforms the rectangular bar chart into a Rose Chart
+        .with_coord(CoordSystem::Polar) 
+        .save("./examples/rose.svg")?;
+
+    println!("Success: Improved Rose Chart generated at ./examples/rose.svg");
 
     Ok(())
 }
