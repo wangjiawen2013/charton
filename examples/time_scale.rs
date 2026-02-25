@@ -46,7 +46,7 @@ fn main() -> Result<(), Box<dyn Error>> {
     // With a width of 600px, your 50px-step logic will request ~12 ticks.
     // The TemporalScale will realize it has enough room for monthly or quarterly labels.
     LayeredChart::new()
-        .with_size(600, 400)
+        .with_size(500, 400)
         .add_layer(temporal_chart)
         .configure_theme(|t| {
             t.with_x_tick_label_angle(-45.0) // Rotate labels to handle longer date strings
