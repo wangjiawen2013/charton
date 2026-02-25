@@ -345,7 +345,7 @@ This gallery contains a selection of examples of the plots charton can create. G
         <td><img src="examples/log_scale.svg" alt="Log Scale" /><p align="center">Log Scale</p></td>
         <td><img src="examples/swapped_axes.svg" alt="Swapped Axes" /><p align="center">Swapped Axes</p></td>
         <td><img src="examples/line.svg" alt="Line" /><p align="center">Line</p></td>
-        <td><img src="examples/time_scale.svg" alt="Time Scale" /><p align="center">Donut</p></td>
+        <td><img src="examples/time_scale.svg" alt="Time Scale" /><p align="center">Time Scale</p></td>
     </tr>
     <tr>
         <td><img src="examples/pie.svg" alt="Pie" /><p align="center">Pie</p></td>
