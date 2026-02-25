@@ -348,10 +348,10 @@ This gallery contains a selection of examples of the plots charton can create. G
         <td><img src="examples/time_scale.svg" alt="Time Scale" /><p align="center">Donut</p></td>
     </tr>
     <tr>
-        <td><img src="examples/pie.svg" alt="Pie" /><p align="center">Log Scale</p></td>
-        <td><img src="examples/donut.svg" alt="Donut" /><p align="center">Swapped Axes</p></td>
-        <td><img src="examples/rose.svg" alt="Rose" /><p align="center">Line</p></td>
-        <td><img src="examples/nightingale.svg" alt="Nightingale" /><p align="center">Donut</p></td>
+        <td><img src="examples/pie.svg" alt="Pie" /><p align="center">Pie</p></td>
+        <td><img src="examples/donut.svg" alt="Donut" /><p align="center">Donut</p></td>
+        <td><img src="examples/rose.svg" alt="Rose" /><p align="center">Rose</p></td>
+        <td><img src="examples/nightingale.svg" alt="Nightingale" /><p align="center">Nightingale</p></td>
     </tr>
 </table>
 
