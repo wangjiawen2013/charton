@@ -23,7 +23,7 @@ fn test_pie() -> Result<(), Box<dyn Error>> {
     LayeredChart::new()
         .add_layer(donut)
         .with_coord(CoordSystem::Polar)
-        .save("./examples/pie.svg")?;
+        .save("./tests/pie.svg")?;
 
     Ok(())
 }
@@ -50,7 +50,7 @@ fn test_donut() -> Result<(), Box<dyn Error>> {
         .add_layer(donut)
         .with_coord(CoordSystem::Polar)
         .with_inner_radius(0.5)  // Creates a donut chart
-        .save("./examples/donut.svg")?;
+        .save("./tests/donut.svg")?;
 
     Ok(())
 }
@@ -74,7 +74,7 @@ fn test_rose() -> Result<(), Box<dyn Error>> {
         .add_layer(bar)
         .with_y_label("value")
         .with_coord(CoordSystem::Polar)
-        .save("./examples/rose.svg")?;
+        .save("./tests/rose.svg")?;
 
     Ok(())
 }
@@ -101,7 +101,7 @@ fn test_nightingale() -> Result<(), Box<dyn Error>> {
         .with_title("Colored Bar Chart Example")
         .add_layer(colored_bar_chart)
         .with_coord(CoordSystem::Polar)
-        .save("./examples/nightingale.svg")?;
+        .save("./tests/nightingale.svg")?;
 
     Ok(())
 }
