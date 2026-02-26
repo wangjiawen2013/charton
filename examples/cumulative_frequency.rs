@@ -16,13 +16,12 @@ fn main() -> Result<(), Box<dyn Error>> {
                 WindowOnlyOp::CumeDist,
                 "ecdf", // This will be the output column name
             ))
-            //.with_groupby("species")
+            .with_groupby("species")
             .with_normalize(false),
         )?
         .mark_line()?
         .configure_line(|l| l.with_interpolation("step")) // Add step interpolation
-        //.encode((x("sepal_length"), y("ecdf"), color("species")))?;
-        .encode((x("sepal_length"), y("ecdf")))?;
+        .encode((x("sepal_length"), y("ecdf"), color("species")))?;
 
     // Create layered chart for display
     LayeredChart::new()
