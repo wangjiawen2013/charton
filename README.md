@@ -320,13 +320,13 @@ This gallery contains a selection of examples of the plots charton can create. G
     <tr>
         <td><img src="examples/altair.svg" alt="Altair" /><p align="center">Altair</p></td>
         <td><img src="examples/matplotlib.png" alt="Matplotlib" /><p align="center">Matplotlib</p></td>
-        <td><img src="examples/grouped_bar_chart.svg" alt="Grouped Bar Chart" /><p align="center">Grouped Bar Chart</p></td>
+        <td><img src="examples/grouped_bar.svg" alt="Grouped Bar Chart" /><p align="center">Grouped Bar Chart</p></td>
         <td><img src="examples/distribution.svg" alt="Distribution" /><p align="center">Distribution</p></td>
     </tr>
     <tr>
         <td><img src="examples/histogram.svg" alt="Histogram" /><p align="center">Histogram</p></td>
         <td><img src="examples/rule.svg" alt="Rule" /><p align="center">Rule</p></td>
-        <td><img src="examples/stacked_bar_chart.svg" alt="Stacked Bar Chart" /><p align="center">Stacked Bar Chart</p></td>
+        <td><img src="examples/stacked_bar.svg" alt="Stacked Bar Chart" /><p align="center">Stacked Bar Chart</p></td>
         <td><img src="examples/text.svg" alt="Text" /><p align="center">Text</p></td>
     </tr>
     <tr>
@@ -337,7 +337,7 @@ This gallery contains a selection of examples of the plots charton can create. G
     </tr>
     <tr>
         <td><img src="examples/heatmap.svg" alt="Heatmap" /><p align="center">Heatmap</p></td>
-        <td><img src="examples/scatter_chart.svg" alt="Scatter Chart" /><p align="center">Scatter Chart</p></td>
+        <td><img src="examples/scatter.svg" alt="Scatter Chart" /><p align="center">Scatter Chart</p></td>
         <td><img src="examples/line_with_errorbar.svg" alt="Line Errorbar" /><p align="center">Line Errorbar</p></td>
         <td><img src="examples/bar_with_errorbar.svg" alt="Bar Errorbar" /><p align="center">Bar Errorbar</p></td>
     </tr>
