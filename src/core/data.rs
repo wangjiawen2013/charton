@@ -226,6 +226,7 @@ pub(crate) fn check_schema(
 ///   - `"mtcars"`: Motor trend car road tests dataset (32 rows × 12 columns)
 ///   - `"iris"`: Edgar Anderson's Iris Data (150 rows × 5 columns)
 ///   - `"mpg"`: Subset of first 10 rows from UCI Auto MPG dataset
+///   - `"nightingale"`: Dataset for Florence Nightingale's famous polar area diagram.
 ///
 /// # Returns
 ///
@@ -454,6 +455,62 @@ pub fn load_dataset(dataset: &str) -> Result<DataFrame, ChartonError> {
                     "pontiac catalina",
                     "amc ambassador dpl"
                 ]
+            ]?;
+
+            Ok(df)
+        }
+        // Nightingale wind rose dataset from https://github.com/stdlib-js/datasets-nightingales-rose/blob/main/data/data.csv
+        // and https://github.com/vincentarelbundock/Rdatasets/blob/master/csv/HistData/Nightingale.csv
+        "nightingale" => {
+            let date: &[&str; 36] = &[
+                "1854-04-01T07:00:00.000Z", "1854-05-01T07:00:00.000Z", "1854-06-01T07:00:00.000Z", "1854-07-01T07:00:00.000Z",
+                "1854-08-01T07:00:00.000Z", "1854-09-01T07:00:00.000Z", "1854-10-01T07:00:00.000Z", "1854-11-01T07:00:00.000Z",
+                "1854-12-01T08:00:00.000Z", "1855-01-01T08:00:00.000Z", "1855-02-01T08:00:00.000Z", "1855-03-01T08:00:00.000Z",
+                "1854-04-01T07:00:00.000Z", "1854-05-01T07:00:00.000Z", "1854-06-01T07:00:00.000Z", "1854-07-01T07:00:00.000Z",
+                "1854-08-01T07:00:00.000Z", "1854-09-01T07:00:00.000Z", "1854-10-01T07:00:00.000Z", "1854-11-01T07:00:00.000Z",
+                "1854-12-01T08:00:00.000Z", "1855-01-01T08:00:00.000Z", "1855-02-01T08:00:00.000Z", "1855-03-01T08:00:00.000Z",
+                "1854-04-01T07:00:00.000Z", "1854-05-01T07:00:00.000Z", "1854-06-01T07:00:00.000Z", "1854-07-01T07:00:00.000Z",
+                "1854-08-01T07:00:00.000Z", "1854-09-01T07:00:00.000Z", "1854-10-01T07:00:00.000Z", "1854-11-01T07:00:00.000Z",
+                "1854-12-01T08:00:00.000Z", "1855-01-01T08:00:00.000Z", "1855-02-01T08:00:00.000Z", "1855-03-01T08:00:00.000Z"
+            ];
+            
+            let month: &[&str; 36] = &[
+                "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec", "Jan", "Feb", "Mar",
+                "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec", "Jan", "Feb", "Mar",
+                "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec", "Jan", "Feb", "Mar"
+            ];
+
+            let year: &[&str; 36] = &[
+                "1854", "1854", "1854", "1854", "1854", "1854", "1854", "1854", "1854", "1855", "1855", "1855",
+                "1854", "1854", "1854", "1854", "1854", "1854", "1854", "1854", "1854", "1855", "1855", "1855",
+                "1854", "1854", "1854", "1854", "1854", "1854", "1854", "1854", "1854", "1855", "1855", "1855"
+            ];
+
+            let army: &[u32; 36] = &[
+                8571, 23333, 28333, 28722, 30246, 30290, 30643, 29736, 32779, 32393, 30919, 30107,
+                8571, 23333, 28333, 28722, 30246, 30290, 30643, 29736, 32779, 32393, 30919, 30107,
+                8571, 23333, 28333, 28722, 30246, 30290, 30643, 29736, 32779, 32393, 30919, 30107
+            ];
+
+            let deaths: &[u32; 36] = &[
+                0, 0, 0, 0, 1, 81, 132, 287, 114, 83, 42, 32,
+                5, 9, 6, 23, 30, 70, 128, 106, 131, 324, 361, 172,
+                1, 12, 11, 359, 828, 788, 503, 844, 1725, 2761, 2120, 1205
+            ];
+
+            let cause: &[&str; 36] = &[
+                "Wounds", "Wounds", "Wounds", "Wounds", "Wounds", "Wounds", "Wounds", "Wounds", "Wounds", "Wounds", "Wounds", "Wounds",
+                "Other", "Other", "Other", "Other", "Other", "Other", "Other", "Other", "Other", "Other", "Other", "Other",
+                "Disease", "Disease", "Disease", "Disease", "Disease", "Disease", "Disease", "Disease", "Disease", "Disease", "Disease", "Disease"
+            ];
+
+            let df = df![
+                "Date" => date,
+                "Month" => month,
+                "Year" => year,
+                "Army" => army,
+                "Deaths" => deaths,
+                "Cause" => cause,
             ]?;
 
             Ok(df)
