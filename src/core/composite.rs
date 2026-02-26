@@ -645,7 +645,7 @@ impl LayeredChart {
         
         // Calculate the vertical midpoint. 
         // Note: Using 'dominant-baseline="middle"' allows us to use the exact midpoint as the Y coordinate.
-        let center_y = title_area_height / 5.0;
+        let center_y = title_area_height / 4.0;
 
         // 4. Style Metadata Extraction:
         let font_family = &self.theme.title_family;
