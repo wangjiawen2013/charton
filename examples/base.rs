@@ -30,12 +30,12 @@ fn main() -> Result<(), Box<dyn Error>> {
 
     // 5. Assemble into a Layered Composition
     // The LayeredChart acts as a container for these specialized specs.
-    let chart = LayeredChart::new()
+    let lc = LayeredChart::new()
         .add_layer(line_layer)
         .add_layer(scatter_layer);
 
     // 6. Export the final visualization
-    chart.save("./examples/base.svg")?;
+    lc.save("./examples/base.svg")?;
 
     Ok(())
 }
