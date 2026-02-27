@@ -34,7 +34,6 @@ For most use cases involving single-layer charts, Charton provides a streamlined
 use charton::prelude::*;
 use polars::prelude::*;
 use std::error::Error;
-// register_polars_bridge!();  // Use this if you're using Polars not compatible with polars 0.49
 
 fn main() -> Result<(), Box<dyn Error>> {
     // Create a polars dataframe
@@ -187,7 +186,7 @@ The following code shows a minimal example of this.
 
 ```rust
 :dep charton = { version="0.3.0" }
-:dep polars = { version="0.49.1" }
+:dep polars = { version="0.49" }
 
 use charton::prelude::*;
 use polars::prelude::*;
@@ -215,8 +214,8 @@ Run it in a Jupyter Notebook cell, and the chart will be displayed inline.
 The same workflow applies when using external visualization libraries: place the corresponding Rust code snippet into a Jupyter cell, and Charton will render the visualization interactively.
 
 ```rust
-:dep charton = { version="0.2.1" }
-:dep polars = { version="0.49.1" }
+:dep charton = { version="0.3.0" }
+:dep polars = { version="0.49" }
 
 use charton::prelude::*;
 use polars::prelude::df;
