@@ -21,11 +21,13 @@ fn test_transform_calculate_1() -> Result<(), Box<dyn Error>> {
         )?
         .mark_errorbar()?
         .encode((x("type"), y("value_min"), y2("value_max")))?
-        .configure_errorbar(|e| e
-            .with_color("blue")
-            .with_stroke_width(2.0)
-            .with_cap_length(5.0)
-            .with_center(true) // Show center point
+        .configure_errorbar(
+            |e| {
+                e.with_color("blue")
+                    .with_stroke_width(2.0)
+                    .with_cap_length(5.0)
+                    .with_center(true)
+            }, // Show center point
         );
 
     // Create a layered chart and add the errorbar chart as a layer

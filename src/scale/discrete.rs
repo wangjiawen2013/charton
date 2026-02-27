@@ -1,43 +1,43 @@
-use super::{ScaleTrait, Scale, ScaleDomain, Tick, mapper::VisualMapper};
+use super::{Scale, ScaleDomain, ScaleTrait, Tick, mapper::VisualMapper};
 use std::collections::HashMap;
 
 /// A scale for categorical data that maps discrete values to normalized slots.
-/// 
-/// In `Charton`, a `DiscreteScale` divides the normalized [0, 1] range into 
-/// equal bands. Data points are centered within these bands, which is 
+///
+/// In `Charton`, a `DiscreteScale` divides the normalized [0, 1] range into
+/// equal bands. Data points are centered within these bands, which is
 /// standard for bar charts, box plots, or categorical dot plots.
-/// 
-/// For visual mapping (Color, Shape), this scale uses the integer index of the 
+///
+/// For visual mapping (Color, Shape), this scale uses the integer index of the
 /// category to look up values in a palette or list via the `VisualMapper`.
 #[derive(Debug, Clone)]
 pub struct DiscreteScale {
     /// The unique categorical labels in the order they should appear.
     domain: Vec<String>,
-    
+
     /// A lookup map to provide O(1) performance when finding a category's index.
     index_map: HashMap<String, usize>,
-    
+
     /// The expanded index boundaries: (min_idx, max_idx).
-    /// Typically (-0.6, N - 1 + 0.6) to provide breathing room for visual marks 
+    /// Typically (-0.6, N - 1 + 0.6) to provide breathing room for visual marks
     /// like bars so they don't touch the axis edges.
     expanded_range: (f64, f64),
 
-    /// The optional visual mapper used to convert discrete indices 
+    /// The optional visual mapper used to convert discrete indices
     /// into aesthetics like specific colors or shapes.
     mapper: Option<VisualMapper>,
 }
 
 impl DiscreteScale {
     /// Creates a new `DiscreteScale` from a list of categories and expansion settings.
-    /// 
+    ///
     /// # Arguments
     /// * `domain` - A vector of unique category strings.
     /// * `expand` - The expansion constants (usually add: 0.6 for discrete scales).
     /// * `mapper` - Optional visual mapping logic for categorical aesthetics.
     pub fn new(
-        domain: Vec<String>, 
+        domain: Vec<String>,
         expansion: crate::scale::Expansion,
-        mapper: Option<VisualMapper>
+        mapper: Option<VisualMapper>,
     ) -> Self {
         let mut index_map = HashMap::with_capacity(domain.len());
         for (i, val) in domain.iter().enumerate() {
@@ -50,7 +50,7 @@ impl DiscreteScale {
         } else {
             // Calculate padding in index space.
             let range = (n - 1) as f64;
-            
+
             let lower_padding = range * expansion.mult.0 + expansion.add.0;
             let upper_padding = range * expansion.mult.1 + expansion.add.1;
 
@@ -72,21 +72,23 @@ impl DiscreteScale {
 }
 
 impl ScaleTrait for DiscreteScale {
-    fn scale_type(&self) -> Scale { Scale::Discrete }
+    fn scale_type(&self) -> Scale {
+        Scale::Discrete
+    }
 
     /// Transforms a categorical index into a normalized [0, 1] ratio.
-    /// 
+    ///
     /// Because of the `expanded_range`, an index of 0 will not map to 0.0 on screen,
-    /// but rather to a slightly offset value, ensuring the first category 
+    /// but rather to a slightly offset value, ensuring the first category
     /// has visual padding from the axis.
     fn normalize(&self, value: f64) -> f64 {
         let (min, max) = self.expanded_range;
         let range = max - min;
-        
-        if range.abs() < 1e-9 { 
-            return 0.5; 
+
+        if range.abs() < 1e-9 {
+            return 0.5;
         }
-        
+
         // Map the index 'value' into the [min, max] expanded coordinate space.
         ((value - min) / range) as f64
     }
@@ -96,7 +98,7 @@ impl ScaleTrait for DiscreteScale {
     fn normalize_string(&self, value: &str) -> f64 {
         match self.index_map.get(value) {
             Some(&index) => self.normalize(index as f64),
-            None => 0.0, 
+            None => 0.0,
         }
     }
 
@@ -106,7 +108,7 @@ impl ScaleTrait for DiscreteScale {
     }
 
     /// Returns the maximum index (N - 1).
-    /// 
+    ///
     /// This is crucial for `VisualMapper` when using indexed palettes (e.g., Color1, Color2...).
     /// It tells the mapper the total number of discrete steps available.
     fn logical_max(&self) -> f64 {
@@ -120,16 +122,18 @@ impl ScaleTrait for DiscreteScale {
     }
 
     /// Generates ticks for every category in the domain.
-    /// 
-    /// For discrete scales, we ignore the requested `count` because every 
+    ///
+    /// For discrete scales, we ignore the requested `count` because every
     /// category is typically an essential label on the axis.
     fn ticks(&self, _count: usize) -> Vec<Tick> {
-        self.domain.iter().enumerate().map(|(i, label)| {
-            Tick {
+        self.domain
+            .iter()
+            .enumerate()
+            .map(|(i, label)| Tick {
                 value: i as f64,
                 label: label.clone(),
-            }
-        }).collect()
+            })
+            .collect()
     }
 
     /// Returns the raw category list as a Categorical domain variant.
@@ -138,27 +142,29 @@ impl ScaleTrait for DiscreteScale {
     }
 
     /// Provides a sample of categories when the total count is too large for a legend.
-    /// 
-    /// If the domain is small, it returns all categories. If it exceeds `n`, 
+    ///
+    /// If the domain is small, it returns all categories. If it exceeds `n`,
     /// it selects `n` evenly distributed categories from the ordered set.
     fn sample_n(&self, n: usize) -> Vec<Tick> {
         let len = self.domain.len();
-        
+
         if len <= n || n == 0 {
             return self.ticks(n);
         }
 
-        (0..n).map(|i| {
-            let idx = if i == n - 1 {
-                len - 1
-            } else {
-                ((i as f64 * (len - 1) as f64) / (n - 1) as f64).round() as usize
-            };
+        (0..n)
+            .map(|i| {
+                let idx = if i == n - 1 {
+                    len - 1
+                } else {
+                    ((i as f64 * (len - 1) as f64) / (n - 1) as f64).round() as usize
+                };
 
-            Tick {
-                value: idx as f64,
-                label: self.domain[idx].clone(),
-            }
-        }).collect()
+                Tick {
+                    value: idx as f64,
+                    label: self.domain[idx].clone(),
+                }
+            })
+            .collect()
     }
 }

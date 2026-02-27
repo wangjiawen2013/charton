@@ -1,19 +1,19 @@
-use super::{CoordinateTrait, CoordLayout, Rect};
-use crate::theme::Theme;
-use crate::scale::ScaleTrait;
-use crate::visual::color::SingleColor;
+use super::{CoordLayout, CoordinateTrait, Rect};
 use crate::error::ChartonError;
+use crate::scale::ScaleTrait;
+use crate::theme::Theme;
+use crate::visual::color::SingleColor;
 use std::sync::Arc;
 
 /// A 2D Cartesian coordinate system.
-/// 
+///
 /// It maps normalized scale values [0, 1] onto a rectangular plane.
-/// This implementation handles axis swapping (coord_flip) and 
+/// This implementation handles axis swapping (coord_flip) and
 /// the translation from mathematical space to screen space.
 pub struct Cartesian2D {
     pub x_scale: Arc<dyn ScaleTrait>,
     pub y_scale: Arc<dyn ScaleTrait>,
-    /// Stores field names. During faceting, this ensures the coordinate 
+    /// Stores field names. During faceting, this ensures the coordinate
     /// system identifies its corresponding raw data columns.
     pub x_field: String,
     pub y_field: String,
@@ -50,13 +50,15 @@ impl CoordinateTrait for Cartesian2D {
         x_label: &str,
         y_label: &str,
     ) -> Result<(), ChartonError> {
-        crate::render::cartesian2d_axis_renderer::render_cartesian_axes(svg, theme, panel, self, x_label, y_label)
+        crate::render::cartesian2d_axis_renderer::render_cartesian_axes(
+            svg, theme, panel, self, x_label, y_label,
+        )
     }
 
-    /// Transforms logical data coordinates [0, 1] into physical screen pixels. 
-    /// Use this for rendering Mark geometries; for Axis rendering, calculate positions 
+    /// Transforms logical data coordinates [0, 1] into physical screen pixels.
+    /// Use this for rendering Mark geometries; for Axis rendering, calculate positions
     /// directly from the panel boundaries to ensure the visual frame remains fixed.
-    /// 
+    ///
     /// Following standard screen coordinates:
     /// - X increases from Left to Right.
     /// - Y increases from Top to Bottom (so we invert the normalized Y).
@@ -71,8 +73,8 @@ impl CoordinateTrait for Cartesian2D {
         // 2. Map normalized ratio to physical pixels within the panel
         // x_pixel = panel_left + (ratio * panel_width)
         let final_x = panel.x + (x_p * panel.width);
-        
-        // 3. Invert Y-axis: 0.0 (min) should be at the bottom of the panel, 
+
+        // 3. Invert Y-axis: 0.0 (min) should be at the bottom of the panel,
         // 1.0 (max) should be at the top.
         let final_y = panel.y + ((1.0 - y_p) * panel.height);
 
@@ -123,14 +125,14 @@ impl CoordinateTrait for Cartesian2D {
             default_bar_stroke_width: 1.0,
             // Bars occupy 50% of the available slot width by default.
             default_bar_width: 0.5,
-            
+
             // Provides a 0% gap between bars within the same group (dodge).
             default_bar_spacing: 0.0,
-            
+
             // The entire group covers 70% of the categorical band.
             default_bar_span: 0.7,
-            
-            // Cartesian systems map straight lines to straight lines; 
+
+            // Cartesian systems map straight lines to straight lines;
             // no extra points are needed between vertices.
             needs_interpolation: false,
         }

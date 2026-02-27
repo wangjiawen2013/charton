@@ -1,27 +1,27 @@
-use crate::visual::color::SingleColor;
-use crate::visual::shape::PointShape;
-use crate::theme::Theme;
-use crate::core::layer::{
-    CircleConfig, GradientRectConfig, LineConfig, PolygonConfig, RectConfig,
-    RenderBackend, TextConfig,
-};
-use crate::Precision;
 use super::backend::svg::SvgBackend;
-use crate::core::guide::{GuideSpec, LegendPosition, GuideSize, GuideKind};
+use crate::Precision;
 use crate::core::context::PanelContext;
+use crate::core::guide::{GuideKind, GuideSize, GuideSpec, LegendPosition};
+use crate::core::layer::{
+    CircleConfig, GradientRectConfig, LineConfig, PolygonConfig, RectConfig, RenderBackend,
+    TextConfig,
+};
 use crate::scale::ScaleDomain;
 use crate::scale::mapper::VisualMapper;
+use crate::theme::Theme;
+use crate::visual::color::SingleColor;
+use crate::visual::shape::PointShape;
 
 /// LegendRenderer translates abstract GuideSpecs into visual SVG representations.
-/// 
-/// It operates globally on the chart canvas but uses a PanelContext to anchor itself 
+///
+/// It operates globally on the chart canvas but uses a PanelContext to anchor itself
 /// relative to the primary plotting area.
 pub struct LegendRenderer;
 
 impl LegendRenderer {
     /// The primary entry point for rendering all legends and colorbars.
-    /// 
-    /// It coordinates the layout flow (wrapping blocks) based on the available space 
+    ///
+    /// It coordinates the layout flow (wrapping blocks) based on the available space
     /// around the provided PanelContext.
     pub fn render_legend(
         buffer: &mut String,
@@ -31,7 +31,7 @@ impl LegendRenderer {
     ) {
         // Resolve the legend position from the theme.
         let position = theme.legend_position;
-        
+
         if specs.is_empty() || matches!(position, LegendPosition::None) {
             return;
         }
@@ -39,7 +39,7 @@ impl LegendRenderer {
         let mut backend = SvgBackend::new(buffer, None);
         let font_size = theme.legend_label_size;
         let font_family = &theme.legend_label_family;
-        
+
         // Layout orientation: Top/Bottom positions are horizontal; Left/Right are vertical.
         let is_horizontal = matches!(position, LegendPosition::Top | LegendPosition::Bottom);
 
@@ -48,18 +48,26 @@ impl LegendRenderer {
 
         let mut current_x = start_x;
         let mut current_y = start_y;
-        let mut max_dim_in_row_col = 0.0; 
+        let mut max_dim_in_row_col = 0.0;
         let block_gap = theme.legend_block_gap;
 
         for spec in specs {
-            // Estimate size for wrapping calculations. 
+            // Estimate size for wrapping calculations.
             // In faceted plots, we typically use the full height of the plot area.
-            let block_size = spec.estimate_size(theme, if is_horizontal { 150.0 } else { ctx.panel.height });
+            let block_size = spec.estimate_size(
+                theme,
+                if is_horizontal {
+                    150.0
+                } else {
+                    ctx.panel.height
+                },
+            );
 
             // --- Macro-Layout Wrapping ---
             // If the next legend block exceeds the panel's bounds, wrap to a new row/column.
             if !is_horizontal {
-                if current_y + block_size.height > start_y + ctx.panel.height && current_y > start_y {
+                if current_y + block_size.height > start_y + ctx.panel.height && current_y > start_y
+                {
                     current_x += max_dim_in_row_col + block_gap;
                     current_y = start_y;
                     max_dim_in_row_col = block_size.width;
@@ -96,13 +104,25 @@ impl LegendRenderer {
             let actual_block_size = match spec.kind {
                 GuideKind::ColorBar => {
                     Self::draw_colorbar(&mut backend, spec, ctx, current_x, content_y_offset, theme)
-                },
+                }
                 GuideKind::Legend => {
                     let (labels, colors, shapes, sizes) = Self::resolve_mappings(spec, ctx);
                     Self::draw_spec_group(
-                        &mut backend, spec, &labels, &colors, shapes.as_deref(), sizes.as_deref(),
-                        current_x, content_y_offset, font_size, theme,
-                        if is_horizontal { 150.0 } else { ctx.panel.height }
+                        &mut backend,
+                        spec,
+                        &labels,
+                        &colors,
+                        shapes.as_deref(),
+                        sizes.as_deref(),
+                        current_x,
+                        content_y_offset,
+                        font_size,
+                        theme,
+                        if is_horizontal {
+                            150.0
+                        } else {
+                            ctx.panel.height
+                        },
                     )
                 }
             };
@@ -126,7 +146,7 @@ impl LegendRenderer {
         theme: &Theme,
     ) -> GuideSize {
         let bar_w = 15.0;
-        let bar_h = 150.0; 
+        let bar_h = 150.0;
         let font_size = theme.legend_label_size;
         let font_family = &theme.legend_label_family;
 
@@ -177,7 +197,7 @@ impl LegendRenderer {
                 let norm = mapping.scale_impl.normalize(tick.value);
                 let tick_y = y + (bar_h * (1.0 - norm));
 
-                let line_config = LineConfig { 
+                let line_config = LineConfig {
                     x1: x as Precision,
                     y1: tick_y as Precision,
                     x2: (x + 3.0) as Precision,
@@ -189,7 +209,7 @@ impl LegendRenderer {
                 };
                 backend.draw_line(line_config);
 
-                let line_config = LineConfig { 
+                let line_config = LineConfig {
                     x1: (x + bar_w - 3.0) as Precision,
                     y1: tick_y as Precision,
                     x2: (x + bar_w) as Precision,
@@ -213,7 +233,7 @@ impl LegendRenderer {
                     opacity: 1.0,
                 };
                 backend.draw_text(text_config);
-                
+
                 let lw = crate::core::utils::estimate_text_width(&tick.label, font_size);
                 max_label_w = f64::max(max_label_w, lw);
             }
@@ -243,9 +263,9 @@ impl LegendRenderer {
         let mut item_y = y;
         let mut current_col_w = 0.0;
         let mut total_w = 0.0;
-        
+
         let font_family = &theme.legend_label_family;
-        let fixed_container_size = 18.0; 
+        let fixed_container_size = 18.0;
 
         for (i, label) in labels.iter().enumerate() {
             let r = sizes.and_then(|s| s.get(i)).cloned().unwrap_or(5.0);
@@ -265,22 +285,25 @@ impl LegendRenderer {
             let shape = shapes.and_then(|s| s.get(i)).unwrap_or(&PointShape::Circle);
 
             Self::draw_symbol(
-                backend, shape, 
-                col_x + (fixed_container_size / 2.0), 
-                item_y + (row_h / 2.0), r, colors.get(i).unwrap_or(&"#333333".into())
+                backend,
+                shape,
+                col_x + (fixed_container_size / 2.0),
+                item_y + (row_h / 2.0),
+                r,
+                colors.get(i).unwrap_or(&"#333333".into()),
             );
 
-                let text_config = TextConfig {
-                    text: label.clone(),
-                    x: (col_x + fixed_container_size + theme.legend_marker_text_gap) as Precision,
-                    y: (item_y + row_h * 0.75) as Precision,
-                    font_size: font_size as Precision,
-                    font_family: font_family.clone(),
-                    color: theme.legend_label_color,
-                    text_anchor: "start".to_string(),
-                    font_weight: "normal".to_string(),
-                    opacity: 1.0,
-                };
+            let text_config = TextConfig {
+                text: label.clone(),
+                x: (col_x + fixed_container_size + theme.legend_marker_text_gap) as Precision,
+                y: (item_y + row_h * 0.75) as Precision,
+                font_size: font_size as Precision,
+                font_family: font_family.clone(),
+                color: theme.legend_label_color,
+                text_anchor: "start".to_string(),
+                font_weight: "normal".to_string(),
+                opacity: 1.0,
+            };
             backend.draw_text(text_config);
 
             item_y += row_h + theme.legend_item_v_gap;
@@ -296,11 +319,16 @@ impl LegendRenderer {
     fn resolve_mappings(
         spec: &GuideSpec,
         ctx: &PanelContext,
-    ) -> (Vec<String>, Vec<SingleColor>, Option<Vec<PointShape>>, Option<Vec<f64>>) {
+    ) -> (
+        Vec<String>,
+        Vec<SingleColor>,
+        Option<Vec<PointShape>>,
+        Option<Vec<f64>>,
+    ) {
         let (labels, values_f64): (Vec<String>, Vec<f64>) = match &spec.domain {
             ScaleDomain::Discrete(values) => (values.clone(), Vec::new()),
             _ => {
-                let ticks = spec.get_sampling_ticks(); 
+                let ticks = spec.get_sampling_ticks();
                 let l = ticks.iter().map(|t| t.label.clone()).collect();
                 let v = ticks.iter().map(|t| t.value).collect();
                 (l, v)
@@ -313,13 +341,22 @@ impl LegendRenderer {
 
         // Check availability of specific mappers
         let has_color = spec.mappings.iter().any(|m| {
-            m.scale_impl.mapper().map_or(false, |v| matches!(v, VisualMapper::DiscreteColor {..} | VisualMapper::ContinuousColor {..}))
+            m.scale_impl.mapper().map_or(false, |v| {
+                matches!(
+                    v,
+                    VisualMapper::DiscreteColor { .. } | VisualMapper::ContinuousColor { .. }
+                )
+            })
         });
         let has_shape = spec.mappings.iter().any(|m| {
-            m.scale_impl.mapper().map_or(false, |v| matches!(v, VisualMapper::Shape { .. }))
+            m.scale_impl
+                .mapper()
+                .map_or(false, |v| matches!(v, VisualMapper::Shape { .. }))
         });
         let has_size = spec.mappings.iter().any(|m| {
-            m.scale_impl.mapper().map_or(false, |v| matches!(v, VisualMapper::Size { .. }))
+            m.scale_impl
+                .mapper()
+                .map_or(false, |v| matches!(v, VisualMapper::Size { .. }))
         });
 
         for (i, label_str) in labels.iter().enumerate() {
@@ -328,47 +365,74 @@ impl LegendRenderer {
             // Resolve Color
             if has_color {
                 if let Some(ref mapping) = ctx.spec.aesthetics.color {
-                    let norm = val_f64.map(|v| mapping.scale_impl.normalize(v))
+                    let norm = val_f64
+                        .map(|v| mapping.scale_impl.normalize(v))
                         .unwrap_or_else(|| mapping.scale_impl.normalize_string(label_str));
 
-                    let color = mapping.scale_impl.mapper()
+                    let color = mapping
+                        .scale_impl
+                        .mapper()
                         .map(|m| m.map_to_color(norm, mapping.scale_impl.logical_max()))
                         .unwrap_or_else(|| "#333333".into());
                     colors.push(color);
                 }
-            } else { colors.push("#333333".into()); }
+            } else {
+                colors.push("#333333".into());
+            }
 
             // Resolve Shape
             if has_shape {
                 if let Some(ref mapping) = ctx.spec.aesthetics.shape {
-                    let norm = val_f64.map(|v| mapping.scale_impl.normalize(v))
+                    let norm = val_f64
+                        .map(|v| mapping.scale_impl.normalize(v))
                         .unwrap_or_else(|| mapping.scale_impl.normalize_string(label_str));
 
-                    let shape = mapping.scale_impl.mapper()
+                    let shape = mapping
+                        .scale_impl
+                        .mapper()
                         .map(|m| m.map_to_shape(norm, mapping.scale_impl.logical_max()))
                         .unwrap_or(PointShape::Circle);
                     shapes.push(shape);
                 }
-            } else { shapes.push(PointShape::Circle); }
+            } else {
+                shapes.push(PointShape::Circle);
+            }
 
             // Resolve Size
             if has_size {
                 if let Some(ref mapping) = ctx.spec.aesthetics.size {
-                    let norm = val_f64.map(|v| mapping.scale_impl.normalize(v))
+                    let norm = val_f64
+                        .map(|v| mapping.scale_impl.normalize(v))
                         .unwrap_or_else(|| mapping.scale_impl.normalize_string(label_str));
 
-                    let size = mapping.scale_impl.mapper()
+                    let size = mapping
+                        .scale_impl
+                        .mapper()
                         .map(|m| m.map_to_size(norm))
                         .unwrap_or(5.0);
                     sizes.push(size);
                 }
-            } else { sizes.push(5.0); }
+            } else {
+                sizes.push(5.0);
+            }
         }
 
-        (labels, colors, if has_shape { Some(shapes) } else { None }, if has_size { Some(sizes) } else { None })
+        (
+            labels,
+            colors,
+            if has_shape { Some(shapes) } else { None },
+            if has_size { Some(sizes) } else { None },
+        )
     }
 
-    fn draw_symbol(backend: &mut dyn RenderBackend, shape: &PointShape, cx: f64, cy: f64, r: f64, color: &SingleColor) {
+    fn draw_symbol(
+        backend: &mut dyn RenderBackend,
+        shape: &PointShape,
+        cx: f64,
+        cy: f64,
+        r: f64,
+        color: &SingleColor,
+    ) {
         match shape {
             PointShape::Circle => {
                 let circle_config = CircleConfig {
@@ -381,7 +445,7 @@ impl LegendRenderer {
                     opacity: 1.0,
                 };
                 backend.draw_circle(circle_config);
-            },
+            }
             PointShape::Square => {
                 let rect_config = RectConfig {
                     x: (cx - r) as Precision,
@@ -394,12 +458,12 @@ impl LegendRenderer {
                     opacity: 1.0,
                 };
                 backend.draw_rect(rect_config);
-            },
+            }
             PointShape::Triangle => {
                 let pts = vec![
                     (cx as Precision, (cy - r) as Precision),
                     ((cx - r) as Precision, (cy + r) as Precision),
-                    ((cx + r) as Precision, (cy + r) as Precision)
+                    ((cx + r) as Precision, (cy + r) as Precision),
                 ];
                 let polygon_config = PolygonConfig {
                     points: pts,
@@ -410,13 +474,13 @@ impl LegendRenderer {
                     stroke_opacity: 1.0,
                 };
                 backend.draw_polygon(polygon_config);
-            },
+            }
             PointShape::Diamond => {
                 let pts = vec![
                     (cx as Precision, (cy - r) as Precision),
                     ((cx + r) as Precision, cy as Precision),
                     (cx as Precision, (cy + r) as Precision),
-                    ((cx - r) as Precision, cy as Precision)
+                    ((cx - r) as Precision, cy as Precision),
                 ];
                 let polygon_config = PolygonConfig {
                     points: pts,
@@ -427,7 +491,7 @@ impl LegendRenderer {
                     stroke_opacity: 1.0,
                 };
                 backend.draw_polygon(polygon_config);
-            },
+            }
             _ => {
                 let circle_config = CircleConfig {
                     x: cx as Precision,

@@ -1,6 +1,6 @@
 use crate::error::ChartonError;
-use polars::prelude::*;
 use polars::datatypes::DataType;
+use polars::prelude::*;
 use std::collections::HashMap;
 use std::io::Cursor;
 
@@ -110,14 +110,16 @@ impl IntoChartonSource for Vec<u8> {
 }
 
 // A helper function to convert numeric columns to f64
-pub(crate) fn convert_numeric_types(df_source: DataFrameSource) -> Result<DataFrameSource, ChartonError> {
+pub(crate) fn convert_numeric_types(
+    df_source: DataFrameSource,
+) -> Result<DataFrameSource, ChartonError> {
     let mut new_columns = Vec::new();
 
     for col in df_source.df.get_columns() {
         use polars::datatypes::DataType::*;
         match col.dtype() {
-            UInt8 | UInt16 | UInt32 | UInt64 | Int8 | Int16 | Int32 | Int64 | Int128
-            | Float32 | Float64 => {
+            UInt8 | UInt16 | UInt32 | UInt64 | Int8 | Int16 | Int32 | Int64 | Int128 | Float32
+            | Float64 => {
                 let casted = col.cast(&Float64)?;
                 new_columns.push(casted);
             }
@@ -133,18 +135,18 @@ pub(crate) fn convert_numeric_types(df_source: DataFrameSource) -> Result<DataFr
 }
 
 /// Represents the high-level semantic category of a data column.
-/// 
+///
 /// We use Continuous/Discrete to distinguish between data that requires
-/// interpolation (gradients/linear scales) and data that requires 
+/// interpolation (gradients/linear scales) and data that requires
 /// indexing (palettes/point scales).
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum SemanticType {
     /// Quantitative/Numeric data (e.g., 1.2, 5.5, 100.0).
     Continuous,
-    
+
     /// Categorical/Qualitative data (e.g., "Apple", "Orange", true/false).
     Discrete,
-    
+
     /// Time-based data (e.g., 2026-01-21).
     Temporal,
 }
@@ -153,9 +155,12 @@ pub enum SemanticType {
 pub(crate) fn interpret_semantic_type(dtype: &DataType) -> SemanticType {
     match dtype {
         // Numeric types -> Continuous
-        DataType::Float32 | DataType::Float64 |
-        DataType::Int32   | DataType::Int64   |
-        DataType::UInt32  | DataType::UInt64  => SemanticType::Continuous,
+        DataType::Float32
+        | DataType::Float64
+        | DataType::Int32
+        | DataType::Int64
+        | DataType::UInt32
+        | DataType::UInt64 => SemanticType::Continuous,
 
         // Time types -> Temporal
         DataType::Date | DataType::Datetime(_, _) | DataType::Time => SemanticType::Temporal,
@@ -170,11 +175,11 @@ pub(crate) fn interpret_semantic_type(dtype: &DataType) -> SemanticType {
     }
 }
 
-/// Validates that the DataFrame contains the required columns and that their 
+/// Validates that the DataFrame contains the required columns and that their
 /// data types align with the expected semantic categories (Continuous, Discrete, Temporal).
 ///
-/// This validation ensures that aesthetic mappings (e.g., color, size) are mathematically 
-/// compatible with the underlying data. For instance, a 'size' encoding typically 
+/// This validation ensures that aesthetic mappings (e.g., color, size) are mathematically
+/// compatible with the underlying data. For instance, a 'size' encoding typically
 /// requires 'Continuous' data to map values to pixel diameters.
 ///
 /// # Arguments
@@ -463,45 +468,74 @@ pub fn load_dataset(dataset: &str) -> Result<DataFrame, ChartonError> {
         // and https://github.com/vincentarelbundock/Rdatasets/blob/master/csv/HistData/Nightingale.csv
         "nightingale" => {
             let date: &[&str; 36] = &[
-                "1854-04-01T07:00:00.000Z", "1854-05-01T07:00:00.000Z", "1854-06-01T07:00:00.000Z", "1854-07-01T07:00:00.000Z",
-                "1854-08-01T07:00:00.000Z", "1854-09-01T07:00:00.000Z", "1854-10-01T07:00:00.000Z", "1854-11-01T07:00:00.000Z",
-                "1854-12-01T08:00:00.000Z", "1855-01-01T08:00:00.000Z", "1855-02-01T08:00:00.000Z", "1855-03-01T08:00:00.000Z",
-                "1854-04-01T07:00:00.000Z", "1854-05-01T07:00:00.000Z", "1854-06-01T07:00:00.000Z", "1854-07-01T07:00:00.000Z",
-                "1854-08-01T07:00:00.000Z", "1854-09-01T07:00:00.000Z", "1854-10-01T07:00:00.000Z", "1854-11-01T07:00:00.000Z",
-                "1854-12-01T08:00:00.000Z", "1855-01-01T08:00:00.000Z", "1855-02-01T08:00:00.000Z", "1855-03-01T08:00:00.000Z",
-                "1854-04-01T07:00:00.000Z", "1854-05-01T07:00:00.000Z", "1854-06-01T07:00:00.000Z", "1854-07-01T07:00:00.000Z",
-                "1854-08-01T07:00:00.000Z", "1854-09-01T07:00:00.000Z", "1854-10-01T07:00:00.000Z", "1854-11-01T07:00:00.000Z",
-                "1854-12-01T08:00:00.000Z", "1855-01-01T08:00:00.000Z", "1855-02-01T08:00:00.000Z", "1855-03-01T08:00:00.000Z"
+                "1854-04-01T07:00:00.000Z",
+                "1854-05-01T07:00:00.000Z",
+                "1854-06-01T07:00:00.000Z",
+                "1854-07-01T07:00:00.000Z",
+                "1854-08-01T07:00:00.000Z",
+                "1854-09-01T07:00:00.000Z",
+                "1854-10-01T07:00:00.000Z",
+                "1854-11-01T07:00:00.000Z",
+                "1854-12-01T08:00:00.000Z",
+                "1855-01-01T08:00:00.000Z",
+                "1855-02-01T08:00:00.000Z",
+                "1855-03-01T08:00:00.000Z",
+                "1854-04-01T07:00:00.000Z",
+                "1854-05-01T07:00:00.000Z",
+                "1854-06-01T07:00:00.000Z",
+                "1854-07-01T07:00:00.000Z",
+                "1854-08-01T07:00:00.000Z",
+                "1854-09-01T07:00:00.000Z",
+                "1854-10-01T07:00:00.000Z",
+                "1854-11-01T07:00:00.000Z",
+                "1854-12-01T08:00:00.000Z",
+                "1855-01-01T08:00:00.000Z",
+                "1855-02-01T08:00:00.000Z",
+                "1855-03-01T08:00:00.000Z",
+                "1854-04-01T07:00:00.000Z",
+                "1854-05-01T07:00:00.000Z",
+                "1854-06-01T07:00:00.000Z",
+                "1854-07-01T07:00:00.000Z",
+                "1854-08-01T07:00:00.000Z",
+                "1854-09-01T07:00:00.000Z",
+                "1854-10-01T07:00:00.000Z",
+                "1854-11-01T07:00:00.000Z",
+                "1854-12-01T08:00:00.000Z",
+                "1855-01-01T08:00:00.000Z",
+                "1855-02-01T08:00:00.000Z",
+                "1855-03-01T08:00:00.000Z",
             ];
-            
+
             let month: &[&str; 36] = &[
                 "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec", "Jan", "Feb", "Mar",
                 "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec", "Jan", "Feb", "Mar",
-                "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec", "Jan", "Feb", "Mar"
+                "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec", "Jan", "Feb", "Mar",
             ];
 
             let year: &[&str; 36] = &[
-                "1854", "1854", "1854", "1854", "1854", "1854", "1854", "1854", "1854", "1855", "1855", "1855",
-                "1854", "1854", "1854", "1854", "1854", "1854", "1854", "1854", "1854", "1855", "1855", "1855",
-                "1854", "1854", "1854", "1854", "1854", "1854", "1854", "1854", "1854", "1855", "1855", "1855"
+                "1854", "1854", "1854", "1854", "1854", "1854", "1854", "1854", "1854", "1855",
+                "1855", "1855", "1854", "1854", "1854", "1854", "1854", "1854", "1854", "1854",
+                "1854", "1855", "1855", "1855", "1854", "1854", "1854", "1854", "1854", "1854",
+                "1854", "1854", "1854", "1855", "1855", "1855",
             ];
 
             let army: &[u32; 36] = &[
                 8571, 23333, 28333, 28722, 30246, 30290, 30643, 29736, 32779, 32393, 30919, 30107,
                 8571, 23333, 28333, 28722, 30246, 30290, 30643, 29736, 32779, 32393, 30919, 30107,
-                8571, 23333, 28333, 28722, 30246, 30290, 30643, 29736, 32779, 32393, 30919, 30107
+                8571, 23333, 28333, 28722, 30246, 30290, 30643, 29736, 32779, 32393, 30919, 30107,
             ];
 
             let deaths: &[u32; 36] = &[
-                0, 0, 0, 0, 1, 81, 132, 287, 114, 83, 42, 32,
-                5, 9, 6, 23, 30, 70, 128, 106, 131, 324, 361, 172,
-                1, 12, 11, 359, 828, 788, 503, 844, 1725, 2761, 2120, 1205
+                0, 0, 0, 0, 1, 81, 132, 287, 114, 83, 42, 32, 5, 9, 6, 23, 30, 70, 128, 106, 131,
+                324, 361, 172, 1, 12, 11, 359, 828, 788, 503, 844, 1725, 2761, 2120, 1205,
             ];
 
             let cause: &[&str; 36] = &[
-                "Wounds", "Wounds", "Wounds", "Wounds", "Wounds", "Wounds", "Wounds", "Wounds", "Wounds", "Wounds", "Wounds", "Wounds",
-                "Other", "Other", "Other", "Other", "Other", "Other", "Other", "Other", "Other", "Other", "Other", "Other",
-                "Disease", "Disease", "Disease", "Disease", "Disease", "Disease", "Disease", "Disease", "Disease", "Disease", "Disease", "Disease"
+                "Wounds", "Wounds", "Wounds", "Wounds", "Wounds", "Wounds", "Wounds", "Wounds",
+                "Wounds", "Wounds", "Wounds", "Wounds", "Other", "Other", "Other", "Other",
+                "Other", "Other", "Other", "Other", "Other", "Other", "Other", "Other", "Disease",
+                "Disease", "Disease", "Disease", "Disease", "Disease", "Disease", "Disease",
+                "Disease", "Disease", "Disease", "Disease",
             ];
 
             let df = df![

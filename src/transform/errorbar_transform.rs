@@ -1,7 +1,7 @@
+use crate::TEMP_SUFFIX;
 use crate::chart::Chart;
 use crate::error::ChartonError;
 use crate::mark::Mark;
-use crate::TEMP_SUFFIX;
 use polars::prelude::*;
 
 impl<T: Mark> Chart<T> {

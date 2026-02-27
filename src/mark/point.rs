@@ -4,7 +4,7 @@ use crate::visual::shape::PointShape;
 
 /// Mark type for point/scatter charts.
 ///
-/// The `MarkPoint` struct defines the visual properties of point elements. 
+/// The `MarkPoint` struct defines the visual properties of point elements.
 /// It supports a fluent interface for detailed configuration within chart layers.
 #[derive(Clone)]
 pub struct MarkPoint {
@@ -37,9 +37,9 @@ impl MarkPoint {
     }
 
     /// Sets the geometric shape of the point.
-    /// 
+    ///
     /// Accepts `PointShape` variants or string literals like "square".
-    /// 
+    ///
     /// # Example
     /// ```
     /// mark.with_shape("triangle"); // Automatic conversion
@@ -56,7 +56,7 @@ impl MarkPoint {
     }
 
     /// Sets the opacity of the point mark.
-    /// 
+    ///
     /// Value should be between 0.0 (transparent) and 1.0 (opaque).
     pub fn with_opacity(mut self, opacity: f64) -> Self {
         self.opacity = opacity.clamp(0.0, 1.0);

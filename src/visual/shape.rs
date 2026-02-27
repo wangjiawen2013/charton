@@ -1,5 +1,5 @@
 /// Represents different geometric shapes for data points.
-/// Supports conversion from strings for a fluent API and provides 
+/// Supports conversion from strings for a fluent API and provides
 /// integer IDs for GPU-accelerated rendering.
 #[derive(Clone, Copy, Debug, PartialEq, Eq)] // Added Copy/Eq for easier usage
 pub enum PointShape {
@@ -14,7 +14,7 @@ pub enum PointShape {
 }
 
 impl PointShape {
-    /// Returns a unique integer ID for the shape. 
+    /// Returns a unique integer ID for the shape.
     /// This is crucial for passing shape data to GPU shaders (wgpu).
     pub fn gpu_id(&self) -> u32 {
         *self as u32

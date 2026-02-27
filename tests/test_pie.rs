@@ -11,13 +11,11 @@ fn test_pie() -> Result<(), Box<dyn Error>> {
     ]?;
 
     // Create donut chart
-    let donut = Chart::build(&df)?
-        .mark_bar()?
-        .encode((
-            x(""),                 // x encoding for donut chart (empty string for donut chart)
-            y("value"),            // theta encoding for donut slices
-            color("category"),     // color encoding for different segments
-        ))?;
+    let donut = Chart::build(&df)?.mark_bar()?.encode((
+        x(""),             // x encoding for donut chart (empty string for donut chart)
+        y("value"),        // theta encoding for donut slices
+        color("category"), // color encoding for different segments
+    ))?;
 
     // Create a layered chart and add the donut chart as a layer
     LayeredChart::new()
@@ -37,19 +35,17 @@ fn test_donut() -> Result<(), Box<dyn Error>> {
     ]?;
 
     // Create donut chart
-    let donut = Chart::build(&df)?
-        .mark_bar()?
-        .encode((
-            x(""),                 // x encoding for donut chart (empty string for donut chart)
-            y("value"),            // theta encoding for donut slices
-            color("category"),     // color encoding for different segments
-        ))?;
+    let donut = Chart::build(&df)?.mark_bar()?.encode((
+        x(""),             // x encoding for donut chart (empty string for donut chart)
+        y("value"),        // theta encoding for donut slices
+        color("category"), // color encoding for different segments
+    ))?;
 
     // Create a layered chart and add the donut chart as a layer
     LayeredChart::new()
         .add_layer(donut)
         .with_coord(CoordSystem::Polar)
-        .with_inner_radius(0.5)  // Creates a donut chart
+        .with_inner_radius(0.5) // Creates a donut chart
         .save("./tests/donut.svg")?;
 
     Ok(())
@@ -88,13 +84,11 @@ fn test_nightingale() -> Result<(), Box<dyn Error>> {
     ]?;
 
     // Create a bar chart with color encoding
-    let colored_bar_chart = Chart::build(&df)?
-        .mark_bar()?
-        .encode((
-            x("Month"),
-            y("Revenue").with_stack(true).with_normalize(false),
-            color("Region"),
-        ))?;
+    let colored_bar_chart = Chart::build(&df)?.mark_bar()?.encode((
+        x("Month"),
+        y("Revenue").with_stack(true).with_normalize(false),
+        color("Region"),
+    ))?;
 
     // Create a layered chart for colored bars
     LayeredChart::new()

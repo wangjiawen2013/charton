@@ -1,29 +1,29 @@
 pub mod discrete;
 pub mod linear;
 pub mod log;
-pub mod temporal;
 pub mod mapper;
+pub mod temporal;
 
-use crate::error::ChartonError;
+use self::discrete::DiscreteScale;
 use self::linear::LinearScale;
 use self::log::LogScale;
-use self::discrete::DiscreteScale;
-use self::temporal::TemporalScale;
 use self::mapper::VisualMapper;
+use self::temporal::TemporalScale;
+use crate::error::ChartonError;
 
-use std::sync::{Arc, RwLock};
-use time::OffsetDateTime;
 use polars::datatypes::AnyValue;
 use polars::prelude::*;
+use std::sync::{Arc, RwLock};
+use time::OffsetDateTime;
 
 /// Defines how much a scale's domain should be expanded beyond the data limits.
-/// 
-/// Following ggplot2's expansion system, it consists of a multiplicative factor 
-/// and an additive constant. This prevents data marks from clipping at the 
+///
+/// Following ggplot2's expansion system, it consists of a multiplicative factor
+/// and an additive constant. This prevents data marks from clipping at the
 /// edges of the coordinate system.
 #[derive(Debug, Clone, Copy)]
 pub struct Expansion {
-    /// Multiplicative factors (lower_mult, upper_mult). 
+    /// Multiplicative factors (lower_mult, upper_mult).
     /// e.g., (0.05, 0.05) adds 5% padding relative to the data range.
     pub mult: (f64, f64),
     /// Additive constants in data units (lower_add, upper_add).
@@ -33,9 +33,9 @@ pub struct Expansion {
 impl Default for Expansion {
     /// Default expansion is 5% on each side, which is standard for continuous scales.
     fn default() -> Self {
-        Self { 
-            mult: (0.05, 0.05), 
-            add: (0.0, 0.0) 
+        Self {
+            mult: (0.05, 0.05),
+            add: (0.0, 0.0),
         }
     }
 }
@@ -60,8 +60,8 @@ pub enum Scale {
 
 impl Scale {
     /// High-performance vectorized normalization using Polars.
-    /// 
-    /// This bypasses row-by-row iteration for numerical data, applying the 
+    ///
+    /// This bypasses row-by-row iteration for numerical data, applying the
     /// scale transformation across entire memory chunks at once.
     pub fn normalize_series(
         &self,
@@ -70,18 +70,22 @@ impl Scale {
     ) -> Result<Float64Chunked, ChartonError> {
         match self {
             Scale::Discrete => {
-                let out: Float64Chunked = series.iter().map(|val| {
-                    let norm = match val {
-                        AnyValue::String(s) => scale_trait.normalize_string(s),
-                        AnyValue::StringOwned(s) => scale_trait.normalize_string(&s),
-                        _ => scale_trait.normalize_string(&val.to_string()),
-                    };
-                    Some(norm)
-                }).collect();
+                let out: Float64Chunked = series
+                    .iter()
+                    .map(|val| {
+                        let norm = match val {
+                            AnyValue::String(s) => scale_trait.normalize_string(s),
+                            AnyValue::StringOwned(s) => scale_trait.normalize_string(&s),
+                            _ => scale_trait.normalize_string(&val.to_string()),
+                        };
+                        Some(norm)
+                    })
+                    .collect();
                 Ok(out)
             }
             _ => {
-                let casted = series.cast(&DataType::Float64)
+                let casted = series
+                    .cast(&DataType::Float64)
                     .map_err(|e| ChartonError::Data(e.to_string()))?;
                 let ca = casted.f64().unwrap();
                 Ok(ca.apply(|opt_v| opt_v.map(|v| scale_trait.normalize(v))))
@@ -99,7 +103,7 @@ pub enum ScaleDomain {
 }
 
 /// The primary interface for all scale implementations.
-/// 
+///
 /// A `ScaleTrait` is responsible for two things:
 /// 1. Mathematical: Mapping raw data values to a normalized [0.0, 1.0] range.
 /// 2. Visual: Linking to a `VisualMapper` that converts normalized values to colors/shapes.
@@ -136,8 +140,8 @@ pub trait ScaleTrait: std::fmt::Debug + Send + Sync {
 }
 
 /// Factory function to create a fully initialized scale.
-/// 
-/// It resolves the domain expansion and encapsulates the concrete implementation 
+///
+/// It resolves the domain expansion and encapsulates the concrete implementation
 /// inside an `Arc` for efficient sharing between chart layers.
 pub fn create_scale(
     scale_type: &Scale,
@@ -151,11 +155,16 @@ pub fn create_scale(
                 let range = max - min;
                 let lower_padding = range * expansion.mult.0 + expansion.add.0;
                 let upper_padding = range * expansion.mult.1 + expansion.add.1;
-                Box::new(LinearScale::new((min - lower_padding, max + upper_padding), mapper))
+                Box::new(LinearScale::new(
+                    (min - lower_padding, max + upper_padding),
+                    mapper,
+                ))
             } else {
-                return Err(ChartonError::Scale("Linear scale requires Continuous domain".into()));
+                return Err(ChartonError::Scale(
+                    "Linear scale requires Continuous domain".into(),
+                ));
             }
-        },
+        }
         Scale::Log => {
             if let ScaleDomain::Continuous(min, max) = domain_data {
                 let log_min = min.ln();
@@ -165,24 +174,35 @@ pub fn create_scale(
                 let expanded_max = (log_max + log_range * expansion.mult.1).exp();
                 Box::new(LogScale::new((expanded_min, expanded_max), 10.0, mapper)?)
             } else {
-                return Err(ChartonError::Scale("Log scale requires Continuous domain".into()));
+                return Err(ChartonError::Scale(
+                    "Log scale requires Continuous domain".into(),
+                ));
             }
-        },
+        }
         Scale::Discrete => {
             if let ScaleDomain::Discrete(categories) = domain_data {
                 Box::new(DiscreteScale::new(categories, expansion, mapper))
             } else {
-                return Err(ChartonError::Scale("Discrete scale requires Categorical domain".into()));
+                return Err(ChartonError::Scale(
+                    "Discrete scale requires Categorical domain".into(),
+                ));
             }
-        },
+        }
         Scale::Temporal => {
             if let ScaleDomain::Temporal(start, end) = domain_data {
                 let diff_secs = (end - start).as_seconds_f64();
-                let lower_pad = time::Duration::seconds_f64(diff_secs * expansion.mult.0 + expansion.add.0);
-                let upper_pad = time::Duration::seconds_f64(diff_secs * expansion.mult.1 + expansion.add.1);
-                Box::new(TemporalScale::new((start - lower_pad, end + upper_pad), mapper))
+                let lower_pad =
+                    time::Duration::seconds_f64(diff_secs * expansion.mult.0 + expansion.add.0);
+                let upper_pad =
+                    time::Duration::seconds_f64(diff_secs * expansion.mult.1 + expansion.add.1);
+                Box::new(TemporalScale::new(
+                    (start - lower_pad, end + upper_pad),
+                    mapper,
+                ))
             } else {
-                return Err(ChartonError::Scale("Time scale requires Temporal domain".into()));
+                return Err(ChartonError::Scale(
+                    "Time scale requires Temporal domain".into(),
+                ));
             }
         }
     };
@@ -197,25 +217,24 @@ pub fn get_normalized_value(
     value: &AnyValue,
 ) -> f64 {
     match scale_type {
-        Scale::Discrete => {
-            match value {
-                AnyValue::String(s) => scale_trait.normalize_string(s),
-                AnyValue::StringOwned(s) => scale_trait.normalize_string(s.as_str()),
-                _ => scale_trait.normalize_string(&value.to_string()),
-            }
-        }
-        _ => {
-            value.try_extract::<f64>()
-                .map(|v| scale_trait.normalize(v))
-                .unwrap_or(0.0)
-        }
+        Scale::Discrete => match value {
+            AnyValue::String(s) => scale_trait.normalize_string(s),
+            AnyValue::StringOwned(s) => scale_trait.normalize_string(s.as_str()),
+            _ => scale_trait.normalize_string(&value.to_string()),
+        },
+        _ => value
+            .try_extract::<f64>()
+            .map(|v| scale_trait.normalize(v))
+            .unwrap_or(0.0),
     }
 }
 
 /// A universal tick formatter following data visualization best practices.
 /// Suitable for linear, power, and log scales.
 pub(crate) fn format_ticks(values: &[f64]) -> Vec<Tick> {
-    if values.is_empty() { return vec![]; }
+    if values.is_empty() {
+        return vec![];
+    }
 
     // 1. Detect if scientific notation is required for the entire set.
     // Standard practice: Use 'E' for values >= 10,000 or <= 0.001.
@@ -235,8 +254,16 @@ pub(crate) fn format_ticks(values: &[f64]) -> Vec<Tick> {
     // 3. Precision calculation based on notation mode.
     let mut precision = if use_sci {
         let max_val = values.iter().map(|v| v.abs()).fold(0.0, f64::max);
-        let magnitude = if max_val > 0.0 { max_val.log10().floor() } else { 0.0 };
-        let step_mag = if step > 0.0 { step.log10().floor() } else { magnitude };
+        let magnitude = if max_val > 0.0 {
+            max_val.log10().floor()
+        } else {
+            0.0
+        };
+        let step_mag = if step > 0.0 {
+            step.log10().floor()
+        } else {
+            magnitude
+        };
         ((magnitude - step_mag).max(0.0) as usize).clamp(0, 6)
     } else {
         if step > 0.0 && step < 0.9999 {
@@ -247,13 +274,16 @@ pub(crate) fn format_ticks(values: &[f64]) -> Vec<Tick> {
     };
 
     // 4. Initial Formatting Pass
-    let mut labels: Vec<String> = values.iter().map(|&v| {
-        if use_sci {
-            format!("{:.*e}", precision, v).replace("e", "E")
-        } else {
-            format!("{:.*}", precision, v)
-        }
-    }).collect();
+    let mut labels: Vec<String> = values
+        .iter()
+        .map(|&v| {
+            if use_sci {
+                format!("{:.*e}", precision, v).replace("e", "E")
+            } else {
+                format!("{:.*}", precision, v)
+            }
+        })
+        .collect();
 
     // 5. Global Redundancy Check (The "Smart" part)
     // If every single label in the set has '.000' decimals, they are all removed.
@@ -271,22 +301,28 @@ pub(crate) fn format_ticks(values: &[f64]) -> Vec<Tick> {
 
         if all_redundant {
             precision = 0;
-            labels = values.iter().map(|&v| {
-                if use_sci {
-                    format!("{:.*e}", precision, v).replace("e", "E")
-                } else {
-                    format!("{:.*}", precision, v)
-                }
-            }).collect();
+            labels = values
+                .iter()
+                .map(|&v| {
+                    if use_sci {
+                        format!("{:.*e}", precision, v).replace("e", "E")
+                    } else {
+                        format!("{:.*}", precision, v)
+                    }
+                })
+                .collect();
         }
     }
 
-    values.iter().zip(labels).map(|(&v, l)| Tick { value: v, label: l }).collect()
+    values
+        .iter()
+        .zip(labels)
+        .map(|(&v, l)| Tick { value: v, label: l })
+        .collect()
 }
 
-
 /// A thread-safe wrapper for the resolved scale that handles the cloning logic.
-/// 
+///
 /// Since std::sync::RwLock does not implement Clone, we manually implement it
 /// by creating a new lock that shares the same internal Arc pointer.
 #[derive(Debug)]
@@ -307,11 +343,11 @@ impl Clone for ResolvedScale {
     fn clone(&self) -> Self {
         // Step 1: Acquire a read lock on the current scale.
         let guard = self.0.read().unwrap();
-        
-        // Step 2: Clone the Option<Arc<...>>. 
+
+        // Step 2: Clone the Option<Arc<...>>.
         // This only increments the reference count of the Arc, which is very fast.
         let inner_clone = guard.clone();
-        
+
         // Step 3: Wrap the cloned reference in a brand new RwLock.
         Self(RwLock::new(inner_clone))
     }

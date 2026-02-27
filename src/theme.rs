@@ -1,9 +1,9 @@
+use crate::core::guide::LegendPosition;
 use crate::prelude::SingleColor;
 use crate::visual::color::{ColorMap, ColorPalette};
-use crate::core::guide::LegendPosition;
 
 /// A `Theme` defines the visual "look and feel" of a chart.
-/// 
+///
 /// It stores constants for aesthetics (colors, fonts) and layout preferences (margins, spacing).
 /// It does NOT store data-specific content like titles or domain limits.
 #[derive(Clone)]
@@ -120,7 +120,7 @@ pub struct Theme {
     /// Default inner radius ratio (e.g., 0.5 for a donut chart).
     pub(crate) polar_inner_radius: f64,
 
-    /// Color for the grid lines. 
+    /// Color for the grid lines.
     /// Typically a faint gray like #BDBDBD or a semi-transparent version of label_color.
     pub(crate) grid_color: SingleColor,
     /// Width of the grid lines (usually thinner than axis_width).
@@ -242,7 +242,7 @@ impl Theme {
         self.tick_width = width;
         self
     }
-    
+
     pub fn with_tick_length(mut self, length: f64) -> Self {
         self.tick_length = length;
         self
@@ -371,7 +371,7 @@ impl Theme {
         self
     }
 
-    /// Calculates a suggested number of ticks based on the available 
+    /// Calculates a suggested number of ticks based on the available
     /// physical space and the theme's density settings.
     pub fn suggest_tick_count(&self, available_pixels: f64) -> usize {
         // We ensure at least 2 ticks (start and end) are always present.
@@ -449,7 +449,7 @@ impl Default for Theme {
             facet_spacing: 10.0,
             facet_strip_padding: 5.0,
 
-            polar_start_angle: -std::f64::consts::FRAC_PI_2, 
+            polar_start_angle: -std::f64::consts::FRAC_PI_2,
             polar_end_angle: 3.0 * std::f64::consts::FRAC_PI_2, // start + 2*PI
             polar_inner_radius: 0.0,
 

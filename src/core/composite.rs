@@ -1,16 +1,16 @@
-use crate::coordinate::{CoordinateTrait, CoordSystem, Rect};
 use crate::chart::Chart;
-use crate::encode::Channel;
-use crate::core::layer::Layer;
-use crate::core::guide::GuideSpec;
-use crate::core::context::{ChartSpec, PanelContext};
-use crate::core::aesthetics::GlobalAesthetics;
-use crate::scale::{Scale, ScaleDomain, Expansion, create_scale, mapper::VisualMapper};
+use crate::coordinate::{CoordSystem, CoordinateTrait, Rect};
 use crate::core::aesthetics::AestheticMapping;
-use crate::theme::Theme;
+use crate::core::aesthetics::GlobalAesthetics;
+use crate::core::context::{ChartSpec, PanelContext};
+use crate::core::guide::GuideSpec;
+use crate::core::layer::Layer;
+use crate::encode::Channel;
 use crate::error::ChartonError;
-use std::fmt::Write;
+use crate::scale::{Expansion, Scale, ScaleDomain, create_scale, mapper::VisualMapper};
+use crate::theme::Theme;
 use html_escape::encode_safe;
+use std::fmt::Write;
 use std::sync::Arc;
 
 /// A complete specification for a visual channel before the final Scale object is created.
@@ -25,7 +25,7 @@ pub struct ResolvedSpec {
 ///
 /// It follows the "Specification" pattern:
 /// 1. It holds the structural intent (layers, coordinates, data labels).
-/// 2. It stores "Overrides" (User-defined domains or layout tweaks) that 
+/// 2. It stores "Overrides" (User-defined domains or layout tweaks) that
 ///    take precedence over the [Theme] defaults.
 #[derive(Clone)]
 pub struct LayeredChart {
@@ -36,7 +36,7 @@ pub struct LayeredChart {
     pub(crate) height: u32,
 
     // --- Aesthetic Context ---
-    /// The active visual theme. Used as the source for all visual constants 
+    /// The active visual theme. Used as the source for all visual constants
     /// and default layout ratios unless overridden below.
     pub(crate) theme: Theme,
 
@@ -49,7 +49,7 @@ pub struct LayeredChart {
     pub(crate) coord_system: CoordSystem,
 
     // --- Layout Overrides (The "Override" Pattern) ---
-    /// Manual override for chart margins [top, right, bottom, left]. 
+    /// Manual override for chart margins [top, right, bottom, left].
     /// If `None`, `theme.default_margins` will be used during layout resolution.
     pub(crate) top_margin: Option<f64>,
     pub(crate) right_margin: Option<f64>,
@@ -58,7 +58,6 @@ pub struct LayeredChart {
 
     // --- Axis & Scale Overrides (The "Brain") ---
     // These fields define how data is mapped and labeled, overriding automatic inference.
-    
     /// User-defined range for the X-axis.
     pub(crate) x_domain: Option<ScaleDomain>,
     /// Explicit title for the X-axis (e.g., "Time", "GDP").
@@ -192,9 +191,9 @@ impl LayeredChart {
     }
 
     /// Provides a closure to modify the existing theme fluently.
-    pub fn configure_theme<F>(mut self, f: F) -> Self 
-    where 
-        F: FnOnce(Theme) -> Theme 
+    pub fn configure_theme<F>(mut self, f: F) -> Self
+    where
+        F: FnOnce(Theme) -> Theme,
     {
         self.theme = f(self.theme);
         self
@@ -213,7 +212,7 @@ impl LayeredChart {
         self
     }
 
-    /// Set the X-axis expansion (padding). 
+    /// Set the X-axis expansion (padding).
     /// If None, the resolution logic will use Theme defaults or Scale-specific defaults.
     pub fn with_x_expand(mut self, expand: Expansion) -> Self {
         self.x_expand = Some(expand);
@@ -226,7 +225,7 @@ impl LayeredChart {
         self
     }
 
-    /// Set the Y-axis expansion (padding). 
+    /// Set the Y-axis expansion (padding).
     /// If None, the resolution logic will use Theme defaults or Scale-specific defaults.
     pub fn with_y_expand(mut self, expand: Expansion) -> Self {
         self.y_expand = Some(expand);
@@ -288,7 +287,7 @@ impl LayeredChart {
 
     /// Resolves the unified visual specification for a given channel across all layers.
     ///
-    /// This method performs the critical "Scale Arbitration" process. It ensures that 
+    /// This method performs the critical "Scale Arbitration" process. It ensures that
     /// multiple layers can coexist on the same coordinate axis or aesthetic mapping.
     ///
     /// # The Resolution Pipeline:
@@ -297,11 +296,14 @@ impl LayeredChart {
     /// 3. **Consolidation**: Merges domains (min/max or unique labels) and expands requirements.
     /// 4. **Override**: Applies explicit user settings (highest priority).
     /// 5. **Finalization**: Applies smart defaults for edge cases (e.g., zero-range data).
-    pub fn resolve_scale_spec(&self, channel: Channel) -> Result<Option<ResolvedSpec>, ChartonError> {
+    pub fn resolve_scale_spec(
+        &self,
+        channel: Channel,
+    ) -> Result<Option<ResolvedSpec>, ChartonError> {
         // --- Accumulators for Data Inference ---
         let mut inferred_field: Option<String> = None;
         let mut inferred_type: Option<Scale> = None;
-        
+
         // Domain accumulators
         let mut cont_min = f64::INFINITY;
         let mut cont_max = f64::NEG_INFINITY;
@@ -342,7 +344,9 @@ impl LayeredChart {
                 }
                 ScaleDomain::Discrete(labels) => {
                     for label in labels {
-                        if !all_labels.contains(&label) { all_labels.push(label); }
+                        if !all_labels.contains(&label) {
+                            all_labels.push(label);
+                        }
                     }
                 }
                 ScaleDomain::Temporal(start, end) => {
@@ -365,13 +369,17 @@ impl LayeredChart {
         let (manual_domain, manual_label, manual_expand) = match channel {
             Channel::X => (self.x_domain.clone(), self.x_label.clone(), self.x_expand),
             Channel::Y => (self.y_domain.clone(), self.y_label.clone(), self.y_expand),
-            Channel::Color => (self.color_domain.clone(), self.color_label.clone(), self.color_expand),
+            Channel::Color => (
+                self.color_domain.clone(),
+                self.color_label.clone(),
+                self.color_expand,
+            ),
             Channel::Shape => (self.shape_domain.clone(), None, self.shape_expand),
             Channel::Size => (self.size_domain.clone(), None, self.size_expand),
         };
 
         // --- Step 3: Final Reconciliation ---
-        
+
         // A. Resolve Scale Type
         let scale_type = match (&inferred_type, &manual_domain) {
             (Some(t), _) => t.clone(),
@@ -384,7 +392,9 @@ impl LayeredChart {
         };
 
         // B. Resolve Field Label
-        let field = manual_label.or(inferred_field).unwrap_or_else(|| format!("{:?}", channel));
+        let field = manual_label
+            .or(inferred_field)
+            .unwrap_or_else(|| format!("{:?}", channel));
 
         // C. Resolve Domain (Priority: Manual > Consolidated)
         let domain = if let Some(d) = manual_domain {
@@ -392,22 +402,25 @@ impl LayeredChart {
         } else {
             match scale_type {
                 Scale::Discrete => {
-                    if all_labels.is_empty() { return Ok(None); }
+                    if all_labels.is_empty() {
+                        return Ok(None);
+                    }
                     ScaleDomain::Discrete(all_labels)
                 }
-                Scale::Temporal => {
-                    match (temp_start, temp_end) {
-                        (Some(s), Some(e)) => ScaleDomain::Temporal(s, e),
-                        _ => return Ok(None),
-                    }
-                }
+                Scale::Temporal => match (temp_start, temp_end) {
+                    (Some(s), Some(e)) => ScaleDomain::Temporal(s, e),
+                    _ => return Ok(None),
+                },
                 _ => {
                     if cont_min.is_infinite() {
                         ScaleDomain::Continuous(0.0, 1.0)
                     } else {
                         // Zero-range Protection
                         let (mut min, mut max) = (cont_min, cont_max);
-                        if (max - min).abs() < 1e-12 { min -= 0.5; max += 0.5; }
+                        if (max - min).abs() < 1e-12 {
+                            min -= 0.5;
+                            max += 0.5;
+                        }
                         ScaleDomain::Continuous(min, max)
                     }
                 }
@@ -418,15 +431,26 @@ impl LayeredChart {
         let expand = if let Some(me) = manual_expand {
             me
         } else if has_expansion_info {
-            Expansion { mult: max_mult, add: max_add }
+            Expansion {
+                mult: max_mult,
+                add: max_add,
+            }
         } else {
             match scale_type {
-                Scale::Discrete => Expansion { mult: (0.0, 0.0), add: (0.4, 0.4) },
+                Scale::Discrete => Expansion {
+                    mult: (0.0, 0.0),
+                    add: (0.4, 0.4),
+                },
                 _ => Expansion::default(), // Standard 5% padding
             }
         };
 
-        Ok(Some(ResolvedSpec { field, scale_type, domain, expand }))
+        Ok(Some(ResolvedSpec {
+            field,
+            scale_type,
+            domain,
+            expand,
+        }))
     }
 
     /// Add a layer to the chart
@@ -488,28 +512,67 @@ impl LayeredChart {
     /// 4. **Layout Measurement**: Calculates the physical pixel Rect for the plot panel.
     ///
     /// The output is the "Final Blueprint" required to begin the actual drawing phase.
-    pub fn resolve_scene(&self) -> Result<(Arc<dyn CoordinateTrait>, Rect, GlobalAesthetics, Vec<GuideSpec>), ChartonError> {
-        
+    pub fn resolve_scene(
+        &self,
+    ) -> Result<
+        (
+            Arc<dyn CoordinateTrait>,
+            Rect,
+            GlobalAesthetics,
+            Vec<GuideSpec>,
+        ),
+        ChartonError,
+    > {
         // --- STEP 1: RESOLVE GLOBAL AESTHETIC MAPPINGS ---
         // We resolve non-positional encodings (Color, Shape, Size) across all layers.
-        
+
         let color_mapping = if let Some(spec) = self.resolve_scale_spec(Channel::Color)? {
             let mapper = VisualMapper::new_color_default(&spec.scale_type, &self.theme);
-            let scale_impl = create_scale(&spec.scale_type, spec.domain, spec.expand, Some(mapper.clone()))?;
-            Some(AestheticMapping { field: spec.field, scale_impl })
-        } else { None };
+            let scale_impl = create_scale(
+                &spec.scale_type,
+                spec.domain,
+                spec.expand,
+                Some(mapper.clone()),
+            )?;
+            Some(AestheticMapping {
+                field: spec.field,
+                scale_impl,
+            })
+        } else {
+            None
+        };
 
         let shape_mapping = if let Some(spec) = self.resolve_scale_spec(Channel::Shape)? {
             let mapper = VisualMapper::new_shape_default();
-            let scale_impl = create_scale(&spec.scale_type, spec.domain, spec.expand, Some(mapper.clone()))?;
-            Some(AestheticMapping { field: spec.field, scale_impl })
-        } else { None };
+            let scale_impl = create_scale(
+                &spec.scale_type,
+                spec.domain,
+                spec.expand,
+                Some(mapper.clone()),
+            )?;
+            Some(AestheticMapping {
+                field: spec.field,
+                scale_impl,
+            })
+        } else {
+            None
+        };
 
         let size_mapping = if let Some(spec) = self.resolve_scale_spec(Channel::Size)? {
             let mapper = VisualMapper::new_size_default(2.0, 9.0);
-            let scale_impl = create_scale(&spec.scale_type, spec.domain, spec.expand, Some(mapper.clone()))?;
-            Some(AestheticMapping { field: spec.field, scale_impl })
-        } else { None };
+            let scale_impl = create_scale(
+                &spec.scale_type,
+                spec.domain,
+                spec.expand,
+                Some(mapper.clone()),
+            )?;
+            Some(AestheticMapping {
+                field: spec.field,
+                scale_impl,
+            })
+        } else {
+            None
+        };
 
         let aesthetics = GlobalAesthetics::new(color_mapping, shape_mapping, size_mapping);
 
@@ -528,28 +591,32 @@ impl LayeredChart {
 
         let final_coord: Arc<dyn CoordinateTrait> = match self.coord_system {
             CoordSystem::Cartesian2D => Arc::new(crate::coordinate::cartesian::Cartesian2D::new(
-                x_scale, 
-                y_scale, 
+                x_scale,
+                y_scale,
                 x_spec.field.clone(),
                 y_spec.field.clone(),
-                self.flipped
+                self.flipped,
             )),
             CoordSystem::Polar => {
                 // 1. Resolve parameters by prioritizing User Overrides > Theme Defaults.
-                // This 'Late Binding' ensures the chart remains responsive to theme changes 
+                // This 'Late Binding' ensures the chart remains responsive to theme changes
                 // unless the user explicitly locks a value.
-                let start_angle = self.polar_start_angle.unwrap_or(self.theme.polar_start_angle);
+                let start_angle = self
+                    .polar_start_angle
+                    .unwrap_or(self.theme.polar_start_angle);
                 let end_angle = self.polar_end_angle.unwrap_or(self.theme.polar_end_angle);
-                let inner_radius = self.polar_inner_radius.unwrap_or(self.theme.polar_inner_radius);
+                let inner_radius = self
+                    .polar_inner_radius
+                    .unwrap_or(self.theme.polar_inner_radius);
 
                 // 2. Initialize the Polar coordinate system with resolved scales and data fields.
                 let mut polar = crate::coordinate::polar::Polar::new(
-                    x_scale, 
-                    y_scale, 
-                    x_spec.field.clone(), 
-                    y_spec.field.clone()
+                    x_scale,
+                    y_scale,
+                    x_spec.field.clone(),
+                    y_spec.field.clone(),
                 );
-                
+
                 // 3. Inject the finalized geometric parameters into the execution instance.
                 polar.start_angle = start_angle;
                 polar.end_angle = end_angle;
@@ -566,36 +633,39 @@ impl LayeredChart {
         let w = self.width as f64;
         let h = self.height as f64;
 
-        let initial_plot_w = w * (1.0 - self.left_margin.unwrap_or(self.theme.left_margin) - self.right_margin.unwrap_or(self.theme.right_margin));
-        let initial_plot_h = h * (1.0 - self.top_margin.unwrap_or(self.theme.top_margin) - self.bottom_margin.unwrap_or(self.theme.bottom_margin));
+        let initial_plot_w = w
+            * (1.0
+                - self.left_margin.unwrap_or(self.theme.left_margin)
+                - self.right_margin.unwrap_or(self.theme.right_margin));
+        let initial_plot_h = h
+            * (1.0
+                - self.top_margin.unwrap_or(self.theme.top_margin)
+                - self.bottom_margin.unwrap_or(self.theme.bottom_margin));
 
         // A. Measure Legend Constraints.
         let legend_box = crate::core::layout::LayoutEngine::calculate_legend_constraints(
             &guide_specs,
             self.theme.legend_position,
-            w, h,
+            w,
+            h,
             initial_plot_w,
             initial_plot_h,
             self.theme.legend_margin,
-            &self.theme
+            &self.theme,
         );
 
         // B. Measure Axis Constraints using a temporary PanelContext.
-        // We calculate a 'rough' panel area first to allow the engine to estimate 
+        // We calculate a 'rough' panel area first to allow the engine to estimate
         // tick density and label overlap.
         let temp_panel = Rect::new(
             (self.left_margin.unwrap_or(self.theme.left_margin) * w) + legend_box.left,
             (self.top_margin.unwrap_or(self.theme.top_margin) * h) + legend_box.top,
             (initial_plot_w - legend_box.left - legend_box.right).max(10.0),
-            (initial_plot_h - legend_box.top - legend_box.bottom).max(10.0)
+            (initial_plot_h - legend_box.top - legend_box.bottom).max(10.0),
         );
 
         // Create the temporary context required for layout measurement.
-        let temp_ctx = PanelContext::new(
-            &chart_spec,
-            final_coord.clone(),
-            temp_panel,
-        );
+        let temp_ctx = PanelContext::new(&chart_spec, final_coord.clone(), temp_panel);
 
         let axis_box = crate::core::layout::LayoutEngine::calculate_axis_constraints(
             &temp_ctx,
@@ -605,10 +675,15 @@ impl LayeredChart {
         );
 
         // --- STEP 5: FINAL PANEL RESOLUTION ---
-        let final_left = (self.left_margin.unwrap_or(self.theme.left_margin) * w) + legend_box.left + axis_box.left;
-        let final_right = (self.right_margin.unwrap_or(self.theme.right_margin) * w) + legend_box.right;
+        let final_left = (self.left_margin.unwrap_or(self.theme.left_margin) * w)
+            + legend_box.left
+            + axis_box.left;
+        let final_right =
+            (self.right_margin.unwrap_or(self.theme.right_margin) * w) + legend_box.right;
         let final_top = (self.top_margin.unwrap_or(self.theme.top_margin) * h) + legend_box.top;
-        let final_bottom = (self.bottom_margin.unwrap_or(self.theme.bottom_margin) * h) + legend_box.bottom + axis_box.bottom;
+        let final_bottom = (self.bottom_margin.unwrap_or(self.theme.bottom_margin) * h)
+            + legend_box.bottom
+            + axis_box.bottom;
 
         // Apply final dimensions with a safety floor (min_panel_size).
         let plot_w = (w - final_left - final_right).max(self.theme.min_panel_size);
@@ -620,10 +695,10 @@ impl LayeredChart {
     }
 
     /// Renders the chart title at the top-center of the SVG canvas.
-    /// 
+    ///
     /// In this revised implementation, the title position is no longer a fixed offset.
     /// Instead, it dynamically calculates its vertical position to be centered within
-    /// the space defined by `top_margin`. This ensures the title remains visually 
+    /// the space defined by `top_margin`. This ensures the title remains visually
     /// balanced even as the chart scales or if large margins are specified.
     fn render_title(&self, svg: &mut String, panel: &Rect) -> Result<(), ChartonError> {
         // 1. Guard: Check if a title exists.
@@ -635,15 +710,15 @@ impl LayeredChart {
         // 2. Horizontal Positioning:
         // Use the full canvas width to find the absolute horizontal center.
         let center_x = self.width as f64 / 2.0;
-        
+
         // 3. Vertical Positioning Logic:
-        // Instead of a hardcoded '25.0', we calculate the available vertical space 
-        // above the plot panel (panel.y). 
+        // Instead of a hardcoded '25.0', we calculate the available vertical space
+        // above the plot panel (panel.y).
         // We place the text's baseline in the middle of this area.
         let title_area_height = panel.y;
         let font_size = self.theme.title_size;
-        
-        // Calculate the vertical midpoint. 
+
+        // Calculate the vertical midpoint.
         // Note: Using 'dominant-baseline="middle"' allows us to use the exact midpoint as the Y coordinate.
         let center_y = title_area_height / 4.0;
 
@@ -672,17 +747,17 @@ impl LayeredChart {
 
     /// Renders the entire layered chart to the provided SVG string.
     ///
-    /// This implementation coordinates the final rendering pipeline with a clear separation 
+    /// This implementation coordinates the final rendering pipeline with a clear separation
     /// between global specifications (ChartSpec) and local drawing environments (PanelContext).
     pub fn render(&mut self, svg: &mut String) -> Result<(), ChartonError> {
         // 0. Guard: Ensure there's something to render.
-        if self.layers.is_empty() { 
-            return Ok(()); 
+        if self.layers.is_empty() {
+            return Ok(());
         }
 
         // --- STEP 1: SCENE RESOLUTION ---
         // Resolve scale training, unified aesthetic mapping, and physical layout measurement.
-        // Returns the final unified coordinate system, the plotting rect, 
+        // Returns the final unified coordinate system, the plotting rect,
         // global aesthetics, and the calculated legend specifications.
         let (coord, panel, aesthetics, guide_specs) = self.resolve_scene()?;
 
@@ -695,16 +770,16 @@ impl LayeredChart {
         };
 
         // --- STEP 3: LAYER SYNCHRONIZATION (The "Back-fill") ---
-        // Inject the resolved global state into each layer. This allows layers to 
+        // Inject the resolved global state into each layer. This allows layers to
         // prepare for rendering (e.g., pre-calculating aesthetic mappings).
         for layer in self.layers.iter() {
             layer.inject_resolved_scales(coord.clone(), &aesthetics);
         }
 
         // --- STEP 4: ORCHESTRATED DRAWING ---
-        // NOTE: In the future, for Faceted plots, this section will wrap in a loop 
+        // NOTE: In the future, for Faceted plots, this section will wrap in a loop
         // that iterates over multiple PanelContexts created by a 'FacetEngine'.
-        
+
         // 4a. Initialize the Primary Panel Context.
         let primary_panel_ctx = PanelContext::new(&spec, coord.clone(), panel);
 
@@ -719,21 +794,19 @@ impl LayeredChart {
             let y_label = coord.get_y_label();
 
             primary_panel_ctx.coord.render_axes(
-                svg, 
-                &self.theme, 
+                svg,
+                &self.theme,
                 &primary_panel_ctx.panel,
-                &x_label, 
-                &y_label
+                &x_label,
+                &y_label,
             )?;
         }
 
         // 4d. Render Marks (Data Geometries).
         // We create a backend with a clipping region defined by the current panel.
-        let mut backend = crate::render::backend::svg::SvgBackend::new(
-            svg, 
-            Some(&primary_panel_ctx.panel)
-        );
-        
+        let mut backend =
+            crate::render::backend::svg::SvgBackend::new(svg, Some(&primary_panel_ctx.panel));
+
         for layer in &self.layers {
             // Each layer renders its marks within the provided PanelContext.
             layer.render_marks(&mut backend, &primary_panel_ctx)?;
@@ -742,19 +815,19 @@ impl LayeredChart {
         // 4e. Render Unified Legends & Guides.
         // Legends are rendered globally, using the ChartSpec for visual rules.
         crate::render::legend_renderer::LegendRenderer::render_legend(
-            svg, 
-            &guide_specs, 
-            &self.theme, 
-            &primary_panel_ctx
+            svg,
+            &guide_specs,
+            &self.theme,
+            &primary_panel_ctx,
         );
 
         Ok(())
     }
 
     /// Generates the complete SVG string for the chart.
-    /// 
-    /// This method serves as the core rendering entry point. To maintain the original 
-    /// chart state (the "recipe") for potential multiple exports (e.g., saving as 
+    ///
+    /// This method serves as the core rendering entry point. To maintain the original
+    /// chart state (the "recipe") for potential multiple exports (e.g., saving as
     /// both SVG and PNG), it performs the following:
     /// 1. Creates a decoupled clone of itself.
     /// 2. Executes the stateful "Training Phase" and drawing logic on the clone.
@@ -766,7 +839,7 @@ impl LayeredChart {
         let mut svg_content = String::new();
 
         // 1. SVG Header & ViewBox Setup
-        // We define the width, height, and viewBox to ensure the chart scales 
+        // We define the width, height, and viewBox to ensure the chart scales
         // correctly across different screen resolutions and aspect ratios.
         svg_content.push_str(&format!(
             r#"<svg width="{}" height="{}" viewBox="0 0 {} {}" xmlns="http://www.w3.org/2000/svg">"#,
@@ -782,11 +855,11 @@ impl LayeredChart {
         ));
 
         // 3. Local State Training & Rendering
-        // Because the rendering process (specifically the Sync/Back-fill phase) 
-        // mutates internal scales and domains to ensure visual consistency, 
+        // Because the rendering process (specifically the Sync/Back-fill phase)
+        // mutates internal scales and domains to ensure visual consistency,
         // we operate on a mutable clone. This preserves 'self' for future calls.
         let mut chart_instance = self.clone();
-        
+
         // Pass the mutable reference of the clone to the rendering pipeline.
         chart_instance.render(&mut svg_content)?;
 

@@ -1,15 +1,15 @@
-use crate::core::layer::{MarkRenderer, RenderBackend, RectConfig};
-use crate::core::context::PanelContext;
+use crate::Precision;
 use crate::chart::Chart;
+use crate::core::context::PanelContext;
+use crate::core::layer::{MarkRenderer, RectConfig, RenderBackend};
+use crate::error::ChartonError;
 use crate::mark::histogram::MarkHist;
 use crate::visual::color::SingleColor;
-use crate::error::ChartonError;
-use crate::Precision;
 use polars::prelude::*;
 
 /// Implementation of `MarkRenderer` for Histogram charts.
-/// 
-/// This renderer handles both standard vertical histograms and flipped horizontal 
+///
+/// This renderer handles both standard vertical histograms and flipped horizontal
 /// histograms by checking the coordinate system state.
 impl MarkRenderer for Chart<MarkHist> {
     fn render_marks(
@@ -22,19 +22,34 @@ impl MarkRenderer for Chart<MarkHist> {
             return Ok(());
         }
 
-        let mark_config = self.mark.as_ref()
+        let mark_config = self
+            .mark
+            .as_ref()
             .ok_or_else(|| ChartonError::Mark("MarkHist configuration is missing".into()))?;
 
         // --- STEP 1: RESOLVE ENCODINGS & SCALES ---
-        let x_enc = self.encoding.x.as_ref().ok_or(ChartonError::Encoding("X missing".into()))?;
-        let y_enc = self.encoding.y.as_ref().ok_or(ChartonError::Encoding("Y missing".into()))?;
-        
+        let x_enc = self
+            .encoding
+            .x
+            .as_ref()
+            .ok_or(ChartonError::Encoding("X missing".into()))?;
+        let y_enc = self
+            .encoding
+            .y
+            .as_ref()
+            .ok_or(ChartonError::Encoding("Y missing".into()))?;
+
         let x_scale = context.coord.get_x_scale();
         let y_scale = context.coord.get_y_scale();
 
         // --- STEP 2: GROUPING ---
         // Partition the data if a color aesthetic is present to support grouped histograms.
-        let group_column = context.spec.aesthetics.color.as_ref().map(|c| c.field.as_str());
+        let group_column = context
+            .spec
+            .aesthetics
+            .color
+            .as_ref()
+            .map(|c| c.field.as_str());
         let groups = match group_column {
             Some(col_name) => df_source.partition_by([col_name], true)?,
             None => vec![df_source.clone()],
@@ -42,7 +57,7 @@ impl MarkRenderer for Chart<MarkHist> {
 
         // Calculate the physical "thickness" of the bars based on the X-axis bins.
         let bar_thickness = self.calculate_hist_bar_size(context)?;
-        
+
         // Detect if the coordinate system is flipped (e.g., for horizontal histograms).
         let is_flipped = context.coord.is_flipped();
 
@@ -56,7 +71,7 @@ impl MarkRenderer for Chart<MarkHist> {
             // Normalize data to [0, 1] range.
             let x_norms = x_scale.scale_type().normalize_series(x_scale, x_series)?;
             let y_norms = y_scale.scale_type().normalize_series(y_scale, y_series)?;
-            
+
             // Baseline for frequency is 0.0 in normalized space.
             let y_baseline_norm = 0.0;
 
@@ -111,28 +126,36 @@ impl MarkRenderer for Chart<MarkHist> {
 
 impl Chart<MarkHist> {
     /// Calculates the consistent pixel size (thickness) for bars.
-    /// 
-    /// This method maps the logical width of one bin into physical pixels. 
+    ///
+    /// This method maps the logical width of one bin into physical pixels.
     /// It is coordinate-aware: it returns width for vertical charts and height for horizontal charts.
     fn calculate_hist_bar_size(&self, context: &PanelContext) -> Result<f64, ChartonError> {
-        let n_bins = self.encoding.x.as_ref()
+        let n_bins = self
+            .encoding
+            .x
+            .as_ref()
             .and_then(|x| x.bins)
-            .ok_or_else(|| ChartonError::Encoding("Bin count not resolved".into()))? as f64;
+            .ok_or_else(|| ChartonError::Encoding("Bin count not resolved".into()))?
+            as f64;
 
         let x_field = &self.encoding.x.as_ref().unwrap().field;
         let x_scale = context.coord.get_x_scale();
 
         let s = self.data.df.column(x_field)?.as_materialized_series();
-        let v_min = s.min::<f64>()?.ok_or(ChartonError::Data("X column is empty".into()))?;
-        let v_max = s.max::<f64>()?.ok_or(ChartonError::Data("X column is empty".into()))?;
+        let v_min = s
+            .min::<f64>()?
+            .ok_or(ChartonError::Data("X column is empty".into()))?;
+        let v_max = s
+            .max::<f64>()?
+            .ok_or(ChartonError::Data("X column is empty".into()))?;
 
         // 4. Calculate the true data-space step between bins.
-        // If there are N unique bins, the distance from the first center to the last 
+        // If there are N unique bins, the distance from the first center to the last
         // center represents (N - 1) full bin widths.
         let data_step = if n_bins > 1.0 {
             (v_max - v_min) / (n_bins - 1.0)
         } else {
-            // Fallback: if only one bin, we can't measure a step. 
+            // Fallback: if only one bin, we can't measure a step.
             // We use a default fraction of the scale's domain.
             let (d0, d1) = x_scale.domain();
             (d1 - d0) * 0.5
@@ -152,27 +175,30 @@ impl Chart<MarkHist> {
         } else {
             (p1_x - p0_x).abs()
         };
-        
+
         // Return with a visual gap factor (0.95) to prevent bar overlap.
         Ok(theoretical_thickness * 0.95)
     }
 
     /// Resolves the fill color for a group based on the color encoding or fallback.
     fn resolve_group_color(
-        &self, 
-        df: &DataFrame, 
-        context: &PanelContext, 
-        fallback: &SingleColor
+        &self,
+        df: &DataFrame,
+        context: &PanelContext,
+        fallback: &SingleColor,
     ) -> Result<SingleColor, ChartonError> {
         if let Some(ref mapping) = context.spec.aesthetics.color {
             let s = df.column(&mapping.field)?.as_materialized_series();
             let s_trait = mapping.scale_impl.as_ref();
-            
+
             // Representative color for the group based on the first occurrence.
-            let first_val_norm = s_trait.scale_type().normalize_series(s_trait, &s.head(Some(1)))?;
+            let first_val_norm = s_trait
+                .scale_type()
+                .normalize_series(s_trait, &s.head(Some(1)))?;
             let norm = first_val_norm.get(0).unwrap_or(0.0);
-            
-            Ok(s_trait.mapper()
+
+            Ok(s_trait
+                .mapper()
                 .map(|m| m.map_to_color(norm, s_trait.logical_max()))
                 .unwrap_or_else(|| fallback.clone()))
         } else {

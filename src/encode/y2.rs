@@ -1,24 +1,22 @@
 /// Represents a secondary Y-axis encoding specification (Y2).
 ///
 /// `Y2` is typically used for visual marks that require two vertical coordinates,
-/// such as the baseline of an Area chart, the second endpoint of a Rule, 
+/// such as the baseline of an Area chart, the second endpoint of a Rule,
 /// or the "start" value of a Bar.
 ///
 /// ### Architecture Note:
 /// Unlike `X` or `Y`, `Y2` does not usually define its own scale logic (domain, type, etc.).
-/// Instead, it maps a different data field onto the **same** scale as `Y`. 
+/// Instead, it maps a different data field onto the **same** scale as `Y`.
 /// For instance, in an Area chart, `Y` might map to "high_price" and `Y2` to "low_price",
 /// but both must use the same vertical coordinate system to be visually coherent.
 #[derive(Debug, Clone)]
 pub struct Y2 {
     // --- User Configuration (Intent/Inputs) ---
-    
     /// The name of the data column to be mapped to the secondary vertical position.
     pub(crate) field: String,
-
     // --- System Resolution (Result/Outputs) ---
-    
-    // Stores the resolved scale instance. Using RwLock to support 
+
+    // Stores the resolved scale instance. Using RwLock to support
     // back-filling updates across multiple render calls.
     //pub(crate) resolved_scale: RwLock<Option<Arc<dyn ScaleTrait>>>,
 }

@@ -1,24 +1,22 @@
 /// Represents a text encoding specification.
 ///
 /// The `Text` struct defines how data values should be mapped to textual content
-/// in a chart. It is primarily used by `Text` marks to display labels, 
+/// in a chart. It is primarily used by `Text` marks to display labels,
 /// annotations, or categorical information directly on the visualization.
 ///
 /// ### Architecture Note:
-/// Unlike positional or visual encodings, `Text` is often a direct mapping 
-/// of data values to strings. However, it still holds a `resolved_scale` to 
-/// allow for potential future features like data formatting (e.g., date 
+/// Unlike positional or visual encodings, `Text` is often a direct mapping
+/// of data values to strings. However, it still holds a `resolved_scale` to
+/// allow for potential future features like data formatting (e.g., date
 /// formatting or number rounding) before the text is rendered.
 #[derive(Clone, Debug)]
 pub struct Text {
     // --- User Configuration (Intent/Inputs) ---
-    
     /// The name of the data column to be used for text content.
     pub(crate) field: String,
-
     // --- System Resolution (Result/Outputs) ---
-    
-    // Stores the resolved scale instance. Using RwLock to support 
+
+    // Stores the resolved scale instance. Using RwLock to support
     // back-filling updates across multiple render calls.
     //pub(crate) resolved_scale: RwLock<Option<Arc<dyn ScaleTrait>>>,
 }

@@ -1,5 +1,5 @@
 /// This module provides an implementation of LOESS (Locally Estimated Scatterplot Smoothing).
-/// It is designed for high-performance rendering pipelines by minimizing allocations 
+/// It is designed for high-performance rendering pipelines by minimizing allocations
 /// and using efficient partial-sorting algorithms.
 
 /// Apply LOESS smoothing to a set of data points.
@@ -7,7 +7,7 @@
 /// # Arguments
 /// * `x` - The horizontal coordinates (independent variable).
 /// * `y` - The vertical coordinates (dependent variable).
-/// * `bandwidth` - A value between 0.0 and 1.0 representing the fraction of 
+/// * `bandwidth` - A value between 0.0 and 1.0 representing the fraction of
 ///                 points used for local regression.
 ///
 /// # Returns
@@ -23,7 +23,7 @@ pub(crate) fn loess(x: &[f64], y: &[f64], bandwidth: f64) -> (Vec<f64>, Vec<f64>
     let k = (n as f64 * bandwidth).max(2.0).min(n as f64) as usize;
 
     let mut smoothed_y = Vec::with_capacity(n);
-    
+
     // PERF: Reuse a single distance buffer to avoid O(N) allocations.
     let mut distances: Vec<(usize, f64)> = Vec::with_capacity(n);
 
@@ -37,7 +37,7 @@ pub(crate) fn loess(x: &[f64], y: &[f64], bandwidth: f64) -> (Vec<f64>, Vec<f64>
         }
 
         // 2. PERF(Performance): Partial sort using Quickselect (select_nth_unstable_by).
-        // This finds the k-nearest neighbors in O(N) average time, 
+        // This finds the k-nearest neighbors in O(N) average time,
         // significantly faster than a full O(N log N) sort.
         // We use partial_cmp().unwrap_or because distances are non-NaN f64s.
         let (neighbors, _, _) = distances.select_nth_unstable_by(k - 1, |a, b| {
@@ -45,9 +45,7 @@ pub(crate) fn loess(x: &[f64], y: &[f64], bandwidth: f64) -> (Vec<f64>, Vec<f64>
         });
 
         // 3. Determine the maximum distance in the neighborhood for weighting.
-        let max_dist = neighbors.iter()
-            .map(|d| d.1)
-            .fold(0.0, f64::max);
+        let max_dist = neighbors.iter().map(|d| d.1).fold(0.0, f64::max);
 
         // If all neighbors are at the same X, local regression is vertical (invalid).
         if max_dist == 0.0 {
@@ -56,7 +54,9 @@ pub(crate) fn loess(x: &[f64], y: &[f64], bandwidth: f64) -> (Vec<f64>, Vec<f64>
         }
 
         // 4. Perform weighted linear regression on the neighborhood.
-        if let Some(pred) = weighted_linear_regression_optimized(x, y, neighbors, max_dist, target_x) {
+        if let Some(pred) =
+            weighted_linear_regression_optimized(x, y, neighbors, max_dist, target_x)
+        {
             smoothed_y.push(pred);
         } else {
             // Fallback to the original value if the regression fails (e.g., singular matrix).
@@ -68,8 +68,8 @@ pub(crate) fn loess(x: &[f64], y: &[f64], bandwidth: f64) -> (Vec<f64>, Vec<f64>
 }
 
 /// A memory-efficient weighted linear regression implementation.
-/// 
-/// Instead of creating new vectors for the local subset, this indices into the 
+///
+/// Instead of creating new vectors for the local subset, this indices into the
 /// original data using the indices found during neighbor selection.
 fn weighted_linear_regression_optimized(
     original_x: &[f64],

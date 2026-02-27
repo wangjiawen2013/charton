@@ -12,7 +12,11 @@ fn test_empty_1() -> Result<(), Box<dyn Error>> {
     // Create a chart with empty data
     let empty_chart = Chart::build(&df)?
         .mark_point()?
-        .configure_point(|p| p.with_stroke_width(1.0).with_stroke("black").with_color("red"))
+        .configure_point(|p| {
+            p.with_stroke_width(1.0)
+                .with_stroke("black")
+                .with_color("red")
+        })
         .encode((
             x("a").with_scale(Scale::Linear),
             y("b").with_scale(Scale::Linear),

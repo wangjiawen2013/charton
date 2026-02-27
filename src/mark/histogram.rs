@@ -34,7 +34,7 @@ impl MarkHist {
     }
 
     /// Sets the opacity of the histogram mark.
-    /// 
+    ///
     /// Value should be between 0.0 (transparent) and 1.0 (opaque).
     pub fn with_opacity(mut self, opacity: f64) -> Self {
         self.opacity = opacity.clamp(0.0, 1.0);

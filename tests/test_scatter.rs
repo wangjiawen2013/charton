@@ -14,11 +14,11 @@ fn test_scatter_1() -> Result<(), Box<dyn Error>> {
     // Create a point chart using the new API
     let point_chart = Chart::build(&df)?
         .mark_point()?
-        .configure_point(|p| p
-            .with_stroke_width(1.0)
-            .with_stroke("black")
-            .with_color("red")
-        )
+        .configure_point(|p| {
+            p.with_stroke_width(1.0)
+                .with_stroke("black")
+                .with_color("red")
+        })
         .encode((
             x("a").with_scale(Scale::Linear),
             y("b").with_scale(Scale::Linear),
@@ -119,14 +119,14 @@ fn test_scatter_5() -> Result<(), Box<dyn Error>> {
         .with_title("Data")
         .with_x_label("A)")
         .with_y_label("B")
-        .configure_theme(|t| t
-            .with_title_size(20.0)
-            .with_title_color("#333")
-            .with_y_tick_label_angle(-45.0)
-            .with_label_color("steelblue")
-            .with_label_family("serif")
-            .with_label_size(36.0)
-        )
+        .configure_theme(|t| {
+            t.with_title_size(20.0)
+                .with_title_color("#333")
+                .with_y_tick_label_angle(-45.0)
+                .with_label_color("steelblue")
+                .with_label_family("serif")
+                .with_label_size(36.0)
+        })
         .add_layer(point_chart)
         .coord_flip()
         .save("./tests/scatter_5.svg")?;
@@ -167,11 +167,10 @@ fn test_scatter_7() -> Result<(), Box<dyn Error>> {
         "confidence" => [0.9, 0.7, 0.8, 0.6, 0.95, 0.85, 0.75, 0.88, 0.72, 0.92]
     ]?;
 
-    let point_chart = Chart::build(&df)?.mark_point()?.encode((
-        x("a"),
-        y("b"),
-        color("category"),
-    ))?;
+    let point_chart =
+        Chart::build(&df)?
+            .mark_point()?
+            .encode((x("a"), y("b"), color("category")))?;
 
     LayeredChart::new()
         .with_size(500, 300)

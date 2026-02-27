@@ -1,12 +1,12 @@
+use super::aesthetics::GlobalAesthetics;
+use crate::Precision;
+use crate::coordinate::CoordinateTrait;
+use crate::core::context::PanelContext;
+use crate::encode::Channel;
 use crate::error::ChartonError;
+use crate::scale::{Expansion, Scale, ScaleDomain};
 use crate::visual::color::SingleColor;
 use crate::visual::shape::PointShape;
-use crate::scale::{Scale, ScaleDomain, Expansion};
-use crate::core::context::PanelContext;
-use crate::coordinate::CoordinateTrait;
-use super::aesthetics::GlobalAesthetics;
-use crate::encode::Channel;
-use crate::Precision;
 use std::sync::Arc;
 
 /// PointElementConfig is a high-level representation of a point-based mark.
@@ -68,12 +68,12 @@ pub struct TextConfig {
     pub font_size: Precision,
     pub font_family: String,
     pub color: SingleColor,
-    pub text_anchor: String,    // "start", "middle", "end"
-    pub font_weight: String,    // "normal", "bold", or numeric "400"
+    pub text_anchor: String, // "start", "middle", "end"
+    pub font_weight: String, // "normal", "bold", or numeric "400"
     pub opacity: Precision,
 }
 
-pub struct LineConfig { 
+pub struct LineConfig {
     pub x1: Precision,
     pub y1: Precision,
     pub x2: Precision,
@@ -81,10 +81,10 @@ pub struct LineConfig {
     pub color: SingleColor,
     pub width: Precision,
     pub opacity: Precision,
-    pub dash: Option<Vec<Precision>>,  // dash pattern, e.g., [5, 5] for a dashed line
+    pub dash: Option<Vec<Precision>>, // dash pattern, e.g., [5, 5] for a dashed line
 }
 
-/// 
+///
 /// # Fields
 /// * `stops` - A slice of tuples containing (offset, color), where offset is 0.0 to 1.0.
 /// * `is_vertical` - If true, gradient runs from top to bottom; otherwise, left to right.
@@ -118,7 +118,7 @@ pub trait RenderBackend {
     fn draw_text(&mut self, config: TextConfig);
 
     /// Draws a simple straight line between two points.
-    /// 
+    ///
     /// Commonly used for rendering axis ticks or custom markers within guides.
     fn draw_line(&mut self, config: LineConfig);
 
@@ -128,19 +128,19 @@ pub trait RenderBackend {
 
 /// `MarkRenderer` defines the contract for drawing geometric primitives.
 ///
-/// Implementations of this trait (like PointRenderer or LineRenderer) focus 
+/// Implementations of this trait (like PointRenderer or LineRenderer) focus
 /// purely on the visual output using the provided coordinate tools.
 pub trait MarkRenderer {
     /// Executes the drawing logic for this layer's marks.
-    /// 
+    ///
     /// # Arguments
     /// * `backend`: The drawing engine (e.g., SVG, Canvas) that provides low-level primitives.
-    /// * `context`: The localized `PanelContext` containing the coordinate system 
+    /// * `context`: The localized `PanelContext` containing the coordinate system
     ///   and the physical area for this specific rendering pass.
-    /// 
+    ///
     /// # Faceting Logic:
     /// In a faceted chart, this method may be called multiple times for a single layer,
-    /// each time receiving a different `PanelContext` with a new `Rect` and potentially 
+    /// each time receiving a different `PanelContext` with a new `Rect` and potentially
     /// different `Scale` bounds.
     fn render_marks(
         &self,
@@ -150,9 +150,9 @@ pub trait MarkRenderer {
 }
 
 /// `Layer` is the core trait for the layered grammar of graphics in Charton.
-/// 
-/// A layer represents a single component of a chart (e.g., a Scatter plot, a 
-/// Regression line, or a Bar set). It integrates metadata discovery 
+///
+/// A layer represents a single component of a chart (e.g., a Scatter plot, a
+/// Regression line, or a Bar set). It integrates metadata discovery
 /// with the actual rendering logic.
 ///
 /// The lifecycle of a Layer during the rendering pipeline is:
@@ -175,30 +175,30 @@ pub trait Layer: MarkRenderer + Send + Sync {
 
     /// Returns any explicit user-defined domain override (e.g., fixed axis limits [0, 100]).
     fn get_domain(&self, channel: Channel) -> Option<ScaleDomain>;
-    
+
     /// Returns the expansion rules (padding/margins) requested by this layer for a channel.
     fn get_expand(&self, channel: Channel) -> Option<Expansion>;
 
     /// Calculates the raw data boundaries (Min/Max for continuous, unique labels for discrete)
     /// contained within this specific layer's dataset.
-    /// 
+    ///
     /// This is the primary input for the "Training" phase where unified global scales are resolved.
     fn get_data_bounds(&self, channel: Channel) -> Result<ScaleDomain, ChartonError>;
 
     // --- State Resolution (The "Back-filling" Phase) ---
 
     /// Injects the resolved global state (Coordinate system and Aesthetic mappings) into the layer.
-    /// 
+    ///
     /// This ensures the layer has access to the final, unified scales before rendering starts.
-    /// We use `&self` here; implementations typically use interior mutability (e.g., `OnceLock` 
+    /// We use `&self` here; implementations typically use interior mutability (e.g., `OnceLock`
     /// or `RwLock`) to cache these values safely.
-    /// 
+    ///
     /// # Arguments
     /// * `coord`: The shared coordinate system (containing X and Y scales).
     /// * `aesthetics`: The shared global aesthetics (containing Color, Shape, and Size scales).
     fn inject_resolved_scales(
-        &self, 
-        coord: Arc<dyn CoordinateTrait>, 
-        aesthetics: &GlobalAesthetics
+        &self,
+        coord: Arc<dyn CoordinateTrait>,
+        aesthetics: &GlobalAesthetics,
     );
 }

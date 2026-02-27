@@ -3,10 +3,10 @@ use crate::coordinate::Rect;
 /// Determines how axes are shared across panels.
 #[derive(Debug, Clone, Copy, PartialEq)]
 pub enum FacetStrategy {
-    Fixed,  // Shared scales
-    Free,   // Independent scales
-    FreeX,  // Shared Y, Independent X
-    FreeY,  // Shared X, Independent Y
+    Fixed, // Shared scales
+    Free,  // Independent scales
+    FreeX, // Shared Y, Independent X
+    FreeY, // Shared X, Independent Y
 }
 
 /// Metadata for a single panel.

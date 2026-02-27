@@ -4,11 +4,11 @@ pub(crate) mod boxplot;
 pub(crate) mod errorbar;
 pub(crate) mod histogram;
 pub(crate) mod line;
+pub(crate) mod no_mark;
 pub(crate) mod point;
 pub(crate) mod rect;
 pub(crate) mod rule;
 pub(crate) mod text;
-pub(crate) mod no_mark;
 
 use crate::prelude::SingleColor;
 /// A trait representing a visual mark in a plot.

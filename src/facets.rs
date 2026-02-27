@@ -1,10 +1,10 @@
 pub mod engine;
-pub mod facet_wrap;
 pub mod facet_grid;
+pub mod facet_wrap;
 
-pub use engine::{FacetCell, FacetLayout, FacetInfo, FacetStrategy};
-pub use facet_wrap::FacetWrap;
+pub use engine::{FacetCell, FacetInfo, FacetLayout, FacetStrategy};
 pub use facet_grid::FacetGrid;
+pub use facet_wrap::FacetWrap;
 
 /// The core trait that all Faceting methods must implement.
 /// This allows the LayoutEngine to treat Wrap and Grid polymorphically.
