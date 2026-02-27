@@ -1,9 +1,9 @@
-use crate::scale::mapper::VisualMapper;
+use crate::core::aesthetics::{AestheticMapping, GlobalAesthetics};
+use crate::core::utils::estimate_text_width;
 use crate::scale::ScaleDomain;
 use crate::scale::Tick;
+use crate::scale::mapper::VisualMapper;
 use crate::theme::Theme;
-use crate::core::utils::estimate_text_width;
-use crate::core::aesthetics::{GlobalAesthetics, AestheticMapping};
 use std::collections::BTreeMap;
 
 /// Represents the physical rectangular area required by a Guide (Legend or ColorBar).
@@ -17,17 +17,17 @@ pub struct GuideSize {
 /// The visual representation strategy for a data field.
 #[derive(Debug, Clone, Copy, PartialEq)]
 pub enum GuideKind {
-    /// A discrete list of symbols and labels. Used for categorical data, 
+    /// A discrete list of symbols and labels. Used for categorical data,
     /// or when multiple aesthetics (e.g., Color + Shape) are merged.
     Legend,
     /// A continuous gradient strip. Used exclusively for continuous Color mappings.
     ColorBar,
 }
 
-/// Specification for a Guide (Legend or ColorBar), acting as the bridge 
+/// Specification for a Guide (Legend or ColorBar), acting as the bridge
 /// between abstract data scales and visual rendering instructions.
 ///
-/// Following the "Grammar of Graphics" (like ggplot2), a single GuideSpec 
+/// Following the "Grammar of Graphics" (like ggplot2), a single GuideSpec
 /// consolidates multiple aesthetics (Color, Shape, Size) if they map to the same field.
 pub struct GuideSpec {
     /// The title displayed above the guide (usually the data field name).
@@ -94,12 +94,13 @@ impl GuideSpec {
     fn estimate_colorbar_size(&self, theme: &Theme, max_h: f64) -> GuideSize {
         let font_size = theme.legend_label_size;
         let title_font_size = font_size * 1.1;
-        
+
         let title_w = estimate_text_width(&self.title, title_font_size);
         let bar_w = 15.0; // Standard thickness of the color strip
-        
+
         let labels = self.get_sampling_labels();
-        let max_lbl_w = labels.iter()
+        let max_lbl_w = labels
+            .iter()
             .map(|l| estimate_text_width(l, font_size))
             .fold(0.0, f64::max);
 
@@ -119,10 +120,11 @@ impl GuideSpec {
         let title_h = title_font_size;
 
         let labels = self.get_sampling_labels();
-        let max_lbl_w = labels.iter()
+        let max_lbl_w = labels
+            .iter()
             .map(|l| estimate_text_width(l, font_size))
             .fold(0.0, f64::max);
-        
+
         let mut total_w = 0.0;
         let mut cur_col_w = 0.0;
         let mut cur_col_h = 0.0;
@@ -144,11 +146,13 @@ impl GuideSpec {
                 cur_col_w = row_w;
             } else {
                 cur_col_h += row_h;
-                if i < labels.len() - 1 { cur_col_h += theme.legend_item_v_gap; }
+                if i < labels.len() - 1 {
+                    cur_col_h += theme.legend_item_v_gap;
+                }
                 cur_col_w = f64::max(cur_col_w, row_w);
             }
         }
-        
+
         total_w += cur_col_w;
         max_observed_h = f64::max(max_observed_h, cur_col_h);
 
@@ -158,11 +162,11 @@ impl GuideSpec {
         }
     }
 
-    /// Extracts string labels from the underlying Scale implementation and 
+    /// Extracts string labels from the underlying Scale implementation and
     /// enforces uniform decimal precision for visual alignment.
-    /// 
-    /// This method ensures that all labels in a legend block share the same number 
-    /// of decimal places, preventing jagged text alignment (e.g., ensuring "20.0" 
+    ///
+    /// This method ensures that all labels in a legend block share the same number
+    /// of decimal places, preventing jagged text alignment (e.g., ensuring "20.0"
     /// isn't shortened to "20" when appearing alongside "16.3").
     pub(crate) fn get_sampling_labels(&self) -> Vec<String> {
         if let Some(first_mapping) = self.mappings.first() {
@@ -170,7 +174,11 @@ impl GuideSpec {
             let count = match self.kind {
                 GuideKind::ColorBar => 5,
                 GuideKind::Legend => {
-                    if let ScaleDomain::Discrete(ref v) = self.domain { v.len() } else { 5 }
+                    if let ScaleDomain::Discrete(ref v) = self.domain {
+                        v.len()
+                    } else {
+                        5
+                    }
                 }
             };
 
@@ -183,13 +191,15 @@ impl GuideSpec {
             }
 
             // 3. --- Uniform Precision Logic ---
-            
+
             // Check if we are dealing with a numeric (non-categorical) scale
             if !matches!(self.domain, ScaleDomain::Discrete(_)) {
                 // Determine the maximum precision needed across all sampled points.
                 // We look for the most specific decimal place to ensure no data is lost.
                 let mut max_precision = 0;
-                let has_fractions = ticks.iter().any(|t| (t.value - t.value.floor()).abs() > 1e-9);
+                let has_fractions = ticks
+                    .iter()
+                    .any(|t| (t.value - t.value.floor()).abs() > 1e-9);
 
                 if has_fractions {
                     for tick in &ticks {
@@ -197,7 +207,9 @@ impl GuideSpec {
                         let s = format!("{}", tick.value);
                         if let Some(pos) = s.find('.') {
                             let p = s.len() - pos - 1;
-                            if p > max_precision { max_precision = p; }
+                            if p > max_precision {
+                                max_precision = p;
+                            }
                         }
                     }
                     // For aesthetics, we force at least 1 decimal if any fractions exist
@@ -205,9 +217,10 @@ impl GuideSpec {
                 }
 
                 // Re-format all ticks using the discovered global precision
-                ticks.into_iter().map(|t| {
-                    format!("{:.1$}", t.value, max_precision)
-                }).collect()
+                ticks
+                    .into_iter()
+                    .map(|t| format!("{:.1$}", t.value, max_precision))
+                    .collect()
             } else {
                 // For categorical data, use labels exactly as provided by the scale
                 ticks.into_iter().map(|t| t.label).collect()
@@ -226,14 +239,16 @@ impl GuideSpec {
         if let Some(first_mapping) = self.mappings.first() {
             let count = 5; // Target density
             let mut ticks = first_mapping.scale_impl.ticks(count);
-            
+
             if ticks.len() < 3 && !matches!(self.domain, ScaleDomain::Discrete(_)) {
                 ticks = first_mapping.scale_impl.sample_n(count);
             }
 
             // Apply the precision alignment we discussed earlier
             let mut max_p = 0;
-            let has_fractions = ticks.iter().any(|t| (t.value - t.value.floor()).abs() > 1e-9);
+            let has_fractions = ticks
+                .iter()
+                .any(|t| (t.value - t.value.floor()).abs() > 1e-9);
             if has_fractions {
                 for t in &ticks {
                     let s = format!("{}", t.value);
@@ -260,19 +275,19 @@ pub struct GuideManager;
 
 impl GuideManager {
     /// Orchestrates the collection of global aesthetics into a consolidated set of GuideSpecs.
-    /// 
-    /// This function implements the "Legend Merging" logic. According to the Grammar of Graphics, 
-    /// if multiple aesthetics (e.g., Color, Shape, and Size) are mapped to the same data field, 
-    /// they should be unified into a single visual guide (Legend) to avoid redundancy and 
+    ///
+    /// This function implements the "Legend Merging" logic. According to the Grammar of Graphics,
+    /// if multiple aesthetics (e.g., Color, Shape, and Size) are mapped to the same data field,
+    /// they should be unified into a single visual guide (Legend) to avoid redundancy and
     /// improve scannability.
     ///
     /// # Logic Flow:
     /// 1. Group all active `AestheticMapping` instances by their `field` name.
     /// 2. Use a `BTreeMap` to ensure that guides are generated in a stable, alphabetical order.
-    /// 3. Pass the consolidated mappings to `GuideSpec::new`, which infers the visual 
+    /// 3. Pass the consolidated mappings to `GuideSpec::new`, which infers the visual
     ///    type (Legend vs. ColorBar) based on the combined mapping properties.
     pub fn collect_guides(aesthetics: &GlobalAesthetics) -> Vec<GuideSpec> {
-        // We group mappings by field name. The tuple contains the inferred ScaleDomain 
+        // We group mappings by field name. The tuple contains the inferred ScaleDomain
         // and the list of mappings associated with that field.
         let mut field_map: BTreeMap<String, (ScaleDomain, Vec<AestheticMapping>)> = BTreeMap::new();
 
@@ -289,7 +304,7 @@ impl GuideManager {
         };
 
         // --- Phase 1: Aggregation ---
-        // Scan standard aesthetic channels. Order of collection doesn't affect the 
+        // Scan standard aesthetic channels. Order of collection doesn't affect the
         // result because BTreeMap handles the final sorting.
         collect(&aesthetics.color);
         collect(&aesthetics.shape);
@@ -297,12 +312,12 @@ impl GuideManager {
 
         // --- Phase 2: Specification ---
         // Convert each field group into a high-level GuideSpec.
-        // The GuideSpec will later use the `sample_n` logic implemented in the scales 
+        // The GuideSpec will later use the `sample_n` logic implemented in the scales
         // to generate the 5 visual steps (circles/colors) you requested.
         field_map
             .into_iter()
             .map(|(field, (domain, mappings))| {
-                // GuideSpec::new performs semantic inference to decide if this 
+                // GuideSpec::new performs semantic inference to decide if this
                 // should be rendered as a discrete Legend or a continuous ColorBar.
                 GuideSpec::new(field, domain, mappings)
             })
@@ -312,8 +327,16 @@ impl GuideManager {
 
 /// Defines where the legend block is placed relative to the chart.
 #[derive(Debug, Clone, Copy, PartialEq)]
-pub enum LegendPosition { Top, Bottom, Left, Right, None }
+pub enum LegendPosition {
+    Top,
+    Bottom,
+    Left,
+    Right,
+    None,
+}
 
-impl Default for LegendPosition { 
-    fn default() -> Self { LegendPosition::Right } 
+impl Default for LegendPosition {
+    fn default() -> Self {
+        LegendPosition::Right
+    }
 }

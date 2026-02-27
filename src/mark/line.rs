@@ -4,8 +4,8 @@ use crate::visual::color::SingleColor;
 
 /// Mark type for line/path charts.
 ///
-/// The `MarkLine` struct defines the visual properties of line elements. 
-/// It supports a fluent interface for configuring stroke appearance, 
+/// The `MarkLine` struct defines the visual properties of line elements.
+/// It supports a fluent interface for configuring stroke appearance,
 /// interpolation methods, and statistical smoothing.
 #[derive(Clone)]
 pub struct MarkLine {
@@ -44,7 +44,7 @@ impl MarkLine {
     }
 
     /// Sets the opacity of the line mark.
-    /// 
+    ///
     /// Value should be between 0.0 (transparent) and 1.0 (opaque).
     pub fn with_opacity(mut self, opacity: f64) -> Self {
         self.opacity = opacity.clamp(0.0, 1.0);
@@ -52,7 +52,7 @@ impl MarkLine {
     }
 
     /// Sets the interpolation method for connecting data points.
-    /// 
+    ///
     /// Accepts `PathInterpolation` variants or string literals like "linear" or "step".
     pub fn with_interpolation(mut self, interpolation: impl Into<PathInterpolation>) -> Self {
         self.interpolation = interpolation.into();
@@ -66,7 +66,7 @@ impl MarkLine {
     }
 
     /// Sets the bandwidth parameter for LOESS smoothing.
-    /// 
+    ///
     /// Controls the smoothness; value should be between 0.0 and 1.0.
     pub fn with_loess_bandwidth(mut self, bandwidth: f64) -> Self {
         self.loess_bandwidth = bandwidth.clamp(0.0, 1.0);

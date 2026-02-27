@@ -10,19 +10,17 @@ fn main() -> Result<(), Box<dyn Error>> {
     ]?;
 
     // Create donut chart
-    let donut = Chart::build(&df)?
-        .mark_bar()?
-        .encode((
-            x(""),                 // x encoding for donut chart (empty string for donut chart)
-            y("value"),            // theta encoding for donut slices
-            color("category"),     // color encoding for different segments
-        ))?;
+    let donut = Chart::build(&df)?.mark_bar()?.encode((
+        x(""),             // x encoding for donut chart (empty string for donut chart)
+        y("value"),        // theta encoding for donut slices
+        color("category"), // color encoding for different segments
+    ))?;
 
     // Create a layered chart and add the donut chart as a layer
     LayeredChart::new()
         .add_layer(donut)
         .with_coord(CoordSystem::Polar)
-        .with_inner_radius(0.5)  // Creates a donut chart
+        .with_inner_radius(0.5) // Creates a donut chart
         .save("./examples/donut.svg")?;
 
     Ok(())

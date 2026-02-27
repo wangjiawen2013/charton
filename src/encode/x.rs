@@ -6,13 +6,12 @@ use crate::scale::{Expansion, ResolvedScale, Scale, ScaleDomain};
 /// 1. **Intent (Inputs)**: User defines *how* the data should be mapped (field, domain, scale_type).
 /// 2. **Resolution (Outputs)**: The engine processes the data and "back-fills" the `resolved_scale`.
 ///
-/// Using `Arc<dyn ScaleTrait>` allows multiple layers in a `LayeredChart` to share the 
-/// exact same coordinate system instance efficiently without deep-copying data like 
+/// Using `Arc<dyn ScaleTrait>` allows multiple layers in a `LayeredChart` to share the
+/// exact same coordinate system instance efficiently without deep-copying data like
 /// large color gradient tables.
 #[derive(Debug, Clone)]
 pub struct X {
     // --- User Configuration (Intent/Inputs) ---
-    
     /// The name of the data column to be mapped to the X-axis.
     pub(crate) field: String,
 
@@ -34,8 +33,7 @@ pub struct X {
     pub(crate) bins: Option<usize>, // bins for continuous encoding value in marks like barchart and histogram
 
     // --- System Resolution (Result/Outputs) ---
-    
-    /// Stores the resolved scale instance. Using RwLock to support 
+    /// Stores the resolved scale instance. Using RwLock to support
     /// back-filling updates across multiple render calls.
     pub(crate) resolved_scale: ResolvedScale,
 }
@@ -62,7 +60,7 @@ impl X {
 
     /// Explicitly sets the data domain (limits) for this axis.
     ///
-    /// Setting this will prevent the engine from automatically calculating 
+    /// Setting this will prevent the engine from automatically calculating
     /// the range based on the data.
     pub fn with_domain(mut self, domain: ScaleDomain) -> Self {
         self.domain = Some(domain);

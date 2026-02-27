@@ -283,23 +283,27 @@ impl<T: Mark> Chart<T> {
 
                 // --- STEP 2: STABLE GROUP ORDERING ---
                 // Record the original appearance order of groups to prevent shuffling during joins.
-                let group_order_df = working_df.clone().lazy()
+                let group_order_df = working_df
+                    .clone()
+                    .lazy()
                     .select([col(&group_field_name)])
                     .unique_stable(None, UniqueKeepStrategy::First)
                     .with_row_index(&group_order_col, None);
 
                 // --- STEP 3: COMPUTE EMPIRICAL CUMULATIVE VALUES ---
-                let mut dataset = working_df.lazy()
-                    .with_columns([
-                        as_struct(vec![col(field_name)])
-                            .rank(RankOptions {
+                let mut dataset = working_df
+                    .lazy()
+                    .with_columns([as_struct(vec![col(field_name)])
+                        .rank(
+                            RankOptions {
                                 method: RankMethod::Max, // Standard for ECDF: count points <= current X
                                 descending: false,
-                            }, None)
-                            .over([col(&group_field_name)])
-                            .cast(DataType::Float64)
-                            .alias(&cumulative_freq_col)
-                    ])
+                            },
+                            None,
+                        )
+                        .over([col(&group_field_name)])
+                        .cast(DataType::Float64)
+                        .alias(&cumulative_freq_col)])
                     .join(
                         group_order_df,
                         [col(&group_field_name)],
@@ -309,7 +313,8 @@ impl<T: Mark> Chart<T> {
 
                 // --- STEP 4: AGGREGATE TOTALS PER GROUP ---
                 // Needed for both normalization (0.0 to 1.0) and padding the end of the line.
-                let total_frequency_per_group = dataset.clone()
+                let total_frequency_per_group = dataset
+                    .clone()
                     .group_by([col(&group_field_name)])
                     .agg([col(&cumulative_freq_col).max().alias(&total_freq_col)]);
 
@@ -322,15 +327,19 @@ impl<T: Mark> Chart<T> {
 
                 // --- STEP 5: DOMAIN EXPANSION (PADDING) ---
                 // Create virtual points to ensure lines don't "hang" in mid-air.
-                let groups_lf = dataset.clone().select([col(&group_field_name)]).unique_stable(None, UniqueKeepStrategy::First);
+                let groups_lf = dataset
+                    .clone()
+                    .select([col(&group_field_name)])
+                    .unique_stable(None, UniqueKeepStrategy::First);
 
                 // A. Starting points: All groups start at (global_min, 0.0)
-                let min_padding = groups_lf.clone()
+                let min_padding = groups_lf
+                    .clone()
                     .join(
                         total_frequency_per_group.clone(),
                         [col(&group_field_name)],
                         [col(&group_field_name)],
-                        JoinArgs::new(JoinType::Left)
+                        JoinArgs::new(JoinType::Left),
                     )
                     .with_columns([
                         lit(global_min).alias(field_name),
@@ -343,7 +352,7 @@ impl<T: Mark> Chart<T> {
                         total_frequency_per_group,
                         [col(&group_field_name)],
                         [col(&group_field_name)],
-                        JoinArgs::new(JoinType::Left)
+                        JoinArgs::new(JoinType::Left),
                     )
                     .with_columns([
                         lit(global_max).alias(field_name),
@@ -368,20 +377,18 @@ impl<T: Mark> Chart<T> {
                         dataset.select(schema.clone()),
                         max_padding.select(schema),
                     ],
-                    UnionArgs::default()
+                    UnionArgs::default(),
                 )?
                 // Now that schemas match, we can safely normalize and sort
-                .with_columns([
-                    when(lit(normalize))
-                        .then(col(&cumulative_freq_col) / col(&total_freq_col))
-                        .otherwise(col(&cumulative_freq_col))
-                        .alias(output_field_name),
-                ])
-                // Note: We don't need group_order_col for the union. 
+                .with_columns([when(lit(normalize))
+                    .then(col(&cumulative_freq_col) / col(&total_freq_col))
+                    .otherwise(col(&cumulative_freq_col))
+                    .alias(output_field_name)])
+                // Note: We don't need group_order_col for the union.
                 // We can just sort by the group name directly now.
                 .sort_by_exprs(
                     [col(&group_field_name), col(field_name)],
-                    SortMultipleOptions::default()
+                    SortMultipleOptions::default(),
                 )
                 .unique_stable(
                     Some(vec![

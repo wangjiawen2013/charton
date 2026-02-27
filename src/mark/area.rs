@@ -4,7 +4,7 @@ use crate::visual::color::SingleColor;
 /// Mark type for area charts.
 ///
 /// The `MarkArea` struct defines the visual properties of filled area elements.
-/// It supports a fluent interface for configuring fill color, opacity, and 
+/// It supports a fluent interface for configuring fill color, opacity, and
 /// stroke properties of the area boundary.
 #[derive(Clone, Debug)]
 pub struct MarkArea {
@@ -34,7 +34,7 @@ impl MarkArea {
     }
 
     /// Sets the opacity of the area mark.
-    /// 
+    ///
     /// Value should be between 0.0 (transparent) and 1.0 (opaque).
     pub fn with_opacity(mut self, opacity: f64) -> Self {
         self.opacity = opacity.clamp(0.0, 1.0);

@@ -7,34 +7,33 @@
 //! facilitates the creation of informative and aesthetically pleasing visualizations interactively,
 //! making it especially well-suited for exploratory data analysis.
 
-pub mod core;
 pub mod chart;
 pub mod coordinate;
-pub mod scale;
+pub mod core;
 pub mod encode;
 pub mod error;
+pub mod facets;
 pub mod mark;
 pub mod render;
+pub mod scale;
 pub mod stats;
 pub mod theme;
 pub mod transform;
 pub mod visual;
-pub mod facets;
 
 #[cfg(not(target_arch = "wasm32"))]
 pub mod bridge;
 
 pub mod prelude {
-    pub use crate::core::data::{IntoChartonSource, DataFrameSource, load_dataset};
+    pub use crate::core::data::{DataFrameSource, IntoChartonSource, load_dataset};
 
     pub use crate::encode::{
-        color::color, Encoding, shape::shape, size::size,
-        text::text, x::x, y::y, y2::y2,
+        Encoding, color::color, shape::shape, size::size, text::text, x::x, y::y, y2::y2,
     };
 
     pub use crate::chart::Chart;
     pub use crate::core::composite::LayeredChart;
-    pub use crate::scale::{Scale, Expansion};
+    pub use crate::scale::{Expansion, Scale};
 
     pub use crate::coordinate::CoordSystem;
     pub use crate::transform::{
@@ -58,16 +57,16 @@ pub(crate) const TEMP_SUFFIX: &str = "__charton_temp_n9jh3z8";
 
 /// Represents the floating-point precision used specifically for the rendering stage.
 ///
-/// While data processing and coordinate transformations should be performed in `f64` 
-/// to maintain computational accuracy and prevent rounding errors, we convert to 
+/// While data processing and coordinate transformations should be performed in `f64`
+/// to maintain computational accuracy and prevent rounding errors, we convert to
 /// `Precision` (f32) during the final draw calls for the following reasons:
-/// 
-/// 1. **GPU Hardware Native**: Modern Graphics APIs (WGPU, Metal) are optimized for `f32`. 
+///
+/// 1. **GPU Hardware Native**: Modern Graphics APIs (WGPU, Metal) are optimized for `f32`.
 ///    Using `f32` for rendering structures allows direct GPU memory mapping.
-/// 
-/// 2. **Memory Efficiency**: Halves the memory footprint for large point sets (e.g., in 
+///
+/// 2. **Memory Efficiency**: Halves the memory footprint for large point sets (e.g., in
 ///    scatter plots) when passing data to the rendering backends.
-/// 
-/// 3. **SVG Size Reduction**: `f32` provides sufficient precision for screen-space 
+///
+/// 3. **SVG Size Reduction**: `f32` provides sufficient precision for screen-space
 ///    while keeping the generated XML string lengths shorter.
 pub type Precision = f32;

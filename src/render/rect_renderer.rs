@@ -1,10 +1,10 @@
-use crate::core::layer::{MarkRenderer, RenderBackend, RectConfig};
-use crate::core::context::PanelContext;
+use crate::Precision;
 use crate::chart::Chart;
+use crate::core::context::PanelContext;
+use crate::core::layer::{MarkRenderer, RectConfig, RenderBackend};
+use crate::error::ChartonError;
 use crate::mark::rect::MarkRect;
 use crate::visual::color::SingleColor;
-use crate::error::ChartonError;
-use crate::Precision;
 use polars::prelude::DataFrame;
 
 impl MarkRenderer for Chart<MarkRect> {
@@ -14,15 +14,27 @@ impl MarkRenderer for Chart<MarkRect> {
         context: &PanelContext,
     ) -> Result<(), ChartonError> {
         let df = &self.data.df;
-        if df.height() == 0 { return Ok(()); }
+        if df.height() == 0 {
+            return Ok(());
+        }
 
-        let mark_config = self.mark.as_ref()
+        let mark_config = self
+            .mark
+            .as_ref()
             .ok_or_else(|| ChartonError::Mark("MarkRect configuration is missing".into()))?;
 
         // --- STEP 1: POSITIONING ---
-        let x_enc = self.encoding.x.as_ref().ok_or(ChartonError::Encoding("X missing".into()))?;
-        let y_enc = self.encoding.y.as_ref().ok_or(ChartonError::Encoding("Y missing".into()))?;
-        
+        let x_enc = self
+            .encoding
+            .x
+            .as_ref()
+            .ok_or(ChartonError::Encoding("X missing".into()))?;
+        let y_enc = self
+            .encoding
+            .y
+            .as_ref()
+            .ok_or(ChartonError::Encoding("Y missing".into()))?;
+
         let x_scale = context.coord.get_x_scale();
         let y_scale = context.coord.get_y_scale();
 
@@ -43,9 +55,8 @@ impl MarkRenderer for Chart<MarkRect> {
 
         // --- STEP 4: RENDERING LOOP ---
         // Iterate through normalized coordinates and draw centered rectangles
-        for ((opt_x, opt_y), fill_color) in x_norms.into_iter()
-            .zip(y_norms.into_iter())
-            .zip(color_iter) 
+        for ((opt_x, opt_y), fill_color) in
+            x_norms.into_iter().zip(y_norms.into_iter()).zip(color_iter)
         {
             let x_n = opt_x.unwrap_or(0.0);
             let y_n = opt_y.unwrap_or(0.0);
@@ -72,7 +83,7 @@ impl MarkRenderer for Chart<MarkRect> {
 
 impl Chart<MarkRect> {
     /// Calculates the pixel dimensions for a single rectangle tile.
-    /// It uses the 'bins' hint resolved during the encoding phase to ensure 
+    /// It uses the 'bins' hint resolved during the encoding phase to ensure
     /// visual consistency with the coordinate axes.
     fn calculate_rect_size(&self, context: &PanelContext) -> (f64, f64) {
         // Retrieve bin counts from encodings (resolved in apply_default_encodings)
@@ -92,24 +103,26 @@ impl Chart<MarkRect> {
         ((p1_x - p0_x).abs(), (p1_y - p0_y).abs())
     }
 
-    /// Resolves the color stream for each rectangle, either from a mapped data 
+    /// Resolves the color stream for each rectangle, either from a mapped data
     /// column or a fallback static color.
     fn resolve_rect_colors(
-        &self, 
-        df: &DataFrame, 
-        context: &PanelContext, 
-        fallback: &SingleColor
+        &self,
+        df: &DataFrame,
+        context: &PanelContext,
+        fallback: &SingleColor,
     ) -> Result<Box<dyn Iterator<Item = SingleColor>>, ChartonError> {
         if let Some(ref mapping) = context.spec.aesthetics.color {
             let s = df.column(&mapping.field)?.as_materialized_series();
             let s_trait = mapping.scale_impl.as_ref();
-            
+
             let norms = s_trait.scale_type().normalize_series(s_trait, s)?;
             let l_max = s_trait.logical_max();
 
-            let colors: Vec<SingleColor> = norms.into_iter()
+            let colors: Vec<SingleColor> = norms
+                .into_iter()
                 .map(|opt_n| {
-                    s_trait.mapper()
+                    s_trait
+                        .mapper()
                         .map(|m| m.map_to_color(opt_n.unwrap_or(0.0), l_max))
                         .unwrap_or_else(|| fallback.clone())
                 })

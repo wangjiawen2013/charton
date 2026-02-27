@@ -14,11 +14,13 @@ fn test_errorbar_1() -> Result<(), Box<dyn Error>> {
     // Create error bar chart
     let errorbar_chart = Chart::build(&df)?
         .mark_errorbar()?
-        .configure_errorbar(|e| e
-            .with_color("blue")
-            .with_stroke_width(2.0)
-            .with_cap_length(5.0)
-            .with_center(true) // Show center point
+        .configure_errorbar(
+            |e| {
+                e.with_color("blue")
+                    .with_stroke_width(2.0)
+                    .with_cap_length(5.0)
+                    .with_center(true)
+            }, // Show center point
         )
         .encode((x("x"), y("y")))?;
 

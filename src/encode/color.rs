@@ -2,18 +2,17 @@ use crate::scale::{Expansion, ResolvedScale, Scale, ScaleDomain};
 
 /// Represents a color encoding specification for chart elements.
 ///
-/// The `Color` struct defines how data values are mapped to visual colors. 
+/// The `Color` struct defines how data values are mapped to visual colors.
 /// It supports both continuous mappings (gradients) and discrete mappings (palettes).
 ///
 /// ### Architecture Note:
-/// Following the "Intent vs. Resolution" pattern, this struct holds user configuration 
-/// until the `LayeredChart` resolves the final scale. This is where your specific 
+/// Following the "Intent vs. Resolution" pattern, this struct holds user configuration
+/// until the `LayeredChart` resolves the final scale. This is where your specific
 /// orange-ish color gradient will be stored:
 /// `(0.000, 1.000, 0.961, 0.922), // #fff5eb ...`
 #[derive(Debug, Clone)]
 pub struct Color {
     // --- User Configuration (Intent/Inputs) ---
-    
     /// The name of the data column used for color encoding.
     pub(crate) field: String,
 
@@ -27,8 +26,7 @@ pub struct Color {
     pub(crate) expansion: Option<Expansion>,
 
     // --- System Resolution (Result/Outputs) ---
-    
-    /// Stores the resolved scale instance. Using RwLock to support 
+    /// Stores the resolved scale instance. Using RwLock to support
     /// back-filling updates across multiple render calls.
     pub(crate) resolved_scale: ResolvedScale,
 }

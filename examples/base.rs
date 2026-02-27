@@ -12,11 +12,7 @@ fn main() -> Result<(), Box<dyn Error>> {
     // 2. Define the Base Specification
     // We create a Chart<NoMark> that holds the shared data and encoding logic.
     // Validation is deferred here because no specific mark is assigned yet.
-    let base = Chart::build(&df)?
-        .encode((
-            x("length"),
-            y("width"),
-        ))?;
+    let base = Chart::build(&df)?.encode((x("length"), y("width")))?;
 
     // 3. Derive the Line Layer from Base
     // We clone the base and 'specialize' it into a Line chart.

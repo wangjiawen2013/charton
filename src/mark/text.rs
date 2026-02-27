@@ -4,7 +4,7 @@ use crate::visual::color::SingleColor;
 /// Mark type for text annotations and labels.
 ///
 /// The `MarkText` struct defines the visual properties of text elements.
-/// It supports a fluent interface for configuring font size, alignment, 
+/// It supports a fluent interface for configuring font size, alignment,
 /// color, and content.
 #[derive(Debug, Clone)]
 pub struct MarkText {
@@ -36,7 +36,9 @@ impl From<&str> for FontWeight {
             "normal" => FontWeight::Normal,
             _ => {
                 // Try to parse numeric strings like "300"
-                s.parse::<u16>().map(FontWeight::Weight).unwrap_or(FontWeight::Normal)
+                s.parse::<u16>()
+                    .map(FontWeight::Weight)
+                    .unwrap_or(FontWeight::Normal)
             }
         }
     }
@@ -69,7 +71,7 @@ impl From<&str> for TextAnchor {
     fn from(s: &str) -> Self {
         match s.to_lowercase().as_str() {
             "start" | "left" => TextAnchor::Start,
-            "end" | "right"  => TextAnchor::End,
+            "end" | "right" => TextAnchor::End,
             _ => TextAnchor::Middle, // Default
         }
     }
@@ -134,7 +136,7 @@ impl MarkText {
     }
 
     /// Sets the opacity of the text mark.
-    /// 
+    ///
     /// Value should be between 0.0 (transparent) and 1.0 (opaque).
     pub fn with_opacity(mut self, opacity: f64) -> Self {
         self.opacity = opacity.clamp(0.0, 1.0);

@@ -1,9 +1,9 @@
 pub mod cartesian;
 pub mod polar;
 
+use crate::error::ChartonError;
 use crate::scale::ScaleTrait;
 use crate::theme::Theme;
-use crate::error::ChartonError;
 use crate::visual::color::SingleColor;
 use std::sync::Arc;
 
@@ -19,13 +19,18 @@ pub struct Rect {
 
 impl Rect {
     pub fn new(x: f64, y: f64, width: f64, height: f64) -> Self {
-        Self { x, y, width, height }
+        Self {
+            x,
+            y,
+            width,
+            height,
+        }
     }
 }
 
 /// Describes the layout preferences and geometric behaviors of a coordinate system.
-/// 
-/// Different coordinate systems (Cartesian, Polar, Geo) require different 
+///
+/// Different coordinate systems (Cartesian, Polar, Geo) require different
 /// default settings for marks like bars to look "correct" out of the box.
 pub struct CoordLayout {
     /// Default stroke color for bars in this coordinate system.
@@ -51,14 +56,14 @@ pub struct CoordLayout {
 }
 
 /// The core interface for all coordinate systems in Charton.
-/// 
+///
 /// Following the ggplot2 philosophy, a Coordinate System is responsible for:
 /// 1. Mapping normalized data [0, 1] into screen pixels.
 /// 2. Defining the shape of the plotting area (Cartesian, Polar, etc.).
 /// 3. Providing metadata for rendering axes and grids.
 pub trait CoordinateTrait {
     /// Orchestrates the visual rendering of axes, grid lines, and titles.
-    /// 
+    ///
     /// Different coordinate systems implement this to reflect their geometry:
     /// - **Cartesian**: Renders straight horizontal and vertical lines.
     /// - **Polar**: Renders concentric circles (radius) and radial lines (angle).
@@ -72,34 +77,40 @@ pub trait CoordinateTrait {
     ) -> Result<(), ChartonError>;
 
     /// Transforms normalized data values into absolute pixel coordinates.
-    /// 
+    ///
     /// # Arguments
     /// * `x_norm` - A value from 0.0 to 1.0 (usually from x_scale.normalize).
     /// * `y_norm` - A value from 0.0 to 1.0 (usually from y_scale.normalize).
     /// * `panel` - The physical rectangular area available for drawing.
-    /// 
+    ///
     /// # Returns
     /// A tuple of (x_pixel, y_pixel).
     fn transform(&self, x_norm: f64, y_norm: f64, panel: &Rect) -> (f64, f64);
 
     /// Transforms a sequence of normalized points into pixel coordinates.
-    /// 
+    ///
     /// The default implementation performs a simple point-by-point linear mapping.
-    /// Non-linear coordinate systems (like Polar) should override this method 
-    /// to perform **adaptive interpolation**, ensuring that logical straight lines 
+    /// Non-linear coordinate systems (like Polar) should override this method
+    /// to perform **adaptive interpolation**, ensuring that logical straight lines
     /// (e.g., the top edge of a bar) appear correctly curved in the final output.
     ///
     /// This is the primary interface for Renderers to generate geometry.
-    fn transform_path(&self, points: &[(f64, f64)], is_closed: bool, panel: &Rect) -> Vec<(f64, f64)> {
+    fn transform_path(
+        &self,
+        points: &[(f64, f64)],
+        is_closed: bool,
+        panel: &Rect,
+    ) -> Vec<(f64, f64)> {
         let _ = is_closed;
         // Default behavior: Simple point-to-point mapping without interpolation.
         // This is efficient for Cartesian systems where straight lines remain straight.
-        points.iter()
+        points
+            .iter()
             .map(|(x, y)| self.transform(*x, *y, panel))
             .collect()
     }
 
-    /// Returns a shared pointer (Arc) to the X scale. 
+    /// Returns a shared pointer (Arc) to the X scale.
     /// Essential for "injecting" the scale into layers.
     fn get_x_arc(&self) -> Arc<dyn ScaleTrait>;
 

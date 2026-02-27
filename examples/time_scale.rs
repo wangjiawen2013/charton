@@ -14,7 +14,7 @@ fn main() -> Result<(), Box<dyn Error>> {
         datetime!(2026-01-01 00:00:00 UTC),
     ];
 
-    // Convert OffsetDateTime to nanosecond timestamps (i64) 
+    // Convert OffsetDateTime to nanosecond timestamps (i64)
     // This is the standard internal representation for Polars Datetime series.
     let date_values: Vec<i64> = dates
         .into_iter()
@@ -34,13 +34,11 @@ fn main() -> Result<(), Box<dyn Error>> {
 
     // 3. Build the chart configuration
     // By setting the scale to Temporal, Charton will use your new adaptive tick logic.
-    let temporal_chart = Chart::build(&df)?
-        .mark_point()? 
-        .encode((
-            //x("date").with_scale(Scale::Temporal),
-            x("date"),
-            y("value"),
-        ))?;
+    let temporal_chart = Chart::build(&df)?.mark_point()?.encode((
+        //x("date").with_scale(Scale::Temporal),
+        x("date"),
+        y("value"),
+    ))?;
 
     // 4. Render to SVG
     // With a width of 600px, your 50px-step logic will request ~12 ticks.
@@ -50,7 +48,7 @@ fn main() -> Result<(), Box<dyn Error>> {
         .add_layer(temporal_chart)
         .configure_theme(|t| {
             t.with_x_tick_label_angle(-45.0) // Rotate labels to handle longer date strings
-             .with_tick_label_size(12.0)
+                .with_tick_label_size(12.0)
         })
         .save("./examples/time_scale.svg")?;
 

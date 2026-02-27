@@ -3,8 +3,8 @@ use crate::visual::color::SingleColor;
 
 /// Mark type for horizontal or vertical reference lines.
 ///
-/// The `MarkRule` struct defines the visual properties of rule elements. 
-/// It supports a fluent interface for configuring the line color, opacity, 
+/// The `MarkRule` struct defines the visual properties of rule elements.
+/// It supports a fluent interface for configuring the line color, opacity,
 /// and thickness for drawing thresholds, grid lines, or connecting ranges.
 #[derive(Debug, Clone)]
 pub struct MarkRule {
@@ -33,7 +33,7 @@ impl MarkRule {
     }
 
     /// Sets the opacity of the rule line.
-    /// 
+    ///
     /// Value should be between 0.0 (transparent) and 1.0 (opaque).
     pub fn with_opacity(mut self, opacity: f64) -> Self {
         self.opacity = opacity.clamp(0.0, 1.0);

@@ -20,7 +20,7 @@ impl<T: Mark> Chart<T> {
             // Get the x series data (already converted to f64)
             let x_series = df.column(&bin_field)?.f64()?.clone().into_series();
 
-            // Calculate number of bins. Now we can safely unwrap because apply_default_encodings 
+            // Calculate number of bins. Now we can safely unwrap because apply_default_encodings
             // has already resolved this value.
             let n_bins = x_encoding.bins.unwrap();
 

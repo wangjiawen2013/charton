@@ -4,9 +4,9 @@ use crate::mark::area::MarkArea;
 /// Extension implementation for `Chart` to support Area Charts (MarkArea).
 impl Chart<MarkArea> {
     /// Configures the visual properties of the area mark using a closure.
-    pub fn configure_area<F>(mut self, f: F) -> Self 
-    where 
-        F: FnOnce(MarkArea) -> MarkArea 
+    pub fn configure_area<F>(mut self, f: F) -> Self
+    where
+        F: FnOnce(MarkArea) -> MarkArea,
     {
         let mark = self.mark.take().unwrap_or_default();
         self.mark = Some(f(mark));

@@ -4,7 +4,7 @@ use crate::visual::color::SingleColor;
 /// Mark type for rectangle/heatmap charts.
 ///
 /// The `MarkRect` struct defines the visual properties of rectangular elements.
-/// It supports a fluent interface for configuring fill color, opacity, 
+/// It supports a fluent interface for configuring fill color, opacity,
 /// and boundary stroke properties.
 #[derive(Clone)]
 pub struct MarkRect {
@@ -34,7 +34,7 @@ impl MarkRect {
     }
 
     /// Sets the opacity of the rectangle mark.
-    /// 
+    ///
     /// Value should be between 0.0 (transparent) and 1.0 (opaque).
     pub fn with_opacity(mut self, opacity: f64) -> Self {
         self.opacity = opacity.clamp(0.0, 1.0);

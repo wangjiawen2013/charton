@@ -8,26 +8,24 @@ fn main() -> Result<(), Box<dyn Error>> {
     let df = df! [
         "type" => ["A", "B", "C", "D", "E", "F"],
         // Data values range from 2.0 to 12.0 to create a clear "petal" effect
-        "value" => [3.0, 11.5, 4.2, 9.8, 2.5, 7.0], 
+        "value" => [3.0, 11.5, 4.2, 9.8, 2.5, 7.0],
     ]?;
 
     // 2. Build the bar chart layer.
-    // In a Polar Coordinate system, x-axis maps to the Angle (theta) 
+    // In a Polar Coordinate system, x-axis maps to the Angle (theta)
     // and y-axis maps to the Radius (r).
-    let bar = Chart::build(&df)?
-        .mark_bar()?
-        .encode((
-            x("type"),      // Each category represents a slice of the circle
-            y("value"),     // The height of the bar becomes the radius of the slice
-            color("type")   // Distinct colors for each "petal"
-        ))?;
+    let bar = Chart::build(&df)?.mark_bar()?.encode((
+        x("type"),     // Each category represents a slice of the circle
+        y("value"),    // The height of the bar becomes the radius of the slice
+        color("type"), // Distinct colors for each "petal"
+    ))?;
 
     // 3. Assemble the layered chart and apply Polar Transformation.
     LayeredChart::new()
         .add_layer(bar)
         .with_y_label("Intensity")
         // CoordSystem::Polar transforms the rectangular bar chart into a Rose Chart
-        .with_coord(CoordSystem::Polar) 
+        .with_coord(CoordSystem::Polar)
         .save("./examples/rose.svg")?;
 
     println!("Success: Improved Rose Chart generated at ./examples/rose.svg");

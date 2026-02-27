@@ -1,9 +1,9 @@
-use crate::core::layer::{MarkRenderer, RenderBackend, TextConfig};
-use crate::core::context::PanelContext;
-use crate::chart::Chart;
 use crate::Precision;
-use crate::mark::text::MarkText;
+use crate::chart::Chart;
+use crate::core::context::PanelContext;
+use crate::core::layer::{MarkRenderer, RenderBackend, TextConfig};
 use crate::error::ChartonError;
+use crate::mark::text::MarkText;
 use crate::visual::color::SingleColor;
 use polars::prelude::*;
 
@@ -26,12 +26,16 @@ impl MarkRenderer for Chart<MarkText> {
         }
 
         // --- STEP 1: ENCODING VALIDATION ---
-        let x_enc = self.encoding.x.as_ref()
-            .ok_or_else(|| ChartonError::Encoding("X-axis encoding missing for Text mark".to_string()))?;
-        let y_enc = self.encoding.y.as_ref()
-            .ok_or_else(|| ChartonError::Encoding("Y-axis encoding missing for Text mark".to_string()))?;
-        
-        let mark_config = self.mark.as_ref()
+        let x_enc = self.encoding.x.as_ref().ok_or_else(|| {
+            ChartonError::Encoding("X-axis encoding missing for Text mark".to_string())
+        })?;
+        let y_enc = self.encoding.y.as_ref().ok_or_else(|| {
+            ChartonError::Encoding("Y-axis encoding missing for Text mark".to_string())
+        })?;
+
+        let mark_config = self
+            .mark
+            .as_ref()
             .ok_or_else(|| ChartonError::Mark("MarkText configuration missing".to_string()))?;
 
         // --- STEP 2: POSITION NORMALIZATION (Vectorized) ---
@@ -41,8 +45,12 @@ impl MarkRenderer for Chart<MarkText> {
         let x_scale_trait = context.coord.get_x_scale();
         let y_scale_trait = context.coord.get_y_scale();
 
-        let x_norms = x_scale_trait.scale_type().normalize_series(x_scale_trait, &x_series)?;
-        let y_norms = y_scale_trait.scale_type().normalize_series(y_scale_trait, &y_series)?;
+        let x_norms = x_scale_trait
+            .scale_type()
+            .normalize_series(x_scale_trait, &x_series)?;
+        let y_norms = y_scale_trait
+            .scale_type()
+            .normalize_series(y_scale_trait, &y_series)?;
 
         // --- STEP 3: TEXT CONTENT RESOLUTION ---
         // Dynamically pull text from the data column if encoded, otherwise use static text.
@@ -58,32 +66,36 @@ impl MarkRenderer for Chart<MarkText> {
         };
 
         // --- STEP 4: COLOR MAPPING (Aesthetics) ---
-        let color_iter: Box<dyn Iterator<Item = SingleColor>> = if let Some(ref mapping) = context.spec.aesthetics.color {
-            let s = df_source.column(&mapping.field)?;
-            let s_trait = mapping.scale_impl.as_ref();
-            let norms = s_trait.scale_type().normalize_series(s_trait, &s)?;
-            let l_max = s_trait.logical_max();
-            
-            let color_vec: Vec<SingleColor> = norms.into_iter()
-                .map(|opt_n| {
-                    s_trait.mapper()
-                        .map(|m| m.map_to_color(opt_n.unwrap_or(0.0), l_max))
-                        .unwrap_or_else(|| SingleColor::from("black"))
-                })
-                .collect();
-            Box::new(color_vec.into_iter())
-        } else {
-            Box::new(std::iter::repeat(mark_config.color.clone()))
-        };
+        let color_iter: Box<dyn Iterator<Item = SingleColor>> =
+            if let Some(ref mapping) = context.spec.aesthetics.color {
+                let s = df_source.column(&mapping.field)?;
+                let s_trait = mapping.scale_impl.as_ref();
+                let norms = s_trait.scale_type().normalize_series(s_trait, &s)?;
+                let l_max = s_trait.logical_max();
+
+                let color_vec: Vec<SingleColor> = norms
+                    .into_iter()
+                    .map(|opt_n| {
+                        s_trait
+                            .mapper()
+                            .map(|m| m.map_to_color(opt_n.unwrap_or(0.0), l_max))
+                            .unwrap_or_else(|| SingleColor::from("black"))
+                    })
+                    .collect();
+                Box::new(color_vec.into_iter())
+            } else {
+                Box::new(std::iter::repeat(mark_config.color.clone()))
+            };
 
         // --- STEP 5: GEOMETRY PROJECTION & EMIT ---
-        for ((x_n, y_n), (content, fill_color)) in x_norms.into_iter()
+        for ((x_n, y_n), (content, fill_color)) in x_norms
+            .into_iter()
             .zip(y_norms.into_iter())
             .zip(text_values.into_iter().zip(color_iter))
         {
             let x_norm = x_n.unwrap_or(0.0);
             let y_norm = y_n.unwrap_or(0.0);
-            
+
             // Transform normalized [0, 1] units to physical panel pixels.
             let (px, py) = context.transform(x_norm, y_norm);
 

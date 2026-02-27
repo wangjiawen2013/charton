@@ -1,20 +1,19 @@
-use crate::scale::{Expansion, ResolvedScale, Scale, ScaleDomain};
 use crate::error::ChartonError;
+use crate::scale::{Expansion, ResolvedScale, Scale, ScaleDomain};
 
 /// Represents a size encoding specification for chart elements.
 ///
-/// The `Size` struct defines how data values should be mapped to the dimensions 
-/// of marks, such as the radius of a bubble in a scatter plot or the thickness 
-/// of a line. 
+/// The `Size` struct defines how data values should be mapped to the dimensions
+/// of marks, such as the radius of a bubble in a scatter plot or the thickness
+/// of a line.
 ///
 /// ### Architecture Note:
 /// Size follows the "Intent vs. Resolution" pattern. During the training phase,
-/// the engine ensures that the data range is mapped to a sensible range of 
+/// the engine ensures that the data range is mapped to a sensible range of
 /// visual sizes (e.g., mapping a domain of [0, 1000] to a range of [1px, 20px]).
 #[derive(Debug, Clone)]
 pub struct Size {
     // --- User Configuration (Intent/Inputs) ---
-    
     /// The name of the data column used for size mapping.
     pub(crate) field: String,
 
@@ -29,8 +28,7 @@ pub struct Size {
     pub(crate) expansion: Option<Expansion>,
 
     // --- System Resolution (Result/Outputs) ---
-    
-    /// Stores the resolved scale instance. Using RwLock to support 
+    /// Stores the resolved scale instance. Using RwLock to support
     /// back-filling updates across multiple render calls.
     pub(crate) resolved_scale: ResolvedScale,
 }
@@ -50,12 +48,13 @@ impl Size {
     /// Sets the scale type for the size encoding (e.g., Linear, Log, Sqrt).
     ///
     /// # Errors
-    /// Returns `ChartonError::Scale` if `Scale::Discrete` is provided, as size 
+    /// Returns `ChartonError::Scale` if `Scale::Discrete` is provided, as size
     /// is semantically intended for continuous or ordered data.
     pub fn with_scale(mut self, scale_type: Scale) -> Result<Self, ChartonError> {
         if matches!(scale_type, Scale::Discrete) {
             return Err(ChartonError::Scale(
-                "Size encoding cannot use Scale::Discrete as size requires continuous data".to_string()
+                "Size encoding cannot use Scale::Discrete as size requires continuous data"
+                    .to_string(),
             ));
         }
         self.scale_type = Some(scale_type);

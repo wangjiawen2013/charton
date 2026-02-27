@@ -14,8 +14,14 @@ impl<T: Mark> Chart<T> {
         let color_encoding = self.encoding.color.as_ref().unwrap();
 
         // 2. Determine if X and Y are discrete.
-        let x_is_discrete = matches!(interpret_semantic_type(self.data.column(&x_encoding.field)?.dtype()), SemanticType::Discrete);
-        let y_is_discrete = matches!(interpret_semantic_type(self.data.column(&y_encoding.field)?.dtype()), SemanticType::Discrete);
+        let x_is_discrete = matches!(
+            interpret_semantic_type(self.data.column(&x_encoding.field)?.dtype()),
+            SemanticType::Discrete
+        );
+        let y_is_discrete = matches!(
+            interpret_semantic_type(self.data.column(&y_encoding.field)?.dtype()),
+            SemanticType::Discrete
+        );
 
         // Store bin information for later use
         let mut x_bin_labels: Option<Vec<String>> = None;
@@ -32,7 +38,7 @@ impl<T: Mark> Chart<T> {
                 // Get the current x_series from the DataFrame
                 let current_x_series = df.column(&x_encoding.field)?.f64()?.clone().into_series();
 
-                // Calculate number of bins. Now we can safely unwrap because apply_default_encodings 
+                // Calculate number of bins. Now we can safely unwrap because apply_default_encodings
                 // has already resolved this value.
                 let n_bins = x_encoding.bins.unwrap();
 
@@ -77,7 +83,7 @@ impl<T: Mark> Chart<T> {
                 // Get the current y_series from the DataFrame
                 let current_y_series = df.column(&y_encoding.field)?.f64()?.clone().into_series();
 
-                // Calculate number of bins. Now we can safely unwrap because apply_default_encodings 
+                // Calculate number of bins. Now we can safely unwrap because apply_default_encodings
                 // has already resolved this value.
                 let n_bins = x_encoding.bins.unwrap();
 

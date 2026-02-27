@@ -6,19 +6,19 @@ use polars::prelude::*;
 
 impl<T: Mark> Chart<T> {
     /// Consolidates and prepares data for Bar-like marks (Bar, Rose, Boxplot).
-    /// 
+    ///
     /// This transformation follows a "Data-Driven Layout" strategy:
-    /// 1. **Deduplication**: If X and Color use the same field, we group only once 
+    /// 1. **Deduplication**: If X and Color use the same field, we group only once
     ///     to prevent Polars errors and signal a "Self-Mapping" layout (full width).
     /// 2. **Aggregation**: Computes the mean for the Y-axis value.
-    /// 3. **Gap Filling**: Uses a Cartesian Product to ensure every X-category has 
-    ///     the same number of rows (filling missing combinations with 0). 
+    /// 3. **Gap Filling**: Uses a Cartesian Product to ensure every X-category has
+    ///     the same number of rows (filling missing combinations with 0).
     ///     This ensures that grouped bars have consistent widths and alignments.
     pub(crate) fn transform_bar_data(mut self) -> Result<Self, ChartonError> {
         // --- STEP 1: Extract Encoding Context ---
         // Basic requirement: X and Y must exist. Color is optional.
         // Get mutable references so we can modify properties like 'stack' for Pie charts.
-        let y_enc = self.encoding.y.as_mut().unwrap(); 
+        let y_enc = self.encoding.y.as_mut().unwrap();
         let x_enc = self.encoding.x.as_ref().unwrap();
         let color_enc_opt = self.encoding.color.as_ref();
 
@@ -30,21 +30,29 @@ impl<T: Mark> Chart<T> {
         // 1. Force 'stack' to true: Essential for pie slices to chain head-to-tail.
         // 2. Inject virtual column: Ensure Polars can find the "" column for grouping.
         if x_field == "" {
-            y_enc.stack = true; 
+            y_enc.stack = true;
 
-            if !self.data.df.get_column_names().contains(&&PlSmallStr::from_static("")) {
-                self.data.df = self.data.df.clone().lazy()
+            if !self
+                .data
+                .df
+                .get_column_names()
+                .contains(&&PlSmallStr::from_static(""))
+            {
+                self.data.df = self
+                    .data
+                    .df
+                    .clone()
+                    .lazy()
                     .with_column(lit("").alias(""))
                     .collect()?;
             }
         }
 
-
         // --- STEP 2: Aggregation & Grouping ---
         // We define the grouping strategy based on field overlap.
         let grouped_df = if let Some(ce) = color_enc_opt {
             let mut group_selectors = vec![col(x_field)];
-            
+
             // Deduplication Logic:
             // If Color is the same as X, it's an "Aesthetic Mapping" (just coloring).
             // If Color is different, it's a "Grouping Mapping" (Dodge/side-by-side).
@@ -87,11 +95,11 @@ impl<T: Mark> Chart<T> {
         };
 
         // --- STEP 4: Cartesian Product Gap Filling ---
-        // This is critical for the "Row-Count Driven Layout". 
-        // We ensure every X group has exactly the same number of rows so the 
+        // This is critical for the "Row-Count Driven Layout".
+        // We ensure every X group has exactly the same number of rows so the
         // Renderer can calculate bar widths and offsets consistently.
         let filled_df = if let Some(ce) = color_enc_opt {
-            // If X and Color are the same field, the mapping is 1:1. 
+            // If X and Color are the same field, the mapping is 1:1.
             // Every group already has exactly 1 row. No filling required.
             if &ce.field == x_field {
                 grouped_df
@@ -121,7 +129,7 @@ impl<T: Mark> Chart<T> {
                     &ce.field => c_repeated
                 ]?;
 
-                // Left Join the grid with our data. 
+                // Left Join the grid with our data.
                 // Any missing combination (gap) will result in a Null value.
                 all_combos
                     .lazy()

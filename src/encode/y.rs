@@ -2,19 +2,18 @@ use crate::scale::{Expansion, ResolvedScale, Scale, ScaleDomain};
 
 /// Represents a Y-axis encoding specification for chart elements.
 ///
-/// Following the Grammar of Graphics, the `Y` struct separates the 
-/// declaration of the mapping (how data should be mapped) from the 
+/// Following the Grammar of Graphics, the `Y` struct separates the
+/// declaration of the mapping (how data should be mapped) from the
 /// actual execution (the resolved coordinate system).
 ///
 /// ### Lifecycle:
 /// 1. **Definition**: Created via `y("field")`. Users specify constraints like `domain` or `zero`.
 /// 2. **Resolution**: The `LayeredChart` trains the scale based on the data and constraints.
-/// 3. **Back-filling**: A concrete `ScaleTrait` instance is wrapped in an `Arc` and injected into 
+/// 3. **Back-filling**: A concrete `ScaleTrait` instance is wrapped in an `Arc` and injected into
 ///    the `resolved_scale` field.
 #[derive(Debug, Clone)]
 pub struct Y {
     // --- User Configuration (Intent/Inputs) ---
-    
     /// The name of the data column to be mapped to the vertical position.
     pub(crate) field: String,
 
@@ -38,8 +37,7 @@ pub struct Y {
     pub(crate) stack: bool,     // false = regular bar chart, true = stacked bar chart
 
     // --- System Resolution (Result/Outputs) ---
-    
-    /// Stores the resolved scale instance. Using RwLock to support 
+    /// Stores the resolved scale instance. Using RwLock to support
     /// back-filling updates across multiple render calls.
     pub(crate) resolved_scale: ResolvedScale,
 }
@@ -55,7 +53,7 @@ impl Y {
             zero: None,
             bins: None,
             normalize: false, // Default to false (raw counts)
-            stack: false, // Default to false (regular bar chart)
+            stack: false,     // Default to false (regular bar chart)
             resolved_scale: ResolvedScale::none(),
         }
     }

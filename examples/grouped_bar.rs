@@ -12,10 +12,11 @@ fn main() -> Result<(), Box<dyn Error>> {
     // Create a bar chart with color encoding
     let colored_bar_chart = Chart::build(&df)?
         .mark_bar()?
-        .configure_bar(|b| b.with_stroke(SingleColor::new("black"))
-        .with_stroke_width(1.0)
-        .with_width(0.5)
-        )
+        .configure_bar(|b| {
+            b.with_stroke(SingleColor::new("black"))
+                .with_stroke_width(1.0)
+                .with_width(0.5)
+        })
         .encode((
             x("Month"),
             y("Revenue").with_normalize(true).with_stack(false),

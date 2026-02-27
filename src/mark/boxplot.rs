@@ -32,7 +32,7 @@ impl MarkBoxplot {
             // span = width + spacing
             width: 0.5,   // This means the width of all boxes in a position is 0.5
             spacing: 0.2, // Gap(spacing*width) between dodged box elements in a group. 0.0-0.5 usually gives a beautiful layout.
-            span: 0.7,    // The total width of boxes and gaps in a position. 0.5-1.0 usually gives a beautiful layout.
+            span: 0.7, // The total width of boxes and gaps in a position. 0.5-1.0 usually gives a beautiful layout.
         }
     }
 
@@ -45,7 +45,7 @@ impl MarkBoxplot {
     }
 
     /// Sets the opacity of the boxplot mark.
-    /// 
+    ///
     /// Value should be between 0.0 (transparent) and 1.0 (opaque).
     pub fn with_opacity(mut self, opacity: f64) -> Self {
         self.opacity = opacity.clamp(0.0, 1.0);
@@ -83,7 +83,7 @@ impl MarkBoxplot {
     }
 
     /// Sets the relative spacing between boxes in a group.
-    /// 
+    ///
     /// Value is clamped between 0.0 and 1.0.
     pub fn with_spacing(mut self, spacing: f64) -> Self {
         self.spacing = spacing.clamp(0.0, 1.0);
@@ -91,7 +91,7 @@ impl MarkBoxplot {
     }
 
     /// Sets the total span allocated for a box group.
-    /// 
+    ///
     /// Value is clamped between 0.0 and 1.0.
     pub fn with_span(mut self, span: f64) -> Self {
         self.span = span.clamp(0.0, 1.0);

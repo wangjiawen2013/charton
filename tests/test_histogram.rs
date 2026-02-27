@@ -17,12 +17,12 @@ fn test_histogram_1() -> Result<(), Box<dyn Error>> {
     // Create a histogram chart
     let histogram_chart = Chart::build(&df_melted.head(Some(200)))?
         .mark_hist()?
-        .configure_hist(|h| h
-            .with_color("steelblue")
-            .with_opacity(0.5)
-            .with_stroke("black")
-            .with_stroke_width(0.0)
-        )
+        .configure_hist(|h| {
+            h.with_color("steelblue")
+                .with_opacity(0.5)
+                .with_stroke("black")
+                .with_stroke_width(0.0)
+        })
         .encode((
             x("value"),
             y("count").with_normalize(true),
