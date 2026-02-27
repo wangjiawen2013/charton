@@ -21,7 +21,7 @@ Charton includes a pure-Rust SVG renderer, which allows users to create visualiz
 
 ```toml
 [dependencies]
-charton = "0.2.1"
+charton = "0.3.0"
 polars = "0.49.1"
 ```
 
@@ -45,7 +45,7 @@ fn main() -> Result<(), Box<dyn Error>> {
 
     // Create a layer
     Chart::build(&df)?
-        .mark_point()               // Scatter plot
+        .mark_point()?              // Scatter plot
         .encode((
             x("length"),            // Map length column to X-axis
             y("width"),             // Map width column to Y-axis
@@ -76,7 +76,7 @@ fn main() -> Result<(), Box<dyn Error>> {
 
     // Create a layer
     let scatter = Chart::build(&df)?
-        .mark_point()               // Scatter plot
+        .mark_point()?              // Scatter plot
         .encode((
             x("length"),            // Map length column to X-axis
             y("width"),             // Map width column to Y-axis
@@ -106,7 +106,7 @@ fn main() -> Result<(), Box<dyn Error>> {
 
     // Create a line chart layer
     let line = Chart::build(&df)?
-        .mark_line()                        // Line chart
+        .mark_line()?                       // Line chart
         .encode((
             x("length"),                    // Map length column to X-axis
             y("width"),                     // Map width column to Y-axis
@@ -114,7 +114,7 @@ fn main() -> Result<(), Box<dyn Error>> {
 
     // Create a scatter point layer
     let scatter = Chart::build(&df)?
-        .mark_point()                       // Scatter plot
+        .mark_point()?                      // Scatter plot
         .encode((
             x("length"),                    // Map length column to X-axis
             y("width"),                     // Map width column to Y-axis
@@ -186,7 +186,7 @@ Charton integrates with evcxr, allowing you to display plots interactively in a 
 The following code shows a minimal example of this.
 
 ```rust
-:dep charton = { version="0.2.1" }
+:dep charton = { version="0.3.0" }
 :dep polars = { version="0.49.1" }
 
 use charton::prelude::*;
@@ -200,7 +200,7 @@ let df = df![
 
 // Create a layer
 Chart::build(&df)?
-    .mark_point()
+    .mark_point()?
     .encode((
         x("length"),
         y("width"),
