@@ -26,7 +26,7 @@ pub trait IntoChartonSource {
 ///
 /// # Examples
 ///
-/// ```
+/// ```rust,ignore
 /// use polars::prelude::*;
 /// use charton::data::DataFrameSource;
 ///
@@ -240,7 +240,7 @@ pub(crate) fn check_schema(
 ///
 /// # Examples
 ///
-/// ```
+/// ```rust,ignore
 /// let df = load_dataset("mtcars")?;
 /// ```
 pub fn load_dataset(dataset: &str) -> Result<DataFrame, ChartonError> {

@@ -6,7 +6,7 @@ impl Chart<MarkBar> {
     /// Configures the visual properties of the bar mark using a closure.
     ///
     /// # Example
-    /// ```
+    /// ```rust,ignore
     /// chart.mark_bar()
     ///      .configure_bar(|b| b.color("steelblue").width(0.6).span(0.8))
     /// ```

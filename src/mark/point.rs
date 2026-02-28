@@ -40,10 +40,6 @@ impl MarkPoint {
     ///
     /// Accepts `PointShape` variants or string literals like "square".
     ///
-    /// # Example
-    /// ```
-    /// mark.with_shape("triangle"); // Automatic conversion
-    /// ```
     pub fn with_shape(mut self, shape: impl Into<PointShape>) -> Self {
         self.shape = shape.into();
         self

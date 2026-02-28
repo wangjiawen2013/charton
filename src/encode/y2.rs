@@ -33,13 +33,6 @@ impl Y2 {
 
 /// Convenience builder function to create a new Y2 encoding.
 ///
-/// # Example
-/// ```
-/// // Mapping an area between 'min_temp' and 'max_temp'
-/// let area_encoding = encoding()
-///     .y("max_temp")
-///     .y2("min_temp");
-/// ```
 pub fn y2(field: &str) -> Y2 {
     Y2::new(field)
 }

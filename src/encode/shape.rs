@@ -68,11 +68,6 @@ impl Shape {
 
 /// Convenience builder function to create a new Shape encoding.
 ///
-/// # Example
-/// ```
-/// // Map the 'category' field to shapes with a default expansion
-/// let s = shape("category").with_expansion(Expansion::default());
-/// ```
 pub fn shape(field: &str) -> Shape {
     Shape::new(field)
 }

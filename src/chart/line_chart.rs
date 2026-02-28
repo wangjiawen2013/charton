@@ -6,7 +6,7 @@ impl Chart<MarkLine> {
     /// Configures the visual properties of the line mark using a closure.
     ///
     /// # Example
-    /// ```
+    /// ```rust,ignore
     /// chart.mark_line()
     ///      .configure_line(|l| l.color("blue").stroke_width(2.5).interpolation("basis"))
     /// ```

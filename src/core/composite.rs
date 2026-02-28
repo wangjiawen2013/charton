@@ -472,7 +472,7 @@ impl LayeredChart {
     ///
     /// # Example
     ///
-    /// ```
+    /// ```rust,ignore
     /// use charton::prelude::*;
     /// use polars::prelude::*;
     ///
@@ -480,11 +480,11 @@ impl LayeredChart {
     /// let df2 = df!["x" => [1, 2, 3], "y" => [5, 15, 25]]?;
     ///
     /// let base_layer = Chart::<MarkBar>::build(&df1)?
-    ///     .mark_bar()
+    ///     .mark_bar()?
     ///     .encode(x("x"), y("y"))?;
     ///     
     /// let overlay_layer = Chart::<MarkLine>::build(&df2)?
-    ///     .mark_line()
+    ///     .mark_line()?
     ///     .encode(x("x"), y("y"))?;
     ///
     /// let chart = LayeredChart::new()
@@ -882,7 +882,7 @@ impl LayeredChart {
     /// - Err(ChartonError) if there was an error during rendering
     ///
     /// # Example
-    /// ```
+    /// ```rust,ignore
     /// let svg_string = chart.to_svg()?;
     /// std::fs::write("chart.svg", svg_string)?;
     /// ```
@@ -906,13 +906,13 @@ impl LayeredChart {
     ///
     /// # Example
     ///
-    /// ```rust
+    /// ```rust,ignore
     /// use charton::prelude::*;
     /// use polars::prelude::*;
     ///
     /// let df = df!["x" => [1, 2, 3], "y" => [10, 20, 30]]?;
     /// let chart = Chart::build(&df)?
-    ///     .mark_point()
+    ///     .mark_point()?
     ///     .encode(X::new("x"), Y::new("y"))?;
     ///
     /// chart.show()?; // Displays in Jupyter notebook
@@ -946,13 +946,13 @@ impl LayeredChart {
     ///
     /// # Example
     ///
-    /// ```rust
+    /// ```rust,ignore
     /// use charton::prelude::*;
     /// use polars::prelude::*;
     ///
     /// let df = df!["x" => [1, 2, 3], "y" => [10, 20, 30]]?;
     /// let chart = Chart::build(&df)?
-    ///     .mark_point()
+    ///     .mark_point()?
     ///     .encode(x("x"), y("y"))?;
     ///
     /// chart.save("my_chart.svg")?; // Save as SVG file

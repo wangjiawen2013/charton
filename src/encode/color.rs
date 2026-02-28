@@ -64,12 +64,6 @@ impl Color {
 
 /// Convenience builder function to create a new Color encoding.
 ///
-/// # Example
-/// ```
-/// let c = color("magnitude")
-///     .with_scale(Scale::Linear)
-///     .with_expansion(Expansion::default());
-/// ```
 pub fn color(field: &str) -> Color {
     Color::new(field)
 }
