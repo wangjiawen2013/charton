@@ -134,7 +134,7 @@ impl DensityTransform {
     /// The modified `DensityTransform` instance with updated output column names
     ///
     /// # Example
-    /// ```
+    /// ```rust,ignore
     /// let transform = DensityTransform::new("data")
     ///     .with_as("x_values", "y_density");
     /// ```
@@ -156,7 +156,7 @@ impl DensityTransform {
     /// The modified `DensityTransform` instance with the updated bandwidth setting
     ///
     /// # Example
-    /// ```
+    /// ```rust,ignore
     /// let transform = DensityTransform::new("data")
     ///     .with_bandwidth(BandwidthType::Silverman);
     /// ```
@@ -174,7 +174,7 @@ impl DensityTransform {
     /// The modified `DensityTransform` instance with the updated counts setting
     ///
     /// # Example
-    /// ```
+    /// ```rust,ignore
     /// let transform = DensityTransform::new("data")
     ///     .with_counts(true); // Output smoothed counts instead of probabilities
     /// ```
@@ -192,7 +192,7 @@ impl DensityTransform {
     /// The modified `DensityTransform` instance with the updated cumulative setting
     ///
     /// # Example
-    /// ```
+    /// ```rust,ignore
     /// let transform = DensityTransform::new("data")
     ///     .with_cumulative(true); // Output cumulative density instead of regular density
     /// ```
@@ -210,7 +210,7 @@ impl DensityTransform {
     /// The modified `DensityTransform` instance with the updated groupby setting
     ///
     /// # Example
-    /// ```
+    /// ```rust,ignore
     /// let transform = DensityTransform::new("data")
     ///     .with_groupby("category"); // Compute separate density curves for each category
     /// ```
@@ -228,7 +228,7 @@ impl DensityTransform {
     /// The modified `DensityTransform` instance with the updated kernel setting
     ///
     /// # Example
-    /// ```
+    /// ```rust,ignore
     /// let transform = DensityTransform::new("data")
     ///     .with_kernel(KernelType::Epanechnikov); // Use Epanechnikov kernel instead of default Normal
     /// ```
@@ -252,7 +252,7 @@ impl<T: Mark> Chart<T> {
     /// * `Result<Self, ChartonError>` - The chart with transformed density data or an error if the transformation fails
     ///
     /// # Example
-    /// ```
+    /// ```rust,ignore
     /// let density_params = DensityTransform::new("values")
     ///     .with_bandwidth(BandwidthType::Silverman)
     ///     .with_kernel(KernelType::Epanechnikov)

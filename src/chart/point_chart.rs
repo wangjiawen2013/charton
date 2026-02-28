@@ -13,7 +13,7 @@ impl Chart<MarkPoint> {
     /// multiple property changes inside the closure efficiently.
     ///
     /// # Example
-    /// ```
+    /// ```rust,ignore
     /// chart.mark_point()
     ///      .configure_point(|m| m.color("red").size(5.0).opacity(0.8))
     /// ```

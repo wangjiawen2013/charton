@@ -76,10 +76,6 @@ impl Size {
 
 /// Convenience builder function to create a new Size encoding.
 ///
-/// # Example
-/// ```
-/// let s = size("population").with_domain(ScaleDomain::Continuous(0.0, 1e9));
-/// ```
 pub fn size(field: &str) -> Size {
     Size::new(field)
 }

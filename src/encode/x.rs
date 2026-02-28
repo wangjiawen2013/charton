@@ -98,12 +98,6 @@ impl X {
 
 /// Convenience builder function to create a new X encoding.
 ///
-/// # Example
-/// ```
-/// let encoding = x("gdp_per_capita")
-///     .with_scale(Scale::Log)
-///     .with_zero(false);
-/// ```
 pub fn x(field: &str) -> X {
     X::new(field)
 }

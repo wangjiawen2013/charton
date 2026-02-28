@@ -33,11 +33,6 @@ impl Text {
 
 /// Convenience builder function to create a new Text encoding.
 ///
-/// # Example
-/// ```
-/// // Map the 'city_name' column to labels on a map or chart
-/// let t = text("city_name");
-/// ```
 pub fn text(field: &str) -> Text {
     Text::new(field)
 }

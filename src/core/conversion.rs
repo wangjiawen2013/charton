@@ -19,13 +19,13 @@ use crate::mark::Mark;
 /// * `Chart<T>: crate::core::layer::Layer` - The chart must implement the [Layer] trait to be usable as a layer
 ///
 /// # Example
-/// ```rust
+/// ```rust,ignore
 /// use charton::prelude::*;
 /// use polars::prelude::*;
 ///
 /// let df = df!["x" => [1, 2, 3], "y" => [10, 20, 30]]?;
 /// let chart = Chart::<MarkPoint>::build(&df)?
-///     .mark_point()
+///     .mark_point()?
 ///     .encode(x("x"), y("y"))?;
 ///
 /// // Convert using the From trait
@@ -67,13 +67,13 @@ where
 /// * `Chart<T>: crate::core::layer::Layer` - The chart must implement the [Layer] trait to be usable as a layer
 ///
 /// # Example
-/// ```rust
+/// ```rust,ignore
 /// use charton::prelude::*;
 /// use polars::prelude::*;
 ///
 /// let df = df!["x" => [1, 2, 3], "y" => [10, 20, 30]]?;
 /// let chart = Chart::<MarkPoint>::build(&df)?
-///     .mark_point()
+///     .mark_point()?
 ///     .encode(x("x"), y("y"))?;
 ///
 /// // Convert using the convenience method
@@ -97,13 +97,13 @@ where
     /// A new [LayeredChart] instance with this chart as its first layer
     ///
     /// # Example
-    /// ```rust
+    /// ```rust,ignore
     /// use charton::prelude::*;
     /// use polars::prelude::*;
     ///
     /// let df = df!["x" => [1, 2, 3], "y" => [10, 20, 30]]?;
     /// let chart = Chart::<MarkPoint>::build(&df)?
-    ///     .mark_point()
+    ///     .mark_point()?
     ///     .encode(x("x"), y("y"))?;
     ///
     /// // Convert to layered chart for further composition

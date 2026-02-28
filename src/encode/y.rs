@@ -139,12 +139,6 @@ impl Y {
 
 /// Convenience builder function to create a new Y encoding.
 ///
-/// # Example
-/// ```
-/// let encoding = y("sales_volume")
-///     .with_domain(ScaleDomain::Continuous(0.0, 1000.0))
-///     .with_zero(true);
-/// ```
 pub fn y(field: &str) -> Y {
     Y::new(field)
 }

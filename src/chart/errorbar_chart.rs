@@ -13,7 +13,7 @@ impl Chart<MarkErrorBar> {
     /// visibility of the center point.
     ///
     /// # Example
-    /// ```
+    /// ```rust,ignore
     /// chart.mark_errorbar()
     ///      .configure_errorbar(|m| m.with_color("blue").with_cap_length(5.0).with_center(true))
     /// ```

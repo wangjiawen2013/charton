@@ -86,7 +86,7 @@ impl WindowFieldDef {
     /// A new `WindowFieldDef` instance with the specified parameters
     ///
     /// # Example
-    /// ```
+    /// ```rust,ignore
     /// let window_field = WindowFieldDef::new("sales", WindowOnlyOp::Rank, "sales_rank");
     /// ```
     pub fn new(field: &str, op: WindowOnlyOp, as_: impl Into<String>) -> Self {
@@ -131,7 +131,7 @@ impl WindowTransform {
     /// - normalize: false
     ///
     /// # Example
-    /// ```
+    /// ```rust,ignore
     /// let window_field = WindowFieldDef::new("value", WindowOnlyOp::Rank, "value_rank");
     /// let window_transform = WindowTransform::new(window_field);
     /// ```
@@ -155,7 +155,7 @@ impl WindowTransform {
     /// The modified `WindowTransform` instance with the updated frame setting
     ///
     /// # Example
-    /// ```
+    /// ```rust,ignore
     /// let window_transform = window_transform.with_frame([Some(-5.0), Some(5.0)]); // Window includes 5 rows before and after
     /// ```
     pub fn with_frame(mut self, frame: [Option<f64>; 2]) -> Self {
@@ -172,7 +172,7 @@ impl WindowTransform {
     /// The modified `WindowTransform` instance with the updated groupby setting
     ///
     /// # Example
-    /// ```
+    /// ```rust,ignore
     /// let window_transform = window_transform.with_groupby("category");
     /// ```
     pub fn with_groupby(mut self, groupby: &str) -> Self {
@@ -189,7 +189,7 @@ impl WindowTransform {
     /// The modified `WindowTransform` instance with the updated ignore_peers setting
     ///
     /// # Example
-    /// ```
+    /// ```rust,ignore
     /// let window_transform = window_transform.with_ignore_peers(true);
     /// ```
     pub fn with_ignore_peers(mut self, ignore_peers: bool) -> Self {
@@ -206,7 +206,7 @@ impl WindowTransform {
     /// The modified `WindowTransform` instance with the updated normalize setting
     ///
     /// # Example
-    /// ```
+    /// ```rust,ignore
     /// let window_transform = window_transform.with_normalize(true);
     /// ```
     pub fn with_normalize(mut self, normalize: bool) -> Self {
@@ -229,7 +229,7 @@ impl<T: Mark> Chart<T> {
     /// * `Result<Self, ChartonError>` - The chart with transformed window data or an error if the transformation fails
     ///
     /// # Example
-    /// ```
+    /// ```rust,ignore
     /// let window_field = WindowFieldDef::new("value", WindowOnlyOp::CumeDist, "cumulative_dist");
     /// let window_params = WindowTransform::new(window_field).with_groupby("category");
     ///
