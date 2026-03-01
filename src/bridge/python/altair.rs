@@ -22,7 +22,7 @@ impl Plot<Altair> {
     /// - Err(ChartonError) if there was an error during execution
     ///
     /// # Example
-    /// ```
+    /// ```rust,ignore
     /// let json_spec = plot.to_json()?;
     /// // Use the JSON specification in a web application or save to file
     /// ```
