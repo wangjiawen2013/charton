@@ -518,6 +518,7 @@ impl LayeredChart {
     /// 4. **Layout Measurement**: Calculates the physical pixel Rect for the plot panel.
     ///
     /// The output is the "Final Blueprint" required to begin the actual drawing phase.
+    #[allow(clippy::type_complexity)] // This is the core resolution result; a type alias isn't needed for a single usage.
     pub fn resolve_scene(
         &self,
     ) -> Result<

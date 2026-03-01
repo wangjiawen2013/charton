@@ -81,6 +81,7 @@ impl MarkRenderer for Chart<MarkBoxplot> {
         let unit_step_norm = (n1 - n0).abs();
 
         // --- STEP 4: Render Loop ---
+        #[allow(clippy::needless_range_loop)] // Allow indexing to synchronize access across multiple data columns
         for i in 0..df_source.df.height() {
             let total_groups = groups_count_col.get(i).unwrap();
             let sub_idx = sub_idx_col.get(i).unwrap();
@@ -174,20 +175,18 @@ impl MarkRenderer for Chart<MarkBoxplot> {
                 let n_outliers = y_scale
                     .scale_type()
                     .normalize_series(y_scale, &s_outliers)?;
-                for n_o_opt in n_outliers.into_iter() {
-                    if let Some(n_o) = n_o_opt {
-                        // Outliers also need full (x, y) transform to follow the flip.
-                        let (ox, oy) = context.transform(x_center_n, n_o);
-                        backend.draw_circle(CircleConfig {
-                            x: ox as Precision,
-                            y: oy as Precision,
-                            radius: mark_config.outlier_size as Precision,
-                            fill: mark_config.outlier_color,
-                            stroke: SingleColor::new("none"),
-                            stroke_width: 0.0,
-                            opacity: mark_config.opacity as Precision,
-                        });
-                    }
+                for n_o in n_outliers.into_iter().flatten() {
+                    // Outliers also need full (x, y) transform to follow the flip.
+                    let (ox, oy) = context.transform(x_center_n, n_o);
+                    backend.draw_circle(CircleConfig {
+                        x: ox as Precision,
+                        y: oy as Precision,
+                        radius: mark_config.outlier_size as Precision,
+                        fill: mark_config.outlier_color,
+                        stroke: SingleColor::new("none"),
+                        stroke_width: 0.0,
+                        opacity: mark_config.opacity as Precision,
+                    });
                 }
             }
         }
