@@ -1,0 +1,8 @@
+[book]
+title = "Charton: The Grammar of Graphics in Rust"
+authors = ["wangjiawen2013"]
+language = "en"
+description = "A comprehensive guide to the Charton visualization library."
+
+[output.html]
+title = "The Charton Book"

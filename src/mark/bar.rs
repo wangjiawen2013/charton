@@ -1,48 +1,92 @@
 use crate::mark::Mark;
 use crate::visual::color::SingleColor;
 
-/// Mark type for bar charts
+/// Mark type for bar charts.
 ///
-/// The `MarkBar` struct defines the visual properties of rectangular bar elements
-/// used in bar charts, column charts, and histograms. It controls the appearance
-/// of individual bars including their color, opacity, stroke, width, and spacing.
-///
-/// Bar marks are fundamental to many chart types and can be oriented horizontally
-/// or vertically. They support grouping and stacking configurations for comparing
-/// multiple categories or showing part-to-whole relationships.
-///
-/// # Color Handling
-///
-/// In bar charts, colors are typically assigned based on data categories or groups.
-/// When color encoding is used, each bar or group of bars will be assigned a color
-/// from the palette system to distinguish between different data series or categories.
-/// When no explicit color encoding is provided, the `color` field in this struct
-/// serves as the default fill color for all bars. For grouped or stacked bar charts,
-/// different series are automatically assigned different colors from the palette
-/// to distinguish them.
+/// The `MarkBar` struct defines the visual properties of rectangular bar elements.
+/// It uses `Option<f64>` for width, spacing, and span to allow the coordinate system
+/// to provide "smart defaults" via `CoordLayout` if the user hasn't specified them.
 #[derive(Debug, Clone)]
 pub struct MarkBar {
-    pub(crate) color: Option<SingleColor>,
+    pub(crate) color: SingleColor,
     pub(crate) opacity: f64,
     pub(crate) stroke: Option<SingleColor>,
-    pub(crate) stroke_width: f64,
-    pub(crate) width: f64,
-    pub(crate) spacing: f64, // Add this field for spacing between bars in a group like boxplot
-    pub(crate) span: f64,    // Add this field for total span of a group like boxplot
+    pub(crate) stroke_width: Option<f64>,
+
+    /// Dimensional override for bar width.
+    /// If None, the coordinate system's `default_bar_width` is used.
+    pub(crate) width: Option<f64>,
+
+    /// Dimensional override for spacing between bars in a group.
+    /// If None, the coordinate system's `default_bar_spacing` is used.
+    pub(crate) spacing: Option<f64>,
+
+    /// Dimensional override for the total span of a bar group.
+    /// If None, the coordinate system's `default_bar_span` is used.
+    pub(crate) span: Option<f64>,
 }
 
 impl MarkBar {
-    /// Create a new bar mark
+    /// Creates a new `MarkBar` with default visual properties.
+    ///
+    /// Dimensional fields (width, spacing, span) are initialized to `None`
+    /// to enable context-aware defaults from the coordinate system.
     pub(crate) fn new() -> Self {
         Self {
-            color: Some(SingleColor::new("steelblue")),
+            color: SingleColor::new("steelblue"),
             opacity: 1.0,
-            stroke: Some(SingleColor::new("black")),
-            stroke_width: 1.0,
-            width: 0.5,   // The maximal width of a bar, the actual width may be smaller
-            spacing: 0.0, // Default space(spacing*(actual width)) between bars in a group
-            span: 0.7,    // Default total span for a group
+            stroke: None,
+            stroke_width: None,
+            width: None, // The maximal percentage of a bar's width relative to the tick interval. Defer to CoordLayout
+            spacing: None, // The percentage of the space between bars within a group reltative to the bar width. Defer to CoordLayout
+            span: None,    // The (width+spacing) of all bars in a group. Defer to CoordLayout
         }
+    }
+
+    // --- Fluent Configuration Methods (Builder Pattern) ---
+
+    /// Sets the fill color of the bars. Accepts names like "red" or hex strings like "#ff0000".
+    pub fn with_color(mut self, color: impl Into<SingleColor>) -> Self {
+        self.color = color.into();
+        self
+    }
+
+    /// Sets the opacity of the bar mark (0.0 to 1.0).
+    pub fn with_opacity(mut self, opacity: f64) -> Self {
+        self.opacity = opacity.clamp(0.0, 1.0);
+        self
+    }
+
+    /// Sets the stroke color of the bars. Use "none" to disable the outline.
+    pub fn with_stroke(mut self, stroke: impl Into<SingleColor>) -> Self {
+        self.stroke = Some(stroke.into());
+        self
+    }
+
+    /// Sets the thickness of the bar's outline in pixels.
+    pub fn with_stroke_width(mut self, width: f64) -> Self {
+        self.stroke_width = Some(width);
+        self
+    }
+
+    /// Manually sets the width of a bar.
+    ///
+    /// Providing a value here will override the coordinate system's default suggestion.
+    pub fn with_width(mut self, width: f64) -> Self {
+        self.width = Some(width.clamp(0.0, 1.0));
+        self
+    }
+
+    /// Manually sets the relative spacing between bars within a group (0.0 to 1.0).
+    pub fn with_spacing(mut self, spacing: f64) -> Self {
+        self.spacing = Some(spacing.clamp(0.0, 1.0));
+        self
+    }
+
+    /// Manually sets the total span of a bar group within a category (0.0 to 1.0).
+    pub fn with_span(mut self, span: f64) -> Self {
+        self.span = Some(span.clamp(0.0, 1.0));
+        self
     }
 }
 

@@ -10,7 +10,7 @@ fn main() -> Result<(), Box<dyn Error>> {
         "population" => [100000.0, 500000.0, 2000000.0, 10000000.0, 50000000.0]
     ]?;
 
-    let point_chart = Chart::build(&df)?.mark_point().encode((
+    let point_chart = Chart::build(&df)?.mark_point()?.encode((
         x("population"),
         y("gdp").with_scale(Scale::Log), // Use logarithmic scale for GDP
     ))?;
@@ -18,6 +18,8 @@ fn main() -> Result<(), Box<dyn Error>> {
     LayeredChart::new()
         .with_size(500, 400)
         .add_layer(point_chart)
+        .configure_theme(|t| t.with_x_tick_label_angle(-45.0))
+        .coord_flip()
         .save("./examples/log_scale.svg")?;
 
     Ok(())

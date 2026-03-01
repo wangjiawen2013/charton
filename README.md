@@ -21,7 +21,7 @@ Charton includes a pure-Rust SVG renderer, which allows users to create visualiz
 
 ```toml
 [dependencies]
-charton = "0.2.1"
+charton = "0.3.0"
 polars = "0.49.1"
 ```
 
@@ -44,7 +44,7 @@ fn main() -> Result<(), Box<dyn Error>> {
 
     // Create a layer
     Chart::build(&df)?
-        .mark_point()               // Scatter plot
+        .mark_point()?              // Scatter plot
         .encode((
             x("length"),            // Map length column to X-axis
             y("width"),             // Map width column to Y-axis
@@ -75,7 +75,7 @@ fn main() -> Result<(), Box<dyn Error>> {
 
     // Create a layer
     let scatter = Chart::build(&df)?
-        .mark_point()               // Scatter plot
+        .mark_point()?              // Scatter plot
         .encode((
             x("length"),            // Map length column to X-axis
             y("width"),             // Map width column to Y-axis
@@ -105,7 +105,7 @@ fn main() -> Result<(), Box<dyn Error>> {
 
     // Create a line chart layer
     let line = Chart::build(&df)?
-        .mark_line()                        // Line chart
+        .mark_line()?                       // Line chart
         .encode((
             x("length"),                    // Map length column to X-axis
             y("width"),                     // Map width column to Y-axis
@@ -113,7 +113,7 @@ fn main() -> Result<(), Box<dyn Error>> {
 
     // Create a scatter point layer
     let scatter = Chart::build(&df)?
-        .mark_point()                       // Scatter plot
+        .mark_point()?                      // Scatter plot
         .encode((
             x("length"),                    // Map length column to X-axis
             y("width"),                     // Map width column to Y-axis
@@ -185,8 +185,8 @@ Charton integrates with evcxr, allowing you to display plots interactively in a 
 The following code shows a minimal example of this.
 
 ```rust
-:dep charton = { version="0.2.1" }
-:dep polars = { version="0.49.1" }
+:dep charton = { version="0.3.0" }
+:dep polars = { version="0.49" }
 
 use charton::prelude::*;
 use polars::prelude::*;
@@ -199,7 +199,7 @@ let df = df![
 
 // Create a layer
 Chart::build(&df)?
-    .mark_point()
+    .mark_point()?
     .encode((
         x("length"),
         y("width"),
@@ -214,8 +214,8 @@ Run it in a Jupyter Notebook cell, and the chart will be displayed inline.
 The same workflow applies when using external visualization libraries: place the corresponding Rust code snippet into a Jupyter cell, and Charton will render the visualization interactively.
 
 ```rust
-:dep charton = { version="0.2.1" }
-:dep polars = { version="0.49.1" }
+:dep charton = { version="0.3.0" }
+:dep polars = { version="0.49" }
 
 use charton::prelude::*;
 use polars::prelude::df;
@@ -319,13 +319,13 @@ This gallery contains a selection of examples of the plots charton can create. G
     <tr>
         <td><img src="examples/altair.svg" alt="Altair" /><p align="center">Altair</p></td>
         <td><img src="examples/matplotlib.png" alt="Matplotlib" /><p align="center">Matplotlib</p></td>
-        <td><img src="examples/grouped_bar_chart.svg" alt="Grouped Bar Chart" /><p align="center">Grouped Bar Chart</p></td>
+        <td><img src="examples/grouped_bar.svg" alt="Grouped Bar Chart" /><p align="center">Grouped Bar Chart</p></td>
         <td><img src="examples/distribution.svg" alt="Distribution" /><p align="center">Distribution</p></td>
     </tr>
     <tr>
         <td><img src="examples/histogram.svg" alt="Histogram" /><p align="center">Histogram</p></td>
         <td><img src="examples/rule.svg" alt="Rule" /><p align="center">Rule</p></td>
-        <td><img src="examples/stacked_bar_chart.svg" alt="Stacked Bar Chart" /><p align="center">Stacked Bar Chart</p></td>
+        <td><img src="examples/stacked_bar.svg" alt="Stacked Bar Chart" /><p align="center">Stacked Bar Chart</p></td>
         <td><img src="examples/text.svg" alt="Text" /><p align="center">Text</p></td>
     </tr>
     <tr>
@@ -336,7 +336,7 @@ This gallery contains a selection of examples of the plots charton can create. G
     </tr>
     <tr>
         <td><img src="examples/heatmap.svg" alt="Heatmap" /><p align="center">Heatmap</p></td>
-        <td><img src="examples/scatter_chart.svg" alt="Scatter Chart" /><p align="center">Scatter Chart</p></td>
+        <td><img src="examples/scatter.svg" alt="Scatter Chart" /><p align="center">Scatter Chart</p></td>
         <td><img src="examples/line_with_errorbar.svg" alt="Line Errorbar" /><p align="center">Line Errorbar</p></td>
         <td><img src="examples/bar_with_errorbar.svg" alt="Bar Errorbar" /><p align="center">Bar Errorbar</p></td>
     </tr>
@@ -344,7 +344,13 @@ This gallery contains a selection of examples of the plots charton can create. G
         <td><img src="examples/log_scale.svg" alt="Log Scale" /><p align="center">Log Scale</p></td>
         <td><img src="examples/swapped_axes.svg" alt="Swapped Axes" /><p align="center">Swapped Axes</p></td>
         <td><img src="examples/line.svg" alt="Line" /><p align="center">Line</p></td>
+        <td><img src="examples/time_scale.svg" alt="Time Scale" /><p align="center">Time Scale</p></td>
+    </tr>
+    <tr>
+        <td><img src="examples/pie.svg" alt="Pie" /><p align="center">Pie</p></td>
         <td><img src="examples/donut.svg" alt="Donut" /><p align="center">Donut</p></td>
+        <td><img src="examples/rose.svg" alt="Rose" /><p align="center">Rose</p></td>
+        <td><img src="examples/nightingale.svg" alt="Nightingale" /><p align="center">Nightingale</p></td>
     </tr>
 </table>
 

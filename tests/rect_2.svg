@@ -1,53 +1,78 @@
-<svg width="500" height="400" viewBox="0 0 500 400" xmlns="http://www.w3.org/2000/svg"><rect width="100%" height="100%" fill="white" /><rect x="75" y="280" width="64.99999999999999" height="60" fill="#471f70" opacity="1" stroke="white" stroke-width="0" /><rect x="140" y="280" width="64.99999999999999" height="60" fill="#440154" opacity="1" stroke="white" stroke-width="0" /><rect x="204.99999999999997" y="280" width="64.99999999999999" height="60" fill="#433982" opacity="1" stroke="white" stroke-width="0" /><rect x="270" y="280" width="64.99999999999999" height="60" fill="#440154" opacity="1" stroke="white" stroke-width="0" /><rect x="334.99999999999994" y="280" width="64.99999999999999" height="60" fill="#440154" opacity="1" stroke="white" stroke-width="0" /><rect x="75" y="220" width="64.99999999999999" height="60" fill="#30688e" opacity="1" stroke="white" stroke-width="0" /><rect x="140" y="220" width="64.99999999999999" height="60" fill="#440154" opacity="1" stroke="white" stroke-width="0" /><rect x="204.99999999999997" y="220" width="64.99999999999999" height="60" fill="#287b8e" opacity="1" stroke="white" stroke-width="0" /><rect x="270" y="220" width="64.99999999999999" height="60" fill="#440154" opacity="1" stroke="white" stroke-width="0" /><rect x="334.99999999999994" y="220" width="64.99999999999999" height="60" fill="#21908c" opacity="1" stroke="white" stroke-width="0" /><rect x="75" y="160" width="64.99999999999999" height="60" fill="#440154" opacity="1" stroke="white" stroke-width="0" /><rect x="140" y="160" width="64.99999999999999" height="60" fill="#440154" opacity="1" stroke="white" stroke-width="0" /><rect x="204.99999999999997" y="160" width="64.99999999999999" height="60" fill="#440154" opacity="1" stroke="white" stroke-width="0" /><rect x="270" y="160" width="64.99999999999999" height="60" fill="#440154" opacity="1" stroke="white" stroke-width="0" /><rect x="334.99999999999994" y="160" width="64.99999999999999" height="60" fill="#440154" opacity="1" stroke="white" stroke-width="0" /><rect x="75" y="100.00000000000006" width="64.99999999999999" height="60" fill="#21a485" opacity="1" stroke="white" stroke-width="0" /><rect x="140" y="100.00000000000006" width="64.99999999999999" height="60" fill="#440154" opacity="1" stroke="white" stroke-width="0" /><rect x="204.99999999999997" y="100.00000000000006" width="64.99999999999999" height="60" fill="#34b679" opacity="1" stroke="white" stroke-width="0" /><rect x="270" y="100.00000000000006" width="64.99999999999999" height="60" fill="#440154" opacity="1" stroke="white" stroke-width="0" /><rect x="334.99999999999994" y="100.00000000000006" width="64.99999999999999" height="60" fill="#5dc862" opacity="1" stroke="white" stroke-width="0" /><rect x="75" y="40" width="64.99999999999999" height="60" fill="#8fd543" opacity="1" stroke="white" stroke-width="0" /><rect x="140" y="40" width="64.99999999999999" height="60" fill="#440154" opacity="1" stroke="white" stroke-width="0" /><rect x="204.99999999999997" y="40" width="64.99999999999999" height="60" fill="#c6e021" opacity="1" stroke="white" stroke-width="0" /><rect x="270" y="40" width="64.99999999999999" height="60" fill="#440154" opacity="1" stroke="white" stroke-width="0" /><rect x="334.99999999999994" y="40" width="64.99999999999999" height="60" fill="#fde725" opacity="1" stroke="white" stroke-width="0" /><line x1="75" y1="40" x2="75" y2="340" stroke="black" stroke-width="1"/>
-<line x1="70" y1="340" x2="75" y2="340" stroke="black" stroke-width="1"/>
-<text x="67" y="340" font-size="13" font-family="sans-serif" fill="#333" text-anchor="end" dominant-baseline="middle">1</text>
-<line x1="70" y1="240" x2="75" y2="240" stroke="black" stroke-width="1"/>
-<text x="67" y="240" font-size="13" font-family="sans-serif" fill="#333" text-anchor="end" dominant-baseline="middle">2</text>
-<line x1="70" y1="140" x2="75" y2="140" stroke="black" stroke-width="1"/>
-<text x="67" y="140" font-size="13" font-family="sans-serif" fill="#333" text-anchor="end" dominant-baseline="middle">3</text>
-<line x1="70" y1="40" x2="75" y2="40" stroke="black" stroke-width="1"/>
-<text x="67" y="40" font-size="13" font-family="sans-serif" fill="#333" text-anchor="end" dominant-baseline="middle">4</text>
-<text x="47.85" y="190" font-size="15" font-family="sans-serif" fill="#333" text-anchor="middle" dominant-baseline="text-after-edge" transform="rotate(-90, 47.85, 190)">a</text>
-<line x1="75" y1="340" x2="399.99999999999994" y2="340" stroke="black" stroke-width="1"/>
-<line x1="75" y1="340" x2="75" y2="345" stroke="black" stroke-width="1"/>
-<text x="75" y="348" font-size="13" font-family="sans-serif" fill="#333" text-anchor="middle" dominant-baseline="text-before-edge">1.0</text>
-<line x1="156.25" y1="340" x2="156.25" y2="345" stroke="black" stroke-width="1"/>
-<text x="156.25" y="348" font-size="13" font-family="sans-serif" fill="#333" text-anchor="middle" dominant-baseline="text-before-edge">1.5</text>
-<line x1="237.49999999999997" y1="340" x2="237.49999999999997" y2="345" stroke="black" stroke-width="1"/>
-<text x="237.49999999999997" y="348" font-size="13" font-family="sans-serif" fill="#333" text-anchor="middle" dominant-baseline="text-before-edge">2.0</text>
-<line x1="318.74999999999994" y1="340" x2="318.74999999999994" y2="345" stroke="black" stroke-width="1"/>
-<text x="318.74999999999994" y="348" font-size="13" font-family="sans-serif" fill="#333" text-anchor="middle" dominant-baseline="text-before-edge">2.5</text>
-<line x1="399.99999999999994" y1="340" x2="399.99999999999994" y2="345" stroke="black" stroke-width="1"/>
-<text x="399.99999999999994" y="348" font-size="13" font-family="sans-serif" fill="#333" text-anchor="middle" dominant-baseline="text-before-edge">3.0</text>
-<text x="237.49999999999997" y="363" font-size="15" font-family="sans-serif" fill="#333" text-anchor="middle" dominant-baseline="text-before-edge">b</text>
-<text x="414.99999999999994" y="52" font-size="15" font-family="sans-serif" text-anchor="left" font-weight="bold">value</text>
-<defs>
-  <linearGradient id="colorbar-gradient-value" x1="0" y1="0" x2="0" y2="1">
-    <stop offset="0%" stop-color="#fde725"/>
-    <stop offset="10%" stop-color="#bbde28"/>
-    <stop offset="20%" stop-color="#7ad151"/>
-    <stop offset="30%" stop-color="#44be70"/>
-    <stop offset="40%" stop-color="#22a884"/>
-    <stop offset="50%" stop-color="#21908c"/>
-    <stop offset="60%" stop-color="#2a788e"/>
-    <stop offset="70%" stop-color="#355f8d"/>
-    <stop offset="80%" stop-color="#414387"/>
-    <stop offset="90%" stop-color="#472474"/>
-    <stop offset="100%" stop-color="#440154"/>
-  </linearGradient>
-</defs>
-<rect x="414.99999999999994" y="60" width="20" height="100" fill="url('#colorbar-gradient-value')"/>
-<rect x="414.99999999999994" y="60" width="20" height="100" fill="none" stroke="black" stroke-width="1"/>
-<line x1="414.99999999999994" y1="75" x2="418.99999999999994" y2="75" stroke="white" stroke-width="1"/>
-<line x1="430.99999999999994" y1="75" x2="434.99999999999994" y2="75" stroke="white" stroke-width="1"/>
-<text x="440.99999999999994" y="75" font-size="13" font-family="sans-serif" fill="#333" dominant-baseline="middle" text-anchor="start">10.20</text>
-<line x1="414.99999999999994" y1="100" x2="418.99999999999994" y2="100" stroke="white" stroke-width="1"/>
-<line x1="430.99999999999994" y1="100" x2="434.99999999999994" y2="100" stroke="white" stroke-width="1"/>
-<text x="440.99999999999994" y="100" font-size="13" font-family="sans-serif" fill="#333" dominant-baseline="middle" text-anchor="start">7.20</text>
-<line x1="414.99999999999994" y1="125" x2="418.99999999999994" y2="125" stroke="white" stroke-width="1"/>
-<line x1="430.99999999999994" y1="125" x2="434.99999999999994" y2="125" stroke="white" stroke-width="1"/>
-<text x="440.99999999999994" y="125" font-size="13" font-family="sans-serif" fill="#333" dominant-baseline="middle" text-anchor="start">4.20</text>
-<line x1="414.99999999999994" y1="150" x2="418.99999999999994" y2="150" stroke="white" stroke-width="1"/>
-<line x1="430.99999999999994" y1="150" x2="434.99999999999994" y2="150" stroke="white" stroke-width="1"/>
-<text x="440.99999999999994" y="150" font-size="13" font-family="sans-serif" fill="#333" dominant-baseline="middle" text-anchor="start">1.20</text>
+<svg width="500" height="400" viewBox="0 0 500 400" xmlns="http://www.w3.org/2000/svg"><rect width="100%" height="100%" fill="rgba(255,255,255,1.000)" /><line x1="87.20" y1="316.00" x2="436.80" y2="316.00" stroke="rgba(51,51,51,1.000)" stroke-width="1" stroke-linecap="square"/>
+<line x1="87.20" y1="316.00" x2="87.20" y2="322.00" stroke="rgba(51,51,51,1.000)" stroke-width="1.0"/>
+<text x="87.20" y="325.00" font-size="13" font-family="Inter, -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, 'PingFang SC', 'Microsoft YaHei', Ubuntu, Cantarell, 'Noto Sans', sans-serif" fill="rgba(51,51,51,1.000)" text-anchor="middle" dominant-baseline="hanging">1.0</text>
+<line x1="174.60" y1="316.00" x2="174.60" y2="322.00" stroke="rgba(51,51,51,1.000)" stroke-width="1.0"/>
+<text x="174.60" y="325.00" font-size="13" font-family="Inter, -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, 'PingFang SC', 'Microsoft YaHei', Ubuntu, Cantarell, 'Noto Sans', sans-serif" fill="rgba(51,51,51,1.000)" text-anchor="middle" dominant-baseline="hanging">1.5</text>
+<line x1="262.00" y1="316.00" x2="262.00" y2="322.00" stroke="rgba(51,51,51,1.000)" stroke-width="1.0"/>
+<text x="262.00" y="325.00" font-size="13" font-family="Inter, -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, 'PingFang SC', 'Microsoft YaHei', Ubuntu, Cantarell, 'Noto Sans', sans-serif" fill="rgba(51,51,51,1.000)" text-anchor="middle" dominant-baseline="hanging">2.0</text>
+<line x1="349.40" y1="316.00" x2="349.40" y2="322.00" stroke="rgba(51,51,51,1.000)" stroke-width="1.0"/>
+<text x="349.40" y="325.00" font-size="13" font-family="Inter, -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, 'PingFang SC', 'Microsoft YaHei', Ubuntu, Cantarell, 'Noto Sans', sans-serif" fill="rgba(51,51,51,1.000)" text-anchor="middle" dominant-baseline="hanging">2.5</text>
+<line x1="436.80" y1="316.00" x2="436.80" y2="322.00" stroke="rgba(51,51,51,1.000)" stroke-width="1.0"/>
+<text x="436.80" y="325.00" font-size="13" font-family="Inter, -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, 'PingFang SC', 'Microsoft YaHei', Ubuntu, Cantarell, 'Noto Sans', sans-serif" fill="rgba(51,51,51,1.000)" text-anchor="middle" dominant-baseline="hanging">3.0</text>
+<text x="262.00" y="340.00" text-anchor="middle" font-size="15" font-family="Inter, -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, 'PingFang SC', 'Microsoft YaHei', Ubuntu, Cantarell, 'Noto Sans', sans-serif" fill="rgba(51,51,51,1.000)" font-weight="bold" dominant-baseline="hanging">b</text>
+<line x1="87.20" y1="40.00" x2="87.20" y2="316.00" stroke="rgba(51,51,51,1.000)" stroke-width="1" stroke-linecap="square"/>
+<line x1="87.20" y1="316.00" x2="81.20" y2="316.00" stroke="rgba(51,51,51,1.000)" stroke-width="1.0"/>
+<text x="77.20" y="316.00" font-size="13" font-family="Inter, -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, 'PingFang SC', 'Microsoft YaHei', Ubuntu, Cantarell, 'Noto Sans', sans-serif" fill="rgba(51,51,51,1.000)" text-anchor="end" dominant-baseline="central">1.0</text>
+<line x1="87.20" y1="270.00" x2="81.20" y2="270.00" stroke="rgba(51,51,51,1.000)" stroke-width="1.0"/>
+<text x="77.20" y="270.00" font-size="13" font-family="Inter, -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, 'PingFang SC', 'Microsoft YaHei', Ubuntu, Cantarell, 'Noto Sans', sans-serif" fill="rgba(51,51,51,1.000)" text-anchor="end" dominant-baseline="central">1.5</text>
+<line x1="87.20" y1="224.00" x2="81.20" y2="224.00" stroke="rgba(51,51,51,1.000)" stroke-width="1.0"/>
+<text x="77.20" y="224.00" font-size="13" font-family="Inter, -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, 'PingFang SC', 'Microsoft YaHei', Ubuntu, Cantarell, 'Noto Sans', sans-serif" fill="rgba(51,51,51,1.000)" text-anchor="end" dominant-baseline="central">2.0</text>
+<line x1="87.20" y1="178.00" x2="81.20" y2="178.00" stroke="rgba(51,51,51,1.000)" stroke-width="1.0"/>
+<text x="77.20" y="178.00" font-size="13" font-family="Inter, -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, 'PingFang SC', 'Microsoft YaHei', Ubuntu, Cantarell, 'Noto Sans', sans-serif" fill="rgba(51,51,51,1.000)" text-anchor="end" dominant-baseline="central">2.5</text>
+<line x1="87.20" y1="132.00" x2="81.20" y2="132.00" stroke="rgba(51,51,51,1.000)" stroke-width="1.0"/>
+<text x="77.20" y="132.00" font-size="13" font-family="Inter, -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, 'PingFang SC', 'Microsoft YaHei', Ubuntu, Cantarell, 'Noto Sans', sans-serif" fill="rgba(51,51,51,1.000)" text-anchor="end" dominant-baseline="central">3.0</text>
+<line x1="87.20" y1="86.00" x2="81.20" y2="86.00" stroke="rgba(51,51,51,1.000)" stroke-width="1.0"/>
+<text x="77.20" y="86.00" font-size="13" font-family="Inter, -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, 'PingFang SC', 'Microsoft YaHei', Ubuntu, Cantarell, 'Noto Sans', sans-serif" fill="rgba(51,51,51,1.000)" text-anchor="end" dominant-baseline="central">3.5</text>
+<line x1="87.20" y1="40.00" x2="81.20" y2="40.00" stroke="rgba(51,51,51,1.000)" stroke-width="1.0"/>
+<text x="77.20" y="40.00" font-size="13" font-family="Inter, -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, 'PingFang SC', 'Microsoft YaHei', Ubuntu, Cantarell, 'Noto Sans', sans-serif" fill="rgba(51,51,51,1.000)" text-anchor="end" dominant-baseline="central">4.0</text>
+<text x="47.50" y="178.00" text-anchor="middle" font-size="15" font-family="Inter, -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, 'PingFang SC', 'Microsoft YaHei', Ubuntu, Cantarell, 'Noto Sans', sans-serif" fill="rgba(51,51,51,1.000)" font-weight="bold" transform="rotate(-90, 47.50, 178.00)" dominant-baseline="middle">a</text>
+<defs><clipPath id="plot-clip-area"><rect x="87.200" y="40.000" width="349.600" height="276.000" /></clipPath></defs>
+<rect x="87.200" y="260.800" width="69.920" height="55.200" fill="rgba(71,43,122,1.000)" stroke="rgba(255,255,255,1.000)" stroke-width="0.000" fill-opacity="1.000" stroke-opacity="1.000" clip-path="url(#plot-clip-area)" />
+<rect x="157.120" y="260.800" width="69.920" height="55.200" fill="rgba(71,18,100,1.000)" stroke="rgba(255,255,255,1.000)" stroke-width="0.000" fill-opacity="1.000" stroke-opacity="1.000" clip-path="url(#plot-clip-area)" />
+<rect x="227.040" y="260.800" width="69.920" height="55.200" fill="rgba(65,67,134,1.000)" stroke="rgba(255,255,255,1.000)" stroke-width="0.000" fill-opacity="1.000" stroke-opacity="1.000" clip-path="url(#plot-clip-area)" />
+<rect x="296.960" y="260.800" width="69.920" height="55.200" fill="rgba(71,18,100,1.000)" stroke="rgba(255,255,255,1.000)" stroke-width="0.000" fill-opacity="1.000" stroke-opacity="1.000" clip-path="url(#plot-clip-area)" />
+<rect x="366.880" y="260.800" width="69.920" height="55.200" fill="rgba(71,18,100,1.000)" stroke="rgba(255,255,255,1.000)" stroke-width="0.000" fill-opacity="1.000" stroke-opacity="1.000" clip-path="url(#plot-clip-area)" />
+<rect x="87.200" y="205.600" width="69.920" height="55.200" fill="rgba(47,108,142,1.000)" stroke="rgba(255,255,255,1.000)" stroke-width="0.000" fill-opacity="1.000" stroke-opacity="1.000" clip-path="url(#plot-clip-area)" />
+<rect x="157.120" y="205.600" width="69.920" height="55.200" fill="rgba(71,18,100,1.000)" stroke="rgba(255,255,255,1.000)" stroke-width="0.000" fill-opacity="1.000" stroke-opacity="1.000" clip-path="url(#plot-clip-area)" />
+<rect x="227.040" y="205.600" width="69.920" height="55.200" fill="rgba(39,126,142,1.000)" stroke="rgba(255,255,255,1.000)" stroke-width="0.000" fill-opacity="1.000" stroke-opacity="1.000" clip-path="url(#plot-clip-area)" />
+<rect x="296.960" y="205.600" width="69.920" height="55.200" fill="rgba(71,18,100,1.000)" stroke="rgba(255,255,255,1.000)" stroke-width="0.000" fill-opacity="1.000" stroke-opacity="1.000" clip-path="url(#plot-clip-area)" />
+<rect x="366.880" y="205.600" width="69.920" height="55.200" fill="rgba(33,144,141,1.000)" stroke="rgba(255,255,255,1.000)" stroke-width="0.000" fill-opacity="1.000" stroke-opacity="1.000" clip-path="url(#plot-clip-area)" />
+<rect x="87.200" y="150.400" width="69.920" height="55.200" fill="rgba(71,18,100,1.000)" stroke="rgba(255,255,255,1.000)" stroke-width="0.000" fill-opacity="1.000" stroke-opacity="1.000" clip-path="url(#plot-clip-area)" />
+<rect x="157.120" y="150.400" width="69.920" height="55.200" fill="rgba(71,18,100,1.000)" stroke="rgba(255,255,255,1.000)" stroke-width="0.000" fill-opacity="1.000" stroke-opacity="1.000" clip-path="url(#plot-clip-area)" />
+<rect x="227.040" y="150.400" width="69.920" height="55.200" fill="rgba(71,18,100,1.000)" stroke="rgba(255,255,255,1.000)" stroke-width="0.000" fill-opacity="1.000" stroke-opacity="1.000" clip-path="url(#plot-clip-area)" />
+<rect x="296.960" y="150.400" width="69.920" height="55.200" fill="rgba(71,18,100,1.000)" stroke="rgba(255,255,255,1.000)" stroke-width="0.000" fill-opacity="1.000" stroke-opacity="1.000" clip-path="url(#plot-clip-area)" />
+<rect x="366.880" y="150.400" width="69.920" height="55.200" fill="rgba(71,18,100,1.000)" stroke="rgba(255,255,255,1.000)" stroke-width="0.000" fill-opacity="1.000" stroke-opacity="1.000" clip-path="url(#plot-clip-area)" />
+<rect x="87.200" y="95.200" width="69.920" height="55.200" fill="rgba(33,162,135,1.000)" stroke="rgba(255,255,255,1.000)" stroke-width="0.000" fill-opacity="1.000" stroke-opacity="1.000" clip-path="url(#plot-clip-area)" />
+<rect x="157.120" y="95.200" width="69.920" height="55.200" fill="rgba(71,18,100,1.000)" stroke="rgba(255,255,255,1.000)" stroke-width="0.000" fill-opacity="1.000" stroke-opacity="1.000" clip-path="url(#plot-clip-area)" />
+<rect x="227.040" y="95.200" width="69.920" height="55.200" fill="rgba(49,180,124,1.000)" stroke="rgba(255,255,255,1.000)" stroke-width="0.000" fill-opacity="1.000" stroke-opacity="1.000" clip-path="url(#plot-clip-area)" />
+<rect x="296.960" y="95.200" width="69.920" height="55.200" fill="rgba(71,18,100,1.000)" stroke="rgba(255,255,255,1.000)" stroke-width="0.000" fill-opacity="1.000" stroke-opacity="1.000" clip-path="url(#plot-clip-area)" />
+<rect x="366.880" y="95.200" width="69.920" height="55.200" fill="rgba(81,196,106,1.000)" stroke="rgba(255,255,255,1.000)" stroke-width="0.000" fill-opacity="1.000" stroke-opacity="1.000" clip-path="url(#plot-clip-area)" />
+<rect x="87.200" y="40.000" width="69.920" height="55.200" fill="rgba(124,210,80,1.000)" stroke="rgba(255,255,255,1.000)" stroke-width="0.000" fill-opacity="1.000" stroke-opacity="1.000" clip-path="url(#plot-clip-area)" />
+<rect x="157.120" y="40.000" width="69.920" height="55.200" fill="rgba(71,18,100,1.000)" stroke="rgba(255,255,255,1.000)" stroke-width="0.000" fill-opacity="1.000" stroke-opacity="1.000" clip-path="url(#plot-clip-area)" />
+<rect x="227.040" y="40.000" width="69.920" height="55.200" fill="rgba(173,220,49,1.000)" stroke="rgba(255,255,255,1.000)" stroke-width="0.000" fill-opacity="1.000" stroke-opacity="1.000" clip-path="url(#plot-clip-area)" />
+<rect x="296.960" y="40.000" width="69.920" height="55.200" fill="rgba(71,18,100,1.000)" stroke="rgba(255,255,255,1.000)" stroke-width="0.000" fill-opacity="1.000" stroke-opacity="1.000" clip-path="url(#plot-clip-area)" />
+<rect x="366.880" y="40.000" width="69.920" height="55.200" fill="rgba(224,228,30,1.000)" stroke="rgba(255,255,255,1.000)" stroke-width="0.000" fill-opacity="1.000" stroke-opacity="1.000" clip-path="url(#plot-clip-area)" />
+<text x="451.800" y="49.600" font-size="13.2" font-family="Inter, -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, 'PingFang SC', 'Microsoft YaHei', Ubuntu, Cantarell, 'Noto Sans', sans-serif" fill="rgba(51,51,51,1.000)" fill-opacity="1.000" text-anchor="start" font-weight="bold">value</text>
+<defs><linearGradient id="grad_value" x1="0%" y1="0%" x2="0%" y2="100%"><stop offset="0.0%" stop-color="rgba(253,231,37,1.000)" /><stop offset="6.7%" stop-color="rgba(210,226,27,1.000)" /><stop offset="13.3%" stop-color="rgba(165,219,54,1.000)" /><stop offset="20.0%" stop-color="rgba(122,209,81,1.000)" /><stop offset="26.7%" stop-color="rgba(84,197,104,1.000)" /><stop offset="33.3%" stop-color="rgba(53,183,121,1.000)" /><stop offset="40.0%" stop-color="rgba(34,168,132,1.000)" /><stop offset="46.7%" stop-color="rgba(31,152,139,1.000)" /><stop offset="53.3%" stop-color="rgba(35,136,142,1.000)" /><stop offset="60.0%" stop-color="rgba(42,120,142,1.000)" /><stop offset="66.7%" stop-color="rgba(49,104,142,1.000)" /><stop offset="73.3%" stop-color="rgba(57,86,140,1.000)" /><stop offset="80.0%" stop-color="rgba(65,68,135,1.000)" /><stop offset="86.7%" stop-color="rgba(71,47,125,1.000)" /><stop offset="93.3%" stop-color="rgba(72,26,108,1.000)" /><stop offset="100.0%" stop-color="rgba(68,1,84,1.000)" /></linearGradient></defs><rect x="451.800" y="60.200" width="15.000" height="150.000" fill="url('#grad_value')" /><rect x="451.800" y="60.200" width="15.000" height="150.000" fill="none" stroke="rgba(51,51,51,1.000)" stroke-width="1.000" fill-opacity="1.000" stroke-opacity="1.000" />
+<line x1="451.800" y1="203.382" x2="454.800" y2="203.382" stroke="rgba(255,255,255,1.000)" stroke-width="1.000" stroke-opacity="1.000" />
+<line x1="463.800" y1="203.382" x2="466.800" y2="203.382" stroke="rgba(255,255,255,1.000)" stroke-width="1.000" stroke-opacity="1.000" />
+<text x="474.800" y="206.982" font-size="12.0" font-family="Inter, -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, 'PingFang SC', 'Microsoft YaHei', Ubuntu, Cantarell, 'Noto Sans', sans-serif" fill="rgba(51,51,51,1.000)" fill-opacity="1.000" text-anchor="start" font-weight="normal">0</text>
+<line x1="451.800" y1="180.655" x2="454.800" y2="180.655" stroke="rgba(255,255,255,1.000)" stroke-width="1.000" stroke-opacity="1.000" />
+<line x1="463.800" y1="180.655" x2="466.800" y2="180.655" stroke="rgba(255,255,255,1.000)" stroke-width="1.000" stroke-opacity="1.000" />
+<text x="474.800" y="184.255" font-size="12.0" font-family="Inter, -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, 'PingFang SC', 'Microsoft YaHei', Ubuntu, Cantarell, 'Noto Sans', sans-serif" fill="rgba(51,51,51,1.000)" fill-opacity="1.000" text-anchor="start" font-weight="normal">2</text>
+<line x1="451.800" y1="157.927" x2="454.800" y2="157.927" stroke="rgba(255,255,255,1.000)" stroke-width="1.000" stroke-opacity="1.000" />
+<line x1="463.800" y1="157.927" x2="466.800" y2="157.927" stroke="rgba(255,255,255,1.000)" stroke-width="1.000" stroke-opacity="1.000" />
+<text x="474.800" y="161.527" font-size="12.0" font-family="Inter, -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, 'PingFang SC', 'Microsoft YaHei', Ubuntu, Cantarell, 'Noto Sans', sans-serif" fill="rgba(51,51,51,1.000)" fill-opacity="1.000" text-anchor="start" font-weight="normal">4</text>
+<line x1="451.800" y1="135.200" x2="454.800" y2="135.200" stroke="rgba(255,255,255,1.000)" stroke-width="1.000" stroke-opacity="1.000" />
+<line x1="463.800" y1="135.200" x2="466.800" y2="135.200" stroke="rgba(255,255,255,1.000)" stroke-width="1.000" stroke-opacity="1.000" />
+<text x="474.800" y="138.800" font-size="12.0" font-family="Inter, -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, 'PingFang SC', 'Microsoft YaHei', Ubuntu, Cantarell, 'Noto Sans', sans-serif" fill="rgba(51,51,51,1.000)" fill-opacity="1.000" text-anchor="start" font-weight="normal">6</text>
+<line x1="451.800" y1="112.473" x2="454.800" y2="112.473" stroke="rgba(255,255,255,1.000)" stroke-width="1.000" stroke-opacity="1.000" />
+<line x1="463.800" y1="112.473" x2="466.800" y2="112.473" stroke="rgba(255,255,255,1.000)" stroke-width="1.000" stroke-opacity="1.000" />
+<text x="474.800" y="116.073" font-size="12.0" font-family="Inter, -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, 'PingFang SC', 'Microsoft YaHei', Ubuntu, Cantarell, 'Noto Sans', sans-serif" fill="rgba(51,51,51,1.000)" fill-opacity="1.000" text-anchor="start" font-weight="normal">8</text>
+<line x1="451.800" y1="89.745" x2="454.800" y2="89.745" stroke="rgba(255,255,255,1.000)" stroke-width="1.000" stroke-opacity="1.000" />
+<line x1="463.800" y1="89.745" x2="466.800" y2="89.745" stroke="rgba(255,255,255,1.000)" stroke-width="1.000" stroke-opacity="1.000" />
+<text x="474.800" y="93.345" font-size="12.0" font-family="Inter, -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, 'PingFang SC', 'Microsoft YaHei', Ubuntu, Cantarell, 'Noto Sans', sans-serif" fill="rgba(51,51,51,1.000)" fill-opacity="1.000" text-anchor="start" font-weight="normal">10</text>
+<line x1="451.800" y1="67.018" x2="454.800" y2="67.018" stroke="rgba(255,255,255,1.000)" stroke-width="1.000" stroke-opacity="1.000" />
+<line x1="463.800" y1="67.018" x2="466.800" y2="67.018" stroke="rgba(255,255,255,1.000)" stroke-width="1.000" stroke-opacity="1.000" />
+<text x="474.800" y="70.618" font-size="12.0" font-family="Inter, -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, 'PingFang SC', 'Microsoft YaHei', Ubuntu, Cantarell, 'Noto Sans', sans-serif" fill="rgba(51,51,51,1.000)" fill-opacity="1.000" text-anchor="start" font-weight="normal">12</text>
 </svg>

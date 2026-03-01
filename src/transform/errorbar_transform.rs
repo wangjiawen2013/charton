@@ -1,4 +1,5 @@
-use crate::chart::common::Chart;
+use crate::TEMP_SUFFIX;
+use crate::chart::Chart;
 use crate::error::ChartonError;
 use crate::mark::Mark;
 use polars::prelude::*;
@@ -11,8 +12,8 @@ impl<T: Mark> Chart<T> {
         let y_encoding = self.encoding.y.as_ref().unwrap();
 
         // Create column names following the pattern: original_fieldname_min and original_fieldname_max
-        let y_min_col = format!("__charton_temp_{}_min", y_encoding.field);
-        let y_max_col = format!("__charton_temp_{}_max", y_encoding.field);
+        let y_min_col = format!("{}_{}_min", TEMP_SUFFIX, y_encoding.field);
+        let y_max_col = format!("{}_{}_max", TEMP_SUFFIX, y_encoding.field);
 
         // Group by x values and calculate mean, std, then create ymin and ymax columns
         self.data.df = self

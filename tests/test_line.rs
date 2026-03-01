@@ -12,7 +12,7 @@ fn test_line_1() -> Result<(), Box<dyn Error>> {
     ]?;
 
     // Create a point chart with only a, b, and color encodings
-    let chart = Chart::build(&df)?.mark_line().encode((
+    let chart = Chart::build(&df)?.mark_line()?.encode((
         x("a"),
         y("b"),
         //color("category"),
@@ -41,8 +41,9 @@ fn test_line_2() -> Result<(), Box<dyn Error>> {
 
     // Create a line chart with LOESS smoothing
     let chart = Chart::build(&df)?
-        .mark_line()
-        .transform_loess(0.3) // Apply LOESS smoothing with bandwidth 0.3
+        .mark_line()?
+        // Apply LOESS smoothing with bandwidth 0.3
+        .configure_line(|l| l.with_loess(true).with_loess_bandwidth(0.3))
         .encode((x("a"), y("b"), color("category")))?;
 
     LayeredChart::new()
@@ -71,7 +72,7 @@ fn test_line_3() -> Result<(), Box<dyn Error>> {
     ]?;
 
     // Create a line chart with multiple groups
-    let chart = Chart::build(&df)?.mark_line().encode((
+    let chart = Chart::build(&df)?.mark_line()?.encode((
         x("a"),
         y("b"),
         color("category"), // This creates separate lines for each category
@@ -80,7 +81,7 @@ fn test_line_3() -> Result<(), Box<dyn Error>> {
     LayeredChart::new()
         .with_size(600, 400)
         .add_layer(chart)
-        .swap_axes()
+        .coord_flip()
         .save("./tests/line_3.svg")?;
 
     Ok(())
@@ -102,7 +103,7 @@ fn test_line_4() -> Result<(), Box<dyn Error>> {
     ]?;
 
     // Create a line chart with multiple groups
-    let chart = Chart::build(&df)?.mark_line().encode((
+    let chart = Chart::build(&df)?.mark_line()?.encode((
         x("a"),
         y("b"),
         color("category"), // This creates separate lines for each category
@@ -110,7 +111,6 @@ fn test_line_4() -> Result<(), Box<dyn Error>> {
 
     LayeredChart::new()
         .with_size(500, 400)
-        .with_legend(true)
         .add_layer(chart)
         .save("./tests/line_4.svg")?;
 

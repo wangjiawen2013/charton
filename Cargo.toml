@@ -12,14 +12,11 @@ polars = { version="0.49", default-features=false, features = ["lazy", "rank", "
 # Avoids transitive mio dependency to ensure Wasm compatibility.
 polars-io = { version = "0.49", default-features = false, features = ["parquet"] }
 thiserror = "2.0"
-itertools = "0.14"
 time = { version = "0.3", features = ["macros", "formatting"] }
-num-traits = "0.2"
-indexmap = "2.0"
 kernel-density-estimation = "0.2"
-uuid = { version = "1.19", features = ["v7"] }
-ordered-float = "5.1"
 resvg = "0.45"
+csscolorparser = "0.8"
+html-escape = "0.2"
 
 # --- Conditional Compilation Block ---
 # Only add the 'ipc' feature when the target architecture is not wasm32.
@@ -30,4 +27,3 @@ polars = { version="0.49", features = ["ipc"] }
 serde = { version = "1.0", features = ["derive"] }
 serde_json = { version="1.0" }
 base64 = { version="0.22" }
-regex = { version="1.11" }

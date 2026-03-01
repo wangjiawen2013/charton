@@ -1748,32 +1748,66 @@ chart.with_x_tick_label_angle(45.0);
 ```
 Chart-level axis settings always override theme defaults.
 
-## 6.4 Color Palettes and Colormaps
-Charton supports multiple color control strategies.
+## 6.4 Colors, Palettes, and Colormaps
+Charton provides a high-performance color system designed for both static SVG export and real-time WGPU rendering. The system is centered around three core types: `SingleColor`, `ColorPalette`, and `ColorMap`.
 
-**1. Mark-Level Colors**
+### 6.4.1. The `SingleColor` Type
+`SingleColor` is a lightweight, stack-allocated struct that stores colors as normalized RGBA values ($[0.0, 1.0]$).
+- **Memory Efficient**: Implements Copy, avoiding heap allocations.
+- **Backend Ready**: Maps directly to GPU vertex buffers while providing on-the-fly CSS string generation for SVGs.
+- **Flexible Creation**: Supports CSS strings (Hex, RGB, HSL, Named colors), RGBA arrays, and a special "None" state for transparency.
+
 ```rust
+// Creation examples
+let red = SingleColor::new("#ff0000");           // Hex
+let semi_blue = SingleColor::new("rgba(0,0,255,0.5)"); // CSS Functional
+let transparent = SingleColor::none();           // Fully transparent
+let from_array: SingleColor = [0.0, 1.0, 0.0, 1.0].into(); // Green
+```
+
+### 6.4.2 Color Control Strategies
+**A. Mark-Level Colors (Manual)**
+
+Directly setting a color on a mark. This functions when there are no data-driven color encoding.
+
+```
 mark_point()
-    .configure_point(|p| p.with_point_color("steelblue"))
+.configure_point(|p| p.with_point_color("steelblue")) // Accepts any into<SingleColor>
 ```
-This always takes precedence.
 
-**2. Encoded (Data-Driven) Colors**
+**B. Discrete Palettes (Categorical Data)**
+
+When mapping data groups to colors (e.g., different species in a scatter plot), use `ColorPalette`. Charton includes industry-standard palettes from Tableau and ColorBrewer.
+
+|  Palette Type | Variants                      |  Use Case                              |
+|---------------|-------------------------------|----------------------------------------|
+|**Standard**   |`Tab10`, `Tab20`               |General purpose, clear differentiation. |
+|**Qualitative**|`Set1`, `Set2`, `Set3`         |Categorical data with no inherent order.|
+|**Stylized**   |`Pastel1`, `Dark2`, `Accent`   |Specific aesthetic requirements.        |
+
 ```rust
-.x("time")
-.y("value")
-.color("group")
+// Usage: automatically wraps indices if groups exceed palette size
+chart.configure_theme(|t| t.with_palette(ColorPalette::Tab20))
 ```
-Color scales are derived from the chart layer unless overridden.
+
+**C. Continuous Colormaps (Numerical Data)**
+
+For heatmaps or data-driven gradients, use `ColorMap`. These provide smooth transitions based on a normalized value ($0.0 \dots 1.0$).
+- **Perceptually Uniform**: `Viridis`, `Inferno`, `Magma`, `Plasma`, `Cividis`. These are mathematically designed to represent data accurately, even for color-blind viewers or when printed in grayscale.
+- **Sequential**: `Blues`, `Reds`, `YlGnBu` (Yellow-Green-Blue), etc.
+- **Specialized**: `Rainbow`, `Jet`, `Cool`, `Hot`.
+
 ```rust
-// For discrete color scales, you can use a pre-defined palette.
-mark_point().with_mark_palette(ColorPalette::Tab20)
+// Usage: maps numerical intensity to a color gradient
+chart.configure_theme(|t| t.with_color_map(ColorMap::Viridis))
 ```
-or
-```rust
-// For continuous color scales, you can use a pre-defined colormap.
-mark_point().with_color_map(ColorMap::Viridis)
-```
+
+### 6.4.3 Technical Performance Note
+Unlike many visualization libraries that parse strings at render-time, Charton’s color system:
+1. **Pre-calculates** all Palette/Map values into normalized float arrays.
+2. Uses **linear interpolation** for continuous maps, ensuring zero string-processing overhead during GPU draw calls.
+3. **Clamps** all inputs to valid ranges $[0.0, 1.0]$ to prevent rendering artifacts.
+
 ## 6.5 Shapes and Sizes (Mark-Level Styling)
 Shape and size are **mark-specific properties** and never affect other layers.
 
@@ -4513,3 +4547,71 @@ Code structure, contribution guidelines, and development workflow.
 
 ## 11.7 Community & resources
 Links to docs, repo, issues, examples, and community channels.
+
+# Chapter 12 · Layout
+Layout in Charton is more than just positioning elements; it is a mathematical negotiation between the **shape of your data** and the **geometry of the coordinate system**. While many libraries rely on hard-coded logic to switch between grouped and single-column charts, Charton uses a unified strategy to handle all positioning.
+
+## 12.1. The Row-Stub Layout Strategy
+The **Row-Stub Layout Strategy** is the core engine behind how Charton decides the width, spacing, and offset of marks (bars, sectors, or boxes). Instead of asking "Is this a grouped chart?", the renderer asks: "**How many rows of data exist for this specific coordinate?**"
+
+### 12.1.1. The Philosophy: Data Shapes Geometry
+In the Row-Stub model, the "physical" presence of a data row in the transformed DataFrame acts as a "stub" or a placeholder in the visual layout.
+* **Single Row per Category**: If a category (e.g., "Category A" on the X-axis) contains exactly one row, the mark occupies the **full available span**.
+* **Multiple Rows per Category**: If a category contains $N$ rows, the layout engine automatically carves the available space into $N$ sub-slots.
+
+### 12.1.2. The Mechanism: Cartesian Normalization
+To ensure consistent layouts, Charton performs a **Cartesian Product** during the data transformation phase. If you encode both `x` and `color`, Charton ensures that every unique value of `x` has a row for every unique value of `color`.
+
+1. **Gap Filling**: If "Category A" has data for "Male" but not "Female," Charton inserts a "Female" row with a value of `0`.
+2. **Stable Count**: This ensures that every X-axis slot has the exact same number of rows ($N$).
+3. **Implicit Positioning**: he renderer simply iterates through these $N$ rows. The $i$-th row is automatically placed at the $i$-th sub-slot.
+
+### 12.1.3. Dimension Deduplication: Intent Recognition
+The layout engine must first distinguish between **visual aesthetics** (just adding color) and **structural dimensions** (splitting data into groups). Charton achieves this through **Automatic Column Deduplication** during the preprocessing phase.
+
+Before the Row-Stub engine calculates $N$ (the number of rows per slot), it performs the following check:
+
+1. **The Dimension Set**: Charton collects all fields used in `x`, `color`, `size`, and `shape`.
+2. **Deduplication**: If a field is used in both a positional channel (like `x`) and a styling channel (like `color`), it is only counted **once** as a grouping dimension.
+3. **Intent Recognition**:
+- `x("type"), color("type")`: After deduplication, there is only **one** grouping dimension (`type`). The engine recognizes this as a **Self-Mapping** intent—use colors to distinguish categories, but keep them in a single, full-width slot.
+- `x("type"), color("gender")`: There are **two** distinct dimensions. The engine recognizes this as a **Grouping** intent—sub-divide each `type` slot by `gender`.
+
+Without this deduplication step, a Rose Chart would mistakenly try to "dodge" (place side-by-side) the same category against itself, leading to overlapping marks or unnecessarily thin sectors.
+
+### 12.1.4. The Mechanism: Cartesian Normalization
+To ensure consistent layouts across all categories, Charton performs a **Cartesian Product** based on the *deduplicated* dimension set.
+
+1. **Grid Creation**: If `x` has 5 unique values and `color` (a different field) has 2, Charton creates a "Layout Grid" of $5 \times 2 = 10$ rows.
+2. **Gap Filling**: If "Category A" has data for "Male" but not "Female," Charton joins the grid with the raw data and inserts a "Female" row with a value of `0`.
+3. **Physical Alignment**: This ensures that every X-axis slot has the exact same number of physical row stubs ($N=2$).
+4. **Predictable Offsets**: The renderer simply iterates through these $N$ rows. The $i$-th row is always placed at the $i$-th sub-slot, ensuring that "Male" is always the left bar and "Female" is always the right bar, even if the data for one is missing.
+
+### 12.1.5. Mathematical Resolution
+The physical width of a mark in normalized space is calculated using the following derived formula:
+$$\text{Mark Width} = \frac{\text{Slot Span}}{N + (N - 1) \times \text{Spacing}}$$
+Where:
+- **$N$**: The number of deduplicated row stubs for that category.
+- **Slot Span**: The total percentage of the category width used (default 0.7-1.0).
+- **Spacing**: The inner padding between bars within the same group.
+
+### 12.1.6. Advantages of Row-Stub Layout
+1. **Consistency**: Bars never "jump" positions if data is missing; the "0" value row keeps the slot occupied.
+2. **Polar-Cartesian Parity**: The same logic that creates side-by-side bars in Cartesian coordinates creates perfectly partitioned sectors in a Rose Chart.
+3. **Zero Hard-coding**: The renderer doesn't need to know if the chart is "Grouped" or "Stacked"—it simply follows the rows provided by the deduplicated data engine.
+
+## 12.2. The Legend Layout Strategy
+## 12.3 The Axis Layout Strategy
+
+
+
+
+
+
+
+
+
+
+# Chapter 13 · Coordinate Systems
+## 13.1 Cartesian
+## 13.2 Polar

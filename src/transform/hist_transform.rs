@@ -1,6 +1,7 @@
-use crate::chart::common::Chart;
+use crate::chart::Chart;
 use crate::error::ChartonError;
 use crate::mark::Mark;
+use crate::prelude::IntoChartonSource;
 use polars::prelude::*;
 
 impl<T: Mark> Chart<T> {
@@ -19,19 +20,9 @@ impl<T: Mark> Chart<T> {
             // Get the x series data (already converted to f64)
             let x_series = df.column(&bin_field)?.f64()?.clone().into_series();
 
-            // Get unique count using Polars' built-in method
-            let unique_count = x_series.n_unique()?;
-
-            // Calculate number of bins - use explicit value if set, otherwise:
-            // - If all values are the same, use 1 bin
-            // - Otherwise use square root rule
-            let n_bins = if unique_count == 1 {
-                1
-            } else {
-                x_encoding
-                    .bins
-                    .unwrap_or_else(|| ((unique_count as f64).sqrt() as usize).clamp(5, 50))
-            };
+            // Calculate number of bins. Now we can safely unwrap because apply_default_encodings
+            // has already resolved this value.
+            let n_bins = x_encoding.bins.unwrap();
 
             // Get min and max values for binning using Polars' built-in methods
             let min_val = x_series
@@ -207,7 +198,7 @@ impl<T: Mark> Chart<T> {
             result_df
         };
 
-        self.data = (&processed_df).try_into()?;
+        self.data = (&processed_df).into_source()?;
         Ok(self)
     }
 }

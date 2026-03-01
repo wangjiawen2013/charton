@@ -7,14 +7,15 @@
 //! facilitates the creation of informative and aesthetically pleasing visualizations interactively,
 //! making it especially well-suited for exploratory data analysis.
 
-pub mod axis;
 pub mod chart;
-pub mod coord;
-pub mod data;
+pub mod coordinate;
+pub mod core;
 pub mod encode;
 pub mod error;
+pub mod facets;
 pub mod mark;
 pub mod render;
+pub mod scale;
 pub mod stats;
 pub mod theme;
 pub mod transform;
@@ -24,18 +25,20 @@ pub mod visual;
 pub mod bridge;
 
 pub mod prelude {
+    pub use crate::core::data::{DataFrameSource, IntoChartonSource, load_dataset};
+
     pub use crate::encode::{
-        color::color, encoding::Encoding, opacity::opacity, shape::shape, size::size,
-        stroke::stroke, stroke_width::stroke_width, text::text, theta::theta, x::x, y::y, y2::y2,
+        Encoding, color::color, shape::shape, size::size, text::text, x::x, y::y, y2::y2,
     };
 
-    pub use crate::chart::common::{Chart, LayeredChart};
-    pub use crate::coord::Scale;
-    pub use crate::data::{DataFrameSource, load_dataset};
+    pub use crate::chart::Chart;
+    pub use crate::core::composite::LayeredChart;
+    pub use crate::scale::{Expansion, Scale};
 
+    pub use crate::coordinate::CoordSystem;
     pub use crate::transform::{
-        density::{BandwidthType, DensityTransform, KernelType},
-        window::{WindowFieldDef, WindowOnlyOp, WindowTransform},
+        density_transform::{BandwidthType, DensityTransform, KernelType},
+        window_transform::{WindowFieldDef, WindowOnlyOp, WindowTransform},
     };
 
     pub use crate::render::line_renderer::PathInterpolation;
@@ -48,3 +51,22 @@ pub mod prelude {
     #[cfg(not(target_arch = "wasm32"))]
     pub use crate::data; // Macro data!
 }
+
+/// Temporary column name used internally by Polars to avoid naming conflicts.
+pub(crate) const TEMP_SUFFIX: &str = "__charton_temp_n9jh3z8";
+
+/// Represents the floating-point precision used specifically for the rendering stage.
+///
+/// While data processing and coordinate transformations should be performed in `f64`
+/// to maintain computational accuracy and prevent rounding errors, we convert to
+/// `Precision` (f32) during the final draw calls for the following reasons:
+///
+/// 1. **GPU Hardware Native**: Modern Graphics APIs (WGPU, Metal) are optimized for `f32`.
+///    Using `f32` for rendering structures allows direct GPU memory mapping.
+///
+/// 2. **Memory Efficiency**: Halves the memory footprint for large point sets (e.g., in
+///    scatter plots) when passing data to the rendering backends.
+///
+/// 3. **SVG Size Reduction**: `f32` provides sufficient precision for screen-space
+///    while keeping the generated XML string lengths shorter.
+pub type Precision = f32;

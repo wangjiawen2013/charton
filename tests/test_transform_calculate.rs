@@ -19,19 +19,23 @@ fn test_transform_calculate_1() -> Result<(), Box<dyn Error>> {
             (col("value") - col("value_std")).alias("value_min"), // ymin = y - std
             (col("value") + col("value_std")).alias("value_max"), // ymax = y + std
         )?
-        .mark_errorbar()
+        .mark_errorbar()?
         .encode((x("type"), y("value_min"), y2("value_max")))?
-        .with_errorbar_color(Some(SingleColor::new("blue")))
-        .with_errorbar_stroke_width(2.0)
-        .with_errorbar_cap_length(5.0)
-        .with_errorbar_center(true); // Show center point
+        .configure_errorbar(
+            |e| {
+                e.with_color("blue")
+                    .with_stroke_width(2.0)
+                    .with_cap_length(5.0)
+                    .with_center(true)
+            }, // Show center point
+        );
 
     // Create a layered chart and add the errorbar chart as a layer
     LayeredChart::new()
         .with_size(500, 400)
         .with_title("Error Bar Chart with Mean and Std Dev")
         .add_layer(errorbar_chart)
-        .swap_axes()
+        .coord_flip()
         .save("./tests/transform_calculate_1.svg")?;
 
     Ok(())

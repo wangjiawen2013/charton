@@ -1,32 +1,82 @@
-use crate::coord::Scale;
+use crate::scale::{Expansion, ResolvedScale, Scale, ScaleDomain};
 
-/// Represents an X-axis encoding for chart elements
+/// Represents an X-axis encoding specification for chart elements.
 ///
-/// The `X` struct defines how data values should be mapped to the horizontal
-/// position of visual elements in a chart. It specifies which data field should
-/// be used to determine the x-coordinate of marks and provides additional
-/// configuration options for axis scaling and binning.
+/// This struct follows the "Intent vs. Resolution" pattern:
+/// 1. **Intent (Inputs)**: User defines *how* the data should be mapped (field, domain, scale_type).
+/// 2. **Resolution (Outputs)**: The engine processes the data and "back-fills" the `resolved_scale`.
 ///
-/// X encoding is fundamental to most chart types and can handle both continuous
-/// and discrete data. It supports various scale types and binning options for
-/// specialized chart types like histograms and bar charts.
-#[derive(Debug)]
+/// Using `Arc<dyn ScaleTrait>` allows multiple layers in a `LayeredChart` to share the
+/// exact same coordinate system instance efficiently without deep-copying data like
+/// large color gradient tables.
+#[derive(Debug, Clone)]
 pub struct X {
-    // Default label (polars column name)
+    // --- User Configuration (Intent/Inputs) ---
+    /// The name of the data column to be mapped to the X-axis.
     pub(crate) field: String,
+
+    /// The desired scale transformation (e.g., Linear, Log, Discrete).
+    /// If `None`, the engine will infer the type from the column's data type.
+    pub(crate) scale_type: Option<Scale>,
+
+    /// An explicit data range provided by the user (e.g., [0.0, 100.0]).
+    /// This acts as the highest priority override during the training phase.
+    pub(crate) domain: Option<ScaleDomain>,
+
+    /// Rules for adding padding/buffer to the ends of the axis domain.
+    pub(crate) expansion: Option<Expansion>,
+
+    /// Whether to force the inclusion of zero in the axis range.
+    /// This is common for bar charts to avoid misleading visual scales.
+    pub(crate) zero: Option<bool>,
+
     pub(crate) bins: Option<usize>, // bins for continuous encoding value in marks like barchart and histogram
-    pub(crate) scale: Option<Scale>, // scale type for the axis
-    pub(crate) zero: Option<bool>, // None = auto, Some(true) = force zero, Some(false) = exclude zero
+
+    // --- System Resolution (Result/Outputs) ---
+    /// Stores the resolved scale instance. Using RwLock to support
+    /// back-filling updates across multiple render calls.
+    pub(crate) resolved_scale: ResolvedScale,
 }
 
 impl X {
-    fn new(field: &str) -> Self {
+    /// Creates a new X encoding for a specific data field.
+    pub fn new(field: &str) -> Self {
         Self {
             field: field.to_string(),
+            scale_type: None,
+            domain: None,
+            expansion: None,
+            zero: None,
             bins: None,
-            scale: None, // Only applicable for numeric datatypes, so set to None here and will be determined later
-            zero: None,  // Default to auto behavior
+            resolved_scale: ResolvedScale::none(),
         }
+    }
+
+    /// Sets the preferred scale type (e.g., `Scale::Linear`, `Scale::Log`).
+    pub fn with_scale(mut self, scale_type: Scale) -> Self {
+        self.scale_type = Some(scale_type);
+        self
+    }
+
+    /// Explicitly sets the data domain (limits) for this axis.
+    ///
+    /// Setting this will prevent the engine from automatically calculating
+    /// the range based on the data.
+    pub fn with_domain(mut self, domain: ScaleDomain) -> Self {
+        self.domain = Some(domain);
+        self
+    }
+
+    /// Configures the expansion padding for the axis.
+    pub fn with_expansion(mut self, expansion: Expansion) -> Self {
+        self.expansion = Some(expansion);
+        self
+    }
+
+    /// Determines if the scale must include the zero value.
+    pub fn with_zero(mut self, zero: bool) -> Self {
+        self.zero = Some(zero);
+        self
     }
 
     /// Sets the number of bins for marks like barchart and histogram
@@ -44,55 +94,10 @@ impl X {
         self.bins = Some(bins);
         self
     }
-
-    /// Sets the scale type for the axis
-    ///
-    /// Configures the scaling function used to map data values to positional coordinates.
-    /// Different scale types are appropriate for different data distributions and
-    /// visualization needs.
-    ///
-    /// # Arguments
-    /// * `scale` - A `Scale` enum value specifying the axis scale type
-    ///   - `Linear`: Standard linear scale for uniformly distributed data
-    ///   - `Log`: Logarithmic scale for exponentially distributed data
-    ///   - `Discrete`: For categorical data with distinct categories
-    ///
-    /// # Returns
-    /// Returns `Self` with the updated scale type
-    pub fn with_scale(mut self, scale: Scale) -> Self {
-        self.scale = Some(scale);
-        self
-    }
-
-    /// Sets whether to include zero in the axis domain
-    ///
-    /// Controls the inclusion of zero in the calculated axis range. This can be
-    /// important for accurate data representation, especially in bar charts where
-    /// excluding zero can exaggerate differences between values.
-    ///
-    /// # Arguments
-    /// * `zero` - A boolean value controlling zero inclusion:
-    ///   - `true`: Force include zero in the axis domain
-    ///   - `false`: Exclude zero from the axis domain
-    ///
-    /// # Returns
-    /// Returns `Self` with the updated zero inclusion setting
-    pub fn with_zero(mut self, zero: bool) -> Self {
-        self.zero = Some(zero);
-        self
-    }
 }
 
-/// Top-level convenience function: directly return X
+/// Convenience builder function to create a new X encoding.
 ///
-/// Provides a convenient way to create an `X` encoding specification that maps
-/// a data field to the horizontal position of chart elements.
-///
-/// # Arguments
-/// * `field` - A string slice representing the name of the data column to use for X-axis encoding
-///
-/// # Returns
-/// A new `X` instance configured with the specified field
 pub fn x(field: &str) -> X {
     X::new(field)
 }

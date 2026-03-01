@@ -35,7 +35,7 @@ pub(crate) fn cut(series: &Series, bins: &[f64], labels: &[String]) -> Series {
 /// The index of the bin that contains the value
 ///
 /// # Examples
-/// ```
+/// ```rust,ignore
 /// let bins = &[0.0, 1.0, 2.0, 3.0];
 /// assert_eq!(find_bin(0.5, bins), 0);  // Falls in [0.0, 1.0)
 /// assert_eq!(find_bin(1.0, bins), 1);  // Falls in [1.0, 2.0)

@@ -13,9 +13,8 @@ fn test_area_1() -> Result<(), Box<dyn Error>> {
 
     // Create an area chart
     let area_chart = Chart::build(&df)?
-        .mark_area()
-        .with_area_opacity(0.3)
-        .with_area_stroke(Some(SingleColor::new("black")))
+        .mark_area()?
+        .configure_area(|a| a.with_opacity(0.3).with_stroke("black"))
         .encode((x("year"), y("net_generation"), color("source")))?;
 
     // Create a layered chart for the area
@@ -60,10 +59,9 @@ fn test_area_2() -> Result<(), Box<dyn Error>> {
                 .with_as("IMDB_Rating", "cumulative_density")
                 .with_cumulative(true),
         )?
-        .mark_area()
-        .encode((x("IMDB_Rating"), y("cumulative_density")))?
-        .with_area_color(Some(SingleColor::new("purple")))
-        .with_area_opacity(0.3);
+        .mark_area()?
+        .configure_area(|a| a.with_color("purple").with_opacity(0.3))
+        .encode((x("IMDB_Rating"), y("cumulative_density")))?;
 
     LayeredChart::new()
         .with_size(600, 400)

@@ -1,35 +1,81 @@
-/// Represents a size encoding for chart elements
+use crate::error::ChartonError;
+use crate::scale::{Expansion, ResolvedScale, Scale, ScaleDomain};
+
+/// Represents a size encoding specification for chart elements.
 ///
-/// The `Size` struct defines how data values should be mapped to the size
-/// of visual elements in a chart. It specifies which data field should be
-/// used to determine the dimensions of marks.
+/// The `Size` struct defines how data values should be mapped to the dimensions
+/// of marks, such as the radius of a bubble in a scatter plot or the thickness
+/// of a line.
 ///
-/// Size encoding is typically used for continuous data and can help visualize
-/// the magnitude or importance of data points. Larger sizes usually represent
-/// higher values, while smaller sizes represent lower values.
-#[derive(Debug)]
+/// ### Architecture Note:
+/// Size follows the "Intent vs. Resolution" pattern. During the training phase,
+/// the engine ensures that the data range is mapped to a sensible range of
+/// visual sizes (e.g., mapping a domain of [0, 1000] to a range of [1px, 20px]).
+#[derive(Debug, Clone)]
 pub struct Size {
+    // --- User Configuration (Intent/Inputs) ---
+    /// The name of the data column used for size mapping.
     pub(crate) field: String,
+
+    /// The scale type for size mapping (e.g., Linear, Log).
+    /// Defaults to `Scale::Linear`. Note: `Scale::Discrete` is typically disallowed.
+    pub(crate) scale_type: Option<Scale>,
+
+    /// An explicit user-defined data range for size mapping.
+    pub(crate) domain: Option<ScaleDomain>,
+
+    /// Rules for adding padding or buffer to the ends of the size domain.
+    pub(crate) expansion: Option<Expansion>,
+
+    // --- System Resolution (Result/Outputs) ---
+    /// Stores the resolved scale instance. Using RwLock to support
+    /// back-filling updates across multiple render calls.
+    pub(crate) resolved_scale: ResolvedScale,
 }
 
 impl Size {
-    fn new(field: &str) -> Self {
+    /// Creates a new Size encoding for the specified data field.
+    pub fn new(field: &str) -> Self {
         Self {
             field: field.to_string(),
+            scale_type: Some(Scale::Linear),
+            domain: None,
+            expansion: None,
+            resolved_scale: ResolvedScale::none(),
         }
+    }
+
+    /// Sets the scale type for the size encoding (e.g., Linear, Log, Sqrt).
+    ///
+    /// # Errors
+    /// Returns `ChartonError::Scale` if `Scale::Discrete` is provided, as size
+    /// is semantically intended for continuous or ordered data.
+    pub fn with_scale(mut self, scale_type: Scale) -> Result<Self, ChartonError> {
+        if matches!(scale_type, Scale::Discrete) {
+            return Err(ChartonError::Scale(
+                "Size encoding cannot use Scale::Discrete as size requires continuous data"
+                    .to_string(),
+            ));
+        }
+        self.scale_type = Some(scale_type);
+        Ok(self)
+    }
+
+    /// Explicitly sets the data domain for the size scale.
+    pub fn with_domain(mut self, domain: ScaleDomain) -> Self {
+        self.domain = Some(domain);
+        self
+    }
+
+    /// Configures the expansion padding for the size scale.
+    pub fn with_expansion(mut self, expansion: Expansion) -> Self {
+        self.expansion = Some(expansion);
+        self
     }
 }
 
-/// Convenience function for creating a Size channel
+/// Convenience builder function to create a new Size encoding.
 ///
-/// Provides a convenient way to create a `Size` encoding specification
-/// that maps a data field to the size of chart elements.
-///
-/// # Arguments
-/// * `field` - A string slice representing the name of the data column to use for size encoding
-///
-/// # Returns
-/// A new `Size` instance configured with the specified field
 pub fn size(field: &str) -> Size {
     Size::new(field)
 }

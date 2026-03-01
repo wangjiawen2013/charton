@@ -3,7 +3,7 @@ use polars::prelude::*;
 use std::error::Error;
 
 fn main() -> Result<(), Box<dyn Error>> {
-    let exe_path = r"D:\Programs\miniconda3\envs\cellpy\python.exe";
+    let exe_path = r"F:\Programs\miniconda3\envs\cellpy\python.exe";
     let df = df![
         "a" => [1],
         "b" => [2],
