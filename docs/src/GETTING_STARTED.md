@@ -21,7 +21,7 @@ cd demo
 Edit your `Cargo.toml` to add Charton and Polars dependencies:
 ```toml
 [dependencies]
-charton = "0.2.1"
+charton = "0.3"
 polars = { version = "0.49", features = ["lazy", "csv", "parquet"] }
 ```
 Run `cargo build` to ensure everything compiles.
@@ -49,7 +49,7 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
 
     // 2. Chart Declaration (Chart, Mark, Encoding)
     Chart::build(&df)?          // Chart: Binds the data source
-        .mark_point()           // Mark: Specifies the visual primitive (dots)
+        .mark_point()?          // Mark: Specifies the visual primitive (dots)
         .encode((
             x("wt"),            // Encoding: Maps 'wt' (weight) to the X-axis
             y("mpg"),           // Encoding: Maps 'mpg' (fuel efficiency) to the Y-axis
@@ -67,7 +67,7 @@ You can also display the result directly in your evcxr jupyter notebook using th
 ```rust
 // ... (using the same 'df' DataFrame)
 Chart::build(&df)?
-    .mark_point()
+    .mark_point()?
     .encode((x("wt"), y("mpg")))?
     .into_layered()
     .show()?;
@@ -77,7 +77,7 @@ You can even save the chart object to a variable and use it later. For example:
 ```rust
 // ... (using the same 'df' DataFrame)
 let chart = Chart::build(&df)?
-    .mark_point()
+    .mark_point()?
     .encode((x("wt"), y("mpg")))?
     .into_layered();
 
@@ -101,7 +101,7 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
 
     // 2. Chart Declaration (Chart, Mark, Encoding)
     let scatter = Chart::build(&df)?    // Chart: Binds the data source
-        .mark_point()                   // Mark: Specifies the visual primitive (dots)
+        .mark_point()?                  // Mark: Specifies the visual primitive (dots)
         .encode((
             x("wt"),                    // Encoding: Maps 'wt' (weight) to the X-axis
             y("mpg"),                   // Encoding: Maps 'mpg' (fuel efficiency) to the Y-axis
@@ -175,7 +175,7 @@ Below is a full example demonstrating:
 ```toml
 [dependencies]
 polars = { version = "0.51", features = ["parquet"] }
-charton = { version = "0.2.1" }
+charton = { version = "0.3" }
 ```
 **Source Code Example**
 ```rust
@@ -196,7 +196,7 @@ fn main() -> Result<(), Box<dyn Error>> {
 
     // Build a Chart using the serialized Parquet bytes
     Chart::build(&buf)?
-        .mark_point()
+        .mark_point()?
         .encode((
             x("length"),
             y("width"),
@@ -221,7 +221,7 @@ let df = df![
 
 // Create a line chart layer
 Chart::build(&df)?
-    .mark_line()               // Line chart
+    .mark_line()?              // Line chart
     .encode((
         x("length"),           // Map length column to X-axis
         y("width"),            // Map width column to Y-axis
@@ -239,7 +239,7 @@ let df = df! [
 ]?;
 
 Chart::build(&df)?
-    .mark_bar()
+    .mark_bar()?
     .encode((
         x("type"),
         y("value"),
@@ -253,7 +253,7 @@ Chart::build(&df)?
 let df = load_dataset("iris")?;
 
 Chart::build(&df)?
-    .mark_hist()
+    .mark_hist()?
     .encode((
         x("sepal_length"),
         // The number of data points (or Frequency) falls into the corresponding bin are named "count".
@@ -270,7 +270,7 @@ Charton automatically computes bin counts when `y("count")` is specified.
 let df = load_dataset("iris")?;
 
 Chart::build(&df)?
-    .mark_boxplot()
+    .mark_boxplot()?
     .encode((x("species"), y("sepal_length")))?
     .into_layered()
     .save("boxplot.svg")?;
@@ -292,7 +292,7 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
 
     // Create a line chart layer
     let line = Chart::build(&df)?
-        .mark_line()                        // Line chart
+        .mark_line()?                       // Line chart
         .encode((
             x("length"),                    // Map length column to X-axis
             y("width"),                     // Map width column to Y-axis
@@ -300,7 +300,7 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
 
     // Create a scatter point layer
     let scatter = Chart::build(&df)?
-        .mark_point()                       // Scatter plot
+        .mark_point()?                      // Scatter plot
         .encode((
             x("length"),                    // Map length column to X-axis
             y("width"),                     // Map width column to Y-axis
@@ -488,7 +488,7 @@ let df = df![
 ]?;
 
 let chart = Chart::build(&df)?
-    .mark_point()
+    .mark_point()?
     .encode((x("x"), y("y")))?
     .into_layered();
 

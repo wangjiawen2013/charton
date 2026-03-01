@@ -18,8 +18,8 @@ This is similar to how Plotters or PlotPy integrate with `evcxr`.
 
 ### Example: Displaying a Charton chart inline in Jupyter
 ```rust
-:dep charton = { version="0.2.1" }
-:dep polars = { version="0.49.1" }
+:dep charton = { version="0.3.0" }
+:dep polars = { version="0.49" }
 
 use charton::prelude::*;
 use polars::prelude::*;
@@ -32,7 +32,7 @@ let df = df![
 
 // Build a simple scatter plot
 Chart::build(&df)?
-    .mark_point()
+    .mark_point()?
     .encode((x("length"), y("width")))?
     .into_layered()
     .show()?;   // <-- Displays directly inside the Jupyter cell
@@ -150,7 +150,7 @@ wasm-bindgen = "0.2"
 polars = { version = "0.49", default-features = false }
 # Avoids transitive mio dependency to ensure Wasm compatibility.
 polars-io = { version = "0.49", default-features = false, features = ["parquet"] }
-charton = { version = "0.2" }
+charton = { version = "0.3" }
 
 [profile.release]
 opt-level = "z"  # or "s" to speed up
@@ -179,7 +179,7 @@ pub fn draw_chart() -> Result<String, JsValue> {
     // Build a Charton Chart
     let scatter = Chart::build(&df)
         .map_err(|e| JsValue::from_str(&e.to_string()))?
-        .mark_point()
+        .mark_point()?
         .encode((x("length"), y("width")))
         .map_err(|e| JsValue::from_str(&e.to_string()))?;
 
@@ -297,7 +297,7 @@ wasm-bindgen = "0.2"
 polars = { version = "0.49", default-features = false }
 # Avoids transitive mio dependency to ensure Wasm compatibility.
 polars-io = { version = "0.49", default-features = false, features = ["parquet", "csv"] }
-charton = { version = 0.2.1 }
+charton = { version = 0.3 }
 
 [profile.release]
 opt-level = "z"  # or "s" to speed up
@@ -456,8 +456,8 @@ All *actual* interactivity comes from **Altair/Vega-Lite**, not from Charton.
 
 **Example: interactive Altair chart via Charton**
 ```rust
-:dep charton = { version="0.2.1" }
-:dep polars = { version="0.49.1" }
+:dep charton = { version="0.3" }
+:dep polars = { version="0.49" }
 
 use charton::prelude::*;
 use polars::prelude::df;
