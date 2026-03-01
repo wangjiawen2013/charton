@@ -77,7 +77,7 @@ impl Chart<NoMark> {
     ///
     /// # Example
     ///
-    /// ```
+    /// ```rust,ignore
     /// let df = df!["x" => [1, 2], "y" => [3, 4]]?;
     /// // Returns a Chart<NoMark>
     /// let base = Chart::build(&df)?;

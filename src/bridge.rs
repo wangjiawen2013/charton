@@ -128,7 +128,7 @@ pub mod base {
     ///   and whose value will be stored in the `InputData`
     ///
     /// # Example
-    /// ```
+    /// ```rust,ignore
     /// let dataframe = DataFrame::new(...);
     /// let named_value = data!(&dataframe)?;
     /// // This will use TryFrom implementation to convert the data
