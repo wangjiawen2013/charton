@@ -47,21 +47,18 @@ impl GlobalAesthetics {
     /// This is the foundation of ggplot2's automatic legend merging.
     pub fn get_mappings_for_field(&self, field_name: &str) -> Vec<(&str, &AestheticMapping)> {
         let mut found = Vec::new();
-        if let Some(ref m) = self.color {
-            if m.field == field_name {
+        if let Some(ref m) = self.color
+            && m.field == field_name {
                 found.push(("color", m));
             }
-        }
-        if let Some(ref m) = self.shape {
-            if m.field == field_name {
+        if let Some(ref m) = self.shape
+            && m.field == field_name {
                 found.push(("shape", m));
             }
-        }
-        if let Some(ref m) = self.size {
-            if m.field == field_name {
+        if let Some(ref m) = self.size
+            && m.field == field_name {
                 found.push(("size", m));
             }
-        }
         found
     }
 }

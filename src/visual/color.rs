@@ -49,7 +49,7 @@ impl ColorMap {
     /// Returns a SingleColor based on a normalized value between 0.0 and 1.0.
     /// Following standard convention, the alpha channel is set to 1.0 (opaque).
     pub(crate) fn get_color(&self, value: f64) -> SingleColor {
-        let t = value.clamp(0.0, 1.0) as f64;
+        let t = value.clamp(0.0, 1.0);
 
         match self {
             ColorMap::Viridis => Self::interpolate_stops(

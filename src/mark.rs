@@ -43,7 +43,7 @@ pub trait Mark: Clone + 'static {
     /// # Returns
     /// * `crate::visual::color::SingleColor`
     fn stroke(&self) -> crate::visual::color::SingleColor {
-        SingleColor::new("none".into())
+        SingleColor::new("none")
     }
 
     /// Returns the shape of the point

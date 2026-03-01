@@ -208,14 +208,13 @@ pub(crate) fn check_schema(
         let actual_semantic = interpret_semantic_type(actual_dtype);
 
         // 3. If semantic constraints are provided for this column, validate them
-        if let Some(allowed_semantics) = expected_semantics.get(col_name) {
-            if !allowed_semantics.contains(&actual_semantic) {
+        if let Some(allowed_semantics) = expected_semantics.get(col_name)
+            && !allowed_semantics.contains(&actual_semantic) {
                 return Err(ChartonError::Data(format!(
                     "Column '{}' (Type: {:?}) is categorized as {:?}, but expected one of {:?}",
                     col_name, actual_dtype, actual_semantic, allowed_semantics
                 )));
             }
-        }
     }
 
     Ok(())

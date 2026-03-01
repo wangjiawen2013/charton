@@ -93,8 +93,8 @@ impl MarkRenderer for Chart<MarkHist> {
                         y: py.min(py_base) as Precision,
                         width: bar_thickness as Precision,
                         height: h as Precision,
-                        fill: group_color.clone(),
-                        stroke: mark_config.stroke.clone(),
+                        fill: group_color,
+                        stroke: mark_config.stroke,
                         stroke_width: mark_config.stroke_width as Precision,
                         opacity: mark_config.opacity as Precision,
                     }
@@ -107,8 +107,8 @@ impl MarkRenderer for Chart<MarkHist> {
                         y: (py - bar_thickness / 2.0) as Precision,
                         width: w as Precision,
                         height: bar_thickness as Precision,
-                        fill: group_color.clone(),
-                        stroke: mark_config.stroke.clone(),
+                        fill: group_color,
+                        stroke: mark_config.stroke,
                         stroke_width: mark_config.stroke_width as Precision,
                         opacity: mark_config.opacity as Precision,
                     }
@@ -200,9 +200,9 @@ impl Chart<MarkHist> {
             Ok(s_trait
                 .mapper()
                 .map(|m| m.map_to_color(norm, s_trait.logical_max()))
-                .unwrap_or_else(|| fallback.clone()))
+                .unwrap_or_else(|| *fallback))
         } else {
-            Ok(fallback.clone())
+            Ok(*fallback)
         }
     }
 }

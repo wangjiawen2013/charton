@@ -377,8 +377,8 @@ impl<T: Mark> Chart<T> {
             .as_ref()
             .map(|x| x.field.clone())
             .unwrap_or_default();
-        if x_field == "" {
-            active_fields.retain(|&field| field != "");
+        if x_field.is_empty() {
+            active_fields.retain(|&field| !field.is_empty());
         }
 
         if mark_type.as_str() == "hist" {
@@ -560,7 +560,7 @@ impl<T: Mark> Chart<T> {
                 // Detection of Pie/Donut mode:
                 // In this framework, an empty X field signifies that all data points are
                 // mapped to a single angular slot, which characterizes a Pie chart.
-                let is_pie_mode = x_enc.field == "";
+                let is_pie_mode = x_enc.field.is_empty();
 
                 if let Ok(y_series) = self.data.column(&y_enc.field) {
                     let y_min = y_series.min::<f64>()?.unwrap_or(0.0);
@@ -690,11 +690,7 @@ where
     /// Determines if this specific layer needs coordinate axes.
     fn requires_axes(&self) -> bool {
         // Aesthetic rule: Pie charts (MarkArc) don't use standard Cartesian axes.
-        if self.mark.as_ref().map(|m| m.mark_type()) == Some("arc") {
-            false
-        } else {
-            true
-        }
+        self.mark.as_ref().map(|m| m.mark_type()) != Some("arc")
     }
 
     /// Retrieves the field name for a specific channel.
@@ -766,7 +762,7 @@ where
                 // For stacked charts, boundaries are determined by the sum of values
                 // in each group rather than individual rows.
                 let is_y_stacked = channel == Channel::Y
-                    && self.encoding.y.as_ref().map_or(false, |e| e.stack)
+                    && self.encoding.y.as_ref().is_some_and(|e| e.stack)
                     && self.encoding.color.is_some();
 
                 if is_y_stacked {
@@ -864,47 +860,39 @@ where
     ) {
         // 1. Inject Position Scales (X & Y)
         // We only inject if the channel was actually configured by the user.
-        if let Some(ref x_enc) = self.encoding.x {
-            if let Ok(mut guard) = x_enc.resolved_scale.0.write() {
+        if let Some(ref x_enc) = self.encoding.x
+            && let Ok(mut guard) = x_enc.resolved_scale.0.write() {
                 *guard = Some(coord.get_x_arc());
             }
-        }
 
-        if let Some(ref y_enc) = self.encoding.y {
-            if let Ok(mut guard) = y_enc.resolved_scale.0.write() {
+        if let Some(ref y_enc) = self.encoding.y
+            && let Ok(mut guard) = y_enc.resolved_scale.0.write() {
                 *guard = Some(coord.get_y_arc());
             }
-        }
 
         // 2. Inject Aesthetic Scales (Color, Shape, Size)
         // We perform a "Field Match" check to ensure the global scale matches this layer's intent.
 
         // --- Color Channel ---
         // Use .as_ref() to match against a reference instead of moving the value
-        if let (Some(enc), Some(map)) = (self.encoding.color.as_ref(), aesthetics.color.as_ref()) {
-            if enc.field == map.field {
-                if let Ok(mut guard) = enc.resolved_scale.0.write() {
+        if let (Some(enc), Some(map)) = (self.encoding.color.as_ref(), aesthetics.color.as_ref())
+            && enc.field == map.field
+                && let Ok(mut guard) = enc.resolved_scale.0.write() {
                     *guard = Some(map.scale_impl.clone());
                 }
-            }
-        }
 
         // --- Shape Channel ---
-        if let (Some(enc), Some(map)) = (self.encoding.shape.as_ref(), aesthetics.shape.as_ref()) {
-            if enc.field == map.field {
-                if let Ok(mut guard) = enc.resolved_scale.0.write() {
+        if let (Some(enc), Some(map)) = (self.encoding.shape.as_ref(), aesthetics.shape.as_ref())
+            && enc.field == map.field
+                && let Ok(mut guard) = enc.resolved_scale.0.write() {
                     *guard = Some(map.scale_impl.clone());
                 }
-            }
-        }
 
         // --- Size Channel ---
-        if let (Some(enc), Some(map)) = (self.encoding.size.as_ref(), aesthetics.size.as_ref()) {
-            if enc.field == map.field {
-                if let Ok(mut guard) = enc.resolved_scale.0.write() {
+        if let (Some(enc), Some(map)) = (self.encoding.size.as_ref(), aesthetics.size.as_ref())
+            && enc.field == map.field
+                && let Ok(mut guard) = enc.resolved_scale.0.write() {
                     *guard = Some(map.scale_impl.clone());
                 }
-            }
-        }
     }
 }

@@ -42,7 +42,7 @@ impl MarkRenderer for Chart<MarkBar> {
         let color_field = self.encoding.color.as_ref().map(|c| c.field.as_str());
 
         // PIE MODE: An empty X field indicates a single-axis radial layout.
-        let is_pie_mode = x_field == "";
+        let is_pie_mode = x_field.is_empty();
 
         // --- STEP 2: Coordinate & Mode Detection ---
         let hints = context.coord.layout_hints();
@@ -55,8 +55,7 @@ impl MarkRenderer for Chart<MarkBar> {
         let eff_span = mark_config.span.unwrap_or(hints.default_bar_span);
         let eff_stroke = mark_config
             .stroke
-            .clone()
-            .unwrap_or(hints.default_bar_stroke.clone());
+            .unwrap_or(hints.default_bar_stroke);
         let eff_stroke_width = mark_config
             .stroke_width
             .unwrap_or(hints.default_bar_stroke_width);
@@ -86,7 +85,7 @@ impl MarkRenderer for Chart<MarkBar> {
         let spacing_norm = bar_width_norm * eff_spacing;
 
         // --- STEP 6: Partitioning ---
-        let is_self_mapping = color_field.map_or(false, |cf| cf == x_field);
+        let is_self_mapping = color_field.is_some_and(|cf| cf == x_field);
         let groups = match color_field {
             Some(col) if !is_self_mapping => df.partition_by_stable([col], true)?,
             _ => vec![df.clone()],
@@ -126,8 +125,7 @@ impl MarkRenderer for Chart<MarkBar> {
                     self.resolve_group_color(&row_df, context, &mark_config.color)?
                 } else {
                     group_color_fixed
-                        .clone()
-                        .unwrap_or(mark_config.color.clone())
+                        .unwrap_or(mark_config.color)
                 };
 
                 let x_tick_n = opt_x_n.unwrap_or(0.0);
@@ -202,7 +200,7 @@ impl MarkRenderer for Chart<MarkBar> {
                         .map(|(x, y)| (x as Precision, y as Precision))
                         .collect(),
                     fill: final_color,
-                    stroke: eff_stroke.clone(),
+                    stroke: eff_stroke,
                     stroke_width: eff_stroke_width as Precision,
                     fill_opacity: mark_config.opacity as Precision,
                     stroke_opacity: mark_config.opacity as Precision,
@@ -275,9 +273,9 @@ impl Chart<MarkBar> {
             Ok(s_trait
                 .mapper()
                 .map(|m| m.map_to_color(norm, s_trait.logical_max()))
-                .unwrap_or_else(|| fallback.clone()))
+                .unwrap_or_else(|| *fallback))
         } else {
-            Ok(fallback.clone())
+            Ok(*fallback)
         }
     }
 }

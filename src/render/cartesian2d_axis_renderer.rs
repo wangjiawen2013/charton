@@ -91,12 +91,10 @@ fn draw_ticks_and_labels(
         } else {
             coord.get_x_scale()
         }
+    } else if is_bottom {
+        coord.get_x_scale()
     } else {
-        if is_bottom {
-            coord.get_x_scale()
-        } else {
-            coord.get_y_scale()
-        }
+        coord.get_y_scale()
     };
 
     let available_space = if is_bottom { panel.width } else { panel.height };
@@ -114,12 +112,10 @@ fn draw_ticks_and_labels(
         } else {
             theme.x_tick_label_angle
         }
+    } else if is_flipped {
+        theme.x_tick_label_angle
     } else {
-        if is_flipped {
-            theme.x_tick_label_angle
-        } else {
-            theme.y_tick_label_angle
-        }
+        theme.y_tick_label_angle
     };
 
     for tick in ticks {
@@ -219,12 +215,10 @@ fn draw_axis_title(
         } else {
             (theme.x_tick_label_angle.to_radians(), coord.get_x_scale())
         }
+    } else if is_bottom {
+        (theme.x_tick_label_angle.to_radians(), coord.get_x_scale())
     } else {
-        if is_bottom {
-            (theme.x_tick_label_angle.to_radians(), coord.get_x_scale())
-        } else {
-            (theme.y_tick_label_angle.to_radians(), coord.get_y_scale())
-        }
+        (theme.y_tick_label_angle.to_radians(), coord.get_y_scale())
     };
 
     let available_space = if is_bottom { panel.width } else { panel.height };

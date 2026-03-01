@@ -91,7 +91,7 @@ impl MarkRenderer for Chart<MarkPoint> {
                     .collect();
                 Box::new(color_vec.into_iter())
             } else {
-                Box::new(std::iter::repeat(mark_config.color.clone()))
+                Box::new(std::iter::repeat(mark_config.color))
             };
 
         // --- STEP 4: SHAPE MAPPING ---
@@ -114,7 +114,7 @@ impl MarkRenderer for Chart<MarkPoint> {
                     .collect();
                 Box::new(shape_vec.into_iter())
             } else {
-                Box::new(std::iter::repeat(mark_config.shape.clone()))
+                Box::new(std::iter::repeat(mark_config.shape))
             };
 
         // --- STEP 5: SIZE MAPPING ---
@@ -140,7 +140,7 @@ impl MarkRenderer for Chart<MarkPoint> {
             };
 
         // --- STEP 6: GEOMETRY PROJECTION & RENDERING ---
-        let stroke_color = mark_config.stroke.clone();
+        let stroke_color = mark_config.stroke;
 
         // Zip all aesthetic streams into a single loop to emit draw calls for each row.
         for ((((x_n, y_n), fill_color), current_shape), size) in x_norms
@@ -162,7 +162,7 @@ impl MarkRenderer for Chart<MarkPoint> {
                 x: px,
                 y: py,
                 shape: current_shape,
-                size: size,
+                size,
                 fill: fill_color,
                 stroke: stroke_color,
                 stroke_width: mark_config.stroke_width,
@@ -201,8 +201,8 @@ impl Chart<MarkPoint> {
                     x: x as Precision,
                     y: y as Precision,
                     radius: size as Precision,
-                    fill: fill,
-                    stroke: stroke,
+                    fill,
+                    stroke,
                     stroke_width: stroke_width as Precision,
                     opacity: opacity as Precision,
                 };
@@ -215,8 +215,8 @@ impl Chart<MarkPoint> {
                     y: (y - size) as Precision,
                     width: side as Precision,
                     height: side as Precision,
-                    fill: fill,
-                    stroke: stroke,
+                    fill,
+                    stroke,
                     stroke_width: stroke_width as Precision,
                     opacity: opacity as Precision,
                 };
@@ -229,9 +229,9 @@ impl Chart<MarkPoint> {
                     .map(|p| (p.0 as Precision, p.1 as Precision))
                     .collect();
                 let polygon_config = PolygonConfig {
-                    points: points,
-                    fill: fill,
-                    stroke: stroke,
+                    points,
+                    fill,
+                    stroke,
                     stroke_width: stroke_width as Precision,
                     fill_opacity: opacity as Precision,
                     stroke_opacity: 1.0,
@@ -245,9 +245,9 @@ impl Chart<MarkPoint> {
                     .map(|p| (p.0 as Precision, p.1 as Precision))
                     .collect();
                 let polygon_config = PolygonConfig {
-                    points: points,
-                    fill: fill,
-                    stroke: stroke,
+                    points,
+                    fill,
+                    stroke,
                     stroke_width: stroke_width as Precision,
                     fill_opacity: opacity as Precision,
                     stroke_opacity: 1.0,
@@ -261,9 +261,9 @@ impl Chart<MarkPoint> {
                     .map(|p| (p.0 as Precision, p.1 as Precision))
                     .collect();
                 let polygon_config = PolygonConfig {
-                    points: points,
-                    fill: fill,
-                    stroke: stroke,
+                    points,
+                    fill,
+                    stroke,
                     stroke_width: stroke_width as Precision,
                     fill_opacity: opacity as Precision,
                     stroke_opacity: 1.0,
@@ -277,9 +277,9 @@ impl Chart<MarkPoint> {
                     .map(|p| (p.0 as Precision, p.1 as Precision))
                     .collect();
                 let polygon_config = PolygonConfig {
-                    points: points,
-                    fill: fill,
-                    stroke: stroke,
+                    points,
+                    fill,
+                    stroke,
                     stroke_width: stroke_width as Precision,
                     fill_opacity: opacity as Precision,
                     stroke_opacity: 1.0,
@@ -293,9 +293,9 @@ impl Chart<MarkPoint> {
                     .map(|p| (p.0 as Precision, p.1 as Precision))
                     .collect();
                 let polygon_config = PolygonConfig {
-                    points: points,
-                    fill: fill,
-                    stroke: stroke,
+                    points,
+                    fill,
+                    stroke,
                     stroke_width: stroke_width as Precision,
                     fill_opacity: opacity as Precision,
                     stroke_opacity: 1.0,
@@ -309,9 +309,9 @@ impl Chart<MarkPoint> {
                     .map(|p| (p.0 as Precision, p.1 as Precision))
                     .collect();
                 let polygon_config = PolygonConfig {
-                    points: points,
-                    fill: fill,
-                    stroke: stroke,
+                    points,
+                    fill,
+                    stroke,
                     stroke_width: stroke_width as Precision,
                     fill_opacity: opacity as Precision,
                     stroke_opacity: 1.0,

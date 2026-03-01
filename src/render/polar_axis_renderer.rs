@@ -47,7 +47,7 @@ pub fn render_polar_axes(
     let is_pie = x_label.is_empty();
 
     let y_ticks = crate::scale::format_ticks(&[max_val]);
-    let max_label = y_ticks.get(0).map(|t| t.label.as_str()).unwrap_or("");
+    let max_label = y_ticks.first().map(|t| t.label.as_str()).unwrap_or("");
 
     if !is_pie && !max_label.is_empty() {
         // Apply padding so the label floats just outside the max radius

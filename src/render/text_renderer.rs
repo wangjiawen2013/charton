@@ -84,7 +84,7 @@ impl MarkRenderer for Chart<MarkText> {
                     .collect();
                 Box::new(color_vec.into_iter())
             } else {
-                Box::new(std::iter::repeat(mark_config.color.clone()))
+                Box::new(std::iter::repeat(mark_config.color))
             };
 
         // --- STEP 5: GEOMETRY PROJECTION & EMIT ---

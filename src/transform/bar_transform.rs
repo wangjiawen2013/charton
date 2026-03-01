@@ -29,7 +29,7 @@ impl<T: Mark> Chart<T> {
         // If x_field is an empty string, it signifies a single-axis layout (Pie Chart).
         // 1. Force 'stack' to true: Essential for pie slices to chain head-to-tail.
         // 2. Inject virtual column: Ensure Polars can find the "" column for grouping.
-        if x_field == "" {
+        if x_field.is_empty() {
             y_enc.stack = true;
 
             if !self

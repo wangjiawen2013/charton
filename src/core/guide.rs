@@ -327,16 +327,13 @@ impl GuideManager {
 
 /// Defines where the legend block is placed relative to the chart.
 #[derive(Debug, Clone, Copy, PartialEq)]
+#[derive(Default)]
 pub enum LegendPosition {
     Top,
     Bottom,
     Left,
+    #[default]
     Right,
     None,
 }
 
-impl Default for LegendPosition {
-    fn default() -> Self {
-        LegendPosition::Right
-    }
-}

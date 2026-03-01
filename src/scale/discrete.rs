@@ -90,7 +90,7 @@ impl ScaleTrait for DiscreteScale {
         }
 
         // Map the index 'value' into the [min, max] expanded coordinate space.
-        ((value - min) / range) as f64
+        ((value - min) / range)
     }
 
     /// Maps a string label to its normalized position.

@@ -65,7 +65,7 @@ impl MarkRenderer for Chart<MarkBoxplot> {
                 })
                 .collect()
         } else {
-            vec![mark_config.color.clone(); df_source.df.height()]
+            vec![mark_config.color; df_source.df.height()]
         };
 
         let groups_count_col = df_source.column(&format!("{}_groups_count", TEMP_SUFFIX))?;
@@ -116,8 +116,8 @@ impl MarkRenderer for Chart<MarkBoxplot> {
                 y: by1.min(by2) as Precision,
                 width: (bx1 - bx2).abs() as Precision,
                 height: (by1 - by2).abs() as Precision,
-                fill: current_color.clone(),
-                stroke: mark_config.stroke.clone(),
+                fill: *current_color,
+                stroke: mark_config.stroke,
                 stroke_width: mark_config.stroke_width as Precision,
                 opacity: mark_config.opacity as Precision,
             });
@@ -136,7 +136,7 @@ impl MarkRenderer for Chart<MarkBoxplot> {
                 y1: p_min_y as Precision,
                 x2: p_q1_x as Precision,
                 y2: p_q1_y as Precision,
-                color: mark_config.stroke.clone(),
+                color: mark_config.stroke,
                 width: mark_config.stroke_width as Precision,
                 opacity: mark_config.opacity as Precision,
                 dash: None,
@@ -147,7 +147,7 @@ impl MarkRenderer for Chart<MarkBoxplot> {
                 y1: p_max_y as Precision,
                 x2: p_q3_x as Precision,
                 y2: p_q3_y as Precision,
-                color: mark_config.stroke.clone(),
+                color: mark_config.stroke,
                 width: mark_config.stroke_width as Precision,
                 opacity: mark_config.opacity as Precision,
                 dash: None,
@@ -161,15 +161,15 @@ impl MarkRenderer for Chart<MarkBoxplot> {
                 y1: m1y as Precision,
                 x2: m2x as Precision,
                 y2: m2y as Precision,
-                color: mark_config.stroke.clone(),
+                color: mark_config.stroke,
                 width: (mark_config.stroke_width * 2.0) as Precision,
                 opacity: mark_config.opacity as Precision,
                 dash: None,
             });
 
             // --- 8. Draw Outliers ---
-            if let Some(s_outliers) = outliers_col.get_as_series(i) {
-                if s_outliers.len() > 0 {
+            if let Some(s_outliers) = outliers_col.get_as_series(i)
+                && !s_outliers.is_empty() {
                     let n_outliers = y_scale
                         .scale_type()
                         .normalize_series(y_scale, &s_outliers)?;
@@ -181,7 +181,7 @@ impl MarkRenderer for Chart<MarkBoxplot> {
                                 x: ox as Precision,
                                 y: oy as Precision,
                                 radius: mark_config.outlier_size as Precision,
-                                fill: mark_config.outlier_color.clone(),
+                                fill: mark_config.outlier_color,
                                 stroke: SingleColor::new("none"),
                                 stroke_width: 0.0,
                                 opacity: mark_config.opacity as Precision,
@@ -189,7 +189,6 @@ impl MarkRenderer for Chart<MarkBoxplot> {
                         }
                     }
                 }
-            }
         }
         Ok(())
     }
