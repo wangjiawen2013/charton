@@ -81,7 +81,8 @@ impl MarkRenderer for Chart<MarkBoxplot> {
         let unit_step_norm = (n1 - n0).abs();
 
         // --- STEP 4: Render Loop ---
-        #[allow(clippy::needless_range_loop)] // Allow indexing to synchronize access across multiple data columns
+        // Allow indexing to synchronize access across multiple data columns
+        #[allow(clippy::needless_range_loop)]
         for i in 0..df_source.df.height() {
             let total_groups = groups_count_col.get(i).unwrap();
             let sub_idx = sub_idx_col.get(i).unwrap();
