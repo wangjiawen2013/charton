@@ -107,13 +107,13 @@ Shape and size are **mark-specific properties** and never affect other layers.
 
 **Point Shape and Size**
 ```rust
-let point = mark_point()
+let point = mark_point()?
     .with_point_shape(PointShape::Circle)
     .with_point_size(60.0);
 ```
 **Data-Driven Shape and Size**
 ```rust
-mark_point()
+mark_point()?
     .encode((
         x("time"),
         y("value"),
@@ -122,7 +122,7 @@ mark_point()
 ```
 or
 ```rust
-mark_point()
+mark_point()?
     .encode((
         x("wt"),
         y("mpg"),
@@ -200,14 +200,14 @@ Legend appearance is influenced by the active theme.
 **Basic Chart (Default Styling)**
 ```rust
 let chart = Chart::build(&df)?
-    .mark_point()
+    .mark_point()?
     .encode((x("x"), y("y")))?
     .into_layered();
 ```
 **Styled Chart**
 ```rust
 let chart = Chart::build(&df)?
-    .mark_point()
+    .mark_point()?
     .encode((x("x"), y("y")))?
     .into_layered();
 
