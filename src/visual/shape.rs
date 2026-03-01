@@ -60,4 +60,3 @@ impl From<String> for PointShape {
         PointShape::from(s.as_str())
     }
 }
-
