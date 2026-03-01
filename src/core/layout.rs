@@ -29,6 +29,7 @@ impl LayoutEngine {
     ///    If a legend exceeds `initial_plot_h`, a new column is started to the side.
     /// 2. **Horizontal Stacking (Top/Bottom)**: Legends are laid out in a row.
     ///    If a legend exceeds `initial_plot_w`, a new row is started below/above.
+    #[allow(clippy::too_many_arguments)]
     pub fn calculate_legend_constraints(
         specs: &[GuideSpec],
         position: LegendPosition,

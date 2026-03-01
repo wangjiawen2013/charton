@@ -246,6 +246,7 @@ impl LegendRenderer {
     }
 
     /// Renders a group of categorical symbols and labels.
+    #[allow(clippy::too_many_arguments)]
     fn draw_spec_group(
         backend: &mut dyn RenderBackend,
         _spec: &GuideSpec,
