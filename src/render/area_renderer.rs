@@ -123,7 +123,7 @@ impl MarkRenderer for Chart<MarkArea> {
             // do not have thick borders that clash with the axes or zero line.
             backend.draw_polygon(PolygonConfig {
                 points: fill_points,
-                fill: group_base_color.clone(),
+                fill: group_base_color,
                 stroke: "none".into(), // No stroke on the polygon layer
                 stroke_width: 0.0,
                 fill_opacity: mark_config.opacity as Precision,
@@ -166,9 +166,9 @@ impl Chart<MarkArea> {
             Ok(s_trait
                 .mapper()
                 .map(|m| m.map_to_color(norm, s_trait.logical_max()))
-                .unwrap_or_else(|| fallback.clone()))
+                .unwrap_or_else(|| *fallback))
         } else {
-            Ok(fallback.clone())
+            Ok(*fallback)
         }
     }
 }

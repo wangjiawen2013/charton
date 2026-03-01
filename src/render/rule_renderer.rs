@@ -75,7 +75,7 @@ impl MarkRenderer for Chart<MarkRule> {
                     .collect();
                 Box::new(color_vec.into_iter())
             } else {
-                Box::new(std::iter::repeat(mark_config.color.clone()))
+                Box::new(std::iter::repeat(mark_config.color))
             };
 
         // --- STEP 4: UNIFIED RENDERING LOOP ---

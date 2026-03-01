@@ -71,7 +71,7 @@ impl MarkRenderer for Chart<MarkRect> {
                 width: rect_width as Precision,
                 height: rect_height as Precision,
                 fill: fill_color,
-                stroke: mark_config.stroke.clone(),
+                stroke: mark_config.stroke,
                 stroke_width: mark_config.stroke_width as Precision,
                 opacity: mark_config.opacity as Precision,
             });
@@ -124,13 +124,13 @@ impl Chart<MarkRect> {
                     s_trait
                         .mapper()
                         .map(|m| m.map_to_color(opt_n.unwrap_or(0.0), l_max))
-                        .unwrap_or_else(|| fallback.clone())
+                        .unwrap_or_else(|| *fallback)
                 })
                 .collect();
             Ok(Box::new(colors.into_iter()))
         } else {
             // No color mapping: return an infinite iterator of the fallback color
-            Ok(Box::new(std::iter::repeat(fallback.clone())))
+            Ok(Box::new(std::iter::repeat(*fallback)))
         }
     }
 }

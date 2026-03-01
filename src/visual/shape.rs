@@ -2,7 +2,9 @@
 /// Supports conversion from strings for a fluent API and provides
 /// integer IDs for GPU-accelerated rendering.
 #[derive(Clone, Copy, Debug, PartialEq, Eq)] // Added Copy/Eq for easier usage
+#[derive(Default)]
 pub enum PointShape {
+    #[default]
     Circle = 0,
     Square = 1,
     Triangle = 2,
@@ -59,8 +61,3 @@ impl From<String> for PointShape {
     }
 }
 
-impl Default for PointShape {
-    fn default() -> Self {
-        PointShape::Circle
-    }
-}

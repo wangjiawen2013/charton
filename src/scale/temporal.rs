@@ -89,7 +89,7 @@ impl ScaleTrait for TemporalScale {
         }
 
         // Calculation stays in f64 until the very last step
-        ((value - start_ns) / diff) as f64
+        ((value - start_ns) / diff)
     }
 
     /// Temporal scales are continuous and do not use string-based normalization.

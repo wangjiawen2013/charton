@@ -265,12 +265,10 @@ pub(crate) fn format_ticks(values: &[f64]) -> Vec<Tick> {
             magnitude
         };
         ((magnitude - step_mag).max(0.0) as usize).clamp(0, 6)
+    } else if step > 0.0 && step < 0.9999 {
+        ((-step.log10()).ceil() as usize).clamp(0, 6)
     } else {
-        if step > 0.0 && step < 0.9999 {
-            ((-step.log10()).ceil() as usize).clamp(0, 6)
-        } else {
-            0
-        }
+        0
     };
 
     // 4. Initial Formatting Pass

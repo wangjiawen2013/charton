@@ -213,9 +213,9 @@ impl Chart<MarkLine> {
             Ok(s_trait
                 .mapper()
                 .map(|m| m.map_to_color(norm, s_trait.logical_max()))
-                .unwrap_or_else(|| fallback.clone()))
+                .unwrap_or_else(|| *fallback))
         } else {
-            Ok(fallback.clone())
+            Ok(*fallback)
         }
     }
 }

@@ -73,7 +73,7 @@ impl MarkRenderer for Chart<MarkErrorBar> {
             .normalize_series(y_scale, &y_max_series)?;
 
         // --- STEP 3: RENDERING LOOP ---
-        let color = mark_config.color.clone();
+        let color = mark_config.color;
         let width = mark_config.stroke_width as Precision;
         let cap_len = mark_config.cap_length as Precision;
         let is_flipped = context.coord.is_flipped();
@@ -102,7 +102,7 @@ impl MarkRenderer for Chart<MarkErrorBar> {
                 y1,
                 x2,
                 y2,
-                color: color.clone(),
+                color: color,
                 width,
                 opacity: mark_config.opacity as Precision,
                 dash: None,
@@ -116,7 +116,7 @@ impl MarkRenderer for Chart<MarkErrorBar> {
                     y1,
                     x2: x1 + cap_len,
                     y2: y1,
-                    color: color.clone(),
+                    color: color,
                     width,
                     opacity: mark_config.opacity as Precision,
                     dash: None,
@@ -126,7 +126,7 @@ impl MarkRenderer for Chart<MarkErrorBar> {
                     y1: y2,
                     x2: x2 + cap_len,
                     y2,
-                    color: color.clone(),
+                    color: color,
                     width,
                     opacity: mark_config.opacity as Precision,
                     dash: None,
@@ -138,7 +138,7 @@ impl MarkRenderer for Chart<MarkErrorBar> {
                     y1: y1 - cap_len,
                     x2: x1,
                     y2: y1 + cap_len,
-                    color: color.clone(),
+                    color: color,
                     width,
                     opacity: mark_config.opacity as Precision,
                     dash: None,
@@ -146,9 +146,9 @@ impl MarkRenderer for Chart<MarkErrorBar> {
                 backend.draw_line(LineConfig {
                     x1: x2,
                     y1: y2 - cap_len,
-                    x2: x2,
+                    x2,
                     y2: y2 + cap_len,
-                    color: color.clone(),
+                    color: color,
                     width,
                     opacity: mark_config.opacity as Precision,
                     dash: None,
@@ -164,8 +164,8 @@ impl MarkRenderer for Chart<MarkErrorBar> {
                     x: x_mean_pix as Precision,
                     y: y_mean_pix as Precision,
                     radius: 3.0 as Precision,
-                    fill: color.clone(),
-                    stroke: color.clone(),
+                    fill: color,
+                    stroke: color,
                     stroke_width: 0.0,
                     opacity: mark_config.opacity as Precision,
                 });

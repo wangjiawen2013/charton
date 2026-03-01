@@ -260,13 +260,12 @@ impl<'a> RenderBackend for SvgBackend<'a> {
         );
 
         // Dash line style
-        if let Some(dash_array) = dash {
-            if !dash_array.is_empty() {
+        if let Some(dash_array) = dash
+            && !dash_array.is_empty() {
                 let dash_str: Vec<String> =
                     dash_array.iter().map(|d| format!("{:.1}", d)).collect();
                 let _ = write!(self.buffer, r#" stroke-dasharray="{}""#, dash_str.join(","));
             }
-        }
 
         let _ = self.buffer.write_str(" />\n");
     }

@@ -74,14 +74,12 @@ impl LegendRenderer {
                 } else {
                     max_dim_in_row_col = f64::max(max_dim_in_row_col, block_size.width);
                 }
+            } else if current_x + block_size.width > start_x + ctx.panel.width && current_x > start_x {
+                current_y += max_dim_in_row_col + block_gap;
+                current_x = start_x;
+                max_dim_in_row_col = block_size.height;
             } else {
-                if current_x + block_size.width > start_x + ctx.panel.width && current_x > start_x {
-                    current_y += max_dim_in_row_col + block_gap;
-                    current_x = start_x;
-                    max_dim_in_row_col = block_size.height;
-                } else {
-                    max_dim_in_row_col = f64::max(max_dim_in_row_col, block_size.height);
-                }
+                max_dim_in_row_col = f64::max(max_dim_in_row_col, block_size.height);
             }
 
             // 1. Draw Legend Block Title
@@ -153,8 +151,8 @@ impl LegendRenderer {
         let mut stops = Vec::new();
 
         // Access the color aesthetics from the central spec
-        if let Some(ref mapping) = ctx.spec.aesthetics.color {
-            if let Some(mapper) = mapping.scale_impl.mapper() {
+        if let Some(ref mapping) = ctx.spec.aesthetics.color
+            && let Some(mapper) = mapping.scale_impl.mapper() {
                 let n_samples = 15;
                 let l_max = mapping.scale_impl.logical_max();
 
@@ -165,14 +163,13 @@ impl LegendRenderer {
                     stops.push((ratio as Precision, color));
                 }
             }
-        }
 
         let gradient_rect_config = GradientRectConfig {
             x: x as Precision,
             y: y as Precision,
             width: bar_w as Precision,
             height: bar_h as Precision,
-            stops: stops,
+            stops,
             is_vertical: true,
             id_suffix: spec.field.clone(),
         };
@@ -341,7 +338,7 @@ impl LegendRenderer {
 
         // Check availability of specific mappers
         let has_color = spec.mappings.iter().any(|m| {
-            m.scale_impl.mapper().map_or(false, |v| {
+            m.scale_impl.mapper().is_some_and(|v| {
                 matches!(
                     v,
                     VisualMapper::DiscreteColor { .. } | VisualMapper::ContinuousColor { .. }
@@ -351,12 +348,12 @@ impl LegendRenderer {
         let has_shape = spec.mappings.iter().any(|m| {
             m.scale_impl
                 .mapper()
-                .map_or(false, |v| matches!(v, VisualMapper::Shape { .. }))
+                .is_some_and(|v| matches!(v, VisualMapper::Shape { .. }))
         });
         let has_size = spec.mappings.iter().any(|m| {
             m.scale_impl
                 .mapper()
-                .map_or(false, |v| matches!(v, VisualMapper::Size { .. }))
+                .is_some_and(|v| matches!(v, VisualMapper::Size { .. }))
         });
 
         for (i, label_str) in labels.iter().enumerate() {
@@ -439,7 +436,7 @@ impl LegendRenderer {
                     x: cx as Precision,
                     y: cy as Precision,
                     radius: r as Precision,
-                    fill: color.clone(),
+                    fill: *color,
                     stroke: SingleColor::new("none"),
                     stroke_width: 0.0,
                     opacity: 1.0,
@@ -452,7 +449,7 @@ impl LegendRenderer {
                     y: (cy - r) as Precision,
                     width: (r * 2.0) as Precision,
                     height: (r * 2.0) as Precision,
-                    fill: color.clone(),
+                    fill: *color,
                     stroke: SingleColor::new("none"),
                     stroke_width: 0.0,
                     opacity: 1.0,
@@ -467,7 +464,7 @@ impl LegendRenderer {
                 ];
                 let polygon_config = PolygonConfig {
                     points: pts,
-                    fill: color.clone(),
+                    fill: *color,
                     stroke: SingleColor::new("none"),
                     stroke_width: 0.0,
                     fill_opacity: 1.0,
@@ -484,7 +481,7 @@ impl LegendRenderer {
                 ];
                 let polygon_config = PolygonConfig {
                     points: pts,
-                    fill: color.clone(),
+                    fill: *color,
                     stroke: SingleColor::new("none"),
                     stroke_width: 0.0,
                     fill_opacity: 1.0,
@@ -497,7 +494,7 @@ impl LegendRenderer {
                     x: cx as Precision,
                     y: cy as Precision,
                     radius: r as Precision,
-                    fill: color.clone(),
+                    fill: *color,
                     stroke: SingleColor::new("none"),
                     stroke_width: 0.0,
                     opacity: 1.0,

@@ -97,6 +97,12 @@ pub struct LayeredChart {
     pub(crate) polar_inner_radius: Option<f64>,
 }
 
+impl Default for LayeredChart {
+    fn default() -> Self {
+        Self::new()
+    }
+}
+
 impl LayeredChart {
     pub fn new() -> Self {
         Self {
@@ -382,7 +388,7 @@ impl LayeredChart {
 
         // A. Resolve Scale Type
         let scale_type = match (&inferred_type, &manual_domain) {
-            (Some(t), _) => t.clone(),
+            (Some(t), _) => *t,
             (None, Some(d)) => match d {
                 ScaleDomain::Discrete(_) => Scale::Discrete,
                 ScaleDomain::Temporal(_, _) => Scale::Temporal,
@@ -797,8 +803,8 @@ impl LayeredChart {
                 svg,
                 &self.theme,
                 &primary_panel_ctx.panel,
-                &x_label,
-                &y_label,
+                x_label,
+                y_label,
             )?;
         }
 
