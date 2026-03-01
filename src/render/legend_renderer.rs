@@ -316,6 +316,7 @@ impl LegendRenderer {
     }
 
     /// Maps data values into visual properties using the GlobalAesthetics context.
+    #[allow(clippy::type_complexity)] // A type alias isn't needed for a single usage.
     fn resolve_mappings(
         spec: &GuideSpec,
         ctx: &PanelContext,
