@@ -1,49 +1,46 @@
-<svg width="500" height="400" viewBox="0 0 500 400" xmlns="http://www.w3.org/2000/svg"><rect width="100%" height="100%" fill="white" /><text x="250" y="18" font-size="18" font-family="sans-serif" fill="#333" text-anchor="middle">Histogram Example</text>
-<rect x="98.42135238095237" y="340" width="34.66124761904762" height="0" fill="#1f77b4" stroke="black" stroke-width="0" opacity="0.5" />
-<rect x="134.9068761904762" y="340" width="34.66124761904762" height="0" fill="#1f77b4" stroke="black" stroke-width="0" opacity="0.5" />
-<rect x="171.39239999999998" y="320.2" width="34.66124761904762" height="19.80000000000001" fill="#1f77b4" stroke="black" stroke-width="0" opacity="0.5" />
-<rect x="207.8779238095238" y="245.40000000000003" width="34.66124761904762" height="94.59999999999997" fill="#1f77b4" stroke="black" stroke-width="0" opacity="0.5" />
-<rect x="244.3634476190476" y="236.60000000000002" width="34.66124761904762" height="103.39999999999998" fill="#1f77b4" stroke="black" stroke-width="0" opacity="0.5" />
-<rect x="280.8489714285714" y="252" width="34.66124761904762" height="88" fill="#1f77b4" stroke="black" stroke-width="0" opacity="0.5" />
-<rect x="317.3344952380952" y="315.8" width="34.66124761904762" height="24.19999999999999" fill="#1f77b4" stroke="black" stroke-width="0" opacity="0.5" />
-<rect x="98.42135238095237" y="287.2" width="34.66124761904762" height="52.80000000000001" fill="#ff7f0e" stroke="black" stroke-width="0" opacity="0.5" />
-<rect x="134.9068761904762" y="102.40000000000006" width="34.66124761904762" height="237.59999999999994" fill="#ff7f0e" stroke="black" stroke-width="0" opacity="0.5" />
-<rect x="171.39239999999998" y="300.4" width="34.66124761904762" height="39.60000000000002" fill="#ff7f0e" stroke="black" stroke-width="0" opacity="0.5" />
-<rect x="207.8779238095238" y="340" width="34.66124761904762" height="0" fill="#ff7f0e" stroke="black" stroke-width="0" opacity="0.5" />
-<rect x="244.3634476190476" y="340" width="34.66124761904762" height="0" fill="#ff7f0e" stroke="black" stroke-width="0" opacity="0.5" />
-<rect x="280.8489714285714" y="340" width="34.66124761904762" height="0" fill="#ff7f0e" stroke="black" stroke-width="0" opacity="0.5" />
-<rect x="317.3344952380952" y="340" width="34.66124761904762" height="0" fill="#ff7f0e" stroke="black" stroke-width="0" opacity="0.5" />
-<line x1="75" y1="340" x2="383.95" y2="340" stroke="black" stroke-width="1"/>
-<line x1="83.82714285714286" y1="340" x2="83.82714285714286" y2="345" stroke="black" stroke-width="1"/>
-<text x="83.82714285714286" y="358" font-size="13" font-family="sans-serif" fill="#333" text-anchor="middle">2</text>
-<line x1="129.43404761904762" y1="340" x2="129.43404761904762" y2="345" stroke="black" stroke-width="1"/>
-<text x="129.43404761904762" y="358" font-size="13" font-family="sans-serif" fill="#333" text-anchor="middle">3</text>
-<line x1="175.04095238095238" y1="340" x2="175.04095238095238" y2="345" stroke="black" stroke-width="1"/>
-<text x="175.04095238095238" y="358" font-size="13" font-family="sans-serif" fill="#333" text-anchor="middle">4</text>
-<line x1="220.64785714285713" y1="340" x2="220.64785714285713" y2="345" stroke="black" stroke-width="1"/>
-<text x="220.64785714285713" y="358" font-size="13" font-family="sans-serif" fill="#333" text-anchor="middle">5</text>
-<line x1="266.2547619047619" y1="340" x2="266.2547619047619" y2="345" stroke="black" stroke-width="1"/>
-<text x="266.2547619047619" y="358" font-size="13" font-family="sans-serif" fill="#333" text-anchor="middle">6</text>
-<line x1="311.8616666666667" y1="340" x2="311.8616666666667" y2="345" stroke="black" stroke-width="1"/>
-<text x="311.8616666666667" y="358" font-size="13" font-family="sans-serif" fill="#333" text-anchor="middle">7</text>
-<line x1="357.4685714285714" y1="340" x2="357.4685714285714" y2="345" stroke="black" stroke-width="1"/>
-<text x="357.4685714285714" y="358" font-size="13" font-family="sans-serif" fill="#333" text-anchor="middle">8</text>
-<text x="229.475" y="363" font-size="15" font-family="sans-serif" fill="#333" text-anchor="middle" dominant-baseline="text-before-edge">Value</text>
-<line x1="75" y1="40" x2="75" y2="340" stroke="black" stroke-width="1"/>
-<line x1="70" y1="340" x2="75" y2="340" stroke="black" stroke-width="1"/>
-<text x="67" y="340" font-size="13" font-family="sans-serif" fill="#333" text-anchor="end" dominant-baseline="middle">0.0</text>
-<line x1="70" y1="274" x2="75" y2="274" stroke="black" stroke-width="1"/>
-<text x="67" y="274" font-size="13" font-family="sans-serif" fill="#333" text-anchor="end" dominant-baseline="middle">0.2</text>
-<line x1="70" y1="208" x2="75" y2="208" stroke="black" stroke-width="1"/>
-<text x="67" y="208" font-size="13" font-family="sans-serif" fill="#333" text-anchor="end" dominant-baseline="middle">0.4</text>
-<line x1="70" y1="142" x2="75" y2="142" stroke="black" stroke-width="1"/>
-<text x="67" y="142" font-size="13" font-family="sans-serif" fill="#333" text-anchor="end" dominant-baseline="middle">0.6</text>
-<line x1="70" y1="76" x2="75" y2="76" stroke="black" stroke-width="1"/>
-<text x="67" y="76" font-size="13" font-family="sans-serif" fill="#333" text-anchor="end" dominant-baseline="middle">0.8</text>
-<text x="36.8" y="190" font-size="15" font-family="sans-serif" fill="#333" text-anchor="middle" transform="rotate(-90, 36.8, 190)">Frequency</text>
-<text x="398.95" y="55" font-size="15" font-family="sans-serif" text-anchor="start" font-weight="bold">variable</text>
-<rect x="398.95" y="67.5" width="15" height="15" fill="#1f77b4" stroke="black" stroke-width="0.0" fill-opacity="1"/>
-<text x="418.95" y="75" font-size="13" font-family="sans-serif" dominant-baseline="middle">sepal length</text>
-<rect x="398.95" y="87.5" width="15" height="15" fill="#ff7f0e" stroke="black" stroke-width="0.0" fill-opacity="1"/>
-<text x="418.95" y="95" font-size="13" font-family="sans-serif" dominant-baseline="middle">sepal width</text>
+<svg width="500" height="400" viewBox="0 0 500 400" xmlns="http://www.w3.org/2000/svg"><rect width="100%" height="100%" fill="rgba(255,255,255,1.000)" /><text x="250.00" y="10.00" text-anchor="middle" dominant-baseline="middle" font-family="Inter, -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, 'PingFang SC', 'Microsoft YaHei', Ubuntu, Cantarell, 'Noto Sans', sans-serif" font-size="18" fill="rgba(51,51,51,1.000)" font-weight="bold">Histogram Example</text>
+<line x1="87.20" y1="316.00" x2="373.80" y2="316.00" stroke="rgba(51,51,51,1.000)" stroke-width="1" stroke-linecap="square"/>
+<line x1="132.80" y1="316.00" x2="132.80" y2="322.00" stroke="rgba(51,51,51,1.000)" stroke-width="1.0"/>
+<text x="132.80" y="325.00" font-size="13" font-family="Inter, -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, 'PingFang SC', 'Microsoft YaHei', Ubuntu, Cantarell, 'Noto Sans', sans-serif" fill="rgba(51,51,51,1.000)" text-anchor="middle" dominant-baseline="hanging">3</text>
+<line x1="179.32" y1="316.00" x2="179.32" y2="322.00" stroke="rgba(51,51,51,1.000)" stroke-width="1.0"/>
+<text x="179.32" y="325.00" font-size="13" font-family="Inter, -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, 'PingFang SC', 'Microsoft YaHei', Ubuntu, Cantarell, 'Noto Sans', sans-serif" fill="rgba(51,51,51,1.000)" text-anchor="middle" dominant-baseline="hanging">4</text>
+<line x1="225.85" y1="316.00" x2="225.85" y2="322.00" stroke="rgba(51,51,51,1.000)" stroke-width="1.0"/>
+<text x="225.85" y="325.00" font-size="13" font-family="Inter, -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, 'PingFang SC', 'Microsoft YaHei', Ubuntu, Cantarell, 'Noto Sans', sans-serif" fill="rgba(51,51,51,1.000)" text-anchor="middle" dominant-baseline="hanging">5</text>
+<line x1="272.37" y1="316.00" x2="272.37" y2="322.00" stroke="rgba(51,51,51,1.000)" stroke-width="1.0"/>
+<text x="272.37" y="325.00" font-size="13" font-family="Inter, -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, 'PingFang SC', 'Microsoft YaHei', Ubuntu, Cantarell, 'Noto Sans', sans-serif" fill="rgba(51,51,51,1.000)" text-anchor="middle" dominant-baseline="hanging">6</text>
+<line x1="318.90" y1="316.00" x2="318.90" y2="322.00" stroke="rgba(51,51,51,1.000)" stroke-width="1.0"/>
+<text x="318.90" y="325.00" font-size="13" font-family="Inter, -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, 'PingFang SC', 'Microsoft YaHei', Ubuntu, Cantarell, 'Noto Sans', sans-serif" fill="rgba(51,51,51,1.000)" text-anchor="middle" dominant-baseline="hanging">7</text>
+<line x1="365.43" y1="316.00" x2="365.43" y2="322.00" stroke="rgba(51,51,51,1.000)" stroke-width="1.0"/>
+<text x="365.43" y="325.00" font-size="13" font-family="Inter, -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, 'PingFang SC', 'Microsoft YaHei', Ubuntu, Cantarell, 'Noto Sans', sans-serif" fill="rgba(51,51,51,1.000)" text-anchor="middle" dominant-baseline="hanging">8</text>
+<text x="230.50" y="340.00" text-anchor="middle" font-size="15" font-family="Inter, -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, 'PingFang SC', 'Microsoft YaHei', Ubuntu, Cantarell, 'Noto Sans', sans-serif" fill="rgba(51,51,51,1.000)" font-weight="bold" dominant-baseline="hanging">Value</text>
+<line x1="87.20" y1="40.00" x2="87.20" y2="316.00" stroke="rgba(51,51,51,1.000)" stroke-width="1" stroke-linecap="square"/>
+<line x1="87.20" y1="316.00" x2="81.20" y2="316.00" stroke="rgba(51,51,51,1.000)" stroke-width="1.0"/>
+<text x="77.20" y="316.00" font-size="13" font-family="Inter, -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, 'PingFang SC', 'Microsoft YaHei', Ubuntu, Cantarell, 'Noto Sans', sans-serif" fill="rgba(51,51,51,1.000)" text-anchor="end" dominant-baseline="central">0.0</text>
+<line x1="87.20" y1="242.98" x2="81.20" y2="242.98" stroke="rgba(51,51,51,1.000)" stroke-width="1.0"/>
+<text x="77.20" y="242.98" font-size="13" font-family="Inter, -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, 'PingFang SC', 'Microsoft YaHei', Ubuntu, Cantarell, 'Noto Sans', sans-serif" fill="rgba(51,51,51,1.000)" text-anchor="end" dominant-baseline="central">0.2</text>
+<line x1="87.20" y1="169.97" x2="81.20" y2="169.97" stroke="rgba(51,51,51,1.000)" stroke-width="1.0"/>
+<text x="77.20" y="169.97" font-size="13" font-family="Inter, -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, 'PingFang SC', 'Microsoft YaHei', Ubuntu, Cantarell, 'Noto Sans', sans-serif" fill="rgba(51,51,51,1.000)" text-anchor="end" dominant-baseline="central">0.4</text>
+<line x1="87.20" y1="96.95" x2="81.20" y2="96.95" stroke="rgba(51,51,51,1.000)" stroke-width="1.0"/>
+<text x="77.20" y="96.95" font-size="13" font-family="Inter, -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, 'PingFang SC', 'Microsoft YaHei', Ubuntu, Cantarell, 'Noto Sans', sans-serif" fill="rgba(51,51,51,1.000)" text-anchor="end" dominant-baseline="central">0.6</text>
+<text x="47.50" y="178.00" text-anchor="middle" font-size="15" font-family="Inter, -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, 'PingFang SC', 'Microsoft YaHei', Ubuntu, Cantarell, 'Noto Sans', sans-serif" fill="rgba(51,51,51,1.000)" font-weight="bold" transform="rotate(-90, 47.50, 178.00)" dominant-baseline="middle">Frequency</text>
+<defs><clipPath id="plot-clip-area"><rect x="87.200" y="40.000" width="286.600" height="276.000" /></clipPath></defs>
+<rect x="101.158" y="316.000" width="35.360" height="0.000" fill="rgba(31,119,180,1.000)" stroke="rgba(0,0,0,1.000)" stroke-width="0.000" fill-opacity="0.500" stroke-opacity="0.500" clip-path="url(#plot-clip-area)" />
+<rect x="138.379" y="316.000" width="35.360" height="0.000" fill="rgba(31,119,180,1.000)" stroke="rgba(0,0,0,1.000)" stroke-width="0.000" fill-opacity="0.500" stroke-opacity="0.500" clip-path="url(#plot-clip-area)" />
+<rect x="175.599" y="294.095" width="35.360" height="21.905" fill="rgba(31,119,180,1.000)" stroke="rgba(0,0,0,1.000)" stroke-width="0.000" fill-opacity="0.500" stroke-opacity="0.500" clip-path="url(#plot-clip-area)" />
+<rect x="212.820" y="211.344" width="35.360" height="104.656" fill="rgba(31,119,180,1.000)" stroke="rgba(0,0,0,1.000)" stroke-width="0.000" fill-opacity="0.500" stroke-opacity="0.500" clip-path="url(#plot-clip-area)" />
+<rect x="250.041" y="201.608" width="35.360" height="114.392" fill="rgba(31,119,180,1.000)" stroke="rgba(0,0,0,1.000)" stroke-width="0.000" fill-opacity="0.500" stroke-opacity="0.500" clip-path="url(#plot-clip-area)" />
+<rect x="287.262" y="218.646" width="35.360" height="97.354" fill="rgba(31,119,180,1.000)" stroke="rgba(0,0,0,1.000)" stroke-width="0.000" fill-opacity="0.500" stroke-opacity="0.500" clip-path="url(#plot-clip-area)" />
+<rect x="324.482" y="289.228" width="35.360" height="26.772" fill="rgba(31,119,180,1.000)" stroke="rgba(0,0,0,1.000)" stroke-width="0.000" fill-opacity="0.500" stroke-opacity="0.500" clip-path="url(#plot-clip-area)" />
+<rect x="101.158" y="257.587" width="35.360" height="58.413" fill="rgba(255,127,14,1.000)" stroke="rgba(0,0,0,1.000)" stroke-width="0.000" fill-opacity="0.500" stroke-opacity="0.500" clip-path="url(#plot-clip-area)" />
+<rect x="138.379" y="53.143" width="35.360" height="262.857" fill="rgba(255,127,14,1.000)" stroke="rgba(0,0,0,1.000)" stroke-width="0.000" fill-opacity="0.500" stroke-opacity="0.500" clip-path="url(#plot-clip-area)" />
+<rect x="175.599" y="272.190" width="35.360" height="43.810" fill="rgba(255,127,14,1.000)" stroke="rgba(0,0,0,1.000)" stroke-width="0.000" fill-opacity="0.500" stroke-opacity="0.500" clip-path="url(#plot-clip-area)" />
+<rect x="212.820" y="316.000" width="35.360" height="0.000" fill="rgba(255,127,14,1.000)" stroke="rgba(0,0,0,1.000)" stroke-width="0.000" fill-opacity="0.500" stroke-opacity="0.500" clip-path="url(#plot-clip-area)" />
+<rect x="250.041" y="316.000" width="35.360" height="0.000" fill="rgba(255,127,14,1.000)" stroke="rgba(0,0,0,1.000)" stroke-width="0.000" fill-opacity="0.500" stroke-opacity="0.500" clip-path="url(#plot-clip-area)" />
+<rect x="287.262" y="316.000" width="35.360" height="0.000" fill="rgba(255,127,14,1.000)" stroke="rgba(0,0,0,1.000)" stroke-width="0.000" fill-opacity="0.500" stroke-opacity="0.500" clip-path="url(#plot-clip-area)" />
+<rect x="324.482" y="316.000" width="35.360" height="0.000" fill="rgba(255,127,14,1.000)" stroke="rgba(0,0,0,1.000)" stroke-width="0.000" fill-opacity="0.500" stroke-opacity="0.500" clip-path="url(#plot-clip-area)" />
+<text x="388.800" y="49.600" font-size="13.2" font-family="Inter, -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, 'PingFang SC', 'Microsoft YaHei', Ubuntu, Cantarell, 'Noto Sans', sans-serif" fill="rgba(51,51,51,1.000)" fill-opacity="1.000" text-anchor="start" font-weight="bold">variable</text>
+<circle cx="397.800" cy="69.200" r="5.000" fill="rgba(31,119,180,1.000)" stroke="none" stroke-width="0.000" fill-opacity="1.000" stroke-opacity="1.000" />
+<text x="414.800" y="73.700" font-size="12.0" font-family="Inter, -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, 'PingFang SC', 'Microsoft YaHei', Ubuntu, Cantarell, 'Noto Sans', sans-serif" fill="rgba(51,51,51,1.000)" fill-opacity="1.000" text-anchor="start" font-weight="normal">sepal_length</text>
+<circle cx="397.800" cy="90.200" r="5.000" fill="rgba(255,127,14,1.000)" stroke="none" stroke-width="0.000" fill-opacity="1.000" stroke-opacity="1.000" />
+<text x="414.800" y="94.700" font-size="12.0" font-family="Inter, -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, 'PingFang SC', 'Microsoft YaHei', Ubuntu, Cantarell, 'Noto Sans', sans-serif" fill="rgba(51,51,51,1.000)" fill-opacity="1.000" text-anchor="start" font-weight="normal">sepal_width</text>
 </svg>

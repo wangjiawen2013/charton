@@ -4,7 +4,6 @@ use crate::bridge::base::{
 use crate::error::ChartonError;
 use base64::Engine;
 use polars::prelude::*;
-use regex::Regex;
 use std::io::{Cursor, Seek, SeekFrom, Write};
 use std::marker::PhantomData;
 use std::process::{Command, Stdio};
@@ -77,16 +76,13 @@ print(chart.to_json())
         };
 
         let full_plotting_code = format!("{}{}{}", ipc_to_df, self.raw_plotting_code, output);
-        // Use regular expressions to replace the dataframe name with the actual dataframe name
-        let re =
-            Regex::new(r"__charton_temp_df_name_fm_n9jh3 = pl.read_ipc\(BytesIO\(ipc_data\)\)")
-                .map_err(|_| ChartonError::Render("Failed to create regex".to_string()))?;
-        let full_plotting_code = re.replace_all(
-            &full_plotting_code,
-            format!("{} = pl.read_ipc(BytesIO(ipc_data))", self.data.name),
+        // Replace the dataframe name with the actual dataframe name
+        let full_plotting_code = full_plotting_code.replace(
+            "__charton_temp_df_name_fm_n9jh3 = pl.read_ipc(BytesIO(ipc_data))",
+            &format!("{} = pl.read_ipc(BytesIO(ipc_data))", self.data.name),
         );
 
-        Ok(full_plotting_code.to_string())
+        Ok(full_plotting_code)
     }
 
     fn execute_plotting_code(&self, code: &str) -> Result<String, ChartonError> {

@@ -1,26 +1,27 @@
-use crate::chart::common::Chart;
+use crate::chart::Chart;
+use crate::core::data::{SemanticType, interpret_semantic_type};
 use crate::error::ChartonError;
 use crate::mark::Mark;
+use crate::prelude::IntoChartonSource;
 use polars::prelude::*;
 
 impl<T: Mark> Chart<T> {
     // Handle grouping and aggregation of data for rect chart
     pub(crate) fn transform_rect_data(mut self) -> Result<Self, ChartonError> {
-        // Get encodings - we know these exist based on earlier validation
+        // 1. Get encodings - we know these exist based on earlier validation
         let x_encoding = self.encoding.x.as_ref().unwrap();
         let y_encoding = self.encoding.y.as_ref().unwrap();
         let color_encoding = self.encoding.color.as_ref().unwrap();
 
-        // Get data series
-        let x_series = self.data.column(&x_encoding.field)?;
-        let y_series = self.data.column(&y_encoding.field)?;
-
-        // Determine if x and y values are discrete
-        let x_scale = crate::data::determine_scale_for_dtype(x_series.dtype());
-        let y_scale = crate::data::determine_scale_for_dtype(y_series.dtype());
-
-        let x_is_discrete = matches!(x_scale, crate::coord::Scale::Discrete);
-        let y_is_discrete = matches!(y_scale, crate::coord::Scale::Discrete);
+        // 2. Determine if X and Y are discrete.
+        let x_is_discrete = matches!(
+            interpret_semantic_type(self.data.column(&x_encoding.field)?.dtype()),
+            SemanticType::Discrete
+        );
+        let y_is_discrete = matches!(
+            interpret_semantic_type(self.data.column(&y_encoding.field)?.dtype()),
+            SemanticType::Discrete
+        );
 
         // Store bin information for later use
         let mut x_bin_labels: Option<Vec<String>> = None;
@@ -37,17 +38,9 @@ impl<T: Mark> Chart<T> {
                 // Get the current x_series from the DataFrame
                 let current_x_series = df.column(&x_encoding.field)?.f64()?.clone().into_series();
 
-                // Calculate number of bins - use explicit value if set, otherwise:
-                // - If all values are the same, use 1 bin
-                // - Otherwise use square root rule
-                let unique_count = current_x_series.n_unique()?;
-                let n_bins = if unique_count == 1 {
-                    1
-                } else {
-                    x_encoding
-                        .bins
-                        .unwrap_or_else(|| ((unique_count as f64).sqrt() as usize).clamp(5, 50))
-                };
+                // Calculate number of bins. Now we can safely unwrap because apply_default_encodings
+                // has already resolved this value.
+                let n_bins = x_encoding.bins.unwrap();
 
                 // Get min and max values for binning using Polars' built-in methods
                 let min_val = current_x_series.f64()?.min().expect(
@@ -90,17 +83,9 @@ impl<T: Mark> Chart<T> {
                 // Get the current y_series from the DataFrame
                 let current_y_series = df.column(&y_encoding.field)?.f64()?.clone().into_series();
 
-                // Calculate number of bins - use explicit value if set, otherwise:
-                // - If all values are the same, use 1 bin
-                // - Otherwise use square root rule
-                let unique_count = current_y_series.n_unique()?;
-                let n_bins = if unique_count == 1 {
-                    1
-                } else {
-                    y_encoding
-                        .bins
-                        .unwrap_or_else(|| ((unique_count as f64).sqrt() as usize).clamp(5, 50))
-                };
+                // Calculate number of bins. Now we can safely unwrap because apply_default_encodings
+                // has already resolved this value.
+                let n_bins = x_encoding.bins.unwrap();
 
                 // Get min and max values for binning using Polars' built-in methods
                 let min_val = current_y_series.f64()?.min().expect(
@@ -299,7 +284,7 @@ impl<T: Mark> Chart<T> {
             df
         };
 
-        self.data = (&final_df).try_into()?;
+        self.data = (&final_df).into_source()?;
         Ok(self)
     }
 }

@@ -1,33 +1,38 @@
-/// The `Y2` struct defines how data values should be mapped to a secondary vertical
-/// position in charts. It specifies which data field should be used to determine the
-/// y2-coordinate of marks.
+/// Represents a secondary Y-axis encoding specification (Y2).
 ///
-/// Y2 encoding is particularly useful for marks like rules where you need to specify
-/// both a starting and ending Y position.
-#[derive(Debug)]
+/// `Y2` is typically used for visual marks that require two vertical coordinates,
+/// such as the baseline of an Area chart, the second endpoint of a Rule,
+/// or the "start" value of a Bar.
+///
+/// ### Architecture Note:
+/// Unlike `X` or `Y`, `Y2` does not usually define its own scale logic (domain, type, etc.).
+/// Instead, it maps a different data field onto the **same** scale as `Y`.
+/// For instance, in an Area chart, `Y` might map to "high_price" and `Y2` to "low_price",
+/// but both must use the same vertical coordinate system to be visually coherent.
+#[derive(Debug, Clone)]
 pub struct Y2 {
-    // polars column name
+    // --- User Configuration (Intent/Inputs) ---
+    /// The name of the data column to be mapped to the secondary vertical position.
     pub(crate) field: String,
+    // --- System Resolution (Result/Outputs) ---
+
+    // Stores the resolved scale instance. Using RwLock to support
+    // back-filling updates across multiple render calls.
+    //pub(crate) resolved_scale: RwLock<Option<Arc<dyn ScaleTrait>>>,
 }
 
 impl Y2 {
-    fn new(field: &str) -> Self {
+    /// Creates a new Y2 encoding for the specified data field.
+    pub fn new(field: &str) -> Self {
         Self {
             field: field.to_string(),
+            //resolved_scale: RwLock::new(None),
         }
     }
 }
 
-/// Top-level convenience function: directly return Y2
+/// Convenience builder function to create a new Y2 encoding.
 ///
-/// Provides a convenient way to create a `Y2` encoding specification that maps
-/// a data field to the secondary vertical position of chart elements.
-///
-/// # Arguments
-/// * `field` - A string slice representing the name of the data column to use for secondary Y-axis encoding
-///
-/// # Returns
-/// A new `Y2` instance configured with the specified field
 pub fn y2(field: &str) -> Y2 {
     Y2::new(field)
 }

@@ -15,10 +15,10 @@ fn test_boxplot_1() -> Result<(), Box<dyn Error>> {
     println!("{}", &df_melted);
 
     Chart::build(&df_melted)?
-        .mark_boxplot()
+        .mark_boxplot()?
         .encode((x("variable"), y("value"), color("species")))?
         .into_layered()
-        .swap_axes()
+        .coord_flip()
         .save("./tests/boxplot_1.svg")?;
 
     Ok(())

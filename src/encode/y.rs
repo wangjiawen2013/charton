@@ -1,36 +1,87 @@
-use crate::coord::Scale;
+use crate::scale::{Expansion, ResolvedScale, Scale, ScaleDomain};
 
-/// Represents a Y-axis encoding for chart elements
+/// Represents a Y-axis encoding specification for chart elements.
 ///
-/// The `Y` struct defines how data values should be mapped to the vertical
-/// position of visual elements in a chart. It specifies which data field should
-/// be used to determine the y-coordinate of marks and provides additional
-/// configuration options for axis scaling, binning, normalization, and stacking.
+/// Following the Grammar of Graphics, the `Y` struct separates the
+/// declaration of the mapping (how data should be mapped) from the
+/// actual execution (the resolved coordinate system).
 ///
-/// Y encoding is fundamental to most chart types and can handle both continuous
-/// and discrete data. It supports various scale types and specialized options for
-/// bar charts and histograms, including normalization and stacking capabilities.
-#[derive(Debug)]
+/// ### Lifecycle:
+/// 1. **Definition**: Created via `y("field")`. Users specify constraints like `domain` or `zero`.
+/// 2. **Resolution**: The `LayeredChart` trains the scale based on the data and constraints.
+/// 3. **Back-filling**: A concrete `ScaleTrait` instance is wrapped in an `Arc` and injected into
+///    the `resolved_scale` field.
+#[derive(Debug, Clone)]
 pub struct Y {
-    // Default label (polars column name)
+    // --- User Configuration (Intent/Inputs) ---
+    /// The name of the data column to be mapped to the vertical position.
     pub(crate) field: String,
+
+    /// The desired scale transformation (e.g., Linear, Log, Discrete).
+    /// If `None`, the engine will infer the type based on the column's data type.
+    pub(crate) scale_type: Option<Scale>,
+
+    /// An explicit user-defined data range (e.g., [0.0, 500.0]).
+    /// If set, this takes absolute priority over automatic data inference.
+    pub(crate) domain: Option<ScaleDomain>,
+
+    /// Rules for adding padding or buffer to the top and bottom of the axis.
+    pub(crate) expansion: Option<Expansion>,
+
+    /// Whether to force the inclusion of zero in the axis range.
+    /// This is crucial for charts like Bar or Area to ensure visual integrity.
+    pub(crate) zero: Option<bool>,
+
     pub(crate) bins: Option<usize>, // bins for continuous encoding value in marks like barchart and histogram
-    pub(crate) scale: Option<Scale>, // scale type for the axis
-    pub(crate) zero: Option<bool>, // None = auto, Some(true) = force zero, Some(false) = exclude zero
     pub(crate) normalize: bool, // false = raw counts, true = normalize counts to sum to 1 for histogram/bar chart
     pub(crate) stack: bool,     // false = regular bar chart, true = stacked bar chart
+
+    // --- System Resolution (Result/Outputs) ---
+    /// Stores the resolved scale instance. Using RwLock to support
+    /// back-filling updates across multiple render calls.
+    pub(crate) resolved_scale: ResolvedScale,
 }
 
 impl Y {
-    fn new(field: &str) -> Self {
+    /// Creates a new Y encoding for a specific data field.
+    pub fn new(field: &str) -> Self {
         Self {
             field: field.to_string(),
+            scale_type: None,
+            domain: None,
+            expansion: None,
+            zero: None,
             bins: None,
-            scale: None, // The actual scale type will be determined later using determine_scale_for_dtype
-            zero: None,  // Default to auto behavior
             normalize: false, // Default to false (raw counts)
-            stack: false, // Default to false (regular bar chart)
+            stack: false,     // Default to false (regular bar chart)
+            resolved_scale: ResolvedScale::none(),
         }
+    }
+
+    /// Sets the desired scale type (e.g., `Scale::Linear`, `Scale::Log`).
+    pub fn with_scale(mut self, scale_type: Scale) -> Self {
+        self.scale_type = Some(scale_type);
+        self
+    }
+
+    /// Explicitly sets the data domain (limits) for the Y-axis.
+    ///
+    /// This prevents the engine from calculating the range from the data.
+    pub fn with_domain(mut self, domain: ScaleDomain) -> Self {
+        self.domain = Some(domain);
+        self
+    }
+
+    /// Configures the expansion padding for the axis.
+    pub fn with_expansion(mut self, expansion: Expansion) -> Self {
+        self.expansion = Some(expansion);
+        self
+    }
+
+    /// Determines if the scale must include the zero value.
+    pub fn with_zero(mut self, zero: bool) -> Self {
+        self.zero = Some(zero);
+        self
     }
 
     /// Sets the number of bins for marks like barchart and histogram
@@ -46,43 +97,6 @@ impl Y {
     /// Returns `Self` with the updated bin count
     pub fn with_bins(mut self, bins: usize) -> Self {
         self.bins = Some(bins);
-        self
-    }
-
-    /// Sets the scale type for the axis
-    ///
-    /// Configures the scaling function used to map data values to positional coordinates.
-    /// Different scale types are appropriate for different data distributions and
-    /// visualization needs.
-    ///
-    /// # Arguments
-    /// * `scale` - A `Scale` enum value specifying the axis scale type
-    ///   - `Linear`: Standard linear scale for uniformly distributed data
-    ///   - `Log`: Logarithmic scale for exponentially distributed data
-    ///   - `Discrete`: For categorical data with distinct categories
-    ///
-    /// # Returns
-    /// Returns `Self` with the updated scale type
-    pub fn with_scale(mut self, scale: Scale) -> Self {
-        self.scale = Some(scale);
-        self
-    }
-
-    /// Sets whether to include zero in the axis domain
-    ///
-    /// Controls the inclusion of zero in the calculated axis range. This can be
-    /// important for accurate data representation, especially in bar charts where
-    /// excluding zero can exaggerate differences between values.
-    ///
-    /// # Arguments
-    /// * `zero` - A boolean value controlling zero inclusion:
-    ///   - `true`: Force include zero in the axis domain
-    ///   - `false`: Don't force zero from the axis domain, leave it as it is
-    ///
-    /// # Returns
-    /// Returns `Self` with the updated zero inclusion setting
-    pub fn with_zero(mut self, zero: bool) -> Self {
-        self.zero = Some(zero);
         self
     }
 
@@ -123,16 +137,8 @@ impl Y {
     }
 }
 
-/// Top-level convenience function: directly return Y
+/// Convenience builder function to create a new Y encoding.
 ///
-/// Provides a convenient way to create a `Y` encoding specification that maps
-/// a data field to the vertical position of chart elements.
-///
-/// # Arguments
-/// * `field` - A string slice representing the name of the data column to use for Y-axis encoding
-///
-/// # Returns
-/// A new `Y` instance configured with the specified field
 pub fn y(field: &str) -> Y {
     Y::new(field)
 }

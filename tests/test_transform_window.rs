@@ -20,7 +20,8 @@ fn tests_transform_window_1() -> Result<(), Box<dyn Error>> {
             .with_groupby("species")
             .with_normalize(false), // Normalize to [0,1] range
         )?
-        .mark_line()
+        .mark_line()?
+        .configure_line(|l| l.with_interpolation("step")) // Add step interpolation
         .encode((x("sepal_length"), y("ecdf"), color("species")))?;
 
     // Create layered chart for display

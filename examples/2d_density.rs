@@ -11,13 +11,13 @@ fn main() -> Result<(), Box<dyn Error>> {
     ]?;
     // Create heatmap chart
     let rect_chart = Chart::build(&df)?
-        .mark_rect()
-        .encode((x("x"), y("y"), color("value")))?
-        .with_color_map(ColorMap::GnBu);
+        .mark_rect()?
+        .encode((x("x"), y("y"), color("value")))?;
 
     // Create a layered chart and add the rect chart as a layer
     LayeredChart::new()
         .add_layer(rect_chart)
+        .configure_theme(|t| t.with_color_map(ColorMap::GnBu))
         .save("./examples/2d_density.svg")?;
 
     Ok(())

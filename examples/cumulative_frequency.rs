@@ -7,23 +7,21 @@ fn main() -> Result<(), Box<dyn Error>> {
         .with_has_header(true)
         .try_into_reader_with_file_path(Some("./datasets/iris.csv".into()))?
         .finish()?;
-    //let df_melted = df.unpivot(["sepal length", "sepal width", "petal length", "petal width"], ["class"])?;
-    //println!("{}", &df_melted);
 
     // Create a chart with window transform
-    let chart = Chart::build(&df.select(["class", "sepal length"])?)?
+    let chart = Chart::build(&df.select(["species", "sepal_length"])?)?
         .transform_window(
             WindowTransform::new(WindowFieldDef::new(
-                "sepal length",
+                "sepal_length",
                 WindowOnlyOp::CumeDist,
                 "ecdf", // This will be the output column name
             ))
-            .with_groupby("class")
+            .with_groupby("species")
             .with_normalize(false),
         )?
-        .mark_line()
-        .with_interpolation(PathInterpolation::StepAfter) // Add step interpolation
-        .encode((x("sepal length"), y("ecdf"), color("class")))?;
+        .mark_line()?
+        .configure_line(|l| l.with_interpolation("step")) // Add step interpolation
+        .encode((x("sepal_length"), y("ecdf"), color("species")))?;
 
     // Create layered chart for display
     LayeredChart::new()

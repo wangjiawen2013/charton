@@ -16,17 +16,18 @@ fn test_histogram_1() -> Result<(), Box<dyn Error>> {
 
     // Create a histogram chart
     let histogram_chart = Chart::build(&df_melted.head(Some(200)))?
-        .mark_hist()
+        .mark_hist()?
+        .configure_hist(|h| {
+            h.with_color("steelblue")
+                .with_opacity(0.5)
+                .with_stroke("black")
+                .with_stroke_width(0.0)
+        })
         .encode((
             x("value"),
             y("count").with_normalize(true),
             color("variable"),
-        ))?
-        .with_hist_color(Some(SingleColor::new("steelblue")))
-        .with_hist_opacity(0.5)
-        .with_hist_stroke(Some(SingleColor::new("black")))
-        .with_hist_stroke_width(0.0)
-        .with_color_palette(ColorPalette::Tab10);
+        ))?;
 
     // Create a layered chart for the histogram
     LayeredChart::new()
@@ -35,8 +36,8 @@ fn test_histogram_1() -> Result<(), Box<dyn Error>> {
         .with_x_label("Value")
         .with_y_label("Frequency")
         .add_layer(histogram_chart)
-        .with_legend(true)
-        .swap_axes()
+        .configure_theme(|t| t.with_palette(ColorPalette::Tab10))
+        .coord_flip()
         .save("./tests/histogram_1.svg")?;
 
     Ok(())

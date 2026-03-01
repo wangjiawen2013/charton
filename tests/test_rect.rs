@@ -13,7 +13,7 @@ fn test_rect_1() -> Result<(), Box<dyn Error>> {
 
     // Create heatmap chart
     let rect_chart = Chart::build(&df)?
-        .mark_rect()
+        .mark_rect()?
         .encode((x("a"), y("b"), color("value")))?;
 
     // Create a layered chart and add the rect chart as a layer
@@ -35,14 +35,14 @@ fn test_rect_2() -> Result<(), Box<dyn Error>> {
 
     // Create heatmap chart
     let rect_chart = Chart::build(&df)?
-        .mark_rect()
+        .mark_rect()?
         .encode((x("a"), y("b"), color("value")))?;
 
     // Create a layered chart and add the rect chart as a layer
     LayeredChart::new()
         .with_size(500, 400)
         .add_layer(rect_chart)
-        .swap_axes()
+        .coord_flip()
         .save("./tests/rect_2.svg")?;
 
     Ok(())
@@ -58,16 +58,14 @@ fn test_rect_3() -> Result<(), Box<dyn Error>> {
     ]?;
     // Create heatmap chart
     let rect_chart = Chart::build(&df)?
-        .mark_rect()
-        .encode((x("x"), y("y"), color("value")))?
-        .with_color_map(ColorMap::GnBu);
+        .mark_rect()?
+        .encode((x("x"), y("y"), color("value")))?;
 
     // Create a layered chart and add the rect chart as a layer
     LayeredChart::new()
         .with_size(500, 400)
-        //.with_x_scale(Scale::Linear)
-        //.with_y_scale(Scale::Linear)
         .add_layer(rect_chart)
+        .configure_theme(|t| t.with_color_map(ColorMap::GnBu))
         .save("./tests/rect_3.svg")?;
 
     Ok(())

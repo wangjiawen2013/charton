@@ -1,229 +1,196 @@
+use crate::chart::Chart;
+use crate::core::context::PanelContext;
+use crate::core::layer::{CircleConfig, LineConfig, MarkRenderer, RectConfig, RenderBackend};
+use crate::error::ChartonError;
+use crate::mark::boxplot::MarkBoxplot;
 use crate::visual::color::SingleColor;
-use std::fmt::Write;
+use crate::{Precision, TEMP_SUFFIX};
 
-pub(crate) struct VerticalBoxConfig {
-    pub x_center: f64,
-    pub min_y: f64,
-    pub q1_y: f64,
-    pub median_y: f64,
-    pub q3_y: f64,
-    pub max_y: f64,
-    pub box_width: f64,
-    pub fill_color: Option<SingleColor>,
-    pub stroke_color: Option<SingleColor>,
-    pub stroke_width: f64,
-    pub opacity: f64,
-    pub outliers: Vec<f64>,
-    pub outlier_color: Option<SingleColor>,
-    pub outlier_size: f64,
-}
+impl MarkRenderer for Chart<MarkBoxplot> {
+    fn render_marks(
+        &self,
+        backend: &mut dyn RenderBackend,
+        context: &PanelContext,
+    ) -> Result<(), ChartonError> {
+        let df_source = &self.data;
+        if df_source.df.height() == 0 {
+            return Ok(());
+        }
 
-pub(crate) struct HorizontalBoxConfig {
-    pub y_center: f64,
-    pub min_x: f64,
-    pub q1_x: f64,
-    pub median_x: f64,
-    pub q3_x: f64,
-    pub max_x: f64,
-    pub box_height: f64,
-    pub fill_color: Option<SingleColor>,
-    pub stroke_color: Option<SingleColor>,
-    pub stroke_width: f64,
-    pub opacity: f64,
-    pub outliers: Vec<f64>,
-    pub outlier_color: Option<SingleColor>,
-    pub outlier_size: f64,
-}
+        let mark_config = self.mark.as_ref().unwrap();
+        let x_name = &self.encoding.x.as_ref().unwrap().field;
 
-/// Renders a box plot element (box, whiskers, and outliers) into the SVG string
-///
-/// # Parameters
-/// * `svg` - A mutable reference to the SVG string being built
-/// * `config` - Configuration parameters for the vertical box
-///
-/// # Returns
-/// Result indicating success or failure of the operation
-pub(crate) fn render_vertical_box(svg: &mut String, config: VerticalBoxConfig) -> std::fmt::Result {
-    let fill_str = if let Some(color) = &config.fill_color {
-        color.get_color()
-    } else {
-        "none".to_string()
-    };
+        let x_scale = context.coord.get_x_scale();
+        let y_scale = context.coord.get_y_scale();
 
-    let stroke_str = if let Some(color) = &config.stroke_color {
-        color.get_color()
-    } else {
-        "none".to_string()
-    };
-
-    let outlier_str = if let Some(color) = &config.outlier_color {
-        color.get_color()
-    } else {
-        "none".to_string()
-    };
-
-    // Calculate box edges based on the center position
-    let box_left = config.x_center - config.box_width / 2.0;
-    let box_right = config.x_center + config.box_width / 2.0;
-
-    // Draw vertical line (whiskers)
-    writeln!(
-        svg,
-        r#"<line x1="{}" y1="{}" x2="{}" y2="{}" stroke="{}" stroke-width="{}" />"#,
-        config.x_center,
-        config.min_y,
-        config.x_center,
-        config.q1_y,
-        stroke_str,
-        config.stroke_width
-    )?;
-
-    writeln!(
-        svg,
-        r#"<line x1="{}" y1="{}" x2="{}" y2="{}" stroke="{}" stroke-width="{}" />"#,
-        config.x_center,
-        config.q3_y,
-        config.x_center,
-        config.max_y,
-        stroke_str,
-        config.stroke_width
-    )?;
-
-    // Draw box (IQR)
-    let box_height = (config.q1_y - config.q3_y).abs();
-    let box_y = config.q3_y.min(config.q1_y);
-
-    writeln!(
-        svg,
-        r#"<rect x="{}" y="{}" width="{}" height="{}" fill="{}" opacity="{}" stroke="{}" stroke-width="{}" />"#,
-        box_left,
-        box_y,
-        config.box_width,
-        box_height,
-        fill_str,
-        config.opacity,
-        stroke_str,
-        config.stroke_width
-    )?;
-
-    // Draw median line
-    writeln!(
-        svg,
-        r#"<line x1="{}" y1="{}" x2="{}" y2="{}" stroke="{}" stroke-width="{}" />"#,
-        box_left,
-        config.median_y,
-        box_right,
-        config.median_y,
-        stroke_str,
-        config.stroke_width * 2.0
-    )?;
-
-    // Draw outliers
-    for &outlier_y in &config.outliers {
-        writeln!(
-            svg,
-            r#"<circle cx="{}" cy="{}" r="{}" fill="{}" opacity="{}" />"#,
-            config.x_center, outlier_y, config.outlier_size, outlier_str, config.opacity
+        // --- STEP 1: Vectorized Normalization ---
+        // Map data values to [0, 1] normalized space for both axes.
+        let x_norms = x_scale
+            .scale_type()
+            .normalize_series(x_scale, &df_source.column(x_name)?)?;
+        let q1_n = y_scale
+            .scale_type()
+            .normalize_series(y_scale, &df_source.column(&format!("{}_q1", TEMP_SUFFIX))?)?;
+        let q3_n = y_scale
+            .scale_type()
+            .normalize_series(y_scale, &df_source.column(&format!("{}_q3", TEMP_SUFFIX))?)?;
+        let med_n = y_scale.scale_type().normalize_series(
+            y_scale,
+            &df_source.column(&format!("{}_median", TEMP_SUFFIX))?,
         )?;
+        let min_n = y_scale
+            .scale_type()
+            .normalize_series(y_scale, &df_source.column(&format!("{}_min", TEMP_SUFFIX))?)?;
+        let max_n = y_scale
+            .scale_type()
+            .normalize_series(y_scale, &df_source.column(&format!("{}_max", TEMP_SUFFIX))?)?;
+
+        let outlier_series = df_source.column(&format!("{}_outliers", TEMP_SUFFIX))?;
+        let outliers_col = outlier_series.list()?;
+
+        // --- STEP 2: Color Mapping ---
+        let color_vec: Vec<SingleColor> = if let Some(ref mapping) = context.spec.aesthetics.color {
+            let s = df_source.column(&mapping.field)?;
+            let s_trait = mapping.scale_impl.as_ref();
+            let norms = s_trait.scale_type().normalize_series(s_trait, &s)?;
+            let l_max = s_trait.logical_max();
+
+            norms
+                .into_iter()
+                .map(|opt_n| {
+                    s_trait
+                        .mapper()
+                        .map(|m| m.map_to_color(opt_n.unwrap_or(0.0), l_max))
+                        .unwrap_or_else(|| SingleColor::new("#333333"))
+                })
+                .collect()
+        } else {
+            vec![mark_config.color; df_source.df.height()]
+        };
+
+        let groups_count_col = df_source.column(&format!("{}_groups_count", TEMP_SUFFIX))?;
+        let groups_count_col = groups_count_col.f64()?;
+        let sub_idx_col = df_source.column(&format!("{}_sub_idx", TEMP_SUFFIX))?;
+        let sub_idx_col = sub_idx_col.f64()?;
+
+        // --- STEP 3: Calculate Unit Step in Normalized Space ---
+        // This calculates how wide "1.0 data unit" is in the [0, 1] normalized range.
+        // It accounts for padding/expansion in DiscreteScale.
+        let n0 = x_scale.normalize(0.0);
+        let n1 = x_scale.normalize(1.0);
+        let unit_step_norm = (n1 - n0).abs();
+
+        // --- STEP 4: Render Loop ---
+        // Allow indexing to synchronize access across multiple data columns
+        #[allow(clippy::needless_range_loop)]
+        for i in 0..df_source.df.height() {
+            let total_groups = groups_count_col.get(i).unwrap();
+            let sub_idx = sub_idx_col.get(i).unwrap();
+
+            // Apply dodge logic: calculate box width and spacing relative to unit_step_norm
+            let box_width_data = mark_config.width.min(
+                mark_config.span / (total_groups + (total_groups - 1.0) * mark_config.spacing),
+            );
+            let box_width_norm = box_width_data * unit_step_norm;
+            let spacing_norm = box_width_norm * mark_config.spacing;
+
+            // Offset the box center from the category tick position
+            let offset_norm =
+                (sub_idx - (total_groups - 1.0) / 2.0) * (box_width_norm + spacing_norm);
+            let x_center_n = x_norms.get(i).unwrap() + offset_norm;
+
+            let current_color = &color_vec[i];
+
+            // Get normalized Y-stats
+            let n_q1 = q1_n.get(i).unwrap();
+            let n_q3 = q3_n.get(i).unwrap();
+            let n_med = med_n.get(i).unwrap();
+            let n_min = min_n.get(i).unwrap();
+            let n_max = max_n.get(i).unwrap();
+
+            // --- 5. Draw Rect (The Box) ---
+            // Transform both corners. context.transform handles coord_flip automatically.
+            let (bx1, by1) = context.transform(x_center_n - box_width_norm / 2.0, n_q1);
+            let (bx2, by2) = context.transform(x_center_n + box_width_norm / 2.0, n_q3);
+
+            backend.draw_rect(RectConfig {
+                x: bx1.min(bx2) as Precision,
+                y: by1.min(by2) as Precision,
+                width: (bx1 - bx2).abs() as Precision,
+                height: (by1 - by2).abs() as Precision,
+                fill: *current_color,
+                stroke: mark_config.stroke,
+                stroke_width: mark_config.stroke_width as Precision,
+                opacity: mark_config.opacity as Precision,
+            });
+
+            // --- 6. Draw Whiskers ---
+            // We transform the full (x, y) pairs to avoid mixing axes manually.
+            // This ensures whiskers orient correctly whether vertical or horizontal.
+            let (p_min_x, p_min_y) = context.transform(x_center_n, n_min);
+            let (p_max_x, p_max_y) = context.transform(x_center_n, n_max);
+            let (p_q1_x, p_q1_y) = context.transform(x_center_n, n_q1);
+            let (p_q3_x, p_q3_y) = context.transform(x_center_n, n_q3);
+
+            // Lower whisker: Min to Q1
+            backend.draw_line(LineConfig {
+                x1: p_min_x as Precision,
+                y1: p_min_y as Precision,
+                x2: p_q1_x as Precision,
+                y2: p_q1_y as Precision,
+                color: mark_config.stroke,
+                width: mark_config.stroke_width as Precision,
+                opacity: mark_config.opacity as Precision,
+                dash: None,
+            });
+            // Upper whisker: Max to Q3
+            backend.draw_line(LineConfig {
+                x1: p_max_x as Precision,
+                y1: p_max_y as Precision,
+                x2: p_q3_x as Precision,
+                y2: p_q3_y as Precision,
+                color: mark_config.stroke,
+                width: mark_config.stroke_width as Precision,
+                opacity: mark_config.opacity as Precision,
+                dash: None,
+            });
+
+            // --- 7. Draw Median Line ---
+            let (m1x, m1y) = context.transform(x_center_n - box_width_norm / 2.0, n_med);
+            let (m2x, m2y) = context.transform(x_center_n + box_width_norm / 2.0, n_med);
+            backend.draw_line(LineConfig {
+                x1: m1x as Precision,
+                y1: m1y as Precision,
+                x2: m2x as Precision,
+                y2: m2y as Precision,
+                color: mark_config.stroke,
+                width: (mark_config.stroke_width * 2.0) as Precision,
+                opacity: mark_config.opacity as Precision,
+                dash: None,
+            });
+
+            // --- 8. Draw Outliers ---
+            if let Some(s_outliers) = outliers_col.get_as_series(i)
+                && !s_outliers.is_empty()
+            {
+                let n_outliers = y_scale
+                    .scale_type()
+                    .normalize_series(y_scale, &s_outliers)?;
+                for n_o in n_outliers.into_iter().flatten() {
+                    // Outliers also need full (x, y) transform to follow the flip.
+                    let (ox, oy) = context.transform(x_center_n, n_o);
+                    backend.draw_circle(CircleConfig {
+                        x: ox as Precision,
+                        y: oy as Precision,
+                        radius: mark_config.outlier_size as Precision,
+                        fill: mark_config.outlier_color,
+                        stroke: SingleColor::new("none"),
+                        stroke_width: 0.0,
+                        opacity: mark_config.opacity as Precision,
+                    });
+                }
+            }
+        }
+        Ok(())
     }
-
-    Ok(())
-}
-
-/// Renders a horizontal box plot element into the SVG string
-///
-/// # Parameters
-/// * `svg` - A mutable reference to the SVG string being built
-/// * `config` - Configuration parameters for the horizontal box
-///
-/// # Returns
-/// Result indicating success or failure of the operation
-pub(crate) fn render_horizontal_box(
-    svg: &mut String,
-    config: HorizontalBoxConfig,
-) -> std::fmt::Result {
-    let fill_str = if let Some(color) = &config.fill_color {
-        color.get_color()
-    } else {
-        "none".to_string()
-    };
-
-    let stroke_str = if let Some(color) = &config.stroke_color {
-        color.get_color()
-    } else {
-        "none".to_string()
-    };
-
-    let outlier_str = if let Some(color) = &config.outlier_color {
-        color.get_color()
-    } else {
-        "none".to_string()
-    };
-
-    // Calculate box edges based on the center position
-    let box_top = config.y_center - config.box_height / 2.0;
-    let box_bottom = config.y_center + config.box_height / 2.0;
-
-    // Draw horizontal line (whiskers)
-    writeln!(
-        svg,
-        r#"<line x1="{}" y1="{}" x2="{}" y2="{}" stroke="{}" stroke-width="{}" />"#,
-        config.min_x,
-        config.y_center,
-        config.q1_x,
-        config.y_center,
-        stroke_str,
-        config.stroke_width
-    )?;
-
-    writeln!(
-        svg,
-        r#"<line x1="{}" y1="{}" x2="{}" y2="{}" stroke="{}" stroke-width="{}" />"#,
-        config.q3_x,
-        config.y_center,
-        config.max_x,
-        config.y_center,
-        stroke_str,
-        config.stroke_width
-    )?;
-
-    // Draw box (IQR)
-    let box_width = (config.q3_x - config.q1_x).abs();
-    let box_x = config.q1_x.min(config.q3_x);
-
-    writeln!(
-        svg,
-        r#"<rect x="{}" y="{}" width="{}" height="{}" fill="{}" opacity="{}" stroke="{}" stroke-width="{}" />"#,
-        box_x,
-        box_top,
-        box_width,
-        config.box_height,
-        fill_str,
-        config.opacity,
-        stroke_str,
-        config.stroke_width
-    )?;
-
-    // Draw median line
-    writeln!(
-        svg,
-        r#"<line x1="{}" y1="{}" x2="{}" y2="{}" stroke="{}" stroke-width="{}" />"#,
-        config.median_x,
-        box_top,
-        config.median_x,
-        box_bottom,
-        stroke_str,
-        config.stroke_width * 2.0
-    )?;
-
-    // Draw outliers
-    for &outlier_x in &config.outliers {
-        writeln!(
-            svg,
-            r#"<circle cx="{}" cy="{}" r="{}" fill="{}" opacity="{}" />"#,
-            outlier_x, config.y_center, config.outlier_size, outlier_str, config.opacity
-        )?;
-    }
-
-    Ok(())
 }

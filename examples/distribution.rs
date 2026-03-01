@@ -31,10 +31,9 @@ fn main() -> Result<(), Box<dyn Error>> {
                 .with_as("IMDB_Rating", "cumulative_density")
                 .with_cumulative(true),
         )?
-        .mark_area()
-        .encode((x("IMDB_Rating"), y("cumulative_density")))?
-        .with_area_color(Some(SingleColor::new("purple")))
-        .with_area_opacity(0.3);
+        .mark_area()?
+        .configure_area(|a| a.with_color("purple").with_opacity(0.3))
+        .encode((x("IMDB_Rating"), y("cumulative_density")))?;
 
     LayeredChart::new()
         .with_title("Cumulative Density Estimation")

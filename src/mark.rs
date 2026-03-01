@@ -1,15 +1,16 @@
-pub(crate) mod arc;
 pub(crate) mod area;
 pub(crate) mod bar;
 pub(crate) mod boxplot;
 pub(crate) mod errorbar;
 pub(crate) mod histogram;
 pub(crate) mod line;
+pub(crate) mod no_mark;
 pub(crate) mod point;
 pub(crate) mod rect;
 pub(crate) mod rule;
 pub(crate) mod text;
 
+use crate::prelude::SingleColor;
 /// A trait representing a visual mark in a plot.
 ///
 /// This trait defines the common interface for all visual marks that can be used
@@ -30,7 +31,7 @@ pub(crate) mod text;
 /// - `stroke`: Returns the stroke color (defaults to None)
 /// - `shape`: Returns the point shape (defaults to Circle)
 /// - `opacity`: Returns the opacity value (defaults to 1.0)
-pub trait Mark: Clone {
+pub trait Mark: Clone + 'static {
     /// Used to identify mark type
     fn mark_type(&self) -> &'static str;
 
@@ -40,9 +41,9 @@ pub trait Mark: Clone {
     /// If no stroke color is set, it returns None.
     ///
     /// # Returns
-    /// * `Option<&crate::visual::color::SingleColor>` - A reference to the stroke color, or None if not set
-    fn stroke(&self) -> Option<&crate::visual::color::SingleColor> {
-        None
+    /// * `crate::visual::color::SingleColor`
+    fn stroke(&self) -> crate::visual::color::SingleColor {
+        SingleColor::new("none")
     }
 
     /// Returns the shape of the point
