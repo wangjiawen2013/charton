@@ -861,14 +861,16 @@ where
         // 1. Inject Position Scales (X & Y)
         // We only inject if the channel was actually configured by the user.
         if let Some(ref x_enc) = self.encoding.x
-            && let Ok(mut guard) = x_enc.resolved_scale.0.write() {
-                *guard = Some(coord.get_x_arc());
-            }
+            && let Ok(mut guard) = x_enc.resolved_scale.0.write()
+        {
+            *guard = Some(coord.get_x_arc());
+        }
 
         if let Some(ref y_enc) = self.encoding.y
-            && let Ok(mut guard) = y_enc.resolved_scale.0.write() {
-                *guard = Some(coord.get_y_arc());
-            }
+            && let Ok(mut guard) = y_enc.resolved_scale.0.write()
+        {
+            *guard = Some(coord.get_y_arc());
+        }
 
         // 2. Inject Aesthetic Scales (Color, Shape, Size)
         // We perform a "Field Match" check to ensure the global scale matches this layer's intent.
@@ -877,22 +879,25 @@ where
         // Use .as_ref() to match against a reference instead of moving the value
         if let (Some(enc), Some(map)) = (self.encoding.color.as_ref(), aesthetics.color.as_ref())
             && enc.field == map.field
-                && let Ok(mut guard) = enc.resolved_scale.0.write() {
-                    *guard = Some(map.scale_impl.clone());
-                }
+            && let Ok(mut guard) = enc.resolved_scale.0.write()
+        {
+            *guard = Some(map.scale_impl.clone());
+        }
 
         // --- Shape Channel ---
         if let (Some(enc), Some(map)) = (self.encoding.shape.as_ref(), aesthetics.shape.as_ref())
             && enc.field == map.field
-                && let Ok(mut guard) = enc.resolved_scale.0.write() {
-                    *guard = Some(map.scale_impl.clone());
-                }
+            && let Ok(mut guard) = enc.resolved_scale.0.write()
+        {
+            *guard = Some(map.scale_impl.clone());
+        }
 
         // --- Size Channel ---
         if let (Some(enc), Some(map)) = (self.encoding.size.as_ref(), aesthetics.size.as_ref())
             && enc.field == map.field
-                && let Ok(mut guard) = enc.resolved_scale.0.write() {
-                    *guard = Some(map.scale_impl.clone());
-                }
+            && let Ok(mut guard) = enc.resolved_scale.0.write()
+        {
+            *guard = Some(map.scale_impl.clone());
+        }
     }
 }

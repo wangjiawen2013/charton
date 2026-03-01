@@ -169,26 +169,27 @@ impl MarkRenderer for Chart<MarkBoxplot> {
 
             // --- 8. Draw Outliers ---
             if let Some(s_outliers) = outliers_col.get_as_series(i)
-                && !s_outliers.is_empty() {
-                    let n_outliers = y_scale
-                        .scale_type()
-                        .normalize_series(y_scale, &s_outliers)?;
-                    for n_o_opt in n_outliers.into_iter() {
-                        if let Some(n_o) = n_o_opt {
-                            // Outliers also need full (x, y) transform to follow the flip.
-                            let (ox, oy) = context.transform(x_center_n, n_o);
-                            backend.draw_circle(CircleConfig {
-                                x: ox as Precision,
-                                y: oy as Precision,
-                                radius: mark_config.outlier_size as Precision,
-                                fill: mark_config.outlier_color,
-                                stroke: SingleColor::new("none"),
-                                stroke_width: 0.0,
-                                opacity: mark_config.opacity as Precision,
-                            });
-                        }
+                && !s_outliers.is_empty()
+            {
+                let n_outliers = y_scale
+                    .scale_type()
+                    .normalize_series(y_scale, &s_outliers)?;
+                for n_o_opt in n_outliers.into_iter() {
+                    if let Some(n_o) = n_o_opt {
+                        // Outliers also need full (x, y) transform to follow the flip.
+                        let (ox, oy) = context.transform(x_center_n, n_o);
+                        backend.draw_circle(CircleConfig {
+                            x: ox as Precision,
+                            y: oy as Precision,
+                            radius: mark_config.outlier_size as Precision,
+                            fill: mark_config.outlier_color,
+                            stroke: SingleColor::new("none"),
+                            stroke_width: 0.0,
+                            opacity: mark_config.opacity as Precision,
+                        });
                     }
                 }
+            }
         }
         Ok(())
     }

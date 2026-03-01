@@ -53,9 +53,7 @@ impl MarkRenderer for Chart<MarkBar> {
         let eff_width = mark_config.width.unwrap_or(hints.default_bar_width);
         let eff_spacing = mark_config.spacing.unwrap_or(hints.default_bar_spacing);
         let eff_span = mark_config.span.unwrap_or(hints.default_bar_span);
-        let eff_stroke = mark_config
-            .stroke
-            .unwrap_or(hints.default_bar_stroke);
+        let eff_stroke = mark_config.stroke.unwrap_or(hints.default_bar_stroke);
         let eff_stroke_width = mark_config
             .stroke_width
             .unwrap_or(hints.default_bar_stroke_width);
@@ -124,8 +122,7 @@ impl MarkRenderer for Chart<MarkBar> {
                     let row_df = group_df.slice(i as i64, 1);
                     self.resolve_group_color(&row_df, context, &mark_config.color)?
                 } else {
-                    group_color_fixed
-                        .unwrap_or(mark_config.color)
+                    group_color_fixed.unwrap_or(mark_config.color)
                 };
 
                 let x_tick_n = opt_x_n.unwrap_or(0.0);

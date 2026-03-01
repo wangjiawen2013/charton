@@ -48,17 +48,20 @@ impl GlobalAesthetics {
     pub fn get_mappings_for_field(&self, field_name: &str) -> Vec<(&str, &AestheticMapping)> {
         let mut found = Vec::new();
         if let Some(ref m) = self.color
-            && m.field == field_name {
-                found.push(("color", m));
-            }
+            && m.field == field_name
+        {
+            found.push(("color", m));
+        }
         if let Some(ref m) = self.shape
-            && m.field == field_name {
-                found.push(("shape", m));
-            }
+            && m.field == field_name
+        {
+            found.push(("shape", m));
+        }
         if let Some(ref m) = self.size
-            && m.field == field_name {
-                found.push(("size", m));
-            }
+            && m.field == field_name
+        {
+            found.push(("size", m));
+        }
         found
     }
 }

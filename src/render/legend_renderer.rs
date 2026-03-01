@@ -74,7 +74,9 @@ impl LegendRenderer {
                 } else {
                     max_dim_in_row_col = f64::max(max_dim_in_row_col, block_size.width);
                 }
-            } else if current_x + block_size.width > start_x + ctx.panel.width && current_x > start_x {
+            } else if current_x + block_size.width > start_x + ctx.panel.width
+                && current_x > start_x
+            {
                 current_y += max_dim_in_row_col + block_gap;
                 current_x = start_x;
                 max_dim_in_row_col = block_size.height;
@@ -152,17 +154,18 @@ impl LegendRenderer {
 
         // Access the color aesthetics from the central spec
         if let Some(ref mapping) = ctx.spec.aesthetics.color
-            && let Some(mapper) = mapping.scale_impl.mapper() {
-                let n_samples = 15;
-                let l_max = mapping.scale_impl.logical_max();
+            && let Some(mapper) = mapping.scale_impl.mapper()
+        {
+            let n_samples = 15;
+            let l_max = mapping.scale_impl.logical_max();
 
-                for i in 0..=n_samples {
-                    let ratio = i as f64 / n_samples as f64;
-                    // Reverse sampling so higher values appear at the top.
-                    let color = mapper.map_to_color(1.0 - ratio, l_max);
-                    stops.push((ratio as Precision, color));
-                }
+            for i in 0..=n_samples {
+                let ratio = i as f64 / n_samples as f64;
+                // Reverse sampling so higher values appear at the top.
+                let color = mapper.map_to_color(1.0 - ratio, l_max);
+                stops.push((ratio as Precision, color));
             }
+        }
 
         let gradient_rect_config = GradientRectConfig {
             x: x as Precision,
