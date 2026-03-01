@@ -1,3 +1,6 @@
+// Allow approx_constant because these values are raw color data, not mathematical constants.
+#![allow(clippy::approx_constant)]
+
 use crate::Precision;
 use csscolorparser::Color;
 

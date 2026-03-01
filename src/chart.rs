@@ -34,7 +34,7 @@ use std::sync::Arc;
 /// # Type Parameters
 ///
 /// * `T` - The mark type implementing the [Mark] trait. Defaults to [NoMark],
-///         enabling the "Base Chart" pattern similar to Altair.
+///   enabling the "Base Chart" pattern similar to Altair.
 ///
 /// # Fields
 ///

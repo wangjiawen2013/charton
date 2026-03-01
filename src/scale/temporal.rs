@@ -26,7 +26,7 @@ impl TemporalScale {
     ///
     /// # Arguments
     /// * `domain` - A tuple of (start_time, end_time). Should be expanded
-    ///               if padding is desired.
+    ///   if padding is desired.
     /// * `mapper` - Optional visual logic for aesthetic mapping.
     pub fn new(domain: (OffsetDateTime, OffsetDateTime), mapper: Option<VisualMapper>) -> Self {
         Self { domain, mapper }

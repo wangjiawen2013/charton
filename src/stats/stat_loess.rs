@@ -1,14 +1,13 @@
 /// This module provides an implementation of LOESS (Locally Estimated Scatterplot Smoothing).
 /// It is designed for high-performance rendering pipelines by minimizing allocations
 /// and using efficient partial-sorting algorithms.
-
 /// Apply LOESS smoothing to a set of data points.
 ///
 /// # Arguments
 /// * `x` - The horizontal coordinates (independent variable).
 /// * `y` - The vertical coordinates (dependent variable).
 /// * `bandwidth` - A value between 0.0 and 1.0 representing the fraction of
-///                 points used for local regression.
+///   points used for local regression.
 ///
 /// # Returns
 /// A tuple containing (original_x, smoothed_y).
