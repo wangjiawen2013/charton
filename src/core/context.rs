@@ -63,8 +63,7 @@ impl<'a> PanelContext<'a> {
     /// # Arguments
     /// * `points` - A slice of (x_norm, y_norm) tuples.
     /// * `is_closed` - Whether the path should be treated as a closed shape (e.g., a polygon).
-    ///                 If true, the segment connecting the last point back to the first
-    ///                 will also be interpolated.
+    ///   If true, the segment connecting the last point back to the first will also be interpolated.
     pub fn transform_path(&self, points: &[(f64, f64)], is_closed: bool) -> Vec<(f64, f64)> {
         // Delegates the transformation to the coordinate implementation,
         // automatically injecting the current panel's physical boundaries.

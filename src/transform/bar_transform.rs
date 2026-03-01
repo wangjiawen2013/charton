@@ -9,11 +9,11 @@ impl<T: Mark> Chart<T> {
     ///
     /// This transformation follows a "Data-Driven Layout" strategy:
     /// 1. **Deduplication**: If X and Color use the same field, we group only once
-    ///     to prevent Polars errors and signal a "Self-Mapping" layout (full width).
+    ///   to prevent Polars errors and signal a "Self-Mapping" layout (full width).
     /// 2. **Aggregation**: Computes the mean for the Y-axis value.
     /// 3. **Gap Filling**: Uses a Cartesian Product to ensure every X-category has
-    ///     the same number of rows (filling missing combinations with 0).
-    ///     This ensures that grouped bars have consistent widths and alignments.
+    ///   the same number of rows (filling missing combinations with 0).
+    /// This ensures that grouped bars have consistent widths and alignments.
     pub(crate) fn transform_bar_data(mut self) -> Result<Self, ChartonError> {
         // --- STEP 1: Extract Encoding Context ---
         // Basic requirement: X and Y must exist. Color is optional.

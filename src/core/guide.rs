@@ -213,7 +213,7 @@ impl GuideSpec {
                         }
                     }
                     // For aesthetics, we force at least 1 decimal if any fractions exist
-                    max_precision = max_precision.max(1).min(4);
+                    max_precision = max_precision.clamp(1, 4);
                 }
 
                 // Re-format all ticks using the discovered global precision
@@ -256,7 +256,7 @@ impl GuideSpec {
                         max_p = max_p.max(s.len() - pos - 1);
                     }
                 }
-                max_p = max_p.max(1).min(4);
+                max_p = max_p.clamp(1, 4);
             }
 
             // Update labels in the ticks themselves
