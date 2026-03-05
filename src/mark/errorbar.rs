@@ -30,8 +30,8 @@ impl MarkErrorBar {
             show_center: false,
             // Default layout values synced with MarkBar for seamless layering
             width: 0.5,
-            spacing: 0.1,
-            span: 0.8,
+            spacing: 0.0,
+            span: 0.7,
         }
     }
 
