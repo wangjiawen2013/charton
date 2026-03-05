@@ -97,7 +97,7 @@ impl MarkRenderer for Chart<MarkErrorBar> {
                     backend.draw_line(LineConfig {
                         x1: x_pix1 as Precision, y1: y_pix1 as Precision,
                         x2: x_pix2 as Precision, y2: y_pix2 as Precision,
-                        color: group_color,
+                        color: mark_config.color,
                         width: mark_config.stroke_width as Precision,
                         opacity: mark_config.opacity as Precision,
                         dash: None,
@@ -112,7 +112,7 @@ impl MarkRenderer for Chart<MarkErrorBar> {
                         for py in [py1, py2] {
                             backend.draw_line(LineConfig {
                                 x1: px1 - cap_len, y1: py, x2: px1 + cap_len, y2: py,
-                                color: group_color, width: mark_config.stroke_width as Precision,
+                                color: mark_config.color, width: mark_config.stroke_width as Precision,
                                 opacity: mark_config.opacity as Precision, dash: None,
                             });
                         }
@@ -120,7 +120,7 @@ impl MarkRenderer for Chart<MarkErrorBar> {
                         for px in [px1, px2] {
                             backend.draw_line(LineConfig {
                                 x1: px, y1: py1 - cap_len, x2: px, y2: py1 + cap_len,
-                                color: group_color, width: mark_config.stroke_width as Precision,
+                                color: mark_config.color, width: mark_config.stroke_width as Precision,
                                 opacity: mark_config.opacity as Precision, dash: None,
                             });
                         }
