@@ -19,6 +19,8 @@ impl<T: Mark> Chart<T> {
         // Basic requirement: X and Y must exist. Color is optional.
         // Get mutable references so we can modify properties like 'stack' for Pie charts.
         let y_enc = self.encoding.y.as_mut().unwrap();
+        // Get the aggregate op from the Y encoding
+        let agg_op = y_enc.aggregate;
         let x_enc = self.encoding.x.as_ref().unwrap();
         let color_enc_opt = self.encoding.color.as_ref();
 
@@ -65,7 +67,8 @@ impl<T: Mark> Chart<T> {
                 .clone()
                 .lazy()
                 .group_by_stable(group_selectors)
-                .agg([col(y_field).sum().alias(y_field)])
+                // Use the aggregate op and manually alias it back to the original field name
+                .agg([agg_op.into_expr(y_field).alias(y_field)])
                 .collect()?
         } else {
             // Simple case: No color mapping, group by X only.
@@ -74,7 +77,7 @@ impl<T: Mark> Chart<T> {
                 .clone()
                 .lazy()
                 .group_by_stable([col(x_field)])
-                .agg([col(y_field).sum().alias(y_field)])
+                .agg([agg_op.into_expr(y_field).alias(y_field)])
                 .collect()?
         };
 

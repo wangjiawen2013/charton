@@ -22,23 +22,30 @@ impl<T: Mark> Chart<T> {
 
         let x_field = &x_enc.field;
         let y_field = &y_enc.field;
-        
+
         // Define temp column names for the interval bounds
         let y_min_col = format!("{}_{}_min", TEMP_SUFFIX, y_field);
         let y_max_col = format!("{}_{}_max", TEMP_SUFFIX, y_field);
 
         // --- STEP 2: Aggregation & Grouping ---
         let mut group_selectors = vec![col(x_field)];
-        
+
         // Only add Color to grouping if it's a different field than X
         let has_grouping_color = if let Some(ce) = color_enc_opt {
             if &ce.field != x_field {
                 group_selectors.push(col(&ce.field));
                 true
-            } else { false }
-        } else { false };
+            } else {
+                false
+            }
+        } else {
+            false
+        };
 
-        let grouped_df = self.data.df.clone()
+        let grouped_df = self
+            .data
+            .df
+            .clone()
             .lazy()
             .group_by_stable(group_selectors)
             .agg([
@@ -54,7 +61,7 @@ impl<T: Mark> Chart<T> {
         // Ensuring structural consistency across all X categories
         let filled_df = if has_grouping_color {
             let ce = color_enc_opt.unwrap();
-            
+
             // preserved user-defined order
             let x_uniques = grouped_df.column(x_field)?.unique_stable()?;
             let c_uniques = grouped_df.column(&ce.field)?.unique_stable()?;
@@ -78,7 +85,8 @@ impl<T: Mark> Chart<T> {
                 &ce.field => c_repeated
             ]?;
 
-            all_combinations.lazy()
+            all_combinations
+                .lazy()
                 .join(
                     grouped_df.lazy(),
                     [col(x_field), col(&ce.field)],

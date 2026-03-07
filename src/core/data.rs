@@ -221,6 +221,61 @@ pub(crate) fn check_schema(
     Ok(())
 }
 
+/// Represents the statistical aggregation operations available for data transformation.
+///
+/// This enum defines how multiple data points are collapsed into a single value
+/// during the transformation phase (e.g., in Bar or ErrorBar charts).
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Default)]
+pub enum AggregateOp {
+    /// Total sum of all values in the group. Default for most charts.
+    #[default]
+    Sum,
+    /// Arithmetic mean (average).
+    Mean,
+    /// The middle value in the sorted data set.
+    Median,
+    /// The smallest value in the group.
+    Min,
+    /// The largest value in the group.
+    Max,
+    /// The total count of data records in the group.
+    Count,
+}
+
+impl AggregateOp {
+    /// Converts the aggregation operator directly into a Polars expression.
+    ///
+    /// By centralizing this in `data.rs`, any component with access to the
+    /// data source can consistently apply statistical summaries to a field.
+    pub fn into_expr(&self, field: &str) -> Expr {
+        match self {
+            Self::Sum => col(field).sum(),
+            Self::Mean => col(field).mean(),
+            Self::Median => col(field).median(),
+            Self::Min => col(field).min(),
+            Self::Max => col(field).max(),
+            Self::Count => col(field).count(),
+        }
+    }
+}
+
+/// Provides a convenient way to convert string literals into `AggregateOp`.
+/// This enables the "String-based API" for end-users (e.g., .aggregate("mean")).
+impl From<&str> for AggregateOp {
+    fn from(s: &str) -> Self {
+        match s.to_lowercase().as_str() {
+            "mean" | "avg" => Self::Mean,
+            "sum" => Self::Sum,
+            "min" => Self::Min,
+            "max" => Self::Max,
+            "count" | "n" => Self::Count,
+            "median" => Self::Median,
+            // Fallback to default Sum for unrecognized strings
+            _ => Self::Sum,
+        }
+    }
+}
+
 /// Load built-in datasets.
 ///
 /// Based on the passed dataset name `dataset`, returns the corresponding `DataFrame` or an error.
