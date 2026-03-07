@@ -160,7 +160,7 @@ impl MarkRenderer for Chart<MarkErrorBar> {
 
                 // 2. Draw Center Point (If data exists at all)
                 if mark_config.show_center && yc_n.is_some() {
-                    let ycn = yc_n.unwrap();  // Safe becuase we checked is_some()
+                    let ycn = yc_n.unwrap(); // Safe becuase we checked is_some()
                     let (cx, cy) = context.transform(x_final_n, ycn);
 
                     backend.draw_circle(CircleConfig {
