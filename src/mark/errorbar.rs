@@ -13,6 +13,10 @@ pub struct MarkErrorBar {
     pub(crate) stroke_width: f64,
     pub(crate) cap_length: f64,
     pub(crate) show_center: bool,
+    // --- Layout parameters for grouping (dodge) ---
+    pub(crate) width: f64,   // Relative width of a error bar
+    pub(crate) spacing: f64, // Proportional gap between bars in a group
+    pub(crate) span: f64,    // Total category width allocated to the group
 }
 
 impl MarkErrorBar {
@@ -24,6 +28,10 @@ impl MarkErrorBar {
             stroke_width: 1.0,
             cap_length: 3.0,
             show_center: false,
+            // Default layout values synced with MarkBar for seamless layering
+            width: 0.5,
+            spacing: 0.0,
+            span: 0.7,
         }
     }
 
@@ -58,6 +66,24 @@ impl MarkErrorBar {
     /// Determines whether to display a marker at the center (mean/median) of the error bar.
     pub fn with_center(mut self, show: bool) -> Self {
         self.show_center = show;
+        self
+    }
+
+    /// Sets the relative width of the marks.
+    pub fn with_width(mut self, width: f64) -> Self {
+        self.width = width;
+        self
+    }
+
+    /// Sets the spacing between marks in a grouped layout.
+    pub fn with_spacing(mut self, spacing: f64) -> Self {
+        self.spacing = spacing.clamp(0.0, 1.0);
+        self
+    }
+
+    /// Sets the total span of the group within a category.
+    pub fn with_span(mut self, span: f64) -> Self {
+        self.span = span.clamp(0.0, 1.0);
         self
     }
 }

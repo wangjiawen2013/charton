@@ -33,3 +33,37 @@ fn test_errorbar_1() -> Result<(), Box<dyn Error>> {
 
     Ok(())
 }
+
+#[test]
+fn test_errorbar_2() -> Result<(), Box<dyn Error>> {
+    // 1. Create sample data with an extra "group" column
+    // Each combination of (x, group) has multiple values for std dev calculation
+    let df = df! [
+        "x"     => ["A", "A", "A", "A", "A", "A", "B", "B", "B", "B", "B", "B"],
+        "y"     => [10.0, 12.0, 11.0, 15.0, 17.0, 16.0, 8.0, 9.0, 8.5, 12.0, 14.0, 13.0],
+        "group" => ["G1", "G1", "G1", "G2", "G2", "G2", "G1", "G1", "G1", "G2", "G2", "G2"],
+    ]?;
+
+    // 2. Build the Error Bar layer
+    let errorbar_layer = Chart::build(&df)?
+        .mark_errorbar()?
+        // Mapping 'group' to color triggers the dodge logic
+        .encode((x("x"), y("y"), color("group")))?;
+
+    // 3. (Optional but recommended) Add a Bar layer to see the alignment
+    let bar_layer = Chart::build(&df)?.mark_bar()?.encode((
+        x("x"),
+        y("y").with_aggregate("mean"),
+        color("group"),
+    ))?;
+
+    // 4. Create the Layered Chart
+    LayeredChart::new()
+        .with_size(600, 400)
+        .with_title("Grouped Error Bars with Mean & Std Dev")
+        .add_layer(errorbar_layer) // Error bars on top
+        .add_layer(bar_layer) // Layer bars first
+        .save("./tests/errorbar_2.svg")?;
+
+    Ok(())
+}
