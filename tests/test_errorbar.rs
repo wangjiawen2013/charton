@@ -51,17 +51,18 @@ fn test_errorbar_2() -> Result<(), Box<dyn Error>> {
         .encode((x("x"), y("y"), color("group")))?;
 
     // 3. (Optional but recommended) Add a Bar layer to see the alignment
-    let bar_layer = Chart::build(&df)?
-        .mark_bar()?
-        .configure_bar(|b| b.with_opacity(0.5))
-        .encode((x("x"), y("y"), color("group")))?;
+    let bar_layer = Chart::build(&df)?.mark_bar()?.encode((
+        x("x"),
+        y("y").with_aggregate("mean"),
+        color("group"),
+    ))?;
 
     // 4. Create the Layered Chart
     LayeredChart::new()
         .with_size(600, 400)
         .with_title("Grouped Error Bars with Mean & Std Dev")
-        .add_layer(bar_layer)      // Layer bars first
         .add_layer(errorbar_layer) // Error bars on top
+        .add_layer(bar_layer) // Layer bars first
         .save("./tests/errorbar_2.svg")?;
 
     Ok(())

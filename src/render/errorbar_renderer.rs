@@ -20,16 +20,25 @@ impl MarkRenderer for Chart<MarkErrorBar> {
         }
 
         // --- STEP 1: RESOLVE FIELD NAMES & CONFIG ---
-        let x_enc = self.encoding.x.as_ref()
+        let x_enc = self
+            .encoding
+            .x
+            .as_ref()
             .ok_or_else(|| ChartonError::Encoding("X-axis encoding is missing".to_string()))?;
-        let y_field = self.encoding.y.as_ref()
+        let y_field = self
+            .encoding
+            .y
+            .as_ref()
             .map(|y| y.field.as_str())
             .ok_or_else(|| ChartonError::Encoding("Y-axis encoding is missing".to_string()))?;
 
         let (y_min_field, y_max_field) = if let Some(y2) = &self.encoding.y2 {
             (y_field.to_string(), y2.field.clone())
         } else {
-            (format!("{}_{}_min", TEMP_SUFFIX, y_field), format!("{}_{}_max", TEMP_SUFFIX, y_field))
+            (
+                format!("{}_{}_min", TEMP_SUFFIX, y_field),
+                format!("{}_{}_max", TEMP_SUFFIX, y_field),
+            )
         };
 
         let mark_config = self.mark.as_ref().ok_or_else(|| {
@@ -43,7 +52,7 @@ impl MarkRenderer for Chart<MarkErrorBar> {
 
         let color_field = self.encoding.color.as_ref().map(|c| c.field.as_str());
 
-        // Simplified logic: If a color field exists, it is guaranteed to be 
+        // Simplified logic: If a color field exists, it is guaranteed to be
         // different from X and discrete due to earlier validation/transform steps.
         let is_dodged = color_field.is_some();
 
@@ -52,7 +61,7 @@ impl MarkRenderer for Chart<MarkErrorBar> {
         } else {
             vec![df_source.df.clone()]
         };
-        
+
         let n_groups = groups.len() as f64;
         // Calculate the normalized distance between two adjacent categories (the unit width of an X-axis step).
         let unit_step_norm = (x_scale.normalize(1.0) - x_scale.normalize(0.0)).abs();
@@ -64,7 +73,8 @@ impl MarkRenderer for Chart<MarkErrorBar> {
 
             // Calculate Dodge Offset
             let offset_norm = if is_dodged && n_groups > 1.0 {
-                let actual_width = mark_config.span / (n_groups + (n_groups - 1.0) * mark_config.spacing);
+                let actual_width =
+                    mark_config.span / (n_groups + (n_groups - 1.0) * mark_config.spacing);
                 let width_norm = actual_width.min(mark_config.width) * unit_step_norm;
                 let spacing_norm = width_norm * mark_config.spacing;
                 (group_idx as f64 - (n_groups - 1.0) / 2.0) * (width_norm + spacing_norm)
@@ -80,13 +90,22 @@ impl MarkRenderer for Chart<MarkErrorBar> {
 
             let x_norms = x_scale.scale_type().normalize_series(x_scale, &x_series)?;
             let y_center_norms = y_scale.scale_type().normalize_series(y_scale, &y_series)?;
-            let y_min_norms = y_scale.scale_type().normalize_series(y_scale, &y_min_series)?;
-            let y_max_norms = y_scale.scale_type().normalize_series(y_scale, &y_max_series)?;
+            let y_min_norms = y_scale
+                .scale_type()
+                .normalize_series(y_scale, &y_min_series)?;
+            let y_max_norms = y_scale
+                .scale_type()
+                .normalize_series(y_scale, &y_max_series)?;
 
-            for (((x_n, yc_n), y_min_n), y_max_n) in x_norms.into_iter()
-                .zip(y_center_norms.into_iter()).zip(y_min_norms.into_iter()).zip(y_max_norms.into_iter()) 
+            for (((x_n, yc_n), y_min_n), y_max_n) in x_norms
+                .into_iter()
+                .zip(y_center_norms.into_iter())
+                .zip(y_min_norms.into_iter())
+                .zip(y_max_norms.into_iter())
             {
-                let Some(xn) = x_n else { continue; };
+                let Some(xn) = x_n else {
+                    continue;
+                };
                 let x_final_n = xn + offset_norm;
 
                 // 1. Draw Whisker & Caps (Only if n > 1, i.e., bounds are not Null)
@@ -95,8 +114,10 @@ impl MarkRenderer for Chart<MarkErrorBar> {
                     let (x_pix2, y_pix2) = context.transform(x_final_n, yn2);
 
                     backend.draw_line(LineConfig {
-                        x1: x_pix1 as Precision, y1: y_pix1 as Precision,
-                        x2: x_pix2 as Precision, y2: y_pix2 as Precision,
+                        x1: x_pix1 as Precision,
+                        y1: y_pix1 as Precision,
+                        x2: x_pix2 as Precision,
+                        y2: y_pix2 as Precision,
                         color: mark_config.color,
                         width: mark_config.stroke_width as Precision,
                         opacity: mark_config.opacity as Precision,
@@ -111,17 +132,27 @@ impl MarkRenderer for Chart<MarkErrorBar> {
                     if !is_flipped {
                         for py in [py1, py2] {
                             backend.draw_line(LineConfig {
-                                x1: px1 - cap_len, y1: py, x2: px1 + cap_len, y2: py,
-                                color: mark_config.color, width: mark_config.stroke_width as Precision,
-                                opacity: mark_config.opacity as Precision, dash: None,
+                                x1: px1 - cap_len,
+                                y1: py,
+                                x2: px1 + cap_len,
+                                y2: py,
+                                color: mark_config.color,
+                                width: mark_config.stroke_width as Precision,
+                                opacity: mark_config.opacity as Precision,
+                                dash: None,
                             });
                         }
                     } else {
                         for px in [px1, px2] {
                             backend.draw_line(LineConfig {
-                                x1: px, y1: py1 - cap_len, x2: px, y2: py1 + cap_len,
-                                color: mark_config.color, width: mark_config.stroke_width as Precision,
-                                opacity: mark_config.opacity as Precision, dash: None,
+                                x1: px,
+                                y1: py1 - cap_len,
+                                x2: px,
+                                y2: py1 + cap_len,
+                                color: mark_config.color,
+                                width: mark_config.stroke_width as Precision,
+                                opacity: mark_config.opacity as Precision,
+                                dash: None,
                             });
                         }
                     }
@@ -132,8 +163,12 @@ impl MarkRenderer for Chart<MarkErrorBar> {
                     if let Some(ycn) = yc_n {
                         let (cx, cy) = context.transform(x_final_n, ycn);
                         backend.draw_circle(CircleConfig {
-                            x: cx as Precision, y: cy as Precision, radius: 3.0,
-                            fill: group_color, stroke: group_color, stroke_width: 0.0,
+                            x: cx as Precision,
+                            y: cy as Precision,
+                            radius: 3.0,
+                            fill: group_color,
+                            stroke: group_color,
+                            stroke_width: 0.0,
                             opacity: mark_config.opacity as Precision,
                         });
                     }
