@@ -88,14 +88,14 @@ impl MarkRenderer for Chart<MarkErrorBar> {
             let y_min_series = group_df.column(&y_min_field)?.as_materialized_series();
             let y_max_series = group_df.column(&y_max_field)?.as_materialized_series();
 
-            let x_norms = x_scale.scale_type().normalize_series(x_scale, &x_series)?;
-            let y_center_norms = y_scale.scale_type().normalize_series(y_scale, &y_series)?;
+            let x_norms = x_scale.scale_type().normalize_series(x_scale, x_series)?;
+            let y_center_norms = y_scale.scale_type().normalize_series(y_scale, y_series)?;
             let y_min_norms = y_scale
                 .scale_type()
-                .normalize_series(y_scale, &y_min_series)?;
+                .normalize_series(y_scale, y_min_series)?;
             let y_max_norms = y_scale
                 .scale_type()
-                .normalize_series(y_scale, &y_max_series)?;
+                .normalize_series(y_scale, y_max_series)?;
 
             for (((x_n, yc_n), y_min_n), y_max_n) in x_norms
                 .into_iter()
@@ -159,19 +159,19 @@ impl MarkRenderer for Chart<MarkErrorBar> {
                 }
 
                 // 2. Draw Center Point (If data exists at all)
-                if mark_config.show_center {
-                    if let Some(ycn) = yc_n {
-                        let (cx, cy) = context.transform(x_final_n, ycn);
-                        backend.draw_circle(CircleConfig {
-                            x: cx as Precision,
-                            y: cy as Precision,
-                            radius: 3.0,
-                            fill: group_color,
-                            stroke: group_color,
-                            stroke_width: 0.0,
-                            opacity: mark_config.opacity as Precision,
-                        });
-                    }
+                if mark_config.show_center && yc_n.is_some() {
+                    let ycn = yc_n.unwrap();  // Safe becuase we checked is_some()
+                    let (cx, cy) = context.transform(x_final_n, ycn);
+
+                    backend.draw_circle(CircleConfig {
+                        x: cx as Precision,
+                        y: cy as Precision,
+                        radius: 3.0,
+                        fill: group_color,
+                        stroke: group_color,
+                        stroke_width: 0.0,
+                        opacity: mark_config.opacity as Precision,
+                    });
                 }
             }
         }
