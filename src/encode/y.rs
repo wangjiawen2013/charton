@@ -1,3 +1,4 @@
+use crate::core::data::AggregateOp;
 use crate::scale::{Expansion, ResolvedScale, Scale, ScaleDomain};
 
 /// Represents a Y-axis encoding specification for chart elements.
@@ -16,6 +17,10 @@ pub struct Y {
     // --- User Configuration (Intent/Inputs) ---
     /// The name of the data column to be mapped to the vertical position.
     pub(crate) field: String,
+
+    /// Statistical operation to apply to the data (e.g., Sum, Mean).
+    /// Defaults to `AggregateOp::Sum`.
+    pub(crate) aggregate: AggregateOp,
 
     /// The desired scale transformation (e.g., Linear, Log, Discrete).
     /// If `None`, the engine will infer the type based on the column's data type.
@@ -47,6 +52,7 @@ impl Y {
     pub fn new(field: &str) -> Self {
         Self {
             field: field.to_string(),
+            aggregate: AggregateOp::default(), // Defaults to Sum
             scale_type: None,
             domain: None,
             expansion: None,
@@ -56,6 +62,20 @@ impl Y {
             stack: false,     // Default to false (regular bar chart)
             resolved_scale: ResolvedScale::none(),
         }
+    }
+
+    /// Sets the statistical aggregation operation.
+    ///
+    /// Supports both enum variants and string literals (e.g., "mean", "max").
+    ///
+    /// ### Example
+    /// ```rust,ignore
+    /// y("length").with_aggregate("mean") // Using string
+    /// y("length").with_aggregate(AggregateOp::Max) // Using enum
+    /// ```
+    pub fn with_aggregate<A: Into<AggregateOp>>(mut self, op: A) -> Self {
+        self.aggregate = op.into();
+        self
     }
 
     /// Sets the desired scale type (e.g., `Scale::Linear`, `Scale::Log`).
