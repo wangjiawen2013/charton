@@ -22,8 +22,8 @@ fn main() -> Result<(), Box<dyn Error>> {
     LayeredChart::new()
         .with_size(600, 400)
         .with_title("Grouped Error Bars with Mean & Std Dev")
-        .add_layer(errorbar_layer) // Error bars on top
-        .add_layer(bar_layer) // Layer bars first
+        .add_layer(errorbar_layer) // Error bars on bottom
+        .add_layer(bar_layer) // Layer bars
         .save("./examples/grouped_bar_with_errorbar_1.svg")?;
 
     Ok(())

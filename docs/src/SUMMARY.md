@@ -19,8 +19,14 @@
 - [The Styling Model (Hybrid Pattern)](style/styling_model.md)
 
 # 📊 Chart Gallery
-- [Basic Plots (Line, Scatter, Area)](gallery/basic_charts.md)
-- [Statistical Plots (Bar, Boxplot)](gallery/statistical.md)
+- [Simple Charts](gallery/simple_charts.md)
+- [Bar Charts](gallery/bar_charts.md)
+- [Line Charts](gallery/line_charts.md)
+- [Area Charts](gallery/area_charts.md)
+- [Circular Charts](gallery/circular_charts.md)
+- [Scatter Charts](gallery/scatter_charts.md)
+- [Uncertainties and Trends Charts](gallery/uncertainties_and_trends.md)
+- [Distributions](gallery/distributions.md)
 
 # 🛠️ Advanced Features
 - [Data Transformations](advanced/transformation.md)
