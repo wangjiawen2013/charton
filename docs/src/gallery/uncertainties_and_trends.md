@@ -9,24 +9,22 @@ Error bars are essential for communicating the precision of your data. This exam
 {{#include ../../../examples/bar_with_errorbar.rs}}
 ```
 
-**Result:**
 <img src="../../../examples/bar_with_errorbar.svg" width="500">
 
 ### Grouped Bar with ErrorBar
 When multiple groups are present (mapped to `color`), Charton automatically applies "dodge" logic to ensure that both the bars and the error bars are aligned side-by-side for each category.
 
 ```rust
-{{#include ../../../examples/bar_with_errorbar.rs}}
+{{#include ../../../examples/grouped_bar_with_errorbar_1.rs}}
 ```
 
-**Result:**
 <img src="../../../examples/grouped_bar_with_errorbar_1.svg" width="500">
 
 As an alternative approach, we demonstrate how to create a grouped error bar chart by manually defining the error boundaries using `transform_calculate`. While the previous one use automatic statistical aggregations, this method shows that the data generated through Charton's internal transformation pipeline is fully compatible across different layers. By calculating `value_min` and `value_max` within the `errorbar` layer, we ensure that the resulting dataset structure remains consistent with the `mark_bar` layer.
 
 ```rust
-{{#include ../../../examples/bar_with_errorbar.rs}}
+{{#include ../../../examples/grouped_bar_with_errorbar_2.rs}}
 ```
 
 ***Result:**
-<img src="../../../examples/grouped_bar_with_errorbar_1.svg" width="500">
+<img src="../../../examples/grouped_bar_with_errorbar_2.svg" width="500">
