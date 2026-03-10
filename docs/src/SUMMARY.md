@@ -19,14 +19,39 @@
 - [The Styling Model (Hybrid Pattern)](style/styling_model.md)
 
 # 📊 Chart Gallery
-- [Simple Charts](gallery/simple_charts.md)
-- [Bar Charts](gallery/bar_charts.md)
-- [Line Charts](gallery/line_charts.md)
-- [Area Charts](gallery/area_charts.md)
-- [Circular Charts](gallery/circular_charts.md)
-- [Scatter Charts](gallery/scatter_charts.md)
-- [Uncertainties and Trends Charts](gallery/uncertainties_and_trends.md)
-- [Distributions](gallery/distributions.md)
+
+Explore the expressive power of Charton’s Grammar of Graphics through these practical examples.
+
+## Basic Marks & Geometries
+- [Points & Bubbles](gallery/point_charts.md) — Visualizing individual observations and magnitude.
+- [Lines & Paths](gallery/line_charts.md) — Connecting data points to show continuity and order.
+- [Bars & Columns](gallery/bar_charts.md) — Discrete comparisons and rankings.
+- [Area & Stacking](gallery/area_charts.md) — Visualizing volume and part-to-whole relationships.
+
+## Statistical Distributions
+- [Histograms & Density](gallery/distributions.md) — Understanding data shape and frequency.
+- [Boxplots & Violins](gallery/box_violin_charts.md) — Visualizing quartiles, outliers, and density.
+- [Uncertainties & Trends](gallery/uncertainties_and_trends.md) — Error bars, confidence intervals, and regression fits.
+
+## Temporal & Sequential Analysis
+- [Time Series Analysis](gallery/time_series.md) — *Powered by High-Performance Time Coordinates*
+- [Ranges & Gantt Charts](gallery/ranges_gantt.md) — Visualizing events with duration and overlap.
+- [Temporal Heatmaps](gallery/calendar_plots.md) — Grid-based patterns over days, weeks, or months.
+
+## Relationships & Matrices
+- [Scatter Matrices (SPLOM)](gallery/scatter_matrices.md) — Multi-variable correlations.
+- [Heatmaps & Grids](gallery/heatmaps.md) — Dense matrices for structured relationship data.
+- [Circular & Radial Charts](gallery/circular_charts.md) — Periodic patterns and radial projections.
+
+## Composition & Layouts
+- [Layering Marks](gallery/layering.md) — Combining multiple geometries in a single view.
+- [Faceting (Small Multiples)](gallery/faceting.md) — Visualizing categorical subsets via grids.
+- [Concatenation & Dashboards](gallery/concatenation.md) — Aligning independent charts for comparison.
+
+## Interactive & Specialized Views
+- [Selection & Brushing](gallery/interactivity.md) — Real-time filtering via WASM.
+- [Geospatial & Projections](gallery/geospatial.md) — Mapping data to geographic coordinates.
+- [Custom Plotting Logic](gallery/custom_logic.md) — Extending Charton for unique requirements.
 
 # 🛠️ Advanced Features
 - [Data Transformations](advanced/transformation.md)
