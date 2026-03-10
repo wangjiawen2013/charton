@@ -26,5 +26,4 @@ As an alternative approach, we demonstrate how to create a grouped error bar cha
 {{#include ../../../examples/grouped_bar_with_errorbar_2.rs}}
 ```
 
-***Result:**
 <img src="../../../examples/grouped_bar_with_errorbar_2.svg" width="500">
