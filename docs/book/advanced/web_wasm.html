@@ -1,0 +1,790 @@
+<!DOCTYPE HTML>
+<html lang="en" class="light sidebar-visible" dir="ltr">
+    <head>
+        <!-- Book generated using mdBook -->
+        <meta charset="UTF-8">
+        <title>WebAssembly (WASM) &amp; Interactivity - Charton: The Grammar of Graphics in Rust</title>
+
+
+        <!-- Custom HTML head -->
+
+        <meta name="description" content="A comprehensive guide to the Charton visualization library.">
+        <meta name="viewport" content="width=device-width, initial-scale=1">
+        <meta name="theme-color" content="#ffffff">
+
+        <link rel="icon" href="../favicon-de23e50b.svg">
+        <link rel="shortcut icon" href="../favicon-8114d1fc.png">
+        <link rel="stylesheet" href="../css/variables-8adf115d.css">
+        <link rel="stylesheet" href="../css/general-2459343d.css">
+        <link rel="stylesheet" href="../css/chrome-ae938929.css">
+        <link rel="stylesheet" href="../css/print-9e4910d8.css" media="print">
+
+        <!-- Fonts -->
+        <link rel="stylesheet" href="../fonts/fonts-9644e21d.css">
+
+        <!-- Highlight.js Stylesheets -->
+        <link rel="stylesheet" id="mdbook-highlight-css" href="../highlight-493f70e1.css">
+        <link rel="stylesheet" id="mdbook-tomorrow-night-css" href="../tomorrow-night-4c0ae647.css">
+        <link rel="stylesheet" id="mdbook-ayu-highlight-css" href="../ayu-highlight-3fdfc3ac.css">
+
+        <!-- Custom theme stylesheets -->
+
+
+        <!-- Provide site root and default themes to javascript -->
+        <script>
+            const path_to_root = "../";
+            const default_light_theme = "light";
+            const default_dark_theme = "navy";
+            window.path_to_searchindex_js = "../searchindex-fe93cd16.js";
+        </script>
+        <!-- Start loading toc.js asap -->
+        <script src="../toc-454c3ecb.js"></script>
+    </head>
+    <body>
+    <div id="mdbook-help-container">
+        <div id="mdbook-help-popup">
+            <h2 class="mdbook-help-title">Keyboard shortcuts</h2>
+            <div>
+                <p>Press <kbd>←</kbd> or <kbd>→</kbd> to navigate between chapters</p>
+                <p>Press <kbd>S</kbd> or <kbd>/</kbd> to search in the book</p>
+                <p>Press <kbd>?</kbd> to show this help</p>
+                <p>Press <kbd>Esc</kbd> to hide this help</p>
+            </div>
+        </div>
+    </div>
+    <div id="mdbook-body-container">
+        <!-- Work around some values being stored in localStorage wrapped in quotes -->
+        <script>
+            try {
+                let theme = localStorage.getItem('mdbook-theme');
+                let sidebar = localStorage.getItem('mdbook-sidebar');
+
+                if (theme.startsWith('"') && theme.endsWith('"')) {
+                    localStorage.setItem('mdbook-theme', theme.slice(1, theme.length - 1));
+                }
+
+                if (sidebar.startsWith('"') && sidebar.endsWith('"')) {
+                    localStorage.setItem('mdbook-sidebar', sidebar.slice(1, sidebar.length - 1));
+                }
+            } catch (e) { }
+        </script>
+
+        <!-- Set the theme before any content is loaded, prevents flash -->
+        <script>
+            const default_theme = window.matchMedia("(prefers-color-scheme: dark)").matches ? default_dark_theme : default_light_theme;
+            let theme;
+            try { theme = localStorage.getItem('mdbook-theme'); } catch(e) { }
+            if (theme === null || theme === undefined) { theme = default_theme; }
+            const html = document.documentElement;
+            html.classList.remove('light')
+            html.classList.add(theme);
+            html.classList.add("js");
+        </script>
+
+        <input type="checkbox" id="mdbook-sidebar-toggle-anchor" class="hidden">
+
+        <!-- Hide / unhide sidebar before it is displayed -->
+        <script>
+            let sidebar = null;
+            const sidebar_toggle = document.getElementById("mdbook-sidebar-toggle-anchor");
+            if (document.body.clientWidth >= 1080) {
+                try { sidebar = localStorage.getItem('mdbook-sidebar'); } catch(e) { }
+                sidebar = sidebar || 'visible';
+            } else {
+                sidebar = 'hidden';
+                sidebar_toggle.checked = false;
+            }
+            if (sidebar === 'visible') {
+                sidebar_toggle.checked = true;
+            } else {
+                html.classList.remove('sidebar-visible');
+            }
+        </script>
+
+        <nav id="mdbook-sidebar" class="sidebar" aria-label="Table of contents">
+            <!-- populated by js -->
+            <mdbook-sidebar-scrollbox class="sidebar-scrollbox"></mdbook-sidebar-scrollbox>
+            <noscript>
+                <iframe class="sidebar-iframe-outer" src="../toc.html"></iframe>
+            </noscript>
+            <div id="mdbook-sidebar-resize-handle" class="sidebar-resize-handle">
+                <div class="sidebar-resize-indicator"></div>
+            </div>
+        </nav>
+
+        <div id="mdbook-page-wrapper" class="page-wrapper">
+
+            <div class="page">
+                <div id="mdbook-menu-bar-hover-placeholder"></div>
+                <div id="mdbook-menu-bar" class="menu-bar sticky">
+                    <div class="left-buttons">
+                        <label id="mdbook-sidebar-toggle" class="icon-button" for="mdbook-sidebar-toggle-anchor" title="Toggle Table of Contents" aria-label="Toggle Table of Contents" aria-controls="mdbook-sidebar">
+                            <span class=fa-svg><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 448 512"><!--! Font Awesome Free 6.2.0 by @fontawesome - https://fontawesome.com License - https://fontawesome.com/license/free (Icons: CC BY 4.0, Fonts: SIL OFL 1.1, Code: MIT License) Copyright 2022 Fonticons, Inc. --><path d="M0 96C0 78.3 14.3 64 32 64H416c17.7 0 32 14.3 32 32s-14.3 32-32 32H32C14.3 128 0 113.7 0 96zM0 256c0-17.7 14.3-32 32-32H416c17.7 0 32 14.3 32 32s-14.3 32-32 32H32c-17.7 0-32-14.3-32-32zM448 416c0 17.7-14.3 32-32 32H32c-17.7 0-32-14.3-32-32s14.3-32 32-32H416c17.7 0 32 14.3 32 32z"/></svg></span>
+                        </label>
+                        <button id="mdbook-theme-toggle" class="icon-button" type="button" title="Change theme" aria-label="Change theme" aria-haspopup="true" aria-expanded="false" aria-controls="mdbook-theme-list">
+                            <span class=fa-svg><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 576 512"><!--! Font Awesome Free 6.2.0 by @fontawesome - https://fontawesome.com License - https://fontawesome.com/license/free (Icons: CC BY 4.0, Fonts: SIL OFL 1.1, Code: MIT License) Copyright 2022 Fonticons, Inc. --><path d="M371.3 367.1c27.3-3.9 51.9-19.4 67.2-42.9L600.2 74.1c12.6-19.5 9.4-45.3-7.6-61.2S549.7-4.4 531.1 9.6L294.4 187.2c-24 18-38.2 46.1-38.4 76.1L371.3 367.1zm-19.6 25.4l-116-104.4C175.9 290.3 128 339.6 128 400c0 3.9 .2 7.8 .6 11.6c1.8 17.5-10.2 36.4-27.8 36.4H96c-17.7 0-32 14.3-32 32s14.3 32 32 32H240c61.9 0 112-50.1 112-112c0-2.5-.1-5-.2-7.5z"/></svg></span>
+                        </button>
+                        <ul id="mdbook-theme-list" class="theme-popup" aria-label="Themes" role="menu">
+                            <li role="none"><button role="menuitem" class="theme" id="mdbook-theme-default_theme">Auto</button></li>
+                            <li role="none"><button role="menuitem" class="theme" id="mdbook-theme-light">Light</button></li>
+                            <li role="none"><button role="menuitem" class="theme" id="mdbook-theme-rust">Rust</button></li>
+                            <li role="none"><button role="menuitem" class="theme" id="mdbook-theme-coal">Coal</button></li>
+                            <li role="none"><button role="menuitem" class="theme" id="mdbook-theme-navy">Navy</button></li>
+                            <li role="none"><button role="menuitem" class="theme" id="mdbook-theme-ayu">Ayu</button></li>
+                        </ul>
+                        <button id="mdbook-search-toggle" class="icon-button" type="button" title="Search (`/`)" aria-label="Toggle Searchbar" aria-expanded="false" aria-keyshortcuts="/ s" aria-controls="mdbook-searchbar">
+                            <span class=fa-svg><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512"><!--! Font Awesome Free 6.2.0 by @fontawesome - https://fontawesome.com License - https://fontawesome.com/license/free (Icons: CC BY 4.0, Fonts: SIL OFL 1.1, Code: MIT License) Copyright 2022 Fonticons, Inc. --><path d="M416 208c0 45.9-14.9 88.3-40 122.7L502.6 457.4c12.5 12.5 12.5 32.8 0 45.3s-32.8 12.5-45.3 0L330.7 376c-34.4 25.2-76.8 40-122.7 40C93.1 416 0 322.9 0 208S93.1 0 208 0S416 93.1 416 208zM208 352c79.5 0 144-64.5 144-144s-64.5-144-144-144S64 128.5 64 208s64.5 144 144 144z"/></svg></span>
+                        </button>
+                    </div>
+
+                    <h1 class="menu-title">Charton: The Grammar of Graphics in Rust</h1>
+
+                    <div class="right-buttons">
+                        <a href="../print.html" title="Print this book" aria-label="Print this book">
+                            <span class=fa-svg id="print-button"><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512"><!--! Font Awesome Free 6.2.0 by @fontawesome - https://fontawesome.com License - https://fontawesome.com/license/free (Icons: CC BY 4.0, Fonts: SIL OFL 1.1, Code: MIT License) Copyright 2022 Fonticons, Inc. --><path d="M128 0C92.7 0 64 28.7 64 64v96h64V64H354.7L384 93.3V160h64V93.3c0-17-6.7-33.3-18.7-45.3L400 18.7C388 6.7 371.7 0 354.7 0H128zM384 352v32 64H128V384 368 352H384zm64 32h32c17.7 0 32-14.3 32-32V256c0-35.3-28.7-64-64-64H64c-35.3 0-64 28.7-64 64v96c0 17.7 14.3 32 32 32H64v64c0 35.3 28.7 64 64 64H384c35.3 0 64-28.7 64-64V384zm-16-88c-13.3 0-24-10.7-24-24s10.7-24 24-24s24 10.7 24 24s-10.7 24-24 24z"/></svg></span>
+                        </a>
+
+                    </div>
+                </div>
+
+                <div id="mdbook-search-wrapper" class="hidden">
+                    <form id="mdbook-searchbar-outer" class="searchbar-outer">
+                        <div class="search-wrapper">
+                            <input type="search" id="mdbook-searchbar" name="searchbar" placeholder="Search this book ..." aria-controls="mdbook-searchresults-outer" aria-describedby="searchresults-header">
+                            <div class="spinner-wrapper">
+                                <span class=fa-svg id="fa-spin"><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512"><!--! Font Awesome Free 6.2.0 by @fontawesome - https://fontawesome.com License - https://fontawesome.com/license/free (Icons: CC BY 4.0, Fonts: SIL OFL 1.1, Code: MIT License) Copyright 2022 Fonticons, Inc. --><path d="M304 48c0-26.5-21.5-48-48-48s-48 21.5-48 48s21.5 48 48 48s48-21.5 48-48zm0 416c0-26.5-21.5-48-48-48s-48 21.5-48 48s21.5 48 48 48s48-21.5 48-48zM48 304c26.5 0 48-21.5 48-48s-21.5-48-48-48s-48 21.5-48 48s21.5 48 48 48zm464-48c0-26.5-21.5-48-48-48s-48 21.5-48 48s21.5 48 48 48s48-21.5 48-48zM142.9 437c18.7-18.7 18.7-49.1 0-67.9s-49.1-18.7-67.9 0s-18.7 49.1 0 67.9s49.1 18.7 67.9 0zm0-294.2c18.7-18.7 18.7-49.1 0-67.9S93.7 56.2 75 75s-18.7 49.1 0 67.9s49.1 18.7 67.9 0zM369.1 437c18.7 18.7 49.1 18.7 67.9 0s18.7-49.1 0-67.9s-49.1-18.7-67.9 0s-18.7 49.1 0 67.9z"/></svg></span>
+                            </div>
+                        </div>
+                    </form>
+                    <div id="mdbook-searchresults-outer" class="searchresults-outer hidden">
+                        <div id="mdbook-searchresults-header" class="searchresults-header"></div>
+                        <ul id="mdbook-searchresults">
+                        </ul>
+                    </div>
+                </div>
+
+                <!-- Apply ARIA attributes after the sidebar and the sidebar toggle button are added to the DOM -->
+                <script>
+                    document.getElementById('mdbook-sidebar-toggle').setAttribute('aria-expanded', sidebar === 'visible');
+                    document.getElementById('mdbook-sidebar').setAttribute('aria-hidden', sidebar !== 'visible');
+                    Array.from(document.querySelectorAll('#mdbook-sidebar a')).forEach(function(link) {
+                        link.setAttribute('tabIndex', sidebar === 'visible' ? 0 : -1);
+                    });
+                </script>
+
+                <div id="mdbook-content" class="content">
+                    <main>
+                        <h1 id="interactive-workflows--webassembly-integration"><a class="header" href="#interactive-workflows--webassembly-integration">Interactive Workflows &amp; WebAssembly Integration</a></h1>
+<p>Charton provides two categories of visualization output:</p>
+<ol>
+<li><strong>Static rendering</strong> (native Charton SVG)</li>
+<li><strong>Interactive rendering</strong> (via the Altair backend and Vega-Lite)</li>
+</ol>
+<p>Although Charton’s native renderer produces static SVG files, it can still participate in interactive workflows in several environments (e.g., Jupyter), and Charton can also generate <em>fully interactive</em> visualizations by delegating to the Altair/Vega-Lite ecosystem.</p>
+<p>This chapter explains these modes and clarifies the underlying architecture.</p>
+<h2 id="static-interactive-style-display-in-jupyter-via-evcxr"><a class="header" href="#static-interactive-style-display-in-jupyter-via-evcxr">Static interactive-style display in Jupyter (via <code>evcxr</code>)</a></h2>
+<p>Charton integrates with <code>evcxr</code> to display static charts <em>inline</em> inside Jupyter notebooks. This mode is “static” because the output is a fixed SVG, but it behaves “interactive-style” because:</p>
+<ul>
+<li>Each execution immediately re-renders the chart inside the notebook</li>
+<li>Any changes to code/data result in instant visual updates</li>
+<li>Ideal for exploration, education, and iterative refinement</li>
+</ul>
+<p>This is similar to how Plotters or PlotPy integrate with <code>evcxr</code>.</p>
+<h3 id="example-displaying-a-charton-chart-inline-in-jupyter"><a class="header" href="#example-displaying-a-charton-chart-inline-in-jupyter">Example: Displaying a Charton chart inline in Jupyter</a></h3>
+<pre class="playground"><code class="language-rust"><span class="boring">#![allow(unused)]
+</span><span class="boring">fn main() {
+</span>:dep charton = { version="0.3.0" }
+:dep polars = { version="0.49" }
+
+use charton::prelude::*;
+use polars::prelude::*;
+
+// Create sample data
+let df = df![
+    "length" =&gt; [5.1, 4.9, 4.7, 4.6, 5.0],
+    "width"  =&gt; [3.5, 3.0, 3.2, 3.1, 3.6]
+]?;
+
+// Build a simple scatter plot
+Chart::build(&amp;df)?
+    .mark_point()?
+    .encode((x("length"), y("width")))?
+    .into_layered()
+    .show()?;   // &lt;-- Displays directly inside the Jupyter cell
+<span class="boring">}</span></code></pre>
+<p>Even though the chart itself is static, the <em>workflow</em> feels interactive due to the rapid feedback loop.</p>
+<h2 id="static-svg-vs-interactive-rendering-in-webassembly"><a class="header" href="#static-svg-vs-interactive-rendering-in-webassembly">Static SVG vs. Interactive Rendering in WebAssembly</a></h2>
+<p>Although Charton’s native output is a <strong>static SVG</strong>, this does <em>not</em> prevent it from supporting interactive rendering when compiled to Wasm. In fact, the combination of <strong>Charton + Rust + Wasm</strong> enables a high-performance interaction model that is often <em>faster</em> than traditional JavaScript visualization libraries.</p>
+<p>To understand this correctly, we must distinguish two different concepts:</p>
+<ul>
+<li><strong>Static</strong> — refers to the file format: SVG is a declarative XML graphics format.</li>
+<li><strong>Dynamic</strong> — refers to the rendering and update pipeline: how a chart is recomputed and replaced in response to user input.</li>
+</ul>
+<p><strong>🔑 Key Idea: Charton SVGs Are Not “Immutable”</strong></p>
+<p>The SVG that Charton produces is a static file format, but this does <strong>not</strong> mean the visualization must remain static in the browser. The core principle of the Charton + Wasm model is:</p>
+<blockquote>
+<p>Interactions do not modify the SVG in-place.
+Instead, Charton’s Rust/Wasm runtime dynamically recomputes and regenerates a new SVG whenever needed.</p>
+</blockquote>
+<p>Thus, the browser simply re-renders the updated SVG structure.</p>
+<p>This architecture provides both simplicity (SVG is easy to embed, style, and display) and performance (Wasm + Polars + Rust for fast recomputation).</p>
+<h3 id="interaction-does-not-require-canvas"><a class="header" href="#interaction-does-not-require-canvas">Interaction Does Not Require Canvas</a></h3>
+<p>Interactive visualization is <em>not</em> exclusive to Canvas or WebGL.
+SVG supports two fundamentally different interaction models:</p>
+<div class="table-wrapper">
+<table>
+<thead>
+<tr><th><strong>Interaction Model</strong></th><th><strong>Description</strong></th><th><strong>Suitable For</strong></th></tr>
+</thead>
+<tbody>
+<tr><td><strong>DOM-driven interactions (CSS/JS)</strong></td><td>Browser handles hover, click, and small style changes by directly modifying SVG element attributes.</td><td>Tooltips, highlighting, simple UI responses.</td></tr>
+<tr><td><strong>Wasm-driven interactions (high-performance)</strong></td><td>Rust/Wasm computes a completely new SVG (or a DOM patch) on each interaction and replaces the old chart.</td><td>Zooming, panning, filtering, re-aggregating, re-scaling axes.</td></tr>
+</tbody>
+</table>
+</div>
+<p>Charton’s design focuses on <em>the second model</em>, where Rust/Wasm performs the heavy lifting.</p>
+<h3 id="wasm-driven-interactive-rendering-pipeline"><a class="header" href="#wasm-driven-interactive-rendering-pipeline">Wasm-Driven Interactive Rendering Pipeline</a></h3>
+<p>When a user interacts with a Charton chart compiled to Wasm, the pipeline works as follows:</p>
+<ul>
+<li>The browser captures a user event—e.g., a drag event for zooming or a brush gesture for selecting a range.</li>
+<li>Using <code>wasm-bindgen</code>, the event details are passed into the Charton Rust core.</li>
+<li>The Rust engine performs full or partial chart recomputation. These operations run at native-like speed inside Wasm.</li>
+<li>Charton generates a new SVG string or structured DOM patch representing the new view.</li>
+<li>The browser replaces the old SVG node with the new one.</li>
+</ul>
+<p>Charton’s Wasm-driven model has several performance advantages:</p>
+<p><strong>1. Polars performance inside Wasm</strong>
+Traditional JS libraries rely on JavaScript arrays, D3 computations, or slower JS-based DataFrame libraries.
+Charton instead executes <strong>Polars</strong> in Wasm—offering:</p>
+<ul>
+<li>zero-copy columnar data</li>
+<li>vectorized operations</li>
+<li>multi-threaded execution (where supported)</li>
+</ul>
+<p><strong>2. Rust efficiency</strong>
+All chart logic—scales, encodings, transforms, layouts—is executed in <strong>compiled Rust</strong>, not interpreted JS.</p>
+<p><strong>3. SVG rendering advantages</strong>
+SVG is declarative; modern browsers:</p>
+<ul>
+<li>batch DOM updates</li>
+<li>optimize SVG rendering paths</li>
+<li>offload rendering to GPU when possible</li>
+</ul>
+<p>This drastically reduces UI-thread blocking compared to manual JS DOM manipulation.</p>
+<h3 id="charton--polars--wasm-bindgen--step-by-step-example"><a class="header" href="#charton--polars--wasm-bindgen--step-by-step-example">Charton + Polars + wasm-bindgen — step-by-step example</a></h3>
+<blockquote>
+<p>Goal: expose a <code>draw_chart()</code> function from Rust → returns an SVG string → JavaScript inserts that SVG into the DOM.</p>
+</blockquote>
+<p><strong>0) Prerequisites</strong></p>
+<ul>
+<li>Rust toolchain (stable), with <code>rustup</code>.</li>
+<li><code>wasm-pack</code> (recommended) OR <code>wasm-bindgen-cli</code> + <code>cargo build --target wasm32-unknown-unknown</code>.
+<ul>
+<li>
+<p>Install <code>wasm-pack</code> (recommended):</p>
+<p><code>cargo install wasm-pack</code></p>
+</li>
+</ul>
+</li>
+<li><code>clang</code> (required)
+<ul>
+<li><strong>Linux</strong>: <code>apt install clang</code></li>
+<li><strong>Windows</strong>: Download and run the <strong>LLVM installer</strong> from <a href="https://github.com/llvm/llvm-project/releases">LLVM Releases</a>. During installation, select <strong>“Add LLVM to the system PATH”</strong>.</li>
+</ul>
+</li>
+<li>A simple static file server (e.g. <code>basic-http-server</code> from cargo, <code>python -m http.server</code>, or <code>serve</code> via npm).</li>
+<li>Node/ npm only if you want to integrate into an NPM workflow; not required for the simple demo.</li>
+</ul>
+<blockquote>
+<p><strong>Important compatibility note (read before you start):</strong></p>
+</blockquote>
+<p>Many crates (especially heavy ones like <code>polars</code> or visualization crates) may have limited or no support for <code>wasm32-unknown-unknown</code> out of the box. If Polars and Charton compile to wasm in your environment, the steps below will work. If they don’t, read the <strong>Caveats &amp; alternatives</strong> section at the end.</p>
+<p><strong>1) Project layout</strong></p>
+<p>Assume you created a project:</p>
+<pre><code class="language-text">web
+├── Cargo.toml
+├── index.html
+├── pkg
+│   ├── package.json
+│   ├── web_bg.wasm
+│   ├── web_bg.wasm.d.ts
+│   ├── web.d.ts
+│   └── web.js
+└── src
+    └── lib.rs
+</code></pre>
+<p>We will build a <code>cdylib</code> wasm package that <code>wasm-pack</code> will wrap into <code>pkg/</code>.</p>
+<p><strong>2)</strong> <code>Cargo.toml</code><strong>(example)</strong></p>
+<p>Put this into <code>web/Cargo.toml</code>.</p>
+<pre><code class="language-toml">[package]
+name = "web"
+version = "0.1.0"
+edition = "2021" # Important: Stable standard for Wasm/Polars. Don't upgrade to 2024 yet to avoid toolchain conflicts.
+
+# Produce a cdylib for wasm
+[lib]
+crate-type = ["cdylib"]
+
+[dependencies]
+wasm-bindgen = "0.2"
+polars = { version = "0.49", default-features = false }
+# Avoids transitive mio dependency to ensure Wasm compatibility.
+polars-io = { version = "0.49", default-features = false, features = ["parquet"] }
+charton = { version = "0.3" }
+
+[profile.release]
+opt-level = "z"  # or "s" to speed up
+lto = true
+codegen-units = 1
+panic = "abort"
+</code></pre>
+<p><strong>3)</strong> <code>src/lib.rs</code><strong>-Rust (wasm entry points)</strong></p>
+<p>Create <code>web/src/lib.rs</code>.</p>
+<pre class="playground"><code class="language-rust"><span class="boring">#![allow(unused)]
+</span><span class="boring">fn main() {
+</span>use wasm_bindgen::prelude::*;
+use polars::prelude::*;
+use charton::prelude::*;
+
+// Build a small scatter plot and return the SVG string.
+#[wasm_bindgen]
+pub fn draw_chart() -&gt; Result&lt;String, JsValue&gt; {
+    // Create a tiny DataFrame
+    let df = df![
+        "length" =&gt; [5.1, 4.9, 4.7, 4.6, 5.0, 5.4, 4.6, 5.0, 4.4, 4.9],
+        "width" =&gt; [3.5, 3.0, 3.2, 3.1, 3.6, 3.9, 3.4, 3.4, 2.9, 3.1]
+    ].map_err(|e| JsValue::from_str(&amp;e.to_string()))?;
+
+    // Build a Charton Chart
+    let scatter = Chart::build(&amp;df)
+        .map_err(|e| JsValue::from_str(&amp;e.to_string()))?
+        .mark_point()?
+        .encode((x("length"), y("width")))
+        .map_err(|e| JsValue::from_str(&amp;e.to_string()))?;
+
+    let chart = LayeredChart::new().add_layer(scatter);
+
+    let svg = chart.to_svg()
+        .map_err(|e| JsValue::from_str(&amp;e.to_string()))?; // Returns SVG string
+
+    Ok(svg)
+}
+<span class="boring">}</span></code></pre>
+<p>Key points:</p>
+<ul>
+<li><code>#[wasm_bindgen]</code> exposes functions to JS.</li>
+<li>We return <code>Result&lt;String, JsValue&gt;</code> so JS receives errors as exceptions.</li>
+</ul>
+<p><strong>4) Build with</strong> <code>wasm-pack</code> <strong>(recommended)</strong></p>
+<p>From project root (<code>web/</code>):</p>
+<pre><code class="language-bash">wasm-pack build --release --target web --out-dir pkg
+</code></pre>
+<p><code>wasm-pack</code> will:</p>
+<ul>
+<li>
+<p>compile to <code>wasm32-unknown-unknown</code>,</p>
+</li>
+<li>
+<p>run <code>wasm-bindgen</code> to generate JS wrapper(s),</p>
+</li>
+<li>
+<p>produce a <code>pkg/</code> folder containing:</p>
+<ul>
+<li><code>web_bg.wasm</code></li>
+<li><code>web_bg.wasm.d.ts</code></li>
+<li><code>web.d.ts</code></li>
+<li><code>web.js</code> (ES module bootstrap)</li>
+</ul>
+</li>
+</ul>
+<blockquote>
+<p>💡<strong>Optimization Note: Binary Size</strong></p>
+</blockquote>
+<blockquote>
+<p>After building in <code>--release</code> mode, the resulting <code>web_bg.wasm</code> is approximately <strong>4 MB</strong>. However, for web production:</p>
+<ul>
+<li><strong>Gzip compression</strong> reduces it to about <strong>900 KB</strong>.</li>
+<li><strong>Brotli compression</strong> can shrink it even further.
+This compact footprint makes it highly suitable for browser-side data processing without long loading times.</li>
+</ul>
+</blockquote>
+<p><strong>5) Creating <code>index.html</code> (Client-Side Loader)</strong></p>
+<p>The final step is to create a minimal HTML file (<code>web/index.html</code>) that loads the generated WASM module and renders the SVG chart into the page.</p>
+<pre><code class="language-html">&lt;!DOCTYPE html&gt;
+&lt;html lang="en"&gt;
+&lt;head&gt;
+    &lt;meta charset="UTF-8"&gt;
+    &lt;title&gt;Charton WASM Demo&lt;/title&gt;
+&lt;/head&gt;
+&lt;body&gt;
+    &lt;div id="chart-container"&gt;&lt;/div&gt;
+
+    &lt;script type="module"&gt;
+        import init, { draw_chart } from './pkg/web.js';
+
+        async function run() {
+            // Initialize and load the WebAssembly module
+            await init();
+
+            // Call the Rust function that returns an SVG string
+            const svg = draw_chart();
+
+            // Insert the SVG into the page
+            document.getElementById("chart-container").innerHTML = svg;
+        }
+
+        run();
+    &lt;/script&gt;
+&lt;/body&gt;
+&lt;/html&gt;
+</code></pre>
+<p>This minimal version:</p>
+<ul>
+<li>Loads the WASM module generated by <code>wasm-pack</code></li>
+<li>Calls the Rust function <code>draw_chart()</code> to generate the SVG string</li>
+<li>Injects the SVG directly into the DOM</li>
+<li>Contains no additional CSS, error handling, or panic hooks — keeping the example simple and focused</li>
+</ul>
+<p>This is the recommended simplest setup for demonstrating Charton rendering through WebAssembly.</p>
+<p><strong>6) Serve the folder</strong></p>
+<p>Browsers enforce CORS for WASM; open the page via HTTP server rather than <code>file://</code>.</p>
+<p>Minimal options:</p>
+<pre><code class="language-bash">cd web
+python -m http.server 8080
+</code></pre>
+<p>Then open http://localhost:8080/index.html and you’ll see the chart in the browser:
+<img src="../assets/wasm1.png" alt="wasm"></p>
+<p><strong>7) Troubleshooting</strong></p>
+<p>Processing heavy libraries like Polars in WASM can strain your system. Here is how to handle common bottlenecks:</p>
+<ul>
+<li><strong>Compilation Hangs/Freezes:</strong> Building Polars for WASM is extremely CPU and RAM intensive. If your computer “freezes” during the <code>Optimizing with wasm-opt</code> stage, you can manually stop the process. The compiled <code>.wasm</code> file in <code>pkg/</code> is usually already functional; it will simply be larger in size without the final optimization. For a smooth experience, a machine with high-core counts and 16GB+ RAM is recommended.</li>
+<li><strong>wasm-opt Errors:</strong> If <code>wasm-pack</code> fails because it cannot install or run <code>wasm-opt</code>, you can simply ignore the error if the <code>pkg/</code> folder was already populated. The unoptimized WASM file will still run in the browser.</li>
+<li><strong>Polars Version Incompatibility:</strong> If your project requires a Polars version uncompatible with the one used by Charton, passing a DataFrame directly will cause a compilation error. In this case, you can use the Parquet Interoperability method described in Section 2.3.4.</li>
+</ul>
+<h3 id="charton--polars--wasm-bindgen--advanced-example-dynamic-csv-visualization"><a class="header" href="#charton--polars--wasm-bindgen--advanced-example-dynamic-csv-visualization">Charton + Polars + wasm-bindgen — advanced example: dynamic CSV visualization</a></h3>
+<p><strong>Goal:</strong> Beyond a static demo, we now build a functional tool: users upload a local CSV file (e.g., <code>iris.csv</code>, which can be found and downloaded from the <code>datasets/</code> folder in this project) → JavaScript reads it as a string → Rust/Polars parses the data in-browser → Charton generates a multi-colored scatter plot → The resulting SVG is rendered instantly.</p>
+<p><strong>1) Updated</strong> <code>Cargo.toml</code>
+<strong>Update Note:</strong> This file updates the dependencies from 9.2.2 by enabling the <code>csv</code> feature in polars-io (to handle user uploads) and switching to the <code>charton</code> crate for more advanced encoding.</p>
+<pre><code class="language-toml">[package]
+name = "web"
+version = "0.1.0"
+edition = "2021" # Important: Stable standard for Wasm/Polars. Don't upgrade to 2024 yet to avoid toolchain conflicts.
+
+# Produce a cdylib for wasm
+[lib]
+crate-type = ["cdylib"]
+
+[dependencies]
+wasm-bindgen = "0.2"
+polars = { version = "0.49", default-features = false }
+# Avoids transitive mio dependency to ensure Wasm compatibility.
+polars-io = { version = "0.49", default-features = false, features = ["parquet", "csv"] }
+charton = { version = 0.3 }
+
+[profile.release]
+opt-level = "z"  # or "s" to speed up
+lto = true
+codegen-units = 1
+panic = "abort"
+</code></pre>
+<p><strong>2) Updated</strong> <code>src/lib.rs</code>
+<strong>Update Note:</strong> This replaces the hard-coded <code>draw_chart</code> from 9.2.2. The new <code>draw_chart_from_csv</code> function accepts a <code>String</code> from JavaScript and uses <code>std::io::Cursor</code> to treat that string as a readable file stream for Polars.</p>
+<pre class="playground"><code class="language-rust"><span class="boring">#![allow(unused)]
+</span><span class="boring">fn main() {
+</span>use wasm_bindgen::prelude::*;
+use polars::prelude::*;
+use charton::prelude::*;
+use std::io::Cursor;
+
+#[wasm_bindgen]
+pub fn draw_chart_from_csv(csv_content: String) -&gt; Result&lt;String, JsValue&gt; {
+    /* * 1. Parse CSV data from String.
+     * We use a Cursor to treat the String as a readable stream for Polars.
+     */
+    let cursor = Cursor::new(csv_content);
+
+    /* * 2. Initialize the Polars DataFrame.
+     * CsvReader is highly optimized but runs in a single thread in standard WASM.
+     */
+    let df = CsvReader::new(cursor)
+        .finish()
+        .map_err(|e| JsValue::from_str(&amp;format!("Polars Error: {}", e)))?;
+
+    /* * 3. Construct the Scatter Plot.
+     * Ensure that the columns "length" and "width" exist in your CSV file.
+     */
+    let scatter = Chart::build(&amp;df)
+        .map_err(|e| JsValue::from_str(&amp;e.to_string()))?
+        .mark_point()
+        .encode((x("sepal_length"), y("sepal_width"), color("species")))
+        .map_err(|e| JsValue::from_str(&amp;e.to_string()))?;
+
+    /* * 4. Wrap the scatter plot into a LayeredChart and generate SVG.
+     * The to_svg() method returns a raw XML string representing the vector graphic.
+     */
+    let chart = LayeredChart::new().add_layer(scatter);
+
+    let svg = chart.to_svg()
+        .map_err(|e| JsValue::from_str(&amp;e.to_string()))?;
+
+    Ok(svg)
+}
+<span class="boring">}</span></code></pre>
+<p><strong>3) Updated</strong> <code>index.html</code>
+<strong>Update Note:</strong> This expands the simple loader from 9.2.2 by adding a File Input UI and a <code>FileReader</code> event loop. This allows the WASM module to process “live” data provided by the user.</p>
+<pre><code class="language-html">&lt;!DOCTYPE html&gt;
+&lt;html lang="en"&gt;
+&lt;head&gt;
+    &lt;meta charset="UTF-8"&gt;
+    &lt;title&gt;WASM CSV Visualizer&lt;/title&gt;
+    &lt;style&gt;
+        #chart-container { margin-top: 20px; border: 1px solid #ccc; }
+    &lt;/style&gt;
+&lt;/head&gt;
+&lt;body&gt;
+    &lt;h2&gt;Upload CSV to Generate Chart&lt;/h2&gt;
+    &lt;input type="file" id="csv-upload" accept=".csv" /&gt;
+    
+    &lt;div id="chart-container"&gt;&lt;/div&gt;
+
+    &lt;script type="module"&gt;
+        import init, { draw_chart_from_csv } from './pkg/web.js';
+
+        async function run() {
+            // Initialize the WASM module
+            await init();
+
+            const fileInput = document.getElementById("csv-upload");
+            const container = document.getElementById("chart-container");
+
+            // Event listener for file selection
+            fileInput.addEventListener("change", async (event) =&gt; {
+                const file = event.target.files[0];
+                if (!file) return;
+
+                /* * Use FileReader to read the file content as text.
+                 * This text is then passed across the JS-WASM boundary.
+                 */
+                const reader = new FileReader();
+                reader.onload = (e) =&gt; {
+                    const csvContent = e.target.result;
+
+                    try {
+                        // Call the Rust function with the CSV string
+                        const svg = draw_chart_from_csv(csvContent);
+                        
+                        // Inject the returned SVG string directly into the DOM
+                        container.innerHTML = svg;
+                    } catch (err) {
+                        console.error("Computation Error:", err);
+                        alert("Error: Make sure CSV has 'length' and 'width' columns.");
+                    }
+                };
+                
+                // Trigger the file read
+                reader.readAsText(file);
+            });
+        }
+
+        run();
+    &lt;/script&gt;
+&lt;/body&gt;
+&lt;/html&gt;
+</code></pre>
+<p><strong>4) Build and Serve Update Note:</strong> The build command remains the same as 9.2.3, but the compilation time may increase due to the added CSV and color encoding features.</p>
+<pre><code class="language-bash"># Build the package
+wasm-pack build --release --target web --out-dir pkg
+
+# Serve the files
+python -m http.server 8080
+</code></pre>
+<p><strong>Summary of Improvements over 9.2.3</strong></p>
+<ul>
+<li><strong>Data Handling:</strong> Shifted from static <code>df!</code> macros to dynamic <code>CsvReader</code> parsing.</li>
+<li><strong>Complexity:</strong> Added <code>color</code> encoding in Charton to demonstrate multi-dimensional data mapping.</li>
+<li><strong>User Interaction:</strong> Introduced the <code>FileReader</code> API to bridge the gap between the local file system and WASM linear memory.</li>
+</ul>
+<h3 id="conclusion"><a class="header" href="#conclusion">Conclusion</a></h3>
+<p>The combination of <em>static</em> SVG and <em>dynamic</em> Rust/Wasm computation forms a powerful model for interactive visualization:</p>
+<ul>
+<li>SVG provides simple, portable output for embedding and styling.</li>
+<li>Rust/Wasm enables high-performance chart recomputation.</li>
+<li>Polars accelerates data transformations dramatically.</li>
+<li>Browser handles final rendering efficiently.</li>
+</ul>
+<p><strong>Charton does not attempt to patch SVGs with JavaScript like traditional libraries. Instead, it regenerates a complete static SVG—fast enough to support real-time interactivity.</strong></p>
+<p>This architecture makes high-performance, browser-based interaction not only possible but highly efficient.</p>
+<h2 id="true-interactive-visualization-via-the-altair-backend"><a class="header" href="#true-interactive-visualization-via-the-altair-backend">True interactive visualization via the Altair backend</a></h2>
+<p>Charton can generate fully interactive charts by delegating to <strong>Altair</strong>, which compiles to Vega-Lite specifications capable of:</p>
+<ul>
+<li>Hover tooltips</li>
+<li>Selections</li>
+<li>Brush interactions</li>
+<li>Zoom and pan</li>
+<li>Linked views</li>
+<li>Filtering and conditional styling</li>
+<li>Rich UI semantics</li>
+</ul>
+<p><strong>Charton’s role in this workflow</strong></p>
+<p>Charton does:</p>
+<ol>
+<li>Run Rust-side preprocessing (Polars)</li>
+<li>Transfer data to Python</li>
+<li>Embed user-provided Altair plotting code</li>
+<li>Invoke Python to generate Vega-Lite JSON</li>
+<li>Display the result (browser/Jupyter) or export JSON</li>
+</ol>
+<p>All <em>actual</em> interactivity comes from <strong>Altair/Vega-Lite</strong>, not from Charton.</p>
+<p><strong>Example: interactive Altair chart via Charton</strong></p>
+<pre class="playground"><code class="language-rust"><span class="boring">#![allow(unused)]
+</span><span class="boring">fn main() {
+</span>:dep charton = { version="0.3" }
+:dep polars = { version="0.49" }
+
+use charton::prelude::*;
+use polars::prelude::df;
+
+let exe_path = r"D:\Programs\miniconda3\envs\cellpy\python.exe";
+
+let df1 = df![
+    "Model" =&gt; ["S1", "M1", "R2", "P8", "M4", "T5", "V1"],
+    "Price" =&gt; [2430, 3550, 5700, 8750, 2315, 3560, 980],
+    "Discount" =&gt; [Some(0.65), Some(0.73), Some(0.82), None, Some(0.51), None, Some(0.26)],
+].unwrap();
+
+// Any valid Altair code can be placed here.
+let raw_plotting_code = r#"
+import altair as alt
+
+chart = alt.Chart(df1).mark_point().encode(
+    x='Price',
+    y='Discount',
+    color='Model',
+    tooltip=['Model', 'Price', 'Discount']
+).interactive()        # &lt;-- zoom + pan + scroll
+"#;
+
+Plot::&lt;Altair&gt;::build(data!(&amp;df1)?)?
+    .with_exe_path(exe_path)?
+    .with_plotting_code(raw_plotting_code)
+    .show()?;  // Jupyter or browser
+<span class="boring">}</span></code></pre>
+<p>This provides <strong>real interactivity</strong> entirely through Altair.</p>
+<h2 id="exporting-vega-lite-json-for-browserweb-app-usage"><a class="header" href="#exporting-vega-lite-json-for-browserweb-app-usage">Exporting Vega-Lite JSON for browser/Web app usage</a></h2>
+<p>Since Altair compiles to Vega-Lite, Charton can generate the JSON specification directly.</p>
+<p>This is ideal for:</p>
+<ul>
+<li>Web dashboards</li>
+<li>React / Vue / Svelte components</li>
+<li>Embedding charts in HTML</li>
+<li>APIs returning visualization specs</li>
+<li>Reproducible visualization pipelines</li>
+</ul>
+<p><strong>Example: Export to JSON</strong></p>
+<pre class="playground"><code class="language-rust"><span class="boring">#![allow(unused)]
+</span><span class="boring">fn main() {
+</span>let chart_json: String = Plot::&lt;Altair&gt;::build(data!(&amp;df1)?)?
+    .with_exe_path(exe_path)?
+    .with_plotting_code(raw_plotting_code)
+    .to_json()?;
+
+// save, embed, or send via API
+println!("{}", chart_json);
+<span class="boring">}</span></code></pre>
+<p><strong>Embedding in a webpage</strong>:</p>
+<pre><code class="language-html">&lt;div id="vis"&gt;&lt;/div&gt;
+&lt;script&gt;
+  var spec = /* paste JSON here */;
+  vegaEmbed('#vis', spec);
+&lt;/script&gt;
+</code></pre>
+<h2 id="summary-what-kinds-of-interactivity-does-charton-support"><a class="header" href="#summary-what-kinds-of-interactivity-does-charton-support">Summary: What kinds of interactivity does Charton support?</a></h2>
+<div class="table-wrapper">
+<table>
+<thead>
+<tr><th><strong>Feature</strong></th><th><strong>Supported?</strong></th><th><strong>Provided by</strong></th></tr>
+</thead>
+<tbody>
+<tr><td>Hover tooltips</td><td>✔ Yes</td><td>Altair/Vega-Lite</td></tr>
+<tr><td>Selection / brushing</td><td>✔ Yes</td><td>Vega-Lite</td></tr>
+<tr><td>Zoom / pan</td><td>✔ Yes</td><td>Altair <code>.interactive()</code></td></tr>
+<tr><td>Dynamic UI-driven filtering</td><td>✔ Yes</td><td>Vega-Lite</td></tr>
+<tr><td>Inline static charts in Jupyter</td><td>✔ Yes</td><td>Charton SVG via <code>evcxr</code></td></tr>
+<tr><td>True reactive Rust-side charts (recompute on events)</td><td>❌ No</td><td>—</td></tr>
+<tr><td>Charton-native browser interactivity</td><td>❌ No</td><td>—</td></tr>
+</tbody>
+</table>
+</div>
+<p><strong>When to use which mode?</strong></p>
+<div class="table-wrapper">
+<table>
+<thead>
+<tr><th><strong>Use Case</strong></th><th><strong>Recommended Mode</strong></th></tr>
+</thead>
+<tbody>
+<tr><td>Fast feedback in Rust</td><td>Jupyter + <code>evcxr</code> static SVG</td></tr>
+<tr><td>Publication-quality plots</td><td>Native Charton SVG</td></tr>
+<tr><td>Hover/tooltip/zoom</td><td>Altair backend</td></tr>
+<tr><td>Web dashboards or JS frameworks</td><td>Export Vega-Lite JSON</td></tr>
+<tr><td>Rust/WASM interactive apps</td><td>Use Charton as SVG generator + custom WASM logic</td></tr>
+</tbody>
+</table>
+</div>
+
+                    </main>
+
+                    <nav class="nav-wrapper" aria-label="Page navigation">
+                        <!-- Mobile navigation buttons -->
+                            <a rel="prev" href="../advanced/integration.html" class="mobile-nav-chapters previous" title="Previous chapter" aria-label="Previous chapter" aria-keyshortcuts="Left">
+                                <span class=fa-svg><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 320 512"><!--! Font Awesome Free 6.2.0 by @fontawesome - https://fontawesome.com License - https://fontawesome.com/license/free (Icons: CC BY 4.0, Fonts: SIL OFL 1.1, Code: MIT License) Copyright 2022 Fonticons, Inc. --><path d="M41.4 233.4c-12.5 12.5-12.5 32.8 0 45.3l160 160c12.5 12.5 32.8 12.5 45.3 0s12.5-32.8 0-45.3L109.3 256 246.6 118.6c12.5-12.5 12.5-32.8 0-45.3s-32.8-12.5-45.3 0l-160 160z"/></svg></span>
+                            </a>
+
+                            <a rel="next prefetch" href="../advanced/layout.html" class="mobile-nav-chapters next" title="Next chapter" aria-label="Next chapter" aria-keyshortcuts="Right">
+                                <span class=fa-svg><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 320 512"><!--! Font Awesome Free 6.2.0 by @fontawesome - https://fontawesome.com License - https://fontawesome.com/license/free (Icons: CC BY 4.0, Fonts: SIL OFL 1.1, Code: MIT License) Copyright 2022 Fonticons, Inc. --><path d="M278.6 233.4c12.5 12.5 12.5 32.8 0 45.3l-160 160c-12.5 12.5-32.8 12.5-45.3 0s-12.5-32.8 0-45.3L210.7 256 73.4 118.6c-12.5-12.5-12.5-32.8 0-45.3s32.8-12.5 45.3 0l160 160z"/></svg></span>
+                            </a>
+
+                        <div style="clear: both"></div>
+                    </nav>
+                </div>
+            </div>
+
+            <nav class="nav-wide-wrapper" aria-label="Page navigation">
+                    <a rel="prev" href="../advanced/integration.html" class="nav-chapters previous" title="Previous chapter" aria-label="Previous chapter" aria-keyshortcuts="Left">
+                        <span class=fa-svg><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 320 512"><!--! Font Awesome Free 6.2.0 by @fontawesome - https://fontawesome.com License - https://fontawesome.com/license/free (Icons: CC BY 4.0, Fonts: SIL OFL 1.1, Code: MIT License) Copyright 2022 Fonticons, Inc. --><path d="M41.4 233.4c-12.5 12.5-12.5 32.8 0 45.3l160 160c12.5 12.5 32.8 12.5 45.3 0s12.5-32.8 0-45.3L109.3 256 246.6 118.6c12.5-12.5 12.5-32.8 0-45.3s-32.8-12.5-45.3 0l-160 160z"/></svg></span>
+                    </a>
+
+                    <a rel="next prefetch" href="../advanced/layout.html" class="nav-chapters next" title="Next chapter" aria-label="Next chapter" aria-keyshortcuts="Right">
+                        <span class=fa-svg><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 320 512"><!--! Font Awesome Free 6.2.0 by @fontawesome - https://fontawesome.com License - https://fontawesome.com/license/free (Icons: CC BY 4.0, Fonts: SIL OFL 1.1, Code: MIT License) Copyright 2022 Fonticons, Inc. --><path d="M278.6 233.4c12.5 12.5 12.5 32.8 0 45.3l-160 160c-12.5 12.5-32.8 12.5-45.3 0s-12.5-32.8 0-45.3L210.7 256 73.4 118.6c-12.5-12.5-12.5-32.8 0-45.3s32.8-12.5 45.3 0l160 160z"/></svg></span>
+                    </a>
+            </nav>
+
+        </div>
+
+        <template id=fa-eye><span class=fa-svg><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 576 512"><!--! Font Awesome Free 6.2.0 by @fontawesome - https://fontawesome.com License - https://fontawesome.com/license/free (Icons: CC BY 4.0, Fonts: SIL OFL 1.1, Code: MIT License) Copyright 2022 Fonticons, Inc. --><path d="M288 32c-80.8 0-145.5 36.8-192.6 80.6C48.6 156 17.3 208 2.5 243.7c-3.3 7.9-3.3 16.7 0 24.6C17.3 304 48.6 356 95.4 399.4C142.5 443.2 207.2 480 288 480s145.5-36.8 192.6-80.6c46.8-43.5 78.1-95.4 93-131.1c3.3-7.9 3.3-16.7 0-24.6c-14.9-35.7-46.2-87.7-93-131.1C433.5 68.8 368.8 32 288 32zM432 256c0 79.5-64.5 144-144 144s-144-64.5-144-144s64.5-144 144-144s144 64.5 144 144zM288 192c0 35.3-28.7 64-64 64c-11.5 0-22.3-3-31.6-8.4c-.2 2.8-.4 5.5-.4 8.4c0 53 43 96 96 96s96-43 96-96s-43-96-96-96c-2.8 0-5.6 .1-8.4 .4c5.3 9.3 8.4 20.1 8.4 31.6z"/></svg></span></template>
+        <template id=fa-eye-slash><span class=fa-svg><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 640 512"><!--! Font Awesome Free 6.2.0 by @fontawesome - https://fontawesome.com License - https://fontawesome.com/license/free (Icons: CC BY 4.0, Fonts: SIL OFL 1.1, Code: MIT License) Copyright 2022 Fonticons, Inc. --><path d="M38.8 5.1C28.4-3.1 13.3-1.2 5.1 9.2S-1.2 34.7 9.2 42.9l592 464c10.4 8.2 25.5 6.3 33.7-4.1s6.3-25.5-4.1-33.7L525.6 386.7c39.6-40.6 66.4-86.1 79.9-118.4c3.3-7.9 3.3-16.7 0-24.6c-14.9-35.7-46.2-87.7-93-131.1C465.5 68.8 400.8 32 320 32c-68.2 0-125 26.3-169.3 60.8L38.8 5.1zM223.1 149.5C248.6 126.2 282.7 112 320 112c79.5 0 144 64.5 144 144c0 24.9-6.3 48.3-17.4 68.7L408 294.5c5.2-11.8 8-24.8 8-38.5c0-53-43-96-96-96c-2.8 0-5.6 .1-8.4 .4c5.3 9.3 8.4 20.1 8.4 31.6c0 10.2-2.4 19.8-6.6 28.3l-90.3-70.8zm223.1 298L373 389.9c-16.4 6.5-34.3 10.1-53 10.1c-79.5 0-144-64.5-144-144c0-6.9 .5-13.6 1.4-20.2L83.1 161.5C60.3 191.2 44 220.8 34.5 243.7c-3.3 7.9-3.3 16.7 0 24.6c14.9 35.7 46.2 87.7 93 131.1C174.5 443.2 239.2 480 320 480c47.8 0 89.9-12.9 126.2-32.5z"/></svg></span></template>
+        <template id=fa-copy><span class=fa-svg><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512"><!--! Font Awesome Free 6.2.0 by @fontawesome - https://fontawesome.com License - https://fontawesome.com/license/free (Icons: CC BY 4.0, Fonts: SIL OFL 1.1, Code: MIT License) Copyright 2022 Fonticons, Inc. --><path d="M502.6 70.63l-61.25-61.25C435.4 3.371 427.2 0 418.7 0H255.1c-35.35 0-64 28.66-64 64l.0195 256C192 355.4 220.7 384 256 384h192c35.2 0 64-28.8 64-64V93.25C512 84.77 508.6 76.63 502.6 70.63zM464 320c0 8.836-7.164 16-16 16H255.1c-8.838 0-16-7.164-16-16L239.1 64.13c0-8.836 7.164-16 16-16h128L384 96c0 17.67 14.33 32 32 32h47.1V320zM272 448c0 8.836-7.164 16-16 16H63.1c-8.838 0-16-7.164-16-16L47.98 192.1c0-8.836 7.164-16 16-16H160V128H63.99c-35.35 0-64 28.65-64 64l.0098 256C.002 483.3 28.66 512 64 512h192c35.2 0 64-28.8 64-64v-32h-47.1L272 448z"/></svg></span></template>
+        <template id=fa-play><span class=fa-svg><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 384 512"><!--! Font Awesome Free 6.2.0 by @fontawesome - https://fontawesome.com License - https://fontawesome.com/license/free (Icons: CC BY 4.0, Fonts: SIL OFL 1.1, Code: MIT License) Copyright 2022 Fonticons, Inc. --><path d="M73 39c-14.8-9.1-33.4-9.4-48.5-.9S0 62.6 0 80V432c0 17.4 9.4 33.4 24.5 41.9s33.7 8.1 48.5-.9L361 297c14.3-8.7 23-24.2 23-41s-8.7-32.2-23-41L73 39z"/></svg></span></template>
+        <template id=fa-clock-rotate-left><span class=fa-svg><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512"><!--! Font Awesome Free 6.2.0 by @fontawesome - https://fontawesome.com License - https://fontawesome.com/license/free (Icons: CC BY 4.0, Fonts: SIL OFL 1.1, Code: MIT License) Copyright 2022 Fonticons, Inc. --><path d="M75 75L41 41C25.9 25.9 0 36.6 0 57.9V168c0 13.3 10.7 24 24 24H134.1c21.4 0 32.1-25.9 17-41l-30.8-30.8C155 85.5 203 64 256 64c106 0 192 86 192 192s-86 192-192 192c-40.8 0-78.6-12.7-109.7-34.4c-14.5-10.1-34.4-6.6-44.6 7.9s-6.6 34.4 7.9 44.6C151.2 495 201.7 512 256 512c141.4 0 256-114.6 256-256S397.4 0 256 0C185.3 0 121.3 28.7 75 75zm181 53c-13.3 0-24 10.7-24 24V256c0 6.4 2.5 12.5 7 17l72 72c9.4 9.4 24.6 9.4 33.9 0s9.4-24.6 0-33.9l-65-65V152c0-13.3-10.7-24-24-24z"/></svg></span></template>
+
+
+
+        <script>
+            window.playground_copyable = true;
+        </script>
+
+
+        <script src="../elasticlunr-ef4e11c1.min.js"></script>
+        <script src="../mark-09e88c2c.min.js"></script>
+        <script src="../searcher-c2a407aa.js"></script>
+
+        <script src="../clipboard-1626706a.min.js"></script>
+        <script src="../highlight-abc7f01d.js"></script>
+        <script src="../book-a0b12cfe.js"></script>
+
+        <!-- Custom JS scripts -->
+
+
+
+    </div>
+    </body>
+</html>
