@@ -3,6 +3,8 @@ title = "Charton: The Grammar of Graphics in Rust"
 authors = ["wangjiawen2013"]
 language = "en"
 description = "A comprehensive guide to the Charton visualization library."
+src = "src"
 
 [output.html]
-title = "The Charton Book"
+
+[preprocessor.links]

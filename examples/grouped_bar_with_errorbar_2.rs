@@ -30,7 +30,7 @@ fn main() -> Result<(), Box<dyn Error>> {
     LayeredChart::new()
         .add_layer(errorbar)
         .add_layer(bar)
-        .save("./examples/grouped_bar_with_errorbar_2.svg")?;
+        .save("docs/src/images/grouped_bar_with_errorbar_2.svg")?;
 
     Ok(())
 }

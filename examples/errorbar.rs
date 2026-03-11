@@ -24,7 +24,7 @@ fn main() -> Result<(), Box<dyn Error>> {
     LayeredChart::new()
         .add_layer(errorbar)
         .coord_flip()
-        .save("./examples/errorbar.svg")?;
+        .save("docs/src/images/errorbar.svg")?;
 
     Ok(())
 }

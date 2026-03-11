@@ -31,7 +31,7 @@ fn main() -> Result<(), Box<dyn Error>> {
         .add_layer(scatter_layer);
 
     // 6. Export the final visualization
-    lc.save("./examples/base.svg")?;
+    lc.save("docs/src/images/base.svg")?;
 
     Ok(())
 }

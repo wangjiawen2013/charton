@@ -40,7 +40,7 @@ fn main() -> Result<(), Box<dyn Error>> {
         .with_x_label("IMDB Rating")
         .with_y_label("Cumulative Density")
         .add_layer(chart)
-        .save("./examples/distribution.svg")?;
+        .save("docs/src/images/distribution.svg")?;
 
     Ok(())
 }

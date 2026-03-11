@@ -28,7 +28,7 @@ fn main() -> Result<(), Box<dyn Error>> {
     LayeredChart::new()
         .with_title("Colored Bar Chart Example")
         .add_layer(colored_bar_chart)
-        .save("./examples/stacked_bar.svg")?;
+        .save("docs/src/images/stacked_bar.svg")?;
 
     Ok(())
 }

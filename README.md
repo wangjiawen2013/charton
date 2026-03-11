@@ -317,9 +317,9 @@ Charton is engineered for the modern web. By stripping away unnecessary bloat, i
 This gallery contains a selection of examples of the plots charton can create. Go to the `examples` folder to view the source code.
 <table>
     <tr>
-        <td><img src="examples/altair.svg" alt="Altair" /><p align="center">Altair</p></td>
-        <td><img src="examples/matplotlib.png" alt="Matplotlib" /><p align="center">Matplotlib</p></td>
-        <td><img src="examples/grouped_bar.svg" alt="Grouped Bar Chart" /><p align="center">Grouped Bar Chart</p></td>
+        <td><img src="docs/src/images/altair.svg" alt="Altair" /><p align="center">Altair</p></td>
+        <td><img src="docs/src/images/matplotlib.png" alt="Matplotlib" /><p align="center">Matplotlib</p></td>
+        <td><img src="docs/src/images/grouped_bar.svg" alt="Grouped Bar Chart" /><p align="center">Grouped Bar Chart</p></td>
         <td><img src="examples/distribution.svg" alt="Distribution" /><p align="center">Distribution</p></td>
     </tr>
     <tr>

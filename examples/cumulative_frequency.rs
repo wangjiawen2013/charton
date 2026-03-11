@@ -27,7 +27,7 @@ fn main() -> Result<(), Box<dyn Error>> {
     LayeredChart::new()
         .with_title("Empirical Cumulative Distribution")
         .add_layer(chart)
-        .save("./examples/cumulative_frequency.svg")?;
+        .save("docs/src/images/cumulative_frequency.svg")?;
 
     Ok(())
 }

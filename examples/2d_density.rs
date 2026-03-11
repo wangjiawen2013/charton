@@ -18,7 +18,7 @@ fn main() -> Result<(), Box<dyn Error>> {
     LayeredChart::new()
         .add_layer(rect_chart)
         .configure_theme(|t| t.with_color_map(ColorMap::GnBu))
-        .save("./examples/2d_density.svg")?;
+        .save("docs/src/images/2d_density.svg")?;
 
     Ok(())
 }

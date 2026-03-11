@@ -28,7 +28,7 @@ fn main() -> Result<(), Box<dyn Error>> {
         .add_layer(errorbar)
         .add_layer(bar)
         .with_y_label("value")
-        .save("./examples/bar_with_errorbar.svg")?;
+        .save("docs/src/images/bar_with_errorbar.svg")?;
 
     Ok(())
 }
