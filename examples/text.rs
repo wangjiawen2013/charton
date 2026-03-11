@@ -31,7 +31,7 @@ fn main() -> Result<(), Box<dyn Error>> {
             add: (0.1, 0.1),
         })
         .add_layer(text_chart)
-        .save("./examples/text.svg")?;
+        .save("docs/src/images/text.svg")?;
 
     Ok(())
 }

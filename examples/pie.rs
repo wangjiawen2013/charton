@@ -20,7 +20,7 @@ fn main() -> Result<(), Box<dyn Error>> {
     LayeredChart::new()
         .add_layer(donut)
         .with_coord(CoordSystem::Polar)
-        .save("./examples/pie.svg")?;
+        .save("docs/src/images/pie.svg")?;
 
     Ok(())
 }

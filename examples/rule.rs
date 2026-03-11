@@ -21,7 +21,7 @@ fn main() -> Result<(), Box<dyn Error>> {
         .with_y_label("Y Values");
 
     // Save to SVG file
-    chart.save("examples/rule.svg")?;
+    chart.save("docs/src/images/rule.svg")?;
 
     Ok(())
 }

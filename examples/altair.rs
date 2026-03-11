@@ -28,7 +28,7 @@ chart = alt.Chart(iris).mark_circle().encode(
     Plot::<Altair>::build(data!(&iris)?)?
         .with_exe_path(exe_path)?
         .with_plotting_code(raw_plotting_code)
-        .save("./examples/altair.svg")?;
+        .save("docs/src/images/altair.svg")?;
 
     Ok(())
 }

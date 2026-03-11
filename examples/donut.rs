@@ -21,7 +21,7 @@ fn main() -> Result<(), Box<dyn Error>> {
         .add_layer(donut)
         .with_coord(CoordSystem::Polar)
         .with_inner_radius(0.5) // Creates a donut chart
-        .save("./examples/donut.svg")?;
+        .save("docs/src/images/donut.svg")?;
 
     Ok(())
 }
