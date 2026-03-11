@@ -14,7 +14,7 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
         .configure_area(|a| a.with_opacity(0.5))
         .encode((x("sepal_length"), y("density"), color("species")))?
         .into_layered()
-        .save("./examples/density.svg")?;
+        .save("docs/src/images/density.svg")?;
 
     Ok(())
 }

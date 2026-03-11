@@ -24,7 +24,7 @@ fn main() -> Result<(), Box<dyn Error>> {
         .with_title("Grouped Error Bars with Mean & Std Dev")
         .add_layer(errorbar_layer) // Error bars on bottom
         .add_layer(bar_layer) // Layer bars
-        .save("./examples/grouped_bar_with_errorbar_1.svg")?;
+        .save("docs/src/images/grouped_bar_with_errorbar_1.svg")?;
 
     Ok(())
 }

@@ -50,8 +50,7 @@ fn main() -> Result<(), Box<dyn Error>> {
             t.with_x_tick_label_angle(-45.0) // Rotate labels to handle longer date strings
                 .with_tick_label_size(12.0)
         })
-        .save("./examples/time_scale.svg")?;
+        .save("docs/src/images/time_scale.svg")?;
 
-    println!("Success: Temporal chart saved to ./examples/time_scale.svg");
     Ok(())
 }

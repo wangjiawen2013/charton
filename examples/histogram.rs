@@ -36,7 +36,7 @@ fn main() -> Result<(), Box<dyn Error>> {
         .with_y_label("Frequency")
         .add_layer(histogram_chart)
         .configure_theme(|t| t.with_palette(ColorPalette::Tab10))
-        .save("./examples/histogram.svg")?;
+        .save("docs/src/images/histogram.svg")?;
 
     Ok(())
 }

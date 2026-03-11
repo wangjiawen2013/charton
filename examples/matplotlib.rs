@@ -45,7 +45,7 @@ ax1.set_title('tripcolor of Delaunay triangulation, flat shading')
     Plot::<Matplotlib>::build(data!(&df)?)?
         .with_exe_path(exe_path)?
         .with_plotting_code(raw_plotting_code)
-        .save("./examples/matplotlib.png")?;
+        .save("docs/src/images/matplotlib.png")?;
 
     Ok(())
 }

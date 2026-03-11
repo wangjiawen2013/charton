@@ -41,7 +41,7 @@ fn main() -> Result<(), Box<dyn Error>> {
         .mark_boxplot()?
         .encode((x("variable"), y("value"), color("species")))?
         .into_layered()
-        .save("./examples/grouped_boxplot.svg")?;
+        .save("docs/src/images/grouped_boxplot.svg")?;
 
     Ok(())
 }
