@@ -20,7 +20,7 @@ fn main() -> Result<(), Box<dyn Error>> {
         .add_layer(point_chart)
         .configure_theme(|t| t.with_x_tick_label_angle(-45.0))
         .coord_flip()
-        .save("./examples/log_scale.svg")?;
+        .save("docs/src/images/log_scale.svg")?;
 
     Ok(())
 }

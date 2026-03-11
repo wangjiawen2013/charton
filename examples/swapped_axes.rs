@@ -23,7 +23,7 @@ fn main() -> Result<(), Box<dyn Error>> {
     LayeredChart::new()
         .add_layer(colored_bar_chart)
         .coord_flip()
-        .save("./examples/swapped_axes.svg")?;
+        .save("docs/src/images/swapped_axes.svg")?;
 
     Ok(())
 }

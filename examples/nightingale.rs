@@ -17,7 +17,7 @@ fn main() -> Result<(), Box<dyn Error>> {
         .with_title("Nightingale wind rose")
         .add_layer(chart)
         .with_coord(CoordSystem::Polar)
-        .save("./examples/nightingale.svg")?;
+        .save("docs/src/images/nightingale.svg")?;
 
     Ok(())
 }

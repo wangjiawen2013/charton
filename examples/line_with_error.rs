@@ -27,7 +27,7 @@ fn main() -> Result<(), Box<dyn Error>> {
     LayeredChart::new()
         .add_layer(line)
         .add_layer(errorbar)
-        .save("./examples/line_with_errorbar.svg")?;
+        .save("docs/src/images/line_with_errorbar.svg")?;
 
     Ok(())
 }

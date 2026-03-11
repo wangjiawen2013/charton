@@ -18,7 +18,7 @@ fn main() -> Result<(), Box<dyn Error>> {
     // Create a layered chart and add the rect chart as a layer
     LayeredChart::new()
         .add_layer(rect_chart)
-        .save("./examples/heatmap.svg")?;
+        .save("docs/src/images/heatmap.svg")?;
 
     Ok(())
 }
