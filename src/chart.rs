@@ -41,27 +41,11 @@ use std::sync::Arc;
 /// * `data` - The underlying data source (normalized to f64 for numeric columns).
 /// * `encoding` - Mapping between data fields and visual channels (x, y, color, etc.).
 /// * `mark` - The specific visual mark configuration. Is `None` when `T` is [NoMark].
+#[derive(Clone)]
 pub struct Chart<T: Mark = NoMark> {
     pub(crate) data: DataFrameSource,
     pub(crate) encoding: Encoding,
     pub(crate) mark: Option<T>,
-}
-
-/// Manual Clone for the Base Chart.
-/// We only need to implement this for NoMark to support the "Base Chart" pattern.
-impl Clone for Chart<NoMark> {
-    fn clone(&self) -> Self {
-        Self {
-            // DataFrameSource usually contains an Arc<DataFrame>, so this is shallow and fast.
-            data: self.data.clone(),
-
-            // Encoding now derives Clone successfully thanks to our ResolvedScale wrapper.
-            encoding: self.encoding.clone(),
-
-            // NoMark is always None.
-            mark: None,
-        }
-    }
 }
 
 impl Chart<NoMark> {
@@ -685,7 +669,7 @@ impl<T: Mark> Chart<T> {
 impl<T> Layer for Chart<T>
 where
     T: crate::mark::Mark + Send + Sync,
-    Chart<T>: MarkRenderer,
+    Chart<T>: MarkRenderer + Clone,
 {
     /// Determines if this specific layer needs coordinate axes.
     fn requires_axes(&self) -> bool {

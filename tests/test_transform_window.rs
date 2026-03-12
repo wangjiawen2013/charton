@@ -24,11 +24,9 @@ fn tests_transform_window_1() -> Result<(), Box<dyn Error>> {
         .configure_line(|l| l.with_interpolation("step")) // Add step interpolation
         .encode((x("sepal_length"), y("ecdf"), color("species")))?;
 
-    // Create layered chart for display
-    LayeredChart::new()
+    chart
         .with_size(600, 400)
         .with_title("Empirical Cumulative Distribution")
-        .add_layer(chart)
         .save("./tests/transform_window_1.svg")?;
 
     Ok(())

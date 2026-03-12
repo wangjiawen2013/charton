@@ -13,7 +13,7 @@ fn test_text_1() -> Result<(), Box<dyn Error>> {
     ]?;
 
     // Create a text chart showing countries with GDP vs Population using the new API
-    let text_chart = Chart::build(&df)?
+    Chart::build(&df)?
         .mark_text()?
         .configure_text(|t| t.with_size(16.0))
         .encode((
@@ -21,14 +21,10 @@ fn test_text_1() -> Result<(), Box<dyn Error>> {
             y("Population"),
             text("Country"),
             color("Continent"),
-        ))?;
-
-    // Create a layered chart and add the text chart as a layer
-    LayeredChart::new()
+        ))?
         .with_size(600, 400)
         .with_x_label("GDP (Trillion USD)")
         .with_y_label("Population (Millions)")
-        .add_layer(text_chart)
         .coord_flip()
         .save("./tests/text_1.svg")?;
 
