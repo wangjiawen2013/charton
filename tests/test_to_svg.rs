@@ -9,7 +9,11 @@ fn test_scatter_1() -> Result<(), Box<dyn std::error::Error>> {
         "c" => ["USA", "USA", "Europe", "USA", "Japan"],
     ]?;
 
-    Chart::build(&df)?.mark_point()?.encode((x("a"), y("b")))?.with_size(500, 400).to_svg()?;
+    Chart::build(&df)?
+        .mark_point()?
+        .encode((x("a"), y("b")))?
+        .with_size(500, 400)
+        .to_svg()?;
 
     Ok(())
 }

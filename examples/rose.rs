@@ -14,11 +14,13 @@ fn main() -> Result<(), Box<dyn Error>> {
     // 2. Build the bar chart
     // In a Polar Coordinate system, x-axis maps to the Angle (theta)
     // and y-axis maps to the Radius (r).
-    Chart::build(&df)?.mark_bar()?.encode((
-        x("type"),     // Each category represents a slice of the circle
-        y("value"),    // The height of the bar becomes the radius of the slice
-        color("type"), // Distinct colors for each "petal"
-    ))?
+    Chart::build(&df)?
+        .mark_bar()?
+        .encode((
+            x("type"),     // Each category represents a slice of the circle
+            y("value"),    // The height of the bar becomes the radius of the slice
+            color("type"), // Distinct colors for each "petal"
+        ))?
         .with_y_label("Intensity")
         // CoordSystem::Polar transforms the rectangular bar chart into a Rose Chart
         .with_coord(CoordSystem::Polar)

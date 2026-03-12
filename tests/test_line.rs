@@ -12,11 +12,13 @@ fn test_line_1() -> Result<(), Box<dyn Error>> {
     ]?;
 
     // Create a point chart with only a, b, and color encodings
-    Chart::build(&df)?.mark_line()?.encode((
-        x("a"),
-        y("b"),
-        //color("category"),
-    ))?
+    Chart::build(&df)?
+        .mark_line()?
+        .encode((
+            x("a"),
+            y("b"),
+            //color("category"),
+        ))?
         .with_size(500, 300)
         .save("./tests/line_1.svg")?;
 
@@ -66,11 +68,13 @@ fn test_line_3() -> Result<(), Box<dyn Error>> {
     ]?;
 
     // Create a line chart with multiple groups
-    Chart::build(&df)?.mark_line()?.encode((
-        x("a"),
-        y("b"),
-        color("category"), // This creates separate lines for each category
-    ))?
+    Chart::build(&df)?
+        .mark_line()?
+        .encode((
+            x("a"),
+            y("b"),
+            color("category"), // This creates separate lines for each category
+        ))?
         .with_size(600, 400)
         .coord_flip()
         .save("./tests/line_3.svg")?;
@@ -94,11 +98,13 @@ fn test_line_4() -> Result<(), Box<dyn Error>> {
     ]?;
 
     // Create a line chart with multiple groups
-    Chart::build(&df)?.mark_line()?.encode((
-        x("a"),
-        y("b"),
-        color("category"), // This creates separate lines for each category
-    ))?
+    Chart::build(&df)?
+        .mark_line()?
+        .encode((
+            x("a"),
+            y("b"),
+            color("category"), // This creates separate lines for each category
+        ))?
         .with_size(500, 400)
         .save("./tests/line_4.svg")?;
 

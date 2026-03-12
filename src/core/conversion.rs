@@ -1,36 +1,42 @@
 use crate::chart::Chart;
-use crate::core::layer::Layer;
-use crate::core::composite::LayeredChart;
-use crate::mark::Mark;
 use crate::coordinate::CoordSystem;
+use crate::core::composite::LayeredChart;
+use crate::core::layer::Layer;
+use crate::error::ChartonError;
+use crate::mark::Mark;
 use crate::scale::{Expansion, ScaleDomain};
 use crate::theme::Theme;
-use crate::error::ChartonError;
 
 /// A unified interface for configuring and rendering visualizations and API.
-/// 
-/// This trait enables "Type Promotion": calling these methods on a single [Chart] 
-/// automatically converts it into a [LayeredChart] container. Because [LayeredChart] 
-/// also implements this trait, you can chain these methods regardless of the 
+///
+/// This trait enables "Type Promotion": calling these methods on a single [Chart]
+/// automatically converts it into a [LayeredChart] container. Because [LayeredChart]
+/// also implements this trait, you can chain these methods regardless of the
 /// underlying structure.
 pub trait IntoLayered: Into<LayeredChart> + Clone {
     /// Combines this visual with another one to create a multi-layer specification.
-    /// 
-    /// This is the core of Charton's "Layering Grammar." It accepts anything 
-    /// that can be converted into a [LayeredChart] (e.g., another [Chart] or 
+    ///
+    /// This is the core of Charton's "Layering Grammar." It accepts anything
+    /// that can be converted into a [LayeredChart] (e.g., another [Chart] or
     /// an existing [LayeredChart]).
     fn and<L: Into<LayeredChart>>(self, other: L) -> LayeredChart {
         let mut lc: LayeredChart = self.into();
         let mut other_lc: LayeredChart = other.into();
-        
+
         // 1. Merge layers
         lc.layers.append(&mut other_lc.layers);
-        
+
         // 2. Resolve metadata (Optional: Left-side priority)
         // If the left side doesn't have a title/label, take it from the right side.
-        if lc.title.is_none() { lc.title = other_lc.title; }
-        if lc.x_label.is_none() { lc.x_label = other_lc.x_label; }
-        if lc.y_label.is_none() { lc.y_label = other_lc.y_label; }
+        if lc.title.is_none() {
+            lc.title = other_lc.title;
+        }
+        if lc.x_label.is_none() {
+            lc.x_label = other_lc.x_label;
+        }
+        if lc.y_label.is_none() {
+            lc.y_label = other_lc.y_label;
+        }
 
         lc
     }
@@ -222,21 +228,20 @@ pub trait IntoLayered: Into<LayeredChart> + Clone {
         let lc: LayeredChart = self.clone().into();
         lc.save(path)
     }
-   
 }
 
 // Enable the trait for Chart
-impl<T: crate::mark::Mark + 'static> IntoLayered for crate::chart::Chart<T> 
-where 
-    crate::chart::Chart<T>: crate::core::layer::Layer + Clone 
-{}
+impl<T: crate::mark::Mark + 'static> IntoLayered for crate::chart::Chart<T> where
+    crate::chart::Chart<T>: crate::core::layer::Layer + Clone
+{
+}
 
 // Enable the trait for LayeredChart (Identical conversion)
 impl IntoLayered for LayeredChart {}
 
-impl<T: Mark + 'static> From<Chart<T>> for LayeredChart 
+impl<T: Mark + 'static> From<Chart<T>> for LayeredChart
 where
-    Chart<T>: Layer + Clone
+    Chart<T>: Layer + Clone,
 {
     /// Converts a single-layer chart into a layered chart by adding it as the first layer.
     ///

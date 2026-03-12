@@ -33,15 +33,11 @@ fn main() -> Result<(), Box<dyn Error>> {
     println!("DataFrame: {:?}", df);
 
     // 3. Build the chart
-    Chart::build(&df)?.mark_point()?.encode((
-        x("date"),
-        y("value"),
-    ))?
+    Chart::build(&df)?
+        .mark_point()?
+        .encode((x("date"), y("value")))?
         .with_size(500, 400)
-        .configure_theme(|t| {
-            t.with_x_tick_label_angle(-45.0)
-                .with_tick_label_size(12.0)
-        })
+        .configure_theme(|t| t.with_x_tick_label_angle(-45.0).with_tick_label_size(12.0))
         .save("docs/src/images/time_scale.svg")?;
 
     Ok(())

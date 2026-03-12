@@ -10,11 +10,13 @@ fn main() -> Result<(), Box<dyn Error>> {
     ]?;
 
     // Create donut chart
-    Chart::build(&df)?.mark_bar()?.encode((
-        x(""),             // x encoding for donut chart (empty string for donut chart)
-        y("value"),        // theta encoding for donut slices
-        color("category"), // color encoding for different segments
-    ))?
+    Chart::build(&df)?
+        .mark_bar()?
+        .encode((
+            x(""),             // x encoding for donut chart (empty string for donut chart)
+            y("value"),        // theta encoding for donut slices
+            color("category"), // color encoding for different segments
+        ))?
         .with_coord(CoordSystem::Polar)
         .save("docs/src/images/pie.svg")?;
 

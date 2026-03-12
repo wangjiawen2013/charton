@@ -19,7 +19,8 @@ fn main() -> Result<(), Box<dyn Error>> {
     ))?;
 
     // 4. Create the multiple layered Chart
-    errorbar.and(bar)
+    errorbar
+        .and(bar)
         .with_size(600, 400)
         .with_title("Grouped Error Bars with Mean & Std Dev")
         .save("docs/src/images/grouped_bar_with_errorbar_1.svg")?;

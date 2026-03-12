@@ -27,7 +27,9 @@ fn main() -> Result<(), Box<dyn Error>> {
         .encode((x("type"), y("value"), color("group")))?;
 
     // Create a layered chart
-    errorbar.and(bar).save("docs/src/images/grouped_bar_with_errorbar_2.svg")?;
+    errorbar
+        .and(bar)
+        .save("docs/src/images/grouped_bar_with_errorbar_2.svg")?;
 
     Ok(())
 }

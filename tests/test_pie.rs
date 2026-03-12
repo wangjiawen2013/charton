@@ -11,11 +11,13 @@ fn test_pie() -> Result<(), Box<dyn Error>> {
     ]?;
 
     // Create donut chart
-    Chart::build(&df)?.mark_bar()?.encode((
-        x(""),             // x encoding for donut chart (empty string for donut chart)
-        y("value"),        // theta encoding for donut slices
-        color("category"), // color encoding for different segments
-    ))?
+    Chart::build(&df)?
+        .mark_bar()?
+        .encode((
+            x(""),             // x encoding for donut chart (empty string for donut chart)
+            y("value"),        // theta encoding for donut slices
+            color("category"), // color encoding for different segments
+        ))?
         .with_coord(CoordSystem::Polar)
         .save("./tests/pie.svg")?;
 
@@ -31,11 +33,13 @@ fn test_donut() -> Result<(), Box<dyn Error>> {
     ]?;
 
     // Create donut chart
-    Chart::build(&df)?.mark_bar()?.encode((
-        x(""),             // x encoding for donut chart (empty string for donut chart)
-        y("value"),        // theta encoding for donut slices
-        color("category"), // color encoding for different segments
-    ))?
+    Chart::build(&df)?
+        .mark_bar()?
+        .encode((
+            x(""),             // x encoding for donut chart (empty string for donut chart)
+            y("value"),        // theta encoding for donut slices
+            color("category"), // color encoding for different segments
+        ))?
         .with_coord(CoordSystem::Polar)
         .with_inner_radius(0.5) // Creates a donut chart
         .save("./tests/donut.svg")?;
@@ -72,11 +76,13 @@ fn test_nightingale() -> Result<(), Box<dyn Error>> {
     ]?;
 
     // Create a bar chart with color encoding
-    Chart::build(&df)?.mark_bar()?.encode((
-        x("Month"),
-        y("Revenue").with_stack(true).with_normalize(false),
-        color("Region"),
-    ))?
+    Chart::build(&df)?
+        .mark_bar()?
+        .encode((
+            x("Month"),
+            y("Revenue").with_stack(true).with_normalize(false),
+            color("Region"),
+        ))?
         .with_title("Colored Bar Chart Example")
         .with_coord(CoordSystem::Polar)
         .save("./tests/nightingale.svg")?;
