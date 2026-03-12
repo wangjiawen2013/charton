@@ -11,7 +11,6 @@ fn main() -> Result<(), Box<dyn Error>> {
     Chart::build(&df)?
         .mark_point()?
         .encode((x("wt"), y("mpg"), color("gear"), shape("gear"), size("mpg")))?
-        .into_layered()
         .coord_flip()
         .configure_theme(|t| t.with_x_tick_label_angle(-45.0))
         .with_title("abc")

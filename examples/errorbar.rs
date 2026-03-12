@@ -11,18 +11,14 @@ fn main() -> Result<(), Box<dyn Error>> {
     ]?;
 
     // Create error bar chart using transform_calculate to add min/max values
-    let errorbar = Chart::build(&df)?
+    Chart::build(&df)?
         // Use transform_calculate to create ymin and ymax columns based on fixed std values
         .transform_calculate(
             (col("value") - col("value_std")).alias("value_min"), // ymin = y - std
             (col("value") + col("value_std")).alias("value_max"), // ymax = y + std
         )?
         .mark_errorbar()?
-        .encode((x("type"), y("value_min"), y2("value_max")))?;
-
-    // Create a layered chart and add the errorbar chart as a layer
-    LayeredChart::new()
-        .add_layer(errorbar)
+        .encode((x("type"), y("value_min"), y2("value_max")))?
         .coord_flip()
         .save("docs/src/images/errorbar.svg")?;
 

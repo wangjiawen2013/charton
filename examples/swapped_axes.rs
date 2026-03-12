@@ -10,18 +10,14 @@ fn main() -> Result<(), Box<dyn Error>> {
     ]?;
 
     // Create a bar chart with color encoding
-    let colored_bar_chart = Chart::build(&df)?
+    Chart::build(&df)?
         .mark_bar()?
         .configure_bar(|b| {
             b.with_stroke("black")
                 .with_stroke_width(1.0)
                 .with_width(0.5)
         })
-        .encode((x("Month"), y("Revenue").with_stack(false), color("Region")))?;
-
-    // Create a layered chart for colored bars
-    LayeredChart::new()
-        .add_layer(colored_bar_chart)
+        .encode((x("Month"), y("Revenue").with_stack(false), color("Region")))?
         .coord_flip()
         .save("docs/src/images/swapped_axes.svg")?;
 

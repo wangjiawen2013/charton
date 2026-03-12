@@ -40,7 +40,6 @@ fn main() -> Result<(), Box<dyn Error>> {
     Chart::build(&df_melted)?
         .mark_boxplot()?
         .encode((x("variable"), y("value"), color("species")))?
-        .into_layered()
         .save("docs/src/images/grouped_boxplot.svg")?;
 
     Ok(())

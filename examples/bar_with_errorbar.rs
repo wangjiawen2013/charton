@@ -24,9 +24,7 @@ fn main() -> Result<(), Box<dyn Error>> {
         .encode((x("type"), y("value")))?;
 
     // Create a layered chart and add the errorbar chart as a layer
-    LayeredChart::new()
-        .add_layer(errorbar)
-        .add_layer(bar)
+    errorbar.and(bar)
         .with_y_label("value")
         .save("docs/src/images/bar_with_errorbar.svg")?;
 

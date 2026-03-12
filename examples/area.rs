@@ -17,11 +17,10 @@ fn main() -> Result<(), Box<dyn Error>> {
         .encode((x("depth"), y("net_generation"), color("source")))?;
 
     // Create a layered chart for the area
-    LayeredChart::new()
+    area_chart
         .with_title("Electricity Generation")
         .with_x_label("Depth")
         .with_y_label("Net Generation")
-        .add_layer(area_chart)
         .save("docs/src/images/area.svg")?;
 
     Ok(())
