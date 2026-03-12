@@ -51,7 +51,8 @@ fn test_empty_2() -> Result<(), Box<dyn Error>> {
             .mark_point()?
             .encode((x("a"), y("b"), shape("category")))?;
 
-    point_chart.and(empty_chart)
+    point_chart
+        .and(empty_chart)
         .with_size(500, 300)
         .save("./tests/empty_2.svg")?;
 

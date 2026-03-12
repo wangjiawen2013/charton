@@ -41,11 +41,9 @@ fn test_scatter_2() -> Result<(), Box<dyn Error>> {
         "category" => ["A123XY", "B", "C", "D", "E", "F", "G", "H", "I", "J", "K", "L", "M", "N", "O", "P", "Q", "R"]
     ]?;
 
-    Chart::build(&df)?.mark_point()?.encode((
-        x("a"),
-        y("b"),
-        shape("category"),
-    ))?
+    Chart::build(&df)?
+        .mark_point()?
+        .encode((x("a"), y("b"), shape("category")))?
         .with_size(500, 300)
         .save("./tests/scatter_2.svg")?;
 
@@ -171,10 +169,12 @@ fn test_scatter_8() -> Result<(), Box<dyn Error>> {
         "population" => [100000.0, 500000.0, 2000000.0, 10000000.0, 50000000.0]
     ]?;
 
-    Chart::build(&df)?.mark_point()?.encode((
-        x("population"),
-        y("gdp").with_scale(Scale::Log), // Use logarithmic scale for GDP
-    ))?
+    Chart::build(&df)?
+        .mark_point()?
+        .encode((
+            x("population"),
+            y("gdp").with_scale(Scale::Log), // Use logarithmic scale for GDP
+        ))?
         .with_size(500, 400)
         .save("./tests/scatter_8.svg")?;
 
@@ -192,10 +192,7 @@ fn test_scatter_9() -> Result<(), Box<dyn Error>> {
     // Create a point chart
     Chart::build(&df)?
         .mark_point()?
-        .encode((
-            x("department"),
-            y("salary"),
-        ))?
+        .encode((x("department"), y("salary")))?
         .with_size(600, 400)
         .with_title("Salary by Department")
         .save("./tests/scatter_9.svg")?;
@@ -238,13 +235,15 @@ fn test_scatter_11() -> Result<(), Box<dyn Error>> {
     ]?;
 
     // Create a chart with shape encoding using the categorical variable
-    Chart::build(&df)?.mark_point()?.encode((
-        x("a"),
-        y("b"),
-        //size("x"),
-        shape("category"), // This will trigger the shape legend
-        color("category"), // This will trigger the shape legend
-    ))?
+    Chart::build(&df)?
+        .mark_point()?
+        .encode((
+            x("a"),
+            y("b"),
+            //size("x"),
+            shape("category"), // This will trigger the shape legend
+            color("category"), // This will trigger the color legend
+        ))?
         .with_size(500, 300)
         .with_title("Chart with Shape Legend")
         .save("./tests/scatter_11.svg")?;
