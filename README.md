@@ -28,7 +28,7 @@ polars = "0.49.1"
 ## Quick Start (Rust-Native)
 Charton employs a multi-layer plotting architecture, in which multiple layers are rendered within a shared coordinate system.  
 
-For most use cases involving single-layer charts, Charton provides a streamlined interface. The `.into_layered()` method allows you to convert a single chart layer directly into a complete, renderable chart.
+For most use cases involving single-layer charts, Charton provides a streamlined interface.
 
 ```rust
 use charton::prelude::*;
@@ -49,7 +49,6 @@ fn main() -> Result<(), Box<dyn Error>> {
             x("length"),            // Map length column to X-axis
             y("width"),             // Map width column to Y-axis
         ))?
-        .into_layered()             // Create a layered chart
         .save("./scatter.svg")?;
 
     Ok(())
@@ -57,37 +56,6 @@ fn main() -> Result<(), Box<dyn Error>> {
 ```
 
 ![scatterplot](assets/scatter.svg)
-> 💡 Tip: `Chart::build(...)...into_layered()` is the most concise way to create and save single-layer visualizations.
-
-**Explicit form**: The code above is equivalent to the following explicit construction using LayeredChart. Use this form when you need to combine multiple layers or want more control over the chart structure.
-
-```rust
-use charton::prelude::*;
-use polars::prelude::*;
-use std::error::Error;
-
-fn main() -> Result<(), Box<dyn Error>> {
-    // Create a polars dataframe
-    let df = df![
-        "length" => [5.1, 4.9, 4.7, 4.6, 5.0, 5.4, 4.6, 5.0, 4.4, 4.9],
-        "width" => [3.5, 3.0, 3.2, 3.1, 3.6, 3.9, 3.4, 3.4, 2.9, 3.1]
-    ]?;
-
-    // Create a layer
-    let scatter = Chart::build(&df)?
-        .mark_point()?              // Scatter plot
-        .encode((
-            x("length"),            // Map length column to X-axis
-            y("width"),             // Map width column to Y-axis
-        ))?;
-
-    LayeredChart::new()             // Create a layered chart
-        .add_layer(scatter)         // Add the chart as a layer of the layered chart
-        .save("./scatter.svg")?;    // Save the layered chart
-
-    Ok(())
-}
-```
 
 For more complex plots, you can use the layered chart to combine multiple layers.
 
@@ -119,10 +87,7 @@ fn main() -> Result<(), Box<dyn Error>> {
             y("width"),                     // Map width column to Y-axis
         ))?;
 
-    LayeredChart::new()       
-        .add_layer(line)                    // Add the line layer
-        .add_layer(scatter)                 // Add the scatter point layer
-        .save("./layeredchart.svg")?;
+    line.and(scatter).save("./layeredchart.svg")?;
 
     Ok(())
 }
@@ -204,8 +169,6 @@ Chart::build(&df)?
         x("length"),
         y("width"),
     ))?
-    // Convert the layer to a layered chart
-    .into_layered()
     .show()?;
 ```
 

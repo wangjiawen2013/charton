@@ -32,24 +32,12 @@ fn main() -> Result<(), Box<dyn Error>> {
     let df = DataFrame::new(vec![date_series.into(), val_series.into()])?;
     println!("DataFrame: {:?}", df);
 
-    // 3. Build the chart configuration
-    // By setting the scale to Temporal, Charton will use your new adaptive tick logic.
-    let temporal_chart = Chart::build(&df)?.mark_point()?.encode((
-        //x("date").with_scale(Scale::Temporal),
-        x("date"),
-        y("value"),
-    ))?;
-
-    // 4. Render to SVG
-    // With a width of 600px, your 50px-step logic will request ~12 ticks.
-    // The TemporalScale will realize it has enough room for monthly or quarterly labels.
-    LayeredChart::new()
+    // 3. Build the chart
+    Chart::build(&df)?
+        .mark_point()?
+        .encode((x("date"), y("value")))?
         .with_size(500, 400)
-        .add_layer(temporal_chart)
-        .configure_theme(|t| {
-            t.with_x_tick_label_angle(-45.0) // Rotate labels to handle longer date strings
-                .with_tick_label_size(12.0)
-        })
+        .configure_theme(|t| t.with_x_tick_label_angle(-45.0).with_tick_label_size(12.0))
         .save("docs/src/images/time_scale.svg")?;
 
     Ok(())

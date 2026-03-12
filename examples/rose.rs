@@ -11,18 +11,16 @@ fn main() -> Result<(), Box<dyn Error>> {
         "value" => [3.0, 11.5, 4.2, 9.8, 2.5, 7.0],
     ]?;
 
-    // 2. Build the bar chart layer.
+    // 2. Build the bar chart
     // In a Polar Coordinate system, x-axis maps to the Angle (theta)
     // and y-axis maps to the Radius (r).
-    let bar = Chart::build(&df)?.mark_bar()?.encode((
-        x("type"),     // Each category represents a slice of the circle
-        y("value"),    // The height of the bar becomes the radius of the slice
-        color("type"), // Distinct colors for each "petal"
-    ))?;
-
-    // 3. Assemble the layered chart and apply Polar Transformation.
-    LayeredChart::new()
-        .add_layer(bar)
+    Chart::build(&df)?
+        .mark_bar()?
+        .encode((
+            x("type"),     // Each category represents a slice of the circle
+            y("value"),    // The height of the bar becomes the radius of the slice
+            color("type"), // Distinct colors for each "petal"
+        ))?
         .with_y_label("Intensity")
         // CoordSystem::Polar transforms the rectangular bar chart into a Rose Chart
         .with_coord(CoordSystem::Polar)

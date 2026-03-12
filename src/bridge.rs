@@ -149,7 +149,7 @@ pub mod base {
 
     /// A marker trait for visualization library renderers.
     ///
-    /// This trait serves as a common interface for different visualization backends
+    /// This trait serves as a common interface for different visualization tools
     /// that can be used to render plots. It doesn't define any methods itself, but
     /// acts as a type-level marker to ensure type safety when working with different
     /// rendering engines.
@@ -159,13 +159,13 @@ pub mod base {
     /// - `Matplotlib`: For creating plots using the Matplotlib library
     ///
     /// This trait is used in conjunction with the `Plot` struct to enable generic
-    /// programming over different visualization backends.
+    /// programming over different visualization tools.
     pub trait Renderer {}
 
-    /// A marker struct representing the Altair visualization library backend.
+    /// A marker struct representing the Altair visualization library.
     ///
     /// This struct implements the `Renderer` trait and serves as a marker type
-    /// to indicate that Altair should be used as the visualization backend.
+    /// to indicate that Altair should be used as the visualization tool.
     /// Altair is a statistical visualization library based on Vega-Lite that
     /// provides a declarative interface for creating interactive visualizations.
     ///
@@ -180,10 +180,10 @@ pub mod base {
     pub struct Altair {}
     impl Renderer for Altair {}
 
-    /// A marker struct representing the Matplotlib visualization library backend.
+    /// A marker struct representing the Matplotlib visualization library.
     ///
     /// This struct implements the `Renderer` trait and serves as a marker type
-    /// to indicate that Matplotlib should be used as the visualization backend.
+    /// to indicate that Matplotlib should be used as the visualization tool.
     /// Matplotlib is a comprehensive library for creating static, animated, and
     /// interactive visualizations in Python.
     ///
@@ -200,7 +200,7 @@ pub mod base {
 
     /// A trait that defines the core functionality for visualization libraries.
     ///
-    /// This trait specifies the essential methods that any visualization backend
+    /// This trait specifies the essential methods that any visualization tool
     /// must implement to integrate with the bridge system. It provides a unified
     /// interface for creating, configuring, and executing visualizations across
     /// different rendering engines such as Altair or Matplotlib.
@@ -288,12 +288,12 @@ pub mod base {
         fn execute_plotting_code(&self, code: &str) -> Result<String, ChartonError>;
     }
 
-    /// A generic struct for creating visualizations using different rendering backends.
+    /// A generic struct for creating visualizations using different rendering tools.
     ///
     /// This struct represents a visualization that can be rendered using various
     /// visualization libraries (renderers) such as Altair or Matplotlib. It uses
     /// Rust's generics and the `Renderer` trait to provide a flexible interface
-    /// for switching between different visualization backends at compile time.
+    /// for switching between different visualization tools at compile time.
     ///
     /// The struct holds the data to be visualized, the path to the execution environment,
     /// the plotting code to be run, and uses `PhantomData` to maintain type information

@@ -33,6 +33,7 @@ pub mod prelude {
 
     pub use crate::chart::Chart;
     pub use crate::core::composite::LayeredChart;
+    pub use crate::core::conversion::IntoLayered;
     pub use crate::scale::{Expansion, Scale};
 
     pub use crate::coordinate::CoordSystem;

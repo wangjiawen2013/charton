@@ -23,11 +23,9 @@ fn main() -> Result<(), Box<dyn Error>> {
         .mark_line()?
         .encode((x("type"), y("value")))?;
 
-    // Create a layered chart and add the errorbar chart as a layer
-    LayeredChart::new()
-        .add_layer(line)
-        .add_layer(errorbar)
-        .save("docs/src/images/line_with_errorbar.svg")?;
+    // Create a layered chart
+    let chart = errorbar.and(line);
+    chart.save("docs/src/images/line_with_errorbar.svg")?;
 
     Ok(())
 }

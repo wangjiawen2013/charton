@@ -12,18 +12,14 @@ fn test_area_1() -> Result<(), Box<dyn Error>> {
     ]?;
 
     // Create an area chart
-    let area_chart = Chart::build(&df)?
+    Chart::build(&df)?
         .mark_area()?
         .configure_area(|a| a.with_opacity(0.3).with_stroke("black"))
-        .encode((x("year"), y("net_generation"), color("source")))?;
-
-    // Create a layered chart for the area
-    LayeredChart::new()
+        .encode((x("year"), y("net_generation"), color("source")))?
         .with_size(600, 400)
         .with_title("Iowa Electricity Generation")
         .with_x_label("Year")
         .with_y_label("Net Generation")
-        .add_layer(area_chart)
         .save("./tests/area_1.svg")?;
 
     Ok(())
@@ -63,12 +59,11 @@ fn test_area_2() -> Result<(), Box<dyn Error>> {
         .configure_area(|a| a.with_color("purple").with_opacity(0.3))
         .encode((x("IMDB_Rating"), y("cumulative_density")))?;
 
-    LayeredChart::new()
+    chart
         .with_size(600, 400)
         .with_title("Cumulative Density Estimation")
         .with_x_label("IMDB Rating")
         .with_y_label("Cumulative Density")
-        .add_layer(chart)
         .save("./tests/area_2.svg")?;
 
     Ok(())

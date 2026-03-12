@@ -26,10 +26,9 @@ fn main() -> Result<(), Box<dyn Error>> {
         .mark_bar()?
         .encode((x("type"), y("value"), color("group")))?;
 
-    // Create a layered chart and add the errorbar chart as a layer
-    LayeredChart::new()
-        .add_layer(errorbar)
-        .add_layer(bar)
+    // Create a layered chart
+    errorbar
+        .and(bar)
         .save("docs/src/images/grouped_bar_with_errorbar_2.svg")?;
 
     Ok(())
