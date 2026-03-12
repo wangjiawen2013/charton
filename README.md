@@ -10,6 +10,75 @@
 
 **Charton** is a powerful plotting library for Rust that provides first-class, native support for [Polars](https://github.com/pola-rs/polars), and offers an API similar to Python's [Altair](https://altair-viz.github.io/), making it easy for users familiar with declarative, instruction-based plotting to migrate. It also allows you to leverage existing mature visualization ecosystems, such as Altair and [Matplotlib](https://matplotlib.org). By seamlessly integrating with [evcxr_jupyter](https://github.com/evcxr/evcxr), Charton facilitates the creation of informative and aesthetically pleasing visualizations interactively, making it especially well-suited for exploratory data analysis.
 
+## Quick Start
+Charton provides a high-level, declarative API for Polars. Standard visualizations can be generated using a concise one-liner syntax:
+
+```rust
+// Data preparation: Hooke's Law (Force vs. Extension)
+let df = df![
+    "force" => [1.0, 2.0, 3.0, 4.0, 5.0], 
+    "extension"   => [1.2, 2.3, 3.1, 4.4, 5.2]
+]?;
+
+// One-liner plotting
+Chart::build(&df)?.mark_point()?.encode((x("force"), y("extension")))?.save("output.svg")?;
+```
+
+## Layered Grammar
+Inspired by the Grammar of Graphics (as seen in `ggplot2` and `Altair`), Charton replaces rigid templates with a modular, layer-based system. Visualizations are constructed by stacking atomic marks, offering infinite flexibility beyond fixed chart types.
+
+```rust
+// Create individual layers
+let line = Chart::build(&df)?
+    .mark_line()?
+    .encode((x("force"), y("extension")))?;
+
+let points = Chart::build(&df)?
+    .mark_point()?
+    .encode((x("force"), y("extension")))?;
+
+// Combine into a composite chart
+line.and(points).save("layered.svg")?;
+```
+
+## Interactive Notebooks (Jupyter)
+Charton integrates with evcxr_jupyter for interactive data exploration. Replacing .save() with .show() renders SVGs directly within notebook cells:
+
+```rust
+Chart::build(&df)?
+    .mark_line()?
+    .encode((x("force"), y("extension")))?
+    .show()?;
+```
+
+## WebAssembly and Frontend
+
+## Industrial-Grade Visualization
+Charton scales the Grammar of Graphics to heavy-duty production. Adopting the same proven philosophy as ggplot2, Altair, and the evolving ECharts validates the architecture as the industry standard. Beyond layering, it delivers strict type safety and zero-copy integration with Polars for robust pipelines under extreme loads.
+
+## Publish Quality
+Designed for precision, Charton provides pixel-perfect control over complex marks. Whether it is a multi-layered ErrorBar for medical research or a high-density scatter plot for bioinformatics, Charton delivers the aesthetic rigor required by top-tier journals like Nature, Science, and Cell.
+
+## Performance Benchmark
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
 ## 🌟 Who Charton is For?
 - **Data Scientists:** Generate visualizations directly in Rust after data processing-no more context-switching to Python.
 - **Performance-sensitive scenarios:** Pure Rust rendering with no external dependencies, perfect for server-side batch generation.
