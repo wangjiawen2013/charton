@@ -28,7 +28,7 @@ polars = "0.49.1"
 ## Quick Start (Rust-Native)
 Charton employs a multi-layer plotting architecture, in which multiple layers are rendered within a shared coordinate system.  
 
-For most use cases involving single-layer charts, Charton provides a streamlined interface. The `.into_layered()` method allows you to convert a single chart layer directly into a complete, renderable chart.
+For most use cases involving single-layer charts, Charton provides a streamlined interface.
 
 ```rust
 use charton::prelude::*;
