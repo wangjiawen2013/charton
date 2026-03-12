@@ -12,23 +12,17 @@ fn test_errorbar_1() -> Result<(), Box<dyn Error>> {
     ]?;
 
     // Create error bar chart
-    let errorbar_chart = Chart::build(&df)?
+    Chart::build(&df)?
         .mark_errorbar()?
-        .configure_errorbar(
-            |e| {
-                e.with_color("blue")
-                    .with_stroke_width(2.0)
-                    .with_cap_length(5.0)
-                    .with_center(true)
-            }, // Show center point
-        )
-        .encode((x("x"), y("y")))?;
-
-    // Create a layered chart and add the errorbar chart as a layer
-    LayeredChart::new()
+        .configure_errorbar(|e| {
+            e.with_color("blue")
+                .with_stroke_width(2.0)
+                .with_cap_length(5.0)
+                .with_center(true)
+        })
+        .encode((x("x"), y("y")))?
         .with_size(500, 400)
         .with_title("Error Bar Chart with Mean and Std Dev")
-        .add_layer(errorbar_chart)
         .save("./tests/errorbar_1.svg")?;
 
     Ok(())
@@ -58,11 +52,10 @@ fn test_errorbar_2() -> Result<(), Box<dyn Error>> {
     ))?;
 
     // 4. Create the Layered Chart
-    LayeredChart::new()
+    errorbar_layer
+        .and(bar_layer)
         .with_size(600, 400)
         .with_title("Grouped Error Bars with Mean & Std Dev")
-        .add_layer(errorbar_layer) // Error bars on top
-        .add_layer(bar_layer) // Layer bars first
         .save("./tests/errorbar_2.svg")?;
 
     Ok(())

@@ -9,7 +9,7 @@ fn main() -> Result<(), Box<dyn Error>> {
         .finish()?;
 
     // Create a chart with window transform
-    let chart = Chart::build(&df.select(["species", "sepal_length"])?)?
+    Chart::build(&df.select(["species", "sepal_length"])?)?
         .transform_window(
             WindowTransform::new(WindowFieldDef::new(
                 "sepal_length",
@@ -21,12 +21,8 @@ fn main() -> Result<(), Box<dyn Error>> {
         )?
         .mark_line()?
         .configure_line(|l| l.with_interpolation("step")) // Add step interpolation
-        .encode((x("sepal_length"), y("ecdf"), color("species")))?;
-
-    // Create layered chart for display
-    LayeredChart::new()
+        .encode((x("sepal_length"), y("ecdf"), color("species")))?
         .with_title("Empirical Cumulative Distribution")
-        .add_layer(chart)
         .save("docs/src/images/cumulative_frequency.svg")?;
 
     Ok(())

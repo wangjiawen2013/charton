@@ -25,11 +25,9 @@ fn test_bar_1() -> Result<(), Box<dyn Error>> {
             color("Region"),
         ))?;
 
-    // Create a layered chart for colored bars
-    LayeredChart::new()
+    colored_bar_chart
         .with_size(600, 400)
         .with_title("Colored Bar Chart Example")
-        .add_layer(colored_bar_chart)
         .coord_flip()
         .save("./tests/bar_1.svg")?;
 

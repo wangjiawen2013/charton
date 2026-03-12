@@ -18,17 +18,14 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
     ]?;
 
     // Create a line chart with multiple groups
-    let chart = Chart::build(&df)?
+    Chart::build(&df)?
         .mark_line()?
         .configure_line(|l| l.with_loess(true).with_loess_bandwidth(0.2))
         .encode((
             x("x"),
             y("y"),
             color("category"), // This creates separate lines for each category
-        ))?;
-
-    LayeredChart::new()
-        .add_layer(chart)
+        ))?
         .configure_theme(|t| t.with_x_tick_label_angle(-45.0))
         .coord_flip()
         .save("docs/src/images/line.svg")?;

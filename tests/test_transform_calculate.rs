@@ -29,12 +29,9 @@ fn test_transform_calculate_1() -> Result<(), Box<dyn Error>> {
                     .with_center(true)
             }, // Show center point
         );
-
-    // Create a layered chart and add the errorbar chart as a layer
-    LayeredChart::new()
+    errorbar_chart
         .with_size(500, 400)
         .with_title("Error Bar Chart with Mean and Std Dev")
-        .add_layer(errorbar_chart)
         .coord_flip()
         .save("./tests/transform_calculate_1.svg")?;
 

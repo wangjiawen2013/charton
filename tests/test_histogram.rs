@@ -15,7 +15,7 @@ fn test_histogram_1() -> Result<(), Box<dyn Error>> {
     println!("{}", &df_melted);
 
     // Create a histogram chart
-    let histogram_chart = Chart::build(&df_melted.head(Some(200)))?
+    let histogram = Chart::build(&df_melted.head(Some(200)))?
         .mark_hist()?
         .configure_hist(|h| {
             h.with_color("steelblue")
@@ -29,13 +29,11 @@ fn test_histogram_1() -> Result<(), Box<dyn Error>> {
             color("variable"),
         ))?;
 
-    // Create a layered chart for the histogram
-    LayeredChart::new()
+    histogram
         .with_size(600, 400)
         .with_title("Histogram Example")
         .with_x_label("Value")
         .with_y_label("Frequency")
-        .add_layer(histogram_chart)
         .configure_theme(|t| t.with_palette(ColorPalette::Tab10))
         .coord_flip()
         .save("./tests/histogram_1.svg")?;

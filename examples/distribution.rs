@@ -35,11 +35,10 @@ fn main() -> Result<(), Box<dyn Error>> {
         .configure_area(|a| a.with_color("purple").with_opacity(0.3))
         .encode((x("IMDB_Rating"), y("cumulative_density")))?;
 
-    LayeredChart::new()
+    chart
         .with_title("Cumulative Density Estimation")
         .with_x_label("IMDB Rating")
         .with_y_label("Cumulative Density")
-        .add_layer(chart)
         .save("docs/src/images/distribution.svg")?;
 
     Ok(())

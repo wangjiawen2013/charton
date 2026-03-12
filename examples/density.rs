@@ -13,7 +13,6 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
         .mark_area()?
         .configure_area(|a| a.with_opacity(0.5))
         .encode((x("sepal_length"), y("density"), color("species")))?
-        .into_layered()
         .save("docs/src/images/density.svg")?;
 
     Ok(())

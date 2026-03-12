@@ -10,7 +10,7 @@ fn test_empty_1() -> Result<(), Box<dyn Error>> {
     ]?;
 
     // Create a chart with empty data
-    let empty_chart = Chart::build(&df)?
+    Chart::build(&df)?
         .mark_point()?
         .configure_point(|p| {
             p.with_stroke_width(1.0)
@@ -20,12 +20,8 @@ fn test_empty_1() -> Result<(), Box<dyn Error>> {
         .encode((
             x("a").with_scale(Scale::Linear),
             y("b").with_scale(Scale::Linear),
-        ))?;
-
-    // Create a layered chart and add the layer
-    LayeredChart::new()
+        ))?
         .with_size(500, 400)
-        .add_layer(empty_chart)
         .coord_flip()
         .save("./tests/empty_1.svg")?;
 
@@ -55,10 +51,9 @@ fn test_empty_2() -> Result<(), Box<dyn Error>> {
             .mark_point()?
             .encode((x("a"), y("b"), shape("category")))?;
 
-    LayeredChart::new()
+    point_chart
+        .and(empty_chart)
         .with_size(500, 300)
-        .add_layer(point_chart)
-        .add_layer(empty_chart)
         .save("./tests/empty_2.svg")?;
 
     Ok(())

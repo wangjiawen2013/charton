@@ -21,9 +21,8 @@
 <text x="77.20" y="144.34" font-size="13" font-family="Inter, -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, 'PingFang SC', 'Microsoft YaHei', Ubuntu, Cantarell, 'Noto Sans', sans-serif" fill="rgba(51,51,51,1.000)" text-anchor="end" dominant-baseline="central">6.0</text>
 <line x1="87.20" y1="83.14" x2="81.20" y2="83.14" stroke="rgba(51,51,51,1.000)" stroke-width="1.0"/>
 <text x="77.20" y="83.14" font-size="13" font-family="Inter, -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, 'PingFang SC', 'Microsoft YaHei', Ubuntu, Cantarell, 'Noto Sans', sans-serif" fill="rgba(51,51,51,1.000)" text-anchor="end" dominant-baseline="central">6.5</text>
-<text x="47.50" y="178.00" text-anchor="middle" font-size="15" font-family="Inter, -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, 'PingFang SC', 'Microsoft YaHei', Ubuntu, Cantarell, 'Noto Sans', sans-serif" fill="rgba(51,51,51,1.000)" font-weight="bold" transform="rotate(-90, 47.50, 178.00)" dominant-baseline="middle">value</text>
+<text x="47.50" y="178.00" text-anchor="middle" font-size="15" font-family="Inter, -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, 'PingFang SC', 'Microsoft YaHei', Ubuntu, Cantarell, 'Noto Sans', sans-serif" fill="rgba(51,51,51,1.000)" font-weight="bold" transform="rotate(-90, 47.50, 178.00)" dominant-baseline="middle">value_min</text>
 <defs><clipPath id="plot-clip-area"><rect x="87.200" y="40.000" width="397.800" height="276.000" /></clipPath></defs>
-<path d="M 105.282 278.976 L 229.984 230.018 L 329.746 205.539 L 466.918 83.144" stroke="rgba(0,0,0,1.000)" stroke-width="2.000" stroke-opacity="1.000" fill="none" stroke-linejoin="round" stroke-linecap="round" clip-path="url(#plot-clip-area)" />
 <line x1="105.282" y1="303.455" x2="105.282" y2="254.497" stroke="rgba(0,0,0,1.000)" stroke-width="1.000" stroke-opacity="1.000" />
 <line x1="102.282" y1="303.455" x2="108.282" y2="303.455" stroke="rgba(0,0,0,1.000)" stroke-width="1.000" stroke-opacity="1.000" />
 <line x1="102.282" y1="254.497" x2="108.282" y2="254.497" stroke="rgba(0,0,0,1.000)" stroke-width="1.000" stroke-opacity="1.000" />
@@ -36,4 +35,5 @@
 <line x1="466.918" y1="113.743" x2="466.918" y2="52.545" stroke="rgba(0,0,0,1.000)" stroke-width="1.000" stroke-opacity="1.000" />
 <line x1="463.918" y1="113.743" x2="469.918" y2="113.743" stroke="rgba(0,0,0,1.000)" stroke-width="1.000" stroke-opacity="1.000" />
 <line x1="463.918" y1="52.545" x2="469.918" y2="52.545" stroke="rgba(0,0,0,1.000)" stroke-width="1.000" stroke-opacity="1.000" />
+<path d="M 105.282 278.976 L 229.984 230.018 L 329.746 205.539 L 466.918 83.144" stroke="rgba(0,0,0,1.000)" stroke-width="2.000" stroke-opacity="1.000" fill="none" stroke-linejoin="round" stroke-linecap="round" clip-path="url(#plot-clip-area)" />
 </svg>

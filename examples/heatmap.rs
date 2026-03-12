@@ -11,13 +11,9 @@ fn main() -> Result<(), Box<dyn Error>> {
     ]?;
 
     // Create heatmap chart
-    let rect_chart = Chart::build(&df)?
+    Chart::build(&df)?
         .mark_rect()?
-        .encode((x("x"), y("y"), color("value")))?;
-
-    // Create a layered chart and add the rect chart as a layer
-    LayeredChart::new()
-        .add_layer(rect_chart)
+        .encode((x("x"), y("y"), color("value")))?
         .save("docs/src/images/heatmap.svg")?;
 
     Ok(())

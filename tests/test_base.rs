@@ -18,18 +18,16 @@ fn test_base() -> Result<(), Box<dyn Error>> {
     // 3. Derive the Line Layer from Base
     // We clone the base and 'specialize' it into a Line chart.
     // The .mark_line() call triggers validation of the existing encodings.
-    let line_layer = base.clone().mark_line()?;
+    let line = base.clone().mark_line()?;
 
     // 4. Derive the Scatter Layer from Base
     // Again, we specialize the base, but this time into a Point chart.
     // This demonstrates the "one-to-many" capability of the Base Pattern.
-    let scatter_layer = base.mark_point()?;
+    let scatter = base.mark_point()?;
 
     // 5. Assemble into a Layered Composition
     // The LayeredChart acts as a container for these specialized specs.
-    let chart = LayeredChart::new()
-        .add_layer(line_layer)
-        .add_layer(scatter_layer);
+    let chart = line.and(scatter);
 
     // 6. Export the final visualization
     chart.save("./tests/base.svg")?;

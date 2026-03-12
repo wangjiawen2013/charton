@@ -23,10 +23,8 @@ fn main() -> Result<(), Box<dyn Error>> {
             color("Region"),
         ))?;
 
-    // Create a layered chart for colored bars
-    LayeredChart::new()
+    colored_bar_chart
         .with_title("Colored Bar Chart Example")
-        .add_layer(colored_bar_chart)
         .save("docs/src/images/grouped_bar.svg")?;
 
     Ok(())
