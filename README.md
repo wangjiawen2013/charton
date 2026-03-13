@@ -41,6 +41,15 @@ let points = Chart::build(&df)?
 line.and(points).save("layered.svg")?;
 ```
 
+Charton perfectly aligns with Rust’s functional programming paradigm, supporting infinite layer composition through fluent chaining or iterator folding. This 'decorator-style' approach makes dynamically generating complex, multi-layered visualizations effortless:
+
+```rust
+let layers = vec![line, points, bar, rect, text, boxplot /* , ... etc */];
+let lc = layers.into_iter()
+    .reduce(|acc, layer| acc.and(layer))
+    .expect("Failed to fold layers");
+```
+
 ## Interactive Notebooks (Jupyter)
 Charton integrates with evcxr_jupyter for interactive data exploration. Replacing .save() with .show() renders SVGs directly within notebook cells:
 
@@ -56,12 +65,16 @@ Chart::build(&df)?
 ## Industrial-Grade Visualization
 Charton scales the Grammar of Graphics to heavy-duty production. By adopting the same proven philosophy as ggplot2, Altair, and the evolving ECharts, it validates its architecture as the industry standard, delivering strict type safety and zero-copy Polars integration for robust pipelines under extreme loads. This is powered by a rigorous Scale Arbitration engine that consolidates data domains into a "Single Source of Truth," ensuring absolute mathematical consistency and seamless cross-plot mapping while eliminating the fragile, hard-coded patches and silent overrides common in template-based tools.
 
+> The figure demonstrtes semantic synchronization in Charton. Heterogeneous samples (points layer) are anchored to a global baseline (bar layer). By enforcing a single mathematical truth across all layers, Charton maintains absolute color consistency, ensuring samples are accurately contextualized within the historical background.
+
 ## Publish Quality
 Designed for precision, Charton provides pixel-perfect control over complex marks. Whether it is a multi-layered ErrorBar for medical research or a high-density scatter plot for bioinformatics, Charton delivers the aesthetic rigor required by top-tier journals like Nature, Science, and Cell.
 
 ## Performance Benchmark
 
 
+## Documentation
+Please go to the [Charton Docs](https://wangjiawen2013.github.io/charton).
 
 
 
@@ -352,37 +365,37 @@ This gallery contains a selection of examples of the plots charton can create. G
         <td><img src="docs/src/images/altair.svg" alt="Altair" /><p align="center">Altair</p></td>
         <td><img src="docs/src/images/matplotlib.png" alt="Matplotlib" /><p align="center">Matplotlib</p></td>
         <td><img src="docs/src/images/grouped_bar.svg" alt="Grouped Bar Chart" /><p align="center">Grouped Bar Chart</p></td>
-        <td><img src="examples/distribution.svg" alt="Distribution" /><p align="center">Distribution</p></td>
+        <td><img src="docs/src/images/distribution.svg" alt="Distribution" /><p align="center">Distribution</p></td>
     </tr>
     <tr>
-        <td><img src="examples/histogram.svg" alt="Histogram" /><p align="center">Histogram</p></td>
-        <td><img src="examples/rule.svg" alt="Rule" /><p align="center">Rule</p></td>
-        <td><img src="examples/stacked_bar.svg" alt="Stacked Bar Chart" /><p align="center">Stacked Bar Chart</p></td>
-        <td><img src="examples/text.svg" alt="Text" /><p align="center">Text</p></td>
+        <td><img src="docs/src/images/histogram.svg" alt="Histogram" /><p align="center">Histogram</p></td>
+        <td><img src="docs/src/images/rule.svg" alt="Rule" /><p align="center">Rule</p></td>
+        <td><img src="docs/src/images/stacked_bar.svg" alt="Stacked Bar Chart" /><p align="center">Stacked Bar Chart</p></td>
+        <td><img src="docs/src/images/text.svg" alt="Text" /><p align="center">Text</p></td>
     </tr>
     <tr>
-        <td><img src="examples/2d_density.svg" alt="2d Density" /><p align="center">2d Density Chart</p></td>
-        <td><img src="examples/grouped_boxplot.svg" alt="Grouped Boxplot" /><p align="center">Grouped Boxplot</p></td>
-        <td><img src="examples/density.svg" alt="Density" /><p align="center">Density Chart</p></td>
-        <td><img src="examples/cumulative_frequency.svg" alt="Cumulative Frequency" /><p align="center">Cumulative Frequency</p></td>
+        <td><img src="docs/src/images/2d_density.svg" alt="2d Density" /><p align="center">2d Density Chart</p></td>
+        <td><img src="docs/src/images/grouped_boxplot.svg" alt="Grouped Boxplot" /><p align="center">Grouped Boxplot</p></td>
+        <td><img src="docs/src/images/density.svg" alt="Density" /><p align="center">Density Chart</p></td>
+        <td><img src="docs/src/images/cumulative_frequency.svg" alt="Cumulative Frequency" /><p align="center">Cumulative Frequency</p></td>
     </tr>
     <tr>
-        <td><img src="examples/heatmap.svg" alt="Heatmap" /><p align="center">Heatmap</p></td>
-        <td><img src="examples/scatter.svg" alt="Scatter Chart" /><p align="center">Scatter Chart</p></td>
-        <td><img src="examples/line_with_errorbar.svg" alt="Line Errorbar" /><p align="center">Line Errorbar</p></td>
-        <td><img src="examples/bar_with_errorbar.svg" alt="Bar Errorbar" /><p align="center">Bar Errorbar</p></td>
+        <td><img src="docs/src/images/heatmap.svg" alt="Heatmap" /><p align="center">Heatmap</p></td>
+        <td><img src="docs/src/images/scatter.svg" alt="Scatter Chart" /><p align="center">Scatter Chart</p></td>
+        <td><img src="docs/src/images/line_with_errorbar.svg" alt="Line Errorbar" /><p align="center">Line Errorbar</p></td>
+        <td><img src="docs/src/images/bar_with_errorbar.svg" alt="Bar Errorbar" /><p align="center">Bar Errorbar</p></td>
     </tr>
     <tr>
-        <td><img src="examples/log_scale.svg" alt="Log Scale" /><p align="center">Log Scale</p></td>
-        <td><img src="examples/swapped_axes.svg" alt="Swapped Axes" /><p align="center">Swapped Axes</p></td>
-        <td><img src="examples/line.svg" alt="Line" /><p align="center">Line</p></td>
-        <td><img src="examples/time_scale.svg" alt="Time Scale" /><p align="center">Time Scale</p></td>
+        <td><img src="docs/src/images/log_scale.svg" alt="Log Scale" /><p align="center">Log Scale</p></td>
+        <td><img src="docs/src/images/swapped_axes.svg" alt="Swapped Axes" /><p align="center">Swapped Axes</p></td>
+        <td><img src="docs/src/images/line.svg" alt="Line" /><p align="center">Line</p></td>
+        <td><img src="docs/src/images/time_scale.svg" alt="Time Scale" /><p align="center">Time Scale</p></td>
     </tr>
     <tr>
-        <td><img src="examples/pie.svg" alt="Pie" /><p align="center">Pie</p></td>
-        <td><img src="examples/donut.svg" alt="Donut" /><p align="center">Donut</p></td>
-        <td><img src="examples/rose.svg" alt="Rose" /><p align="center">Rose</p></td>
-        <td><img src="examples/nightingale.svg" alt="Nightingale" /><p align="center">Nightingale</p></td>
+        <td><img src="docs/src/images/pie.svg" alt="Pie" /><p align="center">Pie</p></td>
+        <td><img src="docs/src/images/donut.svg" alt="Donut" /><p align="center">Donut</p></td>
+        <td><img src="docs/src/images/rose.svg" alt="Rose" /><p align="center">Rose</p></td>
+        <td><img src="docs/src/images/nightingale.svg" alt="Nightingale" /><p align="center">Nightingale</p></td>
     </tr>
 </table>
 
