@@ -100,7 +100,7 @@ Charton scales the Grammar of Graphics to heavy-duty production. By adopting the
 *This figure demonstrates semantic synchronization in Charton. Heterogeneous samples (point layer) are anchored to a global baseline (bar layer). By enforcing a single mathematical truth across all layers, Charton maintains absolute color consistency, ensuring samples are accurately contextualized within the historical background.*
 
 ## Publish Quality
-Designed for precision, Charton provides pixel-perfect control over complex marks. Whether it is a multi-layered ErrorBar for medical research or a high-density scatter plot for bioinformatics, Charton delivers the aesthetic rigor required by top-tier journals like Nature, Science, and Cell.
+Designed for precision, Charton provides pixel-perfect control over complex marks. Whether it is a multi-layered ErrorBar for medical research or a high-density scatter plot for bioinformatics, Charton delivers the aesthetic rigor required by top-tier journals like *Nature*, *Science*, and *Cell*.
 
 ## Performance Benchmark
 *Benchmarks are currently in progress.*
