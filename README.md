@@ -77,15 +77,7 @@ Charton supports WebAssembly and modern web frontend; please refer to [Charton D
 ## Industrial-Grade Visualization
 Charton scales the Grammar of Graphics to heavy-duty production. By adopting the same proven philosophy as ggplot2, Altair, and the evolving ECharts, it validates its architecture as the industry standard, delivering strict type safety and zero-copy Polars integration for robust pipelines under extreme loads. This is powered by a rigorous Scale Arbitration engine that consolidates data domains into a "Single Source of Truth," ensuring absolute mathematical consistency and seamless cross-plot mapping while eliminating the fragile, hard-coded patches and silent overrides common in template-based tools.
 
-<table>
-    <tr>
-        <td><p align="center">Altair</p><img src="assets/industry_altair.svg" alt="Altair" /></td>
-        <td><p align="center">ggplot2</p><img src="assets/industry_ggplot2.svg" alt="ggplot2" /></td>
-        <td><p align="center">Charton</p><img src="assets/industry_charton.svg" alt="Charton" /></td>
-        <td><p align="center">Echarts</p><img src="assets/industry_echarts.png" alt="ECharts" /></td>
-    </tr>
-</table>
-
+![Comparison](assets/comparison.png)
 *This figure demonstrates semantic synchronization in Charton. Heterogeneous samples (points layer) are anchored to a global baseline (bar layer). By enforcing a single mathematical truth across all layers, Charton maintains absolute color consistency, ensuring samples are accurately contextualized within the historical background.*
 
 ## Publish Quality
