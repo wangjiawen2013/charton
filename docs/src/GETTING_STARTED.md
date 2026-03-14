@@ -21,7 +21,7 @@ cd demo
 Edit your `Cargo.toml` to add Charton and Polars dependencies:
 ```toml
 [dependencies]
-charton = "0.3"
+charton = "0.4"
 polars = { version = "0.49", features = ["lazy", "csv", "parquet"] }
 ```
 Run `cargo build` to ensure everything compiles.
@@ -546,6 +546,36 @@ EVCXR_END_CONTENT
 | Matplotlib  | PNG         | `image/png`                        |
 
 `.show()` is designed to behave naturally depending on the backend, giving the best viewing experience for each renderer.
+
+## Static interactive-style display in Jupyter (via `evcxr`)
+Charton integrates with `evcxr` to display static charts *inline* inside Jupyter notebooks. This mode is “static” because the output is a fixed SVG, but it behaves “interactive-style” because:
+- Each execution immediately re-renders the chart inside the notebook  
+- Any changes to code/data result in instant visual updates  
+- Ideal for exploration, education, and iterative refinement
+
+This is similar to how Plotters or PlotPy integrate with `evcxr`.
+
+### Example: Displaying a Charton chart inline in Jupyter
+```rust
+:dep charton = { version="0.4" }
+:dep polars = { version="0.49" }
+
+use charton::prelude::*;
+use polars::prelude::*;
+
+// Create sample data
+let df = df![
+    "length" => [5.1, 4.9, 4.7, 4.6, 5.0],
+    "width"  => [3.5, 3.0, 3.2, 3.1, 3.6]
+]?;
+
+// Build a simple scatter plot
+Chart::build(&df)?
+    .mark_point()?
+    .encode((x("length"), y("width")))?
+    .show()?;   // <-- Displays directly inside the Jupyter cell
+```
+Even though the chart itself is static, the *workflow* feels interactive due to the rapid feedback loop.
 
 ## Summary
 In this chapter, you learned how to:
