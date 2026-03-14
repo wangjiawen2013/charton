@@ -79,7 +79,7 @@ Charton perfectly aligns with Rust’s functional programming paradigm, supporti
 ```rust
 let layers = vec![line, point, bar, rect, text, boxplot /* , ... etc */];
 
-// Equivalent to line.and(points).and(bar)...
+// Equivalent to line.and(point).and(bar)...
 let lc = layers.into_iter()
     .reduce(|acc, layer| acc.and(layer))
     .expect("Failed to fold layers");
