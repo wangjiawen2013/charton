@@ -79,10 +79,10 @@ Charton scales the Grammar of Graphics to heavy-duty production. By adopting the
 
 <table>
     <tr>
-        <td><p align="center">Log Scale</p><img src="assets/industry_altair.svg.svg" alt="Altair" /></td>
-        <td><p align="center">Swapped Axes</p><img src="assets/industry_ggplot2.svg" alt="ggplot2" /></td>
-        <td><p align="center">Line</p><img src="assets/industry_charton.svg" alt="Charton" /></td>
-        <td><p align="center">Time Scale</p><img src="assets/industry_echarts.png" alt="ECharts" /></td>
+        <td><p align="center">Altair</p><img src="assets/industry_altair.svg.svg" alt="Altair" /></td>
+        <td><p align="center">ggplot2</p><img src="assets/industry_ggplot2.svg" alt="ggplot2" /></td>
+        <td><p align="center">Charton</p><img src="assets/industry_charton.svg" alt="Charton" /></td>
+        <td><p align="center">Echarts</p><img src="assets/industry_echarts.png" alt="ECharts" /></td>
     </tr>
 </table>
 
