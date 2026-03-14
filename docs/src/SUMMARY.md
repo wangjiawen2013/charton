@@ -3,22 +3,22 @@
 [Introduction](README.md)
 [Getting Started](GETTING_STARTED.md)
 
-# 🚀 Concepts
+# Concepts
 - [The Data Engine (Polars)](concepts/data_engine.md)
 - [System Architecture](concepts/architecture.md)
 
-# 🧬 The Grammar
+# The Grammar
 - [Coordinate Systems](grammar/coordinates.md)
 - [Encodings & Aesthetics](grammar/encoding.md)
 - [Marks & Geometry](grammar/marks.md)
 
-# 🎨 Styling & Themes
+# Styling & Themes
 - [Global Themes](styling/themes.md)
 - [Axes & Legends](styling/axes_styling.md)
 - [Colors & Palettes](styling/colors.md)
 - [The Styling Model (Hybrid Pattern)](style/styling_model.md)
 
-# 📊 Chart Gallery
+# Chart Gallery
 
 Explore the expressive power of Charton’s Grammar of Graphics through these practical examples.
 
@@ -53,8 +53,11 @@ Explore the expressive power of Charton’s Grammar of Graphics through these pr
 - [Geospatial & Projections](gallery/geospatial.md) — Mapping data to geographic coordinates.
 - [Custom Plotting Logic](gallery/custom_logic.md) — Extending Charton for unique requirements.
 
-# 🛠️ Advanced Features
+# Web & Frontend Integration
+- [WASM Runtime Rendering](web/wasm_runtime.md)
+- [Vega-Lite Schema Export](web/vegalite_json.md)
+
+# Advanced Features
 - [Data Transformations](advanced/transformation.md)
 - [Ecosystem Integration](advanced/integration.md)
-- [WebAssembly (WASM) & Interactivity](advanced/web_wasm.md)
 - [Faceting, Legends & Layout](advanced/layout.md)

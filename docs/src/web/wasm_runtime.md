@@ -1,73 +1,6 @@
-# Interactive Workflows & WebAssembly Integration
-Charton provides two categories of visualization output:
-
-1. **Static rendering** (native Charton SVG)
-2. **Interactive rendering** (via the Altair backend and Vega-Lite)
-
-Although Charton’s native renderer produces static SVG files, it can still participate in interactive workflows in several environments (e.g., Jupyter), and Charton can also generate *fully interactive* visualizations by delegating to the Altair/Vega-Lite ecosystem.
-
-This chapter explains these modes and clarifies the underlying architecture.
-
-## Static interactive-style display in Jupyter (via `evcxr`)
-Charton integrates with `evcxr` to display static charts *inline* inside Jupyter notebooks. This mode is “static” because the output is a fixed SVG, but it behaves “interactive-style” because:
-- Each execution immediately re-renders the chart inside the notebook  
-- Any changes to code/data result in instant visual updates  
-- Ideal for exploration, education, and iterative refinement
-
-This is similar to how Plotters or PlotPy integrate with `evcxr`.
-
-### Example: Displaying a Charton chart inline in Jupyter
-```rust
-:dep charton = { version="0.3.0" }
-:dep polars = { version="0.49" }
-
-use charton::prelude::*;
-use polars::prelude::*;
-
-// Create sample data
-let df = df![
-    "length" => [5.1, 4.9, 4.7, 4.6, 5.0],
-    "width"  => [3.5, 3.0, 3.2, 3.1, 3.6]
-]?;
-
-// Build a simple scatter plot
-Chart::build(&df)?
-    .mark_point()?
-    .encode((x("length"), y("width")))?
-    .into_layered()
-    .show()?;   // <-- Displays directly inside the Jupyter cell
-```
-Even though the chart itself is static, the *workflow* feels interactive due to the rapid feedback loop.
-
-## Static SVG vs. Interactive Rendering in WebAssembly
-Although Charton’s native output is a **static SVG**, this does *not* prevent it from supporting interactive rendering when compiled to Wasm. In fact, the combination of **Charton + Rust + Wasm** enables a high-performance interaction model that is often *faster* than traditional JavaScript visualization libraries.
-
-To understand this correctly, we must distinguish two different concepts:
-- **Static** — refers to the file format: SVG is a declarative XML graphics format.
-- **Dynamic** — refers to the rendering and update pipeline: how a chart is recomputed and replaced in response to user input.
-
-**🔑 Key Idea: Charton SVGs Are Not “Immutable”**
-
-The SVG that Charton produces is a static file format, but this does **not** mean the visualization must remain static in the browser. The core principle of the Charton + Wasm model is:
-
-> Interactions do not modify the SVG in-place.
-> Instead, Charton’s Rust/Wasm runtime dynamically recomputes and regenerates a new SVG whenever needed.
-
-Thus, the browser simply re-renders the updated SVG structure.
-
-This architecture provides both simplicity (SVG is easy to embed, style, and display) and performance (Wasm + Polars + Rust for fast recomputation).
-
-### Interaction Does Not Require Canvas
-Interactive visualization is *not* exclusive to Canvas or WebGL.
-SVG supports two fundamentally different interaction models:
-| **Interaction Model**                           | **Description**                                                                                          | **Suitable For**                                              |
-| ----------------------------------------------- | -------------------------------------------------------------------------------------------------------- | ------------------------------------------------------------- |
-| **DOM-driven interactions (CSS/JS)**            | Browser handles hover, click, and small style changes by directly modifying SVG element attributes.      | Tooltips, highlighting, simple UI responses.                  |
-| **Wasm-driven interactions (high-performance)** | Rust/Wasm computes a completely new SVG (or a DOM patch) on each interaction and replaces the old chart. | Zooming, panning, filtering, re-aggregating, re-scaling axes. |
-
-Charton’s design focuses on *the second model*, where Rust/Wasm performs the heavy lifting.
-
 ### Wasm-Driven Interactive Rendering Pipeline
+Charton can be compiled to **WebAssembly (WASM)**, bringing Rust's near-native performance to the browser. This enables a high-performance interaction model that handles large-scale datasets with lower latency than traditional JavaScript-based visualization libraries.
+
 When a user interacts with a Charton chart compiled to Wasm, the pipeline works as follows:
 - The browser captures a user event—e.g., a drag event for zooming or a brush gesture for selecting a range.
 - Using `wasm-bindgen`, the event details are passed into the Charton Rust core.
@@ -86,14 +19,6 @@ Charton instead executes **Polars** in Wasm—offering:
 
 **2. Rust efficiency**
 All chart logic—scales, encodings, transforms, layouts—is executed in **compiled Rust**, not interpreted JS.
-
-**3. SVG rendering advantages**
-SVG is declarative; modern browsers:
-- batch DOM updates
-- optimize SVG rendering paths
-- offload rendering to GPU when possible
-
-This drastically reduces UI-thread blocking compared to manual JS DOM manipulation.
 
 ### Charton + Polars + wasm-bindgen — step-by-step example
 > Goal: expose a `draw_chart()` function from Rust → returns an SVG string → JavaScript inserts that SVG into the DOM.
@@ -150,7 +75,7 @@ wasm-bindgen = "0.2"
 polars = { version = "0.49", default-features = false }
 # Avoids transitive mio dependency to ensure Wasm compatibility.
 polars-io = { version = "0.49", default-features = false, features = ["parquet"] }
-charton = { version = "0.3" }
+charton = { version = "0.4" }
 
 [profile.release]
 opt-level = "z"  # or "s" to speed up
@@ -177,13 +102,11 @@ pub fn draw_chart() -> Result<String, JsValue> {
     ].map_err(|e| JsValue::from_str(&e.to_string()))?;
 
     // Build a Charton Chart
-    let scatter = Chart::build(&df)
+    let chart = Chart::build(&df)
         .map_err(|e| JsValue::from_str(&e.to_string()))?
         .mark_point()?
         .encode((x("length"), y("width")))
         .map_err(|e| JsValue::from_str(&e.to_string()))?;
-
-    let chart = LayeredChart::new().add_layer(scatter);
 
     let svg = chart.to_svg()
         .map_err(|e| JsValue::from_str(&e.to_string()))?; // Returns SVG string
@@ -297,7 +220,7 @@ wasm-bindgen = "0.2"
 polars = { version = "0.49", default-features = false }
 # Avoids transitive mio dependency to ensure Wasm compatibility.
 polars-io = { version = "0.49", default-features = false, features = ["parquet", "csv"] }
-charton = { version = 0.3 }
+charton = { version = 0.4 }
 
 [profile.release]
 opt-level = "z"  # or "s" to speed up
@@ -330,17 +253,15 @@ pub fn draw_chart_from_csv(csv_content: String) -> Result<String, JsValue> {
     /* * 3. Construct the Scatter Plot.
      * Ensure that the columns "length" and "width" exist in your CSV file.
      */
-    let scatter = Chart::build(&df)
+    let chart = Chart::build(&df)
         .map_err(|e| JsValue::from_str(&e.to_string()))?
         .mark_point()
         .encode((x("sepal_length"), y("sepal_width"), color("species")))
         .map_err(|e| JsValue::from_str(&e.to_string()))?;
 
-    /* * 4. Wrap the scatter plot into a LayeredChart and generate SVG.
+    /* * 4. Generate SVG.
      * The to_svg() method returns a raw XML string representing the vector graphic.
      */
-    let chart = LayeredChart::new().add_layer(scatter);
-
     let svg = chart.to_svg()
         .map_err(|e| JsValue::from_str(&e.to_string()))?;
 
@@ -433,109 +354,4 @@ The combination of *static* SVG and *dynamic* Rust/Wasm computation forms a powe
 
 This architecture makes high-performance, browser-based interaction not only possible but highly efficient.
 
-## True interactive visualization via the Altair backend
-Charton can generate fully interactive charts by delegating to **Altair**, which compiles to Vega-Lite specifications capable of:
-- Hover tooltips
-- Selections
-- Brush interactions
-- Zoom and pan
-- Linked views
-- Filtering and conditional styling
-- Rich UI semantics
 
-**Charton’s role in this workflow**
-
-Charton does:
-1. Run Rust-side preprocessing (Polars)
-2. Transfer data to Python
-3. Embed user-provided Altair plotting code
-4. Invoke Python to generate Vega-Lite JSON
-5. Display the result (browser/Jupyter) or export JSON
-
-All *actual* interactivity comes from **Altair/Vega-Lite**, not from Charton.
-
-**Example: interactive Altair chart via Charton**
-```rust
-:dep charton = { version="0.3" }
-:dep polars = { version="0.49" }
-
-use charton::prelude::*;
-use polars::prelude::df;
-
-let exe_path = r"D:\Programs\miniconda3\envs\cellpy\python.exe";
-
-let df1 = df![
-    "Model" => ["S1", "M1", "R2", "P8", "M4", "T5", "V1"],
-    "Price" => [2430, 3550, 5700, 8750, 2315, 3560, 980],
-    "Discount" => [Some(0.65), Some(0.73), Some(0.82), None, Some(0.51), None, Some(0.26)],
-].unwrap();
-
-// Any valid Altair code can be placed here.
-let raw_plotting_code = r#"
-import altair as alt
-
-chart = alt.Chart(df1).mark_point().encode(
-    x='Price',
-    y='Discount',
-    color='Model',
-    tooltip=['Model', 'Price', 'Discount']
-).interactive()        # <-- zoom + pan + scroll
-"#;
-
-Plot::<Altair>::build(data!(&df1)?)?
-    .with_exe_path(exe_path)?
-    .with_plotting_code(raw_plotting_code)
-    .show()?;  // Jupyter or browser
-```
-
-This provides **real interactivity** entirely through Altair.
-
-## Exporting Vega-Lite JSON for browser/Web app usage
-Since Altair compiles to Vega-Lite, Charton can generate the JSON specification directly.
-
-This is ideal for:
-- Web dashboards
-- React / Vue / Svelte components
-- Embedding charts in HTML
-- APIs returning visualization specs
-- Reproducible visualization pipelines
-
-**Example: Export to JSON**
-```rust
-let chart_json: String = Plot::<Altair>::build(data!(&df1)?)?
-    .with_exe_path(exe_path)?
-    .with_plotting_code(raw_plotting_code)
-    .to_json()?;
-
-// save, embed, or send via API
-println!("{}", chart_json);
-```
-
-**Embedding in a webpage**:
-```html
-<div id="vis"></div>
-<script>
-  var spec = /* paste JSON here */;
-  vegaEmbed('#vis', spec);
-</script>
-```
-
-## Summary: What kinds of interactivity does Charton support?
-| **Feature**                                          | **Supported?** | **Provided by**         |
-| ---------------------------------------------------- | ----------     | ----------------------- |
-| Hover tooltips                                       | ✔ Yes         | Altair/Vega-Lite        |
-| Selection / brushing                                 | ✔ Yes         | Vega-Lite               |
-| Zoom / pan                                           | ✔ Yes         | Altair `.interactive()` |
-| Dynamic UI-driven filtering                          | ✔ Yes         | Vega-Lite               |
-| Inline static charts in Jupyter                      | ✔ Yes         | Charton SVG via `evcxr`  |
-| True reactive Rust-side charts (recompute on events) | ❌ No         | —                       |
-| Charton-native browser interactivity                  | ❌ No         | —                       |
-
-**When to use which mode?**
-| **Use Case**                    | **Recommended Mode**                           |
-| ------------------------------- | ----------------------------------------------- |
-| Fast feedback in Rust           | Jupyter + `evcxr` static SVG                    |
-| Publication-quality plots       | Native Charton SVG                               |
-| Hover/tooltip/zoom              | Altair backend                                  |
-| Web dashboards or JS frameworks | Export Vega-Lite JSON                           |
-| Rust/WASM interactive apps      | Use Charton as SVG generator + custom WASM logic |
