@@ -97,7 +97,7 @@ Charton supports WebAssembly and modern web frontend; please refer to [Charton D
 Charton scales the Grammar of Graphics to heavy-duty production. By adopting the same proven philosophy as ggplot2, Altair, and the evolving ECharts, it validates its architecture as the industry standard, delivering strict type safety and zero-copy Polars integration for robust pipelines under extreme loads. This is powered by a rigorous Scale Arbitration engine that consolidates data domains into a "Single Source of Truth," ensuring absolute mathematical consistency and seamless cross-plot mapping while eliminating the fragile, hard-coded patches and silent overrides common in template-based tools.
 
 ![Comparison](assets/comparison.png)
-*This figure demonstrates semantic synchronization in Charton. Heterogeneous samples (point layer) are anchored to a global baseline (bar layer). By enforcing a single mathematical truth across all layers, Charton maintains absolute color consistency, ensuring samples are accurately contextualized within the historical background.*
+*This figure demonstrates semantic synchronization in Charton. Heterogeneous samples (point layer) are anchored to a global background (bar layer). By enforcing a single mathematical truth across all layers, Charton maintains absolute color consistency, ensuring samples are accurately contextualized within the global background.*
 
 ## Publish Quality
 Designed for precision, Charton provides pixel-perfect control over complex marks. Whether it is a multi-layered ErrorBar for medical research or a high-density scatter plot for bioinformatics, Charton delivers the aesthetic rigor required by top-tier journals like *Nature*, *Science*, and *Cell*.
@@ -107,3 +107,17 @@ Designed for precision, Charton provides pixel-perfect control over complex mark
 
 ## Documentation
 Please go to the [Charton Docs](https://wangjiawen2013.github.io/charton) for full documentation.
+
+## Contributions Welcome
+Contributions are welcome! Whether it's improving documentation, adding new chart types, or optimizing performance, your help is appreciated.
+
+## License
+Charton is licensed under the **Apache License 2.0**.
+
+## Acknowledgements
+- **AI Collaboration:** This project was developed based on a **human-led architectural design**, with AI tools (including **Qwen**, **Kimi**, **ChatGPT**, **Gemini**, and others) serving as intelligent pair-programmers. While AI assisted in accelerating the implementation through boilerplate generation and API exploration, all core logic, architectural decisions, and final implementations were strictly audited, refined, and verified by the author.
+- **Personal Support:** I would like to thank my family for their support, providing the time and environment needed to bring this project to life.
+
+---
+
+*Note: This project is developed independently and is not affiliated with or endorsed by any organization.*
