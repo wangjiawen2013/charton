@@ -10,6 +10,15 @@
 
 **Charton** is a powerful plotting library for Rust that provides first-class, native support for [Polars](https://github.com/pola-rs/polars), and offers an API similar to Python's [Altair](https://altair-viz.github.io/), making it easy for users familiar with declarative, instruction-based plotting to migrate. It also allows you to leverage existing mature visualization ecosystems, such as Altair and [Matplotlib](https://matplotlib.org). By seamlessly integrating with [evcxr_jupyter](https://github.com/evcxr/evcxr), Charton facilitates the creation of informative and aesthetically pleasing visualizations interactively, making it especially well-suited for exploratory data analysis.
 
+## Installation
+Add to `Cargo.toml`:
+
+```toml
+[dependencies]
+charton = "0.4"
+polars = "0.49"
+```
+
 ## Quick Start
 Charton provides a high-level, declarative API for Polars. Standard visualizations can be generated using a concise one-liner syntax:
 
@@ -33,18 +42,20 @@ let line = Chart::build(&df)?
     .mark_line()?
     .encode((x("force"), y("extension")))?;
 
-let points = Chart::build(&df)?
+let point = Chart::build(&df)?
     .mark_point()?
     .encode((x("force"), y("extension")))?;
 
 // Combine into a composite chart
-line.and(points).save("layered.svg")?;
+line.and(point).save("layered.svg")?;
 ```
 
 Charton perfectly aligns with Rust’s functional programming paradigm, supporting infinite layer composition through fluent chaining or iterator folding. This 'decorator-style' approach makes dynamically generating complex, multi-layered visualizations effortless:
 
 ```rust
-let layers = vec![line, points, bar, rect, text, boxplot /* , ... etc */];
+let layers = vec![line, point, bar, rect, text, boxplot /* , ... etc */];
+
+// Equivalent to line.and(points).and(bar)...
 let lc = layers.into_iter()
     .reduce(|acc, layer| acc.and(layer))
     .expect("Failed to fold layers");
@@ -66,13 +77,22 @@ Charton supports WebAssembly and modern web frontend; please refer to [Charton D
 ## Industrial-Grade Visualization
 Charton scales the Grammar of Graphics to heavy-duty production. By adopting the same proven philosophy as ggplot2, Altair, and the evolving ECharts, it validates its architecture as the industry standard, delivering strict type safety and zero-copy Polars integration for robust pipelines under extreme loads. This is powered by a rigorous Scale Arbitration engine that consolidates data domains into a "Single Source of Truth," ensuring absolute mathematical consistency and seamless cross-plot mapping while eliminating the fragile, hard-coded patches and silent overrides common in template-based tools.
 
-> The figure demonstrtes semantic synchronization in Charton. Heterogeneous samples (points layer) are anchored to a global baseline (bar layer). By enforcing a single mathematical truth across all layers, Charton maintains absolute color consistency, ensuring samples are accurately contextualized within the historical background.
+<table>
+    <tr>
+        <td><p align="center">Log Scale</p><img src="assets/industry_altair.svg.svg" alt="Altair" /></td>
+        <td><p align="center">Swapped Axes</p><img src="assets/industry_ggplot2.svg" alt="ggplot2" /></td>
+        <td><p align="center">Line</p><img src="assets/industry_charton.svg" alt="Charton" /></td>
+        <td><p align="center">Time Scale</p><img src="assets/industry_echarts.png" alt="ECharts" /></td>
+    </tr>
+</table>
+
+*This figure demonstrates semantic synchronization in Charton. Heterogeneous samples (points layer) are anchored to a global baseline (bar layer). By enforcing a single mathematical truth across all layers, Charton maintains absolute color consistency, ensuring samples are accurately contextualized within the historical background.*
 
 ## Publish Quality
 Designed for precision, Charton provides pixel-perfect control over complex marks. Whether it is a multi-layered ErrorBar for medical research or a high-density scatter plot for bioinformatics, Charton delivers the aesthetic rigor required by top-tier journals like Nature, Science, and Cell.
 
 ## Performance Benchmark
-
+*Benchmarks are currently in progress.*
 
 ## Documentation
 Please go to the [Charton Docs](https://wangjiawen2013.github.io/charton) for full documentation.
