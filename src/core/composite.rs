@@ -300,12 +300,28 @@ impl LayeredChart {
                 add: max_add,
             }
         } else {
-            match scale_type {
-                Scale::Discrete => Expansion {
+            // Expansion logic depends on both the Scale type and the target Channel.
+            match channel {
+                // Non-positional channels (Color, Size, Shape) map data points directly
+                // to visual identities and typically require zero padding to maintain
+                // mathematical limits (e.g., full color scale range).
+                Channel::Color | Channel::Size | Channel::Shape => Expansion {
                     mult: (0.0, 0.0),
-                    add: (0.4, 0.4),
+                    add: (0.0, 0.0),
                 },
-                _ => Expansion::default(), // Standard 5% padding
+                // Positional channels (X, Y) require expansion to prevent marks
+                // from clipping at the coordinate system boundaries.
+                _ => match scale_type {
+                    // Discrete scales use an additive constant (0.4) to provide
+                    // consistent spacing for bars or categories within their slots.
+                    Scale::Discrete => Expansion {
+                        mult: (0.0, 0.0),
+                        add: (0.4, 0.4),
+                    },
+                    // Continuous scales apply a 5% multiplicative factor by default
+                    // to provide a visual buffer around data points.
+                    _ => Expansion::default(),
+                },
             }
         };
 
