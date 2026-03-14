@@ -78,7 +78,7 @@ Charton supports WebAssembly and modern web frontend; please refer to [Charton D
 Charton scales the Grammar of Graphics to heavy-duty production. By adopting the same proven philosophy as ggplot2, Altair, and the evolving ECharts, it validates its architecture as the industry standard, delivering strict type safety and zero-copy Polars integration for robust pipelines under extreme loads. This is powered by a rigorous Scale Arbitration engine that consolidates data domains into a "Single Source of Truth," ensuring absolute mathematical consistency and seamless cross-plot mapping while eliminating the fragile, hard-coded patches and silent overrides common in template-based tools.
 
 ![Comparison](assets/comparison.png)
-*This figure demonstrates semantic synchronization in Charton. Heterogeneous samples (points layer) are anchored to a global baseline (bar layer). By enforcing a single mathematical truth across all layers, Charton maintains absolute color consistency, ensuring samples are accurately contextualized within the historical background.*
+*This figure demonstrates semantic synchronization in Charton. Heterogeneous samples (point layer) are anchored to a global baseline (bar layer). By enforcing a single mathematical truth across all layers, Charton maintains absolute color consistency, ensuring samples are accurately contextualized within the historical background.*
 
 ## Publish Quality
 Designed for precision, Charton provides pixel-perfect control over complex marks. Whether it is a multi-layered ErrorBar for medical research or a high-density scatter plot for bioinformatics, Charton delivers the aesthetic rigor required by top-tier journals like Nature, Science, and Cell.
