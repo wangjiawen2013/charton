@@ -74,12 +74,12 @@ let point = Chart::build(&df)?
 line.and(point).save("layered.svg")?;
 ```
 
-Charton perfectly aligns with Rust’s functional programming paradigm, supporting infinite layer composition through fluent chaining or iterator folding. This 'decorator-style' approach makes dynamically generating complex, multi-layered visualizations effortless:
+Charton can also leverages Rust’s functional paradigms, enabling infinite layer composition via fluent chaining or iterator folding. This allows for effortless, dynamic generation of complex multi-layered plots.
 
 ```rust
-let layers = vec![line, point, bar, rect, text, boxplot /* , ... etc */];
+let layers: Vec<LayeredChart> = vec![line.into(), point.into(), bar.into() /* , ... etc */];
 
-// Equivalent to line.and(point).and(bar).and(rect).and(text)...
+// Equivalent to line.and(point).and(bar)...
 let lc = layers.into_iter()
     .reduce(|acc, layer| acc.and(layer))
     .expect("Failed to fold layers");
