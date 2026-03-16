@@ -20,21 +20,50 @@ fn main() -> Result<(), Box<dyn Error>> {
     let df_text = df!["x" => [68, 68], "y" => [-2, -16], "group" => ["Placebo", "Semaglutide"]]?;
 
     let placebo_point = Chart::build(&df_placebo)?
-        .mark_point()?.configure_point(|p| p.with_color("#818284"))
-        .encode((x("Weeks since Randomization"), y("Change from Baseline (%)")))?;
-    let placebo_line = Chart::build(&df_placebo)?.mark_line()?.configure_line(|l| l.with_color("#818284")).
-        encode((x("Weeks since Randomization"), y("Change from Baseline (%)")))?;
-    let placebo_errorbar = Chart::build(&df_placebo)?.mark_errorbar()?.configure_errorbar(|e| e.with_color("#818284"))
+        .mark_point()?
+        .configure_point(|p| p.with_color("#818284"))
+        .encode((
+            x("Weeks since Randomization"),
+            y("Change from Baseline (%)"),
+        ))?;
+    let placebo_line = Chart::build(&df_placebo)?
+        .mark_line()?
+        .configure_line(|l| l.with_color("#818284"))
+        .encode((
+            x("Weeks since Randomization"),
+            y("Change from Baseline (%)"),
+        ))?;
+    let placebo_errorbar = Chart::build(&df_placebo)?
+        .mark_errorbar()?
+        .configure_errorbar(|e| e.with_color("#818284"))
         .encode((x("Weeks since Randomization"), y("lower"), y2("upper")))?;
-    let placebo_text = Chart::build(&df_text)?.mark_text()?.encode((x("x"), y("y"), text("group")))?;
+    let placebo_text =
+        Chart::build(&df_text)?
+            .mark_text()?
+            .encode((x("x"), y("y"), text("group")))?;
 
-    let semaglutide_point = Chart::build(&df_semaglutide)?.mark_point()?.configure_point(|p| p.with_color("#5b88c3"))
-        .encode((x("Weeks since Randomization"), y("Change from Baseline (%)")))?;
-    let semaglutide_line = Chart::build(&df_semaglutide)?.mark_line()?.configure_line(|l| l.with_color("#5b88c3"))
-        .encode((x("Weeks since Randomization"), y("Change from Baseline (%)")))?;
-    let semaglutide_errorbar = Chart::build(&df_semaglutide)?.mark_errorbar()?.configure_errorbar(|e| e.with_color("#5b88c3"))
+    let semaglutide_point = Chart::build(&df_semaglutide)?
+        .mark_point()?
+        .configure_point(|p| p.with_color("#5b88c3"))
+        .encode((
+            x("Weeks since Randomization"),
+            y("Change from Baseline (%)"),
+        ))?;
+    let semaglutide_line = Chart::build(&df_semaglutide)?
+        .mark_line()?
+        .configure_line(|l| l.with_color("#5b88c3"))
+        .encode((
+            x("Weeks since Randomization"),
+            y("Change from Baseline (%)"),
+        ))?;
+    let semaglutide_errorbar = Chart::build(&df_semaglutide)?
+        .mark_errorbar()?
+        .configure_errorbar(|e| e.with_color("#5b88c3"))
         .encode((x("Weeks since Randomization"), y("lower"), y2("upper")))?;
-    let semaglutide_text = Chart::build(&df_text)?.mark_text()?.configure_text(|t| t.with_color("#5b88c3")).encode((x("x"), y("y"), text("group")))?;
+    let semaglutide_text = Chart::build(&df_text)?
+        .mark_text()?
+        .configure_text(|t| t.with_color("#5b88c3"))
+        .encode((x("x"), y("y"), text("group")))?;
 
     placebo_point
         .and(placebo_line)
