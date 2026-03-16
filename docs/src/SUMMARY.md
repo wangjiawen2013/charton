@@ -1,25 +1,25 @@
 # Charton: Grammar of Graphics in Rust
 
-[Introduction](README.md)
+## [Introduction](README.md)
 
-[Getting Started](GETTING_STARTED.md)
+## [Getting Started](GETTING_STARTED.md)
 
-[Concepts](concepts/concepts.md)
+## [Concepts](concepts/concepts.md)
 - [The Data Engine (Polars)](concepts/data_engine.md)
 - [System Architecture](concepts/architecture.md)
 
-[The Grammar](grammar/grammar.md)
+## [The Grammar](grammar/grammar.md)
 - [Coordinate Systems](grammar/coordinates.md)
 - [Encodings & Aesthetics](grammar/encoding.md)
 - [Marks & Geometry](grammar/marks.md)
 
-[Styling & Themes](styling/styling.md)
+## [Styling & Themes](styling/styling.md)
 - [Global Themes](styling/themes.md)
 - [Axes & Legends](styling/axes_styling.md)
 - [Colors & Palettes](styling/colors.md)
 - [The Styling Model (Hybrid Pattern)](style/styling_model.md)
 
-[Chart Gallery](gallery/gallery.md)
+## [Chart Gallery](gallery/gallery.md)
 - [Basic Marks & Geometries](gallery/basic_marks.md)
   - [Points & Bubbles](gallery/point_charts.md)
   - [Lines & Paths](gallery/line_charts.md)
@@ -55,10 +55,10 @@
   - [WASM Runtime Rendering](web/wasm_runtime.md)
   - [Vega-Lite Schema Export](web/vegalite_json.md)
 
-[Case Studies](case_studies/case_studies.md)
+## [Case Studies](case_studies/case_studies.md)
 - [Data Science & Machine Learning](case_studies/data_science.md)
 
-[Advanced Features](advanced/advanced.md)
+## [Advanced Features](advanced/advanced.md)
 - [Data Transformations](advanced/transformation.md)
 - [Ecosystem Integration](advanced/integration.md)
 - [Faceting, Legends & Layout](advanced/layout.md)
