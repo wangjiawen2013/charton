@@ -47,6 +47,10 @@ polars = "0.49"
 Charton provides a high-level, declarative API for Polars. Standard visualizations can be generated using a concise one-liner syntax:
 
 ```rust
+use charton::prelude::*;
+use polars::prelude::*;
+use std::error::Error;
+
 // Data preparation: Hooke's Law (Force vs. Extension)
 let df = df![
     "force" => [1.0, 2.0, 3.0, 4.0, 5.0], 
