@@ -18,7 +18,7 @@ fn main() -> Result<(), Box<dyn Error>> {
     ].unwrap();
 
     let df_text =
-        df!["x" => [68.8, 68.8], "y" => [-3.05, -15.9], "group" => ["Placebo", "Semaglutide"]]?;
+        df!["x" => [68.8, 68.8], "y" => [-3.05, -15.86], "group" => ["Placebo", "Semaglutide"]]?;
 
     let df_reference = df!["x" => [0.0, 68.0], "y" => [0.0, 0.0]]?;
 

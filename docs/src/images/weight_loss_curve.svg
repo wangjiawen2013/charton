@@ -153,5 +153,5 @@
 <line x1="827.332" y1="339.782" x2="827.332" y2="330.402" stroke="rgba(91,136,195,1.000)" stroke-width="1.500" stroke-opacity="1.000" />
 <line x1="823.332" y1="339.782" x2="831.332" y2="339.782" stroke="rgba(91,136,195,1.000)" stroke-width="1.500" stroke-opacity="1.000" />
 <line x1="823.332" y1="330.402" x2="831.332" y2="330.402" stroke="rgba(91,136,195,1.000)" stroke-width="1.500" stroke-opacity="1.000" />
-<text x="835.666" y="340.504" font-size="14.0" font-family="Inter, -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, 'PingFang SC', 'Microsoft YaHei', Ubuntu, Cantarell, 'Noto Sans', sans-serif" fill="rgba(0,0,0,1.000)" fill-opacity="1.000" text-anchor="start" font-weight="normal">Semaglutide</text>
+<text x="835.666" y="339.782" font-size="14.0" font-family="Inter, -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, 'PingFang SC', 'Microsoft YaHei', Ubuntu, Cantarell, 'Noto Sans', sans-serif" fill="rgba(0,0,0,1.000)" fill-opacity="1.000" text-anchor="start" font-weight="normal">Semaglutide</text>
 </svg>

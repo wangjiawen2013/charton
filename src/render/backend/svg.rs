@@ -140,7 +140,7 @@ impl<'a> RenderBackend for SvgBackend<'a> {
             stroke,
             stroke_width,
             opacity,
-            dash
+            dash,
         } = config;
         if points.is_empty() || stroke.is_none() {
             return;
