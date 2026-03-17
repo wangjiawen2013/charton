@@ -138,6 +138,7 @@ impl MarkRenderer for Chart<MarkArea> {
                 stroke: group_base_color,
                 stroke_width: mark_config.stroke_width as Precision,
                 opacity: 1.0, // Top line is opaque to stand out
+                dash: mark_config.dash.iter().map(|&d| d as Precision).collect(),
             });
         }
 

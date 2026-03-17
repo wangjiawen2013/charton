@@ -12,6 +12,7 @@ pub struct MarkArea {
     pub(crate) opacity: f64,
     pub(crate) stroke: SingleColor,
     pub(crate) stroke_width: f64,
+    pub(crate) dash: Vec<f64>,
 }
 
 impl MarkArea {
@@ -22,6 +23,7 @@ impl MarkArea {
             opacity: 1.0,
             stroke: SingleColor::new("none"),
             stroke_width: 1.0,
+            dash: vec![],
         }
     }
 
@@ -50,6 +52,21 @@ impl MarkArea {
     /// Sets the thickness of the area's boundary stroke.
     pub fn with_stroke_width(mut self, width: f64) -> Self {
         self.stroke_width = width;
+        self
+    }
+
+    /// Sets the path dash pattern using the standard SVG `stroke-dasharray` rules.
+    ///
+    /// This property accepts a list of numbers that specify the lengths of
+    /// alternating dashes and gaps.
+    ///
+    /// - `vec![]`: A solid line.
+    /// - `vec![step]`: Equivalent to `vec![step, step]`.
+    /// - `vec![dash, gap]`: Specifies the length of the dash and the gap.
+    ///
+    /// For more details, refer to the MDN documentation for `stroke-dasharray`.
+    pub fn with_dash(mut self, dash: impl Into<Vec<f64>>) -> Self {
+        self.dash = dash.into();
         self
     }
 }

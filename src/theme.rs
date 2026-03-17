@@ -408,7 +408,7 @@ impl Default for Theme {
             label_size: 15.0,
             label_family: font_stack.clone(),
             label_color: "#333".into(),
-            label_padding: 0.0,
+            label_padding: 5.0,
 
             tick_label_size: 13.0,
             tick_label_family: font_stack.clone(),

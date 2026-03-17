@@ -140,6 +140,7 @@ impl<'a> RenderBackend for SvgBackend<'a> {
             stroke,
             stroke_width,
             opacity,
+            dash
         } = config;
         if points.is_empty() || stroke.is_none() {
             return;
@@ -162,6 +163,11 @@ impl<'a> RenderBackend for SvgBackend<'a> {
             r#"" stroke-width="{:.3}" stroke-opacity="{:.3}" fill="none" stroke-linejoin="round" stroke-linecap="round""#,
             stroke_width, opacity
         );
+
+        if !dash.is_empty() {
+            let dash_str: Vec<String> = dash.iter().map(|d| d.to_string()).collect();
+            let _ = write!(self.buffer, r#" stroke-dasharray="{}""#, dash_str.join(","));
+        }
         self.write_clip_attr();
         let _ = self.buffer.write_str(" />\n");
     }
@@ -227,7 +233,8 @@ impl<'a> RenderBackend for SvgBackend<'a> {
             r#"" fill-opacity="{:.3}" text-anchor="{}" font-weight="{}""#,
             opacity, text_anchor, font_weight
         );
-        self.write_clip_attr();
+        // Don't use clip_attr for text
+        // self.write_clip_attr();
         let _ = self.buffer.write_str(">");
 
         // Character escaping for XML safety
