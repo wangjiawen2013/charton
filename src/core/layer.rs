@@ -50,6 +50,7 @@ pub struct PathConfig {
     pub stroke: SingleColor,
     pub stroke_width: Precision,
     pub opacity: Precision,
+    pub dash: Vec<Precision>,
 }
 
 pub struct PolygonConfig {

@@ -95,7 +95,7 @@ fn main() -> Result<(), Box<dyn Error>> {
         .and(semaglutide_errorbar)
         .and(semaglutide_text)
         .with_x_expand(Expansion {
-            mult: (0.00, 0.12),
+            mult: (0.00, 0.02),
             add: (0.0, 0.0),
         })
         .with_y_expand(Expansion {
@@ -103,6 +103,7 @@ fn main() -> Result<(), Box<dyn Error>> {
             add: (0.0, 0.0),
         })
         .with_size(1000, 500)
+        .with_right_margin(0.15)
         .save("docs/src/images/weight_loss_curve.svg")?;
 
     Ok(())

@@ -161,6 +161,7 @@ impl MarkRenderer for Chart<MarkLine> {
                 stroke: group_color,
                 stroke_width: mark_config.stroke_width as Precision,
                 opacity: mark_config.opacity as Precision,
+                dash: mark_config.dash.iter().map(|&d| d as Precision).collect(),
             });
         }
 
