@@ -118,10 +118,6 @@ Contributions are welcome! Whether it's improving documentation, adding new char
 ## License
 Charton is licensed under the **Apache License 2.0**.
 
-## Acknowledgements
-- **AI Collaboration:** This project was developed based on a **human-led architectural design**, with AI tools (including **Qwen**, **Kimi**, **ChatGPT**, **Gemini**, and others) serving as intelligent pair-programmers. While AI assisted in accelerating the implementation through boilerplate generation and API exploration, all core logic, architectural decisions, and final implementations were strictly audited, refined, and verified by the author.
-- **Personal Support:** I would like to thank my family for their support, providing the time and environment needed to bring this project to life.
-
 ---
 
 *Note: This project is developed independently and is not affiliated with or endorsed by any organization.*
