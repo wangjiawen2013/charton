@@ -112,12 +112,5 @@ Designed for precision, Charton provides pixel-perfect control over complex mark
 ## Documentation
 Please go to the [Charton Docs](https://wangjiawen2013.github.io/charton) for full documentation.
 
-## Contributions Welcome
-Contributions are welcome! Whether it's improving documentation, adding new chart types, or optimizing performance, your help is appreciated.
-
 ## License
 Charton is licensed under the **Apache License 2.0**.
-
----
-
-*Note: This project is developed independently and is not affiliated with or endorsed by any organization.*

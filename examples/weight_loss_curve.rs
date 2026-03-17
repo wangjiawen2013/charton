@@ -17,11 +17,18 @@ fn main() -> Result<(), Box<dyn Error>> {
         "upper" => [0.041, -2.24, -3.92, -5.82, -7.53, -9.34, -11.52, -13.11, -14.41, -15.22, -15.59, -15.34]
     ].unwrap();
 
-    let df_text = df!["x" => [68, 68], "y" => [-2, -16], "group" => ["Placebo", "Semaglutide"]]?;
+    let df_text =
+        df!["x" => [68.8, 68.8], "y" => [-3.05, -15.9], "group" => ["Placebo", "Semaglutide"]]?;
+
+    let df_reference = df!["x" => [0.0, 68.0], "y" => [0.0, 0.0]]?;
 
     let placebo_point = Chart::build(&df_placebo)?
         .mark_point()?
-        .configure_point(|p| p.with_color("#818284"))
+        .configure_point(|p| {
+            p.with_color("#818284")
+                .with_shape("triangle")
+                .with_size(5.0)
+        })
         .encode((
             x("Weeks since Randomization"),
             y("Change from Baseline (%)"),
@@ -35,16 +42,20 @@ fn main() -> Result<(), Box<dyn Error>> {
         ))?;
     let placebo_errorbar = Chart::build(&df_placebo)?
         .mark_errorbar()?
-        .configure_errorbar(|e| e.with_color("#818284"))
+        .configure_errorbar(|e| {
+            e.with_color("#818284")
+                .with_cap_length(4.0)
+                .with_stroke_width(1.5)
+        })
         .encode((x("Weeks since Randomization"), y("lower"), y2("upper")))?;
-    let placebo_text =
-        Chart::build(&df_text)?
-            .mark_text()?
-            .encode((x("x"), y("y"), text("group")))?;
+    let placebo_text = Chart::build(&df_text.head(Some(1)))?
+        .mark_text()?
+        .configure_text(|t| t.with_anchor("left").with_size(14.0))
+        .encode((x("x"), y("y"), text("group")))?;
 
     let semaglutide_point = Chart::build(&df_semaglutide)?
         .mark_point()?
-        .configure_point(|p| p.with_color("#5b88c3"))
+        .configure_point(|p| p.with_color("#5b88c3").with_shape("square").with_size(3.0))
         .encode((
             x("Weeks since Randomization"),
             y("Change from Baseline (%)"),
@@ -58,14 +69,24 @@ fn main() -> Result<(), Box<dyn Error>> {
         ))?;
     let semaglutide_errorbar = Chart::build(&df_semaglutide)?
         .mark_errorbar()?
-        .configure_errorbar(|e| e.with_color("#5b88c3"))
+        .configure_errorbar(|e| {
+            e.with_color("#5b88c3")
+                .with_cap_length(4.0)
+                .with_stroke_width(1.5)
+        })
         .encode((x("Weeks since Randomization"), y("lower"), y2("upper")))?;
-    let semaglutide_text = Chart::build(&df_text)?
+    let semaglutide_text = Chart::build(&df_text.tail(Some(1)))?
         .mark_text()?
-        .configure_text(|t| t.with_color("#5b88c3"))
+        .configure_text(|t| t.with_anchor("left").with_size(14.0))
         .encode((x("x"), y("y"), text("group")))?;
 
+    let reference_line = Chart::build(&df_reference)?
+        .mark_line()?
+        .configure_line(|l| l.with_dash([6.0, 6.0]))
+        .encode((x("x"), y("y")))?;
+
     placebo_point
+        .and(reference_line)
         .and(placebo_line)
         .and(placebo_errorbar)
         .and(placebo_text)
@@ -73,7 +94,16 @@ fn main() -> Result<(), Box<dyn Error>> {
         .and(semaglutide_line)
         .and(semaglutide_errorbar)
         .and(semaglutide_text)
-        .save("examples/nejm.svg")?;
+        .with_x_expand(Expansion {
+            mult: (0.00, 0.12),
+            add: (0.0, 0.0),
+        })
+        .with_y_expand(Expansion {
+            mult: (0.2, 0.01),
+            add: (0.0, 0.0),
+        })
+        .with_size(1000, 500)
+        .save("docs/src/images/weight_loss_curve.svg")?;
 
     Ok(())
 }
