@@ -56,7 +56,7 @@ impl MarkRenderer for Chart<MarkArea> {
                 color: "#888888".into(), // Subtle gray for reference
                 width: 1.0,
                 opacity: 0.5,
-                dash: Some(vec![4.0, 4.0]), // Dashed pattern: 4px dash, 4px gap
+                dash: vec![4.0, 4.0], // Dashed pattern: 4px dash, 4px gap
             });
         }
 

@@ -113,7 +113,7 @@ impl MarkRenderer for Chart<MarkRule> {
                 color: mapped_color,
                 width: stroke_width,
                 opacity: mark_config.opacity as Precision,
-                dash: None,
+                dash: vec![],
             });
         }
 

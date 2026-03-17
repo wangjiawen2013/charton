@@ -121,7 +121,7 @@ impl MarkRenderer for Chart<MarkErrorBar> {
                         color: mark_config.color,
                         width: mark_config.stroke_width as Precision,
                         opacity: mark_config.opacity as Precision,
-                        dash: None,
+                        dash: vec![],
                     });
 
                     // Caps Logic
@@ -139,7 +139,7 @@ impl MarkRenderer for Chart<MarkErrorBar> {
                                 color: mark_config.color,
                                 width: mark_config.stroke_width as Precision,
                                 opacity: mark_config.opacity as Precision,
-                                dash: None,
+                                dash: vec![],
                             });
                         }
                     } else {
@@ -152,7 +152,7 @@ impl MarkRenderer for Chart<MarkErrorBar> {
                                 color: mark_config.color,
                                 width: mark_config.stroke_width as Precision,
                                 opacity: mark_config.opacity as Precision,
-                                dash: None,
+                                dash: vec![],
                             });
                         }
                     }

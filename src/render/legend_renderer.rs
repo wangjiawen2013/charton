@@ -205,7 +205,7 @@ impl LegendRenderer {
                     color: "#FFFFFF".into(),
                     width: 1.0,
                     opacity: 1.0,
-                    dash: None,
+                    dash: vec![],
                 };
                 backend.draw_line(line_config);
 
@@ -217,7 +217,7 @@ impl LegendRenderer {
                     color: "#FFFFFF".into(),
                     width: 1.0,
                     opacity: 1.0,
-                    dash: None,
+                    dash: vec![],
                 };
                 backend.draw_line(line_config);
 
