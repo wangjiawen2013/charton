@@ -42,7 +42,7 @@ fn main() -> Result<(), Box<dyn Error>> {
             x("Weeks since Randomization"),
             y("Change from Baseline (%)"),
         ))?;
-    
+
     // Layer 2: Placebo line (connects the points)
     let placebo_line = Chart::build(&df_placebo)?
         .mark_line()?
@@ -51,7 +51,7 @@ fn main() -> Result<(), Box<dyn Error>> {
             x("Weeks since Randomization"),
             y("Change from Baseline (%)"),
         ))?;
-    
+
     // Layer 3: Placebo error bars (confidence intervals)
     let placebo_errorbar = Chart::build(&df_placebo)?
         .mark_errorbar()?
@@ -61,7 +61,7 @@ fn main() -> Result<(), Box<dyn Error>> {
                 .with_stroke_width(1.5)
         })
         .encode((x("Weeks since Randomization"), y("lower"), y2("upper")))?;
-    
+
     // Layer 4: Placebo text label
     let placebo_text = Chart::build(&df_text.head(Some(1)))?
         .mark_text()?
@@ -95,7 +95,7 @@ fn main() -> Result<(), Box<dyn Error>> {
                 .with_stroke_width(1.5)
         })
         .encode((x("Weeks since Randomization"), y("lower"), y2("upper")))?;
-    
+
     // Layer 8: Semaglutide text label
     let semaglutide_text = Chart::build(&df_text.tail(Some(1)))?
         .mark_text()?
