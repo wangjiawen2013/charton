@@ -49,7 +49,7 @@
         - [Vega-Lite Schema Export](web/vegalite_json.md)
 
 - [Case Studies](case_studies/case_studies.md)
-    - Biomedicine & Life Sciences
+    - [Biomedicine & Life Sciences](case_studies/biomedicine.md)
         - [Semaglutide Weight Loss Curve](case_studies/semaglutide.md)
     - [Data Science & Engineering](case_studies/data_science.md)
     - [Machine Learning & AI](case_studies/ai.md)
