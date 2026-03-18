@@ -49,7 +49,14 @@
         - [Vega-Lite Schema Export](web/vegalite_json.md)
 
 - [Case Studies](case_studies/case_studies.md)
-    - [Data Science & Machine Learning](case_studies/data_science.md)
+    - Biomedicine & Life Sciences
+        - [Semaglutide Weight Loss Curve](case_studies/semaglutide.md)
+    - [Data Science & Engineering](case_studies/data_science.md)
+    - [Machine Learning & AI](case_studies/ai.md)
+    - [Mathematics & Physics](case_studies/math.md)
+    - [Social & Humanities](case_studies/social.md)
+    - [Finance & Economics](case_studies/finance.md)
+    - [Geography & Geospatial](case_studies/geography.md)
 
 - [Advanced Features](advanced/advanced.md)
     - [Data Transformations](advanced/transformation.md)
