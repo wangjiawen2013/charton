@@ -92,7 +92,8 @@ pub fn render_polar_axes(
 
     // --- 2. ANGULAR AXIS (X-Axis) ---
     // Renders radial grid lines and circumferential category/value labels.
-    let x_ticks = x_scale.ticks(theme.suggest_tick_count(2.0 * std::f64::consts::PI * max_r));
+    let x_ticks =
+        x_scale.suggest_ticks(theme.suggest_tick_count(2.0 * std::f64::consts::PI * max_r));
 
     for tick in x_ticks {
         let x_n = x_scale.normalize(tick.value);

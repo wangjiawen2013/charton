@@ -125,7 +125,7 @@ impl ScaleTrait for DiscreteScale {
     ///
     /// For discrete scales, we ignore the requested `count` because every
     /// category is typically an essential label on the axis.
-    fn ticks(&self, _count: usize) -> Vec<Tick> {
+    fn suggest_ticks(&self, _count: usize) -> Vec<Tick> {
         self.domain
             .iter()
             .enumerate()
@@ -149,7 +149,7 @@ impl ScaleTrait for DiscreteScale {
         let len = self.domain.len();
 
         if len <= n || n == 0 {
-            return self.ticks(n);
+            return self.suggest_ticks(n);
         }
 
         (0..n)

@@ -253,7 +253,7 @@ impl LayoutEngine {
         // We must generate the same number of ticks as the renderer to ensure we
         // measure the actual strings (like "1.0000E7") that will be displayed.
         let final_count = theme.suggest_tick_count(available_space);
-        let ticks = scale.ticks(final_count);
+        let ticks = scale.suggest_ticks(final_count);
 
         // 2. Compute the physical footprint of the labels
         // Rotated text creates a bounding box. We need the projection of this box

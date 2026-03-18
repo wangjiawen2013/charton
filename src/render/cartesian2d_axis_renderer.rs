@@ -99,7 +99,7 @@ fn draw_ticks_and_labels(
 
     let available_space = if is_bottom { panel.width } else { panel.height };
     let final_count = theme.suggest_tick_count(available_space);
-    let ticks = target_scale.ticks(final_count);
+    let ticks = target_scale.suggest_ticks(final_count);
 
     let tick_len = 6.0;
 
@@ -223,7 +223,7 @@ fn draw_axis_title(
 
     let available_space = if is_bottom { panel.width } else { panel.height };
     let final_count = theme.suggest_tick_count(available_space);
-    let ticks = target_scale.ticks(final_count);
+    let ticks = target_scale.suggest_ticks(final_count);
 
     if is_bottom {
         let x = panel.x + panel.width / 2.0;

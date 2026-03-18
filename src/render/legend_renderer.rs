@@ -192,7 +192,7 @@ impl LegendRenderer {
 
         let mut max_label_w = 0.0;
         if let Some(mapping) = spec.mappings.first() {
-            let ticks = mapping.scale_impl.ticks(5);
+            let ticks = mapping.scale_impl.suggest_ticks(5);
             for tick in ticks {
                 let norm = mapping.scale_impl.normalize(tick.value);
                 let tick_y = y + (bar_h * (1.0 - norm));
