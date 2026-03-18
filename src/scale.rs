@@ -49,6 +49,54 @@ pub struct Tick {
     pub label: String,
 }
 
+/// The "Input": What the user explicitly requests.
+#[derive(Debug, Clone, PartialEq)]
+pub enum ExplicitTick {
+    Continuous(f64),
+    Discrete(String),
+    Temporal(OffsetDateTime),
+}
+
+/// A trait to allow various collection types to be converted
+/// into a vector of TickValues automatically.
+pub trait IntoExplicitTicks {
+    fn into_explicit_ticks(self) -> Vec<ExplicitTick>;
+}
+
+impl IntoExplicitTicks for Vec<f64> {
+    fn into_explicit_ticks(self) -> Vec<ExplicitTick> {
+        self.into_iter().map(ExplicitTick::Continuous).collect()
+    }
+}
+
+impl<const N: usize> IntoExplicitTicks for [f64; N] {
+    fn into_explicit_ticks(self) -> Vec<ExplicitTick> {
+        self.into_iter().map(ExplicitTick::Continuous).collect()
+    }
+}
+
+impl<const N: usize> IntoExplicitTicks for [&str; N] {
+    fn into_explicit_ticks(self) -> Vec<ExplicitTick> {
+        self.into_iter()
+            .map(|s| ExplicitTick::Discrete(s.to_string()))
+            .collect()
+    }
+}
+
+impl IntoExplicitTicks for Vec<&str> {
+    fn into_explicit_ticks(self) -> Vec<ExplicitTick> {
+        self.into_iter()
+            .map(|s| ExplicitTick::Discrete(s.to_string()))
+            .collect()
+    }
+}
+
+impl IntoExplicitTicks for Vec<OffsetDateTime> {
+    fn into_explicit_ticks(self) -> Vec<ExplicitTick> {
+        self.into_iter().map(ExplicitTick::Temporal).collect()
+    }
+}
+
 /// The mathematical strategy for mapping data to a [0, 1] normalized space.
 #[derive(Clone, Debug, Copy, PartialEq)]
 pub enum Scale {
@@ -130,7 +178,7 @@ pub trait ScaleTrait: std::fmt::Debug + Send + Sync {
     fn mapper(&self) -> Option<&VisualMapper>;
 
     /// Generates suggested tick marks for axes or legends.
-    fn ticks(&self, count: usize) -> Vec<Tick>;
+    fn suggest_ticks(&self, count: usize) -> Vec<Tick>;
 
     /// Returns the domain specification as an enum for guide generation.
     fn get_domain_enum(&self) -> ScaleDomain;

@@ -118,7 +118,7 @@ impl ScaleTrait for LogScale {
     /// This version focuses exclusively on "Major Ticks" (integer powers of the base).
     /// It includes a safety fallback to ensure at least two ticks are returned
     /// even if the data range is smaller than a single decade.
-    fn ticks(&self, _count: usize) -> Vec<Tick> {
+    fn suggest_ticks(&self, _count: usize) -> Vec<Tick> {
         let (min, max) = self.domain;
         let mut tick_values = Vec::new();
 

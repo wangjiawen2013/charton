@@ -121,7 +121,7 @@ impl ScaleTrait for TemporalScale {
     /// This implementation uses the `count` argument (derived from physical pixel space)
     /// to dynamically choose the most appropriate time interval (e.g., daily vs monthly)
     /// to prevent label overlapping while maintaining a consistent visual rhythm.
-    fn ticks(&self, count: usize) -> Vec<Tick> {
+    fn suggest_ticks(&self, count: usize) -> Vec<Tick> {
         let (start, end) = self.domain;
         let total_duration = end - start;
         let total_seconds = total_duration.whole_seconds().abs() as f64;

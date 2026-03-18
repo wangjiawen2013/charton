@@ -114,7 +114,7 @@ impl ScaleTrait for LinearScale {
     ///
     /// This method automatically adjusts the precision of the string labels
     /// based on the magnitude of the calculated nice step.
-    fn ticks(&self, count: usize) -> Vec<Tick> {
+    fn suggest_ticks(&self, count: usize) -> Vec<Tick> {
         let (min, max) = self.domain;
         let step = self.calculate_nice_step(count);
         let tolerance = step * 1e-9;
@@ -141,7 +141,7 @@ impl ScaleTrait for LinearScale {
         ScaleDomain::Continuous(self.domain.0, self.domain.1)
     }
 
-    /// Equidistant sampling used for legends that require fixed density.
+    /// Equidistant sampling used for legends that require fixed number legends.
     ///
     /// Unlike `ticks`, this guarantees exactly `n` points, even if the
     /// values are not "pretty" decimals.

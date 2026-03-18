@@ -183,7 +183,7 @@ impl GuideSpec {
             };
 
             // 2. Retrieve raw ticks from the scale (Pretty algorithm or Sample_n)
-            let mut ticks = first_mapping.scale_impl.ticks(count);
+            let mut ticks = first_mapping.scale_impl.suggest_ticks(count);
 
             // Fallback to force-sampling if the pretty algorithm returns insufficient points
             if ticks.len() < 3 && !matches!(self.domain, ScaleDomain::Discrete(_)) {
@@ -238,7 +238,7 @@ impl GuideSpec {
     pub(crate) fn get_sampling_ticks(&self) -> Vec<Tick> {
         if let Some(first_mapping) = self.mappings.first() {
             let count = 5; // Target density
-            let mut ticks = first_mapping.scale_impl.ticks(count);
+            let mut ticks = first_mapping.scale_impl.suggest_ticks(count);
 
             if ticks.len() < 3 && !matches!(self.domain, ScaleDomain::Discrete(_)) {
                 ticks = first_mapping.scale_impl.sample_n(count);
