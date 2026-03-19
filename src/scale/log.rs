@@ -1,4 +1,4 @@
-use super::{Scale, ScaleDomain, ScaleTrait, Tick, ExplicitTick, mapper::VisualMapper};
+use super::{ExplicitTick, Scale, ScaleDomain, ScaleTrait, Tick, mapper::VisualMapper};
 use crate::error::ChartonError;
 
 /// A scale that performs logarithmic transformation.
@@ -157,11 +157,11 @@ impl ScaleTrait for LogScale {
     }
 
     /// Transforms user-defined explicit ticks into renderable Tick objects for Log scales.
-    /// 
+    ///
     /// Note: Logarithmic scales only support positive values (v > 0).
     fn create_explicit_ticks(&self, explicit: &[ExplicitTick]) -> Vec<Tick> {
         let (min, max) = self.domain;
-        
+
         // Logarithmic scales are sensitive near the boundaries.
         // We use a relative tolerance (e.g., 1%) rather than a fixed epsilon.
         let lower_bound = min * 0.9999999999;
@@ -203,7 +203,7 @@ impl ScaleTrait for LogScale {
             );
         }
 
-        // Reuse the shared formatting logic to ensure consistent labels 
+        // Reuse the shared formatting logic to ensure consistent labels
         // (especially important for scientific notation in log scales).
         super::format_ticks(&valid_values)
     }

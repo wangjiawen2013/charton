@@ -1,4 +1,4 @@
-use super::{Scale, ScaleDomain, ScaleTrait, Tick, ExplicitTick, mapper::VisualMapper};
+use super::{ExplicitTick, Scale, ScaleDomain, ScaleTrait, Tick, mapper::VisualMapper};
 use std::collections::HashMap;
 
 /// A scale for categorical data that maps discrete values to normalized slots.
@@ -137,8 +137,8 @@ impl ScaleTrait for DiscreteScale {
     }
 
     /// Transforms user-defined discrete ticks into renderable Tick objects.
-    /// 
-    /// For discrete scales, we map the provided string labels to their 
+    ///
+    /// For discrete scales, we map the provided string labels to their
     /// corresponding integer indices defined in the domain.
     fn create_explicit_ticks(&self, explicit: &[ExplicitTick]) -> Vec<Tick> {
         let mut type_mismatch = 0;

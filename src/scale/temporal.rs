@@ -1,4 +1,4 @@
-use super::{Scale, ScaleDomain, ScaleTrait, Tick, ExplicitTick, mapper::VisualMapper};
+use super::{ExplicitTick, Scale, ScaleDomain, ScaleTrait, Tick, mapper::VisualMapper};
 use time::{Duration, OffsetDateTime};
 
 /// A scale for temporal (date/time) data using the `time` crate.
@@ -167,7 +167,7 @@ impl ScaleTrait for TemporalScale {
     }
 
     /// Transforms user-defined dates into renderable Tick objects.
-    /// 
+    ///
     /// This implementation:
     /// 1. Filters for `ExplicitTick::Temporal` variants.
     /// 2. Converts `OffsetDateTime` to `f64` (unix_timestamp_nanos) for positioning.
@@ -175,13 +175,13 @@ impl ScaleTrait for TemporalScale {
     /// 4. Formats the label automatically.
     fn create_explicit_ticks(&self, explicit: &[ExplicitTick]) -> Vec<Tick> {
         let (start, end) = self.domain;
-        
+
         // 1. Calculate the density/format_key just like in suggest_ticks
         // This ensures visual consistency across the axis.
         let total_duration = end - start;
         let total_seconds = total_duration.whole_seconds().abs() as f64;
-        
-        // Note: For explicit ticks, we don't have a 'count', 
+
+        // Note: For explicit ticks, we don't have a 'count',
         // so we use the total span to guess the best format.
         let format_key = if total_seconds > 365.0 * 24.0 * 3600.0 {
             "year"
@@ -208,7 +208,7 @@ impl ScaleTrait for TemporalScale {
                 match tick {
                     ExplicitTick::Temporal(dt) => {
                         let val_ns = dt.unix_timestamp_nanos() as f64;
-                        
+
                         // Domain check
                         if val_ns >= start_ns && val_ns <= end_ns {
                             Some(Tick {
