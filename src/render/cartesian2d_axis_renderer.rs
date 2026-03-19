@@ -9,6 +9,7 @@ use std::fmt::Write;
 ///
 /// This function is "Panel-aware": it renders axes relative to the `Rect` provided
 /// in the `PanelContext`. In a faceted chart, this is called for each individual panel.
+#[allow(clippy::too_many_arguments)]
 pub fn render_cartesian_axes(
     svg: &mut String,
     theme: &Theme,

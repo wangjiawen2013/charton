@@ -10,6 +10,7 @@ use std::fmt::Write;
 /// 1. Radial Axis (Y): Only displays the maximum domain value to keep the center clean.
 /// 2. Smart Positioning: Labels use quadrant-aware anchoring to "grow" away from lines.
 /// 3. Padding: Added theme-based padding to prevent text from touching the outer ring.
+#[allow(clippy::too_many_arguments)]
 pub fn render_polar_axes(
     svg: &mut String,
     theme: &Theme,
