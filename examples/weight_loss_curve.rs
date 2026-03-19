@@ -126,7 +126,7 @@ fn main() -> Result<(), Box<dyn Error>> {
             mult: (0.2, 0.01),
             add: (0.0, 0.0),
         })
-        .with_size(1150, 500)
+        .with_size(1200, 500)
         .with_right_margin(0.05)
         .with_left_margin(0.05)
         .with_bottom_margin(0.05)
