@@ -67,6 +67,7 @@ pub trait CoordinateTrait {
     /// Different coordinate systems implement this to reflect their geometry:
     /// - **Cartesian**: Renders straight horizontal and vertical lines.
     /// - **Polar**: Renders concentric circles (radius) and radial lines (angle).
+    #[allow(clippy::too_many_arguments)]
     fn render_axes(
         &self,
         svg: &mut String,
