@@ -127,7 +127,9 @@ fn main() -> Result<(), Box<dyn Error>> {
             add: (0.0, 0.0),
         })
         .with_size(1150, 500)
-        .with_right_margin(0.10)
+        .with_right_margin(0.05)
+        .with_left_margin(0.05)
+        .with_bottom_margin(0.05)
         .save("docs/src/images/weight_loss_curve.svg")?;
 
     Ok(())
