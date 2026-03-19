@@ -180,6 +180,9 @@ pub trait ScaleTrait: std::fmt::Debug + Send + Sync {
     /// Generates suggested tick marks for axes or legends.
     fn suggest_ticks(&self, count: usize) -> Vec<Tick>;
 
+    /// Generates user-requested ticks.
+    fn create_explicit_ticks(&self, explicit: &[ExplicitTick]) -> Vec<Tick>;
+
     /// Returns the domain specification as an enum for guide generation.
     fn get_domain_enum(&self) -> ScaleDomain;
 
