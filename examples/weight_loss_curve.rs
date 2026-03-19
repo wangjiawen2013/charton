@@ -126,11 +126,11 @@ fn main() -> Result<(), Box<dyn Error>> {
             mult: (0.15, 0.01),
             add: (0.0, 0.0),
         })
-        .with_size(1000, 410)
+        .with_size(1000, 400)
         .with_right_margin(0.10)
         .with_left_margin(0.05)
-        .with_top_margin(0.05)
-        .with_bottom_margin(0.05)
+        .with_top_margin(0.02)
+        .with_bottom_margin(0.03)
         .with_x_ticks([
             0.0, 4.0, 8.0, 12.0, 16.0, 20.0, 28.0, 36.0, 44.0, 52.0, 60.0, 68.0,
         ])
