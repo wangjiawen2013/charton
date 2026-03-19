@@ -1,157 +1,157 @@
-<svg width="1150" height="500" viewBox="0 0 1150 500" xmlns="http://www.w3.org/2000/svg"><rect width="100%" height="100%" fill="rgba(255,255,255,1.000)" /><line x1="116.45" y1="418.00" x2="1092.50" y2="418.00" stroke="rgba(51,51,51,1.000)" stroke-width="1" stroke-linecap="square"/>
-<line x1="116.45" y1="418.00" x2="116.45" y2="424.00" stroke="rgba(51,51,51,1.000)" stroke-width="1.0"/>
-<text x="116.45" y="427.00" font-size="13" font-family="Inter, -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, 'PingFang SC', 'Microsoft YaHei', Ubuntu, Cantarell, 'Noto Sans', sans-serif" fill="rgba(51,51,51,1.000)" text-anchor="middle" dominant-baseline="hanging">0</text>
-<line x1="185.99" y1="418.00" x2="185.99" y2="424.00" stroke="rgba(51,51,51,1.000)" stroke-width="1.0"/>
-<text x="185.99" y="427.00" font-size="13" font-family="Inter, -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, 'PingFang SC', 'Microsoft YaHei', Ubuntu, Cantarell, 'Noto Sans', sans-serif" fill="rgba(51,51,51,1.000)" text-anchor="middle" dominant-baseline="hanging">5</text>
-<line x1="255.54" y1="418.00" x2="255.54" y2="424.00" stroke="rgba(51,51,51,1.000)" stroke-width="1.0"/>
-<text x="255.54" y="427.00" font-size="13" font-family="Inter, -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, 'PingFang SC', 'Microsoft YaHei', Ubuntu, Cantarell, 'Noto Sans', sans-serif" fill="rgba(51,51,51,1.000)" text-anchor="middle" dominant-baseline="hanging">10</text>
-<line x1="325.08" y1="418.00" x2="325.08" y2="424.00" stroke="rgba(51,51,51,1.000)" stroke-width="1.0"/>
-<text x="325.08" y="427.00" font-size="13" font-family="Inter, -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, 'PingFang SC', 'Microsoft YaHei', Ubuntu, Cantarell, 'Noto Sans', sans-serif" fill="rgba(51,51,51,1.000)" text-anchor="middle" dominant-baseline="hanging">15</text>
-<line x1="394.62" y1="418.00" x2="394.62" y2="424.00" stroke="rgba(51,51,51,1.000)" stroke-width="1.0"/>
-<text x="394.62" y="427.00" font-size="13" font-family="Inter, -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, 'PingFang SC', 'Microsoft YaHei', Ubuntu, Cantarell, 'Noto Sans', sans-serif" fill="rgba(51,51,51,1.000)" text-anchor="middle" dominant-baseline="hanging">20</text>
-<line x1="464.17" y1="418.00" x2="464.17" y2="424.00" stroke="rgba(51,51,51,1.000)" stroke-width="1.0"/>
-<text x="464.17" y="427.00" font-size="13" font-family="Inter, -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, 'PingFang SC', 'Microsoft YaHei', Ubuntu, Cantarell, 'Noto Sans', sans-serif" fill="rgba(51,51,51,1.000)" text-anchor="middle" dominant-baseline="hanging">25</text>
-<line x1="533.71" y1="418.00" x2="533.71" y2="424.00" stroke="rgba(51,51,51,1.000)" stroke-width="1.0"/>
-<text x="533.71" y="427.00" font-size="13" font-family="Inter, -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, 'PingFang SC', 'Microsoft YaHei', Ubuntu, Cantarell, 'Noto Sans', sans-serif" fill="rgba(51,51,51,1.000)" text-anchor="middle" dominant-baseline="hanging">30</text>
-<line x1="603.25" y1="418.00" x2="603.25" y2="424.00" stroke="rgba(51,51,51,1.000)" stroke-width="1.0"/>
-<text x="603.25" y="427.00" font-size="13" font-family="Inter, -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, 'PingFang SC', 'Microsoft YaHei', Ubuntu, Cantarell, 'Noto Sans', sans-serif" fill="rgba(51,51,51,1.000)" text-anchor="middle" dominant-baseline="hanging">35</text>
-<line x1="672.79" y1="418.00" x2="672.79" y2="424.00" stroke="rgba(51,51,51,1.000)" stroke-width="1.0"/>
-<text x="672.79" y="427.00" font-size="13" font-family="Inter, -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, 'PingFang SC', 'Microsoft YaHei', Ubuntu, Cantarell, 'Noto Sans', sans-serif" fill="rgba(51,51,51,1.000)" text-anchor="middle" dominant-baseline="hanging">40</text>
-<line x1="742.34" y1="418.00" x2="742.34" y2="424.00" stroke="rgba(51,51,51,1.000)" stroke-width="1.0"/>
-<text x="742.34" y="427.00" font-size="13" font-family="Inter, -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, 'PingFang SC', 'Microsoft YaHei', Ubuntu, Cantarell, 'Noto Sans', sans-serif" fill="rgba(51,51,51,1.000)" text-anchor="middle" dominant-baseline="hanging">45</text>
-<line x1="811.88" y1="418.00" x2="811.88" y2="424.00" stroke="rgba(51,51,51,1.000)" stroke-width="1.0"/>
-<text x="811.88" y="427.00" font-size="13" font-family="Inter, -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, 'PingFang SC', 'Microsoft YaHei', Ubuntu, Cantarell, 'Noto Sans', sans-serif" fill="rgba(51,51,51,1.000)" text-anchor="middle" dominant-baseline="hanging">50</text>
-<line x1="881.42" y1="418.00" x2="881.42" y2="424.00" stroke="rgba(51,51,51,1.000)" stroke-width="1.0"/>
-<text x="881.42" y="427.00" font-size="13" font-family="Inter, -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, 'PingFang SC', 'Microsoft YaHei', Ubuntu, Cantarell, 'Noto Sans', sans-serif" fill="rgba(51,51,51,1.000)" text-anchor="middle" dominant-baseline="hanging">55</text>
-<line x1="950.97" y1="418.00" x2="950.97" y2="424.00" stroke="rgba(51,51,51,1.000)" stroke-width="1.0"/>
-<text x="950.97" y="427.00" font-size="13" font-family="Inter, -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, 'PingFang SC', 'Microsoft YaHei', Ubuntu, Cantarell, 'Noto Sans', sans-serif" fill="rgba(51,51,51,1.000)" text-anchor="middle" dominant-baseline="hanging">60</text>
-<line x1="1020.51" y1="418.00" x2="1020.51" y2="424.00" stroke="rgba(51,51,51,1.000)" stroke-width="1.0"/>
-<text x="1020.51" y="427.00" font-size="13" font-family="Inter, -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, 'PingFang SC', 'Microsoft YaHei', Ubuntu, Cantarell, 'Noto Sans', sans-serif" fill="rgba(51,51,51,1.000)" text-anchor="middle" dominant-baseline="hanging">65</text>
-<line x1="1090.05" y1="418.00" x2="1090.05" y2="424.00" stroke="rgba(51,51,51,1.000)" stroke-width="1.0"/>
-<text x="1090.05" y="427.00" font-size="13" font-family="Inter, -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, 'PingFang SC', 'Microsoft YaHei', Ubuntu, Cantarell, 'Noto Sans', sans-serif" fill="rgba(51,51,51,1.000)" text-anchor="middle" dominant-baseline="hanging">70</text>
-<text x="604.48" y="447.00" text-anchor="middle" font-size="15" font-family="Inter, -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, 'PingFang SC', 'Microsoft YaHei', Ubuntu, Cantarell, 'Noto Sans', sans-serif" fill="rgba(51,51,51,1.000)" font-weight="bold" dominant-baseline="hanging">Weeks since Randomization</text>
-<line x1="116.45" y1="50.00" x2="116.45" y2="418.00" stroke="rgba(51,51,51,1.000)" stroke-width="1" stroke-linecap="square"/>
-<line x1="116.45" y1="392.34" x2="110.45" y2="392.34" stroke="rgba(51,51,51,1.000)" stroke-width="1.0"/>
-<text x="106.45" y="392.34" font-size="13" font-family="Inter, -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, 'PingFang SC', 'Microsoft YaHei', Ubuntu, Cantarell, 'Noto Sans', sans-serif" fill="rgba(51,51,51,1.000)" text-anchor="end" dominant-baseline="central">-18</text>
-<line x1="116.45" y1="354.73" x2="110.45" y2="354.73" stroke="rgba(51,51,51,1.000)" stroke-width="1.0"/>
-<text x="106.45" y="354.73" font-size="13" font-family="Inter, -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, 'PingFang SC', 'Microsoft YaHei', Ubuntu, Cantarell, 'Noto Sans', sans-serif" fill="rgba(51,51,51,1.000)" text-anchor="end" dominant-baseline="central">-16</text>
-<line x1="116.45" y1="317.12" x2="110.45" y2="317.12" stroke="rgba(51,51,51,1.000)" stroke-width="1.0"/>
-<text x="106.45" y="317.12" font-size="13" font-family="Inter, -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, 'PingFang SC', 'Microsoft YaHei', Ubuntu, Cantarell, 'Noto Sans', sans-serif" fill="rgba(51,51,51,1.000)" text-anchor="end" dominant-baseline="central">-14</text>
-<line x1="116.45" y1="279.50" x2="110.45" y2="279.50" stroke="rgba(51,51,51,1.000)" stroke-width="1.0"/>
-<text x="106.45" y="279.50" font-size="13" font-family="Inter, -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, 'PingFang SC', 'Microsoft YaHei', Ubuntu, Cantarell, 'Noto Sans', sans-serif" fill="rgba(51,51,51,1.000)" text-anchor="end" dominant-baseline="central">-12</text>
-<line x1="116.45" y1="241.89" x2="110.45" y2="241.89" stroke="rgba(51,51,51,1.000)" stroke-width="1.0"/>
-<text x="106.45" y="241.89" font-size="13" font-family="Inter, -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, 'PingFang SC', 'Microsoft YaHei', Ubuntu, Cantarell, 'Noto Sans', sans-serif" fill="rgba(51,51,51,1.000)" text-anchor="end" dominant-baseline="central">-10</text>
-<line x1="116.45" y1="204.28" x2="110.45" y2="204.28" stroke="rgba(51,51,51,1.000)" stroke-width="1.0"/>
-<text x="106.45" y="204.28" font-size="13" font-family="Inter, -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, 'PingFang SC', 'Microsoft YaHei', Ubuntu, Cantarell, 'Noto Sans', sans-serif" fill="rgba(51,51,51,1.000)" text-anchor="end" dominant-baseline="central">-8</text>
-<line x1="116.45" y1="166.67" x2="110.45" y2="166.67" stroke="rgba(51,51,51,1.000)" stroke-width="1.0"/>
-<text x="106.45" y="166.67" font-size="13" font-family="Inter, -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, 'PingFang SC', 'Microsoft YaHei', Ubuntu, Cantarell, 'Noto Sans', sans-serif" fill="rgba(51,51,51,1.000)" text-anchor="end" dominant-baseline="central">-6</text>
-<line x1="116.45" y1="129.06" x2="110.45" y2="129.06" stroke="rgba(51,51,51,1.000)" stroke-width="1.0"/>
-<text x="106.45" y="129.06" font-size="13" font-family="Inter, -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, 'PingFang SC', 'Microsoft YaHei', Ubuntu, Cantarell, 'Noto Sans', sans-serif" fill="rgba(51,51,51,1.000)" text-anchor="end" dominant-baseline="central">-4</text>
-<line x1="116.45" y1="91.44" x2="110.45" y2="91.44" stroke="rgba(51,51,51,1.000)" stroke-width="1.0"/>
-<text x="106.45" y="91.44" font-size="13" font-family="Inter, -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, 'PingFang SC', 'Microsoft YaHei', Ubuntu, Cantarell, 'Noto Sans', sans-serif" fill="rgba(51,51,51,1.000)" text-anchor="end" dominant-baseline="central">-2</text>
-<line x1="116.45" y1="53.83" x2="110.45" y2="53.83" stroke="rgba(51,51,51,1.000)" stroke-width="1.0"/>
-<text x="106.45" y="53.83" font-size="13" font-family="Inter, -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, 'PingFang SC', 'Microsoft YaHei', Ubuntu, Cantarell, 'Noto Sans', sans-serif" fill="rgba(51,51,51,1.000)" text-anchor="end" dominant-baseline="central">0</text>
-<text x="75.00" y="234.00" text-anchor="middle" font-size="15" font-family="Inter, -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, 'PingFang SC', 'Microsoft YaHei', Ubuntu, Cantarell, 'Noto Sans', sans-serif" fill="rgba(51,51,51,1.000)" font-weight="bold" transform="rotate(-90, 75.00, 234.00)" dominant-baseline="middle">Change from Baseline (%)</text>
-<defs><clipPath id="plot-clip-area"><rect x="116.450" y="50.000" width="976.050" height="368.000" /></clipPath></defs>
-<polygon points="116.450,48.331 121.213,56.581 111.687,56.581" fill="rgba(129,130,132,1.000)" stroke="none" stroke-width="0.000" fill-opacity="1.000" stroke-opacity="1.000" clip-path="url(#plot-clip-area)" />
-<polygon points="172.084,69.206 176.848,77.456 167.321,77.456" fill="rgba(129,130,132,1.000)" stroke="none" stroke-width="0.000" fill-opacity="1.000" stroke-opacity="1.000" clip-path="url(#plot-clip-area)" />
-<polygon points="227.719,80.678 232.482,88.928 222.956,88.928" fill="rgba(129,130,132,1.000)" stroke="none" stroke-width="0.000" fill-opacity="1.000" stroke-opacity="1.000" clip-path="url(#plot-clip-area)" />
-<polygon points="283.353,89.328 288.116,97.578 278.590,97.578" fill="rgba(129,130,132,1.000)" stroke="none" stroke-width="0.000" fill-opacity="1.000" stroke-opacity="1.000" clip-path="url(#plot-clip-area)" />
-<polygon points="338.988,96.099 343.751,104.349 334.224,104.349" fill="rgba(129,130,132,1.000)" stroke="none" stroke-width="0.000" fill-opacity="1.000" stroke-opacity="1.000" clip-path="url(#plot-clip-area)" />
-<polygon points="394.622,101.552 399.385,109.802 389.859,109.802" fill="rgba(129,130,132,1.000)" stroke="none" stroke-width="0.000" fill-opacity="1.000" stroke-opacity="1.000" clip-path="url(#plot-clip-area)" />
-<polygon points="505.891,101.364 510.654,109.614 501.128,109.614" fill="rgba(129,130,132,1.000)" stroke="none" stroke-width="0.000" fill-opacity="1.000" stroke-opacity="1.000" clip-path="url(#plot-clip-area)" />
-<polygon points="617.160,104.373 621.923,112.623 612.396,112.623" fill="rgba(129,130,132,1.000)" stroke="none" stroke-width="0.000" fill-opacity="1.000" stroke-opacity="1.000" clip-path="url(#plot-clip-area)" />
-<polygon points="728.428,109.263 733.192,117.513 723.665,117.513" fill="rgba(129,130,132,1.000)" stroke="none" stroke-width="0.000" fill-opacity="1.000" stroke-opacity="1.000" clip-path="url(#plot-clip-area)" />
-<polygon points="839.697,110.579 844.460,118.829 834.934,118.829" fill="rgba(129,130,132,1.000)" stroke="none" stroke-width="0.000" fill-opacity="1.000" stroke-opacity="1.000" clip-path="url(#plot-clip-area)" />
-<polygon points="950.966,108.887 955.729,117.137 946.203,117.137" fill="rgba(129,130,132,1.000)" stroke="none" stroke-width="0.000" fill-opacity="1.000" stroke-opacity="1.000" clip-path="url(#plot-clip-area)" />
-<polygon points="1062.235,100.236 1066.998,108.486 1057.472,108.486" fill="rgba(129,130,132,1.000)" stroke="none" stroke-width="0.000" fill-opacity="1.000" stroke-opacity="1.000" clip-path="url(#plot-clip-area)" />
-<path d="M 116.450 53.831 L 1062.235 53.831" stroke="rgba(0,0,0,1.000)" stroke-width="1.000" stroke-opacity="1.000" fill="none" stroke-linejoin="round" stroke-linecap="round" stroke-dasharray="6,6" clip-path="url(#plot-clip-area)" />
-<path d="M 116.450 53.831 L 172.084 74.706 L 227.719 86.178 L 283.353 94.828 L 338.988 101.599 L 394.622 107.052 L 505.891 106.864 L 617.160 109.873 L 728.428 114.763 L 839.697 116.079 L 950.966 114.387 L 1062.235 105.736" stroke="rgba(129,130,132,1.000)" stroke-width="1.000" stroke-opacity="1.000" fill="none" stroke-linejoin="round" stroke-linecap="round" clip-path="url(#plot-clip-area)" />
-<line x1="116.450" y1="54.621" x2="116.450" y2="53.041" stroke="rgba(129,130,132,1.000)" stroke-width="1.500" stroke-opacity="1.000" />
-<line x1="112.450" y1="54.621" x2="120.450" y2="54.621" stroke="rgba(129,130,132,1.000)" stroke-width="1.500" stroke-opacity="1.000" />
-<line x1="112.450" y1="53.041" x2="120.450" y2="53.041" stroke="rgba(129,130,132,1.000)" stroke-width="1.500" stroke-opacity="1.000" />
-<line x1="172.084" y1="76.022" x2="172.084" y2="73.390" stroke="rgba(129,130,132,1.000)" stroke-width="1.500" stroke-opacity="1.000" />
-<line x1="168.084" y1="76.022" x2="176.084" y2="76.022" stroke="rgba(129,130,132,1.000)" stroke-width="1.500" stroke-opacity="1.000" />
-<line x1="168.084" y1="73.390" x2="176.084" y2="73.390" stroke="rgba(129,130,132,1.000)" stroke-width="1.500" stroke-opacity="1.000" />
-<line x1="227.719" y1="87.870" x2="227.719" y2="84.485" stroke="rgba(129,130,132,1.000)" stroke-width="1.500" stroke-opacity="1.000" />
-<line x1="223.719" y1="87.870" x2="231.719" y2="87.870" stroke="rgba(129,130,132,1.000)" stroke-width="1.500" stroke-opacity="1.000" />
-<line x1="223.719" y1="84.485" x2="231.719" y2="84.485" stroke="rgba(129,130,132,1.000)" stroke-width="1.500" stroke-opacity="1.000" />
-<line x1="283.353" y1="96.709" x2="283.353" y2="92.948" stroke="rgba(129,130,132,1.000)" stroke-width="1.500" stroke-opacity="1.000" />
-<line x1="279.353" y1="96.709" x2="287.353" y2="96.709" stroke="rgba(129,130,132,1.000)" stroke-width="1.500" stroke-opacity="1.000" />
-<line x1="279.353" y1="92.948" x2="287.353" y2="92.948" stroke="rgba(129,130,132,1.000)" stroke-width="1.500" stroke-opacity="1.000" />
-<line x1="338.988" y1="103.855" x2="338.988" y2="99.342" stroke="rgba(129,130,132,1.000)" stroke-width="1.500" stroke-opacity="1.000" />
-<line x1="334.988" y1="103.855" x2="342.988" y2="103.855" stroke="rgba(129,130,132,1.000)" stroke-width="1.500" stroke-opacity="1.000" />
-<line x1="334.988" y1="99.342" x2="342.988" y2="99.342" stroke="rgba(129,130,132,1.000)" stroke-width="1.500" stroke-opacity="1.000" />
-<line x1="394.622" y1="110.249" x2="394.622" y2="103.855" stroke="rgba(129,130,132,1.000)" stroke-width="1.500" stroke-opacity="1.000" />
-<line x1="390.622" y1="110.249" x2="398.622" y2="110.249" stroke="rgba(129,130,132,1.000)" stroke-width="1.500" stroke-opacity="1.000" />
-<line x1="390.622" y1="103.855" x2="398.622" y2="103.855" stroke="rgba(129,130,132,1.000)" stroke-width="1.500" stroke-opacity="1.000" />
-<line x1="505.891" y1="110.814" x2="505.891" y2="102.915" stroke="rgba(129,130,132,1.000)" stroke-width="1.500" stroke-opacity="1.000" />
-<line x1="501.891" y1="110.814" x2="509.891" y2="110.814" stroke="rgba(129,130,132,1.000)" stroke-width="1.500" stroke-opacity="1.000" />
-<line x1="501.891" y1="102.915" x2="509.891" y2="102.915" stroke="rgba(129,130,132,1.000)" stroke-width="1.500" stroke-opacity="1.000" />
-<line x1="617.160" y1="114.387" x2="617.160" y2="105.360" stroke="rgba(129,130,132,1.000)" stroke-width="1.500" stroke-opacity="1.000" />
-<line x1="613.160" y1="114.387" x2="621.160" y2="114.387" stroke="rgba(129,130,132,1.000)" stroke-width="1.500" stroke-opacity="1.000" />
-<line x1="613.160" y1="105.360" x2="621.160" y2="105.360" stroke="rgba(129,130,132,1.000)" stroke-width="1.500" stroke-opacity="1.000" />
-<line x1="728.428" y1="119.464" x2="728.428" y2="110.061" stroke="rgba(129,130,132,1.000)" stroke-width="1.500" stroke-opacity="1.000" />
-<line x1="724.428" y1="119.464" x2="732.428" y2="119.464" stroke="rgba(129,130,132,1.000)" stroke-width="1.500" stroke-opacity="1.000" />
-<line x1="724.428" y1="110.061" x2="732.428" y2="110.061" stroke="rgba(129,130,132,1.000)" stroke-width="1.500" stroke-opacity="1.000" />
-<line x1="839.697" y1="120.405" x2="839.697" y2="111.754" stroke="rgba(129,130,132,1.000)" stroke-width="1.500" stroke-opacity="1.000" />
-<line x1="835.697" y1="120.405" x2="843.697" y2="120.405" stroke="rgba(129,130,132,1.000)" stroke-width="1.500" stroke-opacity="1.000" />
-<line x1="835.697" y1="111.754" x2="843.697" y2="111.754" stroke="rgba(129,130,132,1.000)" stroke-width="1.500" stroke-opacity="1.000" />
-<line x1="950.966" y1="118.900" x2="950.966" y2="109.873" stroke="rgba(129,130,132,1.000)" stroke-width="1.500" stroke-opacity="1.000" />
-<line x1="946.966" y1="118.900" x2="954.966" y2="118.900" stroke="rgba(129,130,132,1.000)" stroke-width="1.500" stroke-opacity="1.000" />
-<line x1="946.966" y1="109.873" x2="954.966" y2="109.873" stroke="rgba(129,130,132,1.000)" stroke-width="1.500" stroke-opacity="1.000" />
-<line x1="1062.235" y1="110.814" x2="1062.235" y2="100.658" stroke="rgba(129,130,132,1.000)" stroke-width="1.500" stroke-opacity="1.000" />
-<line x1="1058.235" y1="110.814" x2="1066.235" y2="110.814" stroke="rgba(129,130,132,1.000)" stroke-width="1.500" stroke-opacity="1.000" />
-<line x1="1058.235" y1="100.658" x2="1066.235" y2="100.658" stroke="rgba(129,130,132,1.000)" stroke-width="1.500" stroke-opacity="1.000" />
-<text x="1073.362" y="111.190" font-size="14.0" font-family="Inter, -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, 'PingFang SC', 'Microsoft YaHei', Ubuntu, Cantarell, 'Noto Sans', sans-serif" fill="rgba(0,0,0,1.000)" fill-opacity="1.000" text-anchor="start" font-weight="normal">Placebo</text>
-<rect x="113.450" y="50.831" width="6.000" height="6.000" fill="rgba(91,136,195,1.000)" stroke="none" stroke-width="0.000" fill-opacity="1.000" stroke-opacity="1.000" clip-path="url(#plot-clip-area)" />
-<rect x="169.084" y="93.521" width="6.000" height="6.000" fill="rgba(91,136,195,1.000)" stroke="none" stroke-width="0.000" fill-opacity="1.000" stroke-opacity="1.000" clip-path="url(#plot-clip-area)" />
-<rect x="224.719" y="126.244" width="6.000" height="6.000" fill="rgba(91,136,195,1.000)" stroke="none" stroke-width="0.000" fill-opacity="1.000" stroke-opacity="1.000" clip-path="url(#plot-clip-area)" />
-<rect x="280.353" y="161.787" width="6.000" height="6.000" fill="rgba(91,136,195,1.000)" stroke="none" stroke-width="0.000" fill-opacity="1.000" stroke-opacity="1.000" clip-path="url(#plot-clip-area)" />
-<rect x="335.988" y="194.886" width="6.000" height="6.000" fill="rgba(91,136,195,1.000)" stroke="none" stroke-width="0.000" fill-opacity="1.000" stroke-opacity="1.000" clip-path="url(#plot-clip-area)" />
-<rect x="391.622" y="228.737" width="6.000" height="6.000" fill="rgba(91,136,195,1.000)" stroke="none" stroke-width="0.000" fill-opacity="1.000" stroke-opacity="1.000" clip-path="url(#plot-clip-area)" />
-<rect x="502.891" y="270.486" width="6.000" height="6.000" fill="rgba(91,136,195,1.000)" stroke="none" stroke-width="0.000" fill-opacity="1.000" stroke-opacity="1.000" clip-path="url(#plot-clip-area)" />
-<rect x="614.160" y="301.516" width="6.000" height="6.000" fill="rgba(91,136,195,1.000)" stroke="none" stroke-width="0.000" fill-opacity="1.000" stroke-opacity="1.000" clip-path="url(#plot-clip-area)" />
-<rect x="725.428" y="325.776" width="6.000" height="6.000" fill="rgba(91,136,195,1.000)" stroke="none" stroke-width="0.000" fill-opacity="1.000" stroke-opacity="1.000" clip-path="url(#plot-clip-area)" />
-<rect x="836.697" y="341.762" width="6.000" height="6.000" fill="rgba(91,136,195,1.000)" stroke="none" stroke-width="0.000" fill-opacity="1.000" stroke-opacity="1.000" clip-path="url(#plot-clip-area)" />
-<rect x="947.966" y="349.096" width="6.000" height="6.000" fill="rgba(91,136,195,1.000)" stroke="none" stroke-width="0.000" fill-opacity="1.000" stroke-opacity="1.000" clip-path="url(#plot-clip-area)" />
-<rect x="1059.235" y="344.206" width="6.000" height="6.000" fill="rgba(91,136,195,1.000)" stroke="none" stroke-width="0.000" fill-opacity="1.000" stroke-opacity="1.000" clip-path="url(#plot-clip-area)" />
-<path d="M 116.450 53.831 L 172.084 96.521 L 227.719 129.244 L 283.353 164.787 L 338.988 197.886 L 394.622 231.737 L 505.891 273.486 L 617.160 304.516 L 728.428 328.776 L 839.697 344.762 L 950.966 352.096 L 1062.235 347.206" stroke="rgba(91,136,195,1.000)" stroke-width="1.000" stroke-opacity="1.000" fill="none" stroke-linejoin="round" stroke-linecap="round" clip-path="url(#plot-clip-area)" />
-<line x1="116.450" y1="54.602" x2="116.450" y2="53.060" stroke="rgba(91,136,195,1.000)" stroke-width="1.500" stroke-opacity="1.000" />
-<line x1="112.450" y1="54.602" x2="120.450" y2="54.602" stroke="rgba(91,136,195,1.000)" stroke-width="1.500" stroke-opacity="1.000" />
-<line x1="112.450" y1="53.060" x2="120.450" y2="53.060" stroke="rgba(91,136,195,1.000)" stroke-width="1.500" stroke-opacity="1.000" />
-<line x1="172.084" y1="97.085" x2="172.084" y2="95.957" stroke="rgba(91,136,195,1.000)" stroke-width="1.500" stroke-opacity="1.000" />
-<line x1="168.084" y1="97.085" x2="176.084" y2="97.085" stroke="rgba(91,136,195,1.000)" stroke-width="1.500" stroke-opacity="1.000" />
-<line x1="168.084" y1="95.957" x2="176.084" y2="95.957" stroke="rgba(91,136,195,1.000)" stroke-width="1.500" stroke-opacity="1.000" />
-<line x1="227.719" y1="130.936" x2="227.719" y2="127.551" stroke="rgba(91,136,195,1.000)" stroke-width="1.500" stroke-opacity="1.000" />
-<line x1="223.719" y1="130.936" x2="231.719" y2="130.936" stroke="rgba(91,136,195,1.000)" stroke-width="1.500" stroke-opacity="1.000" />
-<line x1="223.719" y1="127.551" x2="231.719" y2="127.551" stroke="rgba(91,136,195,1.000)" stroke-width="1.500" stroke-opacity="1.000" />
-<line x1="283.353" y1="166.292" x2="283.353" y2="163.283" stroke="rgba(91,136,195,1.000)" stroke-width="1.500" stroke-opacity="1.000" />
-<line x1="279.353" y1="166.292" x2="287.353" y2="166.292" stroke="rgba(91,136,195,1.000)" stroke-width="1.500" stroke-opacity="1.000" />
-<line x1="279.353" y1="163.283" x2="287.353" y2="163.283" stroke="rgba(91,136,195,1.000)" stroke-width="1.500" stroke-opacity="1.000" />
-<line x1="338.988" y1="200.331" x2="338.988" y2="195.441" stroke="rgba(91,136,195,1.000)" stroke-width="1.500" stroke-opacity="1.000" />
-<line x1="334.988" y1="200.331" x2="342.988" y2="200.331" stroke="rgba(91,136,195,1.000)" stroke-width="1.500" stroke-opacity="1.000" />
-<line x1="334.988" y1="195.441" x2="342.988" y2="195.441" stroke="rgba(91,136,195,1.000)" stroke-width="1.500" stroke-opacity="1.000" />
-<line x1="394.622" y1="233.994" x2="394.622" y2="229.480" stroke="rgba(91,136,195,1.000)" stroke-width="1.500" stroke-opacity="1.000" />
-<line x1="390.622" y1="233.994" x2="398.622" y2="233.994" stroke="rgba(91,136,195,1.000)" stroke-width="1.500" stroke-opacity="1.000" />
-<line x1="390.622" y1="229.480" x2="398.622" y2="229.480" stroke="rgba(91,136,195,1.000)" stroke-width="1.500" stroke-opacity="1.000" />
-<line x1="505.891" y1="276.495" x2="505.891" y2="270.477" stroke="rgba(91,136,195,1.000)" stroke-width="1.500" stroke-opacity="1.000" />
-<line x1="501.891" y1="276.495" x2="509.891" y2="276.495" stroke="rgba(91,136,195,1.000)" stroke-width="1.500" stroke-opacity="1.000" />
-<line x1="501.891" y1="270.477" x2="509.891" y2="270.477" stroke="rgba(91,136,195,1.000)" stroke-width="1.500" stroke-opacity="1.000" />
-<line x1="617.160" y1="308.654" x2="617.160" y2="300.379" stroke="rgba(91,136,195,1.000)" stroke-width="1.500" stroke-opacity="1.000" />
-<line x1="613.160" y1="308.654" x2="621.160" y2="308.654" stroke="rgba(91,136,195,1.000)" stroke-width="1.500" stroke-opacity="1.000" />
-<line x1="613.160" y1="300.379" x2="621.160" y2="300.379" stroke="rgba(91,136,195,1.000)" stroke-width="1.500" stroke-opacity="1.000" />
-<line x1="728.428" y1="332.726" x2="728.428" y2="324.827" stroke="rgba(91,136,195,1.000)" stroke-width="1.500" stroke-opacity="1.000" />
-<line x1="724.428" y1="332.726" x2="732.428" y2="332.726" stroke="rgba(91,136,195,1.000)" stroke-width="1.500" stroke-opacity="1.000" />
-<line x1="724.428" y1="324.827" x2="732.428" y2="324.827" stroke="rgba(91,136,195,1.000)" stroke-width="1.500" stroke-opacity="1.000" />
-<line x1="839.697" y1="349.463" x2="839.697" y2="340.060" stroke="rgba(91,136,195,1.000)" stroke-width="1.500" stroke-opacity="1.000" />
-<line x1="835.697" y1="349.463" x2="843.697" y2="349.463" stroke="rgba(91,136,195,1.000)" stroke-width="1.500" stroke-opacity="1.000" />
-<line x1="835.697" y1="340.060" x2="843.697" y2="340.060" stroke="rgba(91,136,195,1.000)" stroke-width="1.500" stroke-opacity="1.000" />
-<line x1="950.966" y1="357.174" x2="950.966" y2="347.018" stroke="rgba(91,136,195,1.000)" stroke-width="1.500" stroke-opacity="1.000" />
-<line x1="946.966" y1="357.174" x2="954.966" y2="357.174" stroke="rgba(91,136,195,1.000)" stroke-width="1.500" stroke-opacity="1.000" />
-<line x1="946.966" y1="347.018" x2="954.966" y2="347.018" stroke="rgba(91,136,195,1.000)" stroke-width="1.500" stroke-opacity="1.000" />
-<line x1="1062.235" y1="352.096" x2="1062.235" y2="342.317" stroke="rgba(91,136,195,1.000)" stroke-width="1.500" stroke-opacity="1.000" />
-<line x1="1058.235" y1="352.096" x2="1066.235" y2="352.096" stroke="rgba(91,136,195,1.000)" stroke-width="1.500" stroke-opacity="1.000" />
-<line x1="1058.235" y1="342.317" x2="1066.235" y2="342.317" stroke="rgba(91,136,195,1.000)" stroke-width="1.500" stroke-opacity="1.000" />
-<text x="1073.362" y="352.096" font-size="14.0" font-family="Inter, -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, 'PingFang SC', 'Microsoft YaHei', Ubuntu, Cantarell, 'Noto Sans', sans-serif" fill="rgba(0,0,0,1.000)" fill-opacity="1.000" text-anchor="start" font-weight="normal">Semaglutide</text>
+<svg width="1200" height="500" viewBox="0 0 1200 500" xmlns="http://www.w3.org/2000/svg"><rect width="100%" height="100%" fill="rgba(255,255,255,1.000)" /><line x1="118.95" y1="418.00" x2="1140.00" y2="418.00" stroke="rgba(51,51,51,1.000)" stroke-width="1" stroke-linecap="square"/>
+<line x1="118.95" y1="418.00" x2="118.95" y2="424.00" stroke="rgba(51,51,51,1.000)" stroke-width="1.0"/>
+<text x="118.95" y="427.00" font-size="13" font-family="Inter, -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, 'PingFang SC', 'Microsoft YaHei', Ubuntu, Cantarell, 'Noto Sans', sans-serif" fill="rgba(51,51,51,1.000)" text-anchor="middle" dominant-baseline="hanging">0</text>
+<line x1="191.70" y1="418.00" x2="191.70" y2="424.00" stroke="rgba(51,51,51,1.000)" stroke-width="1.0"/>
+<text x="191.70" y="427.00" font-size="13" font-family="Inter, -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, 'PingFang SC', 'Microsoft YaHei', Ubuntu, Cantarell, 'Noto Sans', sans-serif" fill="rgba(51,51,51,1.000)" text-anchor="middle" dominant-baseline="hanging">5</text>
+<line x1="264.45" y1="418.00" x2="264.45" y2="424.00" stroke="rgba(51,51,51,1.000)" stroke-width="1.0"/>
+<text x="264.45" y="427.00" font-size="13" font-family="Inter, -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, 'PingFang SC', 'Microsoft YaHei', Ubuntu, Cantarell, 'Noto Sans', sans-serif" fill="rgba(51,51,51,1.000)" text-anchor="middle" dominant-baseline="hanging">10</text>
+<line x1="337.20" y1="418.00" x2="337.20" y2="424.00" stroke="rgba(51,51,51,1.000)" stroke-width="1.0"/>
+<text x="337.20" y="427.00" font-size="13" font-family="Inter, -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, 'PingFang SC', 'Microsoft YaHei', Ubuntu, Cantarell, 'Noto Sans', sans-serif" fill="rgba(51,51,51,1.000)" text-anchor="middle" dominant-baseline="hanging">15</text>
+<line x1="409.95" y1="418.00" x2="409.95" y2="424.00" stroke="rgba(51,51,51,1.000)" stroke-width="1.0"/>
+<text x="409.95" y="427.00" font-size="13" font-family="Inter, -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, 'PingFang SC', 'Microsoft YaHei', Ubuntu, Cantarell, 'Noto Sans', sans-serif" fill="rgba(51,51,51,1.000)" text-anchor="middle" dominant-baseline="hanging">20</text>
+<line x1="482.70" y1="418.00" x2="482.70" y2="424.00" stroke="rgba(51,51,51,1.000)" stroke-width="1.0"/>
+<text x="482.70" y="427.00" font-size="13" font-family="Inter, -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, 'PingFang SC', 'Microsoft YaHei', Ubuntu, Cantarell, 'Noto Sans', sans-serif" fill="rgba(51,51,51,1.000)" text-anchor="middle" dominant-baseline="hanging">25</text>
+<line x1="555.45" y1="418.00" x2="555.45" y2="424.00" stroke="rgba(51,51,51,1.000)" stroke-width="1.0"/>
+<text x="555.45" y="427.00" font-size="13" font-family="Inter, -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, 'PingFang SC', 'Microsoft YaHei', Ubuntu, Cantarell, 'Noto Sans', sans-serif" fill="rgba(51,51,51,1.000)" text-anchor="middle" dominant-baseline="hanging">30</text>
+<line x1="628.19" y1="418.00" x2="628.19" y2="424.00" stroke="rgba(51,51,51,1.000)" stroke-width="1.0"/>
+<text x="628.19" y="427.00" font-size="13" font-family="Inter, -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, 'PingFang SC', 'Microsoft YaHei', Ubuntu, Cantarell, 'Noto Sans', sans-serif" fill="rgba(51,51,51,1.000)" text-anchor="middle" dominant-baseline="hanging">35</text>
+<line x1="700.94" y1="418.00" x2="700.94" y2="424.00" stroke="rgba(51,51,51,1.000)" stroke-width="1.0"/>
+<text x="700.94" y="427.00" font-size="13" font-family="Inter, -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, 'PingFang SC', 'Microsoft YaHei', Ubuntu, Cantarell, 'Noto Sans', sans-serif" fill="rgba(51,51,51,1.000)" text-anchor="middle" dominant-baseline="hanging">40</text>
+<line x1="773.69" y1="418.00" x2="773.69" y2="424.00" stroke="rgba(51,51,51,1.000)" stroke-width="1.0"/>
+<text x="773.69" y="427.00" font-size="13" font-family="Inter, -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, 'PingFang SC', 'Microsoft YaHei', Ubuntu, Cantarell, 'Noto Sans', sans-serif" fill="rgba(51,51,51,1.000)" text-anchor="middle" dominant-baseline="hanging">45</text>
+<line x1="846.44" y1="418.00" x2="846.44" y2="424.00" stroke="rgba(51,51,51,1.000)" stroke-width="1.0"/>
+<text x="846.44" y="427.00" font-size="13" font-family="Inter, -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, 'PingFang SC', 'Microsoft YaHei', Ubuntu, Cantarell, 'Noto Sans', sans-serif" fill="rgba(51,51,51,1.000)" text-anchor="middle" dominant-baseline="hanging">50</text>
+<line x1="919.19" y1="418.00" x2="919.19" y2="424.00" stroke="rgba(51,51,51,1.000)" stroke-width="1.0"/>
+<text x="919.19" y="427.00" font-size="13" font-family="Inter, -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, 'PingFang SC', 'Microsoft YaHei', Ubuntu, Cantarell, 'Noto Sans', sans-serif" fill="rgba(51,51,51,1.000)" text-anchor="middle" dominant-baseline="hanging">55</text>
+<line x1="991.94" y1="418.00" x2="991.94" y2="424.00" stroke="rgba(51,51,51,1.000)" stroke-width="1.0"/>
+<text x="991.94" y="427.00" font-size="13" font-family="Inter, -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, 'PingFang SC', 'Microsoft YaHei', Ubuntu, Cantarell, 'Noto Sans', sans-serif" fill="rgba(51,51,51,1.000)" text-anchor="middle" dominant-baseline="hanging">60</text>
+<line x1="1064.69" y1="418.00" x2="1064.69" y2="424.00" stroke="rgba(51,51,51,1.000)" stroke-width="1.0"/>
+<text x="1064.69" y="427.00" font-size="13" font-family="Inter, -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, 'PingFang SC', 'Microsoft YaHei', Ubuntu, Cantarell, 'Noto Sans', sans-serif" fill="rgba(51,51,51,1.000)" text-anchor="middle" dominant-baseline="hanging">65</text>
+<line x1="1137.44" y1="418.00" x2="1137.44" y2="424.00" stroke="rgba(51,51,51,1.000)" stroke-width="1.0"/>
+<text x="1137.44" y="427.00" font-size="13" font-family="Inter, -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, 'PingFang SC', 'Microsoft YaHei', Ubuntu, Cantarell, 'Noto Sans', sans-serif" fill="rgba(51,51,51,1.000)" text-anchor="middle" dominant-baseline="hanging">70</text>
+<text x="629.48" y="447.00" text-anchor="middle" font-size="15" font-family="Inter, -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, 'PingFang SC', 'Microsoft YaHei', Ubuntu, Cantarell, 'Noto Sans', sans-serif" fill="rgba(51,51,51,1.000)" font-weight="bold" dominant-baseline="hanging">Weeks since Randomization</text>
+<line x1="118.95" y1="50.00" x2="118.95" y2="418.00" stroke="rgba(51,51,51,1.000)" stroke-width="1" stroke-linecap="square"/>
+<line x1="118.95" y1="392.34" x2="112.95" y2="392.34" stroke="rgba(51,51,51,1.000)" stroke-width="1.0"/>
+<text x="108.95" y="392.34" font-size="13" font-family="Inter, -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, 'PingFang SC', 'Microsoft YaHei', Ubuntu, Cantarell, 'Noto Sans', sans-serif" fill="rgba(51,51,51,1.000)" text-anchor="end" dominant-baseline="central">-18</text>
+<line x1="118.95" y1="354.73" x2="112.95" y2="354.73" stroke="rgba(51,51,51,1.000)" stroke-width="1.0"/>
+<text x="108.95" y="354.73" font-size="13" font-family="Inter, -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, 'PingFang SC', 'Microsoft YaHei', Ubuntu, Cantarell, 'Noto Sans', sans-serif" fill="rgba(51,51,51,1.000)" text-anchor="end" dominant-baseline="central">-16</text>
+<line x1="118.95" y1="317.12" x2="112.95" y2="317.12" stroke="rgba(51,51,51,1.000)" stroke-width="1.0"/>
+<text x="108.95" y="317.12" font-size="13" font-family="Inter, -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, 'PingFang SC', 'Microsoft YaHei', Ubuntu, Cantarell, 'Noto Sans', sans-serif" fill="rgba(51,51,51,1.000)" text-anchor="end" dominant-baseline="central">-14</text>
+<line x1="118.95" y1="279.50" x2="112.95" y2="279.50" stroke="rgba(51,51,51,1.000)" stroke-width="1.0"/>
+<text x="108.95" y="279.50" font-size="13" font-family="Inter, -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, 'PingFang SC', 'Microsoft YaHei', Ubuntu, Cantarell, 'Noto Sans', sans-serif" fill="rgba(51,51,51,1.000)" text-anchor="end" dominant-baseline="central">-12</text>
+<line x1="118.95" y1="241.89" x2="112.95" y2="241.89" stroke="rgba(51,51,51,1.000)" stroke-width="1.0"/>
+<text x="108.95" y="241.89" font-size="13" font-family="Inter, -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, 'PingFang SC', 'Microsoft YaHei', Ubuntu, Cantarell, 'Noto Sans', sans-serif" fill="rgba(51,51,51,1.000)" text-anchor="end" dominant-baseline="central">-10</text>
+<line x1="118.95" y1="204.28" x2="112.95" y2="204.28" stroke="rgba(51,51,51,1.000)" stroke-width="1.0"/>
+<text x="108.95" y="204.28" font-size="13" font-family="Inter, -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, 'PingFang SC', 'Microsoft YaHei', Ubuntu, Cantarell, 'Noto Sans', sans-serif" fill="rgba(51,51,51,1.000)" text-anchor="end" dominant-baseline="central">-8</text>
+<line x1="118.95" y1="166.67" x2="112.95" y2="166.67" stroke="rgba(51,51,51,1.000)" stroke-width="1.0"/>
+<text x="108.95" y="166.67" font-size="13" font-family="Inter, -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, 'PingFang SC', 'Microsoft YaHei', Ubuntu, Cantarell, 'Noto Sans', sans-serif" fill="rgba(51,51,51,1.000)" text-anchor="end" dominant-baseline="central">-6</text>
+<line x1="118.95" y1="129.06" x2="112.95" y2="129.06" stroke="rgba(51,51,51,1.000)" stroke-width="1.0"/>
+<text x="108.95" y="129.06" font-size="13" font-family="Inter, -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, 'PingFang SC', 'Microsoft YaHei', Ubuntu, Cantarell, 'Noto Sans', sans-serif" fill="rgba(51,51,51,1.000)" text-anchor="end" dominant-baseline="central">-4</text>
+<line x1="118.95" y1="91.44" x2="112.95" y2="91.44" stroke="rgba(51,51,51,1.000)" stroke-width="1.0"/>
+<text x="108.95" y="91.44" font-size="13" font-family="Inter, -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, 'PingFang SC', 'Microsoft YaHei', Ubuntu, Cantarell, 'Noto Sans', sans-serif" fill="rgba(51,51,51,1.000)" text-anchor="end" dominant-baseline="central">-2</text>
+<line x1="118.95" y1="53.83" x2="112.95" y2="53.83" stroke="rgba(51,51,51,1.000)" stroke-width="1.0"/>
+<text x="108.95" y="53.83" font-size="13" font-family="Inter, -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, 'PingFang SC', 'Microsoft YaHei', Ubuntu, Cantarell, 'Noto Sans', sans-serif" fill="rgba(51,51,51,1.000)" text-anchor="end" dominant-baseline="central">0</text>
+<text x="77.50" y="234.00" text-anchor="middle" font-size="15" font-family="Inter, -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, 'PingFang SC', 'Microsoft YaHei', Ubuntu, Cantarell, 'Noto Sans', sans-serif" fill="rgba(51,51,51,1.000)" font-weight="bold" transform="rotate(-90, 77.50, 234.00)" dominant-baseline="middle">Change from Baseline (%)</text>
+<defs><clipPath id="plot-clip-area"><rect x="118.950" y="50.000" width="1021.050" height="368.000" /></clipPath></defs>
+<polygon points="118.950,48.331 123.713,56.581 114.187,56.581" fill="rgba(129,130,132,1.000)" stroke="none" stroke-width="0.000" fill-opacity="1.000" stroke-opacity="1.000" clip-path="url(#plot-clip-area)" />
+<polygon points="177.149,69.206 181.913,77.456 172.386,77.456" fill="rgba(129,130,132,1.000)" stroke="none" stroke-width="0.000" fill-opacity="1.000" stroke-opacity="1.000" clip-path="url(#plot-clip-area)" />
+<polygon points="235.349,80.678 240.112,88.928 230.586,88.928" fill="rgba(129,130,132,1.000)" stroke="none" stroke-width="0.000" fill-opacity="1.000" stroke-opacity="1.000" clip-path="url(#plot-clip-area)" />
+<polygon points="293.548,89.328 298.311,97.578 288.785,97.578" fill="rgba(129,130,132,1.000)" stroke="none" stroke-width="0.000" fill-opacity="1.000" stroke-opacity="1.000" clip-path="url(#plot-clip-area)" />
+<polygon points="351.748,96.099 356.511,104.349 346.984,104.349" fill="rgba(129,130,132,1.000)" stroke="none" stroke-width="0.000" fill-opacity="1.000" stroke-opacity="1.000" clip-path="url(#plot-clip-area)" />
+<polygon points="409.947,101.552 414.710,109.802 405.184,109.802" fill="rgba(129,130,132,1.000)" stroke="none" stroke-width="0.000" fill-opacity="1.000" stroke-opacity="1.000" clip-path="url(#plot-clip-area)" />
+<polygon points="526.346,101.364 531.109,109.614 521.583,109.614" fill="rgba(129,130,132,1.000)" stroke="none" stroke-width="0.000" fill-opacity="1.000" stroke-opacity="1.000" clip-path="url(#plot-clip-area)" />
+<polygon points="642.744,104.373 647.508,112.623 637.981,112.623" fill="rgba(129,130,132,1.000)" stroke="none" stroke-width="0.000" fill-opacity="1.000" stroke-opacity="1.000" clip-path="url(#plot-clip-area)" />
+<polygon points="759.143,109.263 763.906,117.513 754.380,117.513" fill="rgba(129,130,132,1.000)" stroke="none" stroke-width="0.000" fill-opacity="1.000" stroke-opacity="1.000" clip-path="url(#plot-clip-area)" />
+<polygon points="875.542,110.579 880.305,118.829 870.779,118.829" fill="rgba(129,130,132,1.000)" stroke="none" stroke-width="0.000" fill-opacity="1.000" stroke-opacity="1.000" clip-path="url(#plot-clip-area)" />
+<polygon points="991.941,108.887 996.704,117.137 987.178,117.137" fill="rgba(129,130,132,1.000)" stroke="none" stroke-width="0.000" fill-opacity="1.000" stroke-opacity="1.000" clip-path="url(#plot-clip-area)" />
+<polygon points="1108.339,100.236 1113.103,108.486 1103.576,108.486" fill="rgba(129,130,132,1.000)" stroke="none" stroke-width="0.000" fill-opacity="1.000" stroke-opacity="1.000" clip-path="url(#plot-clip-area)" />
+<path d="M 118.950 53.831 L 1108.339 53.831" stroke="rgba(0,0,0,1.000)" stroke-width="1.000" stroke-opacity="1.000" fill="none" stroke-linejoin="round" stroke-linecap="round" stroke-dasharray="6,6" clip-path="url(#plot-clip-area)" />
+<path d="M 118.950 53.831 L 177.149 74.706 L 235.349 86.178 L 293.548 94.828 L 351.748 101.599 L 409.947 107.052 L 526.346 106.864 L 642.744 109.873 L 759.143 114.763 L 875.542 116.079 L 991.941 114.387 L 1108.339 105.736" stroke="rgba(129,130,132,1.000)" stroke-width="1.000" stroke-opacity="1.000" fill="none" stroke-linejoin="round" stroke-linecap="round" clip-path="url(#plot-clip-area)" />
+<line x1="118.950" y1="54.621" x2="118.950" y2="53.041" stroke="rgba(129,130,132,1.000)" stroke-width="1.500" stroke-opacity="1.000" />
+<line x1="114.950" y1="54.621" x2="122.950" y2="54.621" stroke="rgba(129,130,132,1.000)" stroke-width="1.500" stroke-opacity="1.000" />
+<line x1="114.950" y1="53.041" x2="122.950" y2="53.041" stroke="rgba(129,130,132,1.000)" stroke-width="1.500" stroke-opacity="1.000" />
+<line x1="177.149" y1="76.022" x2="177.149" y2="73.390" stroke="rgba(129,130,132,1.000)" stroke-width="1.500" stroke-opacity="1.000" />
+<line x1="173.149" y1="76.022" x2="181.149" y2="76.022" stroke="rgba(129,130,132,1.000)" stroke-width="1.500" stroke-opacity="1.000" />
+<line x1="173.149" y1="73.390" x2="181.149" y2="73.390" stroke="rgba(129,130,132,1.000)" stroke-width="1.500" stroke-opacity="1.000" />
+<line x1="235.349" y1="87.870" x2="235.349" y2="84.485" stroke="rgba(129,130,132,1.000)" stroke-width="1.500" stroke-opacity="1.000" />
+<line x1="231.349" y1="87.870" x2="239.349" y2="87.870" stroke="rgba(129,130,132,1.000)" stroke-width="1.500" stroke-opacity="1.000" />
+<line x1="231.349" y1="84.485" x2="239.349" y2="84.485" stroke="rgba(129,130,132,1.000)" stroke-width="1.500" stroke-opacity="1.000" />
+<line x1="293.548" y1="96.709" x2="293.548" y2="92.948" stroke="rgba(129,130,132,1.000)" stroke-width="1.500" stroke-opacity="1.000" />
+<line x1="289.548" y1="96.709" x2="297.548" y2="96.709" stroke="rgba(129,130,132,1.000)" stroke-width="1.500" stroke-opacity="1.000" />
+<line x1="289.548" y1="92.948" x2="297.548" y2="92.948" stroke="rgba(129,130,132,1.000)" stroke-width="1.500" stroke-opacity="1.000" />
+<line x1="351.748" y1="103.855" x2="351.748" y2="99.342" stroke="rgba(129,130,132,1.000)" stroke-width="1.500" stroke-opacity="1.000" />
+<line x1="347.748" y1="103.855" x2="355.748" y2="103.855" stroke="rgba(129,130,132,1.000)" stroke-width="1.500" stroke-opacity="1.000" />
+<line x1="347.748" y1="99.342" x2="355.748" y2="99.342" stroke="rgba(129,130,132,1.000)" stroke-width="1.500" stroke-opacity="1.000" />
+<line x1="409.947" y1="110.249" x2="409.947" y2="103.855" stroke="rgba(129,130,132,1.000)" stroke-width="1.500" stroke-opacity="1.000" />
+<line x1="405.947" y1="110.249" x2="413.947" y2="110.249" stroke="rgba(129,130,132,1.000)" stroke-width="1.500" stroke-opacity="1.000" />
+<line x1="405.947" y1="103.855" x2="413.947" y2="103.855" stroke="rgba(129,130,132,1.000)" stroke-width="1.500" stroke-opacity="1.000" />
+<line x1="526.346" y1="110.814" x2="526.346" y2="102.915" stroke="rgba(129,130,132,1.000)" stroke-width="1.500" stroke-opacity="1.000" />
+<line x1="522.346" y1="110.814" x2="530.346" y2="110.814" stroke="rgba(129,130,132,1.000)" stroke-width="1.500" stroke-opacity="1.000" />
+<line x1="522.346" y1="102.915" x2="530.346" y2="102.915" stroke="rgba(129,130,132,1.000)" stroke-width="1.500" stroke-opacity="1.000" />
+<line x1="642.744" y1="114.387" x2="642.744" y2="105.360" stroke="rgba(129,130,132,1.000)" stroke-width="1.500" stroke-opacity="1.000" />
+<line x1="638.744" y1="114.387" x2="646.744" y2="114.387" stroke="rgba(129,130,132,1.000)" stroke-width="1.500" stroke-opacity="1.000" />
+<line x1="638.744" y1="105.360" x2="646.744" y2="105.360" stroke="rgba(129,130,132,1.000)" stroke-width="1.500" stroke-opacity="1.000" />
+<line x1="759.143" y1="119.464" x2="759.143" y2="110.061" stroke="rgba(129,130,132,1.000)" stroke-width="1.500" stroke-opacity="1.000" />
+<line x1="755.143" y1="119.464" x2="763.143" y2="119.464" stroke="rgba(129,130,132,1.000)" stroke-width="1.500" stroke-opacity="1.000" />
+<line x1="755.143" y1="110.061" x2="763.143" y2="110.061" stroke="rgba(129,130,132,1.000)" stroke-width="1.500" stroke-opacity="1.000" />
+<line x1="875.542" y1="120.405" x2="875.542" y2="111.754" stroke="rgba(129,130,132,1.000)" stroke-width="1.500" stroke-opacity="1.000" />
+<line x1="871.542" y1="120.405" x2="879.542" y2="120.405" stroke="rgba(129,130,132,1.000)" stroke-width="1.500" stroke-opacity="1.000" />
+<line x1="871.542" y1="111.754" x2="879.542" y2="111.754" stroke="rgba(129,130,132,1.000)" stroke-width="1.500" stroke-opacity="1.000" />
+<line x1="991.941" y1="118.900" x2="991.941" y2="109.873" stroke="rgba(129,130,132,1.000)" stroke-width="1.500" stroke-opacity="1.000" />
+<line x1="987.941" y1="118.900" x2="995.941" y2="118.900" stroke="rgba(129,130,132,1.000)" stroke-width="1.500" stroke-opacity="1.000" />
+<line x1="987.941" y1="109.873" x2="995.941" y2="109.873" stroke="rgba(129,130,132,1.000)" stroke-width="1.500" stroke-opacity="1.000" />
+<line x1="1108.339" y1="110.814" x2="1108.339" y2="100.658" stroke="rgba(129,130,132,1.000)" stroke-width="1.500" stroke-opacity="1.000" />
+<line x1="1104.339" y1="110.814" x2="1112.339" y2="110.814" stroke="rgba(129,130,132,1.000)" stroke-width="1.500" stroke-opacity="1.000" />
+<line x1="1104.339" y1="100.658" x2="1112.339" y2="100.658" stroke="rgba(129,130,132,1.000)" stroke-width="1.500" stroke-opacity="1.000" />
+<text x="1119.979" y="111.190" font-size="14.0" font-family="Inter, -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, 'PingFang SC', 'Microsoft YaHei', Ubuntu, Cantarell, 'Noto Sans', sans-serif" fill="rgba(0,0,0,1.000)" fill-opacity="1.000" text-anchor="start" font-weight="normal">Placebo</text>
+<rect x="115.950" y="50.831" width="6.000" height="6.000" fill="rgba(91,136,195,1.000)" stroke="none" stroke-width="0.000" fill-opacity="1.000" stroke-opacity="1.000" clip-path="url(#plot-clip-area)" />
+<rect x="174.149" y="93.521" width="6.000" height="6.000" fill="rgba(91,136,195,1.000)" stroke="none" stroke-width="0.000" fill-opacity="1.000" stroke-opacity="1.000" clip-path="url(#plot-clip-area)" />
+<rect x="232.349" y="126.244" width="6.000" height="6.000" fill="rgba(91,136,195,1.000)" stroke="none" stroke-width="0.000" fill-opacity="1.000" stroke-opacity="1.000" clip-path="url(#plot-clip-area)" />
+<rect x="290.548" y="161.787" width="6.000" height="6.000" fill="rgba(91,136,195,1.000)" stroke="none" stroke-width="0.000" fill-opacity="1.000" stroke-opacity="1.000" clip-path="url(#plot-clip-area)" />
+<rect x="348.748" y="194.886" width="6.000" height="6.000" fill="rgba(91,136,195,1.000)" stroke="none" stroke-width="0.000" fill-opacity="1.000" stroke-opacity="1.000" clip-path="url(#plot-clip-area)" />
+<rect x="406.947" y="228.737" width="6.000" height="6.000" fill="rgba(91,136,195,1.000)" stroke="none" stroke-width="0.000" fill-opacity="1.000" stroke-opacity="1.000" clip-path="url(#plot-clip-area)" />
+<rect x="523.346" y="270.486" width="6.000" height="6.000" fill="rgba(91,136,195,1.000)" stroke="none" stroke-width="0.000" fill-opacity="1.000" stroke-opacity="1.000" clip-path="url(#plot-clip-area)" />
+<rect x="639.744" y="301.516" width="6.000" height="6.000" fill="rgba(91,136,195,1.000)" stroke="none" stroke-width="0.000" fill-opacity="1.000" stroke-opacity="1.000" clip-path="url(#plot-clip-area)" />
+<rect x="756.143" y="325.776" width="6.000" height="6.000" fill="rgba(91,136,195,1.000)" stroke="none" stroke-width="0.000" fill-opacity="1.000" stroke-opacity="1.000" clip-path="url(#plot-clip-area)" />
+<rect x="872.542" y="341.762" width="6.000" height="6.000" fill="rgba(91,136,195,1.000)" stroke="none" stroke-width="0.000" fill-opacity="1.000" stroke-opacity="1.000" clip-path="url(#plot-clip-area)" />
+<rect x="988.941" y="349.096" width="6.000" height="6.000" fill="rgba(91,136,195,1.000)" stroke="none" stroke-width="0.000" fill-opacity="1.000" stroke-opacity="1.000" clip-path="url(#plot-clip-area)" />
+<rect x="1105.339" y="344.206" width="6.000" height="6.000" fill="rgba(91,136,195,1.000)" stroke="none" stroke-width="0.000" fill-opacity="1.000" stroke-opacity="1.000" clip-path="url(#plot-clip-area)" />
+<path d="M 118.950 53.831 L 177.149 96.521 L 235.349 129.244 L 293.548 164.787 L 351.748 197.886 L 409.947 231.737 L 526.346 273.486 L 642.744 304.516 L 759.143 328.776 L 875.542 344.762 L 991.941 352.096 L 1108.339 347.206" stroke="rgba(91,136,195,1.000)" stroke-width="1.000" stroke-opacity="1.000" fill="none" stroke-linejoin="round" stroke-linecap="round" clip-path="url(#plot-clip-area)" />
+<line x1="118.950" y1="54.602" x2="118.950" y2="53.060" stroke="rgba(91,136,195,1.000)" stroke-width="1.500" stroke-opacity="1.000" />
+<line x1="114.950" y1="54.602" x2="122.950" y2="54.602" stroke="rgba(91,136,195,1.000)" stroke-width="1.500" stroke-opacity="1.000" />
+<line x1="114.950" y1="53.060" x2="122.950" y2="53.060" stroke="rgba(91,136,195,1.000)" stroke-width="1.500" stroke-opacity="1.000" />
+<line x1="177.149" y1="97.085" x2="177.149" y2="95.957" stroke="rgba(91,136,195,1.000)" stroke-width="1.500" stroke-opacity="1.000" />
+<line x1="173.149" y1="97.085" x2="181.149" y2="97.085" stroke="rgba(91,136,195,1.000)" stroke-width="1.500" stroke-opacity="1.000" />
+<line x1="173.149" y1="95.957" x2="181.149" y2="95.957" stroke="rgba(91,136,195,1.000)" stroke-width="1.500" stroke-opacity="1.000" />
+<line x1="235.349" y1="130.936" x2="235.349" y2="127.551" stroke="rgba(91,136,195,1.000)" stroke-width="1.500" stroke-opacity="1.000" />
+<line x1="231.349" y1="130.936" x2="239.349" y2="130.936" stroke="rgba(91,136,195,1.000)" stroke-width="1.500" stroke-opacity="1.000" />
+<line x1="231.349" y1="127.551" x2="239.349" y2="127.551" stroke="rgba(91,136,195,1.000)" stroke-width="1.500" stroke-opacity="1.000" />
+<line x1="293.548" y1="166.292" x2="293.548" y2="163.283" stroke="rgba(91,136,195,1.000)" stroke-width="1.500" stroke-opacity="1.000" />
+<line x1="289.548" y1="166.292" x2="297.548" y2="166.292" stroke="rgba(91,136,195,1.000)" stroke-width="1.500" stroke-opacity="1.000" />
+<line x1="289.548" y1="163.283" x2="297.548" y2="163.283" stroke="rgba(91,136,195,1.000)" stroke-width="1.500" stroke-opacity="1.000" />
+<line x1="351.748" y1="200.331" x2="351.748" y2="195.441" stroke="rgba(91,136,195,1.000)" stroke-width="1.500" stroke-opacity="1.000" />
+<line x1="347.748" y1="200.331" x2="355.748" y2="200.331" stroke="rgba(91,136,195,1.000)" stroke-width="1.500" stroke-opacity="1.000" />
+<line x1="347.748" y1="195.441" x2="355.748" y2="195.441" stroke="rgba(91,136,195,1.000)" stroke-width="1.500" stroke-opacity="1.000" />
+<line x1="409.947" y1="233.994" x2="409.947" y2="229.480" stroke="rgba(91,136,195,1.000)" stroke-width="1.500" stroke-opacity="1.000" />
+<line x1="405.947" y1="233.994" x2="413.947" y2="233.994" stroke="rgba(91,136,195,1.000)" stroke-width="1.500" stroke-opacity="1.000" />
+<line x1="405.947" y1="229.480" x2="413.947" y2="229.480" stroke="rgba(91,136,195,1.000)" stroke-width="1.500" stroke-opacity="1.000" />
+<line x1="526.346" y1="276.495" x2="526.346" y2="270.477" stroke="rgba(91,136,195,1.000)" stroke-width="1.500" stroke-opacity="1.000" />
+<line x1="522.346" y1="276.495" x2="530.346" y2="276.495" stroke="rgba(91,136,195,1.000)" stroke-width="1.500" stroke-opacity="1.000" />
+<line x1="522.346" y1="270.477" x2="530.346" y2="270.477" stroke="rgba(91,136,195,1.000)" stroke-width="1.500" stroke-opacity="1.000" />
+<line x1="642.744" y1="308.654" x2="642.744" y2="300.379" stroke="rgba(91,136,195,1.000)" stroke-width="1.500" stroke-opacity="1.000" />
+<line x1="638.744" y1="308.654" x2="646.744" y2="308.654" stroke="rgba(91,136,195,1.000)" stroke-width="1.500" stroke-opacity="1.000" />
+<line x1="638.744" y1="300.379" x2="646.744" y2="300.379" stroke="rgba(91,136,195,1.000)" stroke-width="1.500" stroke-opacity="1.000" />
+<line x1="759.143" y1="332.726" x2="759.143" y2="324.827" stroke="rgba(91,136,195,1.000)" stroke-width="1.500" stroke-opacity="1.000" />
+<line x1="755.143" y1="332.726" x2="763.143" y2="332.726" stroke="rgba(91,136,195,1.000)" stroke-width="1.500" stroke-opacity="1.000" />
+<line x1="755.143" y1="324.827" x2="763.143" y2="324.827" stroke="rgba(91,136,195,1.000)" stroke-width="1.500" stroke-opacity="1.000" />
+<line x1="875.542" y1="349.463" x2="875.542" y2="340.060" stroke="rgba(91,136,195,1.000)" stroke-width="1.500" stroke-opacity="1.000" />
+<line x1="871.542" y1="349.463" x2="879.542" y2="349.463" stroke="rgba(91,136,195,1.000)" stroke-width="1.500" stroke-opacity="1.000" />
+<line x1="871.542" y1="340.060" x2="879.542" y2="340.060" stroke="rgba(91,136,195,1.000)" stroke-width="1.500" stroke-opacity="1.000" />
+<line x1="991.941" y1="357.174" x2="991.941" y2="347.018" stroke="rgba(91,136,195,1.000)" stroke-width="1.500" stroke-opacity="1.000" />
+<line x1="987.941" y1="357.174" x2="995.941" y2="357.174" stroke="rgba(91,136,195,1.000)" stroke-width="1.500" stroke-opacity="1.000" />
+<line x1="987.941" y1="347.018" x2="995.941" y2="347.018" stroke="rgba(91,136,195,1.000)" stroke-width="1.500" stroke-opacity="1.000" />
+<line x1="1108.339" y1="352.096" x2="1108.339" y2="342.317" stroke="rgba(91,136,195,1.000)" stroke-width="1.500" stroke-opacity="1.000" />
+<line x1="1104.339" y1="352.096" x2="1112.339" y2="352.096" stroke="rgba(91,136,195,1.000)" stroke-width="1.500" stroke-opacity="1.000" />
+<line x1="1104.339" y1="342.317" x2="1112.339" y2="342.317" stroke="rgba(91,136,195,1.000)" stroke-width="1.500" stroke-opacity="1.000" />
+<text x="1119.979" y="352.096" font-size="14.0" font-family="Inter, -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, 'PingFang SC', 'Microsoft YaHei', Ubuntu, Cantarell, 'Noto Sans', sans-serif" fill="rgba(0,0,0,1.000)" fill-opacity="1.000" text-anchor="start" font-weight="normal">Semaglutide</text>
 </svg>
