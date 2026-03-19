@@ -1,4 +1,4 @@
-use super::{Scale, ScaleDomain, ScaleTrait, Tick, mapper::VisualMapper};
+use super::{Scale, ScaleDomain, ScaleTrait, Tick, ExplicitTick, mapper::VisualMapper};
 use crate::error::ChartonError;
 
 /// A scale that performs logarithmic transformation.
@@ -154,6 +154,58 @@ impl ScaleTrait for LogScale {
         // Delegate to the shared formatter which handles scientific notation
         // and converts raw f64 values into Tick objects.
         super::format_ticks(&tick_values)
+    }
+
+    /// Transforms user-defined explicit ticks into renderable Tick objects for Log scales.
+    /// 
+    /// Note: Logarithmic scales only support positive values (v > 0).
+    fn create_explicit_ticks(&self, explicit: &[ExplicitTick]) -> Vec<Tick> {
+        let (min, max) = self.domain;
+        
+        // Logarithmic scales are sensitive near the boundaries.
+        // We use a relative tolerance (e.g., 1%) rather than a fixed epsilon.
+        let lower_bound = min * 0.9999999999;
+        let upper_bound = max * 1.0000000001;
+
+        let mut type_mismatch = 0;
+        let mut out_of_domain = 0;
+
+        let valid_values: Vec<f64> = explicit
+            .iter()
+            .filter_map(|tick| {
+                match tick {
+                    ExplicitTick::Continuous(val) => {
+                        // 1. Check for mathematical validity (Log(v) requires v > 0)
+                        // 2. Check if the value is within the scale's current domain
+                        if *val > 0.0 && *val >= lower_bound && *val <= upper_bound {
+                            Some(*val)
+                        } else {
+                            out_of_domain += 1;
+                            None
+                        }
+                    }
+                    // Mismatch if the user passed Discrete or Temporal to a Log scale
+                    _ => {
+                        type_mismatch += 1;
+                        None
+                    }
+                }
+            })
+            .collect();
+
+        // High-Performance Logging: Report issues after the loop
+        if type_mismatch > 0 || out_of_domain > 0 {
+            eprintln!(
+                "Warning [LogScale]: Filtered {} ticks ({} type mismatch, {} out of domain or <= 0).",
+                type_mismatch + out_of_domain,
+                type_mismatch,
+                out_of_domain
+            );
+        }
+
+        // Reuse the shared formatting logic to ensure consistent labels 
+        // (especially important for scientific notation in log scales).
+        super::format_ticks(&valid_values)
     }
 
     /// Returns the domain boundaries wrapped in the continuous enum variant.

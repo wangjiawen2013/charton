@@ -1,4 +1,4 @@
-use super::{Scale, ScaleDomain, ScaleTrait, Tick, mapper::VisualMapper};
+use super::{Scale, ScaleDomain, ScaleTrait, Tick, ExplicitTick, mapper::VisualMapper};
 
 /// A scale that maps a continuous data domain to a normalized [0, 1] range.
 ///
@@ -134,6 +134,60 @@ impl ScaleTrait for LinearScale {
 
         // Ensure consistent axis-wide formatting (automatic scientific notation)
         super::format_ticks(&values)
+    }
+
+    /// Transforms user-defined explicit ticks into renderable Tick objects.
+    ///
+    /// This implementation performs three steps:
+    /// 1. Filters out non-continuous variants from the input.
+    /// 2. Validates that the values fall within the current [min, max] domain.
+    /// 3. Formats the valid values into strings using the shared formatting logic.
+    fn create_explicit_ticks(&self, explicit: &[ExplicitTick]) -> Vec<Tick> {
+        let (min, max) = self.domain;
+        // Pre-calculate tolerance once to avoid repeating in the loop
+        let range = (max - min).abs();
+        let tolerance = if range < f64::EPSILON { 1e-10 } else { range * 1e-10 };
+
+        let mut type_mismatch = 0;
+        let mut out_of_domain = 0;
+
+        let valid_values: Vec<f64> = explicit
+            .iter()
+            .filter_map(|tick| {
+                match tick {
+                    ExplicitTick::Continuous(val) => {
+                        // Logic: Only allow values within [min, max] (with float tolerance)
+                        if *val >= min - tolerance && *val <= max + tolerance {
+                            // Clean up near-zero values for cleaner labels
+                            Some(if val.abs() < 1e-12 { 0.0 } else { *val })
+                        } else {
+                            out_of_domain += 1;
+                            None
+                        }
+                    }
+                    // Count mismatches for a single bulk warning later
+                    _ => {
+                        type_mismatch += 1;
+                        None
+                    }
+                }
+            })
+            .collect();
+
+        // High-Performance Logging: Bulk report issues after the hot loop
+        if type_mismatch > 0 || out_of_domain > 0 {
+            eprintln!(
+                "LinearScale: Filtered {} ticks ({} type mismatch, {} out of domain [{}, {}]).",
+                type_mismatch + out_of_domain,
+                type_mismatch,
+                out_of_domain,
+                min,
+                max
+            );
+        }
+
+        // Delegate to the shared formatting logic
+        super::format_ticks(&valid_values)
     }
 
     /// Returns the domain specification for chart guide and legend logic.

@@ -1,4 +1,4 @@
-use super::{Scale, ScaleDomain, ScaleTrait, Tick, mapper::VisualMapper};
+use super::{Scale, ScaleDomain, ScaleTrait, Tick, ExplicitTick, mapper::VisualMapper};
 use std::collections::HashMap;
 
 /// A scale for categorical data that maps discrete values to normalized slots.
@@ -134,6 +134,52 @@ impl ScaleTrait for DiscreteScale {
                 label: label.clone(),
             })
             .collect()
+    }
+
+    /// Transforms user-defined discrete ticks into renderable Tick objects.
+    /// 
+    /// For discrete scales, we map the provided string labels to their 
+    /// corresponding integer indices defined in the domain.
+    fn create_explicit_ticks(&self, explicit: &[ExplicitTick]) -> Vec<Tick> {
+        let mut type_mismatch = 0;
+        let mut not_in_domain = 0;
+
+        let ticks: Vec<Tick> = explicit
+            .iter()
+            .filter_map(|tick| {
+                match tick {
+                    ExplicitTick::Discrete(label) => {
+                        // Find the index of this label in our domain categories
+                        if let Some(index) = self.domain.iter().position(|d| d == label) {
+                            Some(Tick {
+                                value: index as f64,
+                                label: label.clone(),
+                            })
+                        } else {
+                            not_in_domain += 1;
+                            None
+                        }
+                    }
+                    // Handle cases where user passed Continuous or Temporal to a Discrete scale
+                    _ => {
+                        type_mismatch += 1;
+                        None
+                    }
+                }
+            })
+            .collect();
+
+        // Bulk warning for debugging
+        if type_mismatch > 0 || not_in_domain > 0 {
+            eprintln!(
+                "Warning [DiscreteScale]: Filtered {} ticks ({} type mismatch, {} not found in domain).",
+                type_mismatch + not_in_domain,
+                type_mismatch,
+                not_in_domain
+            );
+        }
+
+        ticks
     }
 
     /// Returns the raw category list as a Categorical domain variant.

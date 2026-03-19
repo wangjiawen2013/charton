@@ -1,4 +1,4 @@
-use super::{Scale, ScaleDomain, ScaleTrait, Tick, mapper::VisualMapper};
+use super::{Scale, ScaleDomain, ScaleTrait, Tick, ExplicitTick, mapper::VisualMapper};
 use time::{Duration, OffsetDateTime};
 
 /// A scale for temporal (date/time) data using the `time` crate.
@@ -161,6 +161,82 @@ impl ScaleTrait for TemporalScale {
                 None => break,
             };
             iterations += 1;
+        }
+
+        ticks
+    }
+
+    /// Transforms user-defined dates into renderable Tick objects.
+    /// 
+    /// This implementation:
+    /// 1. Filters for `ExplicitTick::Temporal` variants.
+    /// 2. Converts `OffsetDateTime` to `f64` (unix_timestamp_nanos) for positioning.
+    /// 3. Validates that the date falls within the scale's [start, end] domain.
+    /// 4. Formats the label automatically.
+    fn create_explicit_ticks(&self, explicit: &[ExplicitTick]) -> Vec<Tick> {
+        let (start, end) = self.domain;
+        
+        // 1. Calculate the density/format_key just like in suggest_ticks
+        // This ensures visual consistency across the axis.
+        let total_duration = end - start;
+        let total_seconds = total_duration.whole_seconds().abs() as f64;
+        
+        // Note: For explicit ticks, we don't have a 'count', 
+        // so we use the total span to guess the best format.
+        let format_key = if total_seconds > 365.0 * 24.0 * 3600.0 {
+            "year"
+        } else if total_seconds > 30.0 * 24.0 * 3600.0 {
+            "month"
+        } else if total_seconds > 24.0 * 3600.0 {
+            "day"
+        } else if total_seconds > 3600.0 {
+            "hour"
+        } else {
+            "second"
+        };
+
+        // 2. Prepare for filtering
+        let start_ns = start.unix_timestamp_nanos() as f64;
+        let end_ns = end.unix_timestamp_nanos() as f64;
+        let mut type_mismatch = 0;
+        let mut out_of_domain = 0;
+
+        // 3. Process the ticks
+        let ticks: Vec<Tick> = explicit
+            .iter()
+            .filter_map(|tick| {
+                match tick {
+                    ExplicitTick::Temporal(dt) => {
+                        let val_ns = dt.unix_timestamp_nanos() as f64;
+                        
+                        // Domain check
+                        if val_ns >= start_ns && val_ns <= end_ns {
+                            Some(Tick {
+                                value: val_ns,
+                                // Use the dynamically selected format_key!
+                                label: self.format_dt(*dt, format_key),
+                            })
+                        } else {
+                            out_of_domain += 1;
+                            None
+                        }
+                    }
+                    _ => {
+                        type_mismatch += 1;
+                        None
+                    }
+                }
+            })
+            .collect();
+
+        // 4. Bulk report
+        if type_mismatch > 0 || out_of_domain > 0 {
+            eprintln!(
+                "Warning [TemporalScale]: Filtered {} ticks ({} type mismatch, {} out of domain).",
+                type_mismatch + out_of_domain,
+                type_mismatch,
+                out_of_domain
+            );
         }
 
         ticks
