@@ -127,8 +127,8 @@ fn main() -> Result<(), Box<dyn Error>> {
             add: (0.0, 0.0),
         })
         .with_size(1000, 400)
-        .with_right_margin(0.10)
-        .with_left_margin(0.03)
+        .with_right_margin(0.08)
+        .with_left_margin(0.02)
         .with_top_margin(0.02)
         .with_bottom_margin(0.03)
         .with_x_ticks([
