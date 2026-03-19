@@ -1,4 +1,4 @@
-use super::{Scale, ScaleDomain, ScaleTrait, Tick, ExplicitTick, mapper::VisualMapper};
+use super::{ExplicitTick, Scale, ScaleDomain, ScaleTrait, Tick, mapper::VisualMapper};
 
 /// A scale that maps a continuous data domain to a normalized [0, 1] range.
 ///
@@ -146,7 +146,11 @@ impl ScaleTrait for LinearScale {
         let (min, max) = self.domain;
         // Pre-calculate tolerance once to avoid repeating in the loop
         let range = (max - min).abs();
-        let tolerance = if range < f64::EPSILON { 1e-10 } else { range * 1e-10 };
+        let tolerance = if range < f64::EPSILON {
+            1e-10
+        } else {
+            range * 1e-10
+        };
 
         let mut type_mismatch = 0;
         let mut out_of_domain = 0;
