@@ -2,7 +2,7 @@ pub mod cartesian;
 pub mod polar;
 
 use crate::error::ChartonError;
-use crate::scale::ScaleTrait;
+use crate::scale::{ExplicitTick, ScaleTrait};
 use crate::theme::Theme;
 use crate::visual::color::SingleColor;
 use std::sync::Arc;
@@ -73,7 +73,9 @@ pub trait CoordinateTrait {
         theme: &Theme,
         panel: &Rect,
         x_label: &str,
+        x_explicit: Option<&[ExplicitTick]>,
         y_label: &str,
+        y_explicit: Option<&[ExplicitTick]>,
     ) -> Result<(), ChartonError>;
 
     /// Transforms normalized data values into absolute pixel coordinates.

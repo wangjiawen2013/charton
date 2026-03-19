@@ -1,5 +1,6 @@
 use crate::coordinate::{CoordinateTrait, Rect, cartesian::Cartesian2D};
 use crate::error::ChartonError;
+use crate::scale::ExplicitTick;
 use crate::theme::Theme;
 use html_escape::encode_safe;
 use std::fmt::Write;
@@ -14,7 +15,9 @@ pub fn render_cartesian_axes(
     panel: &Rect,
     coord: &Cartesian2D,
     x_label: &str,
+    x_explicit: Option<&[ExplicitTick]>,
     y_label: &str,
+    y_explicit: Option<&[ExplicitTick]>,
 ) -> Result<(), ChartonError> {
     // Determine which data label belongs to which physical position based on flip state.
     // If flipped, the Y-scale data is projected onto the visual Bottom axis.
@@ -24,14 +27,26 @@ pub fn render_cartesian_axes(
         (x_label, y_label)
     };
 
+    // Determine which explicit ticks belongs to which physical position based on flip state.
+    let bottom_explicit = if coord.is_flipped() {
+        y_explicit
+    } else {
+        x_explicit
+    };
+    let left_explicit = if coord.is_flipped() {
+        x_explicit
+    } else {
+        y_explicit
+    };
+
     // 1. Process the Physical Bottom Axis (X-axis in standard, Y-axis in flipped)
     draw_axis_line(svg, theme, panel, true)?;
-    draw_ticks_and_labels(svg, theme, panel, coord, true)?;
+    draw_ticks_and_labels(svg, theme, panel, coord, true, bottom_explicit)?;
     draw_axis_title(svg, theme, panel, coord, bottom_label, true)?;
 
     // 2. Process the Physical Left Axis (Y-axis in standard, X-axis in flipped)
     draw_axis_line(svg, theme, panel, false)?;
-    draw_ticks_and_labels(svg, theme, panel, coord, false)?;
+    draw_ticks_and_labels(svg, theme, panel, coord, false, left_explicit)?;
     draw_axis_title(svg, theme, panel, coord, left_label, false)?;
 
     Ok(())
@@ -81,6 +96,7 @@ fn draw_ticks_and_labels(
     panel: &Rect,
     coord: &dyn CoordinateTrait,
     is_bottom: bool,
+    explicit_ticks: Option<&[ExplicitTick]>,
 ) -> Result<(), ChartonError> {
     let is_flipped = coord.is_flipped();
 
@@ -97,9 +113,17 @@ fn draw_ticks_and_labels(
         coord.get_y_scale()
     };
 
-    let available_space = if is_bottom { panel.width } else { panel.height };
-    let final_count = theme.suggest_tick_count(available_space);
-    let ticks = target_scale.suggest_ticks(final_count);
+    let ticks = match explicit_ticks {
+        // 1. User-provided explicit ticks: prioritize and process manual specifications.
+        Some(explicit) => target_scale.create_explicit_ticks(explicit),
+
+        // 2. Default: fallback to automatic tick suggestion based on available screen space.
+        None => {
+            let available_space = if is_bottom { panel.width } else { panel.height };
+            let final_count = theme.suggest_tick_count(available_space);
+            target_scale.suggest_ticks(final_count)
+        }
+    };
 
     let tick_len = 6.0;
 

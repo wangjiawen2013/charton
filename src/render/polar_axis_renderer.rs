@@ -1,5 +1,6 @@
 use crate::coordinate::{CoordinateTrait, Rect, polar::Polar};
 use crate::error::ChartonError;
+use crate::scale::ExplicitTick;
 use crate::theme::Theme;
 use std::fmt::Write;
 
@@ -15,7 +16,9 @@ pub fn render_polar_axes(
     panel: &Rect,
     coord: &Polar,
     x_label: &str,
+    _x_explicit: Option<&[ExplicitTick]>,
     y_label: &str,
+    _y_explicit: Option<&[ExplicitTick]>,
 ) -> Result<(), ChartonError> {
     let x_scale = coord.get_x_scale();
     let y_scale = coord.get_y_scale();

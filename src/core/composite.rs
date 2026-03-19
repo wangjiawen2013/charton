@@ -7,7 +7,9 @@ use crate::core::guide::GuideSpec;
 use crate::core::layer::Layer;
 use crate::encode::Channel;
 use crate::error::ChartonError;
-use crate::scale::{Expansion, Scale, ScaleDomain, create_scale, mapper::VisualMapper};
+use crate::scale::{
+    Expansion, ExplicitTick, Scale, ScaleDomain, create_scale, mapper::VisualMapper,
+};
 use crate::theme::Theme;
 use html_escape::encode_safe;
 use std::fmt::Write;
@@ -64,6 +66,8 @@ pub struct LayeredChart {
     pub(crate) x_label: Option<String>,
     /// Custom expansion/padding rules for the X-axis.
     pub(crate) x_expand: Option<Expansion>,
+    /// Explicit ticks for the X-axis.
+    pub(crate) x_ticks: Option<Vec<ExplicitTick>>,
 
     /// User-defined range for the Y-axis.
     pub(crate) y_domain: Option<ScaleDomain>,
@@ -71,6 +75,8 @@ pub struct LayeredChart {
     pub(crate) y_label: Option<String>,
     /// Custom expansion/padding rules for the Y-axis.
     pub(crate) y_expand: Option<Expansion>,
+    /// Explicit ticks for the Y-axis.
+    pub(crate) y_ticks: Option<Vec<ExplicitTick>>,
 
     /// User-defined domain for the Color channel (legend).
     pub(crate) color_domain: Option<ScaleDomain>,
@@ -124,10 +130,12 @@ impl LayeredChart {
             x_domain: None,
             x_label: None,
             x_expand: None,
+            x_ticks: None,
 
             y_domain: None,
             y_label: None,
             y_expand: None,
+            y_ticks: None,
 
             color_domain: None,
             color_label: None,
@@ -674,12 +682,17 @@ impl LayeredChart {
             let x_label = coord.get_x_label();
             let y_label = coord.get_y_label();
 
+            let x_explicit = self.x_ticks.as_deref();
+            let y_explicit = self.y_ticks.as_deref();
+
             primary_panel_ctx.coord.render_axes(
                 svg,
                 &self.theme,
                 &primary_panel_ctx.panel,
                 x_label,
+                x_explicit,
                 y_label,
+                y_explicit,
             )?;
         }
 
