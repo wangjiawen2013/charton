@@ -1,6 +1,6 @@
 use super::{CoordLayout, CoordinateTrait, Rect};
 use crate::error::ChartonError;
-use crate::scale::ScaleTrait;
+use crate::scale::{ExplicitTick, ScaleTrait};
 use crate::theme::Theme;
 use crate::visual::color::SingleColor;
 use std::f64::consts::PI;
@@ -61,10 +61,12 @@ impl CoordinateTrait for Polar {
         theme: &Theme,
         panel: &Rect,
         x_label: &str,
+        x_explicit: Option<&[ExplicitTick]>,
         y_label: &str,
+        y_explicit: Option<&[ExplicitTick]>,
     ) -> Result<(), ChartonError> {
         crate::render::polar_axis_renderer::render_polar_axes(
-            svg, theme, panel, self, x_label, y_label,
+            svg, theme, panel, self, x_label, x_explicit, y_label, y_explicit,
         )
     }
 

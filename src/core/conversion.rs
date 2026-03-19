@@ -4,7 +4,7 @@ use crate::core::composite::LayeredChart;
 use crate::core::layer::Layer;
 use crate::error::ChartonError;
 use crate::mark::Mark;
-use crate::scale::{Expansion, ScaleDomain};
+use crate::scale::{Expansion, IntoExplicitTicks, ScaleDomain};
 use crate::theme::Theme;
 
 /// A unified interface for configuring and rendering visualizations and API.
@@ -128,6 +128,18 @@ pub trait IntoLayered: Into<LayeredChart> + Clone {
         lc
     }
 
+    fn with_x_label<S: Into<String>>(self, label: S) -> LayeredChart {
+        let mut lc: LayeredChart = self.into();
+        lc.x_label = Some(label.into());
+        lc
+    }
+
+    fn with_x_ticks<T: IntoExplicitTicks>(self, ticks: T) -> LayeredChart {
+        let mut lc: LayeredChart = self.into();
+        lc.x_ticks = Some(ticks.into_explicit_ticks());
+        lc
+    }
+
     /// Set the global Y-axis domain.
     fn with_y_domain(self, min: f64, max: f64) -> LayeredChart {
         let mut lc: LayeredChart = self.into();
@@ -142,15 +154,15 @@ pub trait IntoLayered: Into<LayeredChart> + Clone {
         lc
     }
 
-    fn with_x_label<S: Into<String>>(self, label: S) -> LayeredChart {
-        let mut lc: LayeredChart = self.into();
-        lc.x_label = Some(label.into());
-        lc
-    }
-
     fn with_y_label<S: Into<String>>(self, label: S) -> LayeredChart {
         let mut lc: LayeredChart = self.into();
         lc.y_label = Some(label.into());
+        lc
+    }
+
+    fn with_y_ticks<T: IntoExplicitTicks>(self, ticks: T) -> LayeredChart {
+        let mut lc: LayeredChart = self.into();
+        lc.y_ticks = Some(ticks.into_explicit_ticks());
         lc
     }
 
