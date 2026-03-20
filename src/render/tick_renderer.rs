@@ -116,7 +116,7 @@ impl MarkRenderer for Chart<MarkTick> {
                 width: rect_width as Precision,
                 height: rect_height as Precision,
                 fill: fill_color,
-                stroke: stroke_color.clone(),
+                stroke: stroke_color,
                 stroke_width: 0.0,
                 opacity: opacity as Precision,
             };
