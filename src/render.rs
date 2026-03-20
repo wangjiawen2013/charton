@@ -12,3 +12,4 @@ pub(crate) mod polar_axis_renderer;
 pub(crate) mod rect_renderer;
 pub(crate) mod rule_renderer;
 pub(crate) mod text_renderer;
+pub(crate) mod tick_renderer;

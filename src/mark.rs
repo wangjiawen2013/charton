@@ -9,6 +9,7 @@ pub(crate) mod point;
 pub(crate) mod rect;
 pub(crate) mod rule;
 pub(crate) mod text;
+pub(crate) mod tick;
 
 use crate::prelude::SingleColor;
 /// A trait representing a visual mark in a plot.
