@@ -8,6 +8,7 @@ pub mod point_chart;
 pub mod rect_chart;
 pub mod rule_chart;
 pub mod text_chart;
+pub mod tick_chart;
 
 use crate::TEMP_SUFFIX;
 use crate::coordinate::CoordinateTrait;
@@ -19,7 +20,7 @@ use crate::error::ChartonError;
 use crate::mark::{
     Mark, area::MarkArea, bar::MarkBar, boxplot::MarkBoxplot, errorbar::MarkErrorBar,
     histogram::MarkHist, line::MarkLine, no_mark::NoMark, point::MarkPoint, rect::MarkRect,
-    rule::MarkRule, text::MarkText,
+    rule::MarkRule, text::MarkText, tick::MarkTick,
 };
 use crate::scale::{Expansion, Scale, ScaleDomain};
 use polars::prelude::*;
@@ -238,6 +239,21 @@ impl Chart<NoMark> {
         Ok(chart)
     }
 
+    /// Transitions the base chart into a Tick chart.
+    pub fn mark_tick(self) -> Result<Chart<MarkTick>, ChartonError> {
+        let chart = Chart::<MarkTick> {
+            data: self.data,
+            encoding: self.encoding,
+            mark: Some(MarkTick::default()),
+        };
+
+        if !chart.encoding.is_empty() {
+            return chart.validate_and_transform();
+        }
+
+        Ok(chart)
+    }
+
     // Creates a faceted view of the chart based on a specific data field.
     //
     // Faceting (also known as small multiples) splits the data into multiple subsets
@@ -322,7 +338,7 @@ impl<T: Mark> Chart<T> {
         // Verify that the minimum required visual channels are mapped.
         match mark_type.as_str() {
             "errorbar" | "bar" | "hist" | "line" | "point" | "area" | "boxplot" | "text"
-            | "rule" => {
+            | "rule" | "tick" => {
                 if self.encoding.x.is_none() || self.encoding.y.is_none() {
                     return Err(ChartonError::Encoding(format!(
                         "{} chart requires both x and y encodings",
