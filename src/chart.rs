@@ -467,6 +467,7 @@ impl<T: Mark> Chart<T> {
             "rect" => self = self.transform_rect_data()?,
             "bar" => self = self.transform_bar_data()?,
             "hist" => self = self.transform_histogram_data()?,
+            "area" => self = self.transform_area_data()?,
             _ => {}
         }
 
