@@ -24,6 +24,7 @@
         - [Lines & Paths](gallery/line_charts.md)
         - [Bars & Columns](gallery/bar_charts.md)
         - [Area & Stacking](gallery/area_charts.md)
+        - [Ticks](gallery/tick_chart.md)
     - [Statistical Distributions](gallery/distributions_and_statistics.md)
         - [Histograms & Density](gallery/distributions.md)
         - [Boxplots & Violins](gallery/box_violin_charts.md)
