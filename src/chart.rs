@@ -823,7 +823,7 @@ where
                     // Area charts use pre-computed y_min/y_max columns, so skip the original field
                     // Other chart types (Point, Line, etc.) need the original field
                     let mark_type = self.mark.as_ref().map(|m| m.mark_type());
-                    let needs_original_field = !matches!(mark_type.as_deref(), Some("area"));
+                    let needs_original_field = !matches!(mark_type, Some("area"));
 
                     if needs_original_field {
                         columns_to_scan.push(field_name.to_string());
