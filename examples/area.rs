@@ -16,7 +16,7 @@ fn main() -> Result<(), Box<dyn Error>> {
         .configure_area(|a| a.with_opacity(0.3).with_stroke("black"))
         .encode((
             x("depth"),
-            y("net_generation").with_stack("none"),
+            y("net_generation").with_stack("center"),
             color("source"),
         ))?;
 

@@ -157,14 +157,18 @@ impl MarkRenderer for Chart<MarkArea> {
                 stroke_opacity: 0.0,
             });
 
-            // Layer 2: The Top Boundary Path
-            backend.draw_path(PathConfig {
-                points: stroke_points,
-                stroke: group_base_color,
-                stroke_width: mark_config.stroke_width as Precision,
-                opacity: 1.0,
-                dash: mark_config.dash.iter().map(|&d| d as Precision).collect(),
-            });
+            // Layer 2: The Top Boundary Path (Only for unstacked areas)
+            // Stacked modes (Stacked, Normalize, Center) don't draw strokes to avoid
+            // visual clutter and edge ambiguity issues in streamgraph visualization.
+            if matches!(y_enc.stack, StackMode::None) {
+                backend.draw_path(PathConfig {
+                    points: stroke_points,
+                    stroke: group_base_color,
+                    stroke_width: mark_config.stroke_width as Precision,
+                    opacity: 1.0,
+                    dash: mark_config.dash.iter().map(|&d| d as Precision).collect(),
+                });
+            }
         }
 
         Ok(())

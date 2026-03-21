@@ -188,7 +188,6 @@ impl<T: Mark> Chart<T> {
         self.data.df = lazy_df.collect()?;
         self.data = (&self.data.df).into_source()?;
 
-        println!("{}", self.data.df);
         Ok(self)
     }
 }
