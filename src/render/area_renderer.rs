@@ -38,7 +38,7 @@ impl MarkRenderer for Chart<MarkArea> {
 
         let y_field = y_enc.field.as_str();
         let y0 = format!("{}_{}_min", TEMP_SUFFIX, y_field);
-        let y1 = format!("{}_{}_min", TEMP_SUFFIX, y_field);
+        let y1 = format!("{}_{}_max", TEMP_SUFFIX, y_field);
 
         let x_scale = context.coord.get_x_scale();
         let y_scale = context.coord.get_y_scale();
