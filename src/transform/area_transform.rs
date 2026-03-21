@@ -145,7 +145,10 @@ impl<T: Mark> Chart<T> {
                     [col(c_field)],
                     JoinType::Left.into(),
                 )
-                .sort_by_exprs([col(&order_col)], SortMultipleOptions::default())
+                .sort_by_exprs(
+                    [col(x_field), col(&order_col)], // Must be both x_field and order_col
+                    SortMultipleOptions::default().with_maintain_order(true),
+                )
                 .drop([order_col]);
         }
 
