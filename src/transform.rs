@@ -1,3 +1,4 @@
+pub(crate) mod area_transform;
 pub(crate) mod bar_transform;
 pub(crate) mod box_tranform;
 pub(crate) mod calculate_transform;

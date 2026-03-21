@@ -14,7 +14,11 @@ fn main() -> Result<(), Box<dyn Error>> {
     let area_chart = Chart::build(&df)?
         .mark_area()?
         .configure_area(|a| a.with_opacity(0.3).with_stroke("black"))
-        .encode((x("depth"), y("net_generation"), color("source")))?;
+        .encode((
+            x("depth"),
+            y("net_generation").with_stack("normalize"),
+            color("source"),
+        ))?;
 
     // Create a layered chart for the area
     area_chart
