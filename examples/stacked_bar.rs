@@ -19,7 +19,7 @@ fn main() -> Result<(), Box<dyn Error>> {
         })
         .encode((
             x("Month"),
-            y("Revenue").with_normalize(true).with_stack(true),
+            y("Revenue").with_normalize(true).with_stack("stacked"),
             color("Region"),
         ))?
         .with_title("Colored Bar Chart Example")

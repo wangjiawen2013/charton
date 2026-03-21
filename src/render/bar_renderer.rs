@@ -2,6 +2,7 @@ use crate::Precision;
 use crate::chart::Chart;
 use crate::core::context::PanelContext;
 use crate::core::layer::{MarkRenderer, PolygonConfig, RenderBackend};
+use crate::encode::y::StackMode;
 use crate::error::ChartonError;
 use crate::mark::bar::MarkBar;
 use crate::visual::color::SingleColor;
@@ -37,7 +38,7 @@ impl MarkRenderer for Chart<MarkBar> {
         let x_scale = context.coord.get_x_scale();
         let y_scale = context.coord.get_y_scale();
 
-        let is_stacked = y_enc.stack;
+        let is_stacked = y_enc.stack != StackMode::None;
         let x_field = &x_enc.field;
         let color_field = self.encoding.color.as_ref().map(|c| c.field.as_str());
 

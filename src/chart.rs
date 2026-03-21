@@ -15,7 +15,7 @@ use crate::coordinate::CoordinateTrait;
 use crate::core::aesthetics::GlobalAesthetics;
 use crate::core::data::*;
 use crate::core::layer::{Layer, MarkRenderer};
-use crate::encode::{Channel, Encoding, IntoEncoding};
+use crate::encode::{Channel, Encoding, IntoEncoding, y::StackMode};
 use crate::error::ChartonError;
 use crate::mark::{
     Mark, area::MarkArea, bar::MarkBar, boxplot::MarkBoxplot, errorbar::MarkErrorBar,
@@ -762,7 +762,11 @@ where
                 // For stacked charts, boundaries are determined by the sum of values
                 // in each group rather than individual rows.
                 let is_y_stacked = channel == Channel::Y
-                    && self.encoding.y.as_ref().is_some_and(|e| e.stack)
+                    && self
+                        .encoding
+                        .y
+                        .as_ref()
+                        .is_some_and(|e| e.stack != StackMode::None)
                     && self.encoding.color.is_some();
 
                 if is_y_stacked {

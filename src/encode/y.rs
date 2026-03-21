@@ -1,6 +1,31 @@
 use crate::core::data::AggregateOp;
 use crate::scale::{Expansion, ResolvedScale, Scale, ScaleDomain};
 
+/// Stack mode for area/bar charts, following Altair/Vega-Lite convention
+#[derive(Clone, Debug, Default, PartialEq)]
+pub enum StackMode {
+    /// Unstacked/Overlay mode - each area draws from zero baseline independently.
+    #[default]
+    None,
+    /// Stacked mode - each area stacks on top of the previous one (cumulative sum).
+    Stacked,
+    /// Normalized mode - each vertical slice sums to 1.0 (100% stacked chart).
+    Normalize,
+    /// Center mode - stacked areas centered around zero baseline (streamgraph).
+    Center,
+}
+
+impl From<&str> for StackMode {
+    fn from(s: &str) -> Self {
+        match s.to_lowercase().as_str() {
+            "stacked" => StackMode::Stacked,
+            "normalize" => StackMode::Normalize,
+            "center" => StackMode::Center,
+            _ => StackMode::None,
+        }
+    }
+}
+
 /// Represents a Y-axis encoding specification for chart elements.
 ///
 /// Following the Grammar of Graphics, the `Y` struct separates the
@@ -38,8 +63,12 @@ pub struct Y {
     pub(crate) zero: Option<bool>,
 
     pub(crate) bins: Option<usize>, // bins for continuous encoding value in marks like barchart and histogram
-    pub(crate) normalize: bool, // false = raw counts, true = normalize counts to sum to 1 for histogram/bar chart
-    pub(crate) stack: bool,     // false = regular bar chart, true = stacked bar chart
+
+    // false = raw counts, true = normalize counts to sum to 1 per-group for histogram/bar chart
+    pub(crate) normalize: bool,
+
+    // Per X-position (each vertical slice sums to 1.0)
+    pub(crate) stack: StackMode,
 
     // --- System Resolution (Result/Outputs) ---
     /// Stores the resolved scale instance. Using RwLock to support
@@ -59,7 +88,7 @@ impl Y {
             zero: None,
             bins: None,
             normalize: false, // Default to false (raw counts)
-            stack: false,     // Default to false (regular bar chart)
+            stack: StackMode::None,
             resolved_scale: ResolvedScale::none(),
         }
     }
@@ -138,21 +167,19 @@ impl Y {
         self
     }
 
-    /// Sets whether to stack bars
+    /// Sets the stack mode for area/bar charts.
     ///
-    /// Controls whether bars in bar charts should be displayed as separate entities
-    /// or stacked on top of each other. Stacked bars are useful for showing part-to-whole
-    /// relationships within categories.
+    /// Accepts `StackMode` enum or string literals like "stacked", "normalize", "center", "none".
     ///
-    /// # Arguments
-    /// * `stack` - A boolean value controlling bar stacking:
-    ///   - `true`: Stack bars to show cumulative values
-    ///   - `false`: Display bars separately (default)
-    ///
-    /// # Returns
-    /// Returns `Self` with the updated stacking setting
-    pub fn with_stack(mut self, stack: bool) -> Self {
-        self.stack = stack;
+    /// ### Example
+    /// ```rust,ignore
+    /// y("value").with_stack(StackMode::Stacked) // Using enum
+    /// y("value").with_stack("stacked")          // Using &str
+    /// y("value").with_stack("normalize")        // 100% stacked
+    /// y("value").with_stack("center")           // Streamgraph
+    /// ```
+    pub fn with_stack(mut self, stack: impl Into<StackMode>) -> Self {
+        self.stack = stack.into();
         self
     }
 }

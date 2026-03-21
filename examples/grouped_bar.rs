@@ -19,7 +19,7 @@ fn main() -> Result<(), Box<dyn Error>> {
         })
         .encode((
             x("Month"),
-            y("Revenue").with_normalize(true).with_stack(false),
+            y("Revenue").with_normalize(true).with_stack("none"),
             color("Region"),
         ))?;
 
