@@ -17,7 +17,7 @@ fn main() -> Result<(), Box<dyn Error>> {
                 .with_stroke_width(1.0)
                 .with_width(0.5)
         })
-        .encode((x("Month"), y("Revenue").with_stack(false), color("Region")))?
+        .encode((x("Month"), y("Revenue").with_stack("none"), color("Region")))?
         .coord_flip()
         .save("docs/src/images/swapped_axes.svg")?;
 

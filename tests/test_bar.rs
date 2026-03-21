@@ -21,7 +21,7 @@ fn test_bar_1() -> Result<(), Box<dyn Error>> {
         })
         .encode((
             x("Month"),
-            y("Revenue").with_normalize(true).with_stack(true),
+            y("Revenue").with_normalize(true).with_stack("stacked"),
             color("Region"),
         ))?;
 

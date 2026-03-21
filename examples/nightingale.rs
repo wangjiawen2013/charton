@@ -9,7 +9,7 @@ fn main() -> Result<(), Box<dyn Error>> {
         .mark_bar()?
         .encode((
             x("Month"),
-            y("Deaths").with_stack(true).with_normalize(false),
+            y("Deaths").with_stack("stacked").with_normalize(false),
             color("Cause"),
         ))?
         .with_title("Nightingale wind rose")
