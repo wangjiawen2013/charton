@@ -10,6 +10,7 @@
 pub mod chart;
 pub mod coordinate;
 pub mod core;
+pub mod datasets;
 pub mod encode;
 pub mod error;
 pub mod facets;
@@ -25,7 +26,8 @@ pub mod visual;
 pub mod bridge;
 
 pub mod prelude {
-    pub use crate::core::data::{DataFrameSource, IntoChartonSource, load_dataset};
+    pub use crate::core::data::{DataFrameSource, IntoChartonSource};
+    pub use crate::datasets::load_dataset;
 
     pub use crate::encode::{
         Encoding, color::color, shape::shape, size::size, text::text, x::x, y::y, y2::y2,
