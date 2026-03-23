@@ -132,25 +132,39 @@ impl ScaleTrait for TemporalScale {
 
         // Adaptive Interval Selection:
         // Choose the smallest logical time unit that fits within the requested density.
-        let (interval, format_key) = if seconds_per_tick > 365.0 * 24.0 * 3600.0 {
-            (Duration::days(365), "year")
-        } else if seconds_per_tick > 30.0 * 24.0 * 3600.0 {
-            (Duration::days(30), "month")
-        } else if seconds_per_tick > 24.0 * 3600.0 {
-            (Duration::days(1), "day")
-        } else if seconds_per_tick > 3600.0 {
-            (Duration::hours(1), "hour")
-        } else {
-            (Duration::seconds(1), "second")
-        };
+        let candidates = [
+            (Duration::seconds(1), "second"),
+            (Duration::seconds(5), "second"),
+            (Duration::seconds(15), "second"),
+            (Duration::seconds(30), "second"),
+            (Duration::minutes(1), "hour"),
+            (Duration::minutes(5), "hour"),
+            (Duration::minutes(15), "hour"),
+            (Duration::minutes(30), "hour"),
+            (Duration::hours(1), "hour"),
+            (Duration::hours(6), "hour"),
+            (Duration::hours(12), "hour"),
+            (Duration::days(1), "day"),
+            (Duration::days(7), "day"),
+            (Duration::days(14), "day"),
+            (Duration::days(30), "month"),
+            (Duration::days(90), "month"),
+            (Duration::days(365), "year"),
+        ];
+        let (interval, format_key) = candidates
+            .into_iter()
+            .find(|(interval, _)| interval.as_seconds_f64() >= seconds_per_tick)
+            .unwrap_or((Duration::days(365), "year"));
 
         let mut ticks = Vec::new();
         let mut curr = start;
         let mut iterations = 0;
+        let max_steps =
+            ((total_seconds / interval.as_seconds_f64()).ceil() as usize).saturating_add(2);
 
-        // Ensure we don't enter an infinite loop and stay within the domain.
-        // We use a safety margin (count * 2) to handle interval alignment issues.
-        while curr <= end && iterations < count * 2 {
+        // Ensure we don't enter an infinite loop while still allowing the
+        // sequence to cover the full domain.
+        while curr <= end && iterations < max_steps {
             ticks.push(Tick {
                 value: curr.unix_timestamp_nanos() as f64,
                 label: self.format_dt(curr, format_key),
