@@ -6,7 +6,7 @@ use std::error::Error;
 fn test_histogram_1() -> Result<(), Box<dyn Error>> {
     let df = CsvReadOptions::default()
         .with_has_header(true)
-        .try_into_reader_with_file_path(Some("./datasets/iris.csv".into()))?
+        .try_into_reader_with_file_path(Some("./assets/iris.csv".into()))?
         .finish()?;
     let df_melted = df.unpivot(
         ["sepal_length", "sepal_width", "petal_length", "petal_width"],
