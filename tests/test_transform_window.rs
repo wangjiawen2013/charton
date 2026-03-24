@@ -6,7 +6,7 @@ use std::error::Error;
 fn tests_transform_window_1() -> Result<(), Box<dyn Error>> {
     let df = CsvReadOptions::default()
         .with_has_header(true)
-        .try_into_reader_with_file_path(Some("./datasets/iris.csv".into()))?
+        .try_into_reader_with_file_path(Some("./assets/iris.csv".into()))?
         .finish()?;
 
     // Create a chart with window transform
