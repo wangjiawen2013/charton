@@ -32,6 +32,13 @@
         <td><img src="docs/src/images/rose.svg" alt="Rose" /><p align="center">Rose</p></td>
         <td><img src="docs/src/images/nightingale.svg" alt="Nightingale" /><p align="center">Nightingale</p></td>
     </tr>
+    <tr>
+        <td><img src="docs/src/images/simple_stacked_area.svg" alt="Simple Stacked Area" /><p align="center">Simple Stack Area</p></td>
+        <td><img src="docs/src/images/normalized_stacked_area.svg" alt="Normalized Stacked Area" /><p align="center">Normalized Stacked Area</p></td>
+        <td><img src="docs/src/images/steamgraph.svg" alt="Steamgraph" /><p align="center">Steamgraph</p></td>
+        <td><img src="docs/src/images/rule.svg" alt="Rule" /><p align="center">Rule</p></td>
+        <td><img src="docs/src/images/strip.svg" alt="Strip" /><p align="center">Strip</p></td>
+    </tr>
 </table>
 
 ## Installation
