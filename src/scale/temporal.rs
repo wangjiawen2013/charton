@@ -15,6 +15,8 @@ pub struct TemporalScale {
 
 /// Human-friendly time intervals for axis ticks.
 /// The engine selects the smallest interval that fits the requested pixel density.
+/// Values for Months and Years use Gregorian averages (30.44 days and 365.25 days)
+/// to ensure stable density calculations across leap years.
 const TICK_LADDER: &[(Duration, &str)] = &[
     // --- Sub-second (Engineering & High-frequency) ---
     (Duration::microseconds(1), "microsecond"),
@@ -43,17 +45,17 @@ const TICK_LADDER: &[(Duration, &str)] = &[
     (Duration::days(2), "day"),
     (Duration::days(7), "day"),
     (Duration::days(14), "day"),
-    // --- Months & Quarters (Business & Seasonal) ---
-    (Duration::days(30), "month"),
-    (Duration::days(60), "month"),
-    (Duration::days(90), "month"),
-    (Duration::days(180), "month"),
-    (Duration::days(270), "month"),
-    // --- Years & Decades (Historical/Economic) ---
-    (Duration::days(365), "year"),
-    (Duration::days(365 * 2), "year"),
-    (Duration::days(365 * 5), "year"),
-    (Duration::days(365 * 10), "year"),
+    // --- Months & Quarters (Using 2,629,746s per average month) ---
+    (Duration::seconds(2629746), "month"),  // 1 Month
+    (Duration::seconds(5259492), "month"),  // 2 Months
+    (Duration::seconds(7889238), "month"),  // 3 Months (Quarter)
+    (Duration::seconds(15778476), "month"), // 6 Months
+    (Duration::seconds(23667714), "month"), // 9 Months
+    // --- Years & Decades (Using 31,557,600s per average year) ---
+    (Duration::seconds(31557600), "year"),  // 1 Year
+    (Duration::seconds(63115200), "year"),  // 2 Years
+    (Duration::seconds(157788000), "year"), // 5 Years
+    (Duration::seconds(315576000), "year"), // 10 Years (Decade)
 ];
 
 impl TemporalScale {
@@ -92,18 +94,39 @@ impl TemporalScale {
         (Duration::days(365 * 10), "year")
     }
 
-    /// Snaps a timestamp to a "clean" boundary (e.g., exactly on the hour or day).
-    /// This prevents "random-looking" tick values on the axis.
+    /// Snaps a timestamp to a "clean" calendar or mathematical boundary.
     fn align_to_interval(ns: i64, interval: Duration) -> i64 {
-        let interval_ns = interval.whole_nanoseconds() as i64;
-        if interval_ns <= 0 {
-            return ns;
+        let dt = OffsetDateTime::from_unix_timestamp_nanos(ns as i128)
+            .unwrap_or(OffsetDateTime::UNIX_EPOCH)
+            .to_offset(time::UtcOffset::UTC);
+
+        let days = interval.whole_days();
+
+        // --- Calendar-Aware Alignment ---
+        // Years and Months have variable lengths. We must snap to the 1st day/month
+        // rather than using raw nanosecond division.
+        if days >= 365 {
+            // Yearly Scale: Snap to January 1st, 00:00:00
+            dt.replace_month(time::Month::January)
+                .unwrap()
+                .replace_day(1)
+                .unwrap()
+                .replace_time(time::macros::time!(00:00))
+                .unix_timestamp_nanos() as i64
+        } else if days >= 28 {
+            // Monthly Scale: Snap to the 1st of the month, 00:00:00
+            dt.replace_day(1)
+                .unwrap()
+                .replace_time(time::macros::time!(00:00))
+                .unix_timestamp_nanos() as i64
+        } else {
+            // Sub-day Scales: Linear math is perfectly fine here.
+            let interval_ns = interval.whole_nanoseconds() as i64;
+            if interval_ns <= 0 {
+                return ns;
+            }
+            ns.div_euclid(interval_ns) * interval_ns
         }
-        // We use `div_euclid` (Euclidean Division) instead of the standard `/` operator.
-        // `div_euclid` always rounds toward negative infinity (the "left" on a number line).
-        // This ensures that ticks are spaced identically regardless of whether the
-        // time is BCE or CE (Before/After 1970).
-        ns.div_euclid(interval_ns) * interval_ns
     }
 
     /// Formats a nanosecond timestamp into a human-readable string.
@@ -213,15 +236,9 @@ impl ScaleTrait for TemporalScale {
         let (interval, format_key) = Self::pick_format_and_interval(seconds_per_tick);
         let interval_ns = interval.whole_nanoseconds() as i64;
 
-        // Safety: Prevent infinite loops if interval is 0
-        if interval_ns == 0 {
-            return vec![];
-        }
-
         let mut ticks = Vec::new();
         let mut curr = Self::align_to_interval(start, interval);
 
-        // Iterate through the domain and collect aligned timestamps
         while curr <= end {
             if curr >= start {
                 ticks.push(Tick {
@@ -229,10 +246,53 @@ impl ScaleTrait for TemporalScale {
                     label: self.format_ns(curr, format_key),
                 });
             }
-            // Use saturating_add to prevent overflow on extreme date ranges
-            match curr.checked_add(interval_ns) {
-                Some(next) => curr = next,
-                None => break,
+
+            // --- Calendar-Aware Stepping ---
+            let next_ns: Option<i64> = (|| {
+                let dt = OffsetDateTime::from_unix_timestamp_nanos(curr as i128)
+                    .ok()?
+                    .to_offset(time::UtcOffset::UTC);
+
+                match format_key {
+                    "year" => {
+                        // Use 31,557,600 (Average Year) to calculate the step jump
+                        let step_years = (interval.whole_seconds() / 31557600) as i32;
+                        dt.replace_year(dt.year() + step_years.max(1))
+                            .ok()?
+                            .unix_timestamp_nanos()
+                            .try_into()
+                            .ok()
+                    }
+                    "month" => {
+                        // Use 2,629,746 (Average Month) to calculate the step jump
+                        let step_months = (interval.whole_seconds() / 2629746) as i32;
+                        let total_months = (dt.month() as i32 - 1) + step_months.max(1);
+
+                        let new_year = dt.year() + (total_months / 12);
+                        let month_num = (total_months % 12) + 1;
+                        let new_month = time::Month::try_from(month_num as u8).ok()?;
+
+                        dt.replace_year(new_year)
+                            .ok()?
+                            .replace_month(new_month)
+                            .ok()?
+                            .replace_day(1)
+                            .ok()?
+                            .replace_time(time::macros::time!(00:00))
+                            .unix_timestamp_nanos()
+                            .try_into()
+                            .ok()
+                    }
+                    _ => {
+                        // For days and below, linear addition is safe
+                        curr.checked_add(interval_ns)
+                    }
+                }
+            })();
+
+            match next_ns {
+                Some(next) if next > curr => curr = next,
+                _ => break,
             }
         }
 
