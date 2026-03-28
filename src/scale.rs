@@ -49,40 +49,55 @@ pub struct Tick {
     pub label: String,
 }
 
-/// The "Input": What the user explicitly requests.
+/// Represents a user-defined tick value for various scale types.
+///
+/// This enum acts as a container for data points that the user wants to
+/// explicitly highlight on an axis, regardless of the scale's internal logic.
 #[derive(Debug, Clone, PartialEq)]
 pub enum ExplicitTick {
+    /// For linear or logarithmic scales (e.g., price, temperature, generic f64).
     Continuous(f64),
+
+    /// For categorical or ordinal scales (e.g., "Product A", "Category B").
     Discrete(String),
+
+    /// The "Universal Bridge" for high-precision temporal data.
+    /// Accepts raw Unix nanoseconds from external sources like Chrono or Polars.
+    /// This avoids floating-point precision loss for nanosecond-level timestamps.
+    Timestamp(i64),
+
+    /// Native support for high-level date-time objects from the `time` crate.
+    /// Provides timezone awareness and calendar-accurate formatting.
     Temporal(OffsetDateTime),
 }
 
-/// A trait to allow various collection types to be converted
-/// into a vector of TickValues automatically.
+/// A trait that allows various collection types (Vec, Arrays, etc.) to be
+/// automatically converted into a vector of `ExplicitTick` variants.
+///
+/// This trait enables a polymorphic API where users can pass raw primitive
+/// types directly into axis-configuration methods.
 pub trait IntoExplicitTicks {
+    /// Consumes the collection and returns a vector of standardized `ExplicitTick`s.
     fn into_explicit_ticks(self) -> Vec<ExplicitTick>;
 }
 
+/// Implementation for standard floating-point numbers.
+/// Maps to `ExplicitTick::Continuous`.
 impl IntoExplicitTicks for Vec<f64> {
     fn into_explicit_ticks(self) -> Vec<ExplicitTick> {
         self.into_iter().map(ExplicitTick::Continuous).collect()
     }
 }
 
+/// Array support for floating-point numbers to allow fixed-size inputs.
 impl<const N: usize> IntoExplicitTicks for [f64; N] {
     fn into_explicit_ticks(self) -> Vec<ExplicitTick> {
         self.into_iter().map(ExplicitTick::Continuous).collect()
     }
 }
 
-impl<const N: usize> IntoExplicitTicks for [&str; N] {
-    fn into_explicit_ticks(self) -> Vec<ExplicitTick> {
-        self.into_iter()
-            .map(|s| ExplicitTick::Discrete(s.to_string()))
-            .collect()
-    }
-}
-
+/// Implementation for string slices, commonly used for categorical labels.
+/// Maps to `ExplicitTick::Discrete`.
 impl IntoExplicitTicks for Vec<&str> {
     fn into_explicit_ticks(self) -> Vec<ExplicitTick> {
         self.into_iter()
@@ -91,6 +106,24 @@ impl IntoExplicitTicks for Vec<&str> {
     }
 }
 
+/// Implementation for raw integers.
+/// In the context of Charton, these are treated as high-precision nanosecond timestamps.
+/// Maps to `ExplicitTick::Timestamp`.
+impl IntoExplicitTicks for Vec<i64> {
+    fn into_explicit_ticks(self) -> Vec<ExplicitTick> {
+        self.into_iter().map(ExplicitTick::Timestamp).collect()
+    }
+}
+
+/// Array support for raw integers (timestamps).
+impl<const N: usize> IntoExplicitTicks for [i64; N] {
+    fn into_explicit_ticks(self) -> Vec<ExplicitTick> {
+        self.into_iter().map(ExplicitTick::Timestamp).collect()
+    }
+}
+
+/// Implementation for native `time::OffsetDateTime` objects.
+/// Maps to `ExplicitTick::Temporal`.
 impl IntoExplicitTicks for Vec<OffsetDateTime> {
     fn into_explicit_ticks(self) -> Vec<ExplicitTick> {
         self.into_iter().map(ExplicitTick::Temporal).collect()
@@ -147,7 +180,7 @@ impl Scale {
 pub enum ScaleDomain {
     Continuous(f64, f64),
     Discrete(Vec<String>),
-    Temporal(OffsetDateTime, OffsetDateTime),
+    Temporal(i64, i64), // (raw start nanoseconds, raw end nanoseconds)
 }
 
 /// The primary interface for all scale implementations.
@@ -240,14 +273,18 @@ pub fn create_scale(
             }
         }
         Scale::Temporal => {
-            if let ScaleDomain::Temporal(start, end) = domain_data {
-                let diff_secs = (end - start).as_seconds_f64();
-                let lower_pad =
-                    time::Duration::seconds_f64(diff_secs * expansion.mult.0 + expansion.add.0);
-                let upper_pad =
-                    time::Duration::seconds_f64(diff_secs * expansion.mult.1 + expansion.add.1);
+            if let ScaleDomain::Temporal(min_ns, max_ns) = domain_data {
+                // 1. Convert to nanoseconds immediately to perform high-precision expansion
+                let diff_ns = (max_ns - min_ns) as f64;
+
+                // 2. Calculate padding in nanoseconds (f64 for multiplication, then to i64)
+                // Note: expansion.add.0 is assumed to be in seconds, so we multiply by 1e9
+                let lower_pad_ns = (diff_ns * expansion.mult.0 + expansion.add.0 * 1e9) as i64;
+                let upper_pad_ns = (diff_ns * expansion.mult.1 + expansion.add.1 * 1e9) as i64;
+
+                // 3. Pass the raw i64 nanoseconds to the constructor
                 Box::new(TemporalScale::new(
-                    (start - lower_pad, end + upper_pad),
+                    (min_ns - lower_pad_ns, max_ns + upper_pad_ns),
                     mapper,
                 ))
             } else {

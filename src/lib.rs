@@ -28,6 +28,7 @@ pub mod bridge;
 pub mod prelude {
     pub use crate::core::data::{DataFrameSource, IntoChartonSource};
     pub use crate::datasets::load_dataset;
+    pub use time::OffsetDateTime;
 
     pub use crate::encode::{
         Encoding, color::color, shape::shape, size::size, text::text, x::x, y::y, y2::y2,
