@@ -1,6 +1,6 @@
 use crate::error::ChartonError;
 use polars::prelude::*;
-//use time::OffsetDateTime;
+use time::OffsetDateTime;
 
 // unemployment dataset: A sub set of country's unemployment rate from past 31 years from https://www.kaggle.com/datasets/pantanjali/unemployment-dataset
 pub fn get_data() -> Result<DataFrame, ChartonError> {
@@ -100,11 +100,38 @@ pub fn get_data() -> Result<DataFrame, ChartonError> {
         4.42,
     ];
 
-    let df = df![
-     "Country" => country,
-     "Year" => year,
-     "Unemployment rate (%)" => unemployment
+    // Convert i32 years into nanosecond timestamps (i64)
+    let year_nanos: Vec<i64> = year
+        .iter()
+        .map(|&y| {
+            // Use the 'time' crate to construct a date and retrieve the nanosecond timestamp.
+            // We assume each year starts at midnight on January 1st (00:00:00).
+            OffsetDateTime::from_unix_timestamp(0)
+                .unwrap()
+                .replace_year(y)
+                .unwrap()
+                .replace_month(time::Month::January)
+                .unwrap()
+                .replace_day(1)
+                .unwrap()
+                .unix_timestamp_nanos() as i64
+        })
+        .collect();
+
+    // Construct the DataFrame using the df! macro
+    let mut df = df![
+        "Country" => country,
+        "Year" => year_nanos,
+        "Unemployment rate (%)" => unemployment
     ]?;
+
+    // Cast the "Year" column from Int64 to Datetime(Nanoseconds).
+    // This allows 'interpret_semantic_type' to recognize it as a Temporal type.
+    df.with_column(
+        df.column("Year")?
+            .cast(&DataType::Datetime(TimeUnit::Nanoseconds, None))?
+            .with_name("Year".into()),
+    )?;
 
     Ok(df)
 }

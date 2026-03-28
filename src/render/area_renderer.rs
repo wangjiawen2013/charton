@@ -96,8 +96,19 @@ impl MarkRenderer for Chart<MarkArea> {
                 SortMultipleOptions::default().with_order_descending(false),
             )?;
 
+            // Handle both numeric and temporal types for the X-axis
+            // Timestamps (i64) must be cast to f64 for coordinate projection.
             let x_series = sorted_df.column(&x_enc.field)?.as_materialized_series();
-            let x_vals: Vec<f64> = x_series.f64()?.into_no_null_iter().collect();
+            let x_vals: Vec<f64> = if x_series.dtype().is_temporal() {
+                x_series
+                    .cast(&DataType::Int64)?
+                    .i64()?
+                    .into_no_null_iter()
+                    .map(|v| v as f64)
+                    .collect()
+            } else {
+                x_series.f64()?.into_no_null_iter().collect()
+            };
 
             if x_vals.is_empty() {
                 continue;
