@@ -180,8 +180,8 @@ impl LayeredChart {
         let mut cont_min = f64::INFINITY;
         let mut cont_max = f64::NEG_INFINITY;
         let mut all_labels: Vec<String> = Vec::new();
-        let mut temp_start: Option<time::OffsetDateTime> = None;
-        let mut temp_end: Option<time::OffsetDateTime> = None;
+        let mut temp_min: i64 = i64::MAX;
+        let mut temp_max: i64 = i64::MIN;
 
         // Expansion accumulators (Finding the "Maximum Room" requested by layers)
         let mut max_mult = (0.0f64, 0.0f64);
@@ -221,9 +221,9 @@ impl LayeredChart {
                         }
                     }
                 }
-                ScaleDomain::Temporal(start, end) => {
-                    temp_start = Some(temp_start.map_or(start, |s| s.min(start)));
-                    temp_end = Some(temp_end.map_or(end, |e| e.max(end)));
+                ScaleDomain::Temporal(min_ns, max_ns) => {
+                    temp_min = temp_min.min(min_ns);
+                    temp_max = temp_max.max(max_ns);
                 }
             }
 
@@ -279,10 +279,12 @@ impl LayeredChart {
                     }
                     ScaleDomain::Discrete(all_labels)
                 }
-                Scale::Temporal => match (temp_start, temp_end) {
-                    (Some(s), Some(e)) => ScaleDomain::Temporal(s, e),
-                    _ => return Ok(None),
-                },
+                Scale::Temporal => {
+                    if temp_min == i64::MAX || temp_max == i64::MIN {
+                        return Ok(None);
+                    }
+                    ScaleDomain::Temporal(temp_min, temp_max)
+                }
                 _ => {
                     if cont_min.is_infinite() {
                         ScaleDomain::Continuous(0.0, 1.0)

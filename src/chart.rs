@@ -391,7 +391,10 @@ impl<T: Mark> Chart<T> {
             expected_semantics.insert(shape_enc.field.as_str(), vec![SemanticType::Discrete]);
         }
         if let Some(size_enc) = &self.encoding.size {
-            expected_semantics.insert(size_enc.field.as_str(), vec![SemanticType::Continuous]);
+            expected_semantics.insert(
+                size_enc.field.as_str(),
+                vec![SemanticType::Continuous, SemanticType::Temporal],
+            );
         }
 
         match mark_type.as_str() {
@@ -402,28 +405,31 @@ impl<T: Mark> Chart<T> {
                 );
                 expected_semantics.insert(
                     self.encoding.y.as_ref().unwrap().field.as_str(),
-                    vec![SemanticType::Continuous],
+                    vec![SemanticType::Continuous, SemanticType::Temporal],
                 );
             }
             "hist" => {
                 expected_semantics.insert(
                     self.encoding.x.as_ref().unwrap().field.as_str(),
-                    vec![SemanticType::Continuous],
+                    vec![SemanticType::Continuous, SemanticType::Temporal],
                 );
             }
             "rect" => {
                 expected_semantics.insert(
                     self.encoding.color.as_ref().unwrap().field.as_str(),
-                    vec![SemanticType::Continuous],
+                    vec![SemanticType::Continuous, SemanticType::Temporal],
                 );
             }
             "errorbar" | "rule" => {
                 expected_semantics.insert(
                     self.encoding.y.as_ref().unwrap().field.as_str(),
-                    vec![SemanticType::Continuous],
+                    vec![SemanticType::Continuous, SemanticType::Temporal],
                 );
                 if let Some(y2) = &self.encoding.y2 {
-                    expected_semantics.insert(y2.field.as_str(), vec![SemanticType::Continuous]);
+                    expected_semantics.insert(
+                        y2.field.as_str(),
+                        vec![SemanticType::Continuous, SemanticType::Temporal],
+                    );
                 }
             }
             "text" => {
@@ -490,7 +496,7 @@ impl<T: Mark> Chart<T> {
             if x_enc.bins.is_none() {
                 let series = self.data.column(&x_enc.field)?;
                 match interpret_semantic_type(series.dtype()) {
-                    SemanticType::Continuous => {
+                    SemanticType::Continuous | SemanticType::Temporal => {
                         let unique_count = series.n_unique()?;
                         x_enc.bins = Some(if unique_count <= 1 {
                             1
@@ -499,7 +505,6 @@ impl<T: Mark> Chart<T> {
                         });
                     }
                     SemanticType::Discrete => x_enc.bins = Some(series.n_unique()?),
-                    _ => {}
                 }
             }
 
@@ -507,7 +512,7 @@ impl<T: Mark> Chart<T> {
             if mt == "rect" && y_enc.bins.is_none() {
                 let series = self.data.column(&y_enc.field)?;
                 match interpret_semantic_type(series.dtype()) {
-                    SemanticType::Continuous => {
+                    SemanticType::Continuous | SemanticType::Temporal => {
                         let unique_count = series.n_unique()?;
                         y_enc.bins = Some(if unique_count <= 1 {
                             1
@@ -516,7 +521,6 @@ impl<T: Mark> Chart<T> {
                         });
                     }
                     SemanticType::Discrete => y_enc.bins = Some(series.n_unique()?),
-                    _ => {}
                 }
             }
         }
@@ -745,13 +749,13 @@ where
             }
 
             SemanticType::Temporal => {
-                let min_ns = primary_series.min::<i64>()?.unwrap_or(0);
-                let max_ns = primary_series.max::<i64>()?.unwrap_or(0);
-                let start_dt = time::OffsetDateTime::from_unix_timestamp_nanos(min_ns as i128)
-                    .map_err(|_| ChartonError::Data("Invalid start timestamp".into()))?;
-                let end_dt = time::OffsetDateTime::from_unix_timestamp_nanos(max_ns as i128)
-                    .map_err(|_| ChartonError::Data("Invalid end timestamp".into()))?;
-                Ok(ScaleDomain::Temporal(start_dt, end_dt))
+                let min_ns = primary_series
+                    .min::<i64>()?
+                    .ok_or_else(|| ChartonError::Data("Time series is empty".into()))?;
+                let max_ns = primary_series
+                    .max::<i64>()?
+                    .ok_or_else(|| ChartonError::Data("Time series is empty".into()))?;
+                Ok(ScaleDomain::Temporal(min_ns, max_ns))
             }
 
             SemanticType::Continuous => {
