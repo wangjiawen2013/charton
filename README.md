@@ -104,8 +104,8 @@ Charton integrates with evcxr_jupyter for interactive data exploration. Replacin
 ## WebAssembly and Frontend
 Charton supports WebAssembly and modern web frontend; please refer to [Charton Docs](https://wangjiawen2013.github.io/charton) for details.
 
-## Cross-Eco Integration
-Charton bridges Rust with mature ecosystems like **Altair** and **Matplotlib** via a high-speed IPC, enabling users to leverage diverse, professional-grade plotting tools within a unified workflow. please refer to [Charton Docs](https://wangjiawen2013.github.io/charton) for details.
+## Leveraging External Plotting Power
+Charton bridges Rust with mature visualization ecosystems like **Altair** and **Matplotlib** via a high-speed IPC, enabling users to leverage diverse, professional-grade plotting tools within a unified workflow. please refer to [Charton Docs](https://wangjiawen2013.github.io/charton) for details.
 
 ## Industrial-Grade Visualization
 Charton scales the Grammar of Graphics to heavy-duty production. By adopting the same proven philosophy as ggplot2, Altair, and the evolving ECharts, it validates its architecture as the industry standard, delivering strict type safety and zero-copy Polars integration for robust pipelines under extreme loads. This is powered by a rigorous Scale Arbitration engine that consolidates data domains into a "Single Source of Truth," ensuring absolute mathematical consistency and seamless cross-plot mapping while eliminating the fragile, hard-coded patches and silent overrides common in template-based tools.
