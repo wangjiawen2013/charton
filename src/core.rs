@@ -3,7 +3,6 @@ pub mod composite;
 pub mod context;
 pub mod conversion;
 pub mod data;
-pub mod data2;
 pub mod guide;
 pub mod layer;
 pub mod layout;
