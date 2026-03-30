@@ -26,7 +26,7 @@ pub mod visual;
 pub mod bridge;
 
 pub mod prelude {
-    pub use crate::core::data::{DataFrameSource, IntoChartonSource};
+    pub use crate::core::data::{ColumnVector, Dataset, IntoColumn, ToDataset};
     pub use crate::datasets::load_dataset;
     pub use time::OffsetDateTime;
 
