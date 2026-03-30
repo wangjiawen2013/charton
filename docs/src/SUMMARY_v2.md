@@ -5,10 +5,10 @@
     - [Interactive Notebooks](getting_started/interactive_notebooks)
 
 # Concepts & Philosophy
-- [The Charton Mental Model](mental_model.md)
-- [The Life of a Chart: From Data to Pixels](chart_life.md)
-- [Scale Arbitration](scale_arbitration.md)
-- [System Architecture](system_architecture.md)
+- [The Charton Mental Model](concepts/mental_model.md)
+- [The Life of a Chart: From Data to Pixels](concepts/chart_life.md)
+- [Scale Arbitration](concepts/scale_arbitration.md)
+- [System Architecture](concepts/system_architecture.md)
 
 # The Grammar of Graphics
 - [Data & Transformation](data_transformation.md)
