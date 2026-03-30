@@ -1,6 +1,7 @@
 use std::collections::HashMap;
 use crate::error::ChartonError;
 use time::OffsetDateTime;
+use std::fmt;
 
 /// Encapsulates a single column of data with high-performance null handling.
 /// 
@@ -46,6 +47,32 @@ impl ColumnVector {
         }
     }
 }
+
+/// Internal trait to bridge ColumnVector and concrete Rust types.
+/// Get data from a column vector.
+pub trait FromColumnVector: Sized {
+    fn try_from_col(col: &ColumnVector) -> Option<&[Self]>;
+}
+
+macro_rules! impl_from_col {
+    ($t:ty, $variant:ident) => {
+        impl FromColumnVector for $t {
+            fn try_from_col(col: &ColumnVector) -> Option<&[Self]> {
+                match col {
+                    ColumnVector::$variant { data, .. } => Some(data),
+                    _ => None,
+                }
+            }
+        }
+    };
+}
+
+impl_from_col!(f64, F64);
+impl_from_col!(f32, F32);
+impl_from_col!(i64, I64);
+impl_from_col!(String, String);
+impl_from_col!(OffsetDateTime, DateTime);
+
 
 /// A normalized, columnar data container.
 /// 
@@ -95,6 +122,47 @@ impl Dataset {
         self.columns.push(vec);
         self.schema.insert(name_str, index);
         Ok(())
+    }
+
+    /// High-performance: Returns a reference to the entire column data.
+    /// This is the preferred way for rendering and bulk calculations.
+    pub fn get_column<T: FromColumnVector>(&self, name: &str) -> Result<&[T], ChartonError> {
+        let index = self.schema.get(name)
+            .ok_or_else(|| ChartonError::Data(format!("Column '{}' not found", name)))?;
+        
+        T::try_from_col(&self.columns[*index]).ok_or_else(|| ChartonError::Data(format!(
+            "Type mismatch: Column '{}' cannot be accessed as the requested type", name
+        )))
+    }
+
+    /// Interaction-focused: Returns a single value. 
+    /// Use this for tooltips or specific data inspections.
+    pub fn get_value<T: FromColumnVector>(&self, name: &str, row: usize) -> Result<&T, ChartonError> {
+        let data = self.get_column::<T>(name)?;
+        data.get(row).ok_or_else(|| ChartonError::Data(format!("Index {} out of bounds", row)))
+    }
+
+    /// Check if a value at a specific row is null (validity bit is 0).
+    pub fn is_null(&self, name: &str, row: usize) -> bool {
+        let index = match self.schema.get(name) {
+            Some(i) => *i,
+            None => return true,
+        };
+
+        match &self.columns[index] {
+            ColumnVector::F64 { data } => data[row].is_nan(),
+            ColumnVector::F32 { data } => data[row].is_nan(),
+            ColumnVector::I64 { validity, .. } | 
+            ColumnVector::String { validity, .. } | 
+            ColumnVector::DateTime { validity, .. } => {
+                if let Some(v) = validity {
+                    // Extract the specific bit: 0 means null
+                    (v[row / 8] >> (row % 8)) & 1 == 0
+                } else {
+                    false // No validity map means 100% valid
+                }
+            }
+        }
     }
 }
 
@@ -222,5 +290,82 @@ impl ToDataset for Dataset {
     #[inline]
     fn to_dataset(self) -> Result<Dataset, ChartonError> {
         Ok(self)
+    }
+}
+
+/// Enable printing of Dataset
+impl fmt::Debug for Dataset {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        // Print basic metadata about the dataset dimensions
+        writeln!(f, "Dataset: {} rows x {} columns", self.row_count, self.columns.len())?;
+        
+        // 1. Organize headers sorted by their internal column index
+        let mut names: Vec<_> = self.schema.keys().collect();
+        names.sort_by_key(|name| self.schema.get(*name).unwrap());
+
+        // 2. Format and print the header row with fixed-width alignment
+        let header = names.iter()
+            .map(|n| format!("{:<12}", n))
+            .collect::<Vec<_>>()
+            .join("| ");
+        writeln!(f, "{}", header)?;
+        writeln!(f, "{}", "-".repeat(header.len()))?;
+
+        // 3. Print the first 10 rows to prevent console overflow on large datasets
+        let limit = self.row_count.min(10);
+        for row in 0..limit {
+            let mut row_str = Vec::new();
+            for name in &names {
+                // Transpose columnar data into a row-wise string representation
+                let cell = self.debug_cell(name, row);
+                row_str.push(format!("{:<12}", cell));
+            }
+            writeln!(f, "{}", row_str.join("| "))?;
+        }
+
+        // Indicate if there is more data beyond the displayed rows
+        if self.row_count > 10 {
+            writeln!(f, "... and {} more rows", self.row_count - 10)?;
+        }
+
+        Ok(())
+    }
+}
+
+impl Dataset {
+    /// Internal helper to convert a specific cell value into a string for display.
+    /// Handles null checks, numerical precision, and string truncation.
+    fn debug_cell(&self, col_name: &str, row: usize) -> String {
+        // Check for missing data via NaN or Validity Bitmaps
+        if self.is_null(col_name, row) {
+            return "null".to_string();
+        }
+
+        let idx = *self.schema.get(col_name).expect("Schema integrity error");
+        match &self.columns[idx] {
+            // Format floating points to 4 decimal places for readability
+            ColumnVector::F64 { data } => format!("{:.4}", data[row]),
+            ColumnVector::F32 { data } => format!("{:.4}", data[row]),
+            
+            // Standard integer to string conversion
+            ColumnVector::I64 { data, .. } => data[row].to_string(),
+            
+            // Truncate long strings to keep the table layout neat
+            ColumnVector::String { data, .. } => {
+                let s = &data[row];
+                if s.len() > 10 { 
+                    format!("{}...", &s[..7]) 
+                } else { 
+                    s.clone() 
+                }
+            },
+            
+            // Format timestamps using the standard ISO 8601 (RFC 3339) format
+            ColumnVector::DateTime { data, .. } => {
+                data[row]
+                    .format(&time::format_description::well_known::Rfc3339)
+                    .unwrap_or_else(|_| "err_date".to_string())
+            },
+        }
     }
 }
