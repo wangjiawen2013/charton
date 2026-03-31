@@ -26,7 +26,7 @@ arrow = { version = "53.0", default-features = false, optional = true }
 thiserror = "2.0"
 time = { version = "0.3", features = ["macros", "formatting"] }
 kernel-density-estimation = "0.2"
-rayon = "1.18.0"
+rayon = "1.11.0"
 resvg = "0.45"
 csscolorparser = "0.8"
 html-escape = "0.2"
