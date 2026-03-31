@@ -1,0 +1,38 @@
+[package]
+name = "charton"
+version = "0.4.1"
+edition = "2024"
+description = "A high-level, layered charting system for Rust, designed for Polars-first data workflows and multi-backend rendering."
+license = "Apache-2.0"
+repository = "https://github.com/wangjiawen2013/charton"
+authors = ["Jiawen Wang <wangjiawen2013@163.com>"]
+
+[features]
+# 'arrow' is enabled by default to provide out-of-the-box compatibility with 
+# DataFrames (Polars/DataFusion) and Database drivers. 
+# Users can disable it for minimal binary size: default-features = false.
+default = ["arrow"]
+
+# Enables universal columnar data ingestion via the Apache Arrow standard.
+arrow = ["dep:arrow"]
+
+[dependencies]
+# --- Optional Dependencies ---
+# The official Apache Arrow crate. It is used as a high-performance bridge 
+# between external data sources and Charton's internal ColumnVectors.
+arrow = { version = "53.0", default-features = false, optional = true }
+
+# --- Core Dependencies ---
+thiserror = "2.0"
+time = { version = "0.3", features = ["macros", "formatting"] }
+kernel-density-estimation = "0.2"
+rayon = "1.18.0"
+resvg = "0.45"
+csscolorparser = "0.8"
+html-escape = "0.2"
+
+# --- Target-Specific Dependencies (Non-Wasm) ---
+[target.'cfg(not(target_arch = "wasm32"))'.dependencies]
+serde = { version = "1.0", features = ["derive"] }
+serde_json = { version = "1.0" }
+base64 = { version = "0.22" }
