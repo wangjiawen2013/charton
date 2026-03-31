@@ -4,9 +4,7 @@ use std::fmt;
 use time::OffsetDateTime;
 
 #[cfg(feature = "arrow")]
-use arrow::array::{
-    Array, Float32Array, Float64Array, Int64Array, StringArray
-};
+use arrow::array::{Array, Float32Array, Float64Array, Int64Array, StringArray};
 #[cfg(feature = "arrow")]
 use arrow::datatypes::{DataType, TimeUnit};
 
@@ -38,7 +36,38 @@ pub enum ColumnVector {
     },
 }
 
+/// Mapping raw types to semantic types allows the engine to automatically
+/// select the appropriate Scale (Linear, Temporal, or Discrete) and validation rules.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum SemanticType {
+    /// Quantitative/Numeric data that supports arithmetic and interpolation (e.g., 1.2, 100).
+    /// Maps to: LinearScale, LogScale.
+    Continuous,
+
+    /// Categorical or Qualitative data used for grouping or indexing (e.g., "Apple", "Orange").
+    /// Maps to: DiscreteScale.
+    Discrete,
+
+    /// Time-based data represented as points in a timeline.
+    /// Maps to: TimeScale.
+    Temporal,
+}
+
 impl ColumnVector {
+    /// Infers the [SemanticType] of the column based on its internal storage variant.
+    ///
+    /// This is a low-latency operation used to guide the selection of
+    /// visual encoding strategies (e.g., choosing a TimeScale for DateTime).
+    pub fn semantic_type(&self) -> SemanticType {
+        match self {
+            ColumnVector::F64 { .. } | ColumnVector::F32 { .. } | ColumnVector::I64 { .. } => {
+                SemanticType::Continuous
+            }
+            ColumnVector::String { .. } => SemanticType::Discrete,
+            ColumnVector::DateTime { .. } => SemanticType::Temporal,
+        }
+    }
+
     /// Returns the number of rows in this column.
     pub fn len(&self) -> usize {
         match self {
@@ -126,6 +155,38 @@ impl Dataset {
         Ok(())
     }
 
+    /// Returns the number of rows in the dataset.
+    pub fn height(&self) -> usize {
+        self.row_count
+    }
+
+    /// Returns the number of columns in the dataset.
+    pub fn width(&self) -> usize {
+        self.columns.len()
+    }
+
+    /// Returns a list of all column names present in the dataset.
+    ///
+    /// This is useful for UI components or discovery logic to know
+    /// which dimensions are available for encoding.
+    pub fn get_column_names(&self) -> Vec<String> {
+        // Since schema is a HashMap<String, usize>, we can just collect the keys.
+        // Note: The order of names is not guaranteed due to HashMap's nature.
+        self.schema.keys().cloned().collect()
+    }
+
+    /// Returns a reference to the [ColumnVector] wrapper for the specified column.
+    ///
+    /// This is the primary method for metadata inspection (type checking, null-mask access)
+    /// without needing to know the underlying concrete type T.
+    pub fn column(&self, name: &str) -> Result<&ColumnVector, ChartonError> {
+        let index = self
+            .schema
+            .get(name)
+            .ok_or_else(|| ChartonError::Data(format!("Column '{}' not found in dataset", name)))?;
+        Ok(&self.columns[*index])
+    }
+
     /// High-performance: Returns a reference to the entire column data.
     /// This is the preferred way for rendering and bulk calculations.
     pub fn get_column<T: FromColumnVector>(&self, name: &str) -> Result<&[T], ChartonError> {
@@ -175,6 +236,115 @@ impl Dataset {
                 }
             }
         }
+    }
+
+    /// Validates a single column against a set of allowed [SemanticType]s.
+    ///
+    /// This prevents "illegal" mappings, such as trying to use a Categorical string
+    /// for a Continuous 'Size' channel.
+    pub fn validate_column_semantic(
+        &self,
+        column_name: &str,
+        allowed: &[SemanticType],
+    ) -> Result<SemanticType, ChartonError> {
+        // Access the column vector reference to inspect its semantic type.
+        let col = self.column(column_name)?;
+        let actual = col.semantic_type();
+
+        if !allowed.contains(&actual) {
+            return Err(ChartonError::Data(format!(
+                "Column '{}' (Semantic: {:?}) is incompatible. Expected one of: {:?}",
+                column_name, actual, allowed
+            )));
+        }
+
+        Ok(actual)
+    }
+
+    /// Performs a bulk validation of the dataset schema against encoding requirements.
+    ///
+    /// # Arguments
+    /// * `required_columns` - Column names that must exist in the dataset.
+    /// * `expected_semantics` - A map defining allowed semantic types for specific columns.
+    ///
+    /// # Returns
+    /// A map of column names to their resolved [SemanticType]s for downstream Scale initialization.
+    pub fn check_schema(
+        &self,
+        required_columns: &[&str],
+        expected_semantics: &HashMap<&str, Vec<SemanticType>>,
+    ) -> Result<HashMap<String, SemanticType>, ChartonError> {
+        let mut resolved_semantics = HashMap::new();
+
+        for &col_name in required_columns {
+            // Default to allowing all types if no specific constraint is provided for this column.
+            let allowed = expected_semantics
+                .get(col_name)
+                .map(|v| v.as_slice())
+                .unwrap_or(&[
+                    SemanticType::Continuous,
+                    SemanticType::Discrete,
+                    SemanticType::Temporal,
+                ]);
+
+            let actual = self.validate_column_semantic(col_name, allowed)?;
+            resolved_semantics.insert(col_name.to_string(), actual);
+        }
+
+        Ok(resolved_semantics)
+    }
+
+    /// Generates a combined bitmask for multiple columns.
+    ///
+    /// This is a high-performance "AND" operation across multiple validity maps.
+    /// Use this before rendering to get a single 'view' of which rows are fully valid.
+    pub fn get_combined_mask(&self, column_names: &[&str]) -> Result<Vec<u8>, ChartonError> {
+        if self.row_count == 0 {
+            return Ok(Vec::new());
+        }
+
+        // Start with all bits set to 1 (Valid)
+        let byte_count = (self.row_count + 7) / 8;
+        let mut final_mask = vec![0xFFu8; byte_count];
+
+        for &name in column_names {
+            let col = self.column(name)?;
+            match col {
+                ColumnVector::F64 { data } => {
+                    for (i, val) in data.iter().enumerate() {
+                        if val.is_nan() {
+                            final_mask[i / 8] &= !(1 << (i % 8));
+                        }
+                    }
+                }
+                ColumnVector::F32 { data } => {
+                    for (i, val) in data.iter().enumerate() {
+                        if val.is_nan() {
+                            final_mask[i / 8] &= !(1 << (i % 8));
+                        }
+                    }
+                }
+                ColumnVector::I64 { validity, .. }
+                | ColumnVector::String { validity, .. }
+                | ColumnVector::DateTime { validity, .. } => {
+                    if let Some(v) = validity {
+                        // Efficient bitwise AND across the entire byte vector
+                        for (i, byte) in v.iter().enumerate() {
+                            final_mask[i] &= byte;
+                        }
+                    }
+                }
+            }
+        }
+
+        // Clean trailing bits in the last byte
+        if self.row_count % 8 != 0 {
+            let last_idx = byte_count - 1;
+            let mask = (1 << (self.row_count % 8)) - 1;
+            final_mask[last_idx] &= mask;
+        }
+
+        Ok(final_mask)
     }
 }
 
@@ -346,14 +516,26 @@ impl ColumnVector {
                 let arr = array.as_any().downcast_ref::<Float64Array>().unwrap();
                 // Map nulls to NaN directly for floating point performance.
                 let data: Vec<f64> = (0..arr.len())
-                    .map(|i| if arr.is_null(i) { f64::NAN } else { arr.value(i) })
+                    .map(|i| {
+                        if arr.is_null(i) {
+                            f64::NAN
+                        } else {
+                            arr.value(i)
+                        }
+                    })
                     .collect();
                 Ok(ColumnVector::F64 { data })
             }
             DataType::Float32 => {
                 let arr = array.as_any().downcast_ref::<Float32Array>().unwrap();
                 let data: Vec<f32> = (0..arr.len())
-                    .map(|i| if arr.is_null(i) { f32::NAN } else { arr.value(i) })
+                    .map(|i| {
+                        if arr.is_null(i) {
+                            f32::NAN
+                        } else {
+                            arr.value(i)
+                        }
+                    })
                     .collect();
                 Ok(ColumnVector::F32 { data })
             }
@@ -361,62 +543,123 @@ impl ColumnVector {
                 let arr = array.as_any().downcast_ref::<Int64Array>().unwrap();
                 // Reuse collect_with_validity by creating an iterator of Option<i64>
                 let (data, validity) = collect_with_validity(
-                    (0..arr.len()).map(|i| if arr.is_valid(i) { Some(arr.value(i)) } else { None }),
-                    0i64
+                    (0..arr.len()).map(|i| {
+                        if arr.is_valid(i) {
+                            Some(arr.value(i))
+                        } else {
+                            None
+                        }
+                    }),
+                    0i64,
                 );
                 Ok(ColumnVector::I64 { data, validity })
             }
             DataType::Utf8 | DataType::LargeUtf8 => {
                 let arr = array.as_any().downcast_ref::<StringArray>().unwrap();
                 let (data, validity) = collect_with_validity(
-                    (0..arr.len()).map(|i| if arr.is_valid(i) { Some(arr.value(i).to_string()) } else { None }),
-                    String::new()
+                    (0..arr.len()).map(|i| {
+                        if arr.is_valid(i) {
+                            Some(arr.value(i).to_string())
+                        } else {
+                            None
+                        }
+                    }),
+                    String::new(),
                 );
                 Ok(ColumnVector::String { data, validity })
             }
             DataType::Timestamp(unit, _) => {
                 let (data, validity) = match unit {
                     TimeUnit::Second => {
-                        let arr = array.as_any().downcast_ref::<arrow::array::TimestampSecondArray>().unwrap();
+                        let arr = array
+                            .as_any()
+                            .downcast_ref::<arrow::array::TimestampSecondArray>()
+                            .unwrap();
                         collect_with_validity(
-                            (0..arr.len()).map(|i| if arr.is_valid(i) { 
-                                Some(OffsetDateTime::from_unix_timestamp(arr.value(i)).unwrap_or(OffsetDateTime::UNIX_EPOCH)) 
-                            } else { None }),
-                            OffsetDateTime::UNIX_EPOCH
+                            (0..arr.len()).map(|i| {
+                                if arr.is_valid(i) {
+                                    Some(
+                                        OffsetDateTime::from_unix_timestamp(arr.value(i))
+                                            .unwrap_or(OffsetDateTime::UNIX_EPOCH),
+                                    )
+                                } else {
+                                    None
+                                }
+                            }),
+                            OffsetDateTime::UNIX_EPOCH,
                         )
-                    },
+                    }
                     TimeUnit::Millisecond => {
-                        let arr = array.as_any().downcast_ref::<arrow::array::TimestampMillisecondArray>().unwrap();
+                        let arr = array
+                            .as_any()
+                            .downcast_ref::<arrow::array::TimestampMillisecondArray>()
+                            .unwrap();
                         collect_with_validity(
-                            (0..arr.len()).map(|i| if arr.is_valid(i) { 
-                                Some(OffsetDateTime::from_unix_timestamp_nanos(arr.value(i) as i128 * 1_000_000).unwrap_or(OffsetDateTime::UNIX_EPOCH)) 
-                            } else { None }),
-                            OffsetDateTime::UNIX_EPOCH
+                            (0..arr.len()).map(|i| {
+                                if arr.is_valid(i) {
+                                    Some(
+                                        OffsetDateTime::from_unix_timestamp_nanos(
+                                            arr.value(i) as i128 * 1_000_000,
+                                        )
+                                        .unwrap_or(OffsetDateTime::UNIX_EPOCH),
+                                    )
+                                } else {
+                                    None
+                                }
+                            }),
+                            OffsetDateTime::UNIX_EPOCH,
                         )
-                    },
+                    }
                     TimeUnit::Microsecond => {
-                        let arr = array.as_any().downcast_ref::<arrow::array::TimestampMicrosecondArray>().unwrap();
+                        let arr = array
+                            .as_any()
+                            .downcast_ref::<arrow::array::TimestampMicrosecondArray>()
+                            .unwrap();
                         collect_with_validity(
-                            (0..arr.len()).map(|i| if arr.is_valid(i) { 
-                                Some(OffsetDateTime::from_unix_timestamp_nanos(arr.value(i) as i128 * 1_000).unwrap_or(OffsetDateTime::UNIX_EPOCH)) 
-                            } else { None }),
-                            OffsetDateTime::UNIX_EPOCH
+                            (0..arr.len()).map(|i| {
+                                if arr.is_valid(i) {
+                                    Some(
+                                        OffsetDateTime::from_unix_timestamp_nanos(
+                                            arr.value(i) as i128 * 1_000,
+                                        )
+                                        .unwrap_or(OffsetDateTime::UNIX_EPOCH),
+                                    )
+                                } else {
+                                    None
+                                }
+                            }),
+                            OffsetDateTime::UNIX_EPOCH,
                         )
-                    },
+                    }
                     TimeUnit::Nanosecond => {
-                        let arr = array.as_any().downcast_ref::<arrow::array::TimestampNanosecondArray>().unwrap();
+                        let arr = array
+                            .as_any()
+                            .downcast_ref::<arrow::array::TimestampNanosecondArray>()
+                            .unwrap();
                         collect_with_validity(
-                            (0..arr.len()).map(|i| if arr.is_valid(i) { 
-                                Some(OffsetDateTime::from_unix_timestamp_nanos(arr.value(i) as i128).unwrap_or(OffsetDateTime::UNIX_EPOCH)) 
-                            } else { None }),
-                            OffsetDateTime::UNIX_EPOCH
+                            (0..arr.len()).map(|i| {
+                                if arr.is_valid(i) {
+                                    Some(
+                                        OffsetDateTime::from_unix_timestamp_nanos(
+                                            arr.value(i) as i128
+                                        )
+                                        .unwrap_or(OffsetDateTime::UNIX_EPOCH),
+                                    )
+                                } else {
+                                    None
+                                }
+                            }),
+                            OffsetDateTime::UNIX_EPOCH,
                         )
-                    },
+                    }
                 };
 
                 Ok(ColumnVector::DateTime { data, validity })
             }
-            _ => Err(ChartonError::Data(format!("Unsupported Arrow type: {:?}", array.data_type()))),
+            _ => Err(ChartonError::Data(format!(
+                "Unsupported Arrow type: {:?}",
+                array.data_type()
+            ))),
         }
     }
 }
@@ -692,13 +935,13 @@ mod tests {
         use super::*;
         // Specific imports for building Arrow arrays in tests
         use arrow::array::{Float64Array, Int64Array, StringArray, TimestampMillisecondArray};
-        
+
         #[test]
         fn test_arrow_ingestion() {
             // 1. Test Float64 with Nulls (should become NaN for GPU/Canvas friendliness)
             let f64_array = Float64Array::from(vec![Some(1.1), None, Some(3.3)]);
             let col_f64 = ColumnVector::from_arrow(&f64_array).expect("F64 ingestion failed");
-            
+
             if let ColumnVector::F64 { data } = col_f64 {
                 println!("F64 Data (converted): {:?}", data);
                 assert_eq!(data[0], 1.1);
@@ -709,19 +952,19 @@ mod tests {
             // 2. Test Int64 with Nulls (Verifying the validity bitmask)
             let i64_array = Int64Array::from(vec![Some(10), None, Some(30)]);
             let col_i64 = ColumnVector::from_arrow(&i64_array).expect("I64 ingestion failed");
-            
+
             if let ColumnVector::I64 { data, validity } = col_i64 {
                 println!("I64 Data: {:?}, Validity Mask: {:?}", data, validity);
                 assert_eq!(data, vec![10, 0, 30]);
                 assert!(validity.is_some());
                 // Bitwise check: 0b101 (Index 0 valid, 1 invalid, 2 valid)
-                assert_eq!(validity.unwrap()[0], 0b101); 
+                assert_eq!(validity.unwrap()[0], 0b101);
             }
 
             // 3. Test StringArray
             let str_array = StringArray::from(vec![Some("Charton"), None, Some("Rust")]);
             let col_str = ColumnVector::from_arrow(&str_array).expect("String ingestion failed");
-            
+
             if let ColumnVector::String { data, validity } = col_str {
                 println!("String Data: {:?}, Validity Mask: {:?}", data, validity);
                 assert_eq!(data[0], "Charton");
@@ -734,14 +977,14 @@ mod tests {
             // 1711872000000 ms is 2024-03-31T08:00:00Z
             let ts_array = TimestampMillisecondArray::from(vec![Some(1711872000000), None]);
             let col_ts = ColumnVector::from_arrow(&ts_array).expect("Timestamp ingestion failed");
-            
+
             if let ColumnVector::DateTime { data, validity } = col_ts {
                 println!("DateTime Data: {:?}, Validity Mask: {:?}", data, validity);
-                
+
                 // Check if our multiplier correctly resulted in the year 2024
                 assert_eq!(data[0].year(), 2024);
                 assert_eq!(data[0].month(), time::Month::March);
-                
+
                 // Verify the null became UNIX_EPOCH (1970)
                 assert_eq!(data[1].year(), 1970);
                 assert!(validity.is_some());
