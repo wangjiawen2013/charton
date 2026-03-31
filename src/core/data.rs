@@ -3,6 +3,13 @@ use std::collections::HashMap;
 use std::fmt;
 use time::OffsetDateTime;
 
+#[cfg(feature = "arrow")]
+use arrow::array::{
+    Array, Float32Array, Float64Array, Int64Array, StringArray
+};
+#[cfg(feature = "arrow")]
+use arrow::datatypes::{DataType, TimeUnit};
+
 /// Encapsulates a single column of data with high-performance null handling.
 ///
 /// Charton uses a columnar memory layout similar to Apache Arrow. Numerical
@@ -330,6 +337,90 @@ impl From<Vec<OffsetDateTime>> for ColumnVector {
     }
 }
 
+#[cfg(feature = "arrow")]
+impl ColumnVector {
+    /// Converts an Apache Arrow Array into a Charton ColumnVector.
+    pub fn from_arrow(array: &dyn Array) -> Result<Self, ChartonError> {
+        match array.data_type() {
+            DataType::Float64 => {
+                let arr = array.as_any().downcast_ref::<Float64Array>().unwrap();
+                // Map nulls to NaN directly for floating point performance.
+                let data: Vec<f64> = (0..arr.len())
+                    .map(|i| if arr.is_null(i) { f64::NAN } else { arr.value(i) })
+                    .collect();
+                Ok(ColumnVector::F64 { data })
+            }
+            DataType::Float32 => {
+                let arr = array.as_any().downcast_ref::<Float32Array>().unwrap();
+                let data: Vec<f32> = (0..arr.len())
+                    .map(|i| if arr.is_null(i) { f32::NAN } else { arr.value(i) })
+                    .collect();
+                Ok(ColumnVector::F32 { data })
+            }
+            DataType::Int64 => {
+                let arr = array.as_any().downcast_ref::<Int64Array>().unwrap();
+                // Reuse collect_with_validity by creating an iterator of Option<i64>
+                let (data, validity) = collect_with_validity(
+                    (0..arr.len()).map(|i| if arr.is_valid(i) { Some(arr.value(i)) } else { None }),
+                    0i64
+                );
+                Ok(ColumnVector::I64 { data, validity })
+            }
+            DataType::Utf8 | DataType::LargeUtf8 => {
+                let arr = array.as_any().downcast_ref::<StringArray>().unwrap();
+                let (data, validity) = collect_with_validity(
+                    (0..arr.len()).map(|i| if arr.is_valid(i) { Some(arr.value(i).to_string()) } else { None }),
+                    String::new()
+                );
+                Ok(ColumnVector::String { data, validity })
+            }
+            DataType::Timestamp(unit, _) => {
+                let (data, validity) = match unit {
+                    TimeUnit::Second => {
+                        let arr = array.as_any().downcast_ref::<arrow::array::TimestampSecondArray>().unwrap();
+                        collect_with_validity(
+                            (0..arr.len()).map(|i| if arr.is_valid(i) { 
+                                Some(OffsetDateTime::from_unix_timestamp(arr.value(i)).unwrap_or(OffsetDateTime::UNIX_EPOCH)) 
+                            } else { None }),
+                            OffsetDateTime::UNIX_EPOCH
+                        )
+                    },
+                    TimeUnit::Millisecond => {
+                        let arr = array.as_any().downcast_ref::<arrow::array::TimestampMillisecondArray>().unwrap();
+                        collect_with_validity(
+                            (0..arr.len()).map(|i| if arr.is_valid(i) { 
+                                Some(OffsetDateTime::from_unix_timestamp_nanos(arr.value(i) as i128 * 1_000_000).unwrap_or(OffsetDateTime::UNIX_EPOCH)) 
+                            } else { None }),
+                            OffsetDateTime::UNIX_EPOCH
+                        )
+                    },
+                    TimeUnit::Microsecond => {
+                        let arr = array.as_any().downcast_ref::<arrow::array::TimestampMicrosecondArray>().unwrap();
+                        collect_with_validity(
+                            (0..arr.len()).map(|i| if arr.is_valid(i) { 
+                                Some(OffsetDateTime::from_unix_timestamp_nanos(arr.value(i) as i128 * 1_000).unwrap_or(OffsetDateTime::UNIX_EPOCH)) 
+                            } else { None }),
+                            OffsetDateTime::UNIX_EPOCH
+                        )
+                    },
+                    TimeUnit::Nanosecond => {
+                        let arr = array.as_any().downcast_ref::<arrow::array::TimestampNanosecondArray>().unwrap();
+                        collect_with_validity(
+                            (0..arr.len()).map(|i| if arr.is_valid(i) { 
+                                Some(OffsetDateTime::from_unix_timestamp_nanos(arr.value(i) as i128).unwrap_or(OffsetDateTime::UNIX_EPOCH)) 
+                            } else { None }),
+                            OffsetDateTime::UNIX_EPOCH
+                        )
+                    },
+                };
+
+                Ok(ColumnVector::DateTime { data, validity })
+            }
+            _ => Err(ChartonError::Data(format!("Unsupported Arrow type: {:?}", array.data_type()))),
+        }
+    }
+}
+
 /// A convenience trait to improve the ergonomics of manual data construction.
 ///
 /// This trait provides the `.into_column()` method for any type that can be
@@ -593,5 +684,68 @@ mod tests {
         // Print output to verify the Debug implementation with mixed types
         println!("\n--- Construction Method 3 Output ---");
         println!("{:?}", ds_complex);
+    }
+
+    /// This module only exists and compiles when the "arrow" feature is active.
+    #[cfg(feature = "arrow")]
+    mod arrow_tests {
+        use super::*;
+        // Specific imports for building Arrow arrays in tests
+        use arrow::array::{Float64Array, Int64Array, StringArray, TimestampMillisecondArray};
+        
+        #[test]
+        fn test_arrow_ingestion() {
+            // 1. Test Float64 with Nulls (should become NaN for GPU/Canvas friendliness)
+            let f64_array = Float64Array::from(vec![Some(1.1), None, Some(3.3)]);
+            let col_f64 = ColumnVector::from_arrow(&f64_array).expect("F64 ingestion failed");
+            
+            if let ColumnVector::F64 { data } = col_f64 {
+                println!("F64 Data (converted): {:?}", data);
+                assert_eq!(data[0], 1.1);
+                assert!(data[1].is_nan()); // Verify Null mapping
+                assert_eq!(data[2], 3.3);
+            }
+
+            // 2. Test Int64 with Nulls (Verifying the validity bitmask)
+            let i64_array = Int64Array::from(vec![Some(10), None, Some(30)]);
+            let col_i64 = ColumnVector::from_arrow(&i64_array).expect("I64 ingestion failed");
+            
+            if let ColumnVector::I64 { data, validity } = col_i64 {
+                println!("I64 Data: {:?}, Validity Mask: {:?}", data, validity);
+                assert_eq!(data, vec![10, 0, 30]);
+                assert!(validity.is_some());
+                // Bitwise check: 0b101 (Index 0 valid, 1 invalid, 2 valid)
+                assert_eq!(validity.unwrap()[0], 0b101); 
+            }
+
+            // 3. Test StringArray
+            let str_array = StringArray::from(vec![Some("Charton"), None, Some("Rust")]);
+            let col_str = ColumnVector::from_arrow(&str_array).expect("String ingestion failed");
+            
+            if let ColumnVector::String { data, validity } = col_str {
+                println!("String Data: {:?}, Validity Mask: {:?}", data, validity);
+                assert_eq!(data[0], "Charton");
+                assert_eq!(data[1], ""); // Default filler for strings
+                assert_eq!(data[2], "Rust");
+                assert!(validity.is_some());
+            }
+
+            // 4. Test Timestamp (Millisecond) - Verifying the i128 multiplier logic
+            // 1711872000000 ms is 2024-03-31T08:00:00Z
+            let ts_array = TimestampMillisecondArray::from(vec![Some(1711872000000), None]);
+            let col_ts = ColumnVector::from_arrow(&ts_array).expect("Timestamp ingestion failed");
+            
+            if let ColumnVector::DateTime { data, validity } = col_ts {
+                println!("DateTime Data: {:?}, Validity Mask: {:?}", data, validity);
+                
+                // Check if our multiplier correctly resulted in the year 2024
+                assert_eq!(data[0].year(), 2024);
+                assert_eq!(data[0].month(), time::Month::March);
+                
+                // Verify the null became UNIX_EPOCH (1970)
+                assert_eq!(data[1].year(), 1970);
+                assert!(validity.is_some());
+            }
+        }
     }
 }

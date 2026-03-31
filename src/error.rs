@@ -26,11 +26,6 @@ pub enum ChartonError {
     #[error("Encoding error: {0}")]
     Encoding(String),
 
-    /// Error from the Polars library (Optional feature).
-    #[cfg(feature = "polars")]
-    #[error("polars error: {0}")]
-    Polars(#[from] polars::prelude::PolarsError),
-
     /// Formatting error during string formatting operations.
     #[error("formatting error: {0}")]
     Fmt(#[from] std::fmt::Error),
