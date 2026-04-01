@@ -1,9 +1,9 @@
+use crate::core::data::Dataset;
 use crate::error::ChartonError;
-use polars::prelude::*;
 
 // Penguins dataset from https://www.kaggle.com/datasets/jaeyunju/penguins
-pub fn get_data() -> Result<DataFrame, ChartonError> {
-    let species: &[&str; 344] = &[
+pub fn get_data() -> Result<Dataset, ChartonError> {
+    let species: Vec<&str> = vec![
         "Adelie",
         "Adelie",
         "Adelie",
@@ -350,7 +350,7 @@ pub fn get_data() -> Result<DataFrame, ChartonError> {
         "Gentoo",
     ];
 
-    let island: &[&str; 344] = &[
+    let island: Vec<&str> = vec![
         "Torgersen",
         "Torgersen",
         "Torgersen",
@@ -697,7 +697,7 @@ pub fn get_data() -> Result<DataFrame, ChartonError> {
         "Biscoe",
     ];
 
-    let bill_length_mm: &[Option<f64>; 344] = &[
+    let bill_length_mm: Vec<Option<f64>> = vec![
         Some(39.1),
         Some(39.5),
         Some(40.3),
@@ -1044,7 +1044,7 @@ pub fn get_data() -> Result<DataFrame, ChartonError> {
         Some(49.9),
     ];
 
-    let bill_depth_mm: &[Option<f64>; 344] = &[
+    let bill_depth_mm: Vec<Option<f64>> = vec![
         Some(18.7),
         Some(17.4),
         Some(18.0),
@@ -1391,7 +1391,7 @@ pub fn get_data() -> Result<DataFrame, ChartonError> {
         Some(16.1),
     ];
 
-    let flipper_length_mm: &[Option<u32>; 344] = &[
+    let flipper_length_mm: Vec<Option<u32>> = vec![
         Some(181),
         Some(186),
         Some(195),
@@ -1738,7 +1738,7 @@ pub fn get_data() -> Result<DataFrame, ChartonError> {
         Some(213),
     ];
 
-    let body_mass_g: &[Option<u32>; 344] = &[
+    let body_mass_g: Vec<Option<u32>> = vec![
         Some(3750),
         Some(3800),
         Some(3250),
@@ -2085,7 +2085,7 @@ pub fn get_data() -> Result<DataFrame, ChartonError> {
         Some(5400),
     ];
 
-    let sex: &[Option<&str>; 344] = &[
+    let sex: Vec<Option<&str>> = vec![
         Some("MALE"),
         Some("FEMALE"),
         Some("FEMALE"),
@@ -2432,15 +2432,14 @@ pub fn get_data() -> Result<DataFrame, ChartonError> {
         Some("MALE"),
     ];
 
-    let df = df![
-        "Species" => species,
-        "Island" => island,
-        "Bill Length (mm)" => bill_length_mm,
-        "Bill Depth (mm)" => bill_depth_mm,
-        "Flipper Length (mm)" => flipper_length_mm,
-        "Body Mass (g)" => body_mass_g,
-        "Sex" => sex,
-    ]?;
+    let ds = Dataset::new()
+        .with_column("Species", species)?
+        .with_column("Island", island)?
+        .with_column("Bill Length (mm)", bill_length_mm)?
+        .with_column("Bill Depth (mm)", bill_depth_mm)?
+        .with_column("Flipper Length (mm)", flipper_length_mm)?
+        .with_column("Body Mass (g)", body_mass_g)?
+        .with_column("Sex", sex)?;
 
-    Ok(df)
+    Ok(ds)
 }

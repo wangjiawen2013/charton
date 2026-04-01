@@ -24,6 +24,16 @@ pub enum ColumnVector {
         /// Bitmask where 1 = Valid, 0 = Null. If None, all rows are valid.
         validity: Option<Vec<u8>>,
     },
+    /// 32-bit integers. Since integers lack a NaN state, nulls are tracked via `validity`.
+    I32 {
+        data: Vec<i32>,
+        validity: Option<Vec<u8>>,
+    },
+    /// 32-bit unsigned integers. Commonly used for counts or discrete indices.
+    U32 {
+        data: Vec<u32>,
+        validity: Option<Vec<u8>>,
+    },
     /// String data. Nulls are stored as empty strings and tracked via `validity`.
     String {
         data: Vec<String>,
@@ -60,9 +70,11 @@ impl ColumnVector {
     /// visual encoding strategies (e.g., choosing a TimeScale for DateTime).
     pub fn semantic_type(&self) -> SemanticType {
         match self {
-            ColumnVector::F64 { .. } | ColumnVector::F32 { .. } | ColumnVector::I64 { .. } => {
-                SemanticType::Continuous
-            }
+            ColumnVector::F64 { .. }
+            | ColumnVector::F32 { .. }
+            | ColumnVector::I64 { .. }
+            | ColumnVector::I32 { .. }
+            | ColumnVector::U32 { .. } => SemanticType::Continuous,
             ColumnVector::String { .. } => SemanticType::Discrete,
             ColumnVector::DateTime { .. } => SemanticType::Temporal,
         }
@@ -74,6 +86,8 @@ impl ColumnVector {
             ColumnVector::F64 { data } => data.len(),
             ColumnVector::F32 { data } => data.len(),
             ColumnVector::I64 { data, .. } => data.len(),
+            ColumnVector::I32 { data, .. } => data.len(),
+            ColumnVector::U32 { data, .. } => data.len(),
             ColumnVector::String { data, .. } => data.len(),
             ColumnVector::DateTime { data, .. } => data.len(),
         }
@@ -102,6 +116,8 @@ macro_rules! impl_from_col {
 impl_from_col!(f64, F64);
 impl_from_col!(f32, F32);
 impl_from_col!(i64, I64);
+impl_from_col!(i32, I32);
+impl_from_col!(u32, U32);
 impl_from_col!(String, String);
 impl_from_col!(OffsetDateTime, DateTime);
 
@@ -139,7 +155,11 @@ impl Dataset {
         }
     }
 
-    /// Adds a new column to the dataset.
+    /// Adds a new column to the dataset (Imperative Style).
+    ///
+    /// ### When to use:
+    /// - Inside loops or conditional logic where columns are added dynamically.
+    /// - When you only have a mutable reference (&mut self) to the dataset.
     pub fn add_column<S, V>(&mut self, name: S, data: V) -> Result<(), ChartonError>
     where
         S: Into<String>,
@@ -147,12 +167,29 @@ impl Dataset {
     {
         let name_str = name.into();
         let vec: ColumnVector = data.into();
+
+        // Ensure the new column matches the dataset's row count
         self.validate_len(&name_str, vec.len())?;
 
         let index = self.columns.len();
         self.columns.push(vec);
         self.schema.insert(name_str, index);
         Ok(())
+    }
+
+    /// Adds a column and returns the Dataset (Fluent/Builder Style).
+    ///
+    /// ### When to use:
+    /// - During initial setup for a clean, readable, and immutable declaration.
+    /// - When passing a newly created dataset directly into other functions.
+    pub fn with_column<S, V>(mut self, name: S, data: V) -> Result<Self, ChartonError>
+    where
+        S: Into<String>,
+        V: Into<ColumnVector>,
+    {
+        // Reuse add_column to avoid logic duplication
+        self.add_column(name, data)?;
+        Ok(self)
     }
 
     /// Returns the number of rows in the dataset.
@@ -226,6 +263,8 @@ impl Dataset {
             ColumnVector::F64 { data } => data[row].is_nan(),
             ColumnVector::F32 { data } => data[row].is_nan(),
             ColumnVector::I64 { validity, .. }
+            | ColumnVector::I32 { validity, .. }
+            | ColumnVector::U32 { validity, .. }
             | ColumnVector::String { validity, .. }
             | ColumnVector::DateTime { validity, .. } => {
                 if let Some(v) = validity {
@@ -325,6 +364,8 @@ impl Dataset {
                     }
                 }
                 ColumnVector::I64 { validity, .. }
+                | ColumnVector::I32 { validity, .. }
+                | ColumnVector::U32 { validity, .. }
                 | ColumnVector::String { validity, .. }
                 | ColumnVector::DateTime { validity, .. } => {
                     if let Some(v) = validity {
@@ -426,6 +467,22 @@ impl From<Vec<Option<i64>>> for ColumnVector {
     }
 }
 
+// --- I32: Use Bitmask for Nulls ---
+impl From<Vec<Option<i32>>> for ColumnVector {
+    fn from(v: Vec<Option<i32>>) -> Self {
+        let (data, validity) = collect_with_validity(v, 0i32);
+        ColumnVector::I32 { data, validity }
+    }
+}
+
+// --- U32: Use Bitmask for Nulls ---
+impl From<Vec<Option<u32>>> for ColumnVector {
+    fn from(v: Vec<Option<u32>>) -> Self {
+        let (data, validity) = collect_with_validity(v, 0u32);
+        ColumnVector::U32 { data, validity }
+    }
+}
+
 // --- String1: For owned Strings ---
 impl From<Vec<Option<String>>> for ColumnVector {
     fn from(v: Vec<Option<String>>) -> Self {
@@ -471,6 +528,24 @@ impl From<Vec<f32>> for ColumnVector {
 impl From<Vec<i64>> for ColumnVector {
     fn from(data: Vec<i64>) -> Self {
         ColumnVector::I64 {
+            data,
+            validity: None,
+        }
+    }
+}
+
+impl From<Vec<i32>> for ColumnVector {
+    fn from(data: Vec<i32>) -> Self {
+        ColumnVector::I32 {
+            data,
+            validity: None,
+        }
+    }
+}
+
+impl From<Vec<u32>> for ColumnVector {
+    fn from(data: Vec<u32>) -> Self {
+        ColumnVector::U32 {
             data,
             validity: None,
         }
@@ -779,6 +854,8 @@ impl Dataset {
 
             // Standard integer to string conversion
             ColumnVector::I64 { data, .. } => data[row].to_string(),
+            ColumnVector::I32 { data, .. } => data[row].to_string(),
+            ColumnVector::U32 { data, .. } => data[row].to_string(),
 
             // Truncate long strings to keep the table layout neat
             ColumnVector::String { data, .. } => {
@@ -801,66 +878,6 @@ impl Dataset {
 #[cfg(test)]
 mod tests {
     use super::*;
-    #[test]
-    fn test_get_column_and_nan_handling() {
-        let mut ds = Dataset::new();
-        // Ingest data with a NaN value
-        let prices = vec![10.5, f64::NAN, 30.2];
-        ds.add_column("price", prices).unwrap();
-
-        // Successfully retrieve as f64 slice
-        let col = ds.get_column::<f64>("price").expect("Column should exist");
-        assert_eq!(col.len(), 3);
-        assert_eq!(col[0], 10.5);
-        assert!(col[1].is_nan()); // Verify NaN is preserved
-
-        // Verify type safety: requesting as i64 should fail
-        let wrong_type = ds.get_column::<i64>("price");
-        assert!(wrong_type.is_err());
-    }
-
-    #[test]
-    fn test_get_value_with_bitmaps() {
-        let mut ds = Dataset::new();
-        // row 0: Some, row 1: None, row 2: Some
-        let ids = vec![Some(100), None, Some(300)];
-        ds.add_column("id", ids).unwrap();
-
-        // Check row 0 (Valid)
-        assert_eq!(*ds.get_value::<i64>("id", 0).unwrap(), 100);
-        assert!(!ds.is_null("id", 0));
-
-        // Check row 1 (Null)
-        // Note: get_value still returns a reference to the underlying data (likely 0),
-        // so is_null is the authoritative way to check validity.
-        assert!(ds.is_null("id", 1));
-
-        // Check row 2 (Valid)
-        assert_eq!(*ds.get_value::<i64>("id", 2).unwrap(), 300);
-
-        // Check out-of-bounds column
-        assert!(ds.is_null("non_existent", 0));
-    }
-
-    #[test]
-    fn test_dataset_display_and_truncation() {
-        let mut ds = Dataset::new();
-
-        // Add various types including long strings and dates
-        ds.add_column("id", vec![Some(1), Some(2)]).unwrap();
-        ds.add_column("city", vec![Some("San Francisco"), None])
-            .unwrap();
-        ds.add_column("value", vec![1.234567, 8.9]).unwrap();
-
-        // The output should show aligned columns, 'null' for None,
-        // and truncated string for "San Francisco" -> "San Fra..."
-        println!("\n--- Dataset Debug Output ---");
-        println!("{:?}", ds);
-        println!("----------------------------");
-
-        assert_eq!(ds.row_count, 2);
-    }
-
     #[test]
     fn test_dataset_construction_methods() {
         use time::macros::datetime;
@@ -927,6 +944,87 @@ mod tests {
         // Print output to verify the Debug implementation with mixed types
         println!("\n--- Construction Method 3 Output ---");
         println!("{:?}", ds_complex);
+
+        // --- Method 4: Pure Functional / Fluent Construction ---
+        // Best for static configurations or building datasets without 'mut' variables.
+        // It demonstrates how ownership moves through each 'with_column' call.
+        let ds_fluent = Dataset::new()
+            .with_column("x", vec![10.0, 20.0, 30.0])
+            .unwrap()
+            .with_column("y", vec![Some(100i64), None, Some(300i64)])
+            .unwrap()
+            .with_column("category", vec!["A", "B", "C"])
+            .unwrap();
+
+        assert_eq!(ds_fluent.row_count, 3);
+        assert_eq!(ds_fluent.width(), 3);
+
+        // Verify that even without 'mut', the data is correctly ingested
+        assert!(ds_fluent.is_null("y", 1)); // The 'None' value
+        assert!(!ds_fluent.is_null("x", 1)); // The float value (20.0) is valid
+
+        println!("\n--- Construction Method 4 (Fluent) Output ---");
+        println!("{:?}", ds_fluent);
+    }
+
+    #[test]
+    fn test_get_column_and_nan_handling() {
+        let mut ds = Dataset::new();
+        // Ingest data with a NaN value
+        let prices = vec![10.5, f64::NAN, 30.2];
+        ds.add_column("price", prices).unwrap();
+
+        // Successfully retrieve as f64 slice
+        let col = ds.get_column::<f64>("price").expect("Column should exist");
+        assert_eq!(col.len(), 3);
+        assert_eq!(col[0], 10.5);
+        assert!(col[1].is_nan()); // Verify NaN is preserved
+
+        // Verify type safety: requesting as i64 should fail
+        let wrong_type = ds.get_column::<i64>("price");
+        assert!(wrong_type.is_err());
+    }
+
+    #[test]
+    fn test_get_value_with_bitmaps() {
+        let mut ds = Dataset::new();
+        // row 0: Some, row 1: None, row 2: Some
+        let ids = vec![Some(100), None, Some(300)];
+        ds.add_column("id", ids).unwrap();
+
+        // Check row 0 (Valid)
+        assert_eq!(*ds.get_value::<i32>("id", 0).unwrap(), 100);
+        assert!(!ds.is_null("id", 0));
+
+        // Check row 1 (Null)
+        // Note: get_value still returns a reference to the underlying data (likely 0),
+        // so is_null is the authoritative way to check validity.
+        assert!(ds.is_null("id", 1));
+
+        // Check row 2 (Valid)
+        assert_eq!(*ds.get_value::<i32>("id", 2).unwrap(), 300);
+
+        // Check out-of-bounds column
+        assert!(ds.is_null("non_existent", 0));
+    }
+
+    #[test]
+    fn test_dataset_display_and_truncation() {
+        let mut ds = Dataset::new();
+
+        // Add various types including long strings and dates
+        ds.add_column("id", vec![Some(1), Some(2)]).unwrap();
+        ds.add_column("city", vec![Some("San Francisco"), None])
+            .unwrap();
+        ds.add_column("value", vec![1.234567, 8.9]).unwrap();
+
+        // The output should show aligned columns, 'null' for None,
+        // and truncated string for "San Francisco" -> "San Fra..."
+        println!("\n--- Dataset Debug Output ---");
+        println!("{:?}", ds);
+        println!("----------------------------");
+
+        assert_eq!(ds.row_count, 2);
     }
 
     /// This module only exists and compiles when the "arrow" feature is active.
