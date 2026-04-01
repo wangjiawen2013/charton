@@ -1,8 +1,8 @@
+use crate::core::data::Dataset;
 use crate::error::ChartonError;
-use polars::prelude::*;
 
 // mtcars dataset: Classic automobile performance dataset from https://www.kaggle.com/datasets/ruiromanini/mtcars
-pub fn get_data() -> Result<DataFrame, ChartonError> {
+pub fn get_data() -> Result<Dataset, ChartonError> {
     // Car model column (string type)
     let model = vec![
         "Mazda RX4",
@@ -101,21 +101,20 @@ pub fn get_data() -> Result<DataFrame, ChartonError> {
         8, 2,
     ]; // Number of carburetors
 
-    // Use df! macro to build DataFrame and handle possible errors
-    let df = df!(
-        "model" => model,
-        "mpg" => mpg,
-        "cyl" => cyl,
-        "disp" => disp,
-        "hp" => hp,
-        "drat" => drat,
-        "wt" => wt,
-        "qsec" => qsec,
-        "vs" => vs,
-        "am" => am,
-        "gear" => gear,
-        "carb" => carb
-    )?;
+    // Build Dataset fluently and handle possible errors
+    let ds = Dataset::new()
+        .with_column("model", model)?
+        .with_column("mpg", mpg)?
+        .with_column("cyl", cyl)?
+        .with_column("disp", disp)?
+        .with_column("hp", hp)?
+        .with_column("drat", drat)?
+        .with_column("wt", wt)?
+        .with_column("qsec", qsec)?
+        .with_column("vs", vs)?
+        .with_column("am", am)?
+        .with_column("gear", gear)?
+        .with_column("carb", carb)?;
 
-    Ok(df)
+    Ok(ds)
 }
