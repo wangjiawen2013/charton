@@ -92,6 +92,74 @@ impl ColumnVector {
             ColumnVector::DateTime { data, .. } => data.len(),
         }
     }
+
+    /// Checks if a specific row index is marked as valid in the optional bitmask.
+    ///
+    /// - If the mask is `None`, all rows are considered valid.
+    /// - If the mask exists, it performs a bitwise check: (byte >> bit_offset) & 1.
+    pub fn is_valid_in_mask(mask: &Option<Vec<u8>>, index: usize) -> bool {
+        match mask {
+            // No mask means data is 100% complete.
+            None => true,
+            Some(bits) => {
+                let byte_idx = index / 8;
+                let bit_idx = index % 8;
+
+                // Get the specific byte, then check the bit at bit_idx.
+                // We return false if the index is somehow out of bounds.
+                bits.get(byte_idx)
+                    .map(|&byte| (byte >> bit_idx) & 1 == 1)
+                    .unwrap_or(false)
+            }
+        }
+    }
+
+    /// Safely retrieves a value as f64 for numerical calculations.
+    ///
+    /// This handles:
+    /// 1. Type casting from I64, I32, U32, F32 to F64.
+    /// 2. Null-checking via the validity bitmask.
+    /// 3. NaN-checking for float types.
+    pub fn get_f64(&self, row: usize) -> Option<f64> {
+        match self {
+            // Floating point types check for NaN internally
+            ColumnVector::F64 { data } => {
+                let v = data[row];
+                if v.is_nan() { None } else { Some(v) }
+            }
+            ColumnVector::F32 { data } => {
+                let v = data[row];
+                if v.is_nan() { None } else { Some(v as f64) }
+            }
+
+            // Integer types check the validity bitmask
+            ColumnVector::I64 { data, validity } => {
+                if ColumnVector::is_valid_in_mask(validity, row) {
+                    Some(data[row] as f64)
+                } else {
+                    None
+                }
+            }
+            // Integer types check the validity bitmask
+            ColumnVector::I32 { data, validity } => {
+                if ColumnVector::is_valid_in_mask(validity, row) {
+                    Some(data[row] as f64)
+                } else {
+                    None
+                }
+            }
+            ColumnVector::U32 { data, validity } => {
+                if ColumnVector::is_valid_in_mask(validity, row) {
+                    Some(data[row] as f64)
+                } else {
+                    None
+                }
+            }
+
+            // String and DateTime are not direct numerical types for this method
+            _ => None,
+        }
+    }
 }
 
 /// Internal trait to bridge ColumnVector and concrete Rust types.
