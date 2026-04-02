@@ -8,26 +8,28 @@ repository = "https://github.com/wangjiawen2013/charton"
 authors = ["Jiawen Wang <wangjiawen2013@163.com>"]
 
 [features]
-# 'arrow' is enabled by default to provide out-of-the-box compatibility with 
-# DataFrames (Polars/DataFusion) and Database drivers. 
-# Users can disable it for minimal binary size: default-features = false.
-default = ["arrow"]
+default = []
 
 # Enables universal columnar data ingestion via the Apache Arrow standard.
 arrow = ["dep:arrow"]
 
+# Enables compatibility with visualization ecosystems (e.g., Matplotlib, Altair).
+polars = ["dep:polars"]
+
+# Enables exporting SVG to PNG format using the resvg rendering engine.
+resvg = ["dep:resvg"]
+
 [dependencies]
 # --- Optional Dependencies ---
-# The official Apache Arrow crate. It is used as a high-performance bridge 
-# between external data sources and Charton's internal ColumnVectors.
-arrow = { version = "53.0", default-features = false, optional = true }
+arrow = { version = "58.1", default-features = false, optional = true }
+polars = { version = "0.53", default-features = false, optional = true }
+resvg = { version = "0.47", optional = true }
 
 # --- Core Dependencies ---
 thiserror = "2.0"
 time = { version = "0.3", features = ["macros", "formatting"] }
 kernel-density-estimation = "0.2"
 rayon = "1.11.0"
-resvg = "0.45"
 csscolorparser = "0.8"
 html-escape = "0.2"
 
