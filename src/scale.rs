@@ -10,9 +10,7 @@ use self::log::LogScale;
 use self::mapper::VisualMapper;
 use self::temporal::TemporalScale;
 use crate::error::ChartonError;
-
-use polars::datatypes::AnyValue;
-use polars::prelude::*;
+use rayon::prelude::*;
 use std::sync::{Arc, RwLock};
 use time::OffsetDateTime;
 
@@ -140,36 +138,61 @@ pub enum Scale {
 }
 
 impl Scale {
-    /// High-performance vectorized normalization using Polars.
+    /// High-performance normalization of an entire ColumnVector into a vector of f64.
     ///
-    /// This bypasses row-by-row iteration for numerical data, applying the
-    /// scale transformation across entire memory chunks at once.
-    pub fn normalize_series(
+    /// This method maps raw data values to the normalized [0, 1] coordinate space.
+    /// It leverages `rayon` for parallel processing to ensure low latency even with
+    /// massive datasets (millions of rows).
+    pub fn normalize_column(
         &self,
         scale_trait: &dyn ScaleTrait,
-        series: &Series,
-    ) -> Result<Float64Chunked, ChartonError> {
-        match self {
-            Scale::Discrete => {
-                let out: Float64Chunked = series
-                    .iter()
-                    .map(|val| {
-                        let norm = match val {
-                            AnyValue::String(s) => scale_trait.normalize_string(s),
-                            AnyValue::StringOwned(s) => scale_trait.normalize_string(&s),
-                            _ => scale_trait.normalize_string(&val.to_string()),
-                        };
-                        Some(norm)
+        column: &crate::core::data::ColumnVector,
+    ) -> Vec<Option<f64>> {
+        use crate::core::data::ColumnVector;
+
+        match (self, column) {
+            // --- Discrete / Categorical Scale ---
+            // Maps unique string labels to equidistant points in [0, 1].
+            (Scale::Discrete, ColumnVector::String { data, validity }) => {
+                data.par_iter() // Parallel iteration over strings
+                    .enumerate()
+                    .map(|(i, s)| {
+                        if ColumnVector::is_valid_in_mask(validity, i) {
+                            Some(scale_trait.normalize_string(s))
+                        } else {
+                            None // Represents a null/missing value in the chart
+                        }
                     })
-                    .collect();
-                Ok(out)
+                    .collect()
             }
-            _ => {
-                let casted = series
-                    .cast(&DataType::Float64)
-                    .map_err(|e| ChartonError::Data(e.to_string()))?;
-                let ca = casted.f64().unwrap();
-                Ok(ca.apply(|opt_v| opt_v.map(|v| scale_trait.normalize(v))))
+
+            // --- Temporal / Time Scale ---
+            // Converts high-precision DateTimes to nanosecond timestamps before normalization.
+            (Scale::Temporal, ColumnVector::DateTime { data, validity }) => {
+                data.par_iter() // Parallel iteration over OffsetDateTime objects
+                    .enumerate()
+                    .map(|(i, dt)| {
+                        if ColumnVector::is_valid_in_mask(validity, i) {
+                            // Normalize based on Unix nanoseconds to maintain sub-second precision
+                            Some(scale_trait.normalize(dt.unix_timestamp_nanos() as f64))
+                        } else {
+                            None
+                        }
+                    })
+                    .collect()
+            }
+
+            // --- Continuous Scales (Linear, Log, etc.) ---
+            // Handles numerical types (F64, F32, I64, U32) by casting to f64.
+            (_, col) => {
+                // Creates a parallel range to iterate by index, fetching data safely
+                (0..col.len())
+                    .into_par_iter()
+                    .map(|i| {
+                        // col.get_f64(i) handles type casting and validity bitmask internally
+                        col.get_f64(i).map(|v| scale_trait.normalize(v))
+                    })
+                    .collect()
             }
         }
     }
@@ -298,22 +321,58 @@ pub fn create_scale(
     Ok(Arc::from(scale))
 }
 
-/// Utility for extracting a normalized value from an AnyValue.
+/// Utility for extracting a normalized [0, 1] value from an `ExplicitTick`.
+///
+/// This function acts as a bridge between raw data variants and the mathematical
+/// scale logic. It follows a "best-effort" conversion strategy:
+/// - **Discrete Scales**: Converts any input to a string to perform categorical mapping.
+/// - **Continuous Scales**: Attempts to treat the input as a numerical value (f64),
+///   falling back to 0.0 if the conversion is impossible.
 pub fn get_normalized_value(
     scale_trait: &dyn ScaleTrait,
     scale_type: &Scale,
-    value: &AnyValue,
+    value: &ExplicitTick,
 ) -> f64 {
-    match scale_type {
-        Scale::Discrete => match value {
-            AnyValue::String(s) => scale_trait.normalize_string(s),
-            AnyValue::StringOwned(s) => scale_trait.normalize_string(s.as_str()),
-            _ => scale_trait.normalize_string(&value.to_string()),
-        },
-        _ => value
-            .try_extract::<f64>()
-            .map(|v| scale_trait.normalize(v))
-            .unwrap_or(0.0),
+    match (scale_type, value) {
+        // --- SECTION 1: THE HAPPY PATH (Standard Operations) ---
+
+        // 1.1 Discrete Mapping: Map string labels to their coordinates.
+        (Scale::Discrete, ExplicitTick::Discrete(s)) => scale_trait.normalize_string(s),
+
+        // 1.2 Continuous Mapping: Linear or Log scales using f64.
+        (Scale::Linear | Scale::Log, ExplicitTick::Continuous(v)) => scale_trait.normalize(*v),
+
+        // 1.3 Temporal Mapping: Using high-precision timestamps.
+        (Scale::Temporal, ExplicitTick::Timestamp(ns)) => scale_trait.normalize(*ns as f64),
+        (Scale::Temporal, ExplicitTick::Temporal(dt)) => {
+            scale_trait.normalize(dt.unix_timestamp_nanos() as f64)
+        }
+
+        // --- SECTION 2: THE RECOVERY PATH (Handling User Misconfigurations) ---
+
+        // 2.1 Coercion to Discrete: Treating numbers/dates as strings if passed to a Discrete axis.
+        // This mirrors ggplot2's behavior: silently stringifying values to keep rendering alive.
+        (Scale::Discrete, ExplicitTick::Continuous(v)) => {
+            scale_trait.normalize_string(&v.to_string())
+        }
+        (Scale::Discrete, ExplicitTick::Timestamp(ts)) => {
+            scale_trait.normalize_string(&ts.to_string())
+        }
+        (Scale::Discrete, ExplicitTick::Temporal(dt)) => {
+            scale_trait.normalize_string(&dt.to_string())
+        }
+
+        // 2.2 Coercion to Continuous: Attempt to parse strings as f64 if passed to a numeric axis.
+        (Scale::Linear | Scale::Log, ExplicitTick::Discrete(s)) => {
+            s.parse::<f64>()
+                .map(|v| scale_trait.normalize(v))
+                .unwrap_or(0.0) // Fallback to 0.0 if parsing fails.
+        }
+
+        // --- SECTION 3: SAFETY NET (Fallback) ---
+
+        // Default catch-all for fundamentally incompatible combinations.
+        _ => 0.0,
     }
 }
 
