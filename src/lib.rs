@@ -22,7 +22,7 @@ pub mod theme;
 pub mod transform;
 pub mod visual;
 
-#[cfg(not(target_arch = "wasm32"))]
+#[cfg(all(feature = "polars", not(target_arch = "wasm32")))]
 pub mod bridge;
 
 pub mod prelude {
@@ -50,9 +50,9 @@ pub mod prelude {
     pub use crate::visual::color::{ColorMap, ColorPalette, SingleColor};
     pub use crate::visual::shape::PointShape;
 
-    #[cfg(not(target_arch = "wasm32"))]
+    #[cfg(all(feature="polars", not(target_arch = "wasm32")))]
     pub use crate::bridge::base::{Altair, Matplotlib, Plot, Visualization};
-    #[cfg(not(target_arch = "wasm32"))]
+    #[cfg(all(feature="polars", not(target_arch = "wasm32")))]
     pub use crate::data; // Macro data!
 }
 
