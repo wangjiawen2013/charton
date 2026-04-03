@@ -13,7 +13,7 @@ pub mod tick_chart;
 use crate::TEMP_SUFFIX;
 use crate::coordinate::CoordinateTrait;
 use crate::core::aesthetics::GlobalAesthetics;
-use crate::core::data::*;
+use crate::core::data::{Dataset, ToDataset, SemanticType};
 use crate::core::layer::{Layer, MarkRenderer};
 use crate::encode::{Channel, Encoding, IntoEncoding, y::StackMode};
 use crate::error::ChartonError;
@@ -23,7 +23,6 @@ use crate::mark::{
     rule::MarkRule, text::MarkText, tick::MarkTick,
 };
 use crate::scale::{Expansion, Scale, ScaleDomain};
-use polars::prelude::*;
 use std::sync::Arc;
 
 /// Generic Chart structure representing a single visualization layer.
@@ -39,18 +38,18 @@ use std::sync::Arc;
 ///
 /// # Fields
 ///
-/// * `data` - The underlying data source (normalized to f64 for numeric columns).
+/// * `data` - The underlying data source.
 /// * `encoding` - Mapping between data fields and visual channels (x, y, color, etc.).
 /// * `mark` - The specific visual mark configuration. Is `None` when `T` is [NoMark].
 #[derive(Clone)]
 pub struct Chart<T: Mark = NoMark> {
-    pub(crate) data: DataFrameSource,
+    pub(crate) data: Dataset,
     pub(crate) encoding: Encoding,
     pub(crate) mark: Option<T>,
 }
 
 impl Chart<NoMark> {
-    /// Create a new base chart instance with the provided data source.
+    /// Create a new base chart instance with the provided Dataset.
     ///
     /// This is the standard entry point for the "Base Chart" pattern. It initializes
     /// a `Chart<NoMark>` which can be configured with encodings and subsequently
@@ -58,31 +57,19 @@ impl Chart<NoMark> {
     ///
     /// # Arguments
     ///
-    /// * `source` - Anything that can be converted into a `DataFrameSource`.
-    ///
-    /// # Example
-    ///
-    /// ```rust,ignore
-    /// let df = df!["x" => [1, 2], "y" => [3, 4]]?;
-    /// // Returns a Chart<NoMark>
-    /// let base = Chart::build(&df)?;
-    /// ```
+    /// * `source` - Anything that can be converted into a `Dataset`.
     pub fn build<S>(source: S) -> Result<Self, ChartonError>
     where
-        S: IntoChartonSource,
+        S: ToDataset,
     {
-        let source = source.into_source()?;
+        // Convert input (e.g., Vec<f64>, CSV strings) into our internal Dataset
+        let dataset = source.to_dataset()?;
 
-        let mut chart = Self {
-            data: source,
+        Ok(Self {
+            data: dataset,
             encoding: Encoding::new(),
             mark: None,
-        };
-
-        // Standardize numeric columns to f64 for consistent scale calculation
-        chart.data = convert_numeric_types(chart.data.clone())?;
-
-        Ok(chart)
+        })
     }
 
     /// Transitions the base chart into a Point chart.
@@ -441,22 +428,7 @@ impl<T: Mark> Chart<T> {
             _ => {}
         }
 
-        check_schema(&mut self.data.df, &active_fields, &expected_semantics)?;
-
-        // --- Step 4: Data Cleaning ---
-        // Drop rows with null values in any column used for encoding.
-        let filtered_df = self.data.df.drop_nulls(Some(
-            &active_fields
-                .iter()
-                .map(|&s| s.to_string())
-                .collect::<Vec<_>>(),
-        ))?;
-
-        if filtered_df.height() == 0 {
-            self.data = DataFrameSource { df: filtered_df };
-            return Ok(self);
-        }
-        self.data = DataFrameSource { df: filtered_df };
+        let resolved_semantics = self.data.check_schema(&active_fields, &expected_semantics)?;
 
         // --- Step 5: Statistical Transformations ---
         // Resolve bins (required before transformations like histograms)
@@ -484,48 +456,62 @@ impl<T: Mark> Chart<T> {
     }
 
     /// Resolves binning configuration required before data transformation.
+    /// 
+    /// For marks that require data aggregation (like histograms or heatmaps), 
+    /// this method calculates the optimal number of bins if not explicitly 
+    /// provided by the user.
     fn resolve_pre_transform_encodings(&mut self) -> Result<(), ChartonError> {
+        // Access the mark type to determine if binning is applicable.
         let mt = self.mark.as_ref().unwrap().mark_type();
-        let x_enc = self.encoding.x.as_mut().unwrap();
-        let y_enc = self.encoding.y.as_mut().unwrap();
-
-        // --- RESOLVE BINS ---
-        // Histograms and Heatmaps need bin counts to group the data.
-        if ["rect", "hist"].contains(&mt) {
-            // Resolve X-axis bins
-            if x_enc.bins.is_none() {
-                let series = self.data.column(&x_enc.field)?;
-                match interpret_semantic_type(series.dtype()) {
-                    SemanticType::Continuous | SemanticType::Temporal => {
-                        let unique_count = series.n_unique()?;
-                        x_enc.bins = Some(if unique_count <= 1 {
-                            1
-                        } else {
-                            ((unique_count as f64).sqrt() as usize).clamp(5, 50)
-                        });
-                    }
-                    SemanticType::Discrete => x_enc.bins = Some(series.n_unique()?),
-                }
-            }
-
-            // Resolve Y-axis bins (Only for Rect/Heatmaps)
-            if mt == "rect" && y_enc.bins.is_none() {
-                let series = self.data.column(&y_enc.field)?;
-                match interpret_semantic_type(series.dtype()) {
-                    SemanticType::Continuous | SemanticType::Temporal => {
-                        let unique_count = series.n_unique()?;
-                        y_enc.bins = Some(if unique_count <= 1 {
-                            1
-                        } else {
-                            ((unique_count as f64).sqrt() as usize).clamp(5, 50)
-                        });
-                    }
-                    SemanticType::Discrete => y_enc.bins = Some(series.n_unique()?),
-                }
-            }
+        
+        // Only "rect" (heatmaps) and "hist" (histograms) require pre-transform binning.
+        if !["rect", "hist"].contains(&mt) {
+            return Ok(());
         }
+
+        // Safely extract mutable references to X and Y encodings.
+        let x_enc = self.encoding.x.as_mut()
+            .ok_or(ChartonError::Encoding("X encoding is required for binned marks".to_string()))?;
+        let y_enc = self.encoding.y.as_mut()
+            .ok_or(ChartonError::Encoding("Y encoding is required for binned marks".to_string()))?;
+
+        // Helper closure to calculate bin count based on data semantics and unique value distribution.
+        let calculate_bins = |field: &str| -> Result<usize, ChartonError> {
+            let series = self.data.column(field)?;
+            let unique_count = series.n_unique();
+            
+            // Determine bins based on the semantic interpretation of the column data.
+            match series.semantic_type() {
+                SemanticType::Continuous | SemanticType::Temporal => {
+                    if unique_count <= 1 {
+                        Ok(1)
+                    } else {
+                        // Use the Square-root choice rule for automatic binning, 
+                        // constrained between a reasonable range (5 to 50) for visualization.
+                        let suggested = (unique_count as f64).sqrt() as usize;
+                        Ok(suggested.clamp(5, 50))
+                    }
+                }
+                // For discrete data (categories), each unique value typically gets its own bin.
+                SemanticType::Discrete => Ok(unique_count),
+            }
+        };
+
+        // --- RESOLVE X-AXIS BINS ---
+        if x_enc.bins.is_none() {
+            x_enc.bins = Some(calculate_bins(&x_enc.field)?);
+        }
+
+        // --- RESOLVE Y-AXIS BINS ---
+        // Y-axis binning is only necessary for 2D density plots (rect/heatmap).
+        // For standard histograms, Y is the resulting count/frequency.
+        if mt == "rect" && y_enc.bins.is_none() {
+            y_enc.bins = Some(calculate_bins(&y_enc.field)?);
+        }
+
         Ok(())
     }
+
     /// Completes the chart's encoding configuration by inferring missing metadata.
     fn apply_post_transform_defaults(&mut self) -> Result<(), ChartonError> {
         // Determine the mark type early to apply specific defaults (e.g., Rect, Hist)
