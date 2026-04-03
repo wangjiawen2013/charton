@@ -151,7 +151,21 @@ impl Scale {
         use crate::core::data::ColumnVector;
 
         match (self, column) {
-            // --- Discrete / Categorical Scale ---
+            // --- 1. FAST PATH: F64 Continuous Memory Access (Maximum Performance) ---
+            (Scale::Linear | Scale::Log, ColumnVector::F64 { data }) => {
+                data.par_iter()
+                    .map(|&v| {
+                        // NaN check acts as our null check. 
+                        // This is extremely fast on modern hardware.
+                        if !v.is_nan() {
+                            Some(scale_trait.normalize(v))
+                        } else {
+                            None
+                        }
+                    })
+                    .collect()
+            }
+            // --- 2. Discrete / Categorical Scale ---
             // Maps unique string labels to equidistant points in [0, 1].
             (Scale::Discrete, ColumnVector::String { data, validity }) => {
                 data.par_iter() // Parallel iteration over strings
@@ -166,7 +180,7 @@ impl Scale {
                     .collect()
             }
 
-            // --- Temporal / Time Scale ---
+            // --- 3. Temporal / Time Scale ---
             // Converts high-precision DateTimes to nanosecond timestamps before normalization.
             (Scale::Temporal, ColumnVector::DateTime { data, validity }) => {
                 data.par_iter() // Parallel iteration over OffsetDateTime objects
@@ -182,8 +196,9 @@ impl Scale {
                     .collect()
             }
 
-            // --- Continuous Scales (Linear, Log, etc.) ---
-            // Handles numerical types (F64, F32, I64, U32) by casting to f64.
+            // --- 4. GENERIC PATH: Other Numerical Types (F32, I64, I32, U32) ---
+            // Use the range-based parallel iterator as a fallback. 
+            // col.get_f64(i) internally handles both type casting and bitmask lookups.
             (_, col) => {
                 // Creates a parallel range to iterate by index, fetching data safely
                 (0..col.len())

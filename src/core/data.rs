@@ -1,6 +1,7 @@
 use crate::error::ChartonError;
 use std::collections::HashMap;
 use std::fmt;
+use std::sync::Arc;
 use time::OffsetDateTime;
 
 #[cfg(feature = "arrow")]
@@ -13,6 +14,7 @@ use arrow::datatypes::{DataType, TimeUnit};
 /// Charton uses a columnar memory layout similar to Apache Arrow. Numerical
 /// types are stored in contiguous vectors for GPU-friendly access, while
 /// null values are tracked via bitmasks (validity maps) or IEEE 754 NaN values.
+#[derive(Clone, Debug)]
 pub enum ColumnVector {
     /// 64-bit floats. Nulls are represented by `f64::NAN` for zero-overhead hardware support.
     F64 { data: Vec<f64> },
@@ -160,6 +162,98 @@ impl ColumnVector {
             _ => None,
         }
     }
+
+    /// Returns the number of unique non-null values in the column.
+    ///
+    /// This implementation respects the specific null-representation of each 
+    /// variant (NaN for floats, bitmasks for others) to ensure accurate statistics.
+    pub fn n_unique(&self) -> usize {
+        match self {
+            // --- F64 FAST PATH ---
+            // Uses a HashSet to store bit-represented floats. NaNs are skipped
+            // as they represent null values in this architecture.
+            ColumnVector::F64 { data } => {
+                let mut set = std::collections::HashSet::new();
+                for &v in data {
+                    if !v.is_nan() {
+                        // Normalizing -0.0 to 0.0
+                        // In IEEE 754, -0.0 == 0.0 is true, so this reassignment 
+                        // flattens both to the same bit representation (all zeros).
+                        let normalized_v = if v == 0.0 { 0.0 } else { v };
+                        set.insert(normalized_v.to_bits());
+                    }
+                }
+                set.len()
+            }
+
+            // --- F32 PATH ---
+            ColumnVector::F32 { data } => {
+                let mut set = std::collections::HashSet::new();
+                for &v in data {
+                    if !v.is_nan() {
+                        let normalized = if v == 0.0 { 0.0 } else { v };
+                        set.insert(normalized.to_bits());
+                    }
+                }
+                set.len()
+            }
+
+            // --- STRING PATH ---
+            // Only strings marked as "Valid" in the bitmask are inserted into the set.
+            ColumnVector::String { data, validity } => {
+                let mut set = std::collections::HashSet::new();
+                for (i, s) in data.iter().enumerate() {
+                    if ColumnVector::is_valid_in_mask(validity, i) {
+                        set.insert(s);
+                    }
+                }
+                set.len()
+            }
+
+            // --- INTEGER PATHS (I64, I32, U32) ---
+            // Generic handling for integer types using the bitmask for null-checks.
+            ColumnVector::I64 { data, validity } => {
+                let mut set = std::collections::HashSet::new();
+                for (i, &v) in data.iter().enumerate() {
+                    if ColumnVector::is_valid_in_mask(validity, i) {
+                        set.insert(v);
+                    }
+                }
+                set.len()
+            }
+
+            ColumnVector::I32 { data, validity } => {
+                let mut set = std::collections::HashSet::new();
+                for (i, &v) in data.iter().enumerate() {
+                    if ColumnVector::is_valid_in_mask(validity, i) {
+                        set.insert(v);
+                    }
+                }
+                set.len()
+            }
+
+            ColumnVector::U32 { data, validity } => {
+                let mut set = std::collections::HashSet::new();
+                for (i, &v) in data.iter().enumerate() {
+                    if ColumnVector::is_valid_in_mask(validity, i) {
+                        set.insert(v);
+                    }
+                }
+                set.len()
+            }
+
+            // --- TEMPORAL PATH ---
+            ColumnVector::DateTime { data, validity } => {
+                let mut set = std::collections::HashSet::new();
+                for (i, &dt) in data.iter().enumerate() {
+                    if ColumnVector::is_valid_in_mask(validity, i) {
+                        set.insert(dt);
+                    }
+                }
+                set.len()
+            }
+        }
+    }
 }
 
 /// Internal trait to bridge ColumnVector and concrete Rust types.
@@ -193,9 +287,10 @@ impl_from_col!(OffsetDateTime, DateTime);
 ///
 /// `Dataset` is the internal "Single Source of Truth" for Charton.
 /// It decouples plotting logic from external data frame libraries.
+#[derive(Clone)]
 pub struct Dataset {
     pub(crate) schema: HashMap<String, usize>,
-    pub(crate) columns: Vec<ColumnVector>,
+    pub(crate) columns: Vec<Arc<ColumnVector>>,
     pub(crate) row_count: usize,
 }
 
@@ -240,7 +335,7 @@ impl Dataset {
         self.validate_len(&name_str, vec.len())?;
 
         let index = self.columns.len();
-        self.columns.push(vec);
+        self.columns.push(Arc::new(vec));
         self.schema.insert(name_str, index);
         Ok(())
     }
@@ -327,7 +422,8 @@ impl Dataset {
             None => return true,
         };
 
-        match &self.columns[index] {
+        // self.columns[index] is Arc<ColumnVector>
+        match &*self.columns[index] {
             ColumnVector::F64 { data } => data[row].is_nan(),
             ColumnVector::F32 { data } => data[row].is_nan(),
             ColumnVector::I64 { validity, .. }
@@ -915,7 +1011,7 @@ impl Dataset {
         }
 
         let idx = *self.schema.get(col_name).expect("Schema integrity error");
-        match &self.columns[idx] {
+        match &*self.columns[idx] {
             // Format floating points to 4 decimal places for readability
             ColumnVector::F64 { data } => format!("{:.4}", data[row]),
             ColumnVector::F32 { data } => format!("{:.4}", data[row]),
