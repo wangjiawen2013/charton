@@ -386,7 +386,7 @@ impl LayeredChart {
         Chart<T>: Layer,
     {
         // Check if the layer has data before adding it
-        if layer.data.df.height() > 0 {
+        if layer.data.height() > 0 {
             self.layers.push(Arc::new(layer));
         }
         // If layer is empty, silently ignore it

@@ -1,7 +1,7 @@
-use rayon::prelude::*;
 use crate::core::data::ColumnVector;
+use rayon::prelude::*;
 
-/// Categorizes continuous numerical data into discrete bins. It maps each value to a label based on 
+/// Categorizes continuous numerical data into discrete bins. It maps each value to a label based on
 /// defined bin edges.
 ///
 /// # Arguments
@@ -30,7 +30,7 @@ pub(crate) fn cut(
 
             // 2. Perform high-performance binary search to find the correct bin
             let bin_idx = find_bin(val, bins);
-            
+
             // 3. Return the corresponding label
             Some(labels[bin_idx].clone())
         })
@@ -39,8 +39,8 @@ pub(crate) fn cut(
 
 /// Efficiently finds the bin index for a given value using Binary Search.
 ///
-/// This implementation follows the standard "left-closed, right-open" [a, b) interval 
-/// logic, except for the final bin which is fully closed [a, b] to include 
+/// This implementation follows the standard "left-closed, right-open" [a, b) interval
+/// logic, except for the final bin which is fully closed [a, b] to include
 /// the maximum edge value.
 ///
 /// # Logic
@@ -57,19 +57,29 @@ fn find_bin(value: f64, bins: &[f64]) -> usize {
 
     // Binary search O(log N) is significantly faster than linear windows() O(N)
     match bins.binary_search_by(|probe| {
-        probe.partial_cmp(&value).expect("Failed to compare floating point values")
+        probe
+            .partial_cmp(&value)
+            .expect("Failed to compare floating point values")
     }) {
         // Exact match found: value is the start of the interval [value, next_edge)
         Ok(idx) => {
             // If the exact match is the last edge, it belongs to the previous bin
-            if idx > last_bin_idx { last_bin_idx } else { idx }
+            if idx > last_bin_idx {
+                last_bin_idx
+            } else {
+                idx
+            }
         }
         // No exact match: `err` is the index where the value would be inserted.
         // Therefore, the value falls into the bin starting at `err - 1`.
         Err(err) => {
-            if err == 0 { 0 } 
-            else if err > last_bin_idx { last_bin_idx }
-            else { err - 1 }
+            if err == 0 {
+                0
+            } else if err > last_bin_idx {
+                last_bin_idx
+            } else {
+                err - 1
+            }
         }
     }
 }

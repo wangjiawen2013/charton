@@ -1,9 +1,9 @@
 use crate::error::ChartonError;
+use rayon::prelude::*;
 use std::collections::HashMap;
 use std::fmt;
 use std::sync::Arc;
 use time::OffsetDateTime;
-use rayon::prelude::*;
 
 #[cfg(feature = "arrow")]
 use arrow::array::{Array, Float32Array, Float64Array, Int64Array, StringArray};
@@ -164,7 +164,6 @@ impl ColumnVector {
         }
     }
 
-
     /// Alias for your existing get_f64 to match the calling code.
     pub fn get_as_f64(&self, row: usize) -> Option<f64> {
         self.get_f64(row)
@@ -204,11 +203,19 @@ impl ColumnVector {
             }
             ColumnVector::F64 { data } => {
                 let v = data[row];
-                if v.is_nan() { None } else { Some(format!("{}", v)) }
+                if v.is_nan() {
+                    None
+                } else {
+                    Some(format!("{}", v))
+                }
             }
             ColumnVector::F32 { data } => {
                 let v = data[row];
-                if v.is_nan() { None } else { Some(format!("{}", v)) }
+                if v.is_nan() {
+                    None
+                } else {
+                    Some(format!("{}", v))
+                }
             }
             ColumnVector::DateTime { data, validity } => {
                 if Self::is_valid_in_mask(validity, row) {
@@ -222,7 +229,7 @@ impl ColumnVector {
 
     /// Returns the number of unique non-null values in the column.
     ///
-    /// This implementation respects the specific null-representation of each 
+    /// This implementation respects the specific null-representation of each
     /// variant (NaN for floats, bitmasks for others) to ensure accurate statistics.
     pub fn n_unique(&self) -> usize {
         match self {
@@ -234,7 +241,7 @@ impl ColumnVector {
                 for &v in data {
                     if !v.is_nan() {
                         // Normalizing -0.0 to 0.0
-                        // In IEEE 754, -0.0 == 0.0 is true, so this reassignment 
+                        // In IEEE 754, -0.0 == 0.0 is true, so this reassignment
                         // flattens both to the same bit representation (all zeros).
                         let normalized_v = if v == 0.0 { 0.0 } else { v };
                         set.insert(normalized_v.to_bits());
@@ -313,7 +320,7 @@ impl ColumnVector {
     }
 
     /// Returns a stable, unique list of values as Strings for Discrete scales.
-    /// 
+    ///
     /// This is ONLY intended for Discrete (Categorical) axes. For performance,
     /// it only handles types that are commonly used as categories.
     pub fn unique_values(&self) -> Vec<String> {
@@ -343,7 +350,7 @@ impl ColumnVector {
                     }
                 }
             }
-            
+
             // For I32/U32, the logic is identical.
             ColumnVector::I32 { data, validity } => {
                 let mut seen = std::collections::HashSet::new();
@@ -356,8 +363,8 @@ impl ColumnVector {
                 }
             }
 
-            // We skip F64/F32 in unique_values. 
-            // If a user forces a Float column to be Discrete, they should 
+            // We skip F64/F32 in unique_values.
+            // If a user forces a Float column to be Discrete, they should
             // usually bin it first or cast it to String.
             _ => {
                 // Return empty or a basic string representation if absolutely necessary,
@@ -368,30 +375,31 @@ impl ColumnVector {
     }
 
     /// Computes both minimum and maximum values in a single parallel scan.
-    /// 
-    /// Returns a tuple `(min, max)` as `f64`. This method handles null-checks 
-    /// (NaN for floats and bitmasks for other types) and uses Rayon for 
+    ///
+    /// Returns a tuple `(min, max)` as `f64`. This method handles null-checks
+    /// (NaN for floats and bitmasks for other types) and uses Rayon for
     /// multi-threaded execution.
     pub fn min_max(&self) -> (f64, f64) {
         let identity = (f64::INFINITY, f64::NEG_INFINITY);
 
         match self {
             // --- FLOAT PATHS ---
-            ColumnVector::F64 { data } => {
-                data.par_iter()
-                    .filter(|&&v| !v.is_nan())
-                    .fold(|| identity, |(min, max), &v| (min.min(v), max.max(v)))
-                    .reduce(|| identity, |(m1, x1), (m2, x2)| (m1.min(m2), x1.max(x2)))
-            }
-            ColumnVector::F32 { data } => {
-                data.par_iter()
-                    .filter(|&&v| !v.is_nan())
-                    .fold(|| identity, |(min, max), &v| {
+            ColumnVector::F64 { data } => data
+                .par_iter()
+                .filter(|&&v| !v.is_nan())
+                .fold(|| identity, |(min, max), &v| (min.min(v), max.max(v)))
+                .reduce(|| identity, |(m1, x1), (m2, x2)| (m1.min(m2), x1.max(x2))),
+            ColumnVector::F32 { data } => data
+                .par_iter()
+                .filter(|&&v| !v.is_nan())
+                .fold(
+                    || identity,
+                    |(min, max), &v| {
                         let v64 = v as f64;
                         (min.min(v64), max.max(v64))
-                    })
-                    .reduce(|| identity, |(m1, x1), (m2, x2)| (m1.min(m2), x1.max(x2)))
-            }
+                    },
+                )
+                .reduce(|| identity, |(m1, x1), (m2, x2)| (m1.min(m2), x1.max(x2))),
 
             // --- INTEGER PATHS ---
             // Explicitly cast primitives to f64 via the closure.
@@ -417,7 +425,7 @@ impl ColumnVector {
     }
 
     /// Internal parallel scanner utilizing a Map-Reduce pattern for maximum throughput.
-    /// 
+    ///
     /// Takes a data slice, an optional validity mask, and a conversion closure.
     /// Fails gracefully by skipping masked (null) values.
     fn parallel_scan_with_mask<T, F>(
@@ -451,10 +459,13 @@ impl ColumnVector {
         } else {
             // Optimization: No bitmask present, process all elements.
             data.par_iter()
-                .fold(|| identity, |(min, max), v| {
-                    let val = convert(v);
-                    (min.min(val), max.max(val))
-                })
+                .fold(
+                    || identity,
+                    |(min, max), v| {
+                        let val = convert(v);
+                        (min.min(val), max.max(val))
+                    },
+                )
                 .reduce(|| identity, |(m1, x1), (m2, x2)| (m1.min(m2), x1.max(x2)))
         }
     }
