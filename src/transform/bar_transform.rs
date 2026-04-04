@@ -1,160 +1,165 @@
+use crate::TEMP_SUFFIX;
 use crate::chart::Chart;
+use crate::core::data::{ColumnVector, Dataset};
 use crate::encode::y::StackMode;
 use crate::error::ChartonError;
 use crate::mark::Mark;
-use crate::prelude::IntoChartonSource;
-use polars::prelude::*;
+use ahash::AHashMap;
+use rayon::prelude::*;
+use std::collections::HashSet;
 
 impl<T: Mark> Chart<T> {
-    /// Consolidates and prepares data for Bar-like marks (Bar, Rose, Boxplot).
-    ///
-    /// This transformation follows a "Data-Driven Layout" strategy:
-    /// 1. **Deduplication**: If X and Color use the same field, we group only once
-    ///    to prevent Polars errors and signal a "Self-Mapping" layout (full width).
-    /// 2. **Aggregation**: Computes the mean for the Y-axis value.
-    /// 3. **Gap Filling**: Uses a Cartesian Product to ensure every X-category has
-    ///    the same number of rows (filling missing combinations with 0).
-    ///    This ensures that grouped bars have consistent widths and alignments.
     pub(crate) fn transform_bar_data(mut self) -> Result<Self, ChartonError> {
         // --- STEP 1: Extract Encoding Context ---
-        // Basic requirement: X and Y must exist. Color is optional.
-        // Get mutable references so we can modify properties like 'stack' for Pie charts.
         let y_enc = self.encoding.y.as_mut().unwrap();
-        // Get the aggregate op from the Y encoding
         let agg_op = y_enc.aggregate;
         let x_enc = self.encoding.x.as_ref().unwrap();
         let color_enc_opt = self.encoding.color.as_ref();
 
-        let x_field = &x_enc.field;
+        let mut x_field = x_enc.field.clone();
         let y_field = &y_enc.field;
 
-        // --- NEW: PIE/SINGLE-AXIS MODE HANDLING ---
-        // If x_field is an empty string, it signifies a single-axis layout (Pie Chart).
-        // 1. Force 'stackmode' to stack: Essential for pie slices to chain head-to-tail.
-        // 2. Inject virtual column: Ensure Polars can find the "" column for grouping.
-        if x_field.is_empty() {
+        // --- PIE/SINGLE-AXIS MODE HANDLING ---
+        // If x_field is empty, it's a Pie chart. We use a virtual "root" group.
+        let is_pie = x_field.is_empty();
+        if is_pie {
             y_enc.stack = StackMode::Stacked;
+            x_field = format!("{}_virtual_root__", TEMP_SUFFIX);
+        }
 
-            if !self
-                .data
-                .df
-                .get_column_names()
-                .contains(&&PlSmallStr::from_static(""))
-            {
-                self.data.df = self
-                    .data
-                    .df
-                    .clone()
-                    .lazy()
-                    .with_column(lit("").alias(""))
-                    .collect()?;
+        // Determine grouping strategy
+        let color_field = color_enc_opt.map(|ce| &ce.field);
+        let has_grouping_color = if let Some(ce) = color_enc_opt {
+            &ce.field != &x_field
+        } else {
+            false
+        };
+
+        // --- STEP 2: Unified Grouping (Using ahash) ---
+        let mut group_map: AHashMap<(String, Option<String>), Vec<usize>> = AHashMap::new();
+        let row_count = self.data.height();
+
+        for i in 0..row_count {
+            let x_val = if is_pie {
+                "all".to_string()
+            } else {
+                self.data
+                    .column(&x_field)?
+                    .get_as_string(i)
+                    .unwrap_or_else(|| "null".to_string())
+            };
+
+            let c_val = if has_grouping_color {
+                Some(
+                    self.data
+                        .column(color_field.unwrap())?
+                        .get_as_string(i)
+                        .unwrap_or_else(|| "null".to_string()),
+                )
+            } else {
+                None
+            };
+            group_map.entry((x_val, c_val)).or_default().push(i);
+        }
+
+        // --- STEP 3: Parallel Aggregation (Using Rayon) ---
+        let y_col = self.data.column(y_field)?;
+        let groups: Vec<((String, Option<String>), Vec<usize>)> = group_map.into_iter().collect();
+
+        let mut aggregated_results: Vec<((String, Option<String>), f64)> = groups
+            .into_par_iter()
+            .map(|(key, indices)| {
+                // Use the AggregateOp enum to compute the value
+                let val = agg_op.aggregate_by_index(&y_col, &indices);
+                (key, val)
+            })
+            .collect();
+
+        // --- STEP 4: Normalization (Optional) ---
+        if y_enc.normalize {
+            // Calculate sum per X-group
+            let mut x_sums: AHashMap<String, f64> = AHashMap::new();
+            for ((x, _), val) in &aggregated_results {
+                *x_sums.entry(x.clone()).or_insert(0.0) += val;
+            }
+
+            // Normalize values in parallel
+            aggregated_results.par_iter_mut().for_each(|((x, _), val)| {
+                let sum = x_sums.get(x).cloned().unwrap_or(1.0);
+                *val = if sum != 0.0 { *val / sum } else { 0.0 };
+            });
+        }
+
+        // --- STEP 5: Cartesian Product & Gap Filling ---
+        let mut final_x = Vec::new();
+        let mut final_y = Vec::new();
+        let mut final_color = Vec::new();
+
+        let lookup: AHashMap<(String, Option<String>), f64> =
+            aggregated_results.into_iter().collect();
+
+        // Extract unique keys for X and Color to build the grid
+        let mut x_uniques = Vec::new();
+        let mut c_uniques = Vec::new();
+        let mut x_seen = HashSet::new();
+        let mut c_seen = HashSet::new();
+
+        for ((x, c), _) in &lookup {
+            if x_seen.insert(x.clone()) {
+                x_uniques.push(x.clone());
+            }
+            if let Some(color_val) = c {
+                if c_seen.insert(color_val.clone()) {
+                    c_uniques.push(color_val.clone());
+                }
             }
         }
 
-        // --- STEP 2: Aggregation & Grouping ---
-        // We define the grouping strategy based on field overlap.
-        let grouped_df = if let Some(ce) = color_enc_opt {
-            let mut group_selectors = vec![col(x_field)];
+        // Build the expanded dataset
+        for x in &x_uniques {
+            if has_grouping_color {
+                for c in &c_uniques {
+                    let key = (x.clone(), Some(c.clone()));
+                    let val = lookup.get(&key).cloned().unwrap_or(0.0); // Fill gaps with 0
 
-            // Deduplication Logic:
-            // If Color is the same as X, it's an "Aesthetic Mapping" (just coloring).
-            // If Color is different, it's a "Grouping Mapping" (Dodge/side-by-side).
-            if &ce.field != x_field {
-                group_selectors.push(col(&ce.field));
-            }
-
-            self.data
-                .df
-                .clone()
-                .lazy()
-                .group_by_stable(group_selectors)
-                // Use the aggregate op and manually alias it back to the original field name
-                .agg([agg_op.into_expr(y_field).alias(y_field)])
-                .collect()?
-        } else {
-            // Simple case: No color mapping, group by X only.
-            self.data
-                .df
-                .clone()
-                .lazy()
-                .group_by_stable([col(x_field)])
-                .agg([agg_op.into_expr(y_field).alias(y_field)])
-                .collect()?
-        };
-
-        // --- STEP 3: Normalization (Optional) ---
-        // If 'normalize' is true, values are converted to proportions (0.0 - 1.0)
-        // relative to the total sum of their specific X group.
-        let grouped_df = if y_enc.normalize {
-            grouped_df
-                .lazy()
-                .with_column(
-                    (col(y_field).cast(DataType::Float64)
-                        / col(y_field).sum().over([col(x_field)]))
-                    .alias(y_field),
-                )
-                .collect()?
-        } else {
-            grouped_df
-        };
-
-        // --- STEP 4: Cartesian Product Gap Filling ---
-        // This is critical for the "Row-Count Driven Layout".
-        // We ensure every X group has exactly the same number of rows so the
-        // Renderer can calculate bar widths and offsets consistently.
-        let filled_df = if let Some(ce) = color_enc_opt {
-            // If X and Color are the same field, the mapping is 1:1.
-            // Every group already has exactly 1 row. No filling required.
-            if &ce.field == x_field {
-                grouped_df
-            } else {
-                // Determine the unique set of categories for both dimensions.
-                // We use unique_stable to preserve user-defined data order.
-                let x_uniques = grouped_df.column(x_field)?.unique_stable()?;
-                let c_uniques = grouped_df.column(&ce.field)?.unique_stable()?;
-
-                let x_len = x_uniques.len();
-                let c_len = c_uniques.len();
-
-                // Build a "Grid" of all possible X + Color combinations.
-                let mut x_repeated = Vec::with_capacity(x_len * c_len);
-                let mut c_repeated = Vec::with_capacity(x_len * c_len);
-
-                for i in 0..x_len {
-                    let x_val = x_uniques.get(i)?;
-                    for j in 0..c_len {
-                        x_repeated.push(x_val.clone());
-                        c_repeated.push(c_uniques.get(j)?.clone());
-                    }
+                    final_x.push(x.clone());
+                    final_color.push(c.clone());
+                    final_y.push(val);
                 }
+            } else {
+                let key = (x.clone(), None);
+                let val = lookup.get(&key).cloned().unwrap_or(0.0);
 
-                let all_combos = df![
-                    x_field => x_repeated,
-                    &ce.field => c_repeated
-                ]?;
-
-                // Left Join the grid with our data.
-                // Any missing combination (gap) will result in a Null value.
-                all_combos
-                    .lazy()
-                    .join(
-                        grouped_df.lazy(),
-                        [col(x_field), col(&ce.field)],
-                        [col(x_field), col(&ce.field)],
-                        JoinType::Left.into(),
-                    )
-                    // Convert Nulls to 0. These rows act as "Invisible Spacers"
-                    // to maintain correct bar positioning in grouped charts.
-                    .with_column(col(y_field).fill_null(lit(0)))
-                    .collect()?
+                final_x.push(x.clone());
+                final_y.push(val);
             }
-        } else {
-            grouped_df
-        };
+        }
 
-        // Final Step: Update the chart's data source with the clean, expanded DataFrame.
-        self.data = (&filled_df).into_source()?;
+        // --- STEP 6: Rebuild Dataset ---
+        let mut new_ds = Dataset::new();
 
+        // Use the original x_field name (or "" for pie)
+        let x_col_name = if is_pie { "" } else { &x_field };
+        new_ds.add_column(
+            x_col_name,
+            ColumnVector::String {
+                data: final_x,
+                validity: None,
+            },
+        )?;
+        new_ds.add_column(y_field, ColumnVector::F64 { data: final_y })?;
+
+        if has_grouping_color {
+            new_ds.add_column(
+                color_field.unwrap(),
+                ColumnVector::String {
+                    data: final_color,
+                    validity: None,
+                },
+            )?;
+        }
+
+        self.data = new_ds;
         Ok(self)
     }
 }
