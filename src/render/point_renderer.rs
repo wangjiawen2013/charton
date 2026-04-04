@@ -8,59 +8,53 @@ use crate::error::ChartonError;
 use crate::mark::point::MarkPoint;
 use crate::visual::color::SingleColor;
 use crate::visual::shape::PointShape;
+use rayon::prelude::*;
 
 // ============================================================================
-// MARK RENDERING (The main data-to-geometry loop)
+// MARK RENDERING (High-Performance Parallel Implementation)
 // ============================================================================
 
 impl MarkRenderer for Chart<MarkPoint> {
-    /// Orchestrates the transformation of raw data rows into visual point geometries.
-    ///
-    /// This implementation follows a robust data-to-visual pipeline:
-    /// 1. **Validation**: Uses .ok_or_else to ensure encodings exist, providing clear error context.
-    /// 2. **Positioning**: Retrieves Scales from the Coordinate system and performs vectorized
-    ///    normalization using Polars for high performance.
-    /// 3. **Aesthetic Resolution**: Maps data to Color, Shape, and Size using Sampler-Mapper pairs
-    ///    encapsulated within the ScaleTrait.
-    /// 4. **Projection**: Transforms normalized [0, 1] units to physical panel pixels and
-    ///    dispatches draw calls to the backend.
+    /// Orchestrates the transformation of raw data into visual geometries using a
+    /// parallelized pipeline for maximum throughput.
     fn render_marks(
         &self,
         backend: &mut dyn RenderBackend,
         context: &PanelContext,
     ) -> Result<(), ChartonError> {
         let df_source = &self.data;
+        let row_count = df_source.height();
 
-        // Return early if there is no data to render to avoid unnecessary overhead.
-        if df_source.height() == 0 {
+        // Early exit for empty datasets to skip allocation overhead.
+        if row_count == 0 {
             return Ok(());
         }
 
-        // --- STEP 1: ENCODING VALIDATION ---
-        // We avoid .unwrap() to ensure the library fails gracefully with descriptive error messages.
-        let x_enc = self.encoding.x.as_ref().ok_or_else(|| {
-            ChartonError::Encoding("X-axis encoding is missing from specification".to_string())
-        })?;
-        let y_enc = self.encoding.y.as_ref().ok_or_else(|| {
-            ChartonError::Encoding("Y-axis encoding is missing from specification".to_string())
-        })?;
-
+        // --- STEP 1: SPECIFICATION VALIDATION ---
+        // Ensure all required encodings and configurations exist before starting heavy computation.
+        let x_enc = self
+            .encoding
+            .x
+            .as_ref()
+            .ok_or_else(|| ChartonError::Encoding("X-axis encoding is missing".to_string()))?;
+        let y_enc = self
+            .encoding
+            .y
+            .as_ref()
+            .ok_or_else(|| ChartonError::Encoding("Y-axis encoding is missing".to_string()))?;
         let mark_config = self
             .mark
             .as_ref()
             .ok_or_else(|| ChartonError::Mark("MarkPoint configuration is missing".to_string()))?;
 
-        // --- STEP 2: POSITION NORMALIZATION (Vectorized) ---
-        // Extract raw data columns as Polars Series.
+        // --- STEP 2: POSITION NORMALIZATION (Vectorized via Polars) ---
+        // Extract columns and normalize data to [0, 1] range using scale-specific logic.
         let x_series = df_source.column(&x_enc.field)?;
         let y_series = df_source.column(&y_enc.field)?;
 
-        // Access trait objects from the coordinate system (the single source of truth for layout).
         let x_scale_trait = context.coord.get_x_scale();
         let y_scale_trait = context.coord.get_y_scale();
 
-        // Perform vectorized normalization by dispatching based on the Scale enum type
-        // returned by the trait implementation.
         let x_norms = x_scale_trait
             .scale_type()
             .normalize_column(x_scale_trait, &x_series);
@@ -68,107 +62,100 @@ impl MarkRenderer for Chart<MarkPoint> {
             .scale_type()
             .normalize_column(y_scale_trait, &y_series);
 
-        // --- STEP 3: COLOR MAPPING ---
-        // Resolve data-driven color scale or fallback to a static mark color.
-        let color_iter: Box<dyn Iterator<Item = SingleColor>> =
-            if let Some(ref mapping) = context.spec.aesthetics.color {
-                let s = df_source.column(&mapping.field)?;
-                let s_trait = mapping.scale_impl.as_ref();
+        // --- STEP 3: PARALLEL AESTHETIC RESOLUTION ---
+        // We pre-calculate all visual properties (Color, Shape, Size) in parallel
+        // to avoid expensive branching inside the drawing loop.
 
-                // Normalize the aesthetic series using the mapper's specific scale logic.
-                let norms = s_trait.scale_type().normalize_column(s_trait, &s);
-                let l_max = s_trait.logical_max();
+        // Resolve Color: Data-driven mapping vs. Static fallback.
+        let color_vec: Vec<SingleColor> = if let Some(ref mapping) = context.spec.aesthetics.color {
+            let s = df_source.column(&mapping.field)?;
+            let s_trait = mapping.scale_impl.as_ref();
+            let l_max = s_trait.logical_max();
+            let mapper = s_trait.mapper();
+            let s_norms = s_trait.scale_type().normalize_column(s_trait, &s);
 
-                let color_vec: Vec<SingleColor> = norms
-                    .into_iter()
-                    .map(|opt_n| {
-                        // Extract the visual mapper from the scale implementation.
-                        s_trait
-                            .mapper()
-                            .map(|m| m.map_to_color(opt_n.unwrap_or(0.0), l_max))
-                            .unwrap_or_else(|| SingleColor::from("#333333"))
-                    })
-                    .collect();
-                Box::new(color_vec.into_iter())
-            } else {
-                Box::new(std::iter::repeat(mark_config.color))
-            };
+            s_norms
+                .into_par_iter()
+                .map(|opt_n| {
+                    mapper
+                        .as_ref()
+                        .map(|m| m.map_to_color(opt_n.unwrap_or(0.0), l_max))
+                        .unwrap_or_else(|| SingleColor::from("#333333"))
+                })
+                .collect()
+        } else {
+            vec![mark_config.color; row_count]
+        };
 
-        // --- STEP 4: SHAPE MAPPING ---
-        let shape_iter: Box<dyn Iterator<Item = PointShape>> =
-            if let Some(ref mapping) = context.spec.aesthetics.shape {
-                let s = df_source.column(&mapping.field)?;
-                let s_trait = mapping.scale_impl.as_ref();
+        // Resolve Shape: Data-driven mapping vs. Static fallback.
+        let shape_vec: Vec<PointShape> = if let Some(ref mapping) = context.spec.aesthetics.shape {
+            let s = df_source.column(&mapping.field)?;
+            let s_trait = mapping.scale_impl.as_ref();
+            let l_max = s_trait.logical_max();
+            let mapper = s_trait.mapper();
+            let s_norms = s_trait.scale_type().normalize_column(s_trait, &s);
 
-                let norms = s_trait.scale_type().normalize_column(s_trait, &s);
-                let l_max = s_trait.logical_max();
+            s_norms
+                .into_par_iter()
+                .map(|opt_n| {
+                    mapper
+                        .as_ref()
+                        .map(|m| m.map_to_shape(opt_n.unwrap_or(0.0), l_max))
+                        .unwrap_or(PointShape::Circle)
+                })
+                .collect()
+        } else {
+            vec![mark_config.shape; row_count]
+        };
 
-                let shape_vec: Vec<PointShape> = norms
-                    .into_iter()
-                    .map(|opt_n| {
-                        s_trait
-                            .mapper()
-                            .map(|m| m.map_to_shape(opt_n.unwrap_or(0.0), l_max))
-                            .unwrap_or(PointShape::Circle)
-                    })
-                    .collect();
-                Box::new(shape_vec.into_iter())
-            } else {
-                Box::new(std::iter::repeat(mark_config.shape))
-            };
+        // Resolve Size: Data-driven mapping vs. Static fallback.
+        let size_vec: Vec<f64> = if let Some(ref mapping) = context.spec.aesthetics.size {
+            let s = df_source.column(&mapping.field)?;
+            let s_trait = mapping.scale_impl.as_ref();
+            let mapper = s_trait.mapper();
+            let s_norms = s_trait.scale_type().normalize_column(s_trait, &s);
 
-        // --- STEP 5: SIZE MAPPING ---
-        let size_iter: Box<dyn Iterator<Item = f64>> =
-            if let Some(ref mapping) = context.spec.aesthetics.size {
-                let s = df_source.column(&mapping.field)?;
-                let s_trait = mapping.scale_impl.as_ref();
+            s_norms
+                .into_par_iter()
+                .map(|opt_n| {
+                    mapper
+                        .as_ref()
+                        .map(|m| m.map_to_size(opt_n.unwrap_or(0.0)))
+                        .unwrap_or(mark_config.size)
+                })
+                .collect()
+        } else {
+            vec![mark_config.size; row_count]
+        };
 
-                let norms = s_trait.scale_type().normalize_column(s_trait, &s);
+        // --- STEP 4: COORDINATE PROJECTION (Parallel) ---
+        // Transform normalized [0, 1] units into physical screen pixels (px, py).
+        // This is a CPU-bound task that benefits significantly from Rayon.
+        let render_configs: Vec<PointElementConfig> = (0..row_count)
+            .into_par_iter()
+            .map(|i| {
+                let x_n = x_norms[i].unwrap_or(0.0);
+                let y_n = y_norms[i].unwrap_or(0.0);
+                let (px, py) = context.transform(x_n, y_n);
 
-                let size_vec: Vec<f64> = norms
-                    .into_iter()
-                    .map(|opt_n| {
-                        s_trait
-                            .mapper()
-                            .map(|m| m.map_to_size(opt_n.unwrap_or(0.0)))
-                            .unwrap_or(mark_config.size)
-                    })
-                    .collect();
-                Box::new(size_vec.into_iter())
-            } else {
-                Box::new(std::iter::repeat(mark_config.size))
-            };
+                PointElementConfig {
+                    x: px,
+                    y: py,
+                    shape: shape_vec[i],
+                    size: size_vec[i],
+                    fill: color_vec[i],
+                    stroke: mark_config.stroke,
+                    stroke_width: mark_config.stroke_width,
+                    opacity: mark_config.opacity,
+                }
+            })
+            .collect();
 
-        // --- STEP 6: GEOMETRY PROJECTION & RENDERING ---
-        let stroke_color = mark_config.stroke;
-
-        // Zip all aesthetic streams into a single loop to emit draw calls for each row.
-        for ((((x_n, y_n), fill_color), current_shape), size) in x_norms
-            .into_iter()
-            .zip(y_norms.into_iter())
-            .zip(color_iter)
-            .zip(shape_iter)
-            .zip(size_iter)
-        {
-            // Default to 0.0 for missing data points.
-            let x_norm = x_n.unwrap_or(0.0);
-            let y_norm = y_n.unwrap_or(0.0);
-
-            // Convert normalized [0, 1] units to physical panel pixels (e.g. SVG coordinates).
-            let (px, py) = context.transform(x_norm, y_norm);
-
-            // Emit the final command to the rendering backend (SVG, Canvas, etc.).
-            let point_element_config = PointElementConfig {
-                x: px,
-                y: py,
-                shape: current_shape,
-                size,
-                fill: fill_color,
-                stroke: stroke_color,
-                stroke_width: mark_config.stroke_width,
-                opacity: mark_config.opacity,
-            };
-            self.emit_draw_call(backend, point_element_config);
+        // --- STEP 5: SEQUENTIAL DRAW DISPATCH ---
+        // Backends (SVG, Canvas, etc.) are usually single-threaded due to state management.
+        // We iterate through our pre-computed configs and emit draw calls.
+        for config in render_configs {
+            self.emit_draw_call(backend, config);
         }
 
         Ok(())
@@ -181,8 +168,7 @@ impl MarkRenderer for Chart<MarkPoint> {
 
 impl Chart<MarkPoint> {
     /// Dispatches the appropriate backend draw call for the given PointShape.
-    ///
-    /// Updated to match RenderBackend's non-optional &SingleColor signatures.
+    /// This handles the specific geometry math for each shape type.
     fn emit_draw_call(&self, backend: &mut dyn RenderBackend, config: PointElementConfig) {
         let PointElementConfig {
             x,
@@ -195,164 +181,98 @@ impl Chart<MarkPoint> {
             opacity,
         } = config;
 
+        // Shared casting logic to match the backend's expected Precision (f32/f64).
+        let common_opacity = opacity as Precision;
+        let common_stroke_w = stroke_width as Precision;
+
         match shape {
             PointShape::Circle => {
-                let circle_config = CircleConfig {
+                backend.draw_circle(CircleConfig {
                     x: x as Precision,
                     y: y as Precision,
                     radius: size as Precision,
                     fill,
                     stroke,
-                    stroke_width: stroke_width as Precision,
-                    opacity: opacity as Precision,
-                };
-                backend.draw_circle(circle_config);
+                    stroke_width: common_stroke_w,
+                    opacity: common_opacity,
+                });
             }
             PointShape::Square => {
                 let side = size * 2.0;
-                let rect_config = RectConfig {
+                backend.draw_rect(RectConfig {
                     x: (x - size) as Precision,
                     y: (y - size) as Precision,
                     width: side as Precision,
                     height: side as Precision,
                     fill,
                     stroke,
-                    stroke_width: stroke_width as Precision,
-                    opacity: opacity as Precision,
-                };
-                backend.draw_rect(rect_config);
+                    stroke_width: common_stroke_w,
+                    opacity: common_opacity,
+                });
             }
-            PointShape::Diamond => {
-                let points = self
-                    .calculate_polygon(x, y, size * 1.2, 4, 0.0)
-                    .iter()
-                    .map(|p| (p.0 as Precision, p.1 as Precision))
-                    .collect();
-                let polygon_config = PolygonConfig {
-                    points,
+            // Polygon-based shapes (Diamond, Triangle, etc.) use a helper to calculate vertices.
+            _ => {
+                let (sides, rotation, scale_adj) = match shape {
+                    PointShape::Diamond => (4, 0.0, 1.2),
+                    PointShape::Triangle => (3, -std::f64::consts::FRAC_PI_2, 1.1),
+                    PointShape::Pentagon => (5, -std::f64::consts::FRAC_PI_2, 1.0),
+                    PointShape::Hexagon => (6, 0.0, 1.0),
+                    PointShape::Octagon => (8, std::f64::consts::FRAC_PI_8, 1.0),
+                    _ => (0, 0.0, 0.0), // Star is handled separately or as default.
+                };
+
+                let points = if shape == PointShape::Star {
+                    self.calculate_star(x, y, size * 1.2, size * 0.5, 5)
+                } else {
+                    self.calculate_polygon(x, y, size * scale_adj, sides, rotation)
+                };
+
+                backend.draw_polygon(PolygonConfig {
+                    points: points
+                        .iter()
+                        .map(|p| (p.0 as Precision, p.1 as Precision))
+                        .collect(),
                     fill,
                     stroke,
-                    stroke_width: stroke_width as Precision,
-                    fill_opacity: opacity as Precision,
+                    stroke_width: common_stroke_w,
+                    fill_opacity: common_opacity,
                     stroke_opacity: 1.0,
-                };
-                backend.draw_polygon(polygon_config);
-            }
-            PointShape::Triangle => {
-                let points = self
-                    .calculate_polygon(x, y, size * 1.1, 3, -std::f64::consts::FRAC_PI_2)
-                    .iter()
-                    .map(|p| (p.0 as Precision, p.1 as Precision))
-                    .collect();
-                let polygon_config = PolygonConfig {
-                    points,
-                    fill,
-                    stroke,
-                    stroke_width: stroke_width as Precision,
-                    fill_opacity: opacity as Precision,
-                    stroke_opacity: 1.0,
-                };
-                backend.draw_polygon(polygon_config);
-            }
-            PointShape::Pentagon => {
-                let points = self
-                    .calculate_polygon(x, y, size, 5, -std::f64::consts::FRAC_PI_2)
-                    .iter()
-                    .map(|p| (p.0 as Precision, p.1 as Precision))
-                    .collect();
-                let polygon_config = PolygonConfig {
-                    points,
-                    fill,
-                    stroke,
-                    stroke_width: stroke_width as Precision,
-                    fill_opacity: opacity as Precision,
-                    stroke_opacity: 1.0,
-                };
-                backend.draw_polygon(polygon_config);
-            }
-            PointShape::Hexagon => {
-                let points = self
-                    .calculate_polygon(x, y, size, 6, 0.0)
-                    .iter()
-                    .map(|p| (p.0 as Precision, p.1 as Precision))
-                    .collect();
-                let polygon_config = PolygonConfig {
-                    points,
-                    fill,
-                    stroke,
-                    stroke_width: stroke_width as Precision,
-                    fill_opacity: opacity as Precision,
-                    stroke_opacity: 1.0,
-                };
-                backend.draw_polygon(polygon_config);
-            }
-            PointShape::Octagon => {
-                let points = self
-                    .calculate_polygon(x, y, size, 8, std::f64::consts::FRAC_PI_8)
-                    .iter()
-                    .map(|p| (p.0 as Precision, p.1 as Precision))
-                    .collect();
-                let polygon_config = PolygonConfig {
-                    points,
-                    fill,
-                    stroke,
-                    stroke_width: stroke_width as Precision,
-                    fill_opacity: opacity as Precision,
-                    stroke_opacity: 1.0,
-                };
-                backend.draw_polygon(polygon_config);
-            }
-            PointShape::Star => {
-                let points = self
-                    .calculate_star(x, y, size * 1.2, size * 0.5, 5)
-                    .iter()
-                    .map(|p| (p.0 as Precision, p.1 as Precision))
-                    .collect();
-                let polygon_config = PolygonConfig {
-                    points,
-                    fill,
-                    stroke,
-                    stroke_width: stroke_width as Precision,
-                    fill_opacity: opacity as Precision,
-                    stroke_opacity: 1.0,
-                };
-                backend.draw_polygon(polygon_config);
+                });
             }
         }
     }
 
-    /// Computes vertices for regular polygons using f64 for performance.
+    /// Computes vertices for regular polygons.
     fn calculate_polygon(
         &self,
         cx: f64,
         cy: f64,
-        radius: f64,
+        r: f64,
         sides: usize,
-        rotation: f64,
+        rot: f64,
     ) -> Vec<(f64, f64)> {
         (0..sides)
             .map(|i| {
-                let angle = rotation + 2.0 * std::f64::consts::PI * (i as f64) / (sides as f64);
-                (cx + radius * angle.cos(), cy + radius * angle.sin())
+                let angle = rot + 2.0 * std::f64::consts::PI * (i as f64) / (sides as f64);
+                (cx + r * angle.cos(), cy + r * angle.sin())
             })
             .collect()
     }
 
-    /// Computes vertices for a star shape.
+    /// Computes vertices for star shapes.
     fn calculate_star(
         &self,
         cx: f64,
         cy: f64,
-        outer_r: f64,
-        inner_r: f64,
-        points: usize,
+        out_r: f64,
+        in_r: f64,
+        pts: usize,
     ) -> Vec<(f64, f64)> {
-        let total_points = points * 2;
-        (0..total_points)
+        (0..(pts * 2))
             .map(|i| {
-                let angle = -std::f64::consts::FRAC_PI_2
-                    + std::f64::consts::PI * (i as f64) / (points as f64);
-                let r = if i % 2 == 0 { outer_r } else { inner_r };
+                let angle =
+                    -std::f64::consts::FRAC_PI_2 + std::f64::consts::PI * (i as f64) / (pts as f64);
+                let r = if i % 2 == 0 { out_r } else { in_r };
                 (cx + r * angle.cos(), cy + r * angle.sin())
             })
             .collect()
