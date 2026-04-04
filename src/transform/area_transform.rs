@@ -1,10 +1,9 @@
 use crate::TEMP_SUFFIX;
 use crate::chart::Chart;
-use crate::core::data::{ColumnVector, Dataset};
+use crate::core::data::{ColumnVector, SemanticType, Dataset};
 use crate::encode::y::StackMode;
 use crate::error::ChartonError;
 use crate::mark::Mark;
-use crate::scale::Scale;
 use ahash::{AHashMap, AHashSet};
 use rayon::prelude::*;
 
@@ -35,10 +34,15 @@ impl<T: Mark> Chart<T> {
 
         // Determine if X is a Quantitative/Temporal scale (requires sorting)
         // or a Categorical scale (requires order preservation).
-        let is_continuous = match x_enc.scale_type {
-            Some(Scale::Linear) | Some(Scale::Log) | Some(Scale::Temporal) => true,
-            _ => false,
-        };
+        let x_col = self.data.column(&x_enc.field)?;
+        let x_semantic = x_col.semantic_type();
+
+        // Area/Line charts require sorting and numeric alignment if the data is 
+        // continuous (numbers) or temporal (dates), regardless of the final Scale choice.
+        let is_continuous = matches!(
+            x_semantic, 
+            SemanticType::Continuous | SemanticType::Temporal
+        );
 
         let row_count = self.data.height();
         let x_col = self.data.column(x_field)?;
