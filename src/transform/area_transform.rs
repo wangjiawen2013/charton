@@ -1,6 +1,6 @@
 use crate::TEMP_SUFFIX;
 use crate::chart::Chart;
-use crate::core::data::{ColumnVector, SemanticType, Dataset};
+use crate::core::data::{ColumnVector, Dataset, SemanticType};
 use crate::encode::y::StackMode;
 use crate::error::ChartonError;
 use crate::mark::Mark;
@@ -37,10 +37,10 @@ impl<T: Mark> Chart<T> {
         let x_col = self.data.column(&x_enc.field)?;
         let x_semantic = x_col.semantic_type();
 
-        // Area/Line charts require sorting and numeric alignment if the data is 
+        // Area/Line charts require sorting and numeric alignment if the data is
         // continuous (numbers) or temporal (dates), regardless of the final Scale choice.
         let is_continuous = matches!(
-            x_semantic, 
+            x_semantic,
             SemanticType::Continuous | SemanticType::Temporal
         );
 

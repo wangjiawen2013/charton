@@ -10,9 +10,21 @@ impl<T: Mark> Chart<T> {
     pub(crate) fn transform_rect_data(mut self) -> Result<Self, ChartonError> {
         // --- STEP 1: Extract Encodings ---
         // We assume these exist based on previous validation stages.
-        let x_enc = self.encoding.x.as_ref().ok_or_else(|| ChartonError::Encoding("X encoding missing".into()))?;
-        let y_enc = self.encoding.y.as_ref().ok_or_else(|| ChartonError::Encoding("Y encoding missing".into()))?;
-        let color_enc = self.encoding.color.as_ref().ok_or_else(|| ChartonError::Encoding("Color encoding missing".into()))?;
+        let x_enc = self
+            .encoding
+            .x
+            .as_ref()
+            .ok_or_else(|| ChartonError::Encoding("X encoding missing".into()))?;
+        let y_enc = self
+            .encoding
+            .y
+            .as_ref()
+            .ok_or_else(|| ChartonError::Encoding("Y encoding missing".into()))?;
+        let color_enc = self
+            .encoding
+            .color
+            .as_ref()
+            .ok_or_else(|| ChartonError::Encoding("Color encoding missing".into()))?;
 
         // --- STEP 2: Determine Physical Data Types (SemanticType) ---
         let x_col = self.data.column(&x_enc.field)?;
@@ -29,20 +41,24 @@ impl<T: Mark> Chart<T> {
             let n = x_enc.bins.unwrap_or(10);
             let width = if n > 1 { (max - min) / (n as f64) } else { 1.0 };
             Some((min, n, width))
-        } else { None };
+        } else {
+            None
+        };
 
         let y_bin_params = if !y_is_discrete {
             let (min, max) = y_col.min_max();
             let n = y_enc.bins.unwrap_or(10);
             let width = if n > 1 { (max - min) / (n as f64) } else { 1.0 };
             Some((min, n, width))
-        } else { None };
+        } else {
+            None
+        };
 
         // --- STEP 4: First Pass - Aggregation & Coordinate Discovery ---
         // We use a HashMap to aggregate color values and HashSets to track unique X/Y labels.
         let row_count = self.data.height();
         let mut lookup: AHashMap<(String, String), f64> = AHashMap::new();
-        
+
         let mut x_labels = Vec::new();
         let mut y_labels = Vec::new();
         let mut x_seen = AHashSet::new();
@@ -72,8 +88,12 @@ impl<T: Mark> Chart<T> {
             };
 
             // Track unique coordinates to build the Cartesian grid later
-            if x_seen.insert(x_label.clone()) { x_labels.push(x_label.clone()); }
-            if y_seen.insert(y_label.clone()) { y_labels.push(y_label.clone()); }
+            if x_seen.insert(x_label.clone()) {
+                x_labels.push(x_label.clone());
+            }
+            if y_seen.insert(y_label.clone()) {
+                y_labels.push(y_label.clone());
+            }
 
             // Aggregate the color value (Heatmap intensity)
             let c_val = color_col.get_f64(i).unwrap_or(0.0);
@@ -91,7 +111,7 @@ impl<T: Mark> Chart<T> {
             for y in &y_labels {
                 // If the combination doesn't exist in our lookup, fill it with 0.0
                 let val = lookup.get(&(x.clone(), y.clone())).copied().unwrap_or(0.0);
-                
+
                 final_x.push(x.clone());
                 final_y.push(y.clone());
                 final_color.push(val);
@@ -102,19 +122,32 @@ impl<T: Mark> Chart<T> {
         let mut new_ds = Dataset::new();
 
         // Helper to convert the string labels back to appropriate ColumnVector types
-        let cast_to_vector = |labels: Vec<String>, is_discrete: bool, is_binned: bool| -> ColumnVector {
-            if !is_discrete || is_binned {
-                // If it was continuous/binned, parse the midpoint strings back to f64
-                let data = labels.iter().map(|s| s.parse::<f64>().unwrap_or(0.0)).collect();
-                ColumnVector::F64 { data }
-            } else {
-                // If it was truly discrete, keep it as String
-                ColumnVector::String { data: labels, validity: None }
-            }
-        };
+        let cast_to_vector =
+            |labels: Vec<String>, is_discrete: bool, is_binned: bool| -> ColumnVector {
+                if !is_discrete || is_binned {
+                    // If it was continuous/binned, parse the midpoint strings back to f64
+                    let data = labels
+                        .iter()
+                        .map(|s| s.parse::<f64>().unwrap_or(0.0))
+                        .collect();
+                    ColumnVector::F64 { data }
+                } else {
+                    // If it was truly discrete, keep it as String
+                    ColumnVector::String {
+                        data: labels,
+                        validity: None,
+                    }
+                }
+            };
 
-        new_ds.add_column(&x_enc.field, cast_to_vector(final_x, x_is_discrete, x_bin_params.is_some()))?;
-        new_ds.add_column(&y_enc.field, cast_to_vector(final_y, y_is_discrete, y_bin_params.is_some()))?;
+        new_ds.add_column(
+            &x_enc.field,
+            cast_to_vector(final_x, x_is_discrete, x_bin_params.is_some()),
+        )?;
+        new_ds.add_column(
+            &y_enc.field,
+            cast_to_vector(final_y, y_is_discrete, y_bin_params.is_some()),
+        )?;
         new_ds.add_column(&color_enc.field, ColumnVector::F64 { data: final_color })?;
 
         self.data = new_ds;
