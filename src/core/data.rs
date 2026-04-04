@@ -498,6 +498,20 @@ impl_from_col!(u32, U32);
 impl_from_col!(String, String);
 impl_from_col!(OffsetDateTime, DateTime);
 
+/// Represents the result of a grouping operation using high-performance hashing.
+pub struct GroupedIndices {
+    /// A map where the key is the unique identifier for a group (e.g., "North America"),
+    /// and the value is a vector containing the **original row indices** from the Dataset.
+    ///
+    /// ### Why `Vec<usize>`?
+    /// - **Memory Efficiency**: It avoids cloning heavy data (like Strings or large structs).
+    /// - **Performance**: Row indices allow for fast, random-access lookups in the
+    ///   columnar buffers during the rendering or aggregation phase.
+    /// - **Indirection**: This acts as a logical "view" or "filter" over the
+    ///   flat, contiguous memory of the [ColumnVector].
+    pub groups: AHashMap<Option<String>, Vec<usize>>,
+}
+
 /// A normalized, columnar data container.
 ///
 /// `Dataset` is the internal "Single Source of Truth" for Charton.
@@ -765,6 +779,140 @@ impl Dataset {
         }
 
         Ok(final_mask)
+    }
+
+    /// Internal helper to convert a specific cell value into a string for display.
+    /// Handles null checks, numerical precision, and string truncation.
+    fn debug_cell(&self, col_name: &str, row: usize) -> String {
+        // Check for missing data via NaN or Validity Bitmaps
+        if self.is_null(col_name, row) {
+            return "null".to_string();
+        }
+
+        let idx = *self.schema.get(col_name).expect("Schema integrity error");
+        match &*self.columns[idx] {
+            // Format floating points to 4 decimal places for readability
+            ColumnVector::F64 { data } => format!("{:.4}", data[row]),
+            ColumnVector::F32 { data } => format!("{:.4}", data[row]),
+
+            // Standard integer to string conversion
+            ColumnVector::I64 { data, .. } => data[row].to_string(),
+            ColumnVector::I32 { data, .. } => data[row].to_string(),
+            ColumnVector::U32 { data, .. } => data[row].to_string(),
+
+            // Truncate long strings to keep the table layout neat
+            ColumnVector::String { data, .. } => {
+                let s = &data[row];
+                if s.len() > 10 {
+                    format!("{}...", &s[..7])
+                } else {
+                    s.clone()
+                }
+            }
+
+            // Format timestamps using the standard ISO 8601 (RFC 3339) format
+            ColumnVector::DateTime { data, .. } => data[row]
+                .format(&time::format_description::well_known::Rfc3339)
+                .unwrap_or_else(|_| "err_date".to_string()),
+        }
+    }
+
+    /// Partitions the dataset using aHash and Rayon for maximum throughput.
+    pub fn group_by(&self, col_name: Option<&str>) -> GroupedIndices {
+        // 1. Resolve the grouping column.
+        // We use .column() to get the &ColumnVector wrapper which supports polymorphic access.
+        let col_vector = match col_name {
+            Some(name) => self.column(name).ok(), // If column not found, treat as no grouping
+            None => None,
+        };
+
+        // 2. Handle the "No Grouping" or "Column Missing" case early.
+        let vector = match col_vector {
+            Some(v) => v,
+            None => {
+                let mut groups = AHashMap::with_capacity(1);
+                groups.insert(None, (0..self.row_count).collect());
+                return GroupedIndices { groups };
+            }
+        };
+
+        // 3. Parallel Grouping Strategy:
+        // Use fold + reduce to build thread-local maps and merge them, avoiding Mutex contention.
+        let groups = (0..self.row_count)
+            .into_par_iter()
+            .fold(
+                || AHashMap::<Option<String>, Vec<usize>>::with_capacity(64),
+                |mut local_map, i| {
+                    // get_as_string is defined on ColumnVector and handles all variants.
+                    let key = vector.get_as_string(i);
+                    local_map
+                        .entry(key)
+                        .or_insert_with(|| Vec::with_capacity(16))
+                        .push(i);
+                    local_map
+                },
+            )
+            .reduce(
+                || AHashMap::default(),
+                |mut map1, mut map2| {
+                    // Merge local maps into a global one.
+                    // For typical visualization tasks, the number of groups is small,
+                    // making this merge extremely fast.
+                    for (key, mut indices) in map2.drain() {
+                        map1.entry(key)
+                            .or_insert_with(Vec::new)
+                            .append(&mut indices);
+                    }
+                    map1
+                },
+            );
+
+        GroupedIndices { groups }
+    }
+}
+
+/// Enable printing of Dataset
+impl fmt::Debug for Dataset {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        // Print basic metadata about the dataset dimensions
+        writeln!(
+            f,
+            "Dataset: {} rows x {} columns",
+            self.row_count,
+            self.columns.len()
+        )?;
+
+        // 1. Organize headers sorted by their internal column index
+        let mut names: Vec<_> = self.schema.keys().collect();
+        names.sort_by_key(|name| self.schema.get(*name).unwrap());
+
+        // 2. Format and print the header row with fixed-width alignment
+        let header = names
+            .iter()
+            .map(|n| format!("{:<12}", n))
+            .collect::<Vec<_>>()
+            .join("| ");
+        writeln!(f, "{}", header)?;
+        writeln!(f, "{}", "-".repeat(header.len()))?;
+
+        // 3. Print the first 10 rows to prevent console overflow on large datasets
+        let limit = self.row_count.min(10);
+        for row in 0..limit {
+            let mut row_str = Vec::new();
+            for name in &names {
+                // Transpose columnar data into a row-wise string representation
+                let cell = self.debug_cell(name, row);
+                row_str.push(format!("{:<12}", cell));
+            }
+            writeln!(f, "{}", row_str.join("| "))?;
+        }
+
+        // Indicate if there is more data beyond the displayed rows
+        if self.row_count > 10 {
+            writeln!(f, "... and {} more rows", self.row_count - 10)?;
+        }
+
+        Ok(())
     }
 }
 
@@ -1168,89 +1316,6 @@ impl ToDataset for Dataset {
     #[inline]
     fn to_dataset(self) -> Result<Dataset, ChartonError> {
         Ok(self)
-    }
-}
-
-/// Enable printing of Dataset
-impl fmt::Debug for Dataset {
-    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        // Print basic metadata about the dataset dimensions
-        writeln!(
-            f,
-            "Dataset: {} rows x {} columns",
-            self.row_count,
-            self.columns.len()
-        )?;
-
-        // 1. Organize headers sorted by their internal column index
-        let mut names: Vec<_> = self.schema.keys().collect();
-        names.sort_by_key(|name| self.schema.get(*name).unwrap());
-
-        // 2. Format and print the header row with fixed-width alignment
-        let header = names
-            .iter()
-            .map(|n| format!("{:<12}", n))
-            .collect::<Vec<_>>()
-            .join("| ");
-        writeln!(f, "{}", header)?;
-        writeln!(f, "{}", "-".repeat(header.len()))?;
-
-        // 3. Print the first 10 rows to prevent console overflow on large datasets
-        let limit = self.row_count.min(10);
-        for row in 0..limit {
-            let mut row_str = Vec::new();
-            for name in &names {
-                // Transpose columnar data into a row-wise string representation
-                let cell = self.debug_cell(name, row);
-                row_str.push(format!("{:<12}", cell));
-            }
-            writeln!(f, "{}", row_str.join("| "))?;
-        }
-
-        // Indicate if there is more data beyond the displayed rows
-        if self.row_count > 10 {
-            writeln!(f, "... and {} more rows", self.row_count - 10)?;
-        }
-
-        Ok(())
-    }
-}
-
-impl Dataset {
-    /// Internal helper to convert a specific cell value into a string for display.
-    /// Handles null checks, numerical precision, and string truncation.
-    fn debug_cell(&self, col_name: &str, row: usize) -> String {
-        // Check for missing data via NaN or Validity Bitmaps
-        if self.is_null(col_name, row) {
-            return "null".to_string();
-        }
-
-        let idx = *self.schema.get(col_name).expect("Schema integrity error");
-        match &*self.columns[idx] {
-            // Format floating points to 4 decimal places for readability
-            ColumnVector::F64 { data } => format!("{:.4}", data[row]),
-            ColumnVector::F32 { data } => format!("{:.4}", data[row]),
-
-            // Standard integer to string conversion
-            ColumnVector::I64 { data, .. } => data[row].to_string(),
-            ColumnVector::I32 { data, .. } => data[row].to_string(),
-            ColumnVector::U32 { data, .. } => data[row].to_string(),
-
-            // Truncate long strings to keep the table layout neat
-            ColumnVector::String { data, .. } => {
-                let s = &data[row];
-                if s.len() > 10 {
-                    format!("{}...", &s[..7])
-                } else {
-                    s.clone()
-                }
-            }
-
-            // Format timestamps using the standard ISO 8601 (RFC 3339) format
-            ColumnVector::DateTime { data, .. } => data[row]
-                .format(&time::format_description::well_known::Rfc3339)
-                .unwrap_or_else(|_| "err_date".to_string()),
-        }
     }
 }
 
