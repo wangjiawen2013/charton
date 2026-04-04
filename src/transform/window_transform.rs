@@ -1,9 +1,9 @@
-use crate::core::data::{Dataset, ColumnVector};
-use std::collections::HashMap;
+use crate::TEMP_SUFFIX;
 use crate::chart::Chart;
+use crate::core::data::{ColumnVector, Dataset};
 use crate::error::ChartonError;
 use crate::mark::Mark;
-use crate::TEMP_SUFFIX;
+use std::collections::HashMap;
 
 /// Window-specific operations for computing window functions
 ///
@@ -219,25 +219,30 @@ impl WindowTransform {
 
 impl<T: Mark> Chart<T> {
     /// Performs window transformations (Ranking, Row Numbers, or ECDF) on the chart data.
-    /// 
-    /// This implementation replaces previous external data frame logic with a native 
+    ///
+    /// This implementation replaces previous external data frame logic with a native
     /// columnar pipeline, using stable grouping and optional domain expansion for ECDF.
     pub fn transform_window(mut self, params: WindowTransform) -> Result<Self, ChartonError> {
         let n = self.data.height();
-        if n == 0 { return Ok(self); }
+        if n == 0 {
+            return Ok(self);
+        }
 
         let field_name = &params.window.field;
         let output_name = &params.window.as_;
         let target_col = self.data.column(field_name)?;
 
         // --- PHASE 1: UNIFIED GROUPING ---
-        // Partition row indices into groups. If no groupby is specified, 
+        // Partition row indices into groups. If no groupby is specified,
         // the entire dataset is treated as a single group with key 'None'.
         let mut groups: HashMap<Option<String>, Vec<usize>> = HashMap::new();
         if let Some(ref group_field) = params.groupby {
             let group_col = self.data.column(group_field)?;
             for i in 0..n {
-                groups.entry(group_col.get_as_string(i)).or_default().push(i);
+                groups
+                    .entry(group_col.get_as_string(i))
+                    .or_default()
+                    .push(i);
             }
         } else {
             groups.insert(None, (0..n).collect());
@@ -253,7 +258,7 @@ impl<T: Mark> Chart<T> {
             WindowOnlyOp::RowNumber | WindowOnlyOp::Rank => {
                 // Ranking operations maintain the original row count of the existing dataset.
                 let mut results = vec![0.0; n];
-                
+
                 for (_, mut indices) in groups {
                     // Sort indices within each group based on target column values.
                     indices.sort_by(|&a, &b| {
@@ -282,11 +287,13 @@ impl<T: Mark> Chart<T> {
                         _ => unreachable!(),
                     }
                 }
-                self.data.add_column(output_name, ColumnVector::F64 { data: results })?;
+                self.data
+                    .add_column(output_name, ColumnVector::F64 { data: results })?;
             }
             _ => {
                 return Err(ChartonError::Unimplemented(format!(
-                    "Operation {:?} not implemented", params.window.op
+                    "Operation {:?} not implemented",
+                    params.window.op
                 )));
             }
         }
@@ -295,13 +302,13 @@ impl<T: Mark> Chart<T> {
     }
 
     /// Internal helper to handle ECDF logic including Domain Expansion (Padding).
-    /// 
+    ///
     /// Padding ensures the curve starts at (global_min, 0) and ends at (global_max, 1),
     /// which is essential for visual alignment in multi-series step charts.
     fn apply_ecdf_with_padding(
-        &self, 
-        groups: HashMap<Option<String>, Vec<usize>>, 
-        params: &WindowTransform
+        &self,
+        groups: HashMap<Option<String>, Vec<usize>>,
+        params: &WindowTransform,
     ) -> Result<Dataset, ChartonError> {
         let field_name = &params.window.field;
         let output_name = &params.window.as_;
@@ -314,13 +321,20 @@ impl<T: Mark> Chart<T> {
 
         for i in 0..self.data.height() {
             if let Some(v) = target_col.get_f64(i) {
-                if v < global_min { global_min = v; }
-                if v > global_max { global_max = v; }
+                if v < global_min {
+                    global_min = v;
+                }
+                if v > global_max {
+                    global_max = v;
+                }
                 found_any = true;
             }
         }
-        
-        if !found_any { global_min = 0.0; global_max = 0.0; }
+
+        if !found_any {
+            global_min = 0.0;
+            global_max = 0.0;
+        }
 
         // --- STEP 2: EXPAND ROWS ---
         let mut expanded_x = Vec::new();
@@ -343,28 +357,41 @@ impl<T: Mark> Chart<T> {
 
             let group_size = group_indices.len() as f64;
             // "all" is used as the internal label if no grouping field exists.
-            let group_label = key.as_deref().unwrap_or(&format!("{}_all", TEMP_SUFFIX)).to_string();
+            let group_label = key
+                .as_deref()
+                .unwrap_or(&format!("{}_all", TEMP_SUFFIX))
+                .to_string();
 
             // A. Start Padding (Global Min)
             expanded_x.push(global_min);
             expanded_y.push(0.0);
-            if params.groupby.is_some() { expanded_groups.push(group_label.clone()); }
+            if params.groupby.is_some() {
+                expanded_groups.push(group_label.clone());
+            }
 
             // B. Actual Data Points
             for (i, &idx) in group_indices.iter().enumerate() {
                 let x_val = target_col.get_f64(idx).unwrap_or(0.0);
                 let count = (i + 1) as f64;
-                let y_val = if params.normalize { count / group_size } else { count };
+                let y_val = if params.normalize {
+                    count / group_size
+                } else {
+                    count
+                };
 
                 expanded_x.push(x_val);
                 expanded_y.push(y_val);
-                if params.groupby.is_some() { expanded_groups.push(group_label.clone()); }
+                if params.groupby.is_some() {
+                    expanded_groups.push(group_label.clone());
+                }
             }
 
             // C. End Padding (Global Max)
             expanded_x.push(global_max);
             expanded_y.push(if params.normalize { 1.0 } else { group_size });
-            if params.groupby.is_some() { expanded_groups.push(group_label); }
+            if params.groupby.is_some() {
+                expanded_groups.push(group_label);
+            }
         }
 
         // --- STEP 3: CONSTRUCT NEW DATASET ---
@@ -376,10 +403,13 @@ impl<T: Mark> Chart<T> {
 
         // Only add the grouping column if it was present in the original request.
         if let Some(ref g_name) = params.groupby {
-            new_ds.add_column(g_name, ColumnVector::String { 
-                data: expanded_groups, 
-                validity: None 
-            })?;
+            new_ds.add_column(
+                g_name,
+                ColumnVector::String {
+                    data: expanded_groups,
+                    validity: None,
+                },
+            )?;
         }
 
         Ok(new_ds)

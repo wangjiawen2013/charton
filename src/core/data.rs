@@ -1255,9 +1255,9 @@ impl Dataset {
 }
 
 /// Represents the statistical aggregation operations available for data transformation.
-/// 
+///
 /// This enum defines how multiple data points are collapsed into a single value
-/// during the transformation phase. It is used both in simple aggregations 
+/// during the transformation phase. It is used both in simple aggregations
 /// and complex window functions.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Default)]
 pub enum AggregateOp {
