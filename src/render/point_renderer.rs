@@ -32,7 +32,7 @@ impl MarkRenderer for Chart<MarkPoint> {
         let df_source = &self.data;
 
         // Return early if there is no data to render to avoid unnecessary overhead.
-        if df_source.df.height() == 0 {
+        if df_source.height() == 0 {
             return Ok(());
         }
 
@@ -63,10 +63,10 @@ impl MarkRenderer for Chart<MarkPoint> {
         // returned by the trait implementation.
         let x_norms = x_scale_trait
             .scale_type()
-            .normalize_series(x_scale_trait, &x_series)?;
+            .normalize_column(x_scale_trait, &x_series);
         let y_norms = y_scale_trait
             .scale_type()
-            .normalize_series(y_scale_trait, &y_series)?;
+            .normalize_column(y_scale_trait, &y_series);
 
         // --- STEP 3: COLOR MAPPING ---
         // Resolve data-driven color scale or fallback to a static mark color.
@@ -76,7 +76,7 @@ impl MarkRenderer for Chart<MarkPoint> {
                 let s_trait = mapping.scale_impl.as_ref();
 
                 // Normalize the aesthetic series using the mapper's specific scale logic.
-                let norms = s_trait.scale_type().normalize_series(s_trait, &s)?;
+                let norms = s_trait.scale_type().normalize_column(s_trait, &s);
                 let l_max = s_trait.logical_max();
 
                 let color_vec: Vec<SingleColor> = norms
@@ -100,7 +100,7 @@ impl MarkRenderer for Chart<MarkPoint> {
                 let s = df_source.column(&mapping.field)?;
                 let s_trait = mapping.scale_impl.as_ref();
 
-                let norms = s_trait.scale_type().normalize_series(s_trait, &s)?;
+                let norms = s_trait.scale_type().normalize_column(s_trait, &s);
                 let l_max = s_trait.logical_max();
 
                 let shape_vec: Vec<PointShape> = norms
@@ -123,7 +123,7 @@ impl MarkRenderer for Chart<MarkPoint> {
                 let s = df_source.column(&mapping.field)?;
                 let s_trait = mapping.scale_impl.as_ref();
 
-                let norms = s_trait.scale_type().normalize_series(s_trait, &s)?;
+                let norms = s_trait.scale_type().normalize_column(s_trait, &s);
 
                 let size_vec: Vec<f64> = norms
                     .into_iter()
