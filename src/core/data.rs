@@ -3,6 +3,7 @@ use std::collections::HashMap;
 use std::fmt;
 use std::sync::Arc;
 use time::OffsetDateTime;
+use rayon::prelude::*;
 
 #[cfg(feature = "arrow")]
 use arrow::array::{Array, Float32Array, Float64Array, Int64Array, StringArray};
@@ -163,6 +164,62 @@ impl ColumnVector {
         }
     }
 
+
+    /// Alias for your existing get_f64 to match the calling code.
+    pub fn get_as_f64(&self, row: usize) -> Option<f64> {
+        self.get_f64(row)
+    }
+
+    /// Retrieves a value as a String for grouping or labeling.
+    /// This is used as the 'Key' in group-by operations (like stacking).
+    pub fn get_as_string(&self, row: usize) -> Option<String> {
+        match self {
+            ColumnVector::String { data, validity } => {
+                if Self::is_valid_in_mask(validity, row) {
+                    Some(data[row].clone())
+                } else {
+                    None
+                }
+            }
+            ColumnVector::I64 { data, validity } => {
+                if Self::is_valid_in_mask(validity, row) {
+                    Some(format!("{}", data[row]))
+                } else {
+                    None
+                }
+            }
+            ColumnVector::I32 { data, validity } => {
+                if Self::is_valid_in_mask(validity, row) {
+                    Some(format!("{}", data[row]))
+                } else {
+                    None
+                }
+            }
+            ColumnVector::U32 { data, validity } => {
+                if Self::is_valid_in_mask(validity, row) {
+                    Some(format!("{}", data[row]))
+                } else {
+                    None
+                }
+            }
+            ColumnVector::F64 { data } => {
+                let v = data[row];
+                if v.is_nan() { None } else { Some(format!("{}", v)) }
+            }
+            ColumnVector::F32 { data } => {
+                let v = data[row];
+                if v.is_nan() { None } else { Some(format!("{}", v)) }
+            }
+            ColumnVector::DateTime { data, validity } => {
+                if Self::is_valid_in_mask(validity, row) {
+                    Some(format!("{}", data[row]))
+                } else {
+                    None
+                }
+            }
+        }
+    }
+
     /// Returns the number of unique non-null values in the column.
     ///
     /// This implementation respects the specific null-representation of each 
@@ -252,6 +309,153 @@ impl ColumnVector {
                 }
                 set.len()
             }
+        }
+    }
+
+    /// Returns a stable, unique list of values as Strings for Discrete scales.
+    /// 
+    /// This is ONLY intended for Discrete (Categorical) axes. For performance,
+    /// it only handles types that are commonly used as categories.
+    pub fn unique_values(&self) -> Vec<String> {
+        let mut result = Vec::new();
+
+        match self {
+            // String is the primary candidate for Discrete scales.
+            ColumnVector::String { data, validity } => {
+                let mut seen = std::collections::HashSet::new();
+                for (i, s) in data.iter().enumerate() {
+                    if Self::is_valid_in_mask(validity, i) {
+                        if seen.insert(s) {
+                            result.push(s.clone());
+                        }
+                    }
+                }
+            }
+
+            // Integers can often act as Discrete categories (e.g., Year, ID, Group Number).
+            ColumnVector::I64 { data, validity } => {
+                let mut seen = std::collections::HashSet::new();
+                for (i, &v) in data.iter().enumerate() {
+                    if Self::is_valid_in_mask(validity, i) {
+                        if seen.insert(v) {
+                            result.push(v.to_string());
+                        }
+                    }
+                }
+            }
+            
+            // For I32/U32, the logic is identical.
+            ColumnVector::I32 { data, validity } => {
+                let mut seen = std::collections::HashSet::new();
+                for (i, &v) in data.iter().enumerate() {
+                    if Self::is_valid_in_mask(validity, i) {
+                        if seen.insert(v) {
+                            result.push(v.to_string());
+                        }
+                    }
+                }
+            }
+
+            // We skip F64/F32 in unique_values. 
+            // If a user forces a Float column to be Discrete, they should 
+            // usually bin it first or cast it to String.
+            _ => {
+                // Return empty or a basic string representation if absolutely necessary,
+                // but usually, SemanticType::Discrete won't be assigned to Floats.
+            }
+        }
+        result
+    }
+
+    /// Computes both minimum and maximum values in a single parallel scan.
+    /// 
+    /// Returns a tuple `(min, max)` as `f64`. This method handles null-checks 
+    /// (NaN for floats and bitmasks for other types) and uses Rayon for 
+    /// multi-threaded execution.
+    pub fn min_max(&self) -> (f64, f64) {
+        let identity = (f64::INFINITY, f64::NEG_INFINITY);
+
+        match self {
+            // --- FLOAT PATHS ---
+            ColumnVector::F64 { data } => {
+                data.par_iter()
+                    .filter(|&&v| !v.is_nan())
+                    .fold(|| identity, |(min, max), &v| (min.min(v), max.max(v)))
+                    .reduce(|| identity, |(m1, x1), (m2, x2)| (m1.min(m2), x1.max(x2)))
+            }
+            ColumnVector::F32 { data } => {
+                data.par_iter()
+                    .filter(|&&v| !v.is_nan())
+                    .fold(|| identity, |(min, max), &v| {
+                        let v64 = v as f64;
+                        (min.min(v64), max.max(v64))
+                    })
+                    .reduce(|| identity, |(m1, x1), (m2, x2)| (m1.min(m2), x1.max(x2)))
+            }
+
+            // --- INTEGER PATHS ---
+            // Explicitly cast primitives to f64 via the closure.
+            ColumnVector::I64 { data, validity } => {
+                self.parallel_scan_with_mask(data, validity, |&v| v as f64)
+            }
+            ColumnVector::I32 { data, validity } => {
+                self.parallel_scan_with_mask(data, validity, |&v| v as f64)
+            }
+            ColumnVector::U32 { data, validity } => {
+                self.parallel_scan_with_mask(data, validity, |&v| v as f64)
+            }
+
+            // --- TEMPORAL PATH ---
+            // Converts OffsetDateTime to a Unix timestamp (seconds) for numeric scaling.
+            ColumnVector::DateTime { data, validity } => {
+                self.parallel_scan_with_mask(data, validity, |&v| v.unix_timestamp() as f64)
+            }
+
+            // --- DISCRETE/OTHER ---
+            _ => (0.0, 0.0),
+        }
+    }
+
+    /// Internal parallel scanner utilizing a Map-Reduce pattern for maximum throughput.
+    /// 
+    /// Takes a data slice, an optional validity mask, and a conversion closure.
+    /// Fails gracefully by skipping masked (null) values.
+    fn parallel_scan_with_mask<T, F>(
+        &self,
+        data: &[T],
+        validity: &Option<Vec<u8>>,
+        convert: F,
+    ) -> (f64, f64)
+    where
+        T: Copy + Sync + Send,
+        F: Fn(&T) -> f64 + Sync + Send,
+    {
+        let identity = (f64::INFINITY, f64::NEG_INFINITY);
+
+        if let Some(mask) = validity {
+            data.par_iter()
+                .enumerate()
+                .fold(
+                    || identity,
+                    |(min, max), (i, v)| {
+                        // Check the i-th bit in the bitmask
+                        if (mask[i / 8] >> (i % 8)) & 1 == 1 {
+                            let val = convert(v);
+                            (min.min(val), max.max(val))
+                        } else {
+                            (min, max)
+                        }
+                    },
+                )
+                .reduce(|| identity, |(m1, x1), (m2, x2)| (m1.min(m2), x1.max(x2)))
+        } else {
+            // Optimization: No bitmask present, process all elements.
+            data.par_iter()
+                .fold(|| identity, |(min, max), v| {
+                    let val = convert(v);
+                    (min.min(val), max.max(val))
+                })
+                .reduce(|| identity, |(m1, x1), (m2, x2)| (m1.min(m2), x1.max(x2)))
         }
     }
 }

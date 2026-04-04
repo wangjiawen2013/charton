@@ -428,7 +428,7 @@ impl<T: Mark> Chart<T> {
             _ => {}
         }
 
-        let resolved_semantics = self.data.check_schema(&active_fields, &expected_semantics)?;
+        let _resolved_semantics = self.data.check_schema(&active_fields, &expected_semantics)?;
 
         // --- Step 5: Statistical Transformations ---
         // Resolve bins (required before transformations like histograms)
@@ -514,159 +514,97 @@ impl<T: Mark> Chart<T> {
 
     /// Completes the chart's encoding configuration by inferring missing metadata.
     fn apply_post_transform_defaults(&mut self) -> Result<(), ChartonError> {
-        // Determine the mark type early to apply specific defaults (e.g., Rect, Hist)
+        // 1. PRE-RESOLUTION SETUP
         let mt = self.mark.as_ref().unwrap().mark_type();
+        
+        // Define a helper closure to infer scale type based on the column's semantic type.
+        // This removes the need for repetitive match statements across all channels.
+        let resolve_scale_type = |field: &str| -> Result<Scale, ChartonError> {
+            let col = self.data.column(field)?;
+            Ok(match col.semantic_type() {
+                SemanticType::Continuous => Scale::Linear,
+                SemanticType::Discrete => Scale::Discrete,
+                SemanticType::Temporal => Scale::Temporal,
+            })
+        };
 
+        // --- 2. RESOLVE SCALE TYPES FOR ALL CHANNELS ---
+        // Resolve X and Y (Mandatory)
+        if self.encoding.x.as_ref().unwrap().scale_type.is_none() {
+            let x_enc = self.encoding.x.as_mut().unwrap();
+            x_enc.scale_type = Some(resolve_scale_type(&x_enc.field)?);
+        }
+        if self.encoding.y.as_ref().unwrap().scale_type.is_none() {
+            let y_enc = self.encoding.y.as_mut().unwrap();
+            y_enc.scale_type = Some(resolve_scale_type(&y_enc.field)?);
+        }
+
+        // Resolve Optional Channels (Color, Shape, Size)
+        if let Some(ref mut color) = self.encoding.color {
+            if color.scale_type.is_none() { color.scale_type = Some(resolve_scale_type(&color.field)?); }
+        }
+        if let Some(ref mut shape) = self.encoding.shape {
+            if shape.scale_type.is_none() { shape.scale_type = Some(resolve_scale_type(&shape.field)?); }
+        }
+        if let Some(ref mut size) = self.encoding.size {
+            if size.scale_type.is_none() { size.scale_type = Some(resolve_scale_type(&size.field)?); }
+        }
+
+        // --- 3. RESOLVE SPECIAL PADDING & BASELINES ---
         let x_enc = self.encoding.x.as_mut().unwrap();
         let y_enc = self.encoding.y.as_mut().unwrap();
 
-        // --- 1. RESOLVE SCALE TYPES ---
-        // Infer the semantic scale type (Linear, Discrete, or Temporal) based on the column's DataType
-        if x_enc.scale_type.is_none() {
-            let x_dtype = self.data.df.schema().get(&x_enc.field).unwrap();
-            x_enc.scale_type = Some(match interpret_semantic_type(x_dtype) {
-                SemanticType::Continuous => Scale::Linear,
-                SemanticType::Discrete => Scale::Discrete,
-                SemanticType::Temporal => Scale::Temporal,
-            });
-        }
+        // Statistical Integrity for Linear Y-Scales:
+        // Marks representing magnitude (Bar, Area, Hist) should generally start at zero.
+        if y_enc.scale_type == Some(Scale::Linear) && ["area", "bar", "hist"].contains(&mt) {
+            y_enc.zero = Some(true);
 
-        if y_enc.scale_type.is_none() {
-            let y_dtype = self.data.df.schema().get(&y_enc.field).unwrap();
-            y_enc.scale_type = Some(match interpret_semantic_type(y_dtype) {
-                SemanticType::Continuous => Scale::Linear,
-                SemanticType::Discrete => Scale::Discrete,
-                SemanticType::Temporal => Scale::Temporal,
-            });
-        }
+            // PIE MODE DETECTION: An empty X field implies a radial projection of the Y axis.
+            let is_pie_mode = x_enc.field.is_empty();
 
-        // --- 2. RESOLVE SPECIAL PADDING & BASELINES ---
-        // Apply chart-specific visual rules to ensure statistical integrity and optimal layout.
-        if y_enc.scale_type == Some(Scale::Linear) {
-            // These mark types represent magnitudes and generally require a zero-based coordinate system.
-            if ["area", "bar", "hist"].contains(&mt) {
-                // Ensure the scale includes zero to avoid misleading truncated axes.
-                y_enc.zero = Some(true);
+            if let Ok(y_col) = self.data.column(&y_enc.field) {
+                let (y_min, y_max) = y_col.min_max();
 
-                // Detection of Pie/Donut mode:
-                // In this framework, an empty X field signifies that all data points are
-                // mapped to a single angular slot, which characterizes a Pie chart.
-                let is_pie_mode = x_enc.field.is_empty();
-
-                if let Ok(y_series) = self.data.column(&y_enc.field) {
-                    let y_min = y_series.min::<f64>()?.unwrap_or(0.0);
-                    let y_max = y_series.max::<f64>()?.unwrap_or(0.0);
-
-                    // Configure Scale Expansion (Padding):
-                    y_enc.expansion = Some(if is_pie_mode {
-                        // CRITICAL: Pie charts map the Y-axis to the angular span (0 to 2π).
-                        // Any expansion (e.g., the standard 5% padding) would create a
-                        // "gap" or "crack" in the circle because the data sum wouldn't
-                        // reach the expanded scale maximum. We force zero expansion here.
-                        Expansion {
-                            mult: (0.0, 0.0),
-                            add: (0.0, 0.0),
-                        }
-                    } else if y_min >= 0.0 {
-                        // For standard bars, add a 5% buffer at the top to prevent
-                        // the marks from touching the chart boundary.
-                        Expansion {
-                            mult: (0.0, 0.05),
-                            add: (0.0, 0.0),
-                        }
-                    } else if y_max <= 0.0 {
-                        // Add buffer at the bottom for negative-only charts.
-                        Expansion {
-                            mult: (0.05, 0.0),
-                            add: (0.0, 0.0),
-                        }
-                    } else {
-                        // Use default behavior for charts spanning across zero.
-                        Expansion::default()
-                    });
-                }
+                y_enc.expansion = Some(if is_pie_mode {
+                    // Force zero expansion for Pie charts to prevent "cracks" in the circle.
+                    Expansion { mult: (0.0, 0.0), add: (0.0, 0.0) }
+                } else if y_min >= 0.0 {
+                    // Buffer at the top for positive distributions.
+                    Expansion { mult: (0.0, 0.05), add: (0.0, 0.0) }
+                } else if y_max <= 0.0 {
+                    // Buffer at the bottom for negative distributions.
+                    Expansion { mult: (0.05, 0.0), add: (0.0, 0.0) }
+                } else {
+                    // Default padding for data crossing zero.
+                    Expansion::default()
+                });
             }
         }
 
-        // --- 3. HALF-STEP EXPANSION FOR DISCRETE AXES ---
-        // For marks with "thickness" (Bar, Boxplot, Rect) on a Discrete axis, we add a 0.5
-        // unit padding. This ensures the first and last marks have enough space and
-        // don't overlap with the axis lines.
+        // --- 4. HALF-STEP PADDING FOR DISCRETE AXES ---
+        // Categorical marks with thickness (Bar, Boxplot, Rect) need 0.5 units of padding
+        // to center the marks and prevent them from clipping against the axis lines.
         let needs_discrete_padding = ["bar", "boxplot", "rect"].contains(&mt);
         if needs_discrete_padding {
-            // Apply to X axis (Common for Bar/Boxplot)
             if x_enc.scale_type == Some(Scale::Discrete) && x_enc.expansion.is_none() {
-                x_enc.expansion = Some(Expansion {
-                    mult: (0.0, 0.0),
-                    add: (0.5, 0.5),
-                });
+                x_enc.expansion = Some(Expansion { mult: (0.0, 0.0), add: (0.5, 0.5) });
             }
-            // Apply to Y axis (Specific to Discrete Heatmaps)
             if y_enc.scale_type == Some(Scale::Discrete) && y_enc.expansion.is_none() {
-                y_enc.expansion = Some(Expansion {
-                    mult: (0.0, 0.0),
-                    add: (0.5, 0.5),
-                });
+                y_enc.expansion = Some(Expansion { mult: (0.0, 0.0), add: (0.5, 0.5) });
             }
         }
 
-        // --- 4. FLUSH EXPANSION FOR CONTINUOUS RECT ---
-        // Rect charts (Heatmaps) on continuous axes should flush to the edges.
-        // Since we already apply "Half-bin Compensation" in get_data_bounds,
-        // we set Expansion to zero here to avoid double-padding.
+        // --- 5. FLUSH CONTINUOUS RECTANGLES ---
+        // Heatmaps (Rect) on continuous scales should touch the edges of the plotting area.
         if mt == "rect" {
             if x_enc.scale_type != Some(Scale::Discrete) && x_enc.expansion.is_none() {
-                x_enc.expansion = Some(Expansion {
-                    mult: (0.0, 0.0),
-                    add: (0.0, 0.0),
-                });
+                x_enc.expansion = Some(Expansion { mult: (0.0, 0.0), add: (0.0, 0.0) });
             }
             if y_enc.scale_type != Some(Scale::Discrete) && y_enc.expansion.is_none() {
-                y_enc.expansion = Some(Expansion {
-                    mult: (0.0, 0.0),
-                    add: (0.0, 0.0),
-                });
+                y_enc.expansion = Some(Expansion { mult: (0.0, 0.0), add: (0.0, 0.0) });
             }
         }
 
-        // --- 5. RESOLVE OPTIONAL COLOR CHANNEL ---
-        if let Some(ref mut color_enc) = self.encoding.color {
-            // Only infer the color scale type if it isn't predefined
-            if color_enc.scale_type.is_none() {
-                let c_dtype = self.data.df.schema().get(&color_enc.field).unwrap();
-                color_enc.scale_type = Some(match interpret_semantic_type(c_dtype) {
-                    SemanticType::Continuous => Scale::Linear,
-                    SemanticType::Discrete => Scale::Discrete,
-                    SemanticType::Temporal => Scale::Temporal,
-                });
-            }
-        }
-
-        // --- 6. RESOLVE OPTIONAL SHAPE CHANNEL ---
-        if let Some(ref mut shape_enc) = self.encoding.shape {
-            // Only infer the shape scale type if it isn't predefined
-            if shape_enc.scale_type.is_none() {
-                let s_dtype = self.data.df.schema().get(&shape_enc.field).unwrap();
-                shape_enc.scale_type = Some(match interpret_semantic_type(s_dtype) {
-                    SemanticType::Continuous => Scale::Linear,
-                    SemanticType::Discrete => Scale::Discrete,
-                    SemanticType::Temporal => Scale::Temporal,
-                });
-            }
-        }
-
-        // --- 7. RESOLVE OPTIONAL SIZE CHANNEL ---
-        if let Some(ref mut size_enc) = self.encoding.size {
-            // Only infer the size scale type if it isn't predefined
-            if size_enc.scale_type.is_none() {
-                let s_dtype = self.data.df.schema().get(&size_enc.field).unwrap();
-                size_enc.scale_type = Some(match interpret_semantic_type(s_dtype) {
-                    SemanticType::Continuous => Scale::Linear,
-                    SemanticType::Discrete => Scale::Discrete,
-                    SemanticType::Temporal => Scale::Temporal,
-                });
-            }
-        }
         Ok(())
     }
 }
@@ -714,112 +652,76 @@ where
     /// 2. **Explicit Intervals**: Mappings with secondary fields (e.g., y2).
     /// 3. **Implicit Intervals**: Statistical transforms that generate hidden columns
     ///    (e.g., __charton_temp_{field}_min/max).
+    /// Calculates the raw data boundaries for any visual channel.
     fn get_data_bounds(&self, channel: Channel) -> Result<ScaleDomain, ChartonError> {
         let field_name = self.encoding.get_field_by_channel(channel).ok_or_else(|| {
             ChartonError::Data(format!("No field mapped to channel {:?}", channel))
         })?;
 
         let primary_series = self.data.column(field_name)?;
-        let semantic_type = interpret_semantic_type(primary_series.dtype());
+        let semantic_type = primary_series.semantic_type();
 
         match semantic_type {
+            // --- DISCRETE DOMAIN ---
             SemanticType::Discrete => {
-                let labels = primary_series
-                    .unique_stable()?
-                    .cast(&DataType::String)?
-                    .str()?
-                    .into_no_null_iter()
-                    .map(|s| s.to_string())
-                    .collect::<Vec<String>>();
+                let labels = primary_series.unique_values();
                 Ok(ScaleDomain::Discrete(labels))
             }
 
+            // --- TEMPORAL DOMAIN ---
             SemanticType::Temporal => {
-                let min_ns = primary_series
-                    .min::<i64>()?
-                    .ok_or_else(|| ChartonError::Data("Time series is empty".into()))?;
-                let max_ns = primary_series
-                    .max::<i64>()?
-                    .ok_or_else(|| ChartonError::Data("Time series is empty".into()))?;
-                Ok(ScaleDomain::Temporal(min_ns, max_ns))
+                let (min_ts, max_ts) = primary_series.min_max();
+                Ok(ScaleDomain::Temporal(min_ts as i64, max_ts as i64))
             }
 
+            // --- CONTINUOUS DOMAIN ---
             SemanticType::Continuous => {
                 let mut global_min = f64::INFINITY;
                 let mut global_max = f64::NEG_INFINITY;
                 let mut found_data = false;
 
-                // --- STACKED BAR LOGIC ---
-                // For stacked charts, boundaries are determined by the sum of values
-                // in each group rather than individual rows.
+                // Determine if stacking is required (Y-axis + Stack Mode + Color grouping)
                 let is_y_stacked = channel == Channel::Y
-                    && self
-                        .encoding
-                        .y
-                        .as_ref()
-                        .is_some_and(|e| e.stack != StackMode::None)
+                    && self.encoding.y.as_ref().is_some_and(|e| e.stack != StackMode::None)
                     && self.encoding.color.is_some();
 
                 if is_y_stacked {
                     let x_field = &self.encoding.x.as_ref().unwrap().field;
                     let y_field = &self.encoding.y.as_ref().unwrap().field;
+                    
+                    let x_series = self.data.column(x_field)?;
+                    let y_series = self.data.column(y_field)?;
 
-                    // Distinguish between Area and Bar charts:
-                    // Area charts have pre-computed y_min/y_max columns from transform_area_data()
-                    // Bar charts calculate stacking at render time (no pre-computed columns)
-                    let mark_type = self.mark.as_ref().map(|m| m.mark_type());
-                    let is_area = matches!(mark_type, Some("area"));
-
-                    if is_area {
-                        // Area Chart: Scan pre-computed y_min/y_max columns generated by transform
-                        // Column naming convention: __charton_temp_{field}_min/max
-                        let y_min = format!("{}_{}_min", TEMP_SUFFIX, y_field);
-                        let y_max = format!("{}_{}_max", TEMP_SUFFIX, y_field);
-
-                        for col_name in [&y_min, &y_max] {
-                            if let Ok(series) = self.data.column(col_name) {
-                                if let Ok(Some(m)) = series.min::<f64>() {
-                                    global_min = global_min.min(m);
-                                    found_data = true;
-                                }
-                                if let Ok(Some(m)) = series.max::<f64>() {
-                                    global_max = global_max.max(m);
-                                    found_data = true;
-                                }
-                            }
+                    // --- MANUAL STACKING AGGREGATION ---
+                    // We use a HashMap to group Y-sums by their X-category string representation.
+                    let mut stacks: std::collections::HashMap<String, f64> = std::collections::HashMap::new();
+                    
+                    // We iterate through the data rows
+                    // Note: This assumes all columns in your 'self.data' have the same length.
+                    let row_count = x_series.len();
+                    for i in 0..row_count {
+                        // Extract X key and Y value for current row
+                        if let (Some(x_val), Some(y_val)) = (x_series.get_as_string(i), y_series.get_as_f64(i)) {
+                            let entry = stacks.entry(x_val).or_insert(0.0);
+                            *entry += y_val;
                         }
-                    } else {
-                        // Bar Chart: Aggregate sums per X-axis category to find the true visual peak
-                        // Bar charts don't have pre-computed columns, so we calculate stacking on-the-fly
-                        let grouped_sums = self
-                            .data
-                            .df
-                            .clone()
-                            .lazy()
-                            .group_by([col(x_field)])
-                            .agg([col(y_field).sum().alias("stack_sum")])
-                            .collect()?;
+                    }
 
-                        let sum_series = grouped_sums.column("stack_sum")?.as_materialized_series();
-                        global_min = sum_series.min::<f64>()?.unwrap_or(0.0);
-                        global_max = sum_series.max::<f64>()?.unwrap_or(0.0);
+                    // Find min/max across all stack totals
+                    for &sum in stacks.values() {
+                        global_min = global_min.min(sum);
+                        global_max = global_max.max(sum);
                         found_data = true;
                     }
                 } else {
-                    // Non-stacked charts: Scan available columns for boundaries
+                    // --- STANDARD SCANNING LOGIC ---
                     let mut columns_to_scan = Vec::new();
-
-                    // Determine if we need to include the original field_name column
-                    // Area charts use pre-computed y_min/y_max columns, so skip the original field
-                    // Other chart types (Point, Line, etc.) need the original field
                     let mark_type = self.mark.as_ref().map(|m| m.mark_type());
-                    let needs_original_field = !matches!(mark_type, Some("area"));
-
-                    if needs_original_field {
+                    
+                    if !matches!(mark_type, Some("area")) {
                         columns_to_scan.push(field_name.to_string());
                     }
 
-                    // For Y channel, also scan secondary fields and transform-gernerated columns
                     if channel == Channel::Y {
                         if let Some(y2_enc) = &self.encoding.y2 {
                             columns_to_scan.push(y2_enc.field.clone());
@@ -828,31 +730,24 @@ where
                         columns_to_scan.push(format!("{}_{}_max", TEMP_SUFFIX, field_name));
                     }
 
-                    // Scan all candidate columns and compute global min/max
                     for col_name in &columns_to_scan {
                         if let Ok(series) = self.data.column(col_name) {
-                            if let Ok(Some(m)) = series.min::<f64>() {
-                                global_min = global_min.min(m);
-                                found_data = true;
-                            }
-                            if let Ok(Some(m)) = series.max::<f64>() {
-                                global_max = global_max.max(m);
-                                found_data = true;
-                            }
+                            let (m_min, m_max) = series.min_max();
+                            global_min = global_min.min(m_min);
+                            global_max = global_max.max(m_max);
+                            found_data = true;
                         }
                     }
                 }
 
-                // Fallback if no data was found during scan
+                // Final fallbacks and adjustments
                 if !found_data {
-                    global_min = primary_series.min::<f64>()?.unwrap_or(0.0);
-                    global_max = primary_series.max::<f64>()?.unwrap_or(1.0);
+                    let (p_min, p_max) = primary_series.min_max();
+                    global_min = p_min;
+                    global_max = p_max;
                 }
 
-                // --- HALF-BIN COMPENSATION LOGIC ---
-                // For binned data (e.g., Rect/Heatmap), the current min/max represent bin centers.
-                // We expand the domain by half a bin width on both sides so the scale covers
-                // the full visual extent of the rectangles.
+                // Half-bin compensation for Binned data
                 let bins = match channel {
                     Channel::X => self.encoding.x.as_ref().and_then(|e| e.bins),
                     Channel::Y => self.encoding.y.as_ref().and_then(|e| e.bins),
@@ -861,20 +756,13 @@ where
 
                 if let Some(n_bins) = bins {
                     if n_bins > 1 && global_max > global_min {
-                        // The distance between the first and last center covers (n-1) intervals.
                         let bin_width = (global_max - global_min) / (n_bins as f64 - 1.0);
                         global_min -= bin_width / 2.0;
                         global_max += bin_width / 2.0;
-                    } else if n_bins == 1 {
-                        // Single bin case: expand by an arbitrary unit to give the block volume
-                        global_min -= 0.5;
-                        global_max += 0.5;
                     }
                 }
 
-                // Ensure zero baseline if requested (e.g., for bar/hist charts)
-                let force_zero = self.encoding.get_zero_by_channel(channel);
-                if force_zero {
+                if self.encoding.get_zero_by_channel(channel) {
                     global_min = global_min.min(0.0);
                     global_max = global_max.max(0.0);
                 }
