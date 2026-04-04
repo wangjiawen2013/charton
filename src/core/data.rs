@@ -1254,6 +1254,42 @@ impl Dataset {
     }
 }
 
+/// Represents the statistical aggregation operations available for data transformation.
+/// 
+/// This enum defines how multiple data points are collapsed into a single value
+/// during the transformation phase. It is used both in simple aggregations 
+/// and complex window functions.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Default)]
+pub enum AggregateOp {
+    /// Total sum of all valid (non-null) values in the group.
+    #[default]
+    Sum,
+    /// Arithmetic mean (average). Result is NaN if all values are null.
+    Mean,
+    /// The middle value. Requires a partial sort of the group data.
+    Median,
+    /// The smallest value in the group.
+    Min,
+    /// The largest value in the group.
+    Max,
+    /// The total count of records (including or excluding nulls, based on implementation).
+    Count,
+}
+
+impl From<&str> for AggregateOp {
+    fn from(s: &str) -> Self {
+        match s.to_lowercase().as_str() {
+            "mean" | "avg" => Self::Mean,
+            "sum" => Self::Sum,
+            "min" => Self::Min,
+            "max" => Self::Max,
+            "count" | "n" => Self::Count,
+            "median" => Self::Median,
+            _ => Self::Sum,
+        }
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
