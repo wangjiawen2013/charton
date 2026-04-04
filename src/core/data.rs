@@ -1290,6 +1290,74 @@ impl From<&str> for AggregateOp {
     }
 }
 
+impl AggregateOp {
+    /// Native aggregation logic: Extracting and aggregating data from columns based on indices.
+    ///
+    /// This method performs statistical calculations directly on the provided
+    /// ColumnVector using only the specified row indices.
+    pub fn aggregate_by_index(&self, col: &ColumnVector, indices: &[usize]) -> f64 {
+        if indices.is_empty() {
+            return f64::NAN;
+        }
+
+        match self {
+            AggregateOp::Count => indices.len() as f64,
+
+            AggregateOp::Sum => indices.iter().filter_map(|&i| col.get_f64(i)).sum(),
+
+            AggregateOp::Mean => {
+                let mut sum = 0.0;
+                let mut count = 0;
+                for &i in indices {
+                    if let Some(v) = col.get_f64(i) {
+                        sum += v;
+                        count += 1;
+                    }
+                }
+                if count > 0 {
+                    sum / count as f64
+                } else {
+                    f64::NAN
+                }
+            }
+
+            AggregateOp::Min => indices
+                .iter()
+                .filter_map(|&i| col.get_f64(i))
+                .fold(f64::INFINITY, f64::min),
+
+            AggregateOp::Max => indices
+                .iter()
+                .filter_map(|&i| col.get_f64(i))
+                .fold(f64::NEG_INFINITY, f64::max),
+
+            // --- Median Implementation ---
+            AggregateOp::Median => {
+                // 1. Extract valid f64 values for this group
+                let mut vals: Vec<f64> = indices.iter().filter_map(|&i| col.get_f64(i)).collect();
+
+                if vals.is_empty() {
+                    return f64::NAN;
+                }
+
+                // 2. Sort the values (handling NaN via total_cmp or partial_cmp)
+                // Using sort_by to handle float comparisons safely
+                vals.sort_by(|a, b| a.partial_cmp(b).unwrap_or(std::cmp::Ordering::Equal));
+
+                let len = vals.len();
+                if len % 2 == 1 {
+                    // Odd: return the middle element
+                    vals[len / 2]
+                } else {
+                    // Even: return the average of the two middle elements
+                    let mid = len / 2;
+                    (vals[mid - 1] + vals[mid]) / 2.0
+                }
+            }
+        }
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
