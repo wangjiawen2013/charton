@@ -1333,28 +1333,32 @@ impl AggregateOp {
 
             // --- Median Implementation ---
             AggregateOp::Median => {
-                // 1. Extract valid f64 values for this group
-                let mut vals: Vec<f64> = indices.iter().filter_map(|&i| col.get_f64(i)).collect();
-
-                if vals.is_empty() {
-                    return f64::NAN;
-                }
-
-                // 2. Sort the values (handling NaN via total_cmp or partial_cmp)
-                // Using sort_by to handle float comparisons safely
-                vals.sort_by(|a, b| a.partial_cmp(b).unwrap_or(std::cmp::Ordering::Equal));
-
-                let len = vals.len();
-                if len % 2 == 1 {
-                    // Odd: return the middle element
-                    vals[len / 2]
-                } else {
-                    // Even: return the average of the two middle elements
-                    let mid = len / 2;
-                    (vals[mid - 1] + vals[mid]) / 2.0
-                }
+                let vals = self.extract_and_sort(col, indices);
+                get_quantile(&vals, 0.5)
             }
         }
+    }
+
+    /// Extracts valid f64 values from the column at specified indices and sorts them in ascending order for median and quantile calculations.
+    fn extract_and_sort(&self, col: &ColumnVector, indices: &[usize]) -> Vec<f64> {
+        let mut vals: Vec<f64> = indices.iter().filter_map(|&i| col.get_f64(i)).collect();
+        vals.sort_unstable_by(|a, b| a.partial_cmp(b).unwrap_or(std::cmp::Ordering::Equal));
+        vals
+    }
+}
+
+/// Native aggregation logic: Linear interpolation quantile calculation.
+pub fn get_quantile(sorted_data: &[f64], q: f64) -> f64 {
+    let len = sorted_data.len();
+    if len == 0 { return f64::NAN; }
+    let pos = q * (len - 1) as f64;
+    let base = pos.floor() as usize;
+    let fract = pos - base as f64;
+    
+    if base + 1 < len {
+        sorted_data[base] + fract * (sorted_data[base + 1] - sorted_data[base])
+    } else {
+        sorted_data[base]
     }
 }
 
