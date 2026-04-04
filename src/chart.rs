@@ -13,7 +13,7 @@ pub mod tick_chart;
 use crate::TEMP_SUFFIX;
 use crate::coordinate::CoordinateTrait;
 use crate::core::aesthetics::GlobalAesthetics;
-use crate::core::data::{Dataset, ToDataset, SemanticType};
+use crate::core::data::{Dataset, SemanticType, ToDataset};
 use crate::core::layer::{Layer, MarkRenderer};
 use crate::encode::{Channel, Encoding, IntoEncoding, y::StackMode};
 use crate::error::ChartonError;
@@ -428,7 +428,9 @@ impl<T: Mark> Chart<T> {
             _ => {}
         }
 
-        let _resolved_semantics = self.data.check_schema(&active_fields, &expected_semantics)?;
+        let _resolved_semantics = self
+            .data
+            .check_schema(&active_fields, &expected_semantics)?;
 
         // --- Step 5: Statistical Transformations ---
         // Resolve bins (required before transformations like histograms)
@@ -456,37 +458,39 @@ impl<T: Mark> Chart<T> {
     }
 
     /// Resolves binning configuration required before data transformation.
-    /// 
-    /// For marks that require data aggregation (like histograms or heatmaps), 
-    /// this method calculates the optimal number of bins if not explicitly 
+    ///
+    /// For marks that require data aggregation (like histograms or heatmaps),
+    /// this method calculates the optimal number of bins if not explicitly
     /// provided by the user.
     fn resolve_pre_transform_encodings(&mut self) -> Result<(), ChartonError> {
         // Access the mark type to determine if binning is applicable.
         let mt = self.mark.as_ref().unwrap().mark_type();
-        
+
         // Only "rect" (heatmaps) and "hist" (histograms) require pre-transform binning.
         if !["rect", "hist"].contains(&mt) {
             return Ok(());
         }
 
         // Safely extract mutable references to X and Y encodings.
-        let x_enc = self.encoding.x.as_mut()
-            .ok_or(ChartonError::Encoding("X encoding is required for binned marks".to_string()))?;
-        let y_enc = self.encoding.y.as_mut()
-            .ok_or(ChartonError::Encoding("Y encoding is required for binned marks".to_string()))?;
+        let x_enc = self.encoding.x.as_mut().ok_or(ChartonError::Encoding(
+            "X encoding is required for binned marks".to_string(),
+        ))?;
+        let y_enc = self.encoding.y.as_mut().ok_or(ChartonError::Encoding(
+            "Y encoding is required for binned marks".to_string(),
+        ))?;
 
         // Helper closure to calculate bin count based on data semantics and unique value distribution.
         let calculate_bins = |field: &str| -> Result<usize, ChartonError> {
             let series = self.data.column(field)?;
             let unique_count = series.n_unique();
-            
+
             // Determine bins based on the semantic interpretation of the column data.
             match series.semantic_type() {
                 SemanticType::Continuous | SemanticType::Temporal => {
                     if unique_count <= 1 {
                         Ok(1)
                     } else {
-                        // Use the Square-root choice rule for automatic binning, 
+                        // Use the Square-root choice rule for automatic binning,
                         // constrained between a reasonable range (5 to 50) for visualization.
                         let suggested = (unique_count as f64).sqrt() as usize;
                         Ok(suggested.clamp(5, 50))
@@ -516,7 +520,7 @@ impl<T: Mark> Chart<T> {
     fn apply_post_transform_defaults(&mut self) -> Result<(), ChartonError> {
         // 1. PRE-RESOLUTION SETUP
         let mt = self.mark.as_ref().unwrap().mark_type();
-        
+
         // Define a helper closure to infer scale type based on the column's semantic type.
         // This removes the need for repetitive match statements across all channels.
         let resolve_scale_type = |field: &str| -> Result<Scale, ChartonError> {
@@ -541,13 +545,19 @@ impl<T: Mark> Chart<T> {
 
         // Resolve Optional Channels (Color, Shape, Size)
         if let Some(ref mut color) = self.encoding.color {
-            if color.scale_type.is_none() { color.scale_type = Some(resolve_scale_type(&color.field)?); }
+            if color.scale_type.is_none() {
+                color.scale_type = Some(resolve_scale_type(&color.field)?);
+            }
         }
         if let Some(ref mut shape) = self.encoding.shape {
-            if shape.scale_type.is_none() { shape.scale_type = Some(resolve_scale_type(&shape.field)?); }
+            if shape.scale_type.is_none() {
+                shape.scale_type = Some(resolve_scale_type(&shape.field)?);
+            }
         }
         if let Some(ref mut size) = self.encoding.size {
-            if size.scale_type.is_none() { size.scale_type = Some(resolve_scale_type(&size.field)?); }
+            if size.scale_type.is_none() {
+                size.scale_type = Some(resolve_scale_type(&size.field)?);
+            }
         }
 
         // --- 3. RESOLVE SPECIAL PADDING & BASELINES ---
@@ -567,13 +577,22 @@ impl<T: Mark> Chart<T> {
 
                 y_enc.expansion = Some(if is_pie_mode {
                     // Force zero expansion for Pie charts to prevent "cracks" in the circle.
-                    Expansion { mult: (0.0, 0.0), add: (0.0, 0.0) }
+                    Expansion {
+                        mult: (0.0, 0.0),
+                        add: (0.0, 0.0),
+                    }
                 } else if y_min >= 0.0 {
                     // Buffer at the top for positive distributions.
-                    Expansion { mult: (0.0, 0.05), add: (0.0, 0.0) }
+                    Expansion {
+                        mult: (0.0, 0.05),
+                        add: (0.0, 0.0),
+                    }
                 } else if y_max <= 0.0 {
                     // Buffer at the bottom for negative distributions.
-                    Expansion { mult: (0.05, 0.0), add: (0.0, 0.0) }
+                    Expansion {
+                        mult: (0.05, 0.0),
+                        add: (0.0, 0.0),
+                    }
                 } else {
                     // Default padding for data crossing zero.
                     Expansion::default()
@@ -587,10 +606,16 @@ impl<T: Mark> Chart<T> {
         let needs_discrete_padding = ["bar", "boxplot", "rect"].contains(&mt);
         if needs_discrete_padding {
             if x_enc.scale_type == Some(Scale::Discrete) && x_enc.expansion.is_none() {
-                x_enc.expansion = Some(Expansion { mult: (0.0, 0.0), add: (0.5, 0.5) });
+                x_enc.expansion = Some(Expansion {
+                    mult: (0.0, 0.0),
+                    add: (0.5, 0.5),
+                });
             }
             if y_enc.scale_type == Some(Scale::Discrete) && y_enc.expansion.is_none() {
-                y_enc.expansion = Some(Expansion { mult: (0.0, 0.0), add: (0.5, 0.5) });
+                y_enc.expansion = Some(Expansion {
+                    mult: (0.0, 0.0),
+                    add: (0.5, 0.5),
+                });
             }
         }
 
@@ -598,10 +623,16 @@ impl<T: Mark> Chart<T> {
         // Heatmaps (Rect) on continuous scales should touch the edges of the plotting area.
         if mt == "rect" {
             if x_enc.scale_type != Some(Scale::Discrete) && x_enc.expansion.is_none() {
-                x_enc.expansion = Some(Expansion { mult: (0.0, 0.0), add: (0.0, 0.0) });
+                x_enc.expansion = Some(Expansion {
+                    mult: (0.0, 0.0),
+                    add: (0.0, 0.0),
+                });
             }
             if y_enc.scale_type != Some(Scale::Discrete) && y_enc.expansion.is_none() {
-                y_enc.expansion = Some(Expansion { mult: (0.0, 0.0), add: (0.0, 0.0) });
+                y_enc.expansion = Some(Expansion {
+                    mult: (0.0, 0.0),
+                    add: (0.0, 0.0),
+                });
             }
         }
 
@@ -682,26 +713,33 @@ where
 
                 // Determine if stacking is required (Y-axis + Stack Mode + Color grouping)
                 let is_y_stacked = channel == Channel::Y
-                    && self.encoding.y.as_ref().is_some_and(|e| e.stack != StackMode::None)
+                    && self
+                        .encoding
+                        .y
+                        .as_ref()
+                        .is_some_and(|e| e.stack != StackMode::None)
                     && self.encoding.color.is_some();
 
                 if is_y_stacked {
                     let x_field = &self.encoding.x.as_ref().unwrap().field;
                     let y_field = &self.encoding.y.as_ref().unwrap().field;
-                    
+
                     let x_series = self.data.column(x_field)?;
                     let y_series = self.data.column(y_field)?;
 
                     // --- MANUAL STACKING AGGREGATION ---
                     // We use a HashMap to group Y-sums by their X-category string representation.
-                    let mut stacks: std::collections::HashMap<String, f64> = std::collections::HashMap::new();
-                    
+                    let mut stacks: std::collections::HashMap<String, f64> =
+                        std::collections::HashMap::new();
+
                     // We iterate through the data rows
                     // Note: This assumes all columns in your 'self.data' have the same length.
                     let row_count = x_series.len();
                     for i in 0..row_count {
                         // Extract X key and Y value for current row
-                        if let (Some(x_val), Some(y_val)) = (x_series.get_as_string(i), y_series.get_as_f64(i)) {
+                        if let (Some(x_val), Some(y_val)) =
+                            (x_series.get_as_string(i), y_series.get_as_f64(i))
+                        {
                             let entry = stacks.entry(x_val).or_insert(0.0);
                             *entry += y_val;
                         }
@@ -717,7 +755,7 @@ where
                     // --- STANDARD SCANNING LOGIC ---
                     let mut columns_to_scan = Vec::new();
                     let mark_type = self.mark.as_ref().map(|m| m.mark_type());
-                    
+
                     if !matches!(mark_type, Some("area")) {
                         columns_to_scan.push(field_name.to_string());
                     }

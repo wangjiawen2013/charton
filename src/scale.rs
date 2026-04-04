@@ -155,7 +155,7 @@ impl Scale {
             (Scale::Linear | Scale::Log, ColumnVector::F64 { data }) => {
                 data.par_iter()
                     .map(|&v| {
-                        // NaN check acts as our null check. 
+                        // NaN check acts as our null check.
                         // This is extremely fast on modern hardware.
                         if !v.is_nan() {
                             Some(scale_trait.normalize(v))
@@ -197,7 +197,7 @@ impl Scale {
             }
 
             // --- 4. GENERIC PATH: Other Numerical Types (F32, I64, I32, U32) ---
-            // Use the range-based parallel iterator as a fallback. 
+            // Use the range-based parallel iterator as a fallback.
             // col.get_f64(i) internally handles both type casting and bitmask lookups.
             (_, col) => {
                 // Creates a parallel range to iterate by index, fetching data safely
