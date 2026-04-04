@@ -1350,11 +1350,13 @@ impl AggregateOp {
 /// Native aggregation logic: Linear interpolation quantile calculation.
 pub fn get_quantile(sorted_data: &[f64], q: f64) -> f64 {
     let len = sorted_data.len();
-    if len == 0 { return f64::NAN; }
+    if len == 0 {
+        return f64::NAN;
+    }
     let pos = q * (len - 1) as f64;
     let base = pos.floor() as usize;
     let fract = pos - base as f64;
-    
+
     if base + 1 < len {
         sorted_data[base] + fract * (sorted_data[base + 1] - sorted_data[base])
     } else {
