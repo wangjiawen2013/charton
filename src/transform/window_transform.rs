@@ -3,7 +3,7 @@ use crate::chart::Chart;
 use crate::core::data::{ColumnVector, Dataset};
 use crate::error::ChartonError;
 use crate::mark::Mark;
-use std::collections::HashMap;
+use ahash::AHashMap;
 
 /// Window-specific operations for computing window functions
 ///
@@ -235,7 +235,7 @@ impl<T: Mark> Chart<T> {
         // --- PHASE 1: UNIFIED GROUPING ---
         // Partition row indices into groups. If no groupby is specified,
         // the entire dataset is treated as a single group with key 'None'.
-        let mut groups: HashMap<Option<String>, Vec<usize>> = HashMap::new();
+        let mut groups: AHashMap<Option<String>, Vec<usize>> = AHashMap::new();
         if let Some(ref group_field) = params.groupby {
             let group_col = self.data.column(group_field)?;
             for i in 0..n {
@@ -307,7 +307,7 @@ impl<T: Mark> Chart<T> {
     /// which is essential for visual alignment in multi-series step charts.
     fn apply_ecdf_with_padding(
         &self,
-        groups: HashMap<Option<String>, Vec<usize>>,
+        groups: AHashMap<Option<String>, Vec<usize>>,
         params: &WindowTransform,
     ) -> Result<Dataset, ChartonError> {
         let field_name = &params.window.field;
