@@ -61,7 +61,7 @@ pub struct CoordLayout {
 /// 1. Mapping normalized data [0, 1] into screen pixels.
 /// 2. Defining the shape of the plotting area (Cartesian, Polar, etc.).
 /// 3. Providing metadata for rendering axes and grids.
-pub trait CoordinateTrait {
+pub trait CoordinateTrait: Send + Sync {
     /// Orchestrates the visual rendering of axes, grid lines, and titles.
     ///
     /// Different coordinate systems implement this to reflect their geometry:
