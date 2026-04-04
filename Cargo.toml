@@ -29,6 +29,7 @@ resvg = { version = "0.47", optional = true }
 thiserror = "2.0"
 time = { version = "0.3", features = ["macros", "formatting"] }
 kernel-density-estimation = "0.2"
+ahash = "0.8"
 rayon = "1.11.0"
 csscolorparser = "0.8"
 html-escape = "0.2"

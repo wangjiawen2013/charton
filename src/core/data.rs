@@ -1,6 +1,6 @@
 use crate::error::ChartonError;
+use ahash::AHashMap;
 use rayon::prelude::*;
-use std::collections::HashMap;
 use std::fmt;
 use std::sync::Arc;
 use time::OffsetDateTime;
@@ -504,7 +504,7 @@ impl_from_col!(OffsetDateTime, DateTime);
 /// It decouples plotting logic from external data frame libraries.
 #[derive(Clone)]
 pub struct Dataset {
-    pub(crate) schema: HashMap<String, usize>,
+    pub(crate) schema: AHashMap<String, usize>,
     pub(crate) columns: Vec<Arc<ColumnVector>>,
     pub(crate) row_count: usize,
 }
@@ -512,7 +512,7 @@ pub struct Dataset {
 impl Dataset {
     pub fn new() -> Self {
         Self {
-            schema: HashMap::new(),
+            schema: AHashMap::new(),
             columns: Vec::new(),
             row_count: 0,
         }
@@ -690,9 +690,9 @@ impl Dataset {
     pub fn check_schema(
         &self,
         required_columns: &[&str],
-        expected_semantics: &HashMap<&str, Vec<SemanticType>>,
-    ) -> Result<HashMap<String, SemanticType>, ChartonError> {
-        let mut resolved_semantics = HashMap::new();
+        expected_semantics: &AHashMap<&str, Vec<SemanticType>>,
+    ) -> Result<AHashMap<String, SemanticType>, ChartonError> {
+        let mut resolved_semantics = AHashMap::new();
 
         for &col_name in required_columns {
             // Default to allowing all types if no specific constraint is provided for this column.

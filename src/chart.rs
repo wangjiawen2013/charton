@@ -23,6 +23,7 @@ use crate::mark::{
     rule::MarkRule, text::MarkText, tick::MarkTick,
 };
 use crate::scale::{Expansion, Scale, ScaleDomain};
+use ahash::AHashMap;
 use std::sync::Arc;
 
 /// Generic Chart structure representing a single visualization layer.
@@ -355,7 +356,7 @@ impl<T: Mark> Chart<T> {
         // --- Step 3: Semantic Type & Schema Validation ---
         // Check if data columns exist and their types match the mark's requirements.
         let mut active_fields = self.encoding.active_fields();
-        let mut expected_semantics = std::collections::HashMap::new();
+        let mut expected_semantics = AHashMap::new();
 
         // Handle virtual columns for specific transformations
         let x_field = self
@@ -728,9 +729,8 @@ where
                     let y_series = self.data.column(y_field)?;
 
                     // --- MANUAL STACKING AGGREGATION ---
-                    // We use a HashMap to group Y-sums by their X-category string representation.
-                    let mut stacks: std::collections::HashMap<String, f64> =
-                        std::collections::HashMap::new();
+                    // We use a AHashMap to group Y-sums by their X-category string representation.
+                    let mut stacks: AHashMap<String, f64> = AHashMap::new();
 
                     // We iterate through the data rows
                     // Note: This assumes all columns in your 'self.data' have the same length.
