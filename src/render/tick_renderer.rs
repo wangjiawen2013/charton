@@ -5,6 +5,7 @@ use crate::core::layer::{MarkRenderer, RectConfig, RenderBackend};
 use crate::error::ChartonError;
 use crate::mark::tick::MarkTick;
 use crate::visual::color::SingleColor;
+use rayon::prelude::*;
 
 // ============================================================================
 // MARK RENDERING (Tick Implementation)
@@ -12,24 +13,20 @@ use crate::visual::color::SingleColor;
 
 impl MarkRenderer for Chart<MarkTick> {
     /// Renders tick marks by transforming data points into thin rectangular geometries.
+    /// Uses group-based parallel processing to ensure deterministic rendering and performance.
     fn render_marks(
         &self,
         backend: &mut dyn RenderBackend,
         context: &PanelContext,
     ) -> Result<(), ChartonError> {
-        let ds = &self.data;
+        let df_source = &self.data;
+        let row_count = df_source.height();
 
-        // Early return if no data to process.
-        if ds.row_count == 0 {
+        if row_count == 0 {
             return Ok(());
         }
 
-        let mark_config = self
-            .mark
-            .as_ref()
-            .ok_or_else(|| ChartonError::Mark("MarkTick configuration is missing".to_string()))?;
-
-        // --- STEP 1: ENCODING VALIDATION ---
+        // --- STEP 1: VALIDATION ---
         let x_enc = self
             .encoding
             .x
@@ -40,84 +37,101 @@ impl MarkRenderer for Chart<MarkTick> {
             .y
             .as_ref()
             .ok_or_else(|| ChartonError::Encoding("Y-axis encoding is missing".into()))?;
+        let mark_config = self
+            .mark
+            .as_ref()
+            .ok_or_else(|| ChartonError::Mark("MarkTick configuration is missing".into()))?;
 
-        // --- STEP 2: POSITION NORMALIZATION (Vectorized) ---
+        // --- STEP 2: POSITION & AESTHETIC NORMALIZATION ---
         let x_scale = context.coord.get_x_scale();
         let y_scale = context.coord.get_y_scale();
 
-        // Perform vectorized normalization directly on internal ColumnVectors.
         let x_norms = x_scale
             .scale_type()
-            .normalize_column(x_scale, ds.column(&x_enc.field)?);
+            .normalize_column(x_scale, df_source.column(&x_enc.field)?);
         let y_norms = y_scale
             .scale_type()
-            .normalize_column(y_scale, ds.column(&y_enc.field)?);
+            .normalize_column(y_scale, df_source.column(&y_enc.field)?);
 
-        // --- STEP 3: COLOR RESOLUTION ---
-        // Pre-normalize the color column if a mapping exists.
-        let color_norms = if let Some(ref mapping) = context.spec.aesthetics.color {
-            let s_trait = mapping.scale_impl.as_ref();
-            Some(
-                s_trait
-                    .scale_type()
-                    .normalize_column(s_trait, ds.column(&mapping.field)?),
-            )
-        } else {
-            None
-        };
+        // Pre-normalize color if mapping exists
+        let color_norms = context.spec.aesthetics.color.as_ref().map(|m| {
+            let s = m.scale_impl.as_ref();
+            s.scale_type()
+                .normalize_column(s, &df_source.column(&m.field).unwrap())
+        });
 
-        // --- STEP 4: GEOMETRY PROJECTION & EMIT ---
-        let thickness = mark_config.thickness;
-        let band_size = mark_config.band_size;
-        let opacity = mark_config.opacity;
+        // --- STEP 3: GROUPING (Determines Z-Index & Category Color) ---
+        let color_field = self.encoding.color.as_ref().map(|c| c.field.as_str());
+        let grouped_data = df_source.group_by(color_field);
+        let palette = &context.spec.theme.palette;
+
         let is_flipped = context.coord.is_flipped();
 
-        for i in 0..ds.row_count {
-            // Skip points where X or Y are null to avoid rendering at (0,0).
-            let (Some(xn), Some(yn)) = (x_norms[i], y_norms[i]) else {
-                continue;
-            };
-
-            // 4.1 Coordinate Projection: [0, 1] -> Pixels
-            let (px, py) = context.coord.transform(xn, yn, &context.panel);
-
-            // 4.2 Color Resolution: Resolve mapping or use static fallback
-            let fill_color = if let Some(ref norms) = color_norms {
-                self.resolve_color_from_value(norms[i], context, &mark_config.color)
+        // --- STEP 4: MULTI-CORE PROCESSING PER GROUP ---
+        for (group_idx, (_name, row_indices)) in grouped_data.groups.iter().enumerate() {
+            // Resolve base color for this group
+            let base_group_color = if color_field.is_some() {
+                palette.get_color(group_idx)
             } else {
                 mark_config.color
             };
 
-            // 4.3 Tick Geometry Calculation:
-            // Ticks are centered on the (px, py) coordinate.
-            let (rect_x, rect_y, rect_w, rect_h) = if !is_flipped {
-                // Vertical ticks: narrow width, tall height
-                (
-                    px - thickness / 2.0,
-                    py - band_size / 2.0,
-                    thickness,
-                    band_size,
-                )
-            } else {
-                // Horizontal ticks: wide width, narrow height
-                (
-                    px - band_size / 2.0,
-                    py - thickness / 2.0,
-                    band_size,
-                    thickness,
-                )
-            };
+            // Calculate tick geometries in parallel
+            let render_configs: Vec<RectConfig> = row_indices
+                .into_par_iter()
+                .filter_map(|&i| {
+                    let x_n = x_norms[i]?;
+                    let y_n = y_norms[i]?;
 
-            backend.draw_rect(RectConfig {
-                x: rect_x as Precision,
-                y: rect_y as Precision,
-                width: rect_w as Precision,
-                height: rect_h as Precision,
-                fill: fill_color,
-                stroke: mark_config.color, // Border matches mark color
-                stroke_width: 0.0,         // Ticks are typically filled only
-                opacity: opacity as Precision,
-            });
+                    // Coordinate Projection
+                    let (px, py) = context.coord.transform(x_n, y_n, &context.panel);
+
+                    // Resolve Color
+                    let fill = if let Some(ref norms) = color_norms {
+                        self.resolve_color_from_value(norms[i], context, &base_group_color)
+                    } else {
+                        base_group_color
+                    };
+
+                    // Tick Geometry Calculation
+                    let thickness = mark_config.thickness;
+                    let band_size = mark_config.band_size;
+
+                    let (rx, ry, rw, rh) = if !is_flipped {
+                        // Vertical ticks: narrow width, tall height
+                        (
+                            px - thickness / 2.0,
+                            py - band_size / 2.0,
+                            thickness,
+                            band_size,
+                        )
+                    } else {
+                        // Horizontal ticks: wide width, narrow height
+                        (
+                            px - band_size / 2.0,
+                            py - thickness / 2.0,
+                            band_size,
+                            thickness,
+                        )
+                    };
+
+                    Some(RectConfig {
+                        x: rx as Precision,
+                        y: ry as Precision,
+                        width: rw as Precision,
+                        height: rh as Precision,
+                        fill,
+                        stroke: fill, // Border matches fill for ticks
+                        stroke_width: 0.0,
+                        opacity: mark_config.opacity as Precision,
+                    })
+                })
+                .collect();
+
+            // --- STEP 5: SEQUENTIAL DRAW DISPATCH ---
+            for config in render_configs {
+                backend.draw_rect(config);
+            }
         }
 
         Ok(())

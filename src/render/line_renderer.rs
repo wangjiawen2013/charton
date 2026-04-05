@@ -65,11 +65,9 @@ impl MarkRenderer for Chart<MarkLine> {
         let mark_config = self
             .mark
             .as_ref()
-            .ok_or_else(|| ChartonError::Mark("MarkLine configuration is missing".to_string()))?;
+            .ok_or_else(|| ChartonError::Mark("MarkLine configuration is missing".into()))?;
 
         // --- STEP 1: PRE-NORMALIZE COLUMNS ---
-        // We normalize entire columns into [0, 1] space before grouping.
-        // This abstracts away the difference between Discrete (Strings) and Continuous (f64) data.
         let x_enc = self
             .encoding
             .x
@@ -84,7 +82,6 @@ impl MarkRenderer for Chart<MarkLine> {
         let x_scale = context.coord.get_x_scale();
         let y_scale = context.coord.get_y_scale();
 
-        // Perform vectorized normalization for X and Y axes
         let x_norms = x_scale
             .scale_type()
             .normalize_column(x_scale, ds.column(&x_enc.field)?);
@@ -92,7 +89,6 @@ impl MarkRenderer for Chart<MarkLine> {
             .scale_type()
             .normalize_column(y_scale, ds.column(&y_enc.field)?);
 
-        // Pre-normalize the color column if a mapping exists
         let color_norms = if let Some(ref mapping) = context.spec.aesthetics.color {
             let s_trait = mapping.scale_impl.as_ref();
             Some(
@@ -105,46 +101,43 @@ impl MarkRenderer for Chart<MarkLine> {
         };
 
         // --- STEP 2: GROUPING ---
-        // Partition row indices by the aesthetic color field (e.g., "category")
         let group_field = context.spec.aesthetics.color.as_ref().map(|c| &c.field);
         let grouped_indices = ds.group_by(group_field.map(|s| s.as_str()));
 
+        // Access global theme palette
+        let palette = &context.spec.theme.palette;
+
         // --- STEP 3: PARALLEL PATH PROCESSING ---
-        // Create local references to normalized data to be safely captured by the parallel closure.
-        // This avoids ownership issues and minimizes overhead within the thread pool.
         let x_ref = &x_norms;
         let y_ref = &y_norms;
         let c_ref = color_norms.as_ref();
 
+        // We use par_iter().enumerate() to maintain the "Order of Appearance"
+        // while calculating line paths in parallel.
         let line_render_data: Vec<_> = grouped_indices
             .groups
             .par_iter()
-            .filter_map(|(_group_key, row_indices)| {
-                // Safety Check: Skip empty groups to prevent out-of-bounds access.
+            .enumerate() // group_idx matches the order in grouped_indices.groups
+            .filter_map(|(group_idx, (_group_key, row_indices))| {
                 let &first_idx = row_indices.first()?;
 
                 // 3.1 & 3.2 Extraction and Sorting:
-                // Filter out null/NaN values and collect into a local buffer for sorting.
                 let mut points: Vec<(f64, f64)> = row_indices
                     .iter()
-                    .filter_map(|&idx| {
-                        match (x_ref[idx], y_ref[idx]) {
-                            (Some(xn), Some(yn)) => Some((xn, yn)),
-                            _ => None, // Discard rows with missing coordinates
-                        }
+                    .filter_map(|&idx| match (x_ref[idx], y_ref[idx]) {
+                        (Some(xn), Some(yn)) => Some((xn, yn)),
+                        _ => None,
                     })
                     .collect();
 
-                // If no valid points remain after filtering, drop this group.
                 if points.is_empty() {
                     return None;
                 }
 
-                // Sorting is required for line marks to ensure the path follows the X-axis monotonically.
+                // Line marks usually require sorting by X to be monotonic.
                 points.sort_by(|a, b| a.0.partial_cmp(&b.0).unwrap_or(std::cmp::Ordering::Equal));
 
-                // 3.3 Statistical Smoothing:
-                // Apply Locally Estimated Scatterplot Smoothing (LOESS) if enabled in mark config.
+                // 3.3 Statistical Smoothing (LOESS):
                 let proc_points = if mark_config.loess {
                     let xs: Vec<f64> = points.iter().map(|p| p.0).collect();
                     let ys: Vec<f64> = points.iter().map(|p| p.1).collect();
@@ -156,13 +149,10 @@ impl MarkRenderer for Chart<MarkLine> {
                 };
 
                 // 3.4 & 3.5 Projection and Interpolation:
-                // Transform normalized [0,1] coordinates into physical screen pixels.
-                // We use an iterator here to defer allocation until the final collection.
                 let projected_iter = proc_points
                     .into_iter()
                     .map(|(xn, yn)| context.coord.transform(xn, yn, &context.panel));
 
-                // Apply path expansion based on the selected interpolation strategy.
                 let expanded: Vec<(f64, f64)> = match mark_config.interpolation {
                     PathInterpolation::Linear => projected_iter.collect(),
                     PathInterpolation::StepAfter => {
@@ -173,25 +163,30 @@ impl MarkRenderer for Chart<MarkLine> {
                     }
                 };
 
-                // 3.6 Final Casting:
-                // Convert to the backend's required precision (e.g., f32 for GPU/Canvas).
+                // 3.6 Cast to Backend Precision:
                 let final_points: Vec<(Precision, Precision)> = expanded
                     .into_iter()
                     .map(|(px, py)| (px as Precision, py as Precision))
                     .collect();
 
                 // 3.7 Color Resolution:
-                // Resolve the aesthetic color for this specific group.
-                // Since it's a grouped line, we derive the color from the first valid index.
-                let norm_color = c_ref.and_then(|v| v[first_idx]);
-                let color = self.resolve_color_from_value(norm_color, context, &mark_config.color);
+                // If no explicit color mapping exists, use group_idx to pick from the palette.
+                // This ensures the 1st group seen in data gets the 1st color.
+                let final_color = if let Some(norms) = c_ref {
+                    let norm_color = norms[first_idx];
+                    self.resolve_color_from_value(norm_color, context, &mark_config.color)
+                } else if group_field.is_some() {
+                    palette.get_color(group_idx)
+                } else {
+                    mark_config.color
+                };
 
-                Some((final_points, color))
+                Some((final_points, final_color))
             })
             .collect();
 
         // --- STEP 4: SEQUENTIAL DRAWING ---
-        // Dispatch draw calls to the backend (SVG/Canvas/etc.)
+        // Drawing must be sequential to respect the Z-index defined by the group order.
         for (points, color) in line_render_data {
             if points.is_empty() {
                 continue;

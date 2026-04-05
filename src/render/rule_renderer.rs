@@ -5,6 +5,7 @@ use crate::core::layer::{LineConfig, MarkRenderer, RenderBackend};
 use crate::error::ChartonError;
 use crate::mark::rule::MarkRule;
 use crate::visual::color::SingleColor;
+use rayon::prelude::*;
 
 // ============================================================================
 // MARK RENDERING (Rule Implementation)
@@ -12,14 +13,16 @@ use crate::visual::color::SingleColor;
 
 impl MarkRenderer for Chart<MarkRule> {
     /// Renders rule marks (straight lines spanning a specific range).
-    /// Typically used for axis-parallel lines or range indicators.
+    /// Optimized with parallel geometry projection and deterministic grouping.
     fn render_marks(
         &self,
         backend: &mut dyn RenderBackend,
         context: &PanelContext,
     ) -> Result<(), ChartonError> {
-        let ds = &self.data;
-        if ds.row_count == 0 {
+        let df_source = &self.data;
+        let row_count = df_source.height();
+
+        if row_count == 0 {
             return Ok(());
         }
 
@@ -28,99 +31,104 @@ impl MarkRenderer for Chart<MarkRule> {
             .encoding
             .x
             .as_ref()
-            .ok_or_else(|| ChartonError::Encoding("X is missing".into()))?;
+            .ok_or_else(|| ChartonError::Encoding("X encoding is missing".into()))?;
         let y_enc = self
             .encoding
             .y
             .as_ref()
-            .ok_or_else(|| ChartonError::Encoding("Y is missing".into()))?;
-
+            .ok_or_else(|| ChartonError::Encoding("Y encoding is missing".into()))?;
         let mark_config = self
             .mark
             .as_ref()
-            .ok_or_else(|| ChartonError::Mark("MarkRule configuration is missing".to_string()))?;
+            .ok_or_else(|| ChartonError::Mark("MarkRule configuration is missing".into()))?;
 
-        // --- STEP 2: POSITION NORMALIZATION (Vectorized) ---
+        // --- STEP 2: POSITION & AESTHETIC NORMALIZATION ---
         let x_scale = context.coord.get_x_scale();
         let y_scale = context.coord.get_y_scale();
 
-        // Normalize X (The constant coordinate for vertical rules)
         let x_norms = x_scale
             .scale_type()
-            .normalize_column(x_scale, ds.column(&x_enc.field)?);
-
-        // Normalize Y and Y2 (The range coordinates)
+            .normalize_column(x_scale, df_source.column(&x_enc.field)?);
         let y1_norms = y_scale
             .scale_type()
-            .normalize_column(y_scale, ds.column(&y_enc.field)?);
+            .normalize_column(y_scale, df_source.column(&y_enc.field)?);
 
-        let y2_norms = if let Some(ref y2_enc) = self.encoding.y2 {
-            // Case A: User provided an explicit end-point column
-            Some(
-                y_scale
-                    .scale_type()
-                    .normalize_column(y_scale, ds.column(&y2_enc.field)?),
-            )
-        } else {
-            // Case B: No y2 provided, the rule spans the full logical height [0.0, 1.0]
-            None
-        };
+        // Normalize Y2 if provided; otherwise we'll default to 1.0 during projection
+        let y2_norms = self.encoding.y2.as_ref().map(|e| {
+            y_scale
+                .scale_type()
+                .normalize_column(y_scale, &df_source.column(&e.field).unwrap())
+        });
 
-        // --- STEP 3: COLOR RESOLUTION ---
-        let color_norms = if let Some(ref mapping) = context.spec.aesthetics.color {
-            let s_trait = mapping.scale_impl.as_ref();
-            Some(
-                s_trait
-                    .scale_type()
-                    .normalize_column(s_trait, ds.column(&mapping.field)?),
-            )
-        } else {
-            None
-        };
+        // Pre-normalize color if mapping exists
+        let color_norms = context.spec.aesthetics.color.as_ref().map(|m| {
+            let s = m.scale_impl.as_ref();
+            s.scale_type()
+                .normalize_column(s, &df_source.column(&m.field).unwrap())
+        });
 
-        // --- STEP 4: GEOMETRY PROJECTION & RENDERING ---
-        let stroke_width = mark_config.stroke_width as Precision;
+        // --- STEP 3: GROUPING (Determines Z-Index & Category Color) ---
+        let color_field = self.encoding.color.as_ref().map(|c| c.field.as_str());
+        let grouped_data = df_source.group_by(color_field);
+        let palette = &context.spec.theme.palette;
+
         let is_flipped = context.coord.is_flipped();
 
-        for i in 0..ds.row_count {
-            // Skip if the base coordinates are missing
-            let (Some(xn), Some(yn1)) = (x_norms[i], y1_norms[i]) else {
-                continue;
-            };
-
-            // Determine yn2: use mapped value or default to full axis (1.0)
-            let yn2 = y2_norms.as_ref().and_then(|norms| norms[i]).unwrap_or(1.0);
-
-            // Project endpoints to physical pixels
-            let (p1_x, p1_y) = context.coord.transform(xn, yn1, &context.panel);
-            let (p2_x, p2_y) = context.coord.transform(xn, yn2, &context.panel);
-
-            // Correct orientation based on coord_flip logic:
-            // Standard: Constant X, Y ranges from y1 to y2 (Vertical)
-            // Flipped: Constant Y, X ranges from x1 to x2 (Horizontal)
-            let (final_x1, final_y1, final_x2, final_y2) = if !is_flipped {
-                (p1_x, p1_y, p1_x, p2_y)
-            } else {
-                (p1_x, p1_y, p2_x, p1_y)
-            };
-
-            // Resolve color
-            let line_color = if let Some(ref norms) = color_norms {
-                self.resolve_color_from_value(norms[i], context, &mark_config.color)
+        // --- STEP 4: MULTI-CORE PROCESSING PER GROUP ---
+        for (group_idx, (_name, row_indices)) in grouped_data.groups.iter().enumerate() {
+            let base_group_color = if color_field.is_some() {
+                palette.get_color(group_idx)
             } else {
                 mark_config.color
             };
 
-            backend.draw_line(LineConfig {
-                x1: final_x1 as Precision,
-                y1: final_y1 as Precision,
-                x2: final_x2 as Precision,
-                y2: final_y2 as Precision,
-                color: line_color,
-                width: stroke_width,
-                opacity: mark_config.opacity as Precision,
-                dash: vec![], // Rules are typically solid; add dash support if needed in config
-            });
+            // Calculate rule geometries in parallel
+            let render_configs: Vec<LineConfig> = row_indices
+                .into_par_iter()
+                .filter_map(|&i| {
+                    let x_n = x_norms[i]?;
+                    let yn1 = y1_norms[i]?;
+
+                    // Requirement: Default to 1.0 if y2 is missing
+                    let yn2 = y2_norms.as_ref().and_then(|ns| ns[i]).unwrap_or(1.0);
+
+                    // Project endpoints to physical pixels
+                    let (p1_x, p1_y) = context.coord.transform(x_n, yn1, &context.panel);
+                    let (p2_x, p2_y) = context.coord.transform(x_n, yn2, &context.panel);
+
+                    // Correct orientation based on coord_flip logic:
+                    // Standard: Constant X, Y ranges from y1 to y2 (Vertical)
+                    // Flipped: Constant Y, X ranges from x1 to x2 (Horizontal)
+                    let (final_x1, final_y1, final_x2, final_y2) = if !is_flipped {
+                        (p1_x, p1_y, p1_x, p2_y)
+                    } else {
+                        (p1_x, p1_y, p2_x, p1_y)
+                    };
+
+                    // Resolve color (Continuous scale mapping vs Group fallback)
+                    let line_color = if let Some(ref norms) = color_norms {
+                        self.resolve_color_from_value(norms[i], context, &base_group_color)
+                    } else {
+                        base_group_color
+                    };
+
+                    Some(LineConfig {
+                        x1: final_x1 as Precision,
+                        y1: final_y1 as Precision,
+                        x2: final_x2 as Precision,
+                        y2: final_y2 as Precision,
+                        color: line_color,
+                        width: mark_config.stroke_width as Precision,
+                        opacity: mark_config.opacity as Precision,
+                        dash: vec![],
+                    })
+                })
+                .collect();
+
+            // --- STEP 5: SEQUENTIAL DRAW ---
+            for config in render_configs {
+                backend.draw_line(config);
+            }
         }
 
         Ok(())
