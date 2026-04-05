@@ -5,17 +5,21 @@ use crate::core::layer::{LineConfig, MarkRenderer, RenderBackend};
 use crate::error::ChartonError;
 use crate::mark::rule::MarkRule;
 use crate::visual::color::SingleColor;
-use polars::prelude::*;
+
+// ============================================================================
+// MARK RENDERING (Rule Implementation)
+// ============================================================================
 
 impl MarkRenderer for Chart<MarkRule> {
+    /// Renders rule marks (straight lines spanning a specific range).
+    /// Typically used for axis-parallel lines or range indicators.
     fn render_marks(
         &self,
         backend: &mut dyn RenderBackend,
         context: &PanelContext,
     ) -> Result<(), ChartonError> {
-        let df_source = &self.data;
-        let row_count = df_source.df.height();
-        if row_count == 0 {
+        let ds = &self.data;
+        if ds.row_count == 0 {
             return Ok(());
         }
 
@@ -24,85 +28,87 @@ impl MarkRenderer for Chart<MarkRule> {
             .encoding
             .x
             .as_ref()
-            .ok_or_else(|| ChartonError::Encoding("X-axis encoding missing".into()))?;
+            .ok_or_else(|| ChartonError::Encoding("X is missing".into()))?;
         let y_enc = self
             .encoding
             .y
             .as_ref()
-            .ok_or_else(|| ChartonError::Encoding("Y-axis encoding missing".into()))?;
+            .ok_or_else(|| ChartonError::Encoding("Y is missing".into()))?;
+
         let mark_config = self
             .mark
             .as_ref()
-            .ok_or_else(|| ChartonError::Mark("MarkRule config missing".into()))?;
+            .ok_or_else(|| ChartonError::Mark("MarkRule configuration is missing".to_string()))?;
 
-        // --- STEP 2: VECTORIZED COORDINATE UNIFICATION ---
+        // --- STEP 2: POSITION NORMALIZATION (Vectorized) ---
         let x_scale = context.coord.get_x_scale();
         let y_scale = context.coord.get_y_scale();
-        let x_series = df_source.column(&x_enc.field)?;
-        let y_series = df_source.column(&y_enc.field)?;
 
-        let x_norms = x_scale.scale_type().normalize_series(x_scale, &x_series)?;
+        // Normalize X (The constant coordinate for vertical rules)
+        let x_norms = x_scale
+            .scale_type()
+            .normalize_column(x_scale, ds.column(&x_enc.field)?);
 
-        let (y1_norms, y2_norms) = if let Some(y2_enc) = &self.encoding.y2 {
-            let y1 = y_scale.scale_type().normalize_series(y_scale, &y_series)?;
-            let y2_series = df_source.column(&y2_enc.field)?;
-            let y2 = y_scale.scale_type().normalize_series(y_scale, &y2_series)?;
-            (y1, y2)
-        } else {
-            let y_max = y_scale.logical_max();
-            (
-                Float64Chunked::full("y1".into(), 0.0, row_count),
-                Float64Chunked::full("y2".into(), y_max, row_count),
+        // Normalize Y and Y2 (The range coordinates)
+        let y1_norms = y_scale
+            .scale_type()
+            .normalize_column(y_scale, ds.column(&y_enc.field)?);
+
+        let y2_norms = if let Some(ref y2_enc) = self.encoding.y2 {
+            // Case A: User provided an explicit end-point column
+            Some(
+                y_scale
+                    .scale_type()
+                    .normalize_column(y_scale, ds.column(&y2_enc.field)?),
             )
+        } else {
+            // Case B: No y2 provided, the rule spans the full logical height [0.0, 1.0]
+            None
         };
 
-        // --- STEP 3: COLOR MAPPING ---
-        let color_iter: Box<dyn Iterator<Item = SingleColor>> =
-            if let Some(ref mapping) = context.spec.aesthetics.color {
-                let s = df_source.column(&mapping.field)?;
-                let s_trait = mapping.scale_impl.as_ref();
-                let norms = s_trait.scale_type().normalize_series(s_trait, &s)?;
-                let l_max = s_trait.logical_max();
-                let mapper = s_trait.mapper();
+        // --- STEP 3: COLOR RESOLUTION ---
+        let color_norms = if let Some(ref mapping) = context.spec.aesthetics.color {
+            let s_trait = mapping.scale_impl.as_ref();
+            Some(
+                s_trait
+                    .scale_type()
+                    .normalize_column(s_trait, ds.column(&mapping.field)?),
+            )
+        } else {
+            None
+        };
 
-                let color_vec: Vec<SingleColor> = norms
-                    .into_iter()
-                    .map(|opt_n| {
-                        mapper
-                            .map(|m| m.map_to_color(opt_n.unwrap(), l_max))
-                            .unwrap_or_else(|| SingleColor::from("#333333"))
-                    })
-                    .collect();
-                Box::new(color_vec.into_iter())
-            } else {
-                Box::new(std::iter::repeat(mark_config.color))
-            };
-
-        // --- STEP 4: UNIFIED RENDERING LOOP ---
+        // --- STEP 4: GEOMETRY PROJECTION & RENDERING ---
         let stroke_width = mark_config.stroke_width as Precision;
         let is_flipped = context.coord.is_flipped();
 
-        for (((x_n_opt, y1_n_opt), y2_n_opt), mapped_color) in x_norms
-            .into_iter()
-            .zip(y1_norms.into_iter())
-            .zip(y2_norms.into_iter())
-            .zip(color_iter)
-        {
-            let x_n = x_n_opt.unwrap();
-            let y1_n = y1_n_opt.unwrap();
-            let y2_n = y2_n_opt.unwrap();
+        for i in 0..ds.row_count {
+            // Skip if the base coordinates are missing
+            let (Some(xn), Some(yn1)) = (x_norms[i], y1_norms[i]) else {
+                continue;
+            };
+
+            // Determine yn2: use mapped value or default to full axis (1.0)
+            let yn2 = y2_norms.as_ref().and_then(|norms| norms[i]).unwrap_or(1.0);
 
             // Project endpoints to physical pixels
-            let (p1_x, p1_y) = context.transform(x_n, y1_n);
-            let (p2_x, p2_y) = context.transform(x_n, y2_n);
+            let (p1_x, p1_y) = context.coord.transform(xn, yn1, &context.panel);
+            let (p2_x, p2_y) = context.coord.transform(xn, yn2, &context.panel);
 
-            // Correct orientation based on coord_flip
+            // Correct orientation based on coord_flip logic:
+            // Standard: Constant X, Y ranges from y1 to y2 (Vertical)
+            // Flipped: Constant Y, X ranges from x1 to x2 (Horizontal)
             let (final_x1, final_y1, final_x2, final_y2) = if !is_flipped {
-                // Standard: Rule is vertical (Y changes, X is constant)
                 (p1_x, p1_y, p1_x, p2_y)
             } else {
-                // Flipped: Rule is horizontal (X changes, Y is constant)
                 (p1_x, p1_y, p2_x, p1_y)
+            };
+
+            // Resolve color
+            let line_color = if let Some(ref norms) = color_norms {
+                self.resolve_color_from_value(norms[i], context, &mark_config.color)
+            } else {
+                mark_config.color
             };
 
             backend.draw_line(LineConfig {
@@ -110,13 +116,34 @@ impl MarkRenderer for Chart<MarkRule> {
                 y1: final_y1 as Precision,
                 x2: final_x2 as Precision,
                 y2: final_y2 as Precision,
-                color: mapped_color,
+                color: line_color,
                 width: stroke_width,
                 opacity: mark_config.opacity as Precision,
-                dash: vec![],
+                dash: vec![], // Rules are typically solid; add dash support if needed in config
             });
         }
 
         Ok(())
+    }
+}
+
+impl Chart<MarkRule> {
+    /// Reusable aesthetic color resolver.
+    fn resolve_color_from_value(
+        &self,
+        val: Option<f64>,
+        context: &PanelContext,
+        fallback: &SingleColor,
+    ) -> SingleColor {
+        if let (Some(v), Some(mapping)) = (val, &context.spec.aesthetics.color) {
+            let s_trait = mapping.scale_impl.as_ref();
+            s_trait
+                .mapper()
+                .as_ref()
+                .map(|m| m.map_to_color(v, s_trait.logical_max()))
+                .unwrap_or(*fallback)
+        } else {
+            *fallback
+        }
     }
 }
