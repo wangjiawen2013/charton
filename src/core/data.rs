@@ -806,9 +806,10 @@ impl Dataset {
                 // Check if the number of characters (not bytes) exceeds the limit
                 if s.chars().count() > 10 {
                     // Safely find the byte index of the 7th character
-                    let safe_index = s.char_indices()
+                    let safe_index = s
+                        .char_indices()
                         .nth(7)
-                        .map(|(idx, _char) | idx)
+                        .map(|(idx, _char)| idx)
                         .unwrap_or(s.len());
 
                     format!("{}...", &s[..safe_index])
