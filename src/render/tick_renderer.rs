@@ -7,123 +7,140 @@ use crate::mark::tick::MarkTick;
 use crate::visual::color::SingleColor;
 
 // ============================================================================
-// MARK RENDERING (The main data-to-geometry loop)
+// MARK RENDERING (Tick Implementation)
 // ============================================================================
 
 impl MarkRenderer for Chart<MarkTick> {
-    /// Orchestrates the transformation of raw data rows into visual tick geometries.
-    ///
-    /// Ticks are rendered as thin rectangles centered on the data point position.
-    /// By default, ticks are vertical (perpendicular to x-axis). When users swap
-    /// x/y encodings, the ticks automatically become horizontal.
+    /// Renders tick marks by transforming data points into thin rectangular geometries.
     fn render_marks(
         &self,
         backend: &mut dyn RenderBackend,
         context: &PanelContext,
     ) -> Result<(), ChartonError> {
-        let df_source = &self.data;
+        let ds = &self.data;
 
-        // Return early if there is no data to render.
-        if df_source.df.height() == 0 {
+        // Early return if no data to process.
+        if ds.row_count == 0 {
             return Ok(());
         }
-
-        // --- STEP 1: ENCODING VALIDATION ---
-        let x_enc = self.encoding.x.as_ref().ok_or_else(|| {
-            ChartonError::Encoding("X-axis encoding is missing from specification".to_string())
-        })?;
-        let y_enc = self.encoding.y.as_ref().ok_or_else(|| {
-            ChartonError::Encoding("Y-axis encoding is missing from specification".to_string())
-        })?;
 
         let mark_config = self
             .mark
             .as_ref()
             .ok_or_else(|| ChartonError::Mark("MarkTick configuration is missing".to_string()))?;
 
+        // --- STEP 1: ENCODING VALIDATION ---
+        let x_enc = self
+            .encoding
+            .x
+            .as_ref()
+            .ok_or_else(|| ChartonError::Encoding("X-axis encoding is missing".into()))?;
+        let y_enc = self
+            .encoding
+            .y
+            .as_ref()
+            .ok_or_else(|| ChartonError::Encoding("Y-axis encoding is missing".into()))?;
+
         // --- STEP 2: POSITION NORMALIZATION (Vectorized) ---
-        let x_series = df_source.column(&x_enc.field)?;
-        let y_series = df_source.column(&y_enc.field)?;
+        let x_scale = context.coord.get_x_scale();
+        let y_scale = context.coord.get_y_scale();
 
-        let x_scale_trait = context.coord.get_x_scale();
-        let y_scale_trait = context.coord.get_y_scale();
-
-        let x_norms = x_scale_trait
+        // Perform vectorized normalization directly on internal ColumnVectors.
+        let x_norms = x_scale
             .scale_type()
-            .normalize_series(x_scale_trait, &x_series)?;
-        let y_norms = y_scale_trait
+            .normalize_column(x_scale, ds.column(&x_enc.field)?);
+        let y_norms = y_scale
             .scale_type()
-            .normalize_series(y_scale_trait, &y_series)?;
+            .normalize_column(y_scale, ds.column(&y_enc.field)?);
 
-        // --- STEP 3: COLOR MAPPING ---
-        let color_iter: Box<dyn Iterator<Item = SingleColor>> =
-            if let Some(ref mapping) = context.spec.aesthetics.color {
-                let s = df_source.column(&mapping.field)?;
-                let s_trait = mapping.scale_impl.as_ref();
+        // --- STEP 3: COLOR RESOLUTION ---
+        // Pre-normalize the color column if a mapping exists.
+        let color_norms = if let Some(ref mapping) = context.spec.aesthetics.color {
+            let s_trait = mapping.scale_impl.as_ref();
+            Some(
+                s_trait
+                    .scale_type()
+                    .normalize_column(s_trait, ds.column(&mapping.field)?),
+            )
+        } else {
+            None
+        };
 
-                let norms = s_trait.scale_type().normalize_series(s_trait, &s)?;
-                let l_max = s_trait.logical_max();
-
-                let color_vec: Vec<SingleColor> = norms
-                    .into_iter()
-                    .map(|opt_n| {
-                        s_trait
-                            .mapper()
-                            .map(|m| m.map_to_color(opt_n.unwrap_or(0.0), l_max))
-                            .unwrap_or_else(|| SingleColor::from("#333333"))
-                    })
-                    .collect();
-                Box::new(color_vec.into_iter())
-            } else {
-                Box::new(std::iter::repeat(mark_config.color))
-            };
-
-        // --- STEP 4: GEOMETRY PROJECTION & RENDERING ---
-        let stroke_color = mark_config.color;
+        // --- STEP 4: GEOMETRY PROJECTION & EMIT ---
         let thickness = mark_config.thickness;
         let band_size = mark_config.band_size;
         let opacity = mark_config.opacity;
         let is_flipped = context.coord.is_flipped();
 
-        // Zip all streams into a single loop to emit draw calls for each row.
-        for (((x_n, y_n), fill_color), _) in x_norms
-            .into_iter()
-            .zip(y_norms.into_iter())
-            .zip(color_iter)
-            .zip(std::iter::repeat(()))
-        {
-            let x_norm = x_n.unwrap_or(0.0);
-            let y_norm = y_n.unwrap_or(0.0);
-
-            let (px, py) = context.transform(x_norm, y_norm);
-
-            // Calculate tick rectangle geometry based on flip state
-            let (rect_x, rect_y, rect_width, rect_height) = if !is_flipped {
-                // Vertical ticks: thin width, extended height
-                let half_thickness = thickness / 2.0;
-                let half_band = band_size / 2.0;
-                (px - half_thickness, py - half_band, thickness, band_size)
-            } else {
-                // Horizontal ticks: extended width, thin height
-                let half_thickness = thickness / 2.0;
-                let half_band = band_size / 2.0;
-                (px - half_band, py - half_thickness, band_size, thickness)
+        for i in 0..ds.row_count {
+            // Skip points where X or Y are null to avoid rendering at (0,0).
+            let (Some(xn), Some(yn)) = (x_norms[i], y_norms[i]) else {
+                continue;
             };
 
-            let rect_config = RectConfig {
+            // 4.1 Coordinate Projection: [0, 1] -> Pixels
+            let (px, py) = context.coord.transform(xn, yn, &context.panel);
+
+            // 4.2 Color Resolution: Resolve mapping or use static fallback
+            let fill_color = if let Some(ref norms) = color_norms {
+                self.resolve_color_from_value(norms[i], context, &mark_config.color)
+            } else {
+                mark_config.color
+            };
+
+            // 4.3 Tick Geometry Calculation:
+            // Ticks are centered on the (px, py) coordinate.
+            let (rect_x, rect_y, rect_w, rect_h) = if !is_flipped {
+                // Vertical ticks: narrow width, tall height
+                (
+                    px - thickness / 2.0,
+                    py - band_size / 2.0,
+                    thickness,
+                    band_size,
+                )
+            } else {
+                // Horizontal ticks: wide width, narrow height
+                (
+                    px - band_size / 2.0,
+                    py - thickness / 2.0,
+                    band_size,
+                    thickness,
+                )
+            };
+
+            backend.draw_rect(RectConfig {
                 x: rect_x as Precision,
                 y: rect_y as Precision,
-                width: rect_width as Precision,
-                height: rect_height as Precision,
+                width: rect_w as Precision,
+                height: rect_h as Precision,
                 fill: fill_color,
-                stroke: stroke_color,
-                stroke_width: 0.0,
+                stroke: mark_config.color, // Border matches mark color
+                stroke_width: 0.0,         // Ticks are typically filled only
                 opacity: opacity as Precision,
-            };
-
-            backend.draw_rect(rect_config);
+            });
         }
 
         Ok(())
+    }
+}
+
+impl Chart<MarkTick> {
+    /// Shared utility to map a normalized data value to its aesthetic color.
+    fn resolve_color_from_value(
+        &self,
+        val: Option<f64>,
+        context: &PanelContext,
+        fallback: &SingleColor,
+    ) -> SingleColor {
+        if let (Some(v), Some(mapping)) = (val, &context.spec.aesthetics.color) {
+            let s_trait = mapping.scale_impl.as_ref();
+            s_trait
+                .mapper()
+                .as_ref()
+                .map(|m| m.map_to_color(v, s_trait.logical_max()))
+                .unwrap_or(*fallback)
+        } else {
+            *fallback
+        }
     }
 }
