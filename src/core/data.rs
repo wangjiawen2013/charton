@@ -1,5 +1,5 @@
 use crate::error::ChartonError;
-use ahash::AHashMap;
+use ahash::{AHashMap, AHashSet};
 use rayon::prelude::*;
 use std::fmt;
 use std::sync::Arc;
@@ -233,88 +233,164 @@ impl ColumnVector {
     /// variant (NaN for floats, bitmasks for others) to ensure accurate statistics.
     pub fn n_unique(&self) -> usize {
         match self {
-            // --- F64 FAST PATH ---
-            // Uses a HashSet to store bit-represented floats. NaNs are skipped
-            // as they represent null values in this architecture.
+            // --- FLOAT PATHS (F64/F32) ---
+            // Normalizes -0.0 and 0.0 to the same bit representation and filters NaNs.
             ColumnVector::F64 { data } => {
-                let mut set = std::collections::HashSet::new();
-                for &v in data {
-                    if !v.is_nan() {
-                        // Normalizing -0.0 to 0.0
-                        // In IEEE 754, -0.0 == 0.0 is true, so this reassignment
-                        // flattens both to the same bit representation (all zeros).
-                        let normalized_v = if v == 0.0 { 0.0 } else { v };
-                        set.insert(normalized_v.to_bits());
-                    }
-                }
-                set.len()
+                data.par_iter()
+                    .filter(|&&v| !v.is_nan())
+                    .fold(
+                        || AHashSet::new(),
+                        |mut set, &v| {
+                            // In IEEE 754, -0.0 == 0.0 is true
+                            let norm = if v == 0.0 { 0.0 } else { v };
+                            set.insert(norm.to_bits());
+                            set
+                        },
+                    )
+                    .reduce(
+                        || AHashSet::new(),
+                        |mut s1, s2| {
+                            s1.extend(s2);
+                            s1
+                        },
+                    )
+                    .len()
             }
 
-            // --- F32 PATH ---
             ColumnVector::F32 { data } => {
-                let mut set = std::collections::HashSet::new();
-                for &v in data {
-                    if !v.is_nan() {
-                        let normalized = if v == 0.0 { 0.0 } else { v };
-                        set.insert(normalized.to_bits());
-                    }
-                }
-                set.len()
+                data.par_iter()
+                    .filter(|&&v| !v.is_nan())
+                    .fold(
+                        || AHashSet::new(),
+                        |mut set, &v| {
+                            let norm = if v == 0.0 { 0.0 } else { v };
+                            set.insert(norm.to_bits());
+                            set
+                        },
+                    )
+                    .reduce(
+                        || AHashSet::new(),
+                        |mut s1, s2| {
+                            s1.extend(s2);
+                            s1
+                        },
+                    )
+                    .len()
             }
 
             // --- STRING PATH ---
-            // Only strings marked as "Valid" in the bitmask are inserted into the set.
+            // Uses the validity bitmask to skip null strings during parallel iteration.
             ColumnVector::String { data, validity } => {
-                let mut set = std::collections::HashSet::new();
-                for (i, s) in data.iter().enumerate() {
-                    if ColumnVector::is_valid_in_mask(validity, i) {
-                        set.insert(s);
-                    }
-                }
-                set.len()
+                (0..data.len())
+                    .into_par_iter()
+                    .fold(
+                        || AHashSet::new(),
+                        |mut set, i| {
+                            if Self::is_valid_in_mask(validity, i) {
+                                set.insert(&data[i]);
+                            }
+                            set
+                        },
+                    )
+                    .reduce(
+                        || AHashSet::new(),
+                        |mut s1, s2| {
+                            s1.extend(s2);
+                            s1
+                        },
+                    )
+                    .len()
             }
 
             // --- INTEGER PATHS (I64, I32, U32) ---
-            // Generic handling for integer types using the bitmask for null-checks.
+            // Efficiently processes primitive integers using thread-local sets.
             ColumnVector::I64 { data, validity } => {
-                let mut set = std::collections::HashSet::new();
-                for (i, &v) in data.iter().enumerate() {
-                    if ColumnVector::is_valid_in_mask(validity, i) {
-                        set.insert(v);
-                    }
-                }
-                set.len()
+                (0..data.len())
+                    .into_par_iter()
+                    .fold(
+                        || AHashSet::new(),
+                        |mut set, i| {
+                            if Self::is_valid_in_mask(validity, i) {
+                                set.insert(data[i]);
+                            }
+                            set
+                        },
+                    )
+                    .reduce(
+                        || AHashSet::new(),
+                        |mut s1, s2| {
+                            s1.extend(s2);
+                            s1
+                        },
+                    )
+                    .len()
             }
 
             ColumnVector::I32 { data, validity } => {
-                let mut set = std::collections::HashSet::new();
-                for (i, &v) in data.iter().enumerate() {
-                    if ColumnVector::is_valid_in_mask(validity, i) {
-                        set.insert(v);
-                    }
-                }
-                set.len()
+                (0..data.len())
+                    .into_par_iter()
+                    .fold(
+                        || AHashSet::new(),
+                        |mut set, i| {
+                            if Self::is_valid_in_mask(validity, i) {
+                                set.insert(data[i]);
+                            }
+                            set
+                        },
+                    )
+                    .reduce(
+                        || AHashSet::new(),
+                        |mut s1, s2| {
+                            s1.extend(s2);
+                            s1
+                        },
+                    )
+                    .len()
             }
 
             ColumnVector::U32 { data, validity } => {
-                let mut set = std::collections::HashSet::new();
-                for (i, &v) in data.iter().enumerate() {
-                    if ColumnVector::is_valid_in_mask(validity, i) {
-                        set.insert(v);
-                    }
-                }
-                set.len()
+                (0..data.len())
+                    .into_par_iter()
+                    .fold(
+                        || AHashSet::new(),
+                        |mut set, i| {
+                            if Self::is_valid_in_mask(validity, i) {
+                                set.insert(data[i]);
+                            }
+                            set
+                        },
+                    )
+                    .reduce(
+                        || AHashSet::new(),
+                        |mut s1, s2| {
+                            s1.extend(s2);
+                            s1
+                        },
+                    )
+                    .len()
             }
 
             // --- TEMPORAL PATH ---
             ColumnVector::DateTime { data, validity } => {
-                let mut set = std::collections::HashSet::new();
-                for (i, &dt) in data.iter().enumerate() {
-                    if ColumnVector::is_valid_in_mask(validity, i) {
-                        set.insert(dt);
-                    }
-                }
-                set.len()
+                (0..data.len())
+                    .into_par_iter()
+                    .fold(
+                        || AHashSet::new(),
+                        |mut set, i| {
+                            if Self::is_valid_in_mask(validity, i) {
+                                set.insert(data[i]);
+                            }
+                            set
+                        },
+                    )
+                    .reduce(
+                        || AHashSet::new(),
+                        |mut s1, s2| {
+                            s1.extend(s2);
+                            s1
+                        },
+                    )
+                    .len()
             }
         }
     }
