@@ -257,141 +257,130 @@ impl ColumnVector {
                     .len()
             }
 
-            ColumnVector::F32 { data } => {
-                data.par_iter()
-                    .filter(|&&v| !v.is_nan())
-                    .fold(
-                        || AHashSet::new(),
-                        |mut set, &v| {
-                            let norm = if v == 0.0 { 0.0 } else { v };
-                            set.insert(norm.to_bits());
-                            set
-                        },
-                    )
-                    .reduce(
-                        || AHashSet::new(),
-                        |mut s1, s2| {
-                            s1.extend(s2);
-                            s1
-                        },
-                    )
-                    .len()
-            }
+            ColumnVector::F32 { data } => data
+                .par_iter()
+                .filter(|&&v| !v.is_nan())
+                .fold(
+                    || AHashSet::new(),
+                    |mut set, &v| {
+                        let norm = if v == 0.0 { 0.0 } else { v };
+                        set.insert(norm.to_bits());
+                        set
+                    },
+                )
+                .reduce(
+                    || AHashSet::new(),
+                    |mut s1, s2| {
+                        s1.extend(s2);
+                        s1
+                    },
+                )
+                .len(),
 
             // --- STRING PATH ---
             // Uses the validity bitmask to skip null strings during parallel iteration.
-            ColumnVector::String { data, validity } => {
-                (0..data.len())
-                    .into_par_iter()
-                    .fold(
-                        || AHashSet::new(),
-                        |mut set, i| {
-                            if Self::is_valid_in_mask(validity, i) {
-                                set.insert(&data[i]);
-                            }
-                            set
-                        },
-                    )
-                    .reduce(
-                        || AHashSet::new(),
-                        |mut s1, s2| {
-                            s1.extend(s2);
-                            s1
-                        },
-                    )
-                    .len()
-            }
+            ColumnVector::String { data, validity } => (0..data.len())
+                .into_par_iter()
+                .fold(
+                    || AHashSet::new(),
+                    |mut set, i| {
+                        if Self::is_valid_in_mask(validity, i) {
+                            set.insert(&data[i]);
+                        }
+                        set
+                    },
+                )
+                .reduce(
+                    || AHashSet::new(),
+                    |mut s1, s2| {
+                        s1.extend(s2);
+                        s1
+                    },
+                )
+                .len(),
 
             // --- INTEGER PATHS (I64, I32, U32) ---
             // Efficiently processes primitive integers using thread-local sets.
-            ColumnVector::I64 { data, validity } => {
-                (0..data.len())
-                    .into_par_iter()
-                    .fold(
-                        || AHashSet::new(),
-                        |mut set, i| {
-                            if Self::is_valid_in_mask(validity, i) {
-                                set.insert(data[i]);
-                            }
-                            set
-                        },
-                    )
-                    .reduce(
-                        || AHashSet::new(),
-                        |mut s1, s2| {
-                            s1.extend(s2);
-                            s1
-                        },
-                    )
-                    .len()
-            }
+            ColumnVector::I64 { data, validity } => (0..data.len())
+                .into_par_iter()
+                .fold(
+                    || AHashSet::new(),
+                    |mut set, i| {
+                        if Self::is_valid_in_mask(validity, i) {
+                            set.insert(data[i]);
+                        }
+                        set
+                    },
+                )
+                .reduce(
+                    || AHashSet::new(),
+                    |mut s1, s2| {
+                        s1.extend(s2);
+                        s1
+                    },
+                )
+                .len(),
 
-            ColumnVector::I32 { data, validity } => {
-                (0..data.len())
-                    .into_par_iter()
-                    .fold(
-                        || AHashSet::new(),
-                        |mut set, i| {
-                            if Self::is_valid_in_mask(validity, i) {
-                                set.insert(data[i]);
-                            }
-                            set
-                        },
-                    )
-                    .reduce(
-                        || AHashSet::new(),
-                        |mut s1, s2| {
-                            s1.extend(s2);
-                            s1
-                        },
-                    )
-                    .len()
-            }
+            ColumnVector::I32 { data, validity } => (0..data.len())
+                .into_par_iter()
+                .fold(
+                    || AHashSet::new(),
+                    |mut set, i| {
+                        if Self::is_valid_in_mask(validity, i) {
+                            set.insert(data[i]);
+                        }
+                        set
+                    },
+                )
+                .reduce(
+                    || AHashSet::new(),
+                    |mut s1, s2| {
+                        s1.extend(s2);
+                        s1
+                    },
+                )
+                .len(),
 
-            ColumnVector::U32 { data, validity } => {
-                (0..data.len())
-                    .into_par_iter()
-                    .fold(
-                        || AHashSet::new(),
-                        |mut set, i| {
-                            if Self::is_valid_in_mask(validity, i) {
-                                set.insert(data[i]);
-                            }
-                            set
-                        },
-                    )
-                    .reduce(
-                        || AHashSet::new(),
-                        |mut s1, s2| {
-                            s1.extend(s2);
-                            s1
-                        },
-                    )
-                    .len()
-            }
+            ColumnVector::U32 { data, validity } => (0..data.len())
+                .into_par_iter()
+                .fold(
+                    || AHashSet::new(),
+                    |mut set, i| {
+                        if Self::is_valid_in_mask(validity, i) {
+                            set.insert(data[i]);
+                        }
+                        set
+                    },
+                )
+                .reduce(
+                    || AHashSet::new(),
+                    |mut s1, s2| {
+                        s1.extend(s2);
+                        s1
+                    },
+                )
+                .len(),
 
             // --- TEMPORAL PATH ---
-            ColumnVector::DateTime { data, validity } => {
-                (0..data.len())
-                    .into_par_iter()
-                    .fold(
-                        || AHashSet::new(),
-                        |mut set, i| {
-                            if Self::is_valid_in_mask(validity, i) {
-                                set.insert(data[i]);
-                            }
-                            set
-                        },
-                    )
-                    .reduce(
-                        || AHashSet::new(),
-                        |mut s1, s2| {
-                            s1.extend(s2);
-                            s1
-                        },
-                    )
-                    .len()
-            }
+            ColumnVector::DateTime { data, validity } => (0..data.len())
+                .into_par_iter()
+                .fold(
+                    || AHashSet::new(),
+                    |mut set, i| {
+                        if Self::is_valid_in_mask(validity, i) {
+                            set.insert(data[i]);
+                        }
+                        set
+                    },
+                )
+                .reduce(
+                    || AHashSet::new(),
+                    |mut s1, s2| {
+                        s1.extend(s2);
+                        s1
+                    },
+                )
+                .len(),
         }
     }
 
@@ -574,18 +563,16 @@ impl_from_col!(u32, U32);
 impl_from_col!(String, String);
 impl_from_col!(OffsetDateTime, DateTime);
 
-/// Represents the result of a grouping operation using high-performance hashing.
+/// Represents the result of a grouping operation, preserving the order of appearance.
 pub struct GroupedIndices {
-    /// A map where the key is the unique identifier for a group (e.g., "North America"),
-    /// and the value is a vector containing the **original row indices** from the Dataset.
+    /// A vector of tuples where:
+    /// - `Option<String>` is the group name (e.g., "North America").
+    /// - `Vec<usize>` contains the **original row indices** belonging to that group.
     ///
-    /// ### Why `Vec<usize>`?
-    /// - **Memory Efficiency**: It avoids cloning heavy data (like Strings or large structs).
-    /// - **Performance**: Row indices allow for fast, random-access lookups in the
-    ///   columnar buffers during the rendering or aggregation phase.
-    /// - **Indirection**: This acts as a logical "view" or "filter" over the
-    ///   flat, contiguous memory of the [ColumnVector].
-    pub groups: AHashMap<Option<String>, Vec<usize>>,
+    /// ### Order of Groups
+    /// The groups are ordered by their **first appearance** in the original dataset.
+    /// This allows users to control chart sorting by simply reordering their data source.
+    pub groups: Vec<(Option<String>, Vec<usize>)>,
 }
 
 /// A normalized, columnar data container.
@@ -901,55 +888,81 @@ impl Dataset {
         }
     }
 
-    /// Partitions the dataset using aHash and Rayon for maximum throughput.
+    /// Partitions the dataset using aHash and Rayon for maximum throughput,
+    /// while preserving the order of groups based on their first appearance.
     pub fn group_by(&self, col_name: Option<&str>) -> GroupedIndices {
         // 1. Resolve the grouping column.
-        // We use .column() to get the &ColumnVector wrapper which supports polymorphic access.
         let col_vector = match col_name {
-            Some(name) => self.column(name).ok(), // If column not found, treat as no grouping
+            Some(name) => self.column(name).ok(),
             None => None,
         };
 
-        // 2. Handle the "No Grouping" or "Column Missing" case early.
+        // 2. Handle the "No Grouping" case.
+        // We return a Vec with a single group containing all indices.
         let vector = match col_vector {
             Some(v) => v,
             None => {
-                let mut groups = AHashMap::with_capacity(1);
-                groups.insert(None, (0..self.row_count).collect());
-                return GroupedIndices { groups };
+                return GroupedIndices {
+                    groups: vec![(None, (0..self.row_count).collect())],
+                };
             }
         };
 
-        // 3. Parallel Grouping Strategy:
-        // Use fold + reduce to build thread-local maps and merge them, avoiding Mutex contention.
-        let groups = (0..self.row_count)
+        // 3. Parallel Grouping with First-Appearance Tracking:
+        // We store: Map<GroupName, (FirstSeenIndex, Vec<RowIndices>)>
+        let groups_map = (0..self.row_count)
             .into_par_iter()
             .fold(
-                || AHashMap::<Option<String>, Vec<usize>>::with_capacity(64),
+                || AHashMap::<Option<String>, (usize, Vec<usize>)>::with_capacity(64),
                 |mut local_map, i| {
-                    // get_as_string is defined on ColumnVector and handles all variants.
                     let key = vector.get_as_string(i);
                     local_map
                         .entry(key)
-                        .or_insert_with(|| Vec::with_capacity(16))
-                        .push(i);
+                        .and_modify(|(_first_idx, indices)| {
+                            // The local_map processes indices in increasing order,
+                            // so first_idx is already the minimum for this chunk.
+                            indices.push(i);
+                        })
+                        .or_insert((i, vec![i]));
                     local_map
                 },
             )
             .reduce(
                 || AHashMap::default(),
                 |mut map1, mut map2| {
-                    // Merge local maps into a global one.
-                    // For typical visualization tasks, the number of groups is small,
-                    // making this merge extremely fast.
-                    for (key, mut indices) in map2.drain() {
+                    for (key, (first_idx2, mut indices2)) in map2.drain() {
                         map1.entry(key)
-                            .or_insert_with(Vec::new)
-                            .append(&mut indices);
+                            .and_modify(|(first_idx1, indices1)| {
+                                // Keep the global minimum index to preserve data order
+                                if first_idx2 < *first_idx1 {
+                                    *first_idx1 = first_idx2;
+                                }
+                                indices1.append(&mut indices2);
+                            })
+                            .or_insert((first_idx2, indices2));
                     }
                     map1
                 },
             );
+
+        // 4. Finalize Order: Convert the HashMap to a Vec sorted by first_idx.
+        let mut sorted_groups: Vec<(Option<String>, (usize, Vec<usize>))> =
+            groups_map.into_iter().collect();
+
+        // Sort groups based on when they first appeared in the data.
+        // This allows users to control chart order via data sorting.
+        sorted_groups.sort_by_key(|(_key, (first_idx, _indices))| *first_idx);
+
+        // 5. Build the final GroupedIndices structure.
+        let groups = sorted_groups
+            .into_iter()
+            .map(|(key, (_first_idx, mut indices))| {
+                // Sort indices within the group to ensure contiguous memory access
+                // patterns during the rendering phase.
+                indices.sort_unstable();
+                (key, indices)
+            })
+            .collect();
 
         GroupedIndices { groups }
     }
