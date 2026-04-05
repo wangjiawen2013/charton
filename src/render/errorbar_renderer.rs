@@ -14,6 +14,8 @@ use crate::visual::color::SingleColor;
 impl MarkRenderer for Chart<MarkErrorBar> {
     /// Renders error bars which typically represent variability (min/max/center).
     /// Supports "dodging" (side-by-side positioning) for grouped data.
+    /// Renders error bars which typically represent variability (min/max/center).
+    /// Supports "dodging" (side-by-side positioning) for grouped data.
     fn render_marks(
         &self,
         backend: &mut dyn RenderBackend,
@@ -52,9 +54,7 @@ impl MarkRenderer for Chart<MarkErrorBar> {
             .as_ref()
             .ok_or_else(|| ChartonError::Mark("MarkErrorBar configuration is missing".into()))?;
 
-        // --- STEP 2: VECTORIZED NORMALIZATION (Pre-compute Column-wise) ---
-        // We pre-calculate normalization for the entire column to avoid redundant
-        // calculations inside the grouping/dodging loops.
+        // --- STEP 2: VECTORIZED NORMALIZATION ---
         let x_scale = context.coord.get_x_scale();
         let y_scale = context.coord.get_y_scale();
 
@@ -92,7 +92,7 @@ impl MarkRenderer for Chart<MarkErrorBar> {
         // unit_step_norm represents the logical width of one category on the X-axis.
         let unit_step_norm = (x_scale.normalize(1.0) - x_scale.normalize(0.0)).abs();
 
-        // --- STEP 4: RENDERING LOOP ---
+        // --- STEP 4: RENDERING LOOP (Organized by Group for Z-Index) ---
         for (group_idx, (_group_key, row_indices)) in grouped_data.groups.iter().enumerate() {
             if row_indices.is_empty() {
                 continue;
