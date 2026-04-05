@@ -22,14 +22,21 @@ impl MarkRenderer for Chart<MarkRect> {
             return Ok(());
         }
 
-        let mark_config = self.mark.as_ref().ok_or_else(|| {
-            ChartonError::Mark("MarkRect configuration is missing".into())
-        })?;
+        let mark_config = self
+            .mark
+            .as_ref()
+            .ok_or_else(|| ChartonError::Mark("MarkRect configuration is missing".into()))?;
 
         // --- STEP 1: ENCODING VALIDATION ---
-        let x_enc = self.encoding.x.as_ref()
+        let x_enc = self
+            .encoding
+            .x
+            .as_ref()
             .ok_or_else(|| ChartonError::Encoding("X-axis encoding is missing".into()))?;
-        let y_enc = self.encoding.y.as_ref()
+        let y_enc = self
+            .encoding
+            .y
+            .as_ref()
             .ok_or_else(|| ChartonError::Encoding("Y-axis encoding is missing".into()))?;
 
         // --- STEP 2: VECTORIZED NORMALIZATION ---
@@ -37,8 +44,12 @@ impl MarkRenderer for Chart<MarkRect> {
         let y_scale = context.coord.get_y_scale();
 
         // Standardize data to [0.0, 1.0] normalized space using pre-computed columns
-        let x_norms = x_scale.scale_type().normalize_column(x_scale, ds.column(&x_enc.field)?);
-        let y_norms = y_scale.scale_type().normalize_column(y_scale, ds.column(&y_enc.field)?);
+        let x_norms = x_scale
+            .scale_type()
+            .normalize_column(x_scale, ds.column(&x_enc.field)?);
+        let y_norms = y_scale
+            .scale_type()
+            .normalize_column(y_scale, ds.column(&y_enc.field)?);
 
         // --- STEP 3: SIZE CALCULATION ---
         // Rectangles in heatmaps usually fill a specific bin width/height.
@@ -47,7 +58,11 @@ impl MarkRenderer for Chart<MarkRect> {
         // --- STEP 4: COLOR RESOLUTION ---
         let color_norms = if let Some(ref mapping) = context.spec.aesthetics.color {
             let s_trait = mapping.scale_impl.as_ref();
-            Some(s_trait.scale_type().normalize_column(s_trait, ds.column(&mapping.field)?))
+            Some(
+                s_trait
+                    .scale_type()
+                    .normalize_column(s_trait, ds.column(&mapping.field)?),
+            )
         } else {
             None
         };
@@ -55,7 +70,9 @@ impl MarkRenderer for Chart<MarkRect> {
         // --- STEP 5: RENDERING LOOP ---
         for i in 0..ds.row_count {
             // Skip rows with missing coordinates
-            let (Some(xn), Some(yn)) = (x_norms[i], y_norms[i]) else { continue; };
+            let (Some(xn), Some(yn)) = (x_norms[i], y_norms[i]) else {
+                continue;
+            };
 
             // Convert normalized [0,1] to pixel coordinates (usually the center of the bin)
             let (px, py) = context.coord.transform(xn, yn, &context.panel);
@@ -110,7 +127,8 @@ impl Chart<MarkRect> {
     ) -> SingleColor {
         if let (Some(v), Some(mapping)) = (val, &context.spec.aesthetics.color) {
             let s_trait = mapping.scale_impl.as_ref();
-            s_trait.mapper()
+            s_trait
+                .mapper()
                 .as_ref()
                 .map(|m| m.map_to_color(v, s_trait.logical_max()))
                 .unwrap_or(*fallback)

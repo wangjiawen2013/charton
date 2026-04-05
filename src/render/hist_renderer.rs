@@ -21,14 +21,21 @@ impl MarkRenderer for Chart<MarkHist> {
             return Ok(());
         }
 
-        let mark_config = self.mark.as_ref().ok_or_else(|| {
-            ChartonError::Mark("MarkHist configuration is missing".into())
-        })?;
+        let mark_config = self
+            .mark
+            .as_ref()
+            .ok_or_else(|| ChartonError::Mark("MarkHist configuration is missing".into()))?;
 
         // --- STEP 1: RESOLVE ENCODINGS & SCALES ---
-        let x_enc = self.encoding.x.as_ref()
+        let x_enc = self
+            .encoding
+            .x
+            .as_ref()
             .ok_or_else(|| ChartonError::Encoding("X-axis missing".into()))?;
-        let y_enc = self.encoding.y.as_ref()
+        let y_enc = self
+            .encoding
+            .y
+            .as_ref()
             .ok_or_else(|| ChartonError::Encoding("Y-axis missing".into()))?;
 
         let x_scale = context.coord.get_x_scale();
@@ -37,13 +44,21 @@ impl MarkRenderer for Chart<MarkHist> {
 
         // --- STEP 2: PRE-COMPUTE NORMALIZED COLUMNS ---
         // We use normalize_column to process all data points upfront.
-        let x_norms = x_scale.scale_type().normalize_column(x_scale, ds.column(&x_enc.field)?);
-        let y_norms = y_scale.scale_type().normalize_column(y_scale, ds.column(&y_enc.field)?);
+        let x_norms = x_scale
+            .scale_type()
+            .normalize_column(x_scale, ds.column(&x_enc.field)?);
+        let y_norms = y_scale
+            .scale_type()
+            .normalize_column(y_scale, ds.column(&y_enc.field)?);
 
         // Optional Color normalization
         let color_norms = if let Some(ref mapping) = context.spec.aesthetics.color {
             let s_trait = mapping.scale_impl.as_ref();
-            Some(s_trait.scale_type().normalize_column(s_trait, ds.column(&mapping.field)?))
+            Some(
+                s_trait
+                    .scale_type()
+                    .normalize_column(s_trait, ds.column(&mapping.field)?),
+            )
         } else {
             None
         };
@@ -60,11 +75,14 @@ impl MarkRenderer for Chart<MarkHist> {
         for (_key, row_indices) in &grouped_data.groups {
             for &idx in row_indices {
                 // Access pre-computed normalized values by index
-                let (Some(xn), Some(yn)) = (x_norms[idx], y_norms[idx]) else { continue; };
+                let (Some(xn), Some(yn)) = (x_norms[idx], y_norms[idx]) else {
+                    continue;
+                };
 
                 // Transform normalized [0,1] to screen pixels
                 let (px, py) = context.coord.transform(xn, yn, &context.panel);
-                let (px_base, py_base) = context.coord.transform(xn, y_baseline_norm, &context.panel);
+                let (px_base, py_base) =
+                    context.coord.transform(xn, y_baseline_norm, &context.panel);
 
                 // Resolve color for the current bar
                 let fill_color = if let Some(ref norms) = color_norms {
@@ -112,12 +130,15 @@ impl MarkRenderer for Chart<MarkHist> {
 // --- HELPER METHODS ---
 
 impl Chart<MarkHist> {
-    /// Determines the pixel thickness of bars by measuring the distance 
+    /// Determines the pixel thickness of bars by measuring the distance
     /// between adjacent bin centers in the current coordinate system.
     fn calculate_hist_bar_size(&self, context: &PanelContext) -> Result<f64, ChartonError> {
         let x_enc = self.encoding.x.as_ref().unwrap();
-        let n_bins = x_enc.bins.ok_or_else(|| ChartonError::Encoding("Bin count not resolved".into()))? as f64;
-        
+        let n_bins = x_enc
+            .bins
+            .ok_or_else(|| ChartonError::Encoding("Bin count not resolved".into()))?
+            as f64;
+
         let x_scale = context.coord.get_x_scale();
         let col = self.data.column(&x_enc.field)?;
 
@@ -127,7 +148,9 @@ impl Chart<MarkHist> {
 
         // Handle the case where the column might be effectively empty or invalid
         if v_min == f64::INFINITY || v_max == f64::NEG_INFINITY {
-            return Err(ChartonError::Data("X column is empty or contains only nulls".into()));
+            return Err(ChartonError::Data(
+                "X column is empty or contains only nulls".into(),
+            ));
         }
 
         // Calculate logical data-space step between bins
@@ -159,14 +182,15 @@ impl Chart<MarkHist> {
 
     /// Resolves a SingleColor from a normalized aesthetic value.
     fn resolve_color_from_value(
-        &self, 
-        val: Option<f64>, 
-        context: &PanelContext, 
-        fallback: &SingleColor
+        &self,
+        val: Option<f64>,
+        context: &PanelContext,
+        fallback: &SingleColor,
     ) -> SingleColor {
         if let (Some(v), Some(mapping)) = (val, &context.spec.aesthetics.color) {
             let s_trait = mapping.scale_impl.as_ref();
-            s_trait.mapper()
+            s_trait
+                .mapper()
                 .as_ref()
                 .map(|m| m.map_to_color(v, s_trait.logical_max()))
                 .unwrap_or(*fallback)
