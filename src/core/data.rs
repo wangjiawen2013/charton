@@ -169,6 +169,49 @@ impl ColumnVector {
         self.get_f64(row)
     }
 
+    /// Projects the entire column into a contiguous `f64` vector.
+    ///
+    /// This is a high-cost operation ($O(n)$ time + memory allocation),
+    /// hence the `to_` prefix to signal ownership transfer and allocation.
+    ///
+    /// The logic is internally consistent with `get_f64`, ensuring that
+    /// type casting and validity bitmask checks remain synchronized.
+    pub fn to_f64_vec(&self) -> Vec<f64> {
+        let n = self.len();
+        let mut out = Vec::with_capacity(n);
+
+        match self {
+            // Optimized Path: If underlying data is already F64,
+            // we bypass per-row enum dispatching and handle NaNs directly.
+            ColumnVector::F64 { data } => {
+                out.extend(data.iter().map(|&v| if v.is_nan() { 0.0 } else { v }));
+            }
+            // Optimized Path: Bulk conversion from F32 to F64.
+            ColumnVector::F32 { data } => {
+                out.extend(
+                    data.iter()
+                        .map(|&v| if v.is_nan() { 0.0 } else { v as f64 }),
+                );
+            }
+            // Generic Path: Handles I64, I32, U32, and other numeric types
+            // by utilizing the validity bitmask-aware logic in `get_f64`.
+            _ => {
+                for i in 0..n {
+                    // Fallback to unified logic; maintains single-point-of-truth for null handling.
+                    out.push(self.get_f64(i).unwrap_or(0.0));
+                }
+            }
+        }
+        out
+    }
+
+    /// Projects the column into a vector of `Option<f64>`, preserving the original
+    /// null/validity states. Useful for statistical calculations where nulls
+    /// should not be coerced to 0.0.
+    pub fn to_f64_options(&self) -> Vec<Option<f64>> {
+        (0..self.len()).map(|i| self.get_f64(i)).collect()
+    }
+
     /// Retrieves a value as a String for grouping or labeling.
     /// This is used as the 'Key' in group-by operations (like stacking).
     pub fn get_as_string(&self, row: usize) -> Option<String> {
