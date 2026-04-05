@@ -63,9 +63,13 @@ impl<'a, T: Sync + 'a> Parallelizable for &'a [T] {
 
     fn maybe_par_iter(self) -> Self::Iter {
         #[cfg(feature = "parallel")]
-        { self.par_iter() }
+        {
+            self.par_iter()
+        }
         #[cfg(not(feature = "parallel"))]
-        { self.iter() }
+        {
+            self.iter()
+        }
     }
 }
 
@@ -80,9 +84,13 @@ impl<'a, T: Sync + 'a> Parallelizable for &'a Vec<T> {
 
     fn maybe_par_iter(self) -> Self::Iter {
         #[cfg(feature = "parallel")]
-        { self.par_iter() }
+        {
+            self.par_iter()
+        }
         #[cfg(not(feature = "parallel"))]
-        { self.iter() }
+        {
+            self.iter()
+        }
     }
 }
 
@@ -97,9 +105,13 @@ impl<T: Send + Sync> IntoParallelizable for Vec<T> {
 
     fn maybe_into_par_iter(self) -> Self::Iter {
         #[cfg(feature = "parallel")]
-        { self.into_par_iter() }
+        {
+            self.into_par_iter()
+        }
         #[cfg(not(feature = "parallel"))]
-        { self.into_iter() }
+        {
+            self.into_iter()
+        }
     }
 }
 
@@ -114,8 +126,12 @@ impl IntoParallelizable for std::ops::Range<usize> {
 
     fn maybe_into_par_iter(self) -> Self::Iter {
         #[cfg(feature = "parallel")]
-        { self.into_par_iter() }
+        {
+            self.into_par_iter()
+        }
         #[cfg(not(feature = "parallel"))]
-        { self.into_iter() }
+        {
+            self.into_iter()
+        }
     }
 }
