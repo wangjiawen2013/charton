@@ -1,6 +1,6 @@
+use crate::core::utils::{IntoParallelizable, Parallelizable};
 use crate::error::ChartonError;
 use ahash::{AHashMap, AHashSet};
-use rayon::prelude::*;
 use std::fmt;
 use std::sync::Arc;
 use time::OffsetDateTime;
@@ -9,6 +9,8 @@ use time::OffsetDateTime;
 use arrow::array::{Array, Float32Array, Float64Array, Int64Array, StringArray};
 #[cfg(feature = "arrow")]
 use arrow::datatypes::{DataType, TimeUnit};
+#[cfg(feature = "parallel")]
+use rayon::prelude::*;
 
 /// Encapsulates a single column of data with high-performance null handling.
 ///
@@ -279,7 +281,7 @@ impl ColumnVector {
             // --- FLOAT PATHS (F64/F32) ---
             // Normalizes -0.0 and 0.0 to the same bit representation and filters NaNs.
             ColumnVector::F64 { data } => {
-                data.par_iter()
+                data.maybe_par_iter()
                     .filter(|&&v| !v.is_nan())
                     .fold(
                         || AHashSet::new(),
@@ -301,7 +303,7 @@ impl ColumnVector {
             }
 
             ColumnVector::F32 { data } => data
-                .par_iter()
+                .maybe_par_iter()
                 .filter(|&&v| !v.is_nan())
                 .fold(
                     || AHashSet::new(),
@@ -323,7 +325,7 @@ impl ColumnVector {
             // --- STRING PATH ---
             // Uses the validity bitmask to skip null strings during parallel iteration.
             ColumnVector::String { data, validity } => (0..data.len())
-                .into_par_iter()
+                .maybe_into_par_iter()
                 .fold(
                     || AHashSet::new(),
                     |mut set, i| {
@@ -345,7 +347,7 @@ impl ColumnVector {
             // --- INTEGER PATHS (I64, I32, U32) ---
             // Efficiently processes primitive integers using thread-local sets.
             ColumnVector::I64 { data, validity } => (0..data.len())
-                .into_par_iter()
+                .maybe_into_par_iter()
                 .fold(
                     || AHashSet::new(),
                     |mut set, i| {
@@ -365,7 +367,7 @@ impl ColumnVector {
                 .len(),
 
             ColumnVector::I32 { data, validity } => (0..data.len())
-                .into_par_iter()
+                .maybe_into_par_iter()
                 .fold(
                     || AHashSet::new(),
                     |mut set, i| {
@@ -385,7 +387,7 @@ impl ColumnVector {
                 .len(),
 
             ColumnVector::U32 { data, validity } => (0..data.len())
-                .into_par_iter()
+                .maybe_into_par_iter()
                 .fold(
                     || AHashSet::new(),
                     |mut set, i| {
@@ -406,7 +408,7 @@ impl ColumnVector {
 
             // --- TEMPORAL PATH ---
             ColumnVector::DateTime { data, validity } => (0..data.len())
-                .into_par_iter()
+                .maybe_into_par_iter()
                 .fold(
                     || AHashSet::new(),
                     |mut set, i| {
@@ -437,7 +439,7 @@ impl ColumnVector {
         match self {
             // String is the primary candidate for Discrete scales.
             ColumnVector::String { data, validity } => {
-                let mut seen = std::collections::HashSet::new();
+                let mut seen = AHashSet::new();
                 for (i, s) in data.iter().enumerate() {
                     if Self::is_valid_in_mask(validity, i) {
                         if seen.insert(s) {
@@ -449,7 +451,7 @@ impl ColumnVector {
 
             // Integers can often act as Discrete categories (e.g., Year, ID, Group Number).
             ColumnVector::I64 { data, validity } => {
-                let mut seen = std::collections::HashSet::new();
+                let mut seen = AHashSet::new();
                 for (i, &v) in data.iter().enumerate() {
                     if Self::is_valid_in_mask(validity, i) {
                         if seen.insert(v) {
@@ -461,7 +463,7 @@ impl ColumnVector {
 
             // For I32/U32, the logic is identical.
             ColumnVector::I32 { data, validity } => {
-                let mut seen = std::collections::HashSet::new();
+                let mut seen = AHashSet::new();
                 for (i, &v) in data.iter().enumerate() {
                     if Self::is_valid_in_mask(validity, i) {
                         if seen.insert(v) {
@@ -493,12 +495,12 @@ impl ColumnVector {
         match self {
             // --- FLOAT PATHS ---
             ColumnVector::F64 { data } => data
-                .par_iter()
+                .maybe_par_iter()
                 .filter(|&&v| !v.is_nan())
                 .fold(|| identity, |(min, max), &v| (min.min(v), max.max(v)))
                 .reduce(|| identity, |(m1, x1), (m2, x2)| (m1.min(m2), x1.max(x2))),
             ColumnVector::F32 { data } => data
-                .par_iter()
+                .maybe_par_iter()
                 .filter(|&&v| !v.is_nan())
                 .fold(
                     || identity,
@@ -549,7 +551,7 @@ impl ColumnVector {
         let identity = (f64::INFINITY, f64::NEG_INFINITY);
 
         if let Some(mask) = validity {
-            data.par_iter()
+            data.maybe_par_iter()
                 .enumerate()
                 .fold(
                     || identity,
@@ -566,7 +568,7 @@ impl ColumnVector {
                 .reduce(|| identity, |(m1, x1), (m2, x2)| (m1.min(m2), x1.max(x2)))
         } else {
             // Optimization: No bitmask present, process all elements.
-            data.par_iter()
+            data.maybe_par_iter()
                 .fold(
                     || identity,
                     |(min, max), v| {

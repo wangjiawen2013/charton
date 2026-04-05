@@ -9,10 +9,13 @@ use self::linear::LinearScale;
 use self::log::LogScale;
 use self::mapper::VisualMapper;
 use self::temporal::TemporalScale;
+use crate::core::utils::{IntoParallelizable, Parallelizable};
 use crate::error::ChartonError;
-use rayon::prelude::*;
 use std::sync::{Arc, RwLock};
 use time::OffsetDateTime;
+
+#[cfg(feature = "parallel")]
+use rayon::prelude::*;
 
 /// Defines how much a scale's domain should be expanded beyond the data limits.
 ///
@@ -153,7 +156,7 @@ impl Scale {
         match (self, column) {
             // --- 1. FAST PATH: F64 Continuous Memory Access (Maximum Performance) ---
             (Scale::Linear | Scale::Log, ColumnVector::F64 { data }) => {
-                data.par_iter()
+                data.maybe_par_iter()
                     .map(|&v| {
                         // NaN check acts as our null check.
                         // This is extremely fast on modern hardware.
@@ -168,7 +171,7 @@ impl Scale {
             // --- 2. Discrete / Categorical Scale ---
             // Maps unique string labels to equidistant points in [0, 1].
             (Scale::Discrete, ColumnVector::String { data, validity }) => {
-                data.par_iter() // Parallel iteration over strings
+                data.maybe_par_iter() // Parallel iteration over strings
                     .enumerate()
                     .map(|(i, s)| {
                         if ColumnVector::is_valid_in_mask(validity, i) {
@@ -183,7 +186,7 @@ impl Scale {
             // --- 3. Temporal / Time Scale ---
             // Converts high-precision DateTimes to nanosecond timestamps before normalization.
             (Scale::Temporal, ColumnVector::DateTime { data, validity }) => {
-                data.par_iter() // Parallel iteration over OffsetDateTime objects
+                data.maybe_par_iter() // Parallel iteration over OffsetDateTime objects
                     .enumerate()
                     .map(|(i, dt)| {
                         if ColumnVector::is_valid_in_mask(validity, i) {
@@ -202,7 +205,7 @@ impl Scale {
             (_, col) => {
                 // Creates a parallel range to iterate by index, fetching data safely
                 (0..col.len())
-                    .into_par_iter()
+                    .maybe_into_par_iter()
                     .map(|i| {
                         // col.get_f64(i) handles type casting and validity bitmask internally
                         col.get_f64(i).map(|v| scale_trait.normalize(v))
