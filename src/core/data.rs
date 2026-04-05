@@ -803,8 +803,15 @@ impl Dataset {
             // Truncate long strings to keep the table layout neat
             ColumnVector::String { data, .. } => {
                 let s = &data[row];
-                if s.len() > 10 {
-                    format!("{}...", &s[..7])
+                // Check if the number of characters (not bytes) exceeds the limit
+                if s.chars().count() > 10 {
+                    // Safely find the byte index of the 7th character
+                    let safe_index = s.char_indices()
+                        .nth(7)
+                        .map(|(idx, _char) | idx)
+                        .unwrap_or(s.len());
+
+                    format!("{}...", &s[..safe_index])
                 } else {
                     s.clone()
                 }
