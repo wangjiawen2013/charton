@@ -92,8 +92,8 @@ pub fn get_data() -> Result<Dataset, ChartonError> {
     ]; // Transmission type (0=automatic, 1=manual)
 
     let gear = vec![
-        4, 4, 4, 3, 3, 3, 3, 4, 4, 4, 4, 3, 3, 3, 3, 3, 3, 4, 4, 4, 3, 3, 3, 3, 3, 4, 5, 5, 5, 5,
-        5, 4,
+        "4", "4", "4", "3", "3", "3", "3", "4", "4", "4", "4", "3", "3", "3", "3", "3", "3", "4",
+        "4", "4", "3", "3", "3", "3", "3", "4", "5", "5", "5", "5", "5", "4",
     ]; // Number of forward gears
 
     let carb = vec![

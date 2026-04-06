@@ -1,14 +1,10 @@
 use charton::prelude::*;
-use polars::prelude::*;
 use std::error::Error;
 
 fn main() -> Result<(), Box<dyn Error>> {
-    let df = load_dataset("mtcars")?
-        .lazy()
-        .with_columns([col("gear").cast(DataType::String)])
-        .collect()?;
+    let ds = load_dataset("mtcars")?;
 
-    Chart::build(&df)?
+    Chart::build(ds)?
         .mark_point()?
         .encode((x("wt"), y("mpg"), color("gear"), shape("gear"), size("mpg")))?
         .coord_flip()

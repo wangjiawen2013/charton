@@ -1,6 +1,9 @@
+#[cfg(feature = "polars")]
 use charton::prelude::*;
+#[cfg(feature = "polars")]
 use std::error::Error;
 
+#[cfg(feature = "polars")]
 fn main() -> Result<(), Box<dyn Error>> {
     let exe_path = r"F:\Programs\miniconda3\envs\cellpy\python.exe";
     let iris = load_dataset("iris")?;
@@ -31,4 +34,9 @@ chart = alt.Chart(iris).mark_circle().encode(
         .save("docs/src/images/altair.svg")?;
 
     Ok(())
+}
+
+#[cfg(not(feature = "polars"))]
+fn main() {
+    println!("This example requires --features \"polars altair\" to run.");
 }
