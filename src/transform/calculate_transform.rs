@@ -1,7 +1,10 @@
 use crate::chart::Chart;
 use crate::core::data::ColumnVector;
+use crate::core::utils::IntoParallelizable;
 use crate::error::ChartonError;
 use crate::mark::Mark;
+
+#[cfg(feature = "parallel")]
 use rayon::prelude::*;
 
 impl<T: Mark> Chart<T> {
@@ -33,7 +36,7 @@ impl<T: Mark> Chart<T> {
         // Using Rayon's par_iter to distribute the workload across all CPU cores.
         // This is much faster than Polars for custom complex logic that
         // doesn't fit into standard SIMD kernels.
-        let results: Vec<(f64, f64)> = (0..row_count).into_par_iter().map(|i| f(i)).collect();
+        let results: Vec<(f64, f64)> = (0..row_count).maybe_into_par_iter().map(|i| f(i)).collect();
 
         // Separate the interleaved results into two contiguous vectors.
         // This maintains the columnar memory layout.

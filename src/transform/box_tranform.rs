@@ -1,9 +1,12 @@
 use crate::TEMP_SUFFIX;
 use crate::chart::Chart;
 use crate::core::data::{ColumnVector, Dataset, get_quantile};
+use crate::core::utils::IntoParallelizable;
 use crate::error::ChartonError;
 use crate::mark::Mark;
 use ahash::{AHashMap, AHashSet};
+
+#[cfg(feature = "parallel")]
 use rayon::prelude::*;
 
 impl<T: Mark> Chart<T> {
@@ -82,7 +85,7 @@ impl<T: Mark> Chart<T> {
         let groups: Vec<((String, Option<String>), Vec<usize>)> = group_map.into_iter().collect();
 
         let stats_results: Vec<_> = groups
-            .into_par_iter()
+            .maybe_into_par_iter()
             .map(|((x_val, c_val), indices)| {
                 // Extract and sort values using unstable sort for maximum performance
                 let mut vals: Vec<f64> = indices.iter().filter_map(|&i| y_col.get_f64(i)).collect();

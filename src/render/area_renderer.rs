@@ -3,10 +3,13 @@ use crate::TEMP_SUFFIX;
 use crate::chart::Chart;
 use crate::core::context::PanelContext;
 use crate::core::layer::{MarkRenderer, PathConfig, PolygonConfig, RenderBackend};
+use crate::core::utils::Parallelizable;
 use crate::encode::y::StackMode;
 use crate::error::ChartonError;
 use crate::mark::area::MarkArea;
 use crate::visual::color::SingleColor;
+
+#[cfg(feature = "parallel")]
 use rayon::prelude::*;
 
 impl MarkRenderer for Chart<MarkArea> {
@@ -106,7 +109,7 @@ impl MarkRenderer for Chart<MarkArea> {
 
         let area_render_data: Vec<_> = grouped_data
             .groups
-            .par_iter()
+            .maybe_par_iter()
             .filter_map(|(_name, row_indices)| {
                 if row_indices.is_empty() {
                     return None;

@@ -1,4 +1,7 @@
 use crate::core::data::ColumnVector;
+use crate::core::utils::Parallelizable;
+
+#[cfg(feature = "parallel")]
 use rayon::prelude::*;
 
 /// Categorizes continuous numerical data into discrete bins. It maps each value to a label based on
@@ -20,7 +23,7 @@ pub(crate) fn cut(
 ) -> Vec<Option<String>> {
     // Pre-allocate the result vector to match input size
     values
-        .par_iter()
+        .maybe_par_iter()
         .enumerate()
         .map(|(i, &val)| {
             // 1. Check for nulls in the bitmask or NaN values in the float data

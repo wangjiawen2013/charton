@@ -1,10 +1,13 @@
 use crate::TEMP_SUFFIX;
 use crate::chart::Chart;
 use crate::core::data::{ColumnVector, Dataset, SemanticType};
+use crate::core::utils::IntoParallelizable;
 use crate::encode::y::StackMode;
 use crate::error::ChartonError;
 use crate::mark::Mark;
 use ahash::{AHashMap, AHashSet};
+
+#[cfg(feature = "parallel")]
 use rayon::prelude::*;
 
 impl<T: Mark> Chart<T> {
@@ -121,7 +124,7 @@ impl<T: Mark> Chart<T> {
         };
 
         let stack_results: Vec<_> = (0..tick_count)
-            .into_par_iter()
+            .maybe_into_par_iter()
             .map(|idx| {
                 let mut current_y = 0.0;
                 let mut tick_data = Vec::with_capacity(color_series.len());
