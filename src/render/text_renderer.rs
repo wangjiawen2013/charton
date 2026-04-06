@@ -2,9 +2,12 @@ use crate::Precision;
 use crate::chart::Chart;
 use crate::core::context::PanelContext;
 use crate::core::layer::{MarkRenderer, RenderBackend, TextConfig};
+use crate::core::utils::Parallelizable;
 use crate::error::ChartonError;
 use crate::mark::text::MarkText;
 use crate::visual::color::SingleColor;
+
+#[cfg(feature = "parallel")]
 use rayon::prelude::*;
 
 // ============================================================================
@@ -75,7 +78,7 @@ impl MarkRenderer for Chart<MarkText> {
 
             // Calculate text configurations in parallel
             let render_configs: Vec<TextConfig> = row_indices
-                .into_par_iter()
+                .maybe_par_iter()
                 .filter_map(|&i| {
                     let x_n = x_norms[i]?;
                     let y_n = y_norms[i]?;

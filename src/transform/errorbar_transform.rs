@@ -1,11 +1,13 @@
 use crate::TEMP_SUFFIX;
 use crate::chart::Chart;
 use crate::core::data::{ColumnVector, Dataset};
+use crate::core::utils::IntoParallelizable;
 use crate::error::ChartonError;
 use crate::mark::Mark;
-use ahash::AHashMap;
+use ahash::{AHashMap, AHashSet};
+
+#[cfg(feature = "parallel")]
 use rayon::prelude::*;
-use std::collections::HashSet;
 
 impl<T: Mark> Chart<T> {
     pub(crate) fn transform_errorbar_data(mut self) -> Result<Self, ChartonError> {
@@ -52,7 +54,7 @@ impl<T: Mark> Chart<T> {
         let groups: Vec<((String, Option<String>), Vec<usize>)> = group_map.into_iter().collect();
 
         let aggregated_results: Vec<((String, Option<String>), (f64, f64, f64))> = groups
-            .into_par_iter()
+            .maybe_into_par_iter()
             .map(|(key, indices)| {
                 let mut sum = 0.0;
                 let mut valid_count = 0;
@@ -96,11 +98,11 @@ impl<T: Mark> Chart<T> {
         let lookup: AHashMap<(String, Option<String>), (f64, f64, f64)> =
             aggregated_results.into_iter().collect();
 
-        // Get unique X and Color values while preserving order (using HashSet + Vec for stability)
+        // Get unique X and Color values while preserving order (using AHashSet + Vec for stability)
         let mut x_uniques = Vec::new();
-        let mut x_seen = HashSet::new();
+        let mut x_seen = AHashSet::new();
         let mut c_uniques = Vec::new();
-        let mut c_seen = HashSet::new();
+        let mut c_seen = AHashSet::new();
 
         for ((x, c), _) in &lookup {
             if x_seen.insert(x.clone()) {

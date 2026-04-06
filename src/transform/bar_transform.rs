@@ -1,12 +1,14 @@
 use crate::TEMP_SUFFIX;
 use crate::chart::Chart;
 use crate::core::data::{ColumnVector, Dataset};
+use crate::core::utils::{IntoParallelizable, Parallelizable};
 use crate::encode::y::StackMode;
 use crate::error::ChartonError;
 use crate::mark::Mark;
-use ahash::AHashMap;
+use ahash::{AHashMap, AHashSet};
+
+#[cfg(feature = "parallel")]
 use rayon::prelude::*;
-use std::collections::HashSet;
 
 impl<T: Mark> Chart<T> {
     pub(crate) fn transform_bar_data(mut self) -> Result<Self, ChartonError> {
@@ -67,7 +69,7 @@ impl<T: Mark> Chart<T> {
         let groups: Vec<((String, Option<String>), Vec<usize>)> = group_map.into_iter().collect();
 
         let mut aggregated_results: Vec<((String, Option<String>), f64)> = groups
-            .into_par_iter()
+            .maybe_into_par_iter()
             .map(|(key, indices)| {
                 // Use the AggregateOp enum to compute the value
                 let val = agg_op.aggregate_by_index(&y_col, &indices);
@@ -84,10 +86,12 @@ impl<T: Mark> Chart<T> {
             }
 
             // Normalize values in parallel
-            aggregated_results.par_iter_mut().for_each(|((x, _), val)| {
-                let sum = x_sums.get(x).cloned().unwrap_or(1.0);
-                *val = if sum != 0.0 { *val / sum } else { 0.0 };
-            });
+            (&mut aggregated_results)
+                .maybe_par_iter()
+                .for_each(|((x, _), val)| {
+                    let sum = x_sums.get(x).cloned().unwrap_or(1.0);
+                    *val = if sum != 0.0 { *val / sum } else { 0.0 };
+                });
         }
 
         // --- STEP 5: Cartesian Product & Gap Filling ---
@@ -101,8 +105,8 @@ impl<T: Mark> Chart<T> {
         // Extract unique keys for X and Color to build the grid
         let mut x_uniques = Vec::new();
         let mut c_uniques = Vec::new();
-        let mut x_seen = HashSet::new();
-        let mut c_seen = HashSet::new();
+        let mut x_seen = AHashSet::new();
+        let mut c_seen = AHashSet::new();
 
         for ((x, c), _) in &lookup {
             if x_seen.insert(x.clone()) {

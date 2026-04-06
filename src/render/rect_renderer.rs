@@ -2,9 +2,12 @@ use crate::Precision;
 use crate::chart::Chart;
 use crate::core::context::PanelContext;
 use crate::core::layer::{MarkRenderer, RectConfig, RenderBackend};
+use crate::core::utils::Parallelizable;
 use crate::error::ChartonError;
 use crate::mark::rect::MarkRect;
 use crate::visual::color::SingleColor;
+
+#[cfg(feature = "parallel")]
 use rayon::prelude::*;
 
 // ============================================================================
@@ -80,7 +83,7 @@ impl MarkRenderer for Chart<MarkRect> {
 
             // Calculate tile geometries in parallel
             let render_configs: Vec<RectConfig> = row_indices
-                .into_par_iter()
+                .maybe_par_iter()
                 .filter_map(|&i| {
                     let x_n = x_norms[i]?;
                     let y_n = y_norms[i]?;

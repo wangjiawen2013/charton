@@ -1,10 +1,13 @@
 use crate::chart::Chart;
 use crate::core::context::PanelContext;
 use crate::core::layer::{CircleConfig, LineConfig, MarkRenderer, RectConfig, RenderBackend};
+use crate::core::utils::IntoParallelizable;
 use crate::error::ChartonError;
 use crate::mark::boxplot::MarkBoxplot;
 use crate::visual::color::SingleColor;
 use crate::{Precision, TEMP_SUFFIX};
+
+#[cfg(feature = "parallel")]
 use rayon::prelude::*;
 
 impl MarkRenderer for Chart<MarkBoxplot> {
@@ -74,7 +77,7 @@ impl MarkRenderer for Chart<MarkBoxplot> {
         // --- STEP 3: PARALLEL GEOMETRY COMPUTATION ---
         // We calculate all screen-space coordinates in parallel to maximize CPU utilization.
         let box_elements: Vec<BoxElement> = (0..row_count)
-            .into_par_iter()
+            .maybe_into_par_iter()
             .filter_map(|i| {
                 let total_groups = groups_count_col.get_f64(i).unwrap_or(1.0);
                 let sub_idx = sub_idx_col.get_f64(i).unwrap_or(0.0);

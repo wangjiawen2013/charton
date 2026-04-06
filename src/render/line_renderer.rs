@@ -2,9 +2,12 @@ use crate::Precision;
 use crate::chart::Chart;
 use crate::core::context::PanelContext;
 use crate::core::layer::{MarkRenderer, PathConfig, RenderBackend};
+use crate::core::utils::Parallelizable;
 use crate::error::ChartonError;
 use crate::mark::line::MarkLine;
 use crate::visual::color::SingleColor;
+
+#[cfg(feature = "parallel")]
 use rayon::prelude::*;
 
 /// Interpolation methods for line paths
@@ -112,11 +115,11 @@ impl MarkRenderer for Chart<MarkLine> {
         let y_ref = &y_norms;
         let c_ref = color_norms.as_ref();
 
-        // We use par_iter().enumerate() to maintain the "Order of Appearance"
+        // We use maybe_par_iter().enumerate() to maintain the "Order of Appearance"
         // while calculating line paths in parallel.
         let line_render_data: Vec<_> = grouped_indices
             .groups
-            .par_iter()
+            .maybe_par_iter()
             .enumerate() // group_idx matches the order in grouped_indices.groups
             .filter_map(|(group_idx, (_group_key, row_indices))| {
                 let &first_idx = row_indices.first()?;
