@@ -1387,31 +1387,69 @@ impl Dataset {
         GroupedIndices { groups }
     }
 
-    /// Constructs a Dataset from a slice of Apache Arrow RecordBatches.
-    /// This is optimized for large datasets by concatenating column chunks
-    /// before performing type conversion.
+    /// Constructs a Dataset from Polars-rechunked Arrow Arrays and a Schema.
+    ///
+    /// This is the high-performance entry point used by the `load_polars_df!` macro.
+    /// It assumes the data has already been rechunked into single contiguous
+    /// memory blocks by Polars, avoiding expensive concatenation kernels.
+    ///
+    /// # Performance
+    /// For 10M+ rows, this is significantly faster than processing record batches
+    /// as it minimizes memory allocations and respects Polars' parallel rechunking.
     #[cfg(feature = "arrow")]
-    pub fn from_record_batches(batches: &[RecordBatch]) -> Result<Self, ChartonError> {
+    pub fn from_arrays(
+        schema: ::std::sync::Arc<::polars::prelude::Schema>,
+        columns: Vec<Box<dyn arrow::array::Array>>,
+    ) -> Result<Self, ChartonError> {
+        let mut dataset = Self::new();
+
+        // Polars guarantees that the schema fields and column arrays align 1:1 in order.
+        for (field, array) in schema.iter_fields().zip(columns.iter()) {
+            // Convert the contiguous Arrow array into Charton's internal ColumnVector.
+            // This invokes the specialized type-casting logic in ColumnVector.
+            let column_vector = ColumnVector::from_arrow(array.as_ref())?;
+
+            // Map Polars field names (PlSmallStr) to Charton column keys.
+            dataset.add_column(field.name().as_str(), column_vector)?;
+        }
+
+        Ok(dataset)
+    }
+
+    /// Constructs a Dataset from a slice of Apache Arrow RecordBatches.
+    ///
+    /// This method is designed for general-purpose Arrow compatibility (e.g., data
+    /// from Parquet files, databases, or Arrow Flight). It automatically
+    /// concatenates fragmented chunks into unified arrays before conversion.
+    ///
+    /// # Implementation Note
+    /// While optimized with Arrow's bitwise concatenation kernel, this method
+    /// may involve significant memory copying for very large datasets. For
+    /// Polars-originated data, prefer `from_arrays` via the `load_polars_df!` macro.
+    #[cfg(feature = "arrow")]
+    pub fn from_record_batches(
+        batches: &[arrow::record_batch::RecordBatch],
+    ) -> Result<Self, ChartonError> {
         if batches.is_empty() {
             return Ok(Self::new());
         }
 
-        // Assume all batches follow the same schema as the first one
+        // All batches in a stream must share the same schema.
         let schema = batches[0].schema();
         let mut dataset = Self::new();
 
-        // Iterate through each field in the schema to process columns
+        // Process columns one by one to keep memory access patterns predictable.
         for (i, field) in schema.fields().iter().enumerate() {
-            // 1. Collect references to the i-th column across all batches
-            let column_arrays: Vec<&dyn Array> =
+            // 1. Gather all chunks (RecordBatches) for the current column.
+            let column_arrays: Vec<&dyn arrow::array::Array> =
                 batches.iter().map(|b| b.column(i).as_ref()).collect();
 
-            // 2. High-performance concatenation: merges multiple chunks into a single
-            // contiguous array using Arrow's compute kernel (efficient bitwise copying).
+            // 2. Unify fragmented chunks into a single contiguous Arrow array.
+            // This is a physical memory copy operation (Concatenation).
             let merged_array = arrow::compute::concat(&column_arrays)
-                .map_err(|e| ChartonError::Data(format!("Concat error: {}", e)))?;
+                .map_err(|e| ChartonError::Data(format!("Arrow concat error: {}", e)))?;
 
-            // 3. Convert the unified Arrow array into Charton's internal ColumnVector format
+            // 3. Perform type-specific conversion to Charton's internal format.
             let column_vector = ColumnVector::from_arrow(merged_array.as_ref())?;
 
             dataset.add_column(field.name(), column_vector)?;
