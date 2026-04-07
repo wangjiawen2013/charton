@@ -44,9 +44,3 @@ kernel-density-estimation = "0.2"
 ahash = "0.8"
 csscolorparser = "0.8"
 html-escape = "0.2"
-
-[profile.release]
-opt-level = "z"  # or "s" to speed up
-lto = true
-codegen-units = 1
-panic = "abort"
