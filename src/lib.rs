@@ -22,6 +22,16 @@ pub mod theme;
 pub mod transform;
 pub mod visual;
 
+#[cfg(feature = "arrow")]
+pub use arrow;
+
+/// Global macros providing syntactic sugar for data construction,
+/// external library integration, and developer convenience.
+#[macro_use]
+pub mod macros;
+
+/// Cross-language interoperability bridge, enabling data exchange with
+/// external visualization ecosystems such as Altair, Matplotlib, and R.
 #[cfg(all(feature = "bridge", not(target_arch = "wasm32")))]
 pub mod bridge;
 

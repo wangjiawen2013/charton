@@ -9,6 +9,9 @@ use time::OffsetDateTime;
 use arrow::array::{Array, Float32Array, Float64Array, Int64Array, StringArray};
 #[cfg(feature = "arrow")]
 use arrow::datatypes::{DataType, TimeUnit};
+#[cfg(feature = "arrow")]
+use arrow::record_batch::RecordBatch;
+
 #[cfg(feature = "parallel")]
 use rayon::prelude::*;
 
@@ -579,6 +582,378 @@ impl ColumnVector {
                 .reduce(|| identity, |(m1, x1), (m2, x2)| (m1.min(m2), x1.max(x2)))
         }
     }
+
+    /// Converts an Apache Arrow Array into a Charton ColumnVector.
+    #[cfg(feature = "arrow")]
+    pub fn from_arrow(array: &dyn Array) -> Result<Self, ChartonError> {
+        match array.data_type() {
+            DataType::Float64 => {
+                let arr = array.as_any().downcast_ref::<Float64Array>().unwrap();
+                // Map nulls to NaN directly for floating point performance.
+                let data: Vec<f64> = (0..arr.len())
+                    .map(|i| {
+                        if arr.is_null(i) {
+                            f64::NAN
+                        } else {
+                            arr.value(i)
+                        }
+                    })
+                    .collect();
+                Ok(ColumnVector::F64 { data })
+            }
+            DataType::Float32 => {
+                let arr = array.as_any().downcast_ref::<Float32Array>().unwrap();
+                let data: Vec<f32> = (0..arr.len())
+                    .map(|i| {
+                        if arr.is_null(i) {
+                            f32::NAN
+                        } else {
+                            arr.value(i)
+                        }
+                    })
+                    .collect();
+                Ok(ColumnVector::F32 { data })
+            }
+            DataType::Int64 => {
+                let arr = array.as_any().downcast_ref::<Int64Array>().unwrap();
+                // Reuse collect_with_validity by creating an iterator of Option<i64>
+                let (data, validity) = collect_with_validity(
+                    (0..arr.len()).map(|i| {
+                        if arr.is_valid(i) {
+                            Some(arr.value(i))
+                        } else {
+                            None
+                        }
+                    }),
+                    0i64,
+                );
+                Ok(ColumnVector::I64 { data, validity })
+            }
+            DataType::Utf8 | DataType::LargeUtf8 => {
+                let arr = array.as_any().downcast_ref::<StringArray>().unwrap();
+                let (data, validity) = collect_with_validity(
+                    (0..arr.len()).map(|i| {
+                        if arr.is_valid(i) {
+                            Some(arr.value(i).to_string())
+                        } else {
+                            None
+                        }
+                    }),
+                    String::new(),
+                );
+                Ok(ColumnVector::String { data, validity })
+            }
+            DataType::Timestamp(unit, _) => {
+                let (data, validity) = match unit {
+                    TimeUnit::Second => {
+                        let arr = array
+                            .as_any()
+                            .downcast_ref::<arrow::array::TimestampSecondArray>()
+                            .unwrap();
+                        collect_with_validity(
+                            (0..arr.len()).map(|i| {
+                                if arr.is_valid(i) {
+                                    Some(
+                                        OffsetDateTime::from_unix_timestamp(arr.value(i))
+                                            .unwrap_or(OffsetDateTime::UNIX_EPOCH),
+                                    )
+                                } else {
+                                    None
+                                }
+                            }),
+                            OffsetDateTime::UNIX_EPOCH,
+                        )
+                    }
+                    TimeUnit::Millisecond => {
+                        let arr = array
+                            .as_any()
+                            .downcast_ref::<arrow::array::TimestampMillisecondArray>()
+                            .unwrap();
+                        collect_with_validity(
+                            (0..arr.len()).map(|i| {
+                                if arr.is_valid(i) {
+                                    Some(
+                                        OffsetDateTime::from_unix_timestamp_nanos(
+                                            arr.value(i) as i128 * 1_000_000,
+                                        )
+                                        .unwrap_or(OffsetDateTime::UNIX_EPOCH),
+                                    )
+                                } else {
+                                    None
+                                }
+                            }),
+                            OffsetDateTime::UNIX_EPOCH,
+                        )
+                    }
+                    TimeUnit::Microsecond => {
+                        let arr = array
+                            .as_any()
+                            .downcast_ref::<arrow::array::TimestampMicrosecondArray>()
+                            .unwrap();
+                        collect_with_validity(
+                            (0..arr.len()).map(|i| {
+                                if arr.is_valid(i) {
+                                    Some(
+                                        OffsetDateTime::from_unix_timestamp_nanos(
+                                            arr.value(i) as i128 * 1_000,
+                                        )
+                                        .unwrap_or(OffsetDateTime::UNIX_EPOCH),
+                                    )
+                                } else {
+                                    None
+                                }
+                            }),
+                            OffsetDateTime::UNIX_EPOCH,
+                        )
+                    }
+                    TimeUnit::Nanosecond => {
+                        let arr = array
+                            .as_any()
+                            .downcast_ref::<arrow::array::TimestampNanosecondArray>()
+                            .unwrap();
+                        collect_with_validity(
+                            (0..arr.len()).map(|i| {
+                                if arr.is_valid(i) {
+                                    Some(
+                                        OffsetDateTime::from_unix_timestamp_nanos(
+                                            arr.value(i) as i128
+                                        )
+                                        .unwrap_or(OffsetDateTime::UNIX_EPOCH),
+                                    )
+                                } else {
+                                    None
+                                }
+                            }),
+                            OffsetDateTime::UNIX_EPOCH,
+                        )
+                    }
+                };
+
+                Ok(ColumnVector::DateTime { data, validity })
+            }
+            _ => Err(ChartonError::Data(format!(
+                "Unsupported Arrow type: {:?}",
+                array.data_type()
+            ))),
+        }
+    }
+}
+
+// --- F64: Use NaN for Nulls (No Bitmask needed) ---
+impl From<Vec<Option<f64>>> for ColumnVector {
+    fn from(v: Vec<Option<f64>>) -> Self {
+        let data = v.into_iter().map(|opt| opt.unwrap_or(f64::NAN)).collect();
+        ColumnVector::F64 { data }
+    }
+}
+
+// --- F32: Use NaN for Nulls (No Bitmask needed) ---
+impl From<Vec<Option<f32>>> for ColumnVector {
+    fn from(v: Vec<Option<f32>>) -> Self {
+        let data = v.into_iter().map(|opt| opt.unwrap_or(f32::NAN)).collect();
+        ColumnVector::F32 { data }
+    }
+}
+
+// --- I64: Use Bitmask for Nulls ---
+impl From<Vec<Option<i64>>> for ColumnVector {
+    fn from(v: Vec<Option<i64>>) -> Self {
+        let (data, validity) = collect_with_validity(v, 0i64);
+        ColumnVector::I64 { data, validity }
+    }
+}
+
+// --- I32: Use Bitmask for Nulls ---
+impl From<Vec<Option<i32>>> for ColumnVector {
+    fn from(v: Vec<Option<i32>>) -> Self {
+        let (data, validity) = collect_with_validity(v, 0i32);
+        ColumnVector::I32 { data, validity }
+    }
+}
+
+// --- U32: Use Bitmask for Nulls ---
+impl From<Vec<Option<u32>>> for ColumnVector {
+    fn from(v: Vec<Option<u32>>) -> Self {
+        let (data, validity) = collect_with_validity(v, 0u32);
+        ColumnVector::U32 { data, validity }
+    }
+}
+
+// --- String1: For owned Strings ---
+impl From<Vec<Option<String>>> for ColumnVector {
+    fn from(v: Vec<Option<String>>) -> Self {
+        let (data, validity) = collect_with_validity(v, String::new());
+        ColumnVector::String { data, validity }
+    }
+}
+
+// --- String2 For borrowed string slices (&str) ---
+// Note: We use 'static or a generic lifetime, but usually 'static is enough for literals
+impl From<Vec<Option<&str>>> for ColumnVector {
+    fn from(v: Vec<Option<&str>>) -> Self {
+        // Convert &str to String during collection
+        let (data, validity) = collect_with_validity(
+            v.into_iter().map(|opt| opt.map(|s| s.to_string())),
+            String::new(),
+        );
+        ColumnVector::String { data, validity }
+    }
+}
+
+// --- DateTime: Use Bitmask ---
+impl From<Vec<Option<OffsetDateTime>>> for ColumnVector {
+    fn from(v: Vec<Option<OffsetDateTime>>) -> Self {
+        let (data, validity) = collect_with_validity(v, OffsetDateTime::UNIX_EPOCH);
+        ColumnVector::DateTime { data, validity }
+    }
+}
+
+// --- Support for Non-Option Vectors (Assume 100% validity) ---
+impl From<Vec<f64>> for ColumnVector {
+    fn from(data: Vec<f64>) -> Self {
+        ColumnVector::F64 { data }
+    }
+}
+
+impl From<Vec<f32>> for ColumnVector {
+    fn from(data: Vec<f32>) -> Self {
+        ColumnVector::F32 { data }
+    }
+}
+
+impl From<Vec<i64>> for ColumnVector {
+    fn from(data: Vec<i64>) -> Self {
+        ColumnVector::I64 {
+            data,
+            validity: None,
+        }
+    }
+}
+
+impl From<Vec<i32>> for ColumnVector {
+    fn from(data: Vec<i32>) -> Self {
+        ColumnVector::I32 {
+            data,
+            validity: None,
+        }
+    }
+}
+
+impl From<Vec<u32>> for ColumnVector {
+    fn from(data: Vec<u32>) -> Self {
+        ColumnVector::U32 {
+            data,
+            validity: None,
+        }
+    }
+}
+
+impl From<Vec<String>> for ColumnVector {
+    fn from(data: Vec<String>) -> Self {
+        ColumnVector::String {
+            data,
+            validity: None,
+        }
+    }
+}
+
+impl From<Vec<&str>> for ColumnVector {
+    fn from(v: Vec<&str>) -> Self {
+        let data = v.into_iter().map(|s| s.to_string()).collect();
+        ColumnVector::String {
+            data,
+            validity: None,
+        }
+    }
+}
+
+// --- DateTime: Standard Vector (100% Valid) ---
+impl From<Vec<OffsetDateTime>> for ColumnVector {
+    fn from(data: Vec<OffsetDateTime>) -> Self {
+        // We skip the bitmask entirely to save memory and CPU cycles
+        ColumnVector::DateTime {
+            data,
+            validity: None,
+        }
+    }
+}
+
+// --- Conversion Implementations from Option-based Vectors ---
+
+/// Helper function to create a validity bitmask from an iterator of Options.
+/// Returns (DataVec, ValidityMask).
+///
+/// The `T: Clone` bound is required to fill "null" slots with a default value.
+fn collect_with_validity<T, I>(iter: I, default: T) -> (Vec<T>, Option<Vec<u8>>)
+where
+    I: IntoIterator<Item = Option<T>>,
+    T: Clone, // Add the trait bound here
+{
+    let iter = iter.into_iter();
+    let (lower, _) = iter.size_hint();
+    let mut data = Vec::with_capacity(lower);
+
+    // Each u8 stores 8 rows of validity bits.
+    let mut validity = Vec::with_capacity((lower + 7) / 8);
+    let mut has_nulls = false;
+
+    let mut current_byte = 0u8;
+    let mut bit_count = 0;
+
+    for opt in iter {
+        match opt {
+            Some(v) => {
+                data.push(v);
+                // Set the corresponding bit to 1 (Valid)
+                current_byte |= 1 << (bit_count % 8);
+            }
+            None => {
+                // Fill the gap with the default value (e.g., 0 or "")
+                data.push(default.clone());
+                has_nulls = true;
+                // The bit remains 0 (Null)
+            }
+        }
+
+        bit_count += 1;
+        // If we've filled 8 bits, push the byte and reset
+        if bit_count % 8 == 0 {
+            validity.push(current_byte);
+            current_byte = 0;
+        }
+    }
+
+    // Don't forget the last partial byte
+    if bit_count % 8 != 0 {
+        validity.push(current_byte);
+    }
+
+    // Optimization: If no None was ever encountered, discard the validity mask to save memory.
+    (data, if has_nulls { Some(validity) } else { None })
+}
+
+/// A convenience trait to improve the ergonomics of manual data construction.
+///
+/// This trait provides the `.into_column()` method for any type that can be
+/// converted into a `ColumnVector`. It makes batch ingestion (like using
+/// `to_dataset`) more readable by being explicit about the target type.
+pub trait IntoColumn {
+    /// Consumes the collection and converts it into a `ColumnVector`.
+    fn into_column(self) -> ColumnVector;
+}
+
+/// Blanket implementation for any type that satisfies the `Into<ColumnVector>` bound.
+///
+/// This ensures that all our `From<Vec<T>>` implementations for `ColumnVector`
+/// automatically gain the `.into_column()` method.
+impl<T> IntoColumn for T
+where
+    T: Into<ColumnVector>,
+{
+    #[inline]
+    fn into_column(self) -> ColumnVector {
+        self.into()
+    }
 }
 
 /// Internal trait to bridge ColumnVector and concrete Rust types.
@@ -1011,6 +1386,39 @@ impl Dataset {
 
         GroupedIndices { groups }
     }
+
+    /// Constructs a Dataset from a slice of Apache Arrow RecordBatches.
+    /// This is optimized for large datasets by concatenating column chunks
+    /// before performing type conversion.
+    #[cfg(feature = "arrow")]
+    pub fn from_record_batches(batches: &[RecordBatch]) -> Result<Self, ChartonError> {
+        if batches.is_empty() {
+            return Ok(Self::new());
+        }
+
+        // Assume all batches follow the same schema as the first one
+        let schema = batches[0].schema();
+        let mut dataset = Self::new();
+
+        // Iterate through each field in the schema to process columns
+        for (i, field) in schema.fields().iter().enumerate() {
+            // 1. Collect references to the i-th column across all batches
+            let column_arrays: Vec<&dyn Array> =
+                batches.iter().map(|b| b.column(i).as_ref()).collect();
+
+            // 2. High-performance concatenation: merges multiple chunks into a single
+            // contiguous array using Arrow's compute kernel (efficient bitwise copying).
+            let merged_array = arrow::compute::concat(&column_arrays)
+                .map_err(|e| ChartonError::Data(format!("Concat error: {}", e)))?;
+
+            // 3. Convert the unified Arrow array into Charton's internal ColumnVector format
+            let column_vector = ColumnVector::from_arrow(merged_array.as_ref())?;
+
+            dataset.add_column(field.name(), column_vector)?;
+        }
+
+        Ok(dataset)
+    }
 }
 
 /// Enable printing of Dataset
@@ -1055,380 +1463,6 @@ impl fmt::Debug for Dataset {
         }
 
         Ok(())
-    }
-}
-
-// --- Conversion Implementations from Option-based Vectors ---
-
-/// Helper function to create a validity bitmask from an iterator of Options.
-/// Returns (DataVec, ValidityMask).
-///
-/// The `T: Clone` bound is required to fill "null" slots with a default value.
-fn collect_with_validity<T, I>(iter: I, default: T) -> (Vec<T>, Option<Vec<u8>>)
-where
-    I: IntoIterator<Item = Option<T>>,
-    T: Clone, // Add the trait bound here
-{
-    let iter = iter.into_iter();
-    let (lower, _) = iter.size_hint();
-    let mut data = Vec::with_capacity(lower);
-
-    // Each u8 stores 8 rows of validity bits.
-    let mut validity = Vec::with_capacity((lower + 7) / 8);
-    let mut has_nulls = false;
-
-    let mut current_byte = 0u8;
-    let mut bit_count = 0;
-
-    for opt in iter {
-        match opt {
-            Some(v) => {
-                data.push(v);
-                // Set the corresponding bit to 1 (Valid)
-                current_byte |= 1 << (bit_count % 8);
-            }
-            None => {
-                // Fill the gap with the default value (e.g., 0 or "")
-                data.push(default.clone());
-                has_nulls = true;
-                // The bit remains 0 (Null)
-            }
-        }
-
-        bit_count += 1;
-        // If we've filled 8 bits, push the byte and reset
-        if bit_count % 8 == 0 {
-            validity.push(current_byte);
-            current_byte = 0;
-        }
-    }
-
-    // Don't forget the last partial byte
-    if bit_count % 8 != 0 {
-        validity.push(current_byte);
-    }
-
-    // Optimization: If no None was ever encountered, discard the validity mask to save memory.
-    (data, if has_nulls { Some(validity) } else { None })
-}
-
-// --- F64: Use NaN for Nulls (No Bitmask needed) ---
-impl From<Vec<Option<f64>>> for ColumnVector {
-    fn from(v: Vec<Option<f64>>) -> Self {
-        let data = v.into_iter().map(|opt| opt.unwrap_or(f64::NAN)).collect();
-        ColumnVector::F64 { data }
-    }
-}
-
-// --- F32: Use NaN for Nulls (No Bitmask needed) ---
-impl From<Vec<Option<f32>>> for ColumnVector {
-    fn from(v: Vec<Option<f32>>) -> Self {
-        let data = v.into_iter().map(|opt| opt.unwrap_or(f32::NAN)).collect();
-        ColumnVector::F32 { data }
-    }
-}
-
-// --- I64: Use Bitmask for Nulls ---
-impl From<Vec<Option<i64>>> for ColumnVector {
-    fn from(v: Vec<Option<i64>>) -> Self {
-        let (data, validity) = collect_with_validity(v, 0i64);
-        ColumnVector::I64 { data, validity }
-    }
-}
-
-// --- I32: Use Bitmask for Nulls ---
-impl From<Vec<Option<i32>>> for ColumnVector {
-    fn from(v: Vec<Option<i32>>) -> Self {
-        let (data, validity) = collect_with_validity(v, 0i32);
-        ColumnVector::I32 { data, validity }
-    }
-}
-
-// --- U32: Use Bitmask for Nulls ---
-impl From<Vec<Option<u32>>> for ColumnVector {
-    fn from(v: Vec<Option<u32>>) -> Self {
-        let (data, validity) = collect_with_validity(v, 0u32);
-        ColumnVector::U32 { data, validity }
-    }
-}
-
-// --- String1: For owned Strings ---
-impl From<Vec<Option<String>>> for ColumnVector {
-    fn from(v: Vec<Option<String>>) -> Self {
-        let (data, validity) = collect_with_validity(v, String::new());
-        ColumnVector::String { data, validity }
-    }
-}
-
-// --- String2 For borrowed string slices (&str) ---
-// Note: We use 'static or a generic lifetime, but usually 'static is enough for literals
-impl From<Vec<Option<&str>>> for ColumnVector {
-    fn from(v: Vec<Option<&str>>) -> Self {
-        // Convert &str to String during collection
-        let (data, validity) = collect_with_validity(
-            v.into_iter().map(|opt| opt.map(|s| s.to_string())),
-            String::new(),
-        );
-        ColumnVector::String { data, validity }
-    }
-}
-
-// --- DateTime: Use Bitmask ---
-impl From<Vec<Option<OffsetDateTime>>> for ColumnVector {
-    fn from(v: Vec<Option<OffsetDateTime>>) -> Self {
-        let (data, validity) = collect_with_validity(v, OffsetDateTime::UNIX_EPOCH);
-        ColumnVector::DateTime { data, validity }
-    }
-}
-
-// --- Support for Non-Option Vectors (Assume 100% validity) ---
-impl From<Vec<f64>> for ColumnVector {
-    fn from(data: Vec<f64>) -> Self {
-        ColumnVector::F64 { data }
-    }
-}
-
-impl From<Vec<f32>> for ColumnVector {
-    fn from(data: Vec<f32>) -> Self {
-        ColumnVector::F32 { data }
-    }
-}
-
-impl From<Vec<i64>> for ColumnVector {
-    fn from(data: Vec<i64>) -> Self {
-        ColumnVector::I64 {
-            data,
-            validity: None,
-        }
-    }
-}
-
-impl From<Vec<i32>> for ColumnVector {
-    fn from(data: Vec<i32>) -> Self {
-        ColumnVector::I32 {
-            data,
-            validity: None,
-        }
-    }
-}
-
-impl From<Vec<u32>> for ColumnVector {
-    fn from(data: Vec<u32>) -> Self {
-        ColumnVector::U32 {
-            data,
-            validity: None,
-        }
-    }
-}
-
-impl From<Vec<String>> for ColumnVector {
-    fn from(data: Vec<String>) -> Self {
-        ColumnVector::String {
-            data,
-            validity: None,
-        }
-    }
-}
-
-impl From<Vec<&str>> for ColumnVector {
-    fn from(v: Vec<&str>) -> Self {
-        let data = v.into_iter().map(|s| s.to_string()).collect();
-        ColumnVector::String {
-            data,
-            validity: None,
-        }
-    }
-}
-
-// --- DateTime: Standard Vector (100% Valid) ---
-impl From<Vec<OffsetDateTime>> for ColumnVector {
-    fn from(data: Vec<OffsetDateTime>) -> Self {
-        // We skip the bitmask entirely to save memory and CPU cycles
-        ColumnVector::DateTime {
-            data,
-            validity: None,
-        }
-    }
-}
-
-#[cfg(feature = "arrow")]
-impl ColumnVector {
-    /// Converts an Apache Arrow Array into a Charton ColumnVector.
-    pub fn from_arrow(array: &dyn Array) -> Result<Self, ChartonError> {
-        match array.data_type() {
-            DataType::Float64 => {
-                let arr = array.as_any().downcast_ref::<Float64Array>().unwrap();
-                // Map nulls to NaN directly for floating point performance.
-                let data: Vec<f64> = (0..arr.len())
-                    .map(|i| {
-                        if arr.is_null(i) {
-                            f64::NAN
-                        } else {
-                            arr.value(i)
-                        }
-                    })
-                    .collect();
-                Ok(ColumnVector::F64 { data })
-            }
-            DataType::Float32 => {
-                let arr = array.as_any().downcast_ref::<Float32Array>().unwrap();
-                let data: Vec<f32> = (0..arr.len())
-                    .map(|i| {
-                        if arr.is_null(i) {
-                            f32::NAN
-                        } else {
-                            arr.value(i)
-                        }
-                    })
-                    .collect();
-                Ok(ColumnVector::F32 { data })
-            }
-            DataType::Int64 => {
-                let arr = array.as_any().downcast_ref::<Int64Array>().unwrap();
-                // Reuse collect_with_validity by creating an iterator of Option<i64>
-                let (data, validity) = collect_with_validity(
-                    (0..arr.len()).map(|i| {
-                        if arr.is_valid(i) {
-                            Some(arr.value(i))
-                        } else {
-                            None
-                        }
-                    }),
-                    0i64,
-                );
-                Ok(ColumnVector::I64 { data, validity })
-            }
-            DataType::Utf8 | DataType::LargeUtf8 => {
-                let arr = array.as_any().downcast_ref::<StringArray>().unwrap();
-                let (data, validity) = collect_with_validity(
-                    (0..arr.len()).map(|i| {
-                        if arr.is_valid(i) {
-                            Some(arr.value(i).to_string())
-                        } else {
-                            None
-                        }
-                    }),
-                    String::new(),
-                );
-                Ok(ColumnVector::String { data, validity })
-            }
-            DataType::Timestamp(unit, _) => {
-                let (data, validity) = match unit {
-                    TimeUnit::Second => {
-                        let arr = array
-                            .as_any()
-                            .downcast_ref::<arrow::array::TimestampSecondArray>()
-                            .unwrap();
-                        collect_with_validity(
-                            (0..arr.len()).map(|i| {
-                                if arr.is_valid(i) {
-                                    Some(
-                                        OffsetDateTime::from_unix_timestamp(arr.value(i))
-                                            .unwrap_or(OffsetDateTime::UNIX_EPOCH),
-                                    )
-                                } else {
-                                    None
-                                }
-                            }),
-                            OffsetDateTime::UNIX_EPOCH,
-                        )
-                    }
-                    TimeUnit::Millisecond => {
-                        let arr = array
-                            .as_any()
-                            .downcast_ref::<arrow::array::TimestampMillisecondArray>()
-                            .unwrap();
-                        collect_with_validity(
-                            (0..arr.len()).map(|i| {
-                                if arr.is_valid(i) {
-                                    Some(
-                                        OffsetDateTime::from_unix_timestamp_nanos(
-                                            arr.value(i) as i128 * 1_000_000,
-                                        )
-                                        .unwrap_or(OffsetDateTime::UNIX_EPOCH),
-                                    )
-                                } else {
-                                    None
-                                }
-                            }),
-                            OffsetDateTime::UNIX_EPOCH,
-                        )
-                    }
-                    TimeUnit::Microsecond => {
-                        let arr = array
-                            .as_any()
-                            .downcast_ref::<arrow::array::TimestampMicrosecondArray>()
-                            .unwrap();
-                        collect_with_validity(
-                            (0..arr.len()).map(|i| {
-                                if arr.is_valid(i) {
-                                    Some(
-                                        OffsetDateTime::from_unix_timestamp_nanos(
-                                            arr.value(i) as i128 * 1_000,
-                                        )
-                                        .unwrap_or(OffsetDateTime::UNIX_EPOCH),
-                                    )
-                                } else {
-                                    None
-                                }
-                            }),
-                            OffsetDateTime::UNIX_EPOCH,
-                        )
-                    }
-                    TimeUnit::Nanosecond => {
-                        let arr = array
-                            .as_any()
-                            .downcast_ref::<arrow::array::TimestampNanosecondArray>()
-                            .unwrap();
-                        collect_with_validity(
-                            (0..arr.len()).map(|i| {
-                                if arr.is_valid(i) {
-                                    Some(
-                                        OffsetDateTime::from_unix_timestamp_nanos(
-                                            arr.value(i) as i128
-                                        )
-                                        .unwrap_or(OffsetDateTime::UNIX_EPOCH),
-                                    )
-                                } else {
-                                    None
-                                }
-                            }),
-                            OffsetDateTime::UNIX_EPOCH,
-                        )
-                    }
-                };
-
-                Ok(ColumnVector::DateTime { data, validity })
-            }
-            _ => Err(ChartonError::Data(format!(
-                "Unsupported Arrow type: {:?}",
-                array.data_type()
-            ))),
-        }
-    }
-}
-
-/// A convenience trait to improve the ergonomics of manual data construction.
-///
-/// This trait provides the `.into_column()` method for any type that can be
-/// converted into a `ColumnVector`. It makes batch ingestion (like using
-/// `to_dataset`) more readable by being explicit about the target type.
-pub trait IntoColumn {
-    /// Consumes the collection and converts it into a `ColumnVector`.
-    fn into_column(self) -> ColumnVector;
-}
-
-/// Blanket implementation for any type that satisfies the `Into<ColumnVector>` bound.
-///
-/// This ensures that all our `From<Vec<T>>` implementations for `ColumnVector`
-/// automatically gain the `.into_column()` method.
-impl<T> IntoColumn for T
-where
-    T: Into<ColumnVector>,
-{
-    #[inline]
-    fn into_column(self) -> ColumnVector {
-        self.into()
     }
 }
 
