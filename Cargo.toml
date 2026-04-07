@@ -15,7 +15,7 @@ default = ["parallel"]
 arrow = ["dep:arrow"]
 
 # Enables compatibility with visualization ecosystems (e.g., Matplotlib, Altair).
-polars = ["dep:polars", "dep:serde", "dep:serde_json", "dep:base64"]
+bridge = ["dep:polars", "dep:serde", "dep:serde_json", "dep:base64"]
 
 # Enables multi-threaded data processing via Rayon for massive datasets.
 # NOTE: Disable this feature when targeting WebAssembly (Wasm) unless 
