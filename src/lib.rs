@@ -22,6 +22,11 @@ pub mod theme;
 pub mod transform;
 pub mod visual;
 
+/// Cross-language interoperability bridge, enabling data exchange with
+/// external visualization ecosystems such as Altair, Matplotlib, and R.
+#[cfg(all(feature = "bridge", not(target_arch = "wasm32")))]
+pub mod bridge;
+
 #[cfg(feature = "arrow")]
 pub use arrow;
 
@@ -29,11 +34,6 @@ pub use arrow;
 /// external library integration, and developer convenience.
 #[macro_use]
 pub mod macros;
-
-/// Cross-language interoperability bridge, enabling data exchange with
-/// external visualization ecosystems such as Altair, Matplotlib, and R.
-#[cfg(all(feature = "bridge", not(target_arch = "wasm32")))]
-pub mod bridge;
 
 pub mod prelude {
     pub use crate::core::data::{ColumnVector, Dataset, IntoColumn, ToDataset};
