@@ -1,36 +1,38 @@
 /// Converts a Polars [`DataFrame`] into a Charton [`Dataset`].
 ///
 /// This macro iterates through the columns of the provided DataFrame and extracts
-/// numeric data (`Float32` and `Float64`) into contiguous `Vec`s suitable for
-/// high-performance processing or GPU uploads.
+/// data into contiguous `Vec<Option<T>>` structures, making them ready for
+/// Charton's internal processing.
 ///
 /// # Behavior
-/// - **Supported Types**: Only `Float32` and `Float64` columns are processed.
-/// - **Unsupported Types**: Columns with other data types (e.g., `Int32`, `Utf8`)
-///   are silently skipped.
-/// - **Null Handling**: Null values are excluded during collection via `into_no_null_iter()`.
+/// - **Supported Types**: Processes `Float32`, `Float64`, `Int32`, `Int64`, and `String` columns.
+/// - **Unsupported Types**: Columns with other data types (e.g., `Boolean`, `List`, `DateTime`)
+///   are silently skipped in the current implementation.
+/// - **Null Handling**: Preserves null values by mapping Polars series to `Vec<Option<T>>`.
 ///
 /// # Arguments
 /// * `$df` - An expression that evaluates to a `polars::prelude::DataFrame`.
 ///
 /// # Returns
-/// A `Result` containing:
-/// * `Ok(Dataset)`: The constructed dataset if successful.
-/// * `Err(Box<dyn std::error::Error>)`: An error box (currently always `Ok` unless
-///   panic occurs in unwraps, but typed for future error handling expansion).
+/// A `Result` where:
+/// * `Ok(Dataset)`: A new dataset populated with the supported columns from the DataFrame.
+/// * `Err(ChartonError)`: A crate-specific error, typically [`ChartonError::Data`] if
+///   column casting fails, or other variants as defined in the bridge.
 ///
 /// # Example
 /// ```ignore
 /// use polars::prelude::*;
+/// use charton::load_polars_df;
 ///
 /// let df = df! {
 ///     "x" => &[1.0_f32, 2.0_f32, 3.0_f32],
-///     "y" => &[4.0_f64, 5.0_f64, 6.0_f64]
+///     "y" => &["A", "B", "C"]
 /// }?;
 ///
-/// let dataset = load_polars_df!(df);
+/// let dataset = load_polars_df!(df)?;
 /// assert_eq!(dataset.width(), 2);
 /// ```
+///
 // We rely on the user's environment having 'polars' available.
 // This import is local to the generated block and resolves in the caller's context.
 #[macro_export]
