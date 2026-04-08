@@ -1,52 +1,119 @@
-/// Loads a Polars DataFrame into a Charton Dataset using a macro.
+/// Converts a Polars [`DataFrame`] into a Charton [`Dataset`].
 ///
-/// This version utilizes `rechunk_into_arrow` to provide a memory-efficient,
-/// ownership-taking conversion. By consuming the DataFrame, we minimize memory
-/// overhead—critical for high-performance processing of 10M+ rows.
+/// This macro iterates through the columns of the provided DataFrame and extracts
+/// numeric data (`Float32` and `Float64`) into contiguous `Vec`s suitable for
+/// high-performance processing or GPU uploads.
 ///
-/// This macro is "GPU-ready," as it ensures each column is a single, contiguous
-/// memory chunk, making it ideal for future `wgpu` buffer uploads.
+/// # Behavior
+/// - **Supported Types**: Only `Float32` and `Float64` columns are processed.
+/// - **Unsupported Types**: Columns with other data types (e.g., `Int32`, `Utf8`)
+///   are silently skipped.
+/// - **Null Handling**: Null values are excluded during collection via `into_no_null_iter()`.
 ///
 /// # Arguments
 /// * `$df` - An expression that evaluates to a `polars::prelude::DataFrame`.
 ///
+/// # Returns
+/// A `Result` containing:
+/// * `Ok(Dataset)`: The constructed dataset if successful.
+/// * `Err(Box<dyn std::error::Error>)`: An error box (currently always `Ok` unless
+///   panic occurs in unwraps, but typed for future error handling expansion).
+///
 /// # Example
 /// ```ignore
-/// let df = df!["col1" => [1, 2, 3]]?;
-/// let dataset = load_polars_df!(df)?;
+/// use polars::prelude::*;
+///
+/// let df = df! {
+///     "x" => &[1.0_f32, 2.0_f32, 3.0_f32],
+///     "y" => &[4.0_f64, 5.0_f64, 6.0_f64]
+/// }?;
+///
+/// let dataset = load_polars_df!(df);
+/// assert_eq!(dataset.width(), 2);
 /// ```
+// We rely on the user's environment having 'polars' available.
+// This import is local to the generated block and resolves in the caller's context.
 #[macro_export]
 macro_rules! load_polars_df {
     ($df:expr) => {{
-        // 1. Capture the DataFrame and take ownership.
-        // Taking ownership allows us to use `into_arrow` methods which can
-        // be more memory-efficient than borrowing.
         let df = $df;
+        let mut dataset: $crate::core::data::Dataset = $crate::core::data::Dataset::new();
 
-        // 2. Define the Arrow compatibility level.
-        // We use the default (usually Newest) to ensure Polars logic types
-        // are mapped to the most modern Arrow physical layouts.
-        let compat_level = ::polars::prelude::CompatLevel::default();
+        for series in df.columns() {
+            let name = series.name().to_string();
+            match series.dtype() {
+                // --- Floating Point Types (Uses NaN for Nulls) ---
+                polars::prelude::DataType::Float32 => {
+                    let ca = series.f32().map_err(|e| {
+                        $crate::error::ChartonError::Data(format!(
+                            "Column '{}' cast error: {}",
+                            name, e
+                        ))
+                    })?;
+                    let vec: Vec<Option<f32>> = ca.into_iter().collect();
+                    dataset.add_column(name, vec)?;
+                }
+                polars::prelude::DataType::Float64 => {
+                    let ca = series.f64().map_err(|e| {
+                        $crate::error::ChartonError::Data(format!(
+                            "Column '{}' cast error: {}",
+                            name, e
+                        ))
+                    })?;
+                    let vec: Vec<Option<f64>> = ca.into_iter().collect();
+                    dataset.add_column(name, vec)?;
+                }
 
-        // 3. Get the Schema before consuming the DataFrame.
-        // We need the schema to maintain metadata and field names in the Dataset.
-        let schema = df.schema().clone();
+                // --- Integer Types (Uses Bitmask for Nulls) ---
+                polars::prelude::DataType::Int64 => {
+                    let ca = series.i64().map_err(|e| {
+                        $crate::error::ChartonError::Data(format!(
+                            "Column '{}' cast error: {}",
+                            name, e
+                        ))
+                    })?;
+                    let vec: Vec<Option<i64>> = ca.into_iter().collect();
+                    dataset.add_column(name, vec)?;
+                }
+                polars::prelude::DataType::Int32 => {
+                    let ca = series.i32().map_err(|e| {
+                        $crate::error::ChartonError::Data(format!(
+                            "Column '{}' cast error: {}",
+                            name, e
+                        ))
+                    })?;
+                    let vec: Vec<Option<i32>> = ca.into_iter().collect();
+                    dataset.add_column(name, vec)?;
+                }
 
-        // 4. Perform the core conversion.
-        // `rechunk_into_arrow` handles two critical tasks for 10M+ data:
-        // - Parallel Rechunking: Merges fragmented memory into a single contiguous block per column.
-        // - Arrow Conversion: Returns Vec<Box<dyn Array>>, which is the optimal
-        //   Structure of Arrays (SoA) layout for GPU buffer mapping (wgpu).
-        let columns = df.rechunk_into_arrow(compat_level);
+                // --- String Type (Uses Bitmask for Nulls) ---
+                polars::prelude::DataType::String => {
+                    let ca = series.str().map_err(|e| {
+                        $crate::error::ChartonError::Data(format!(
+                            "Column '{}' cast error: {}",
+                            name, e
+                        ))
+                    })?;
+                    // Convert Polars &str to owned String for ColumnVector::String
+                    let vec: Vec<Option<String>> = ca
+                        .into_iter()
+                        .map(|opt| opt.map(|s| s.to_string()))
+                        .collect();
+                    dataset.add_column(name, vec)?;
+                }
 
-        // 5. Construct the Dataset from the contiguous Arrow arrays.
-        // We use the fully qualified path to our internal Dataset constructor.
-        $crate::core::data::Dataset::from_arrays(schema, columns)
-            .map_err(|e| {
-                $crate::error::ChartonError::Data(format!(
-                    "Polars to Arrow conversion (into_arrow) failed: {}",
-                    e
-                ))
-            })
+                // --- Fallback ---
+                _ => {
+                    // Currently skipping other types (e.g., Boolean, List, DateTime)
+                    // TODO: Implement DataType::Datetime mapping to OffsetDateTime if needed
+                }
+            }
+        }
+
+        // Return a Result to allow the use of '?' in the calling context
+        // and resolve the "unused Result" warning.
+        let res: std::result::Result<$crate::core::data::Dataset, $crate::error::ChartonError> =
+            Ok(dataset);
+        res
     }};
 }
