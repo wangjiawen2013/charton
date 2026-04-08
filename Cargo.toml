@@ -2,7 +2,7 @@
 name = "charton"
 version = "0.5.0"
 edition = "2024"
-description = "A high-level, layered charting system for Rust, designed for Polars-first data workflows and multi-backend rendering."
+description = "A high-performance, layered charting system for Rust, featuring a flexible data core and multi-backend rendering."
 license = "Apache-2.0"
 repository = "https://github.com/wangjiawen2013/charton"
 authors = ["Jiawen Wang <wangjiawen2013@163.com>"]
@@ -15,7 +15,7 @@ default = ["parallel"]
 arrow = ["dep:arrow"]
 
 # Enables compatibility with visualization ecosystems (e.g., Matplotlib, Altair).
-bridge = ["dep:polars", "dep:serde", "dep:serde_json", "dep:base64"]
+bridge = ["dep:polars", "dep:serde", "dep:serde_json", "dep:base64", "resvg"]
 
 # Enables multi-threaded data processing via Rayon for massive datasets.
 # NOTE: Disable this feature when targeting WebAssembly (Wasm) unless 
@@ -28,12 +28,10 @@ resvg = ["dep:resvg"]
 [dependencies]
 # --- Optional Dependencies ---
 arrow = { version = "58.1", default-features = false, optional = true }
-
-polars = { version = "0.53", default-features = false, optional = true }
+polars = { version = "0.53", default-features = false, features = ["lazy", "parquet", "ipc"], optional = true }
 serde = { version = "1.0", features = ["derive"], optional = true }
 serde_json = { version = "1.0", optional = true }
 base64 = { version = "0.22", optional = true }
-
 rayon = { version = "1.11", optional = true }
 resvg = { version = "0.47", optional = true }
 

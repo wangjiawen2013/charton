@@ -9,8 +9,6 @@ use time::OffsetDateTime;
 use arrow::array::{Array, Float32Array, Float64Array, Int64Array, StringArray};
 #[cfg(feature = "arrow")]
 use arrow::datatypes::{DataType, TimeUnit};
-#[cfg(feature = "arrow")]
-use arrow::record_batch::RecordBatch;
 
 #[cfg(feature = "parallel")]
 use rayon::prelude::*;
@@ -1385,35 +1383,6 @@ impl Dataset {
             .collect();
 
         GroupedIndices { groups }
-    }
-
-    /// Constructs a Dataset from Polars-rechunked Arrow Arrays and a Schema.
-    ///
-    /// This is the high-performance entry point used by the `load_polars_df!` macro.
-    /// It assumes the data has already been rechunked into single contiguous
-    /// memory blocks by Polars, avoiding expensive concatenation kernels.
-    ///
-    /// # Performance
-    /// For 10M+ rows, this is significantly faster than processing record batches
-    /// as it minimizes memory allocations and respects Polars' parallel rechunking.
-    #[cfg(feature = "arrow")]
-    pub fn from_arrays(
-        schema: ::std::sync::Arc<::polars::prelude::Schema>,
-        columns: Vec<Box<dyn arrow::array::Array>>,
-    ) -> Result<Self, ChartonError> {
-        let mut dataset = Self::new();
-
-        // Polars guarantees that the schema fields and column arrays align 1:1 in order.
-        for (field, array) in schema.iter_fields().zip(columns.iter()) {
-            // Convert the contiguous Arrow array into Charton's internal ColumnVector.
-            // This invokes the specialized type-casting logic in ColumnVector.
-            let column_vector = ColumnVector::from_arrow(array.as_ref())?;
-
-            // Map Polars field names (PlSmallStr) to Charton column keys.
-            dataset.add_column(field.name().as_str(), column_vector)?;
-        }
-
-        Ok(dataset)
     }
 
     /// Constructs a Dataset from a slice of Apache Arrow RecordBatches.
