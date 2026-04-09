@@ -10,7 +10,7 @@ fn test_base() -> Result<(), Box<dyn Error>> {
     // 2. Define the Base Specification
     // We create a Chart<NoMark> that holds the shared data and encoding logic.
     // Validation is deferred here because no specific mark is assigned yet.
-    let base = chart!(length, width)?.encode((x("length"), y("width")))?;
+    let base = chart!(length, width)?.encode((alt::x("length"), alt::y("width")))?;
 
     // 3. Derive the Line Layer from Base
     // We clone the base and 'specialize' it into a Line chart.

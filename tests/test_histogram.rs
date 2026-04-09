@@ -1,21 +1,13 @@
 use charton::prelude::*;
-use polars::prelude::*;
 use std::error::Error;
 
 #[test]
 fn test_histogram_1() -> Result<(), Box<dyn Error>> {
-    let df = CsvReadOptions::default()
-        .with_has_header(true)
-        .try_into_reader_with_file_path(Some("./assets/iris.csv".into()))?
-        .finish()?;
-    let df_melted = df.unpivot(
-        ["sepal_length", "sepal_width", "petal_length", "petal_width"],
-        ["species"],
-    )?;
-    println!("{}", &df_melted);
+    let ds = load_dataset("iris")?;
+    println!("{}", &ds);
 
     // Create a histogram chart
-    let histogram = Chart::build(&df_melted.head(Some(200)))?
+    let histogram = chart!(ds)?
         .mark_hist()?
         .configure_hist(|h| {
             h.with_color("steelblue")
@@ -24,9 +16,9 @@ fn test_histogram_1() -> Result<(), Box<dyn Error>> {
                 .with_stroke_width(0.0)
         })
         .encode((
-            x("value"),
-            y("count").with_normalize(true),
-            color("variable"),
+            alt::x("sepal_length"),
+            alt::y("count").with_normalize(true),
+            alt::color("species"),
         ))?;
 
     histogram

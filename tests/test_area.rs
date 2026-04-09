@@ -22,7 +22,11 @@ fn test_area_1() -> Result<(), Box<dyn Error>> {
     chart!(year, net_generation, source)?
         .mark_area()?
         .configure_area(|a| a.with_opacity(0.3).with_stroke("black"))
-        .encode((x("year"), y("net_generation"), color("source")))?
+        .encode((
+            alt::x("year"),
+            alt::y("net_generation"),
+            alt::color("source"),
+        ))?
         .with_size(600, 400)
         .with_title("Iowa Electricity Generation")
         .with_x_label("Year")
@@ -61,7 +65,7 @@ fn test_area_2() -> Result<(), Box<dyn Error>> {
         )?
         .mark_area()?
         .configure_area(|a| a.with_color("purple").with_opacity(0.3))
-        .encode((x("imdb_rating"), y("cumulative_density")))?;
+        .encode((alt::x("imdb_rating"), alt::y("cumulative_density")))?;
 
     chart
         .with_size(600, 400)
