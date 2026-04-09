@@ -23,9 +23,9 @@ fn test_bar_1() -> Result<(), Box<dyn Error>> {
                 .with_width(0.5)
         })
         .encode((
-            x("month"),
-            y("revenue").with_normalize(true).with_stack("stacked"),
-            color("region"),
+            alt::x("month"),
+            alt::y("revenue").with_normalize(true).with_stack("stacked"),
+            alt::color("region"),
         ))?;
 
     colored_bar_chart

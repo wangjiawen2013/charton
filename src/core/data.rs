@@ -1487,6 +1487,12 @@ impl fmt::Debug for Dataset {
     }
 }
 
+impl fmt::Display for Dataset {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        fmt::Debug::fmt(self, f)
+    }
+}
+
 // --- ToDataset Ingestion Trait ---
 
 pub trait ToDataset {

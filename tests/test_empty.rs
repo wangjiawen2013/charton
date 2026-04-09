@@ -15,8 +15,8 @@ fn test_empty_1() -> Result<(), Box<dyn Error>> {
                 .with_color("red")
         })
         .encode((
-            x("a").with_scale(Scale::Linear),
-            y("b").with_scale(Scale::Linear),
+            alt::x("a").with_scale(Scale::Linear),
+            alt::y("b").with_scale(Scale::Linear),
         ))?
         .with_size(500, 400)
         .coord_flip()
@@ -32,8 +32,8 @@ fn test_empty_2() -> Result<(), Box<dyn Error>> {
     let b = Vec::<f64>::new();
 
     let empty_chart = chart!(a, b)?.mark_point()?.encode((
-        x("a").with_scale(Scale::Linear),
-        y("b").with_scale(Scale::Linear),
+        alt::x("a").with_scale(Scale::Linear),
+        alt::y("b").with_scale(Scale::Linear),
     ))?;
 
     let a = vec![
@@ -49,10 +49,11 @@ fn test_empty_2() -> Result<(), Box<dyn Error>> {
         "R",
     ];
 
-    let point_chart =
-        chart!(a, b, category)?
-            .mark_point()?
-            .encode((x("a"), y("b"), shape("category")))?;
+    let point_chart = chart!(a, b, category)?.mark_point()?.encode((
+        alt::x("a"),
+        alt::y("b"),
+        alt::shape("category"),
+    ))?;
 
     point_chart
         .and(empty_chart)

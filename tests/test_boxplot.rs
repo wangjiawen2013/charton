@@ -7,7 +7,11 @@ fn test_boxplot_1() -> Result<(), Box<dyn Error>> {
 
     chart!(ds)?
         .mark_boxplot()?
-        .encode((x("island"), y("body_mass_g"), color("species")))?
+        .encode((
+            alt::x("island"),
+            alt::y("body_mass_g"),
+            alt::color("species"),
+        ))?
         .coord_flip()
         .save("./tests/boxplot_1.svg")?;
 
