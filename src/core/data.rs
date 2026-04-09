@@ -954,6 +954,20 @@ where
     }
 }
 
+/// Universal bridge for fixed-size arrays: [T; N] -> ColumnVector.
+/// This enables any array to be used where a ColumnVector is expected,
+/// provided that a Vec<T> conversion for that type already exists.
+impl<Item, const N: usize> From<[Item; N]> for ColumnVector
+where
+    Vec<Item>: Into<ColumnVector>,
+    Item: Clone,
+{
+    fn from(arr: [Item; N]) -> Self {
+        // Converts array to Vec then leverages existing Vec<T> -> ColumnVector logic
+        arr.to_vec().into()
+    }
+}
+
 /// Internal trait to bridge ColumnVector and concrete Rust types.
 /// Get data from a column vector.
 pub trait FromColumnVector: Sized {

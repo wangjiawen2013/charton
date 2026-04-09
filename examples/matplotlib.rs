@@ -1,11 +1,9 @@
-#[cfg(feature = "polars")]
+#[cfg(feature = "bridge")]
 use charton::prelude::*;
-#[cfg(feature = "polars")]
-use polars::prelude::*;
-#[cfg(feature = "polars")]
+#[cfg(feature = "bridge")]
 use std::error::Error;
 
-#[cfg(feature = "polars")]
+#[cfg(feature = "bridge")]
 fn main() -> Result<(), Box<dyn Error>> {
     let exe_path = r"F:\Programs\miniconda3\envs\cellpy\python.exe";
     let df = df![
@@ -54,7 +52,7 @@ ax1.set_title('tripcolor of Delaunay triangulation, flat shading')
     Ok(())
 }
 
-#[cfg(not(feature = "polars"))]
+#[cfg(not(feature = "bridge"))]
 fn main() {
     println!("This example requires --features \"polars altair\" to run.");
 }
