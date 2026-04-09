@@ -87,7 +87,16 @@ macro_rules! load_polars_df {
                     let vec: Vec<Option<i32>> = ca.into_iter().collect();
                     dataset.add_column(name, vec)?;
                 }
-
+                polars::prelude::DataType::UInt32 => {
+                    let ca = series.u32().map_err(|e| {
+                        $crate::error::ChartonError::Data(format!(
+                            "Column '{}' cast error: {}",
+                            name, e
+                        ))
+                    })?;
+                    let vec: Vec<Option<u32>> = ca.into_iter().collect();
+                    dataset.add_column(name, vec)?;
+                }
                 // --- String Type (Uses Bitmask for Nulls) ---
                 polars::prelude::DataType::String => {
                     let ca = series.str().map_err(|e| {
@@ -104,10 +113,40 @@ macro_rules! load_polars_df {
                     dataset.add_column(name, vec)?;
                 }
 
+                // --- Temporal Type (Datetme)
+                // Bridges Polars Datetime (i64 + TimeUnit) to time::OffsetDateTime.
+                polars::prelude::DataType::Datetime(unit, _) => {
+                    let ca = series.datetime().map_err(|e| {
+                        $crate::error::ChartonError::Data(format!(
+                            "Column '{}' datetime cast error: {}",
+                            name, e
+                        ))
+                    })?;
+
+                    let mut dt_vec: Vec<Option<time::OffsetDateTime>> =
+                        Vec::with_capacity(ca.len());
+
+                    for opt_ts in ca.into_iter() {
+                        let dt = opt_ts.and_then(|ts| {
+                            // Map Polars unit to total nanoseconds since Unix Epoch
+                            let nanos = match unit {
+                                polars::prelude::TimeUnit::Milliseconds => (ts as i128) * 1_000_000,
+                                polars::prelude::TimeUnit::Microseconds => (ts as i128) * 1_000,
+                                polars::prelude::TimeUnit::Nanoseconds => ts as i128,
+                            };
+
+                            // Attempt to create the OffsetDateTime
+                            time::OffsetDateTime::from_unix_timestamp_nanos(nanos).ok()
+                        });
+                        dt_vec.push(dt);
+                    }
+                    dataset.add_column(name, dt_vec)?;
+                }
+
                 // --- Fallback ---
                 _ => {
-                    // Currently skipping other types (e.g., Boolean, List, DateTime)
-                    // TODO: Implement DataType::Datetime mapping to OffsetDateTime if needed
+                    // Currently skipping other types (e.g., Boolean, List)
+                    // TODO: Implement DataType::List
                 }
             }
         }
@@ -117,5 +156,65 @@ macro_rules! load_polars_df {
         let res: std::result::Result<$crate::core::data::Dataset, $crate::error::ChartonError> =
             Ok(dataset);
         res
+    }};
+}
+
+/// A convenience macro to initialize a [`Chart`] with data.
+///
+/// The `chart!` macro supports two primary usage patterns:
+///
+/// ### 1. Direct Variable Mapping (Auto-Stringify)
+/// Pass one or more local variables. The macro will automatically use the
+/// variable names as column names in the underlying [`Dataset`].
+///
+/// ```ignore
+/// let x = vec![1.0, 2.0, 3.0];
+/// let y = vec![10.0, 20.0, 30.0];
+///
+/// // This creates a Dataset with columns "x" and "y"
+/// chart!(x, y)?
+///     .mark_point()?
+///     .encode((x("x"), y("y")))?
+///     .save("out.svg")?;
+/// ```
+///
+/// ### 2. Existing Dataset
+/// Pass a pre-constructed [`Dataset`] directly into the macro.
+///
+/// ```ignore
+/// let ds = get_data_from_source()?;
+/// chart!(ds)?
+///     .mark_line()?
+///     .encode((x("x"), y("y")))?
+///     .save("out.svg")?;
+/// ```
+///
+/// # Errors
+/// Returns [`ChartonError::Data`] if the provided variables have inconsistent
+/// row lengths when building a new dataset.
+///
+/// # Panics
+/// The macro itself does not panic, but it propagates errors via the `?` operator.
+#[macro_export]
+macro_rules! chart {
+    // Pattern 1: Handle a pre-existing Dataset
+    ($ds:expr) => {
+        $crate::chart::Chart::build($ds)
+    };
+
+    // Pattern 2: Variadic pattern for direct variables
+    ($($col:ident),+ $(,)?) => {{
+        let mut ds = $crate::core::data::Dataset::new();
+        let mut result = Ok(ds);
+
+        $(
+            result = result.and_then(|mut d| {
+                // Use stringify! to turn the variable identifier into a column name
+                d.add_column(stringify!($col), $col.clone())?;
+                Ok(d)
+            });
+        )+
+
+        result.and_then(|ds| $crate::chart::Chart::build(ds))
     }};
 }

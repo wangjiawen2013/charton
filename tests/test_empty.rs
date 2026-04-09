@@ -1,16 +1,13 @@
 use charton::prelude::*;
-use polars::prelude::*;
 use std::error::Error;
 
 #[test]
 fn test_empty_1() -> Result<(), Box<dyn Error>> {
-    let df = df![
-        "a" => Vec::<f64>::new(),
-        "b" => Vec::<f64>::new()
-    ]?;
+    let a = Vec::<f64>::new();
+    let b = Vec::<f64>::new();
 
     // Create a chart with empty data
-    Chart::build(&df)?
+    chart!(a, b)?
         .mark_point()?
         .configure_point(|p| {
             p.with_stroke_width(1.0)
@@ -31,23 +28,29 @@ fn test_empty_1() -> Result<(), Box<dyn Error>> {
 // Test the combination of empty charts with scatter chart
 #[test]
 fn test_empty_2() -> Result<(), Box<dyn Error>> {
-    let df_empty = df![
-        "a" => Vec::<f64>::new(),
-        "b" => Vec::<f64>::new()
-    ]?;
-    let empty_chart = Chart::build(&df_empty)?.mark_point()?.encode((
+    let a = Vec::<f64>::new();
+    let b = Vec::<f64>::new();
+
+    let empty_chart = chart!(a, b)?.mark_point()?.encode((
         x("a").with_scale(Scale::Linear),
         y("b").with_scale(Scale::Linear),
     ))?;
 
-    let df = df![
-        "a" => [1.0, 2.0, 3.0, 4.0, 5.0, 6.0, 7.0, 8.0, 9.0, 10.0, 11.0, 12.0, 13.0, 14.0, 15.0, 16.0, 17.0, 18.0],
-        "b" => [10.0, 20.0, 30.0, 40.0, 50.0, 60.0, 70.0, 80.0, 90.0, 100.0, 110.0, 120.0, 130.0, 140.0, 150.0, 160.0, 170.0, 180.0],
-        "category" => ["A123XY", "B", "C", "D", "E", "F", "G", "H", "I", "J", "K", "L", "M", "N", "O", "P", "Q", "R"]
-    ]?;
+    let a = vec![
+        1.0, 2.0, 3.0, 4.0, 5.0, 6.0, 7.0, 8.0, 9.0, 10.0, 11.0, 12.0, 13.0, 14.0, 15.0, 16.0,
+        17.0, 18.0,
+    ];
+    let b = vec![
+        10.0, 20.0, 30.0, 40.0, 50.0, 60.0, 70.0, 80.0, 90.0, 100.0, 110.0, 120.0, 130.0, 140.0,
+        150.0, 160.0, 170.0, 180.0,
+    ];
+    let category = vec![
+        "A123XY", "B", "C", "D", "E", "F", "G", "H", "I", "J", "K", "L", "M", "N", "O", "P", "Q",
+        "R",
+    ];
 
     let point_chart =
-        Chart::build(&df)?
+        chart!(a, b, category)?
             .mark_point()?
             .encode((x("a"), y("b"), shape("category")))?;
 

@@ -38,7 +38,7 @@ pub mod macros;
 pub mod prelude {
     pub use crate::core::data::{ColumnVector, Dataset, IntoColumn, ToDataset};
     pub use crate::datasets::load_dataset;
-    pub use crate::load_polars_df;
+    pub use crate::{chart, load_polars_df};
     pub use time::OffsetDateTime;
 
     pub use crate::encode::{
