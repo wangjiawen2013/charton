@@ -3,7 +3,7 @@ use std::error::Error;
 
 fn main() -> Result<(), Box<dyn Error>> {
     let ds = load_dataset("penguins")?;
-    println!("{}", &ds);
+    println!("{:?}", &ds);
 
     chart!(ds)?
         .mark_boxplot()?

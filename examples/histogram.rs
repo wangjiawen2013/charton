@@ -3,7 +3,7 @@ use std::error::Error;
 
 fn main() -> Result<(), Box<dyn Error>> {
     let ds = load_dataset("iris")?;
-    println!("{}", ds);
+    println!("{:?}", ds);
 
     // Create a histogram chart
     let histogram = chart!(&ds)?

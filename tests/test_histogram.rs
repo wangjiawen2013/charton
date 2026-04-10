@@ -4,7 +4,7 @@ use std::error::Error;
 #[test]
 fn test_histogram_1() -> Result<(), Box<dyn Error>> {
     let ds = load_dataset("iris")?;
-    println!("{}", &ds);
+    println!("{:?}", &ds);
 
     // Create a histogram chart
     let histogram = chart!(ds)?

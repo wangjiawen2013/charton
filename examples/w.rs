@@ -11,7 +11,7 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
 
     Chart::build(ds)?
         .mark_point()?
-        .encode((x("x"), y("y")))?
+        .encode((alt::x("x"), alt::y("y")))?
         .with_title("Performance Test: 10,000 Points")
         .save("stress_test.svg")?;
 
