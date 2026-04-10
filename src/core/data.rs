@@ -1276,50 +1276,6 @@ impl Dataset {
         Ok(final_mask)
     }
 
-    /// Internal helper to convert a specific cell value into a string for display.
-    /// Handles null checks, numerical precision, and string truncation.
-    fn debug_cell(&self, col_name: &str, row: usize) -> String {
-        // Check for missing data via NaN or Validity Bitmaps
-        if self.is_null(col_name, row) {
-            return "null".to_string();
-        }
-
-        let idx = *self.schema.get(col_name).expect("Schema integrity error");
-        match &*self.columns[idx] {
-            // Format floating points to 4 decimal places for readability
-            ColumnVector::F64 { data } => format!("{:.4}", data[row]),
-            ColumnVector::F32 { data } => format!("{:.4}", data[row]),
-
-            // Standard integer to string conversion
-            ColumnVector::I64 { data, .. } => data[row].to_string(),
-            ColumnVector::I32 { data, .. } => data[row].to_string(),
-            ColumnVector::U32 { data, .. } => data[row].to_string(),
-
-            // Truncate long strings to keep the table layout neat
-            ColumnVector::String { data, .. } => {
-                let s = &data[row];
-                // Check if the number of characters (not bytes) exceeds the limit
-                if s.chars().count() > 10 {
-                    // Safely find the byte index of the 7th character
-                    let safe_index = s
-                        .char_indices()
-                        .nth(7)
-                        .map(|(idx, _char)| idx)
-                        .unwrap_or(s.len());
-
-                    format!("{}...", &s[..safe_index])
-                } else {
-                    s.clone()
-                }
-            }
-
-            // Format timestamps using the standard ISO 8601 (RFC 3339) format
-            ColumnVector::DateTime { data, .. } => data[row]
-                .format(&time::format_description::well_known::Rfc3339)
-                .unwrap_or_else(|_| "err_date".to_string()),
-        }
-    }
-
     /// Partitions the dataset using aHash and Rayon for maximum throughput,
     /// while preserving the order of groups based on their first appearance.
     pub fn group_by(&self, col_name: Option<&str>) -> GroupedIndices {
@@ -1440,24 +1396,72 @@ impl Dataset {
 
         Ok(dataset)
     }
-}
 
-/// Enable printing of Dataset
-impl fmt::Debug for Dataset {
-    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        // Print basic metadata about the dataset dimensions
+    /// Internal helper to convert a specific cell value into a string for display.
+    /// Handles null checks, numerical precision, and string truncation.
+    fn debug_cell(&self, col_name: &str, row: usize) -> String {
+        // Check for missing data via NaN or Validity Bitmaps
+        if self.is_null(col_name, row) {
+            return "null".to_string();
+        }
+
+        let idx = *self.schema.get(col_name).expect("Schema integrity error");
+        match &*self.columns[idx] {
+            // Format floating points to 4 decimal places for readability
+            ColumnVector::F64 { data } => format!("{:.4}", data[row]),
+            ColumnVector::F32 { data } => format!("{:.4}", data[row]),
+
+            // Standard integer to string conversion
+            ColumnVector::I64 { data, .. } => data[row].to_string(),
+            ColumnVector::I32 { data, .. } => data[row].to_string(),
+            ColumnVector::U32 { data, .. } => data[row].to_string(),
+
+            // Truncate long strings to keep the table layout neat
+            ColumnVector::String { data, .. } => {
+                let s = &data[row];
+                // Check if the number of characters (not bytes) exceeds the limit
+                if s.chars().count() > 10 {
+                    // Safely find the byte index of the 7th character
+                    let safe_index = s
+                        .char_indices()
+                        .nth(7)
+                        .map(|(idx, _char)| idx)
+                        .unwrap_or(s.len());
+
+                    format!("{}...", &s[..safe_index])
+                } else {
+                    s.clone()
+                }
+            }
+
+            // Format timestamps using the standard ISO 8601 (RFC 3339) format
+            ColumnVector::DateTime { data, .. } => data[row]
+                .format(&time::format_description::well_known::Rfc3339)
+                .unwrap_or_else(|_| "err_date".to_string()),
+        }
+    }
+
+    /// Internal rendering engine that formats a specific range of rows as a table.
+    /// This is used by both `Debug` and `DatasetView` to provide consistent output.
+    fn render_to_format(
+        &self,
+        f: &mut fmt::Formatter<'_>,
+        offset: usize,
+        len: usize,
+    ) -> fmt::Result {
         writeln!(
             f,
-            "Dataset: {} rows x {} columns",
-            self.row_count,
-            self.columns.len()
+            "Dataset View: rows {}..{} (Total {} rows)",
+            offset,
+            offset + len,
+            self.row_count
         )?;
 
-        // 1. Organize headers sorted by their internal column index
+        // 1. Sort column names based on their insertion order (index in schema)
         let mut names: Vec<_> = self.schema.keys().collect();
-        names.sort_by_key(|name| self.schema.get(*name).unwrap());
+        names.sort_by_key(|name| self.schema.get(*name).expect("Schema integrity error"));
 
-        // 2. Format and print the header row with fixed-width alignment
+        // 2. Format and print the header row with fixed-width (12 chars) alignment
         let header = names
             .iter()
             .map(|n| format!("{:<12}", n))
@@ -1466,30 +1470,67 @@ impl fmt::Debug for Dataset {
         writeln!(f, "{}", header)?;
         writeln!(f, "{}", "-".repeat(header.len()))?;
 
-        // 3. Print the first 10 rows to prevent console overflow on large datasets
-        let limit = self.row_count.min(10);
-        for row in 0..limit {
+        // 3. Iterate through the specified row range and print cell values
+        for row in offset..(offset + len) {
             let mut row_str = Vec::new();
             for name in &names {
-                // Transpose columnar data into a row-wise string representation
+                // debug_cell handles type-specific formatting and null checks
                 let cell = self.debug_cell(name, row);
                 row_str.push(format!("{:<12}", cell));
             }
             writeln!(f, "{}", row_str.join("| "))?;
         }
-
-        // Indicate if there is more data beyond the displayed rows
-        if self.row_count > 10 {
-            writeln!(f, "... and {} more rows", self.row_count - 10)?;
-        }
-
         Ok(())
+    }
+
+    /// Returns a lightweight [DatasetView] containing the first `n` rows.
+    /// Does not clone the underlying data.
+    // Use <'_> to explicitly show that DatasetView borrows from self
+    pub fn head(&self, n: usize) -> DatasetView<'_> {
+        DatasetView {
+            ds: self,
+            offset: 0,
+            len: n.min(self.row_count),
+        }
+    }
+
+    /// Returns a lightweight [DatasetView] containing the last `n` rows.
+    /// Useful for inspecting recent entries in a temporal dataset.
+    pub fn tail(&self, n: usize) -> DatasetView<'_> {
+        let actual_n = n.min(self.row_count);
+        DatasetView {
+            ds: self,
+            offset: self.row_count - actual_n,
+            len: actual_n,
+        }
     }
 }
 
-impl fmt::Display for Dataset {
-    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        fmt::Debug::fmt(self, f)
+/// A lightweight view of a Dataset, typically created via `head()` or `tail()`.
+/// This struct is public so it can be used in type signatures,
+/// but its fields remain private to ensure data integrity.
+pub struct DatasetView<'a> {
+    pub(crate) ds: &'a Dataset,
+    pub(crate) offset: usize,
+    pub(crate) len: usize,
+}
+
+impl<'a> std::fmt::Debug for DatasetView<'a> {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        self.ds.render_to_format(f, self.offset, self.len)
+    }
+}
+
+impl std::fmt::Debug for Dataset {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        // Dataset handles its own printing by showing the top 10 rows (head)
+        let view = self.head(10);
+        view.fmt(f)?; // Manually calling the Debug fmt of the view
+
+        if self.row_count > 10 {
+            writeln!(f, "... and {} more rows", self.row_count - 10)?;
+        }
+        Ok(())
     }
 }
 
