@@ -1,26 +1,22 @@
 use charton::prelude::*;
-use polars::prelude::*;
 use std::error::Error;
 
 #[test]
 fn test_transform_calculate_1() -> Result<(), Box<dyn Error>> {
     // Create sample data with x and y values
-    let df = df! [
-        "type" => ["a", "b", "c", "d"],
-        //"type" => [1.0, 2.5, 3.0, 4.1],
-        "value" => [5.1, 5.3, 5.7, 6.5],
-        "value_std" => [0.2, 0.23, 0.14, 0.25]
-    ]?;
+    let type1 = ["a", "b", "c", "d"];
+    let value = [5.1, 5.3, 5.7, 6.5];
+    let value_std = [0.2, 0.23, 0.14, 0.25];
 
     // Create error bar chart using transform_calculate to add min/max values
-    let errorbar_chart = Chart::build(&df)?
+    let errorbar_chart = chart!(type1, value, value_std)?
         // Use transform_calculate to create ymin and ymax columns based on fixed std values
         .transform_calculate(
             (col("value") - col("value_std")).alias("value_min"), // ymin = y - std
             (col("value") + col("value_std")).alias("value_max"), // ymax = y + std
         )?
         .mark_errorbar()?
-        .encode((x("type"), y("value_min"), y2("value_max")))?
+        .encode((alt::x("type"), alt::y("value_min"), alt::y2("value_max")))?
         .configure_errorbar(
             |e| {
                 e.with_color("blue")

@@ -174,7 +174,7 @@ macro_rules! load_polars_df {
 /// // This creates a Dataset with columns "x" and "y"
 /// chart!(x, y)?
 ///     .mark_point()?
-///     .encode((x("x"), y("y")))?
+///     .encode((alt::x("x"), alt::y("y")))?
 ///     .save("out.svg")?;
 /// ```
 ///
@@ -185,7 +185,7 @@ macro_rules! load_polars_df {
 /// let ds = get_data_from_source()?;
 /// chart!(ds)?
 ///     .mark_line()?
-///     .encode((x("x"), y("y")))?
+///     .encode((alt::x("x"), alt::y("y")))?
 ///     .save("out.svg")?;
 /// ```
 ///
@@ -197,24 +197,50 @@ macro_rules! load_polars_df {
 /// The macro itself does not panic, but it propagates errors via the `?` operator.
 #[macro_export]
 macro_rules! chart {
-    // Pattern 1: Handle a pre-existing Dataset
+    // --- MODE 1: Dataset Reference Mode ---
+    // Specifically matches a reference to an existing Dataset: chart!(&ds)
+    (&$ds:expr) => {
+        $crate::chart::Chart::build($ds.clone())
+    };
+
+    // --- MODE 2: Dataset Ownership Move Mode ---
+    // Specifically matches an owned Dataset: chart!(ds)
     ($ds:expr) => {
         $crate::chart::Chart::build($ds)
     };
 
-    // Pattern 2: Variadic pattern for direct variables
-    ($($col:ident),+ $(,)?) => {{
+    // --- MODE 3: Variadic Variable Mode ---
+    // We use a specialized pattern to capture either '&ident' or 'ident'
+    // without using 'tt', which prevents the "leftover tokens" issue.
+    ($( $(&)? $col:ident ),+ $(,)?) => {{
         let mut ds = $crate::core::data::Dataset::new();
         let mut result = Ok(ds);
 
         $(
-            result = result.and_then(|mut d| {
-                // Use stringify! to turn the variable identifier into a column name
-                d.add_column(stringify!($col), $col.clone())?;
-                Ok(d)
-            });
+            // We pass the tokens exactly as matched to the internal parser
+            result = $crate::chart!(@parse_col result, $col);
         )+
 
         result.and_then(|ds| $crate::chart::Chart::build(ds))
     }};
+
+    // --- INTERNAL STRICT DISPATCHER ---
+
+    // Sub-mode: Borrowed variable
+    // This handles the logic when the caller provided '&variable'
+    (@parse_col $res:ident, &$name:ident) => {
+        $res.and_then(|mut d| {
+            d.add_column(stringify!($name), $name.clone())?;
+            Ok(d)
+        })
+    };
+
+    // Sub-mode: Owned variable
+    // This handles the logic when the caller provided 'variable'
+    (@parse_col $res:ident, $name:ident) => {
+        $res.and_then(|mut d| {
+            d.add_column(stringify!($name), $name.clone())?;
+            Ok(d)
+        })
+    };
 }
