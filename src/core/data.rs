@@ -735,6 +735,77 @@ impl ColumnVector {
             ))),
         }
     }
+
+    /// Creates a new ColumnVector containing a sub-range of the data.
+    /// This follows Charton's columnar layout: slicing owned data for Eager operations.
+    pub fn slice(&self, offset: usize, len: usize) -> Self {
+        match self {
+            // Floating point variants use NaN for nulls, no validity mask needed.
+            ColumnVector::F64 { data } => ColumnVector::F64 {
+                data: data[offset..offset + len].to_vec(),
+            },
+            ColumnVector::F32 { data } => ColumnVector::F32 {
+                data: data[offset..offset + len].to_vec(),
+            },
+
+            // Integer, String, and DateTime variants use an optional validity bitmask.
+            ColumnVector::I64 { data, validity } => ColumnVector::I64 {
+                data: data[offset..offset + len].to_vec(),
+                validity: validity
+                    .as_ref()
+                    .map(|v| self.slice_validity(v, offset, len)),
+            },
+            ColumnVector::I32 { data, validity } => ColumnVector::I32 {
+                data: data[offset..offset + len].to_vec(),
+                validity: validity
+                    .as_ref()
+                    .map(|v| self.slice_validity(v, offset, len)),
+            },
+            ColumnVector::U32 { data, validity } => ColumnVector::U32 {
+                data: data[offset..offset + len].to_vec(),
+                validity: validity
+                    .as_ref()
+                    .map(|v| self.slice_validity(v, offset, len)),
+            },
+            ColumnVector::String { data, validity } => ColumnVector::String {
+                data: data[offset..offset + len].to_vec(),
+                validity: validity
+                    .as_ref()
+                    .map(|v| self.slice_validity(v, offset, len)),
+            },
+            ColumnVector::DateTime { data, validity } => ColumnVector::DateTime {
+                data: data[offset..offset + len].to_vec(),
+                validity: validity
+                    .as_ref()
+                    .map(|v| self.slice_validity(v, offset, len)),
+            },
+        }
+    }
+
+    /// Slices a validity bitmap [u8] by accounting for bit-level offsets.
+    ///
+    /// Since the 'offset' might not be a multiple of 8, we cannot simply slice the bytes.
+    /// We must shift and realign bits so the new bitmap starts at bit 0 for the first row.
+    fn slice_validity(&self, v: &[u8], offset: usize, len: usize) -> Vec<u8> {
+        let mut new_v = vec![0u8; (len + 7) / 8];
+
+        for i in 0..len {
+            let old_idx = offset + i;
+            let byte_idx = old_idx / 8;
+            let bit_idx = old_idx % 8;
+
+            // Extract the bit from the original byte array
+            let is_valid = (v[byte_idx] & (1 << bit_idx)) != 0;
+
+            if is_valid {
+                // Set the corresponding bit in the new byte array
+                let new_byte_idx = i / 8;
+                let new_bit_idx = i % 8;
+                new_v[new_byte_idx] |= 1 << new_bit_idx;
+            }
+        }
+        new_v
+    }
 }
 
 // --- F64: Use NaN for Nulls (No Bitmask needed) ---
@@ -1397,6 +1468,43 @@ impl Dataset {
         Ok(dataset)
     }
 
+    /// EAGER: Returns a new Dataset containing the first `n` rows.
+    /// This creates a shallow copy where ColumnVectors are sliced and re-wrapped in Arc.
+    pub fn head(&self, n: usize) -> Self {
+        let actual_n = n.min(self.row_count);
+        self.slice(0, actual_n)
+    }
+
+    /// EAGER: Returns a new Dataset containing the last `n` rows.
+    /// Useful for extracting the most recent entries in a dataset.
+    pub fn tail(&self, n: usize) -> Self {
+        let actual_n = n.min(self.row_count);
+        let offset = self.row_count - actual_n;
+        self.slice(offset, actual_n)
+    }
+
+    /// Creates a new owned Dataset from a sub-range of the current one.
+    /// It clones the Schema and creates new Sliced ColumnVectors.
+    pub fn slice(&self, offset: usize, len: usize) -> Self {
+        if len == 0 {
+            return Self::new();
+        }
+
+        // Each column is sliced independently. Since we use Arc,
+        // we are creating new Arcs pointing to the new sliced vectors.
+        let new_columns: Vec<Arc<ColumnVector>> = self
+            .columns
+            .iter()
+            .map(|col| Arc::new(col.slice(offset, len)))
+            .collect();
+
+        Self {
+            schema: self.schema.clone(), // Shallow clone of the AHashMap
+            columns: new_columns,
+            row_count: len,
+        }
+    }
+
     /// Internal helper to convert a specific cell value into a string for display.
     /// Handles null checks, numerical precision, and string truncation.
     fn debug_cell(&self, col_name: &str, row: usize) -> String {
@@ -1483,25 +1591,19 @@ impl Dataset {
         Ok(())
     }
 
-    /// Returns a lightweight [DatasetView] containing the first `n` rows.
-    /// Does not clone the underlying data.
-    // Use <'_> to explicitly show that DatasetView borrows from self
-    pub fn head(&self, n: usize) -> DatasetView<'_> {
-        DatasetView {
-            ds: self,
-            offset: 0,
-            len: n.min(self.row_count),
-        }
-    }
+    /// Returns a lightweight [DatasetView] for a specific range.
+    /// Used internally for printing or quick data inspection without allocations.
+    pub fn view(&self, offset: usize, len: usize) -> DatasetView<'_> {
+        let safe_len = if offset >= self.row_count {
+            0
+        } else {
+            len.min(self.row_count - offset)
+        };
 
-    /// Returns a lightweight [DatasetView] containing the last `n` rows.
-    /// Useful for inspecting recent entries in a temporal dataset.
-    pub fn tail(&self, n: usize) -> DatasetView<'_> {
-        let actual_n = n.min(self.row_count);
         DatasetView {
             ds: self,
-            offset: self.row_count - actual_n,
-            len: actual_n,
+            offset,
+            len: safe_len,
         }
     }
 }
@@ -1521,11 +1623,10 @@ impl<'a> std::fmt::Debug for DatasetView<'a> {
     }
 }
 
-impl std::fmt::Debug for Dataset {
-    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        // Dataset handles its own printing by showing the top 10 rows (head)
-        let view = self.head(10);
-        view.fmt(f)?; // Manually calling the Debug fmt of the view
+impl fmt::Debug for Dataset {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        // Just print a 10-row view
+        self.view(0, 10).fmt(f)?;
 
         if self.row_count > 10 {
             writeln!(f, "... and {} more rows", self.row_count - 10)?;
@@ -1560,6 +1661,15 @@ impl ToDataset for Dataset {
     #[inline]
     fn to_dataset(self) -> Result<Dataset, ChartonError> {
         Ok(self)
+    }
+}
+
+/// Identify conversion for a reference of a Dataset.
+impl ToDataset for &Dataset {
+    #[inline]
+    fn to_dataset(self) -> Result<Dataset, ChartonError> {
+        // Since it uses Arc internally, this clone only increments the reference count and is extremely fast.
+        Ok(self.clone())
     }
 }
 
