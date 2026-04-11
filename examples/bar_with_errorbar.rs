@@ -10,10 +10,12 @@ fn main() -> Result<(), Box<dyn Error>> {
     // Create error bar chart using transform_calculate to add min/max values
     let errorbar = chart!(type1, value, value_std)?
         // Use transform_calculate to create ymin and ymax columns based on fixed std values
-        .transform_calculate(
-            (col("value") - col("value_std")).alias("value_min"), // ymin = y - std
-            (col("value") + col("value_std")).alias("value_max"), // ymax = y + std
-        )?
+        .transform_calculate("value_min", |row| {
+            Some(row.val("value")? - row.val("value_std")?)
+        })?
+        .transform_calculate("value_min", |row| {
+            Some(row.val("value")? + row.val("value_std")?)
+        })?
         .mark_errorbar()?
         .encode((alt::x("type1"), alt::y("value_min"), alt::y2("value_max")))?;
     let bar = chart!(type1, value)?

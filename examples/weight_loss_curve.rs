@@ -121,7 +121,7 @@ fn main() -> Result<(), Box<dyn Error>> {
         ))?;
 
     // Layer 4: Placebo text label
-    let placebo_text = Chart::build(&ds_text.head(Some(1)))?
+    let placebo_text = Chart::build(&ds_text.head(1))?
         .mark_text()?
         .configure_text(|t| t.with_anchor("left").with_size(14.0))
         .encode((alt::x("x"), alt::y("y"), alt::text("group")))?;
@@ -159,7 +159,7 @@ fn main() -> Result<(), Box<dyn Error>> {
         ))?;
 
     // Layer 8: Semaglutide text label
-    let semaglutide_text = Chart::build(&ds_text.tail(Some(1)))?
+    let semaglutide_text = Chart::build(&ds_text.tail(1))?
         .mark_text()?
         .configure_text(|t| t.with_anchor("left").with_size(14.0))
         .encode((alt::x("x"), alt::y("y"), alt::text("group")))?;
