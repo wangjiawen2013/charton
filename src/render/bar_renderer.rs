@@ -6,6 +6,7 @@ use crate::encode::y::StackMode;
 use crate::error::ChartonError;
 use crate::mark::bar::MarkBar;
 use crate::visual::color::SingleColor;
+use ahash::AHashMap;
 
 impl MarkRenderer for Chart<MarkBar> {
     fn render_marks(
@@ -34,6 +35,7 @@ impl MarkRenderer for Chart<MarkBar> {
             .y
             .as_ref()
             .ok_or(ChartonError::Encoding("Y missing".into()))?;
+
         let x_scale = context.coord.get_x_scale();
         let y_scale = context.coord.get_y_scale();
 
@@ -43,17 +45,17 @@ impl MarkRenderer for Chart<MarkBar> {
         let is_polar = hints.needs_interpolation;
         let needs_nightingale_sqrt = is_polar && !is_pie_mode;
 
-        // --- STEP 2: Layout Parameter Resolution ---
-        let eff_width = mark_config.width.unwrap_or(hints.default_bar_width);
-        let eff_spacing = mark_config.spacing.unwrap_or(hints.default_bar_spacing);
-        let eff_span = mark_config.span.unwrap_or(hints.default_bar_span);
-        let eff_stroke = mark_config.stroke.unwrap_or(hints.default_bar_stroke);
-        let eff_stroke_width = mark_config
-            .stroke_width
-            .unwrap_or(hints.default_bar_stroke_width);
+        // --- STEP 2: Deterministic X-Mapping for Stack Accumulator ---
+        // Crucial: Use unique_values() to create a stable index for each X-category.
+        // This prevents stack_acc from drifting if row order changes.
+        let x_uniques = ds.column(&x_enc.field)?.unique_values();
+        let mut x_idx_map = AHashMap::with_capacity(x_uniques.len());
+        for (i, val) in x_uniques.iter().enumerate() {
+            x_idx_map.insert(val, i);
+        }
 
-        // Calculate normalized step size for bar width scaling
-        let unit_step_norm = (x_scale.normalize(1.0) - x_scale.normalize(0.0)).abs();
+        // Accumulator size corresponds to unique X locations, initialized to 0.0.
+        let mut stack_acc = vec![0.0; x_uniques.len()];
 
         // --- STEP 3: Vectorized Data Extraction ---
         let x_norms = x_scale
@@ -72,7 +74,7 @@ impl MarkRenderer for Chart<MarkBar> {
             None
         };
 
-        // Pie mode specific: calculate total for percentage labels
+        // Pie mode total for percentage labels
         let global_total = if is_pie_mode {
             y_values.iter().sum::<f64>().max(1.0)
         } else {
@@ -88,12 +90,22 @@ impl MarkRenderer for Chart<MarkBar> {
             .map(|c| c.field.as_str());
         let grouped_data = ds.group_by(color_field);
 
-        // Determine how many bars are grouped at the same X location (for Dodging)
         let n_groups = if is_pie_mode {
             1.0
         } else {
             grouped_data.groups.len() as f64
         };
+
+        // Layout Parameter Resolution
+        let eff_width = mark_config.width.unwrap_or(hints.default_bar_width);
+        let eff_spacing = mark_config.spacing.unwrap_or(hints.default_bar_spacing);
+        let eff_span = mark_config.span.unwrap_or(hints.default_bar_span);
+        let eff_stroke = mark_config.stroke.unwrap_or(hints.default_bar_stroke);
+        let eff_stroke_width = mark_config
+            .stroke_width
+            .unwrap_or(hints.default_bar_stroke_width);
+
+        let unit_step_norm = (x_scale.normalize(1.0) - x_scale.normalize(0.0)).abs();
         let bar_width_data = if is_stacked || n_groups <= 1.0 {
             eff_width.min(eff_span)
         } else {
@@ -103,24 +115,26 @@ impl MarkRenderer for Chart<MarkBar> {
         let bar_width_norm = bar_width_data * unit_step_norm;
         let spacing_norm = bar_width_norm * eff_spacing;
 
-        // --- STEP 5: Rendering ---
-        // Stack accumulator for stacked bar charts
-        let mut stack_acc = vec![0.0; ds.row_count];
-
+        // --- STEP 5: Rendering Loop ---
         for (group_idx, (_name, row_indices)) in grouped_data.groups.iter().enumerate() {
             for &idx in row_indices {
                 let y_val = y_values[idx];
+
+                // Skip rendering empty bars in non-stacked mode for performance
                 if y_val == 0.0 && !is_stacked {
                     continue;
                 }
 
+                // Resolve the specific X-category for this row to get the correct stack baseline
+                let x_str = ds.get_str_or(&x_enc.field, idx, "null");
+                let x_pos_idx = *x_idx_map.get(&x_str).unwrap_or(&0);
                 let x_tick_n = x_norms[idx].unwrap_or(0.0);
 
-                // A: Resolve Y-Bounds (Radius/Height)
+                // A: Resolve Y-Bounds (Radius/Height) with Stack Logic
                 let (y_low_n, y_high_n) = if is_stacked {
-                    let start = stack_acc[idx];
+                    let start = stack_acc[x_pos_idx];
                     let end = start + y_val;
-                    stack_acc[idx] = end;
+                    stack_acc[x_pos_idx] = end; // Update baseline for next color in this X-group
 
                     if needs_nightingale_sqrt {
                         (
@@ -153,7 +167,7 @@ impl MarkRenderer for Chart<MarkBar> {
 
                 // C: Geometric Construction
                 let rect_path = if is_pie_mode {
-                    // In Pie mode: X=Radius, Y=Angle. Re-mapped here for interpolation.
+                    // Pie mode: X maps to Radius, Y maps to Angle
                     vec![
                         (y_low_n, left_n),
                         (y_low_n, right_n),
@@ -161,6 +175,7 @@ impl MarkRenderer for Chart<MarkBar> {
                         (y_high_n, left_n),
                     ]
                 } else {
+                    // Standard Bar: X maps to X, Y maps to Y
                     vec![
                         (left_n, y_low_n),
                         (left_n, y_high_n),
@@ -169,12 +184,19 @@ impl MarkRenderer for Chart<MarkBar> {
                     ]
                 };
 
-                let pixel_points = if hints.needs_interpolation {
-                    context.transform_path(&rect_path, true)
+                let pixel_points: Vec<(Precision, Precision)> = if hints.needs_interpolation {
+                    context
+                        .transform_path(&rect_path, true)
+                        .into_iter()
+                        .map(|(px, py)| (px as Precision, py as Precision))
+                        .collect()
                 } else {
                     rect_path
                         .iter()
-                        .map(|&(nx, ny)| context.coord.transform(nx, ny, &context.panel))
+                        .map(|&(nx, ny)| {
+                            let (px, py) = context.coord.transform(nx, ny, &context.panel);
+                            (px as Precision, py as Precision)
+                        })
                         .collect()
                 };
 
@@ -184,10 +206,7 @@ impl MarkRenderer for Chart<MarkBar> {
                     self.resolve_color_from_value(color_val, context, &mark_config.color);
 
                 backend.draw_polygon(PolygonConfig {
-                    points: pixel_points
-                        .into_iter()
-                        .map(|(px, py)| (px as Precision, py as Precision))
-                        .collect(),
+                    points: pixel_points,
                     fill: final_color,
                     stroke: eff_stroke,
                     stroke_width: eff_stroke_width as Precision,
