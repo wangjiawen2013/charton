@@ -8,9 +8,9 @@ fn main() -> Result<(), Box<dyn Error>> {
     chart!(ds)?
         .mark_boxplot()?
         .encode((
-            alt::x("island"),
-            alt::y("body_mass_g"),
-            alt::color("species"),
+            alt::x("Island"),
+            alt::y("Body Mass (g)"),
+            alt::color("Species"),
         ))?
         .save("docs/src/images/grouped_boxplot.svg")?;
 

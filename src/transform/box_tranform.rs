@@ -4,7 +4,7 @@ use crate::core::data::{ColumnVector, Dataset, get_quantile};
 use crate::core::utils::IntoParallelizable;
 use crate::error::ChartonError;
 use crate::mark::Mark;
-use ahash::{AHashMap, AHashSet};
+use ahash::AHashMap;
 
 #[cfg(feature = "parallel")]
 use rayon::prelude::*;
@@ -12,11 +12,8 @@ use rayon::prelude::*;
 impl<T: Mark> Chart<T> {
     /// Performs high-performance statistical aggregation for Box Plots.
     ///
-    /// This transform replaces the previous Polars-based logic with a native Rust implementation:
-    /// 1. Groups data by X-axis and Color categories using a high-speed HashMap.
-    /// 2. Calculates global Y-axis bounds to ensure consistent scaling for whiskers and outliers.
-    /// 3. Assigns fixed "Dodge" indices to colors to maintain consistent visual slots even when data is missing.
-    /// 4. Computes the 5-number summary (Min, Q1, Median, Q3, Max) and identifies outliers in parallel.
+    /// This version uses `unique_values()` to ensure that both X-axis categories
+    /// and Color dodge slots maintain a stable, appearance-based order.
     pub(crate) fn transform_boxplot_data(mut self) -> Result<Self, ChartonError> {
         let x_name = &self.encoding.x.as_ref().unwrap().field;
         let y_name = &self.encoding.y.as_ref().unwrap().field;
@@ -39,55 +36,61 @@ impl<T: Mark> Chart<T> {
             }
         }
 
-        // --- STEP 2: Grouping phase ---
-        // Identifies unique combinations of X and Color to form boxplot groups.
+        // --- STEP 2: Establish Deterministic Order for X and Color ---
+        // Preservation of appearance order prevents "flickering" of categories and dodge slots.
+        let x_order = x_col.unique_values();
+
         let mut color_field_name: Option<String> = None;
+        let mut color_to_idx = AHashMap::new();
+        let mut color_order = Vec::new();
+
         if let Some(color_enc) = &self.encoding.color {
-            color_field_name = Some(color_enc.field.clone());
+            let cf = color_enc.field.clone();
+            color_order = self.data.column(&cf)?.unique_values();
+            for (i, c) in color_order.iter().enumerate() {
+                color_to_idx.insert(c.clone(), i as f64);
+            }
+            color_field_name = Some(cf);
         }
 
+        let groups_count = if color_order.is_empty() {
+            1.0
+        } else {
+            color_order.len() as f64
+        };
+
+        // --- STEP 3: Grouping phase ---
+        // We use a HashMap for grouping indices, but we will iterate over x_order later to maintain sequence.
         let mut group_map: AHashMap<(String, Option<String>), Vec<usize>> = AHashMap::new();
         for i in 0..row_count {
-            // Using the new ColumnVector helper for the pre-fetched x_col
             let x_val = x_col.get_str_or(i, "null");
-
-            // Using the new Dataset helper for the optional color field
             let c_val = color_field_name
                 .as_ref()
                 .map(|f| self.data.get_str_or(f, i, "null"));
-
             group_map.entry((x_val, c_val)).or_default().push(i);
         }
 
-        // --- STEP 3: Fixed indexing for Dodge alignment ---
-        // Ensures that each color occupies a consistent horizontal "slot" within each X category.
-        let mut color_to_idx = AHashMap::new();
-        if let Some(ref _f) = color_field_name {
-            let mut unique_colors: Vec<String> = group_map
-                .keys()
-                .filter_map(|k| k.1.clone())
-                .collect::<AHashSet<_>>()
-                .into_iter()
-                .collect();
-            unique_colors.sort_unstable();
-            for (i, c) in unique_colors.into_iter().enumerate() {
-                color_to_idx.insert(c, i as f64);
+        // --- STEP 4: Parallel statistical computation ---
+        // Instead of iterating over the HashMap directly (which is random),
+        // we construct a flat list of tasks based on our stable X and Color orders.
+        let mut tasks = Vec::new();
+        for x_val in &x_order {
+            if color_order.is_empty() {
+                if let Some(indices) = group_map.get(&(x_val.clone(), None)) {
+                    tasks.push((x_val.clone(), None, indices.clone()));
+                }
+            } else {
+                for c_val in &color_order {
+                    if let Some(indices) = group_map.get(&(x_val.clone(), Some(c_val.clone()))) {
+                        tasks.push((x_val.clone(), Some(c_val.clone()), indices.clone()));
+                    }
+                }
             }
         }
-        let groups_count = if color_to_idx.is_empty() {
-            1.0
-        } else {
-            color_to_idx.len() as f64
-        };
 
-        // --- STEP 4: Parallel statistical computation ---
-        // Sorts values and calculates boxplot metrics (quantiles, whiskers, outliers) for each group.
-        let groups: Vec<((String, Option<String>), Vec<usize>)> = group_map.into_iter().collect();
-
-        let stats_results: Vec<_> = groups
+        let stats_results: Vec<_> = tasks
             .maybe_into_par_iter()
-            .map(|((x_val, c_val), indices)| {
-                // Extract and sort values using unstable sort for maximum performance
+            .map(|(x_val, c_val, indices)| {
                 let mut vals: Vec<f64> = indices.iter().filter_map(|&i| y_col.get_f64(i)).collect();
                 vals.sort_unstable_by(|a, b| a.partial_cmp(b).unwrap_or(std::cmp::Ordering::Equal));
 
@@ -95,12 +98,9 @@ impl<T: Mark> Chart<T> {
                     return (x_val, c_val, None);
                 }
 
-                // Calculate 5-number summary using linear interpolation
                 let q1 = get_quantile(&vals, 0.25);
                 let median = get_quantile(&vals, 0.50);
                 let q3 = get_quantile(&vals, 0.75);
-
-                // Tukey's fences for whisker and outlier detection (1.5 * IQR)
                 let iqr = q3 - q1;
                 let lower_fence = q1 - 1.5 * iqr;
                 let upper_fence = q3 + 1.5 * iqr;
@@ -145,7 +145,6 @@ impl<T: Mark> Chart<T> {
             .collect();
 
         // --- STEP 5: Final Dataset Assembly ---
-        // Collects results into a new Columnar Dataset, injecting global bounds for axis scaling.
         let mut new_ds = Dataset::new();
         let result_len = stats_results.iter().filter(|(_, _, s)| s.is_some()).count();
 
@@ -164,7 +163,7 @@ impl<T: Mark> Chart<T> {
             if let Some(s) = stats_opt {
                 final_x.push(x);
                 final_c.push(c.unwrap_or_else(|| "default".to_string()));
-                final_y.push(s.median); // Using Median as the primary Y-axis anchor
+                final_y.push(s.median);
                 f_q1.push(s.q1);
                 f_median.push(s.median);
                 f_q3.push(s.q3);
@@ -175,7 +174,7 @@ impl<T: Mark> Chart<T> {
             }
         }
 
-        // Inject global min/max into the first rows to force correct Y-axis domain detection
+        // Global bounds injection for axis scaling
         if !final_y.is_empty() {
             final_y[0] = global_min;
             if final_y.len() > 1 {
@@ -183,7 +182,6 @@ impl<T: Mark> Chart<T> {
             }
         }
 
-        // Build the final Columnar representation
         new_ds.add_column(
             x_name,
             ColumnVector::String {
@@ -245,7 +243,6 @@ impl<T: Mark> Chart<T> {
     }
 }
 
-/// Internal statistical structure to hold box plot metrics for a single group.
 struct BoxStats {
     q1: f64,
     median: f64,
@@ -253,7 +250,5 @@ struct BoxStats {
     whisker_min: f64,
     whisker_max: f64,
     outliers: Vec<f64>,
-    /// The relative position index of the color group used for horizontal "Dodge" alignment.
-    /// This ensures each color has a fixed slot even if some categories are missing data.
     sub_idx: f64,
 }
