@@ -46,15 +46,11 @@ impl MarkRenderer for Chart<MarkBar> {
         let needs_nightingale_sqrt = is_polar && !is_pie_mode;
 
         // --- STEP 2: Deterministic X-Mapping for Stack Accumulator ---
-        // Crucial: Use unique_values() to create a stable index for each X-category.
-        // This prevents stack_acc from drifting if row order changes.
         let x_uniques = ds.column(&x_enc.field)?.unique_values();
         let mut x_idx_map = AHashMap::with_capacity(x_uniques.len());
         for (i, val) in x_uniques.iter().enumerate() {
             x_idx_map.insert(val, i);
         }
-
-        // Accumulator size corresponds to unique X locations, initialized to 0.0.
         let mut stack_acc = vec![0.0; x_uniques.len()];
 
         // --- STEP 3: Vectorized Data Extraction ---
@@ -74,14 +70,13 @@ impl MarkRenderer for Chart<MarkBar> {
             None
         };
 
-        // Pie mode total for percentage labels
         let global_total = if is_pie_mode {
             y_values.iter().sum::<f64>().max(1.0)
         } else {
             1.0
         };
 
-        // --- STEP 4: Grouping & Dodging Logic ---
+        // --- STEP 4: Grouping & Layout Parameter Resolution ---
         let color_field = context
             .spec
             .aesthetics
@@ -96,7 +91,6 @@ impl MarkRenderer for Chart<MarkBar> {
             grouped_data.groups.len() as f64
         };
 
-        // Layout Parameter Resolution
         let eff_width = mark_config.width.unwrap_or(hints.default_bar_width);
         let eff_spacing = mark_config.spacing.unwrap_or(hints.default_bar_spacing);
         let eff_span = mark_config.span.unwrap_or(hints.default_bar_span);
@@ -106,6 +100,8 @@ impl MarkRenderer for Chart<MarkBar> {
             .unwrap_or(hints.default_bar_stroke_width);
 
         let unit_step_norm = (x_scale.normalize(1.0) - x_scale.normalize(0.0)).abs();
+
+        // Standard bar width for Cartesian or Stacked modes
         let bar_width_data = if is_stacked || n_groups <= 1.0 {
             eff_width.min(eff_span)
         } else {
@@ -120,21 +116,19 @@ impl MarkRenderer for Chart<MarkBar> {
             for &idx in row_indices {
                 let y_val = y_values[idx];
 
-                // Skip rendering empty bars in non-stacked mode for performance
                 if y_val == 0.0 && !is_stacked {
                     continue;
                 }
 
-                // Resolve the specific X-category for this row to get the correct stack baseline
                 let x_str = ds.get_str_or(&x_enc.field, idx, "null");
                 let x_pos_idx = *x_idx_map.get(&x_str).unwrap_or(&0);
                 let x_tick_n = x_norms[idx].unwrap_or(0.0);
 
-                // A: Resolve Y-Bounds (Radius/Height) with Stack Logic
+                // A: Resolve Y-Bounds (Radius/Height)
                 let (y_low_n, y_high_n) = if is_stacked {
                     let start = stack_acc[x_pos_idx];
                     let end = start + y_val;
-                    stack_acc[x_pos_idx] = end; // Update baseline for next color in this X-group
+                    stack_acc[x_pos_idx] = end;
 
                     if needs_nightingale_sqrt {
                         (
@@ -154,20 +148,30 @@ impl MarkRenderer for Chart<MarkBar> {
                     (y_scale.normalize(0.0), final_n)
                 };
 
-                // B: Resolve X-Position (Angular/Width) with Dodging
-                let offset_norm = if !is_stacked && n_groups > 1.0 {
-                    (group_idx as f64 - (n_groups - 1.0) / 2.0) * (bar_width_norm + spacing_norm)
+                // B: Resolve X-Position (Angular/Width) - FIX FOR ROSE CHART
+                // If it's polar coordinate but NOT pie and NOT stacked, it's a Rose Chart.
+                // In Rose Charts, we usually want bars to overlay each other with full width
+                // rather than dodging (which makes wedges extremely thin).
+                let (offset_norm, final_bar_width_norm) = if is_polar && !is_pie_mode && !is_stacked
+                {
+                    // Rose Mode: No offset, use full span width
+                    (0.0, eff_span * unit_step_norm)
+                } else if !is_stacked && n_groups > 1.0 {
+                    // Cartesian Dodge Mode
+                    let offset = (group_idx as f64 - (n_groups - 1.0) / 2.0)
+                        * (bar_width_norm + spacing_norm);
+                    (offset, bar_width_norm)
                 } else {
-                    0.0
+                    // Single Bar or Stacked Mode
+                    (0.0, bar_width_norm)
                 };
 
                 let x_center_n = x_tick_n + offset_norm;
-                let left_n = x_center_n - bar_width_norm / 2.0;
-                let right_n = x_center_n + bar_width_norm / 2.0;
+                let left_n = x_center_n - final_bar_width_norm / 2.0;
+                let right_n = x_center_n + final_bar_width_norm / 2.0;
 
                 // C: Geometric Construction
                 let rect_path = if is_pie_mode {
-                    // Pie mode: X maps to Radius, Y maps to Angle
                     vec![
                         (y_low_n, left_n),
                         (y_low_n, right_n),
@@ -175,7 +179,6 @@ impl MarkRenderer for Chart<MarkBar> {
                         (y_high_n, left_n),
                     ]
                 } else {
-                    // Standard Bar: X maps to X, Y maps to Y
                     vec![
                         (left_n, y_low_n),
                         (left_n, y_high_n),
