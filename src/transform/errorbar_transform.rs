@@ -35,14 +35,9 @@ impl<T: Mark> Chart<T> {
 
         let row_count = self.data.height();
         for i in 0..row_count {
-            let x_val = x_col.get_as_string(i).unwrap_or_else(|| "null".to_string());
+            let x_val = x_col.get_str_or(i, "null");
             let c_val = if group_by_color {
-                Some(
-                    self.data
-                        .column(color_field.unwrap())?
-                        .get_as_string(i)
-                        .unwrap_or_else(|| "null".to_string()),
-                )
+                color_field.map(|cf| self.data.get_str_or(cf, i, "null"))
             } else {
                 None
             };

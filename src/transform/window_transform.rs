@@ -239,10 +239,7 @@ impl<T: Mark> Chart<T> {
         if let Some(ref group_field) = params.groupby {
             let group_col = self.data.column(group_field)?;
             for i in 0..n {
-                groups
-                    .entry(group_col.get_as_string(i))
-                    .or_default()
-                    .push(i);
+                groups.entry(group_col.get_str(i)).or_default().push(i);
             }
         } else {
             groups.insert(None, (0..n).collect());

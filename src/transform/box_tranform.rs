@@ -48,14 +48,14 @@ impl<T: Mark> Chart<T> {
 
         let mut group_map: AHashMap<(String, Option<String>), Vec<usize>> = AHashMap::new();
         for i in 0..row_count {
-            let x_val = x_col.get_as_string(i).unwrap_or_else(|| "null".to_string());
-            let c_val = color_field_name.as_ref().map(|f| {
-                self.data
-                    .column(f)
-                    .unwrap()
-                    .get_as_string(i)
-                    .unwrap_or_else(|| "null".to_string())
-            });
+            // Using the new ColumnVector helper for the pre-fetched x_col
+            let x_val = x_col.get_str_or(i, "null");
+
+            // Using the new Dataset helper for the optional color field
+            let c_val = color_field_name
+                .as_ref()
+                .map(|f| self.data.get_str_or(f, i, "null"));
+
             group_map.entry((x_val, c_val)).or_default().push(i);
         }
 

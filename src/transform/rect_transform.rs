@@ -73,7 +73,7 @@ impl<T: Mark> Chart<T> {
                     let middle = min + (bin_idx as f64 + 0.5) * width;
                     middle.to_string()
                 }
-                None => x_col.get_as_string(i).unwrap_or_else(|| "null".into()),
+                None => x_col.get_str_or(i, "null"),
             };
 
             // Determine the "Label" for Y
@@ -84,7 +84,7 @@ impl<T: Mark> Chart<T> {
                     let middle = min + (bin_idx as f64 + 0.5) * width;
                     middle.to_string()
                 }
-                None => y_col.get_as_string(i).unwrap_or_else(|| "null".into()),
+                None => y_col.get_str_or(i, "null"),
             };
 
             // Track unique coordinates to build the Cartesian grid later

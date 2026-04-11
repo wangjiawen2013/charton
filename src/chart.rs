@@ -738,7 +738,7 @@ where
                     for i in 0..row_count {
                         // Extract X key and Y value for current row
                         if let (Some(x_val), Some(y_val)) =
-                            (x_series.get_as_string(i), y_series.get_as_f64(i))
+                            (x_series.get_str(i), y_series.get_f64(i))
                         {
                             let entry = stacks.entry(x_val).or_insert(0.0);
                             *entry += y_val;
