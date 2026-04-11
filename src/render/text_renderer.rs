@@ -98,7 +98,7 @@ impl MarkRenderer for Chart<MarkText> {
                         df_source
                             .column(&text_enc.field)
                             .ok()?
-                            .get_as_string(i)
+                            .get_str(i)
                             .unwrap_or_default()
                     } else {
                         mark_config.text.clone()
