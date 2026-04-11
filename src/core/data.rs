@@ -1736,6 +1736,45 @@ impl ToDataset for &Dataset {
     }
 }
 
+/// A lightweight accessor to fetch values from a specific row in a Dataset.
+///
+/// It is designed to be created frequently inside loops, providing a clean
+/// interface for closures while maintaining high performance.
+#[derive(Copy, Clone)]
+pub struct RowAccessor<'a> {
+    ds: &'a Dataset,
+    current_row: usize,
+}
+
+impl<'a> RowAccessor<'a> {
+    /// Creates a new RowAccessor for a specific row.
+    pub fn new(ds: &'a Dataset, row: usize) -> Self {
+        Self {
+            ds,
+            current_row: row,
+        }
+    }
+
+    /// Fetches a numeric value from the specified field.
+    /// Returns None if the column doesn't exist or the value is Null.
+    #[inline]
+    pub fn val(&self, field: &str) -> Option<f64> {
+        self.ds.get_f64(field, self.current_row)
+    }
+
+    /// Fetches a string value from the specified field.
+    /// Returns None if the column doesn't exist or the value is Null.
+    #[inline]
+    pub fn str(&self, field: &str) -> Option<String> {
+        self.ds.get_str(field, self.current_row)
+    }
+
+    /// Returns the current row index.
+    pub fn index(&self) -> usize {
+        self.current_row
+    }
+}
+
 /// Represents the statistical aggregation operations available for data transformation.
 ///
 /// This enum defines how multiple data points are collapsed into a single value
