@@ -51,11 +51,7 @@ impl<T: Mark> Chart<T> {
             let bin_idx = (((val - min_val) / bin_width).floor() as usize).min(n_bins - 1);
 
             let color_label = if let Some(c_enc) = color_enc {
-                let label = self
-                    .data
-                    .column(&c_enc.field)?
-                    .get_as_string(i)
-                    .unwrap_or_else(|| "null".into());
+                let label = self.data.get_str_or(&c_enc.field, i, "null");
                 color_values.insert(label.clone());
                 label
             } else {

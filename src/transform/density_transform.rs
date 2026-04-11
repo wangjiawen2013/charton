@@ -280,10 +280,7 @@ impl<T: Mark> Chart<T> {
 
         for i in 0..row_count {
             let group_key = if let Some(ref g_field) = params.groupby {
-                self.data
-                    .column(g_field)?
-                    .get_as_string(i)
-                    .unwrap_or_else(|| "null".into())
+                self.data.get_str_or(g_field, i, "null")
             } else {
                 "__default__".to_string()
             };

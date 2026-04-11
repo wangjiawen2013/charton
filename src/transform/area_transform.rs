@@ -67,7 +67,7 @@ impl<T: Mark> Chart<T> {
                 let v = x_col.get_f64(i).unwrap_or(0.0);
                 (v.to_bits(), Some(v), None)
             } else {
-                let s = x_col.get_as_string(i).unwrap_or_else(|| "null".to_string());
+                let s = x_col.get_str_or(i, "null");
                 let mut hasher = ahash::AHasher::default();
                 std::hash::Hash::hash(&s, &mut hasher);
                 use std::hash::Hasher;
@@ -86,13 +86,7 @@ impl<T: Mark> Chart<T> {
 
             // Track unique Color series to ensure stable stacking order
             let c_val = color_field
-                .map(|cf| {
-                    self.data
-                        .column(cf)
-                        .unwrap()
-                        .get_as_string(i)
-                        .unwrap_or_else(|| "default".to_string())
-                })
+                .map(|cf| self.data.get_str_or(cf, i, "default"))
                 .unwrap_or_else(|| "default".to_string());
 
             if color_set.insert(c_val.clone()) {

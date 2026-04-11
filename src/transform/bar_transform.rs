@@ -45,19 +45,11 @@ impl<T: Mark> Chart<T> {
             let x_val = if is_pie {
                 "all".to_string()
             } else {
-                self.data
-                    .column(&x_field)?
-                    .get_as_string(i)
-                    .unwrap_or_else(|| "null".to_string())
+                self.data.get_str_or(&x_field, i, "null")
             };
 
             let c_val = if has_grouping_color {
-                Some(
-                    self.data
-                        .column(color_field.unwrap())?
-                        .get_as_string(i)
-                        .unwrap_or_else(|| "null".to_string()),
-                )
+                color_field.map(|cf| self.data.get_str_or(cf, i, "null"))
             } else {
                 None
             };

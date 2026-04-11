@@ -167,9 +167,19 @@ impl ColumnVector {
         }
     }
 
-    /// Alias for your existing get_f64 to match the calling code.
-    pub fn get_as_f64(&self, row: usize) -> Option<f64> {
-        self.get_f64(row)
+    /// CONVENIENCE: Numerical retrieval with a fallback value.
+    ///
+    /// # Parameters
+    /// * `default` - The value returned when the underlying data is unavailable.
+    ///   This acts as a fallback in three specific scenarios:
+    ///   1. The row index is out of bounds.
+    ///   2. The value is explicitly marked as "Null" in the validity bitmask.
+    ///   3. The value is a floating-point `NaN` (Not-a-Number).
+    ///
+    /// By providing a `default`, you ensure the calculation continues without
+    /// having to handle `Option` or potential errors manually.
+    pub fn get_f64_or(&self, row: usize, default: f64) -> f64 {
+        self.get_f64(row).unwrap_or(default)
     }
 
     /// Projects the entire column into a contiguous `f64` vector.
@@ -217,7 +227,7 @@ impl ColumnVector {
 
     /// Retrieves a value as a String for grouping or labeling.
     /// This is used as the 'Key' in group-by operations (like stacking).
-    pub fn get_as_string(&self, row: usize) -> Option<String> {
+    pub fn get_str(&self, row: usize) -> Option<String> {
         match self {
             ColumnVector::String { data, validity } => {
                 if Self::is_valid_in_mask(validity, row) {
@@ -271,6 +281,21 @@ impl ColumnVector {
                 }
             }
         }
+    }
+
+    /// CONVENIENCE: String retrieval with a fallback value.
+    ///
+    /// # Parameters
+    /// * `default` - The string slice used as a fallback.
+    ///   If the data at the specified row is missing or invalid, this slice
+    ///   will be cloned into a new `String`.
+    ///
+    /// This is particularly useful for categorical data, such as:
+    /// - Providing a label like "Unknown" for missing categories.
+    /// - Ensuring grouping keys are never empty.
+    /// - Handling non-string columns (e.g., Numbers/Dates) that fail to format.
+    pub fn get_str_or(&self, row: usize, default: &str) -> String {
+        self.get_str(row).unwrap_or_else(|| default.to_string())
     }
 
     /// Returns the number of unique non-null values in the column.
@@ -1198,16 +1223,54 @@ impl Dataset {
         })
     }
 
-    /// Interaction-focused: Returns a single value.
-    /// Use this for tooltips or specific data inspections.
-    pub fn get_value<T: FromColumnVector>(
-        &self,
-        name: &str,
-        row: usize,
-    ) -> Result<&T, ChartonError> {
-        let data = self.get_column::<T>(name)?;
-        data.get(row)
-            .ok_or_else(|| ChartonError::Data(format!("Index {} out of bounds", row)))
+    /// SAFELY RETRIEVE f64: Handles column lookup and type casting.
+    ///
+    /// This is a "quiet" version of data access. It returns `None` if the column
+    /// doesn't exist, rather than returning a `Result::Err`.
+    ///
+    /// It automatically handles:
+    /// 1. Column presence check.
+    /// 2. Type casting (I32, I64, U32, F32 -> F64).
+    /// 3. Null/NaN checks via the underlying ColumnVector logic.
+    pub fn get_f64(&self, name: &str, row: usize) -> Option<f64> {
+        // We use .ok() to transform the Result from self.column() into an Option,
+        // allowing for graceful chaining without explicit error handling.
+        self.column(name).ok().and_then(|col| col.get_f64(row))
+    }
+
+    /// CONVENIENT f64: Numerical retrieval with a fallback value.
+    ///
+    /// # Parameters
+    /// * `name` - Column name.
+    /// * `row` - Row index.
+    /// * `default` - The value to return if the column is missing OR the data is Null/NaN.
+    ///
+    /// Usage: `let val = ds.get_f64_or("price", i, 0.0);`
+    pub fn get_f64_or(&self, name: &str, row: usize, default: f64) -> f64 {
+        self.get_f64(name, row).unwrap_or(default)
+    }
+
+    // --- STRING HELPERS ---
+
+    /// SAFELY RETRIEVE String: Handles column lookup and string formatting.
+    ///
+    /// Returns `None` if the column is missing or the value is Null.
+    /// Note: This involves heap allocation (String) for non-string types.
+    pub fn get_str(&self, name: &str, row: usize) -> Option<String> {
+        self.column(name).ok().and_then(|col| col.get_str(row))
+    }
+
+    /// CONVENIENT String: String retrieval with a fallback value.
+    ///
+    /// # Parameters
+    /// * `name` - Column name.
+    /// * `row` - Row index.
+    /// * `default` - The fallback slice (e.g., "unknown") used if the data is unavailable.
+    ///
+    /// Usage: `let label = ds.get_str_or("category", i, "N/A");`
+    pub fn get_str_or(&self, name: &str, row: usize, default: &str) -> String {
+        self.get_str(name, row)
+            .unwrap_or_else(|| default.to_string())
     }
 
     /// Check if a value at a specific row is null (validity bit is 0).
@@ -1374,7 +1437,7 @@ impl Dataset {
             .fold(
                 || AHashMap::<Option<String>, (usize, Vec<usize>)>::with_capacity(64),
                 |mut local_map, i| {
-                    let key = vector.get_as_string(i);
+                    let key = vector.get_str(i);
                     local_map
                         .entry(key)
                         .and_modify(|(_first_idx, indices)| {
@@ -1821,7 +1884,7 @@ mod tests {
             .expect("Should convert from tuples successfully");
 
         assert_eq!(ds_from_tuples.row_count, 2);
-        assert_eq!(*ds_from_tuples.get_value::<String>("name", 0).unwrap(), "A");
+        assert_eq!(ds_from_tuples.get_str("name", 0).unwrap(), "A");
 
         // --- Method 3: Complex Mixed-Type Construction ---
         // Verifies that diverse types (DateTime, f32, Strings) coexist within the same Dataset
@@ -1901,7 +1964,7 @@ mod tests {
         ds.add_column("id", ids).unwrap();
 
         // Check row 0 (Valid)
-        assert_eq!(*ds.get_value::<i32>("id", 0).unwrap(), 100);
+        assert_eq!(ds.get_f64("id", 0).unwrap(), 100.0);
         assert!(!ds.is_null("id", 0));
 
         // Check row 1 (Null)
@@ -1910,7 +1973,7 @@ mod tests {
         assert!(ds.is_null("id", 1));
 
         // Check row 2 (Valid)
-        assert_eq!(*ds.get_value::<i32>("id", 2).unwrap(), 300);
+        assert_eq!(ds.get_f64("id", 2).unwrap(), 300.0);
 
         // Check out-of-bounds column
         assert!(ds.is_null("non_existent", 0));
