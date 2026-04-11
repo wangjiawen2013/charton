@@ -17,7 +17,7 @@ impl<T: Mark> Chart<T> {
         let mut x_field = x_enc.field.clone();
         let y_field = y_enc.field.clone();
 
-        // Check if we are in Pie mode (empty X field). 
+        // Check if we are in Pie mode (empty X field).
         // If so, we force Stacked mode to create a circular stack.
         let is_pie = x_field.is_empty();
         if is_pie {
@@ -26,7 +26,7 @@ impl<T: Mark> Chart<T> {
         }
 
         let color_field = color_enc_opt.map(|ce| &ce.field);
-        
+
         // A color field triggers grouping ONLY if it's different from the X axis field.
         let has_grouping_color = if let Some(cf) = color_field {
             cf != &x_field
@@ -97,7 +97,10 @@ impl<T: Mark> Chart<T> {
                 for c in &c_uniques {
                     // Using .get() instead of .remove() to keep the lookup intact if needed for debug.
                     // Missing combinations are filled with 0.0 to maintain stack alignment.
-                    let val = lookup.get(&(x.clone(), Some(c.clone()))).cloned().unwrap_or(0.0);
+                    let val = lookup
+                        .get(&(x.clone(), Some(c.clone())))
+                        .cloned()
+                        .unwrap_or(0.0);
                     final_x.push(x.clone());
                     final_color.push(c.clone());
                     final_y.push(val);

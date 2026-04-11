@@ -13,16 +13,11 @@ use rayon::prelude::*;
 impl<T: Mark> Chart<T> {
     /// Prepares data for area/bar charts based on the Scale type and StackMode.
     ///
-    /// This transformation ensures "Visual Continuity" and correct geometric positioning by:
-    /// 1. **Alignment**: Ensuring every color series has a value at every X-coordinate (Imputation).
-    /// 2. **Ordering**: Sorting continuous/temporal scales to prevent polygon artifacts.
-    /// 3. **Stacking**: Calculating y0 (baseline) and y1 (sum) based on:
-    ///    - `None`: Overlaid series (all start at 0).
-    ///    - `Stacked`: Cumulative sum of values.
-    ///    - `Normalize`: Percentage of total (0.0 to 1.0).
-    ///    - `Center`: Streamgraph-style centering (offset by -total/2).
+    /// This version uses `unique_values()` to ensure that categorical axes (Discrete)
+    /// maintain a stable order based on data appearance, preventing non-deterministic
+    /// layout shifts caused by raw hash map iterations.
     pub(crate) fn transform_area_data(mut self) -> Result<Self, ChartonError> {
-        // --- 1. Extract Encoding Metadata ---
+        // --- STEP 1: Extract Encoding Metadata ---
         let x_enc = self
             .encoding
             .x
@@ -39,71 +34,68 @@ impl<T: Mark> Chart<T> {
         let mode = &y_enc.stack;
         let color_field = self.encoding.color.as_ref().map(|c| &c.field);
 
-        let x_col = self.data.column(&x_enc.field)?;
+        let x_col = self.data.column(x_field)?;
         let x_semantic = x_col.semantic_type();
 
-        // Determine if X requires sorting (numeric/time) or order-preservation (categorical)
+        // Determine if X requires numeric sorting or order-preservation (categorical)
         let is_continuous = matches!(
             x_semantic,
             SemanticType::Continuous | SemanticType::Temporal
         );
 
+        // --- STEP 2: Establish Deterministic Order for X and Color ---
+        // We use unique_values() for Discrete scales to preserve appearance order.
+        let x_ticks_str = if !is_continuous {
+            x_col.unique_values()
+        } else {
+            Vec::new()
+        };
+
+        let color_series = if let Some(cf) = color_field {
+            self.data.column(cf)?.unique_values()
+        } else {
+            vec!["default".to_string()]
+        };
+
+        // --- STEP 3: Build the Alignment Grid ---
+        // Maps X-coordinates and Color-series into a lookup table for stacking.
+        let mut x_ticks_num: Vec<f64> = Vec::new();
+        let mut x_set = AHashSet::new();
+        let mut grid: AHashMap<u64, AHashMap<String, f64>> = AHashMap::new();
         let row_count = self.data.height();
-        let x_col = self.data.column(x_field)?;
         let y_col = self.data.column(y_field)?;
 
-        // --- 2. Build the Alignment Grid ---
-        // Maps X coordinates and Color series into a dense grid for stacking.
-        let mut x_ticks_num: Vec<f64> = Vec::new();
-        let mut x_ticks_str: Vec<String> = Vec::new();
-        let mut x_set = AHashSet::new();
-        let mut color_series: Vec<String> = Vec::new();
-        let mut color_set = AHashSet::new();
-        let mut grid: AHashMap<u64, AHashMap<String, f64>> = AHashMap::new();
-
         for i in 0..row_count {
-            let (x_key, x_val_f64, x_val_str) = if is_continuous {
+            let (x_key, _x_val_f) = if is_continuous {
                 let v = x_col.get_f64(i).unwrap_or(0.0);
-                (v.to_bits(), Some(v), None)
+                if x_set.insert(v.to_bits()) {
+                    x_ticks_num.push(v);
+                }
+                (v.to_bits(), Some(v))
             } else {
                 let s = x_col.get_str_or(i, "null");
                 let mut hasher = ahash::AHasher::default();
                 std::hash::Hash::hash(&s, &mut hasher);
                 use std::hash::Hasher;
-                (hasher.finish(), None, Some(s))
+                (hasher.finish(), None)
             };
-
-            if x_set.insert(x_key) {
-                if let Some(v) = x_val_f64 {
-                    x_ticks_num.push(v);
-                }
-                if let Some(s) = x_val_str {
-                    x_ticks_str.push(s);
-                }
-            }
 
             let c_val = color_field
                 .map(|cf| self.data.get_str_or(cf, i, "default"))
                 .unwrap_or_else(|| "default".to_string());
 
-            if color_set.insert(c_val.clone()) {
-                color_series.push(c_val.clone());
-            }
-
             let y_val = y_col.get_f64(i).unwrap_or(0.0);
             grid.entry(x_key).or_default().insert(c_val, y_val);
         }
 
-        // Sort X ticks to ensure polygons are drawn in sequence
+        // Continuous scales (Time/Linear) MUST be sorted by value to draw polygons correctly.
         if is_continuous {
             x_ticks_num
                 .sort_unstable_by(|a, b| a.partial_cmp(b).unwrap_or(std::cmp::Ordering::Equal));
         }
-        if color_series.is_empty() {
-            color_series.push("default".to_string());
-        }
 
-        // --- 3. Parallel Stacking & Selective Imputation ---
+        // --- STEP 4: Parallel Stacking & Imputation ---
+        // We iterate through our deterministic X and Color lists to calculate baselines.
         let tick_count = if is_continuous {
             x_ticks_num.len()
         } else {
@@ -136,7 +128,6 @@ impl<T: Mark> Chart<T> {
                     .map(|c| series_values.get(c).copied().unwrap_or(0.0))
                     .sum();
 
-                // Calculate vertical offset for Streamgraphs (Center mode)
                 let offset = if matches!(mode, StackMode::Center) {
                     -total / 2.0
                 } else {
@@ -146,22 +137,17 @@ impl<T: Mark> Chart<T> {
                 for c_name in &color_series {
                     let maybe_val = series_values.get(c_name).copied();
 
-                    // IMPORTANT: In None mode (Overlay), do not impute missing values.
-                    // This prevents the area from dropping to 0 at the start/end of a series
-                    // if that series doesn't span the entire global X-axis range.
+                    // In Overlay mode (None), we skip missing values to avoid "dropping to zero"
+                    // if a specific series doesn't exist at this X-tick.
                     if matches!(mode, StackMode::None) && maybe_val.is_none() {
                         continue;
                     }
 
-                    // For stacking modes, we must use 0.0 for missing values to maintain baseline alignment
+                    // For stacking/normalizing, missing values MUST be 0.0 to keep series aligned.
                     let val = maybe_val.unwrap_or(0.0);
 
                     let (y0, y1) = match mode {
-                        StackMode::None => {
-                            // Non-stacked: Both boundaries represent the raw value.
-                            // The renderer decides the baseline (usually the axis bottom).
-                            (val, val)
-                        }
+                        StackMode::None => (val, val),
                         StackMode::Stacked => (current_y, current_y + val),
                         StackMode::Normalize => {
                             if total != 0.0 {
@@ -175,7 +161,6 @@ impl<T: Mark> Chart<T> {
 
                     tick_data.push((out_f, out_s.clone(), c_name.clone(), y0, y1));
 
-                    // Only accumulate Y height if we are actually stacking series
                     if !matches!(mode, StackMode::None) {
                         current_y += val;
                     }
@@ -184,7 +169,7 @@ impl<T: Mark> Chart<T> {
             })
             .collect();
 
-        // --- 4. Dataset Re-construction ---
+        // --- STEP 5: Reconstruct Dataset ---
         let mut final_x_f = Vec::new();
         let mut final_x_s = Vec::new();
         let mut final_y0 = Vec::new();
