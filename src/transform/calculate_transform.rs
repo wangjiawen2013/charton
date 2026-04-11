@@ -1,5 +1,5 @@
 use crate::chart::Chart;
-use crate::core::data::ColumnVector;
+use crate::core::data::{ColumnVector, RowAccessor};
 use crate::core::utils::IntoParallelizable;
 use crate::error::ChartonError;
 use crate::mark::Mark;
@@ -8,47 +8,63 @@ use crate::mark::Mark;
 use rayon::prelude::*;
 
 impl<T: Mark> Chart<T> {
-    /// Transforms data by calculating new columns using native Rust closures.
+    /// Transforms the chart's data by calculating a new column using a native Rust closure.
     ///
-    /// It adds two new columns (ymin and ymax) to the dataset with high-performance, parallelized
-    /// mapping logic.
+    /// This follows the declarative pattern of libraries like Altair, allowing users
+    /// to derive new fields directly within the chart's fluent API.
     ///
-    /// # Parameters
-    /// * `ymin_name` - The name for the new minimum y-value column.
-    /// * `ymax_name` - The name for the new maximum y-value column.
-    /// * `f` - A closure that defines the calculation logic for a single row.
-    ///         It receives the row index and returns a tuple of (ymin, ymax).
-    pub fn transform_calculate<F>(
-        mut self,
-        ymin_name: &str,
-        ymax_name: &str,
-        f: F,
-    ) -> Result<Self, ChartonError>
+    /// # Performance
+    /// It utilizes `RowAccessor` for $O(1)$ column access per row and leverages
+    /// `rayon` for parallel execution across all CPU cores when the "parallel"
+    /// feature is enabled.
+    ///
+    /// # Example
+    /// ```rust
+    /// chart.transform_calculate("bmi", |row| {
+    ///     let w = row.val("weight")?;
+    ///     let h = row.val("height")?;
+    ///     Some(w / (h * h))
+    /// })?;
+    /// ```
+    pub fn transform_calculate<F>(mut self, as_name: &str, f: F) -> Result<Self, ChartonError>
     where
-        F: Fn(usize) -> (f64, f64) + Sync + Send,
+        F: Fn(RowAccessor) -> Option<f64> + Sync + Send,
     {
         let row_count = self.data.height();
+
+        // Return early if there is no data to process
         if row_count == 0 {
             return Ok(self);
         }
 
-        // --- PARALLEL CALCULATION ---
-        // Using Rayon's par_iter to distribute the workload across all CPU cores.
-        // This is much faster than Polars for custom complex logic that
-        // doesn't fit into standard SIMD kernels.
-        let results: Vec<(f64, f64)> = (0..row_count).maybe_into_par_iter().map(|i| f(i)).collect();
+        // Shared reference to the dataset to be captured by the parallel closure.
+        // Dataset methods (get_f64, get_str) are read-only and thread-safe.
+        let ds_ref = &self.data;
 
-        // Separate the interleaved results into two contiguous vectors.
-        // This maintains the columnar memory layout.
-        let (ymin_data, ymax_data): (Vec<f64>, Vec<f64>) = results.into_iter().unzip();
+        // --- PARALLEL EXECUTION ---
+        // We calculate the new values and track validity (nulls) simultaneously.
+        // Using unzip() is efficient for creating two separate contiguous vectors.
+        let (new_data, _validity): (Vec<f64>, Vec<bool>) = (0..row_count)
+            .maybe_into_par_iter()
+            .map(|i| {
+                let accessor = RowAccessor::new(ds_ref, i);
+                match f(accessor) {
+                    Some(val) => (val, true),
+                    None => (0.0, false), // Default to 0.0 for Nulls in the data vector
+                }
+            })
+            .unzip();
 
-        // --- UPDATE DATASET ---
-        // We add the new columns back to the existing dataset.
-        // add_column will automatically validate length consistency.
-        self.data
-            .add_column(ymin_name, ColumnVector::F64 { data: ymin_data })?;
-        self.data
-            .add_column(ymax_name, ColumnVector::F64 { data: ymax_data })?;
+        // --- ATOMIC UPDATE ---
+        // Push the new column into the internal dataset.
+        // This validates row length consistency automatically.
+        self.data.add_column(
+            as_name,
+            ColumnVector::F64 {
+                data: new_data,
+                // If your ColumnVector supports bitmasks, you can pass 'validity' here.
+            },
+        )?;
 
         Ok(self)
     }
