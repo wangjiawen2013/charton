@@ -13,10 +13,14 @@ use rayon::prelude::*;
 impl<T: Mark> Chart<T> {
     /// Prepares data for area/bar charts based on the Scale type and StackMode.
     ///
-    /// This transformation ensures "Visual Continuity" by:
+    /// This transformation ensures "Visual Continuity" and correct geometric positioning by:
     /// 1. **Alignment**: Ensuring every color series has a value at every X-coordinate (Imputation).
-    /// 2. **Ordering**: Sorting continuous/temporal scales while preserving discrete appearance order.
-    /// 3. **Stacking**: Calculating y0 (baseline) and y1 (sum) based on the selected StackMode.
+    /// 2. **Ordering**: Sorting continuous/temporal scales to prevent polygon artifacts.
+    /// 3. **Stacking**: Calculating y0 (baseline) and y1 (sum) based on:
+    ///    - `None`: Overlaid series (all start at 0).
+    ///    - `Stacked`: Cumulative sum of values.
+    ///    - `Normalize`: Percentage of total (0.0 to 1.0).
+    ///    - `Center`: Streamgraph-style centering (offset by -total/2).
     pub(crate) fn transform_area_data(mut self) -> Result<Self, ChartonError> {
         // --- 1. Extract Encoding Metadata ---
         let x_enc = self
@@ -35,13 +39,10 @@ impl<T: Mark> Chart<T> {
         let mode = &y_enc.stack;
         let color_field = self.encoding.color.as_ref().map(|c| &c.field);
 
-        // Determine if X is a Quantitative/Temporal scale (requires sorting)
-        // or a Categorical scale (requires order preservation).
         let x_col = self.data.column(&x_enc.field)?;
         let x_semantic = x_col.semantic_type();
 
-        // Area/Line charts require sorting and numeric alignment if the data is
-        // continuous (numbers) or temporal (dates), regardless of the final Scale choice.
+        // Determine if X requires sorting (numeric/time) or order-preservation (categorical)
         let is_continuous = matches!(
             x_semantic,
             SemanticType::Continuous | SemanticType::Temporal
@@ -52,8 +53,7 @@ impl<T: Mark> Chart<T> {
         let y_col = self.data.column(y_field)?;
 
         // --- 2. Build the Alignment Grid ---
-        // We use a 2D-like lookup: Grid[X_Key][Color_Name] = Y_Value.
-        // X_Key is a u64 (either string hash or f64 bits) for O(1) matching.
+        // Maps X coordinates and Color series into a dense grid for stacking.
         let mut x_ticks_num: Vec<f64> = Vec::new();
         let mut x_ticks_str: Vec<String> = Vec::new();
         let mut x_set = AHashSet::new();
@@ -62,7 +62,6 @@ impl<T: Mark> Chart<T> {
         let mut grid: AHashMap<u64, AHashMap<String, f64>> = AHashMap::new();
 
         for i in 0..row_count {
-            // Generate a stable u64 key for the X-axis coordinate
             let (x_key, x_val_f64, x_val_str) = if is_continuous {
                 let v = x_col.get_f64(i).unwrap_or(0.0);
                 (v.to_bits(), Some(v), None)
@@ -74,7 +73,6 @@ impl<T: Mark> Chart<T> {
                 (hasher.finish(), None, Some(s))
             };
 
-            // Track unique X coordinates
             if x_set.insert(x_key) {
                 if let Some(v) = x_val_f64 {
                     x_ticks_num.push(v);
@@ -84,7 +82,6 @@ impl<T: Mark> Chart<T> {
                 }
             }
 
-            // Track unique Color series to ensure stable stacking order
             let c_val = color_field
                 .map(|cf| self.data.get_str_or(cf, i, "default"))
                 .unwrap_or_else(|| "default".to_string());
@@ -93,24 +90,20 @@ impl<T: Mark> Chart<T> {
                 color_series.push(c_val.clone());
             }
 
-            // Fill the grid with raw Y values
             let y_val = y_col.get_f64(i).unwrap_or(0.0);
             grid.entry(x_key).or_default().insert(c_val, y_val);
         }
 
-        // Area charts on continuous scales must be sorted by X to prevent "zig-zag" artifacts
+        // Sort X ticks to ensure polygons are drawn in sequence
         if is_continuous {
             x_ticks_num
                 .sort_unstable_by(|a, b| a.partial_cmp(b).unwrap_or(std::cmp::Ordering::Equal));
         }
-
         if color_series.is_empty() {
             color_series.push("default".to_string());
         }
 
-        // --- 3. Parallel Stacking & Imputation ---
-        // We iterate through every X-tick. If a series is missing a value at a tick,
-        // we "impute" it with 0.0 to ensure the area polygon remains continuous.
+        // --- 3. Parallel Stacking & Selective Imputation ---
         let tick_count = if is_continuous {
             x_ticks_num.len()
         } else {
@@ -123,7 +116,7 @@ impl<T: Mark> Chart<T> {
                 let mut current_y = 0.0;
                 let mut tick_data = Vec::with_capacity(color_series.len());
 
-                // Re-derive the key for grid lookup
+                // Derive the X-key for grid lookup
                 let (x_key, out_f, out_s) = if is_continuous {
                     let v = x_ticks_num[idx];
                     (v.to_bits(), Some(v), None)
@@ -143,7 +136,7 @@ impl<T: Mark> Chart<T> {
                     .map(|c| series_values.get(c).copied().unwrap_or(0.0))
                     .sum();
 
-                // Offset for Streamgraphs (Center mode)
+                // Calculate vertical offset for Streamgraphs (Center mode)
                 let offset = if matches!(mode, StackMode::Center) {
                     -total / 2.0
                 } else {
@@ -151,28 +144,47 @@ impl<T: Mark> Chart<T> {
                 };
 
                 for c_name in &color_series {
-                    // Imputation: unwrap_or(0.0) fills the gaps
-                    let val = series_values.get(c_name).copied().unwrap_or(0.0);
-                    let mut y0 = current_y;
-                    let mut y1 = current_y + val;
+                    let maybe_val = series_values.get(c_name).copied();
 
-                    // Apply relative stacking transformations
-                    if matches!(mode, StackMode::Normalize) && total != 0.0 {
-                        y0 /= total;
-                        y1 /= total;
-                    } else if matches!(mode, StackMode::Center) {
-                        y0 += offset;
-                        y1 += offset;
+                    // IMPORTANT: In None mode (Overlay), do not impute missing values.
+                    // This prevents the area from dropping to 0 at the start/end of a series
+                    // if that series doesn't span the entire global X-axis range.
+                    if matches!(mode, StackMode::None) && maybe_val.is_none() {
+                        continue;
                     }
 
+                    // For stacking modes, we must use 0.0 for missing values to maintain baseline alignment
+                    let val = maybe_val.unwrap_or(0.0);
+
+                    let (y0, y1) = match mode {
+                        StackMode::None => {
+                            // Non-stacked: Both boundaries represent the raw value.
+                            // The renderer decides the baseline (usually the axis bottom).
+                            (val, val)
+                        }
+                        StackMode::Stacked => (current_y, current_y + val),
+                        StackMode::Normalize => {
+                            if total != 0.0 {
+                                (current_y / total, (current_y + val) / total)
+                            } else {
+                                (0.0, 0.0)
+                            }
+                        }
+                        StackMode::Center => (current_y + offset, current_y + val + offset),
+                    };
+
                     tick_data.push((out_f, out_s.clone(), c_name.clone(), y0, y1));
-                    current_y += val;
+
+                    // Only accumulate Y height if we are actually stacking series
+                    if !matches!(mode, StackMode::None) {
+                        current_y += val;
+                    }
                 }
                 tick_data
             })
             .collect();
 
-        // --- 4. Final Dataset Construction ---
+        // --- 4. Dataset Re-construction ---
         let mut final_x_f = Vec::new();
         let mut final_x_s = Vec::new();
         let mut final_y0 = Vec::new();
@@ -210,7 +222,6 @@ impl<T: Mark> Chart<T> {
         let y1_name = format!("{}_{}_max", TEMP_SUFFIX, y_field);
 
         new_ds.add_column(&y0_name, ColumnVector::F64 { data: final_y0 })?;
-        // Clone for the max column, then move the original for the main Y field
         new_ds.add_column(
             &y1_name,
             ColumnVector::F64 {
