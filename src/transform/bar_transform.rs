@@ -12,24 +12,22 @@ use rayon::prelude::*;
 
 impl<T: Mark> Chart<T> {
     pub(crate) fn transform_bar_data(mut self) -> Result<Self, ChartonError> {
-        // --- STEP 1: Extract Encoding Context ---
+        // --- STEP 1: Context Extraction ---
         let y_enc = self.encoding.y.as_mut().unwrap();
         let agg_op = y_enc.aggregate;
         let x_enc = self.encoding.x.as_ref().unwrap();
         let color_enc_opt = self.encoding.color.as_ref();
 
         let mut x_field = x_enc.field.clone();
-        let y_field = &y_enc.field;
+        let y_field = y_enc.field.clone();
 
-        // --- PIE/SINGLE-AXIS MODE HANDLING ---
-        // If x_field is empty, it's a Pie chart. We use a virtual "root" group.
+        // Handle Pie/Single-axis mode: use a virtual root to group everything together
         let is_pie = x_field.is_empty();
         if is_pie {
             y_enc.stack = StackMode::Stacked;
             x_field = format!("{}_virtual_root__", TEMP_SUFFIX);
         }
 
-        // Determine grouping strategy
         let color_field = color_enc_opt.map(|ce| &ce.field);
         let has_grouping_color = if let Some(ce) = color_enc_opt {
             &ce.field != &x_field
@@ -37,7 +35,8 @@ impl<T: Mark> Chart<T> {
             false
         };
 
-        // --- STEP 2: Unified Grouping (Using ahash) ---
+        // --- STEP 2: Aggregate Data into a Lookup Map ---
+        // We use AHashMap for O(1) lookups during the Cartesian product step
         let mut group_map: AHashMap<(String, Option<String>), Vec<usize>> = AHashMap::new();
         let row_count = self.data.height();
 
@@ -47,7 +46,6 @@ impl<T: Mark> Chart<T> {
             } else {
                 self.data.get_str_or(&x_field, i, "null")
             };
-
             let c_val = if has_grouping_color {
                 color_field.map(|cf| self.data.get_str_or(cf, i, "null"))
             } else {
@@ -56,86 +54,61 @@ impl<T: Mark> Chart<T> {
             group_map.entry((x_val, c_val)).or_default().push(i);
         }
 
-        // --- STEP 3: Parallel Aggregation (Using Rayon) ---
-        let y_col = self.data.column(y_field)?;
-        let groups: Vec<((String, Option<String>), Vec<usize>)> = group_map.into_iter().collect();
-
-        let mut aggregated_results: Vec<((String, Option<String>), f64)> = groups
-            .maybe_into_par_iter()
-            .map(|(key, indices)| {
-                // Use the AggregateOp enum to compute the value
-                let val = agg_op.aggregate_by_index(&y_col, &indices);
-                (key, val)
-            })
+        let y_col = self.data.column(&y_field)?;
+        let mut lookup: AHashMap<(String, Option<String>), f64> = group_map
+            .into_iter()
+            .map(|(key, indices)| (key, agg_op.aggregate_by_index(&y_col, &indices)))
             .collect();
 
-        // --- STEP 4: Normalization (Optional) ---
+        // --- STEP 3: Normalization (if requested) ---
         if y_enc.normalize {
-            // Calculate sum per X-group
             let mut x_sums: AHashMap<String, f64> = AHashMap::new();
-            for ((x, _), val) in &aggregated_results {
+            for ((x, _), val) in &lookup {
                 *x_sums.entry(x.clone()).or_insert(0.0) += val;
             }
-
-            // Normalize values in parallel
-            (&mut aggregated_results)
-                .maybe_par_iter()
-                .for_each(|((x, _), val)| {
-                    let sum = x_sums.get(x).cloned().unwrap_or(1.0);
-                    *val = if sum != 0.0 { *val / sum } else { 0.0 };
-                });
+            for ((x, _), val) in lookup.iter_mut() {
+                let sum = x_sums.get(x).cloned().unwrap_or(0.0);
+                *val = if sum != 0.0 { *val / sum } else { 0.0 };
+            }
         }
 
-        // --- STEP 5: Cartesian Product & Gap Filling ---
+        // --- STEP 4: Cartesian Product for Deterministic Order & Gap Filling ---
+        // We use the stable unique_values() to define the "official" order of X and Color
+        let x_uniques = if is_pie {
+            vec!["all".to_string()]
+        } else {
+            self.data.column(&x_field)?.unique_values()
+        };
+
+        let c_uniques = if has_grouping_color {
+            self.data.column(color_field.unwrap())?.unique_values()
+        } else {
+            vec![]
+        };
+
         let mut final_x = Vec::new();
         let mut final_y = Vec::new();
         let mut final_color = Vec::new();
 
-        let lookup: AHashMap<(String, Option<String>), f64> =
-            aggregated_results.into_iter().collect();
-
-        // Extract unique keys for X and Color to build the grid
-        let mut x_uniques = Vec::new();
-        let mut c_uniques = Vec::new();
-        let mut x_seen = AHashSet::new();
-        let mut c_seen = AHashSet::new();
-
-        for ((x, c), _) in &lookup {
-            if x_seen.insert(x.clone()) {
-                x_uniques.push(x.clone());
-            }
-            if let Some(color_val) = c {
-                if c_seen.insert(color_val.clone()) {
-                    c_uniques.push(color_val.clone());
-                }
-            }
-        }
-
-        // Build the expanded dataset
         for x in &x_uniques {
             if has_grouping_color {
                 for c in &c_uniques {
-                    let key = (x.clone(), Some(c.clone()));
-                    let val = lookup.get(&key).cloned().unwrap_or(0.0); // Fill gaps with 0
-
+                    let val = lookup.remove(&(x.clone(), Some(c.clone()))).unwrap_or(0.0);
                     final_x.push(x.clone());
                     final_color.push(c.clone());
                     final_y.push(val);
                 }
             } else {
-                let key = (x.clone(), None);
-                let val = lookup.get(&key).cloned().unwrap_or(0.0);
-
+                let val = lookup.remove(&(x.clone(), None)).unwrap_or(0.0);
                 final_x.push(x.clone());
                 final_y.push(val);
             }
         }
 
-        // --- STEP 6: Rebuild Dataset ---
+        // --- STEP 5: Rebuild Dataset ---
         let mut new_ds = Dataset::new();
-
-        // Use the original x_field name (or "" for pie)
         let x_col_name = if is_pie { "" } else { &x_field };
+
         new_ds.add_column(
             x_col_name,
             ColumnVector::String {
@@ -143,7 +116,7 @@ impl<T: Mark> Chart<T> {
                 validity: None,
             },
         )?;
-        new_ds.add_column(y_field, ColumnVector::F64 { data: final_y })?;
+        new_ds.add_column(&y_field, ColumnVector::F64 { data: final_y })?;
 
         if has_grouping_color {
             new_ds.add_column(
