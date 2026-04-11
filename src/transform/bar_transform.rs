@@ -1,14 +1,10 @@
 use crate::TEMP_SUFFIX;
 use crate::chart::Chart;
 use crate::core::data::{ColumnVector, Dataset};
-use crate::core::utils::{IntoParallelizable, Parallelizable};
 use crate::encode::y::StackMode;
 use crate::error::ChartonError;
 use crate::mark::Mark;
-use ahash::{AHashMap, AHashSet};
-
-#[cfg(feature = "parallel")]
-use rayon::prelude::*;
+use ahash::AHashMap;
 
 impl<T: Mark> Chart<T> {
     pub(crate) fn transform_bar_data(mut self) -> Result<Self, ChartonError> {
@@ -21,7 +17,8 @@ impl<T: Mark> Chart<T> {
         let mut x_field = x_enc.field.clone();
         let y_field = y_enc.field.clone();
 
-        // Handle Pie/Single-axis mode: use a virtual root to group everything together
+        // Check if we are in Pie mode (empty X field). 
+        // If so, we force Stacked mode to create a circular stack.
         let is_pie = x_field.is_empty();
         if is_pie {
             y_enc.stack = StackMode::Stacked;
@@ -29,14 +26,16 @@ impl<T: Mark> Chart<T> {
         }
 
         let color_field = color_enc_opt.map(|ce| &ce.field);
-        let has_grouping_color = if let Some(ce) = color_enc_opt {
-            &ce.field != &x_field
+        
+        // A color field triggers grouping ONLY if it's different from the X axis field.
+        let has_grouping_color = if let Some(cf) = color_field {
+            cf != &x_field
         } else {
             false
         };
 
         // --- STEP 2: Aggregate Data into a Lookup Map ---
-        // We use AHashMap for O(1) lookups during the Cartesian product step
+        // We group raw rows by (X-Category, Color-Category) to prepare for aggregation.
         let mut group_map: AHashMap<(String, Option<String>), Vec<usize>> = AHashMap::new();
         let row_count = self.data.height();
 
@@ -60,8 +59,10 @@ impl<T: Mark> Chart<T> {
             .map(|(key, indices)| (key, agg_op.aggregate_by_index(&y_col, &indices)))
             .collect();
 
-        // --- STEP 3: Normalization (if requested) ---
-        if y_enc.normalize {
+        // --- STEP 3: Normalization (100% Stacked / Percentage mode) ---
+        // If normalization is requested, we divide each value by the sum of its X-group.
+        // This is essential for "Normalized Rose Charts" where all petals have the same radius.
+        if y_enc.normalize || y_enc.stack == StackMode::Normalize {
             let mut x_sums: AHashMap<String, f64> = AHashMap::new();
             for ((x, _), val) in &lookup {
                 *x_sums.entry(x.clone()).or_insert(0.0) += val;
@@ -72,8 +73,9 @@ impl<T: Mark> Chart<T> {
             }
         }
 
-        // --- STEP 4: Cartesian Product for Deterministic Order & Gap Filling ---
-        // We use the stable unique_values() to define the "official" order of X and Color
+        // --- STEP 4: Cartesian Product & Gap Filling ---
+        // We ensure every X-category has the same set of Color-categories (filling missing gaps with 0.0).
+        // This prevents "shifting" in stacked charts (including Nightingale Rose) when data is sparse.
         let x_uniques = if is_pie {
             vec!["all".to_string()]
         } else {
@@ -93,13 +95,15 @@ impl<T: Mark> Chart<T> {
         for x in &x_uniques {
             if has_grouping_color {
                 for c in &c_uniques {
-                    let val = lookup.remove(&(x.clone(), Some(c.clone()))).unwrap_or(0.0);
+                    // Using .get() instead of .remove() to keep the lookup intact if needed for debug.
+                    // Missing combinations are filled with 0.0 to maintain stack alignment.
+                    let val = lookup.get(&(x.clone(), Some(c.clone()))).cloned().unwrap_or(0.0);
                     final_x.push(x.clone());
                     final_color.push(c.clone());
                     final_y.push(val);
                 }
             } else {
-                let val = lookup.remove(&(x.clone(), None)).unwrap_or(0.0);
+                let val = lookup.get(&(x.clone(), None)).cloned().unwrap_or(0.0);
                 final_x.push(x.clone());
                 final_y.push(val);
             }
@@ -107,6 +111,7 @@ impl<T: Mark> Chart<T> {
 
         // --- STEP 5: Rebuild Dataset ---
         let mut new_ds = Dataset::new();
+        // For Pie mode, we use an empty string for the column name so the renderer identifies it.
         let x_col_name = if is_pie { "" } else { &x_field };
 
         new_ds.add_column(
