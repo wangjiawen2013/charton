@@ -20,10 +20,10 @@ fn main() -> Result<(), Box<dyn Error>> {
         .mark_text()?
         .configure_text(|t| t.with_size(12.0))
         .encode((
-            alt::x("GDP"),
-            alt::y("Population"),
-            alt::text("Country"),
-            alt::color("Continent"),
+            alt::x("gdp"),
+            alt::y("population"),
+            alt::text("country"),
+            alt::color("continent"),
         ))?
         .with_x_label("GDP (Trillion USD)")
         .with_y_label("Population (Millions)")

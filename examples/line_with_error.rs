@@ -13,14 +13,14 @@ fn main() -> Result<(), Box<dyn Error>> {
         .transform_calculate("value_min", |row| {
             Some(row.val("value")? - row.val("value_std")?)
         })?
-        .transform_calculate("value_min", |row| {
+        .transform_calculate("value_max", |row| {
             Some(row.val("value")? + row.val("value_std")?)
         })?
         .mark_errorbar()?
-        .encode((alt::x("type"), alt::y("value_min"), alt::y2("value_max")))?;
+        .encode((alt::x("type1"), alt::y("value_min"), alt::y2("value_max")))?;
     let line = chart!(type1, value, value_std)?
         .mark_line()?
-        .encode((alt::x("type"), alt::y("value")))?;
+        .encode((alt::x("type1"), alt::y("value")))?;
 
     // Create a layered chart
     let chart = errorbar.and(line);

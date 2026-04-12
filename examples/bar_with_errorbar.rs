@@ -13,7 +13,7 @@ fn main() -> Result<(), Box<dyn Error>> {
         .transform_calculate("value_min", |row| {
             Some(row.val("value")? - row.val("value_std")?)
         })?
-        .transform_calculate("value_min", |row| {
+        .transform_calculate("value_max", |row| {
             Some(row.val("value")? + row.val("value_std")?)
         })?
         .mark_errorbar()?
