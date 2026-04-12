@@ -22,9 +22,9 @@ fn main() -> Result<(), Box<dyn Error>> {
                 .with_width(0.5)
         })
         .encode((
-            alt::x("Month"),
-            alt::y("Revenue").with_normalize(true).with_stack("none"),
-            alt::color("Region"),
+            alt::x("month"),
+            alt::y("revenue").with_normalize(true).with_stack("none"),
+            alt::color("region"),
         ))?;
 
     colored_bar_chart

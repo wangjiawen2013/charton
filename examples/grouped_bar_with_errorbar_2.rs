@@ -16,12 +16,12 @@ fn main() -> Result<(), Box<dyn Error>> {
         .transform_calculate("value_min", |row| {
             Some(row.val("value")? - row.val("value_std")?)
         })?
-        .transform_calculate("value_min", |row| {
+        .transform_calculate("value_max", |row| {
             Some(row.val("value")? + row.val("value_std")?)
         })?
         .mark_errorbar()?
         .encode((
-            alt::x("type"),
+            alt::x("type1"),
             alt::y("value_min"),
             alt::y2("value_max"),
             alt::color("group"),
@@ -30,7 +30,7 @@ fn main() -> Result<(), Box<dyn Error>> {
     // Create a bar chart
     let bar = chart!(type1, value, value_std, group)?
         .mark_bar()?
-        .encode((alt::x("type"), alt::y("value"), alt::color("group")))?;
+        .encode((alt::x("type1"), alt::y("value"), alt::color("group")))?;
 
     // Create a layered chart
     errorbar

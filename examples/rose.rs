@@ -14,9 +14,9 @@ fn main() -> Result<(), Box<dyn Error>> {
     chart!(type1, value)?
         .mark_bar()?
         .encode((
-            alt::x("type"),     // Each category represents a slice of the circle
-            alt::y("value"),    // The height of the bar becomes the radius of the slice
-            alt::color("type"), // Distinct colors for each "petal"
+            alt::x("type1"),     // Each category represents a slice of the circle
+            alt::y("value"),     // The height of the bar becomes the radius of the slice
+            alt::color("type1"), // Distinct colors for each "petal"
         ))?
         .with_y_label("Intensity")
         // CoordSystem::Polar transforms the rectangular bar chart into a Rose Chart
