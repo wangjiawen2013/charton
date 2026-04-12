@@ -21,7 +21,7 @@ fn test_tick_1() -> Result<(), Box<dyn Error>> {
                 .with_band_size(10.0)
                 .with_color("blue")
         });
-    chart.save("./tests/test_tick_1.svg")?;
+    chart.save("./tests/tick_1.svg")?;
 
     Ok(())
 }
@@ -38,7 +38,7 @@ fn test_tick_2() -> Result<(), Box<dyn Error>> {
         .mark_tick()?
         .encode((alt::x("precipitation"), alt::y("category")))?
         .coord_flip();
-    chart.save("./tests/test_tick_2.svg")?;
+    chart.save("./tests/tick_2.svg")?;
 
     Ok(())
 }

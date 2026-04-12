@@ -12,10 +12,6 @@ use crate::visual::color::SingleColor;
 // ============================================================================
 
 impl MarkRenderer for Chart<MarkErrorBar> {
-    /// Renders error bars which typically represent variability (min/max/center).
-    /// Supports "dodging" (side-by-side positioning) for grouped data.
-    /// Renders error bars which typically represent variability (min/max/center).
-    /// Supports "dodging" (side-by-side positioning) for grouped data.
     fn render_marks(
         &self,
         backend: &mut dyn RenderBackend,
@@ -39,7 +35,9 @@ impl MarkRenderer for Chart<MarkErrorBar> {
             .map(|y| y.field.as_str())
             .ok_or_else(|| ChartonError::Encoding("Y-axis encoding is missing".into()))?;
 
-        // Error bars require a range. Use explicit 'y2' or look for auto-generated min/max columns.
+        // Determine if we are in Manual Mode (y + y2) or Auto Mode
+        let is_manual_range = self.encoding.y2.is_some();
+
         let (y_min_field, y_max_field) = if let Some(y2) = &self.encoding.y2 {
             (y_field.to_string(), y2.field.clone())
         } else {
@@ -61,9 +59,6 @@ impl MarkRenderer for Chart<MarkErrorBar> {
         let x_norms = x_scale
             .scale_type()
             .normalize_column(x_scale, ds.column(&x_enc.field)?);
-        let yc_norms = y_scale
-            .scale_type()
-            .normalize_column(y_scale, ds.column(y_field)?);
         let y_min_norms = y_scale
             .scale_type()
             .normalize_column(y_scale, ds.column(&y_min_field)?);
@@ -71,7 +66,18 @@ impl MarkRenderer for Chart<MarkErrorBar> {
             .scale_type()
             .normalize_column(y_scale, ds.column(&y_max_field)?);
 
-        // Resolve aesthetic color normalization if mapping exists.
+        // BEST PRACTICE: Only compute center norms if we are NOT in manual mode
+        let yc_norms = if !is_manual_range && mark_config.show_center {
+            Some(
+                y_scale
+                    .scale_type()
+                    .normalize_column(y_scale, ds.column(y_field)?),
+            )
+        } else {
+            None
+        };
+
+        // Resolve aesthetic color if mapping exists
         let color_norms = if let Some(ref mapping) = context.spec.aesthetics.color {
             let s_trait = mapping.scale_impl.as_ref();
             Some(
@@ -88,17 +94,14 @@ impl MarkRenderer for Chart<MarkErrorBar> {
         let grouped_data = ds.group_by(color_field);
         let n_groups = grouped_data.groups.len() as f64;
         let is_flipped = context.coord.is_flipped();
-
-        // unit_step_norm represents the logical width of one category on the X-axis.
         let unit_step_norm = (x_scale.normalize(1.0) - x_scale.normalize(0.0)).abs();
 
-        // --- STEP 4: RENDERING LOOP (Organized by Group for Z-Index) ---
+        // --- STEP 4: RENDERING LOOP ---
         for (group_idx, (_group_key, row_indices)) in grouped_data.groups.iter().enumerate() {
             if row_indices.is_empty() {
                 continue;
             }
 
-            // 4.1 Dodge Offset: Shift bars horizontally/vertically so groups don't overlap.
             let offset_norm = if color_field.is_some() && n_groups > 1.0 {
                 let actual_width =
                     mark_config.span / (n_groups + (n_groups - 1.0) * mark_config.spacing);
@@ -110,18 +113,16 @@ impl MarkRenderer for Chart<MarkErrorBar> {
             };
 
             for &idx in row_indices {
-                // Access pre-computed normalized coordinates.
                 let Some(xn) = x_norms[idx] else {
                     continue;
                 };
                 let x_final_n = xn + offset_norm;
 
-                // 4.2 Draw Whisker & Caps (The range indicator)
+                // 4.1 Draw Whisker & Caps
                 if let (Some(yn1), Some(yn2)) = (y_min_norms[idx], y_max_norms[idx]) {
                     let (x_pix1, y_pix1) = context.coord.transform(x_final_n, yn1, &context.panel);
                     let (x_pix2, y_pix2) = context.coord.transform(x_final_n, yn2, &context.panel);
 
-                    // Main range line
                     backend.draw_line(LineConfig {
                         x1: x_pix1 as Precision,
                         y1: y_pix1 as Precision,
@@ -133,16 +134,13 @@ impl MarkRenderer for Chart<MarkErrorBar> {
                         dash: vec![],
                     });
 
-                    // Caps (Horizontal/Vertical bars at the ends of the whisker)
                     let cap_len = mark_config.cap_length as Precision;
                     if !is_flipped {
-                        // Standard: Vertical whisker -> Horizontal caps
                         for py in [y_pix1 as Precision, y_pix2 as Precision] {
-                            let px = x_pix1 as Precision;
                             backend.draw_line(LineConfig {
-                                x1: px - cap_len,
+                                x1: x_pix1 as Precision - cap_len,
                                 y1: py,
-                                x2: px + cap_len,
+                                x2: x_pix1 as Precision + cap_len,
                                 y2: py,
                                 color: mark_config.color,
                                 width: mark_config.stroke_width as Precision,
@@ -151,14 +149,12 @@ impl MarkRenderer for Chart<MarkErrorBar> {
                             });
                         }
                     } else {
-                        // Flipped: Horizontal whisker -> Vertical caps
                         for px in [x_pix1 as Precision, x_pix2 as Precision] {
-                            let py = y_pix1 as Precision;
                             backend.draw_line(LineConfig {
                                 x1: px,
-                                y1: py - cap_len,
+                                y1: y_pix1 as Precision - cap_len,
                                 x2: px,
-                                y2: py + cap_len,
+                                y2: y_pix1 as Precision + cap_len,
                                 color: mark_config.color,
                                 width: mark_config.stroke_width as Precision,
                                 opacity: mark_config.opacity as Precision,
@@ -168,12 +164,12 @@ impl MarkRenderer for Chart<MarkErrorBar> {
                     }
                 }
 
-                // 4.3 Draw Center Point (Optional circle representing Mean/Median)
-                if mark_config.show_center {
-                    if let Some(ycn) = yc_norms[idx] {
+                // 4.2 Draw Center Point
+                // Logic: Only render if we are in Auto Mode (no y2) and show_center is enabled.
+                if let Some(ref center_norms) = yc_norms {
+                    if let Some(ycn) = center_norms[idx] {
                         let (cx, cy) = context.coord.transform(x_final_n, ycn, &context.panel);
 
-                        // Resolve color based on mapping or fallback
                         let group_color = if let Some(ref norms) = color_norms {
                             self.resolve_color_from_value(norms[idx], context, &mark_config.color)
                         } else {
@@ -183,7 +179,7 @@ impl MarkRenderer for Chart<MarkErrorBar> {
                         backend.draw_circle(CircleConfig {
                             x: cx as Precision,
                             y: cy as Precision,
-                            radius: 3.0, // Fixed radius for center indicator
+                            radius: 3.0,
                             fill: group_color,
                             stroke: group_color,
                             stroke_width: 0.0,

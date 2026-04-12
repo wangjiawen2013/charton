@@ -1,32 +1,32 @@
 <svg width="600" height="400" viewBox="0 0 600 400" xmlns="http://www.w3.org/2000/svg"><rect width="100%" height="100%" fill="rgba(255,255,255,1.000)" /><text x="300.00" y="10.00" text-anchor="middle" dominant-baseline="middle" font-family="Inter, -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, 'PingFang SC', 'Microsoft YaHei', Ubuntu, Cantarell, 'Noto Sans', sans-serif" font-size="18" fill="rgba(51,51,51,1.000)" font-weight="bold">Salary by Department</text>
-<line x1="108.80" y1="316.00" x2="582.00" y2="316.00" stroke="rgba(51,51,51,1.000)" stroke-width="1" stroke-linecap="square"/>
-<line x1="148.23" y1="316.00" x2="148.23" y2="322.00" stroke="rgba(51,51,51,1.000)" stroke-width="1.0"/>
-<text x="148.23" y="325.00" font-size="13" font-family="Inter, -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, 'PingFang SC', 'Microsoft YaHei', Ubuntu, Cantarell, 'Noto Sans', sans-serif" fill="rgba(51,51,51,1.000)" text-anchor="middle" dominant-baseline="hanging">Engineering</text>
-<line x1="246.82" y1="316.00" x2="246.82" y2="322.00" stroke="rgba(51,51,51,1.000)" stroke-width="1.0"/>
-<text x="246.82" y="325.00" font-size="13" font-family="Inter, -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, 'PingFang SC', 'Microsoft YaHei', Ubuntu, Cantarell, 'Noto Sans', sans-serif" fill="rgba(51,51,51,1.000)" text-anchor="middle" dominant-baseline="hanging">Marketing</text>
-<line x1="345.40" y1="316.00" x2="345.40" y2="322.00" stroke="rgba(51,51,51,1.000)" stroke-width="1.0"/>
-<text x="345.40" y="325.00" font-size="13" font-family="Inter, -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, 'PingFang SC', 'Microsoft YaHei', Ubuntu, Cantarell, 'Noto Sans', sans-serif" fill="rgba(51,51,51,1.000)" text-anchor="middle" dominant-baseline="hanging">Sales</text>
-<line x1="443.98" y1="316.00" x2="443.98" y2="322.00" stroke="rgba(51,51,51,1.000)" stroke-width="1.0"/>
-<text x="443.98" y="325.00" font-size="13" font-family="Inter, -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, 'PingFang SC', 'Microsoft YaHei', Ubuntu, Cantarell, 'Noto Sans', sans-serif" fill="rgba(51,51,51,1.000)" text-anchor="middle" dominant-baseline="hanging">HR</text>
-<line x1="542.57" y1="316.00" x2="542.57" y2="322.00" stroke="rgba(51,51,51,1.000)" stroke-width="1.0"/>
-<text x="542.57" y="325.00" font-size="13" font-family="Inter, -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, 'PingFang SC', 'Microsoft YaHei', Ubuntu, Cantarell, 'Noto Sans', sans-serif" fill="rgba(51,51,51,1.000)" text-anchor="middle" dominant-baseline="hanging">Finance</text>
-<text x="345.40" y="340.00" text-anchor="middle" font-size="15" font-family="Inter, -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, 'PingFang SC', 'Microsoft YaHei', Ubuntu, Cantarell, 'Noto Sans', sans-serif" fill="rgba(51,51,51,1.000)" font-weight="bold" dominant-baseline="hanging">department</text>
-<line x1="108.80" y1="40.00" x2="108.80" y2="316.00" stroke="rgba(51,51,51,1.000)" stroke-width="1" stroke-linecap="square"/>
-<line x1="108.80" y1="267.61" x2="102.80" y2="267.61" stroke="rgba(51,51,51,1.000)" stroke-width="1.0"/>
-<text x="98.80" y="267.61" font-size="13" font-family="Inter, -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, 'PingFang SC', 'Microsoft YaHei', Ubuntu, Cantarell, 'Noto Sans', sans-serif" fill="rgba(51,51,51,1.000)" text-anchor="end" dominant-baseline="central">6E4</text>
-<line x1="108.80" y1="195.92" x2="102.80" y2="195.92" stroke="rgba(51,51,51,1.000)" stroke-width="1.0"/>
-<text x="98.80" y="195.92" font-size="13" font-family="Inter, -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, 'PingFang SC', 'Microsoft YaHei', Ubuntu, Cantarell, 'Noto Sans', sans-serif" fill="rgba(51,51,51,1.000)" text-anchor="end" dominant-baseline="central">7E4</text>
-<line x1="108.80" y1="124.23" x2="102.80" y2="124.23" stroke="rgba(51,51,51,1.000)" stroke-width="1.0"/>
-<text x="98.80" y="124.23" font-size="13" font-family="Inter, -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, 'PingFang SC', 'Microsoft YaHei', Ubuntu, Cantarell, 'Noto Sans', sans-serif" fill="rgba(51,51,51,1.000)" text-anchor="end" dominant-baseline="central">8E4</text>
-<line x1="108.80" y1="52.55" x2="102.80" y2="52.55" stroke="rgba(51,51,51,1.000)" stroke-width="1.0"/>
-<text x="98.80" y="52.55" font-size="13" font-family="Inter, -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, 'PingFang SC', 'Microsoft YaHei', Ubuntu, Cantarell, 'Noto Sans', sans-serif" fill="rgba(51,51,51,1.000)" text-anchor="end" dominant-baseline="central">9E4</text>
-<text x="64.55" y="178.00" text-anchor="middle" font-size="15" font-family="Inter, -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, 'PingFang SC', 'Microsoft YaHei', Ubuntu, Cantarell, 'Noto Sans', sans-serif" fill="rgba(51,51,51,1.000)" font-weight="bold" transform="rotate(-90, 64.55, 178.00)" dominant-baseline="middle">salary</text>
-<defs><clipPath id="plot-clip-area"><rect x="108.800" y="40.000" width="473.200" height="276.000" /></clipPath></defs>
-<circle cx="148.233" cy="88.390" r="3.000" fill="rgba(0,0,0,1.000)" stroke="none" stroke-width="0.000" fill-opacity="1.000" stroke-opacity="1.000" clip-path="url(#plot-clip-area)" />
-<circle cx="246.817" cy="231.766" r="3.000" fill="rgba(0,0,0,1.000)" stroke="none" stroke-width="0.000" fill-opacity="1.000" stroke-opacity="1.000" clip-path="url(#plot-clip-area)" />
-<circle cx="345.400" cy="267.610" r="3.000" fill="rgba(0,0,0,1.000)" stroke="none" stroke-width="0.000" fill-opacity="1.000" stroke-opacity="1.000" clip-path="url(#plot-clip-area)" />
-<circle cx="443.983" cy="303.455" r="3.000" fill="rgba(0,0,0,1.000)" stroke="none" stroke-width="0.000" fill-opacity="1.000" stroke-opacity="1.000" clip-path="url(#plot-clip-area)" />
-<circle cx="542.567" cy="160.078" r="3.000" fill="rgba(0,0,0,1.000)" stroke="none" stroke-width="0.000" fill-opacity="1.000" stroke-opacity="1.000" clip-path="url(#plot-clip-area)" />
-<circle cx="148.233" cy="52.545" r="3.000" fill="rgba(0,0,0,1.000)" stroke="none" stroke-width="0.000" fill-opacity="1.000" stroke-opacity="1.000" clip-path="url(#plot-clip-area)" />
-<circle cx="246.817" cy="210.260" r="3.000" fill="rgba(0,0,0,1.000)" stroke="none" stroke-width="0.000" fill-opacity="1.000" stroke-opacity="1.000" clip-path="url(#plot-clip-area)" />
+<line x1="113.80" y1="311.00" x2="582.00" y2="311.00" stroke="rgba(51,51,51,1.000)" stroke-width="1" stroke-linecap="square"/>
+<line x1="152.82" y1="311.00" x2="152.82" y2="317.00" stroke="rgba(51,51,51,1.000)" stroke-width="1.0"/>
+<text x="152.82" y="320.00" font-size="13" font-family="Inter, -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, 'PingFang SC', 'Microsoft YaHei', Ubuntu, Cantarell, 'Noto Sans', sans-serif" fill="rgba(51,51,51,1.000)" text-anchor="middle" dominant-baseline="hanging">Engineering</text>
+<line x1="250.36" y1="311.00" x2="250.36" y2="317.00" stroke="rgba(51,51,51,1.000)" stroke-width="1.0"/>
+<text x="250.36" y="320.00" font-size="13" font-family="Inter, -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, 'PingFang SC', 'Microsoft YaHei', Ubuntu, Cantarell, 'Noto Sans', sans-serif" fill="rgba(51,51,51,1.000)" text-anchor="middle" dominant-baseline="hanging">Marketing</text>
+<line x1="347.90" y1="311.00" x2="347.90" y2="317.00" stroke="rgba(51,51,51,1.000)" stroke-width="1.0"/>
+<text x="347.90" y="320.00" font-size="13" font-family="Inter, -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, 'PingFang SC', 'Microsoft YaHei', Ubuntu, Cantarell, 'Noto Sans', sans-serif" fill="rgba(51,51,51,1.000)" text-anchor="middle" dominant-baseline="hanging">Sales</text>
+<line x1="445.44" y1="311.00" x2="445.44" y2="317.00" stroke="rgba(51,51,51,1.000)" stroke-width="1.0"/>
+<text x="445.44" y="320.00" font-size="13" font-family="Inter, -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, 'PingFang SC', 'Microsoft YaHei', Ubuntu, Cantarell, 'Noto Sans', sans-serif" fill="rgba(51,51,51,1.000)" text-anchor="middle" dominant-baseline="hanging">HR</text>
+<line x1="542.98" y1="311.00" x2="542.98" y2="317.00" stroke="rgba(51,51,51,1.000)" stroke-width="1.0"/>
+<text x="542.98" y="320.00" font-size="13" font-family="Inter, -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, 'PingFang SC', 'Microsoft YaHei', Ubuntu, Cantarell, 'Noto Sans', sans-serif" fill="rgba(51,51,51,1.000)" text-anchor="middle" dominant-baseline="hanging">Finance</text>
+<text x="347.90" y="340.00" text-anchor="middle" font-size="15" font-family="Inter, -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, 'PingFang SC', 'Microsoft YaHei', Ubuntu, Cantarell, 'Noto Sans', sans-serif" fill="rgba(51,51,51,1.000)" font-weight="bold" dominant-baseline="hanging">department</text>
+<line x1="113.80" y1="40.00" x2="113.80" y2="311.00" stroke="rgba(51,51,51,1.000)" stroke-width="1" stroke-linecap="square"/>
+<line x1="113.80" y1="263.49" x2="107.80" y2="263.49" stroke="rgba(51,51,51,1.000)" stroke-width="1.0"/>
+<text x="103.80" y="263.49" font-size="13" font-family="Inter, -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, 'PingFang SC', 'Microsoft YaHei', Ubuntu, Cantarell, 'Noto Sans', sans-serif" fill="rgba(51,51,51,1.000)" text-anchor="end" dominant-baseline="central">6E4</text>
+<line x1="113.80" y1="193.10" x2="107.80" y2="193.10" stroke="rgba(51,51,51,1.000)" stroke-width="1.0"/>
+<text x="103.80" y="193.10" font-size="13" font-family="Inter, -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, 'PingFang SC', 'Microsoft YaHei', Ubuntu, Cantarell, 'Noto Sans', sans-serif" fill="rgba(51,51,51,1.000)" text-anchor="end" dominant-baseline="central">7E4</text>
+<line x1="113.80" y1="122.71" x2="107.80" y2="122.71" stroke="rgba(51,51,51,1.000)" stroke-width="1.0"/>
+<text x="103.80" y="122.71" font-size="13" font-family="Inter, -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, 'PingFang SC', 'Microsoft YaHei', Ubuntu, Cantarell, 'Noto Sans', sans-serif" fill="rgba(51,51,51,1.000)" text-anchor="end" dominant-baseline="central">8E4</text>
+<line x1="113.80" y1="52.32" x2="107.80" y2="52.32" stroke="rgba(51,51,51,1.000)" stroke-width="1.0"/>
+<text x="103.80" y="52.32" font-size="13" font-family="Inter, -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, 'PingFang SC', 'Microsoft YaHei', Ubuntu, Cantarell, 'Noto Sans', sans-serif" fill="rgba(51,51,51,1.000)" text-anchor="end" dominant-baseline="central">9E4</text>
+<text x="64.55" y="175.50" text-anchor="middle" font-size="15" font-family="Inter, -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, 'PingFang SC', 'Microsoft YaHei', Ubuntu, Cantarell, 'Noto Sans', sans-serif" fill="rgba(51,51,51,1.000)" font-weight="bold" transform="rotate(-90, 64.55, 175.50)" dominant-baseline="middle">salary</text>
+<defs><clipPath id="plot-clip-area"><rect x="113.800" y="40.000" width="468.200" height="271.000" /></clipPath></defs>
+<circle cx="152.817" cy="87.513" r="3.000" fill="rgba(0,0,0,1.000)" stroke="none" stroke-width="0.000" fill-opacity="1.000" stroke-opacity="1.000" clip-path="url(#plot-clip-area)" />
+<circle cx="250.358" cy="228.292" r="3.000" fill="rgba(0,0,0,1.000)" stroke="none" stroke-width="0.000" fill-opacity="1.000" stroke-opacity="1.000" clip-path="url(#plot-clip-area)" />
+<circle cx="347.900" cy="263.487" r="3.000" fill="rgba(0,0,0,1.000)" stroke="none" stroke-width="0.000" fill-opacity="1.000" stroke-opacity="1.000" clip-path="url(#plot-clip-area)" />
+<circle cx="445.442" cy="298.682" r="3.000" fill="rgba(0,0,0,1.000)" stroke="none" stroke-width="0.000" fill-opacity="1.000" stroke-opacity="1.000" clip-path="url(#plot-clip-area)" />
+<circle cx="542.983" cy="157.903" r="3.000" fill="rgba(0,0,0,1.000)" stroke="none" stroke-width="0.000" fill-opacity="1.000" stroke-opacity="1.000" clip-path="url(#plot-clip-area)" />
+<circle cx="152.817" cy="52.318" r="3.000" fill="rgba(0,0,0,1.000)" stroke="none" stroke-width="0.000" fill-opacity="1.000" stroke-opacity="1.000" clip-path="url(#plot-clip-area)" />
+<circle cx="250.358" cy="207.175" r="3.000" fill="rgba(0,0,0,1.000)" stroke="none" stroke-width="0.000" fill-opacity="1.000" stroke-opacity="1.000" clip-path="url(#plot-clip-area)" />
 </svg>

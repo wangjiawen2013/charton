@@ -14,11 +14,11 @@ fn test_transform_calculate_1() -> Result<(), Box<dyn Error>> {
         .transform_calculate("value_min", |row| {
             Some(row.val("value")? - row.val("value_std")?)
         })?
-        .transform_calculate("value_min", |row| {
-            Some(row.val("value")? - row.val("value_std")?)
+        .transform_calculate("value_max", |row| {
+            Some(row.val("value")? + row.val("value_std")?)
         })?
         .mark_errorbar()?
-        .encode((alt::x("type"), alt::y("value_min"), alt::y2("value_max")))?
+        .encode((alt::x("type1"), alt::y("value_min"), alt::y2("value_max")))?
         .configure_errorbar(
             |e| {
                 e.with_color("blue")

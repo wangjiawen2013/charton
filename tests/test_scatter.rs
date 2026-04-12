@@ -79,7 +79,7 @@ fn test_scatter_4() -> Result<(), Box<dyn Error>> {
 
     chart!(a, b, origin)?
         .mark_point()?
-        .encode((alt::x("a"), alt::y("b"), alt::color("Origin")))?
+        .encode((alt::x("a"), alt::y("b"), alt::color("origin")))?
         .with_size(500, 300)
         .with_title("Car Data")
         .configure_theme(|t| t.with_title_size(20.0).with_title_color("#333"))
@@ -96,7 +96,7 @@ fn test_scatter_5() -> Result<(), Box<dyn Error>> {
 
     chart!(a, b, origin)?
         .mark_point()?
-        .encode((alt::x("a"), alt::y("b"), alt::color("Origin")))?
+        .encode((alt::x("a"), alt::y("b"), alt::color("origin")))?
         .with_size(500, 400)
         .with_title("Data")
         .with_x_label("A)")
@@ -124,7 +124,7 @@ fn test_scatter_6() -> Result<(), Box<dyn Error>> {
     let point_chart = chart!(a, b, origin)?.mark_point()?.encode((
         alt::x("a"),
         alt::y("b"),
-        alt::color("Origin"),
+        alt::color("origin"),
     ))?;
 
     point_chart
@@ -291,7 +291,7 @@ fn test_scatter_14() -> Result<(), Box<dyn Error>> {
 
     chart!(a, b, origin)?
         .mark_point()?
-        .encode((alt::x("a"), alt::y("b"), alt::color("Origin")))?
+        .encode((alt::x("a"), alt::y("b"), alt::color("origin")))?
         .save("./tests/scatter_14.svg")?;
 
     Ok(())
