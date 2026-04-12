@@ -6,8 +6,21 @@ fn test_histogram_1() -> Result<(), Box<dyn Error>> {
     let ds = load_dataset("iris")?;
     println!("{:?}", &ds);
 
+    let raw_sl = ds.get_column::<f64>("sepal_length")?;
+    let raw_sw = ds.get_column::<f64>("sepal_width")?;
+
+    let mut value = Vec::with_capacity(raw_sl.len() + 50);
+    value.extend_from_slice(raw_sl);
+    value.extend_from_slice(&raw_sw[0..50]);
+
+    let mut variable = Vec::with_capacity(raw_sl.len() + 50);
+
+    variable.extend(std::iter::repeat("sepal_length".to_string()).take(raw_sl.len()));
+
+    variable.extend(std::iter::repeat("sepal_width".to_string()).take(50));
+
     // Create a histogram chart
-    let histogram = chart!(ds)?
+    let histogram = chart!(value, variable)?
         .mark_hist()?
         .configure_hist(|h| {
             h.with_color("steelblue")
@@ -16,9 +29,9 @@ fn test_histogram_1() -> Result<(), Box<dyn Error>> {
                 .with_stroke_width(0.0)
         })
         .encode((
-            alt::x("sepal_length"),
+            alt::x("value"),
             alt::y("count").with_normalize(true),
-            alt::color("species"),
+            alt::color("variable"),
         ))?;
 
     histogram
