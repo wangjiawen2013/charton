@@ -8,7 +8,7 @@ fn main() -> Result<(), Box<dyn Error>> {
     chart!(ds)?
         .mark_boxplot()?
         .encode((
-            alt::x("Island"),
+            alt::x("Sex"),
             alt::y("Body Mass (g)"),
             alt::color("Species"),
         ))?

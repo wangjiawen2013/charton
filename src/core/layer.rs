@@ -174,9 +174,6 @@ pub trait Layer: MarkRenderer + Send + Sync {
     /// Returns the preferred scale type (e.g., Linear, Log, Discrete) for a channel.
     fn get_scale(&self, channel: Channel) -> Option<Scale>;
 
-    /// Returns any explicit user-defined domain override (e.g., fixed axis limits [0, 100]).
-    fn get_domain(&self, channel: Channel) -> Option<ScaleDomain>;
-
     /// Returns the expansion rules (padding/margins) requested by this layer for a channel.
     fn get_expand(&self, channel: Channel) -> Option<Expansion>;
 

@@ -86,6 +86,20 @@ impl ColumnVector {
         }
     }
 
+    /// Returns a short string representation of the data type,
+    /// consistent with Polars' naming conventions (e.g., "f64", "str", "datetime").
+    pub fn dtype_name(&self) -> &'static str {
+        match self {
+            ColumnVector::F64 { .. } => "f64",
+            ColumnVector::F32 { .. } => "f32",
+            ColumnVector::I64 { .. } => "i64",
+            ColumnVector::I32 { .. } => "i32",
+            ColumnVector::U32 { .. } => "u32",
+            ColumnVector::String { .. } => "str", // Polars uses "str" for String
+            ColumnVector::DateTime { .. } => "datetime", // Short and clear
+        }
+    }
+
     /// Returns the number of rows in this column.
     pub fn len(&self) -> usize {
         match self {
@@ -161,9 +175,14 @@ impl ColumnVector {
                     None
                 }
             }
-
-            // String and DateTime are not direct numerical types for this method
-            _ => None,
+            ColumnVector::DateTime { data, validity } => {
+                if ColumnVector::is_valid_in_mask(validity, row) {
+                    Some(data[row].unix_timestamp_nanos() as f64) // Unix timestamp in nanoseconds
+                } else {
+                    None
+                }
+            }
+            ColumnVector::String { .. } => None,
         }
     }
 
@@ -550,9 +569,9 @@ impl ColumnVector {
             }
 
             // --- TEMPORAL PATH ---
-            // Converts OffsetDateTime to a Unix timestamp (seconds) for numeric scaling.
+            // Converts OffsetDateTime to a Unix timestamp (nanoseconds) for numeric scaling.
             ColumnVector::DateTime { data, validity } => {
-                self.parallel_scan_with_mask(data, validity, |&v| v.unix_timestamp() as f64)
+                self.parallel_scan_with_mask(data, validity, |&v| v.unix_timestamp_nanos() as f64)
             }
 
             // --- DISCRETE/OTHER ---
@@ -1613,7 +1632,8 @@ impl Dataset {
     }
 
     /// Internal rendering engine that formats a specific range of rows as a table.
-    /// This is used by both `Debug` and `DatasetView` to provide consistent output.
+    /// This implementation includes a Polars-style type row (e.g., (str), (f64))
+    /// below each column header for better data inspection.
     fn render_to_format(
         &self,
         f: &mut fmt::Formatter<'_>,
@@ -1632,16 +1652,36 @@ impl Dataset {
         let mut names: Vec<_> = self.schema.keys().collect();
         names.sort_by_key(|name| self.schema.get(*name).expect("Schema integrity error"));
 
-        // 2. Format and print the header row with fixed-width (12 chars) alignment
+        // 2. Format and print the header row (Column Names)
         let header = names
             .iter()
             .map(|n| format!("{:<12}", n))
             .collect::<Vec<_>>()
             .join("| ");
         writeln!(f, "{}", header)?;
+
+        // 3. Format and print the data type row (Polars-style)
+        // We use "str" for String types as per data science conventions.
+        let types_row = names
+            .iter()
+            .map(|name| {
+                let dtype = self
+                    .column(name)
+                    .map(|col| col.dtype_name())
+                    .unwrap_or("unknown");
+
+                // Wrap type in parentheses, e.g., "(f64)" or "(str)"
+                let type_label = format!("({})", dtype);
+                format!("{:<12}", type_label)
+            })
+            .collect::<Vec<_>>()
+            .join("| ");
+        writeln!(f, "{}", types_row)?;
+
+        // 4. Print the separator line
         writeln!(f, "{}", "-".repeat(header.len()))?;
 
-        // 3. Iterate through the specified row range and print cell values
+        // 5. Iterate through the specified row range and print cell values
         for row in offset..(offset + len) {
             let mut row_str = Vec::new();
             for name in &names {
@@ -1651,6 +1691,7 @@ impl Dataset {
             }
             writeln!(f, "{}", row_str.join("| "))?;
         }
+
         Ok(())
     }
 
