@@ -54,7 +54,6 @@ Charton provides a high-level, declarative API. Standard visualizations can be g
 
 ```rust
 use charton::prelude::*;
-use std::error::Error;
 
 // Data preparation: Hooke's Law (Force vs. Extension)
 let force = vec![1.0, 2.0, 3.0, 4.0, 5.0];
