@@ -5,8 +5,8 @@
 /// Charton's internal processing.
 ///
 /// # Behavior
-/// - **Supported Types**: Processes `Float32`, `Float64`, `Int32`, `Int64`, and `String` columns.
-/// - **Unsupported Types**: Columns with other data types (e.g., `Boolean`, `List`, `DateTime`)
+/// - **Supported Types**: Processes `Float32`, `Float64`, `Int32`, `Int64`, `DateTime` and `String` columns.
+/// - **Unsupported Types**: Columns with other data types (e.g., `Boolean`, `List`)
 ///   are silently skipped in the current implementation.
 /// - **Null Handling**: Preserves null values by mapping Polars series to `Vec<Option<T>>`.
 ///
@@ -123,10 +123,16 @@ macro_rules! load_polars_df {
                         ))
                     })?;
 
-                    let mut dt_vec: Vec<Option<time::OffsetDateTime>> =
+                    let mut dt_vec: Vec<Option<$crate::prelude::OffsetDateTime>> =
                         Vec::with_capacity(ca.len());
 
-                    for opt_ts in ca.into_iter() {
+                    // `physical_ca` is a reference to the underlying `Int64Chunked` array.
+                    // By accessing the physical layer, we bypass Polars' logical wrappers (like NaiveDateTime)
+                    // and work directly with raw i64 Unix timestamps. This avoids complex type casting
+                    // and ensures we can treat the data as primitive integers for performance.
+                    let physical_ca = ca.physical();
+
+                    for opt_ts in physical_ca.into_iter() {
                         let dt = opt_ts.and_then(|ts| {
                             // Map Polars unit to total nanoseconds since Unix Epoch
                             let nanos = match unit {
@@ -136,7 +142,7 @@ macro_rules! load_polars_df {
                             };
 
                             // Attempt to create the OffsetDateTime
-                            time::OffsetDateTime::from_unix_timestamp_nanos(nanos).ok()
+                            $crate::prelude::OffsetDateTime::from_unix_timestamp_nanos(nanos).ok()
                         });
                         dt_vec.push(dt);
                     }
