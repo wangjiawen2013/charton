@@ -89,6 +89,7 @@ For Polars users, Charton provides the `load_polars_df!` macro to seamlessly con
 ```rust
 use polars::prelude::*;
 
+// Efficiently convert Polars DataFrame to Charton Dataset
 let df = df![
     "force" => [1.0, 2.0, 3.0, 4.0, 5.0], 
     "extension"   => [1.2, 2.3, 3.1, 4.4, 5.2]
