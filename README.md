@@ -102,6 +102,13 @@ chart!(ds)? // or Chart::build(ds)?
     .save("output.svg")?;
 ```
 
+**Compatibility Note**: Charton 0.5+ defaults to Polars 0.53+.
+For older versions, use the version-specific macros:
+* Polars 0.49: load_polars_049!(df)?
+* Polars 0.50: load_polars_050!(df)?
+* Polars 0.51: load_polars_051!(df)?
+* Polars 0.52: load_polars_052!(df)?
+
 ## Layered Grammar
 Inspired by the Grammar of Graphics (as seen in `ggplot2` and `Altair`), Charton replaces rigid templates with a modular, layer-based system. Visualizations are constructed by stacking atomic marks, offering infinite flexibility beyond fixed chart types.
 
