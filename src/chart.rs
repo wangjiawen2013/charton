@@ -667,11 +667,6 @@ where
         self.encoding.get_scale_by_channel(channel)
     }
 
-    /// Retrieves user-defined domain overrides.
-    fn get_domain(&self, channel: Channel) -> Option<ScaleDomain> {
-        self.encoding.get_domain_by_channel(channel)
-    }
-
     /// Retrieves padding/expansion preferences.
     fn get_expand(&self, channel: Channel) -> Option<Expansion> {
         self.encoding.get_expand_by_channel(channel)
@@ -684,7 +679,6 @@ where
     /// 2. **Explicit Intervals**: Mappings with secondary fields (e.g., y2).
     /// 3. **Implicit Intervals**: Statistical transforms that generate hidden columns
     ///    (e.g., __charton_temp_{field}_min/max).
-    /// Calculates the raw data boundaries for any visual channel.
     fn get_data_bounds(&self, channel: Channel) -> Result<ScaleDomain, ChartonError> {
         let field_name = self.encoding.get_field_by_channel(channel).ok_or_else(|| {
             ChartonError::Data(format!("No field mapped to channel {:?}", channel))
@@ -712,63 +706,19 @@ where
                 let mut global_max = f64::NEG_INFINITY;
                 let mut found_data = false;
 
-                // Determine if stacking is required (Y-axis + Stack Mode + Color grouping)
-                let is_y_stacked = channel == Channel::Y
-                    && self
-                        .encoding
-                        .y
-                        .as_ref()
-                        .is_some_and(|e| e.stack != StackMode::None)
-                    && self.encoding.color.is_some();
+                let mark_type = self.mark.as_ref().map(|m| m.mark_type());
+                let is_area = matches!(mark_type, Some("area"));
 
-                if is_y_stacked {
-                    let x_field = &self.encoding.x.as_ref().unwrap().field;
+                // --- STEP 1: Priority Check for Pre-computed Area Columns ---
+                // For Area charts, we MUST use the __charton_temp_{field}_min/max columns.
+                // These columns contain the final coordinates for Stacked, Normalized,
+                // and Centered (Steamgraph) layouts.
+                if is_area && channel == Channel::Y {
                     let y_field = &self.encoding.y.as_ref().unwrap().field;
+                    let temp_min_col = format!("{}_{}_min", TEMP_SUFFIX, y_field);
+                    let temp_max_col = format!("{}_{}_max", TEMP_SUFFIX, y_field);
 
-                    let x_series = self.data.column(x_field)?;
-                    let y_series = self.data.column(y_field)?;
-
-                    // --- MANUAL STACKING AGGREGATION ---
-                    // We use a AHashMap to group Y-sums by their X-category string representation.
-                    let mut stacks: AHashMap<String, f64> = AHashMap::new();
-
-                    // We iterate through the data rows
-                    // Note: This assumes all columns in your 'self.data' have the same length.
-                    let row_count = x_series.len();
-                    for i in 0..row_count {
-                        // Extract X key and Y value for current row
-                        if let (Some(x_val), Some(y_val)) =
-                            (x_series.get_str(i), y_series.get_f64(i))
-                        {
-                            let entry = stacks.entry(x_val).or_insert(0.0);
-                            *entry += y_val;
-                        }
-                    }
-
-                    // Find min/max across all stack totals
-                    for &sum in stacks.values() {
-                        global_min = global_min.min(sum);
-                        global_max = global_max.max(sum);
-                        found_data = true;
-                    }
-                } else {
-                    // --- STANDARD SCANNING LOGIC ---
-                    let mut columns_to_scan = Vec::new();
-                    let mark_type = self.mark.as_ref().map(|m| m.mark_type());
-
-                    if !matches!(mark_type, Some("area")) {
-                        columns_to_scan.push(field_name.to_string());
-                    }
-
-                    if channel == Channel::Y {
-                        if let Some(y2_enc) = &self.encoding.y2 {
-                            columns_to_scan.push(y2_enc.field.clone());
-                        }
-                        columns_to_scan.push(format!("{}_{}_min", TEMP_SUFFIX, field_name));
-                        columns_to_scan.push(format!("{}_{}_max", TEMP_SUFFIX, field_name));
-                    }
-
-                    for col_name in &columns_to_scan {
+                    for col_name in [&temp_min_col, &temp_max_col] {
                         if let Ok(series) = self.data.column(col_name) {
                             let (m_min, m_max) = series.min_max();
                             global_min = global_min.min(m_min);
@@ -778,14 +728,71 @@ where
                     }
                 }
 
-                // Final fallbacks and adjustments
+                // --- STEP 2: Fallback to Dynamic Stacking or Standard Scan ---
+                if !found_data {
+                    let is_y_stacked = channel == Channel::Y
+                        && self
+                            .encoding
+                            .y
+                            .as_ref()
+                            .is_some_and(|e| e.stack != StackMode::None)
+                        && self.encoding.color.is_some();
+
+                    if is_y_stacked {
+                        // Dynamic stacking for non-area marks (e.g., Bar charts)
+                        let x_field = &self.encoding.x.as_ref().unwrap().field;
+                        let y_field = &self.encoding.y.as_ref().unwrap().field;
+
+                        let x_series = self.data.column(x_field)?;
+                        let y_series = self.data.column(y_field)?;
+
+                        let mut stacks: AHashMap<String, f64> = AHashMap::new();
+                        let row_count = x_series.len();
+
+                        for i in 0..row_count {
+                            if let (Some(x_val), Some(y_val)) =
+                                (x_series.get_str(i), y_series.get_f64(i))
+                            {
+                                let entry = stacks.entry(x_val).or_insert(0.0);
+                                *entry += y_val;
+                            }
+                        }
+
+                        for &sum in stacks.values() {
+                            global_min = global_min.min(sum);
+                            global_max = global_max.max(sum);
+                            found_data = true;
+                        }
+                    } else {
+                        // Standard scanning for Line, Point, or non-stacked marks
+                        let mut columns_to_scan = Vec::new();
+                        columns_to_scan.push(field_name.to_string());
+
+                        if channel == Channel::Y {
+                            if let Some(y2_enc) = &self.encoding.y2 {
+                                columns_to_scan.push(y2_enc.field.clone());
+                            }
+                        }
+
+                        for col_name in &columns_to_scan {
+                            if let Ok(series) = self.data.column(col_name) {
+                                let (m_min, m_max) = series.min_max();
+                                global_min = global_min.min(m_min);
+                                global_max = global_max.max(m_max);
+                                found_data = true;
+                            }
+                        }
+                    }
+                }
+
+                // --- STEP 3: Final Fallbacks and Scale Adjustments ---
                 if !found_data {
                     let (p_min, p_max) = primary_series.min_max();
                     global_min = p_min;
                     global_max = p_max;
                 }
 
-                // Half-bin compensation for Binned data
+                // Apply half-bin compensation for Binned/Histogram data
                 let bins = match channel {
                     Channel::X => self.encoding.x.as_ref().and_then(|e| e.bins),
                     Channel::Y => self.encoding.y.as_ref().and_then(|e| e.bins),
@@ -800,6 +807,7 @@ where
                     }
                 }
 
+                // Force include zero if requested (crucial for Bar and uncentered Area)
                 if self.encoding.get_zero_by_channel(channel) {
                     global_min = global_min.min(0.0);
                     global_max = global_max.max(0.0);

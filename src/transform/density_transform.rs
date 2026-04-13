@@ -239,21 +239,20 @@ impl DensityTransform {
 }
 
 impl<T: Mark> Chart<T> {
-    /// Transform data by performing kernel density estimation.
-    /// Uses native Rust collections for grouping and an exhaustive match for KDE stability.
+    /// Transform data by performing kernel density estimation (KDE).
+    /// Uses ColumnVector::unique_values() to ensure deterministic group ordering.
     pub fn transform_density(mut self, params: DensityTransform) -> Result<Self, ChartonError> {
         let density_field = &params.density;
         let density_col = self.data.column(density_field)?;
 
         // --- STEP 1: Calculate Global Range ---
-        // We need a consistent X-axis across all groups for comparison.
         let (min_val, max_val) = density_col.min_max();
 
-        // Extend range by 30% to capture the tails of the distribution.
+        // Extend range by 30% to capture distribution tails.
         let mut extended_min = 1.3 * min_val - 0.3 * max_val;
         let mut extended_max = 1.3 * max_val - 0.3 * min_val;
 
-        // Handle cases where all input values are the same.
+        // Handle identical values case.
         if (extended_max - extended_min).abs() < 1e-12 {
             let offset = if extended_min == 0.0 {
                 1.0
@@ -264,7 +263,7 @@ impl<T: Mark> Chart<T> {
             extended_max += offset;
         }
 
-        // Create 200 evaluation points along the X-axis.
+        // 200 evaluation points for a smooth curve.
         let steps = 200;
         let step_size = (extended_max - extended_min) / (steps as f64);
         let eval_points: Vec<f32> = (0..steps)
@@ -273,8 +272,15 @@ impl<T: Mark> Chart<T> {
 
         let x_axis_values: Vec<f64> = eval_points.iter().map(|&v| v as f64).collect();
 
-        // --- STEP 2: Group Data manually ---
-        // Replacing Polars GroupBy with AHashMap to avoid AnyValue overhead.
+        // --- STEP 2: Establish Deterministic Order ---
+        // unique_values() returns Vec<String> directly, preserving appearance order.
+        let group_order: Vec<String> = if let Some(ref g_field) = params.groupby {
+            self.data.column(g_field)?.unique_values()
+        } else {
+            vec!["__default__".to_string()]
+        };
+
+        // --- STEP 3: Aggregate Observations by Group ---
         let mut groups: AHashMap<String, Vec<f32>> = AHashMap::new();
         let row_count = self.data.height();
 
@@ -290,116 +296,125 @@ impl<T: Mark> Chart<T> {
             }
         }
 
-        // --- STEP 3: Compute KDE per Group ---
+        // --- STEP 4: Compute KDE per Group (Iterate using stable order) ---
         let mut final_x = Vec::new();
         let mut final_y = Vec::new();
         let mut final_group = Vec::new();
 
-        for (group_name, observations) in groups {
-            // Exhaustive match to satisfy the compiler for pdf/cdf method resolution.
+        for group_name in group_order {
+            // Get observations; skip if group is missing or empty.
+            let observations = match groups.get(&group_name) {
+                Some(obs) if !obs.is_empty() => obs,
+                _ => continue,
+            };
+
+            // Trait dispatch for KDE calculation.
             let density_values: Vec<f64> = match (&params.bandwidth, &params.kernel) {
-                // Scott + Kernels
                 (BandwidthType::Scott, KernelType::Normal) => {
                     let kde = KernelDensityEstimator::new(observations.clone(), Scott, Normal);
                     if params.cumulative {
-                        kde.cdf(&eval_points).iter().map(|&v| v as f64).collect()
+                        kde.cdf(&eval_points)
                     } else {
-                        kde.pdf(&eval_points).iter().map(|&v| v as f64).collect()
+                        kde.pdf(&eval_points)
                     }
                 }
                 (BandwidthType::Scott, KernelType::Epanechnikov) => {
                     let kde =
                         KernelDensityEstimator::new(observations.clone(), Scott, Epanechnikov);
                     if params.cumulative {
-                        kde.cdf(&eval_points).iter().map(|&v| v as f64).collect()
+                        kde.cdf(&eval_points)
                     } else {
-                        kde.pdf(&eval_points).iter().map(|&v| v as f64).collect()
+                        kde.pdf(&eval_points)
                     }
                 }
                 (BandwidthType::Scott, KernelType::Uniform) => {
                     let kde = KernelDensityEstimator::new(observations.clone(), Scott, Uniform);
                     if params.cumulative {
-                        kde.cdf(&eval_points).iter().map(|&v| v as f64).collect()
+                        kde.cdf(&eval_points)
                     } else {
-                        kde.pdf(&eval_points).iter().map(|&v| v as f64).collect()
+                        kde.pdf(&eval_points)
                     }
                 }
-
-                // Silverman + Kernels
                 (BandwidthType::Silverman, KernelType::Normal) => {
                     let kde = KernelDensityEstimator::new(observations.clone(), Silverman, Normal);
                     if params.cumulative {
-                        kde.cdf(&eval_points).iter().map(|&v| v as f64).collect()
+                        kde.cdf(&eval_points)
                     } else {
-                        kde.pdf(&eval_points).iter().map(|&v| v as f64).collect()
+                        kde.pdf(&eval_points)
                     }
                 }
                 (BandwidthType::Silverman, KernelType::Epanechnikov) => {
                     let kde =
                         KernelDensityEstimator::new(observations.clone(), Silverman, Epanechnikov);
                     if params.cumulative {
-                        kde.cdf(&eval_points).iter().map(|&v| v as f64).collect()
+                        kde.cdf(&eval_points)
                     } else {
-                        kde.pdf(&eval_points).iter().map(|&v| v as f64).collect()
+                        kde.pdf(&eval_points)
                     }
                 }
                 (BandwidthType::Silverman, KernelType::Uniform) => {
                     let kde = KernelDensityEstimator::new(observations.clone(), Silverman, Uniform);
                     if params.cumulative {
-                        kde.cdf(&eval_points).iter().map(|&v| v as f64).collect()
+                        kde.cdf(&eval_points)
                     } else {
-                        kde.pdf(&eval_points).iter().map(|&v| v as f64).collect()
+                        kde.pdf(&eval_points)
                     }
                 }
-
-                // Fixed + Kernels
                 (BandwidthType::Fixed(bw), KernelType::Normal) => {
-                    let bandwidth = move |_: &[f32]| *bw as f32;
-                    let kde = KernelDensityEstimator::new(observations.clone(), bandwidth, Normal);
+                    let h = *bw as f32;
+                    let kde = KernelDensityEstimator::new(
+                        observations.clone(),
+                        move |_: &[f32]| h,
+                        Normal,
+                    );
                     if params.cumulative {
-                        kde.cdf(&eval_points).iter().map(|&v| v as f64).collect()
+                        kde.cdf(&eval_points)
                     } else {
-                        kde.pdf(&eval_points).iter().map(|&v| v as f64).collect()
+                        kde.pdf(&eval_points)
                     }
                 }
                 (BandwidthType::Fixed(bw), KernelType::Epanechnikov) => {
-                    let bandwidth = move |_: &[f32]| *bw as f32;
-                    let kde =
-                        KernelDensityEstimator::new(observations.clone(), bandwidth, Epanechnikov);
+                    let h = *bw as f32;
+                    let kde = KernelDensityEstimator::new(
+                        observations.clone(),
+                        move |_: &[f32]| h,
+                        Epanechnikov,
+                    );
                     if params.cumulative {
-                        kde.cdf(&eval_points).iter().map(|&v| v as f64).collect()
+                        kde.cdf(&eval_points)
                     } else {
-                        kde.pdf(&eval_points).iter().map(|&v| v as f64).collect()
+                        kde.pdf(&eval_points)
                     }
                 }
                 (BandwidthType::Fixed(bw), KernelType::Uniform) => {
-                    let bandwidth = move |_: &[f32]| *bw as f32;
-                    let kde = KernelDensityEstimator::new(observations.clone(), bandwidth, Uniform);
+                    let h = *bw as f32;
+                    let kde = KernelDensityEstimator::new(
+                        observations.clone(),
+                        move |_: &[f32]| h,
+                        Uniform,
+                    );
                     if params.cumulative {
-                        kde.cdf(&eval_points).iter().map(|&v| v as f64).collect()
+                        kde.cdf(&eval_points)
                     } else {
-                        kde.pdf(&eval_points).iter().map(|&v| v as f64).collect()
+                        kde.pdf(&eval_points)
                     }
                 }
-            };
+            }
+            .into_iter()
+            .map(|v| v as f64)
+            .collect();
 
-            // Scale by observation count if 'counts' mode is enabled.
             let obs_count = observations.len() as f64;
             let processed_y = if params.counts {
-                density_values
-                    .into_iter()
-                    .map(|v| v * obs_count)
-                    .collect::<Vec<_>>()
+                density_values.into_iter().map(|v| v * obs_count).collect()
             } else {
                 density_values
             };
 
-            // Extend final vectors for this group.
-            for y_val in processed_y {
-                final_y.push(y_val);
-            }
+            final_y.extend(processed_y);
             final_x.extend(x_axis_values.clone());
 
+            // If grouping is active, repeat the group name for all 200 points.
             if params.groupby.is_some() {
                 for _ in 0..steps {
                     final_group.push(group_name.clone());
@@ -407,7 +422,7 @@ impl<T: Mark> Chart<T> {
             }
         }
 
-        // --- STEP 4: Build result Dataset ---
+        // --- STEP 5: Build Final Dataset ---
         let mut new_ds = Dataset::new();
         new_ds.add_column(&params.as_[0], ColumnVector::F64 { data: final_x })?;
         new_ds.add_column(&params.as_[1], ColumnVector::F64 { data: final_y })?;

@@ -170,6 +170,7 @@ impl<T: Mark> Chart<T> {
             .collect();
 
         // --- STEP 5: Reconstruct Dataset ---
+        // Flatten the stacked results back into columnar format.
         let mut final_x_f = Vec::new();
         let mut final_x_s = Vec::new();
         let mut final_y0 = Vec::new();
@@ -191,9 +192,34 @@ impl<T: Mark> Chart<T> {
         }
 
         let mut new_ds = Dataset::new();
+
+        // --- Handle X-Axis Reconstruction & Semantic Restoration ---
         if is_continuous {
-            new_ds.add_column(x_field, ColumnVector::F64 { data: final_x_f })?;
+            if x_semantic == SemanticType::Temporal {
+                // If the original column was Temporal, we must restore the DateTime type.
+                // This converts the f64 nanosecond values back into OffsetDateTime objects
+                // so the renderer can apply time-based scales and formatting.
+                let temporal_data: Vec<time::OffsetDateTime> = final_x_f
+                    .into_iter()
+                    .map(|ns| {
+                        time::OffsetDateTime::from_unix_timestamp_nanos(ns as i128)
+                            .unwrap_or(time::OffsetDateTime::UNIX_EPOCH)
+                    })
+                    .collect();
+
+                new_ds.add_column(
+                    x_field,
+                    ColumnVector::DateTime {
+                        data: temporal_data,
+                        validity: None,
+                    },
+                )?;
+            } else {
+                // Standard continuous numerical values remain as F64.
+                new_ds.add_column(x_field, ColumnVector::F64 { data: final_x_f })?;
+            }
         } else {
+            // Discrete/Categorical axes are restored as Strings.
             new_ds.add_column(
                 x_field,
                 ColumnVector::String {
@@ -203,9 +229,12 @@ impl<T: Mark> Chart<T> {
             )?;
         }
 
+        // --- Finalize Y and Color Channels ---
+        // Generate temporary field names for stack boundaries (min/max).
         let y0_name = format!("{}_{}_min", TEMP_SUFFIX, y_field);
         let y1_name = format!("{}_{}_max", TEMP_SUFFIX, y_field);
 
+        // Store baseline (y0), top boundary (y1), and the primary Y value.
         new_ds.add_column(&y0_name, ColumnVector::F64 { data: final_y0 })?;
         new_ds.add_column(
             &y1_name,
@@ -215,6 +244,7 @@ impl<T: Mark> Chart<T> {
         )?;
         new_ds.add_column(y_field, ColumnVector::F64 { data: final_y1 })?;
 
+        // Restore the color field if it was used for grouping.
         if let Some(cf) = color_field {
             new_ds.add_column(
                 cf,
@@ -225,6 +255,7 @@ impl<T: Mark> Chart<T> {
             )?;
         }
 
+        // Update the chart dataset with the transformed data.
         self.data = new_ds;
         Ok(self)
     }

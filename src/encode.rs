@@ -7,7 +7,7 @@ pub mod y;
 pub mod y2;
 
 use self::{color::Color, shape::Shape, size::Size, text::Text, x::X, y::Y, y2::Y2};
-use crate::scale::{Expansion, Scale, ScaleDomain};
+use crate::scale::{Expansion, Scale};
 
 /// Represents the various visual aesthetics that can be mapped to data.
 ///
@@ -92,17 +92,6 @@ impl Encoding {
             Channel::Color => self.color.as_ref().and_then(|v| v.scale_type),
             Channel::Shape => self.shape.as_ref().and_then(|v| v.scale_type),
             Channel::Size => self.size.as_ref().and_then(|v| v.scale_type),
-        }
-    }
-
-    /// Retrieves the user-defined domain override for a specific channel.
-    pub fn get_domain_by_channel(&self, channel: Channel) -> Option<ScaleDomain> {
-        match channel {
-            Channel::X => self.x.as_ref().and_then(|v| v.domain.clone()),
-            Channel::Y => self.y.as_ref().and_then(|v| v.domain.clone()),
-            Channel::Color => self.color.as_ref().and_then(|v| v.domain.clone()),
-            Channel::Shape => self.shape.as_ref().and_then(|v| v.domain.clone()),
-            Channel::Size => self.size.as_ref().and_then(|v| v.domain.clone()),
         }
     }
 
