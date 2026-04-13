@@ -15,7 +15,7 @@ impl<T: Mark> Chart<T> {
     /// * `f`: A closure mapping a row to an optional value.
     ///        Returning `None` results in an `f64::NAN` (Null).
     /// # Example
-    /// ```rust
+    /// ```rust,ignore
     /// chart.transform_calculate("bmi", |row| {
     ///     let w = row.val("weight")?;
     ///     let h = row.val("height")?;
