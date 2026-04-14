@@ -62,9 +62,7 @@ pub mod prelude {
     };
     pub use crate::visual::color::{ColorMap, ColorPalette, SingleColor};
     pub use crate::visual::shape::PointShape;
-    pub use crate::{
-        chart, load_polars_049, load_polars_050, load_polars_051, load_polars_052, load_polars_df,
-    };
+    pub use crate::{chart, load_polars_df, load_polars_v42_52};
     pub use time::OffsetDateTime;
 
     #[cfg(all(feature = "bridge", not(target_arch = "wasm32")))]
