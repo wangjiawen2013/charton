@@ -74,7 +74,7 @@ let ds = Dataset::new()
     .with_column("height", height)?
     .with_column("weight", weight)?;
 
-Chart::build(ds)? // or chart!(ds)?
+Chart::build(ds)? // Equivalent to chart!(ds)?
     .mark_point()?
     .encode((alt::x("height"), alt::y("weight")))?
     .save("out.svg")?;
@@ -96,7 +96,7 @@ let df = df![
 
 let ds = load_polars_df!(df)?;
 
-chart!(ds)? // or Chart::build(ds)?
+Chart::build(ds)? // Equivalent to chart!(ds)?
     .mark_point()?
     .encode((alt::x("height"), alt::y("weight")))?
     .save("out.svg")?;
