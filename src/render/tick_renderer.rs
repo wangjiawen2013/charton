@@ -2,7 +2,7 @@ use crate::Precision;
 use crate::chart::Chart;
 use crate::core::context::PanelContext;
 use crate::core::layer::{MarkRenderer, RectConfig, RenderBackend};
-use crate::core::utils::Parallelizable;
+use crate::core::utils::IntoParallelizable;
 use crate::error::ChartonError;
 use crate::mark::tick::MarkTick;
 use crate::visual::color::SingleColor;
@@ -16,7 +16,7 @@ use rayon::prelude::*;
 
 impl MarkRenderer for Chart<MarkTick> {
     /// Renders tick marks by transforming data points into thin rectangular geometries.
-    /// Uses group-based parallel processing to ensure deterministic rendering and performance.
+    /// Optimized with row-based parallel processing for independent geometry projection.
     fn render_marks(
         &self,
         backend: &mut dyn RenderBackend,
@@ -29,7 +29,7 @@ impl MarkRenderer for Chart<MarkTick> {
             return Ok(());
         }
 
-        // --- STEP 1: VALIDATION ---
+        // --- STEP 1: SPECIFICATION VALIDATION ---
         let x_enc = self
             .encoding
             .x
@@ -49,6 +49,7 @@ impl MarkRenderer for Chart<MarkTick> {
         let x_scale = context.coord.get_x_scale();
         let y_scale = context.coord.get_y_scale();
 
+        // Vectorized normalization of coordinates
         let x_norms = x_scale
             .scale_type()
             .normalize_column(x_scale, df_source.column(&x_enc.field)?);
@@ -56,85 +57,73 @@ impl MarkRenderer for Chart<MarkTick> {
             .scale_type()
             .normalize_column(y_scale, df_source.column(&y_enc.field)?);
 
-        // Pre-normalize color if mapping exists
+        // Pre-normalize color aesthetics if mapping exists
         let color_norms = context.spec.aesthetics.color.as_ref().map(|m| {
             let s = m.scale_impl.as_ref();
             s.scale_type()
                 .normalize_column(s, &df_source.column(&m.field).unwrap())
         });
 
-        // --- STEP 3: GROUPING (Determines Z-Index & Category Color) ---
-        let color_field = self.encoding.color.as_ref().map(|c| c.field.as_str());
-        let grouped_data = df_source.group_by(color_field);
-        let palette = &context.spec.theme.palette;
-
         let is_flipped = context.coord.is_flipped();
 
-        // --- STEP 4: MULTI-CORE PROCESSING PER GROUP ---
-        for (group_idx, (_name, row_indices)) in grouped_data.groups.iter().enumerate() {
-            // Resolve base color for this group
-            let base_group_color = if color_field.is_some() {
-                palette.get_color(group_idx)
-            } else {
-                mark_config.color
-            };
+        // --- STEP 3: PARALLEL GEOMETRY PROJECTION ---
+        // Ticks are independent rectangles; we calculate their bounds in parallel.
+        let render_configs: Vec<RectConfig> = (0..row_count)
+            .maybe_into_par_iter()
+            .filter_map(|i| {
+                let x_n = x_norms[i]?;
+                let y_n = y_norms[i]?;
 
-            // Calculate tick geometries in parallel
-            let render_configs: Vec<RectConfig> = row_indices
-                .maybe_par_iter()
-                .filter_map(|&i| {
-                    let x_n = x_norms[i]?;
-                    let y_n = y_norms[i]?;
+                // 1. Position: Transform normalized [0,1] to screen pixel space
+                let (px, py) = context.coord.transform(x_n, y_n, &context.panel);
 
-                    // Coordinate Projection
-                    let (px, py) = context.coord.transform(x_n, y_n, &context.panel);
+                // 2. Aesthetic Resolution: Resolve color using data mapping or fallback
+                let fill = self.resolve_color_from_value(
+                    color_norms.as_ref().and_then(|n| n[i]),
+                    context,
+                    &mark_config.color,
+                );
 
-                    // Resolve Color
-                    let fill = if let Some(ref norms) = color_norms {
-                        self.resolve_color_from_value(norms[i], context, &base_group_color)
-                    } else {
-                        base_group_color
-                    };
+                // 3. Tick Geometry Calculation:
+                // Ticks are rendered as thin rectangles.
+                // If not flipped: Vertical ticks (narrow width, tall height).
+                // If flipped: Horizontal ticks (wide width, narrow height).
+                let thickness = mark_config.thickness;
+                let band_size = mark_config.band_size;
 
-                    // Tick Geometry Calculation
-                    let thickness = mark_config.thickness;
-                    let band_size = mark_config.band_size;
+                let (rx, ry, rw, rh) = if !is_flipped {
+                    (
+                        px - thickness / 2.0,
+                        py - band_size / 2.0,
+                        thickness,
+                        band_size,
+                    )
+                } else {
+                    (
+                        px - band_size / 2.0,
+                        py - thickness / 2.0,
+                        band_size,
+                        thickness,
+                    )
+                };
 
-                    let (rx, ry, rw, rh) = if !is_flipped {
-                        // Vertical ticks: narrow width, tall height
-                        (
-                            px - thickness / 2.0,
-                            py - band_size / 2.0,
-                            thickness,
-                            band_size,
-                        )
-                    } else {
-                        // Horizontal ticks: wide width, narrow height
-                        (
-                            px - band_size / 2.0,
-                            py - thickness / 2.0,
-                            band_size,
-                            thickness,
-                        )
-                    };
-
-                    Some(RectConfig {
-                        x: rx as Precision,
-                        y: ry as Precision,
-                        width: rw as Precision,
-                        height: rh as Precision,
-                        fill,
-                        stroke: fill, // Border matches fill for ticks
-                        stroke_width: 0.0,
-                        opacity: mark_config.opacity as Precision,
-                    })
+                Some(RectConfig {
+                    x: rx as Precision,
+                    y: ry as Precision,
+                    width: rw as Precision,
+                    height: rh as Precision,
+                    fill,
+                    stroke: fill, // Ticks usually use fill for the "border" visual
+                    stroke_width: 0.0,
+                    opacity: mark_config.opacity as Precision,
                 })
-                .collect();
+            })
+            .collect();
 
-            // --- STEP 5: SEQUENTIAL DRAW DISPATCH ---
-            for config in render_configs {
-                backend.draw_rect(config);
-            }
+        // --- STEP 4: SEQUENTIAL DRAW DISPATCH ---
+        // Ticks are dispatched to the backend in deterministic data order.
+        for config in render_configs {
+            backend.draw_rect(config);
         }
 
         Ok(())
