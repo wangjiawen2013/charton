@@ -327,16 +327,14 @@ pub fn get_normalized_value(
 
         // --- 2. CONTINUOUS SCALES (Linear, Log, Temporal) ---
         // These all rely on f64 mapping (Temporal uses nanoseconds as f64).
-        _ => {
-            match value {
-                ExplicitTick::Continuous(v) => scale_trait.normalize(*v),
-                ExplicitTick::Timestamp(ns) => scale_trait.normalize(*ns as f64),
-                ExplicitTick::Temporal(dt) => {
-                    scale_trait.normalize(dt.unix_timestamp_nanos() as f64)
-                }
-                ExplicitTick::Discrete(_) => unreachable!("Discrete values are blocked for cotinuous scales by validataion"),
+        _ => match value {
+            ExplicitTick::Continuous(v) => scale_trait.normalize(*v),
+            ExplicitTick::Timestamp(ns) => scale_trait.normalize(*ns as f64),
+            ExplicitTick::Temporal(dt) => scale_trait.normalize(dt.unix_timestamp_nanos() as f64),
+            ExplicitTick::Discrete(_) => {
+                unreachable!("Discrete values are blocked for cotinuous scales by validataion")
             }
-        }
+        },
     }
 }
 
