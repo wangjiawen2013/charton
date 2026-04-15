@@ -334,11 +334,7 @@ pub fn get_normalized_value(
                 ExplicitTick::Temporal(dt) => {
                     scale_trait.normalize(dt.unix_timestamp_nanos() as f64)
                 }
-                // If a user provides a String for a numeric axis, try to parse it.
-                ExplicitTick::Discrete(s) => s
-                    .parse::<f64>()
-                    .map(|v| scale_trait.normalize(v))
-                    .unwrap_or(f64::NAN),
+                ExplicitTick::Discrete(_) => unreachable!("Discrete values are blocked for cotinuous scales by validataion"),
             }
         }
     }
