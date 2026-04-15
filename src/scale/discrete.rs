@@ -1,5 +1,5 @@
 use super::{ExplicitTick, Scale, ScaleDomain, ScaleTrait, Tick, mapper::VisualMapper};
-use std::collections::HashMap;
+use ahash::AHashMap;
 
 /// A scale for categorical data that maps discrete values to normalized slots.
 ///
@@ -15,7 +15,7 @@ pub struct DiscreteScale {
     domain: Vec<String>,
 
     /// A lookup map to provide O(1) performance when finding a category's index.
-    index_map: HashMap<String, usize>,
+    index_map: AHashMap<String, usize>,
 
     /// The expanded index boundaries: (min_idx, max_idx).
     /// Typically (-0.6, N - 1 + 0.6) to provide breathing room for visual marks
@@ -39,7 +39,7 @@ impl DiscreteScale {
         expansion: crate::scale::Expansion,
         mapper: Option<VisualMapper>,
     ) -> Self {
-        let mut index_map = HashMap::with_capacity(domain.len());
+        let mut index_map = AHashMap::with_capacity(domain.len());
         for (i, val) in domain.iter().enumerate() {
             index_map.insert(val.clone(), i);
         }
@@ -94,11 +94,12 @@ impl ScaleTrait for DiscreteScale {
     }
 
     /// Maps a string label to its normalized position.
-    /// Returns 0.0 if the category is not found in the domain.
+    /// Returns f64::NAN if the category is not found, allowing the
+    /// renderer to skip the mark rather than placing it at the origin.
     fn normalize_string(&self, value: &str) -> f64 {
         match self.index_map.get(value) {
             Some(&index) => self.normalize(index as f64),
-            None => 0.0,
+            None => f64::NAN,
         }
     }
 

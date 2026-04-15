@@ -4,7 +4,7 @@ use crate::core::context::PanelContext;
 use crate::core::layer::{
     CircleConfig, MarkRenderer, PointElementConfig, PolygonConfig, RectConfig, RenderBackend,
 };
-use crate::core::utils::Parallelizable;
+use crate::core::utils::IntoParallelizable;
 use crate::error::ChartonError;
 use crate::mark::point::MarkPoint;
 use crate::visual::color::SingleColor;
@@ -50,7 +50,7 @@ impl MarkRenderer for Chart<MarkPoint> {
             .ok_or_else(|| ChartonError::Mark("MarkPoint configuration is missing".into()))?;
 
         // --- STEP 2: POSITION & AESTHETIC NORMALIZATION ---
-        // Vectorized normalization via Polars columns.
+        // Vectorized normalization via Dataset columns.
         let x_norms = context
             .coord
             .get_x_scale()
@@ -81,69 +81,53 @@ impl MarkRenderer for Chart<MarkPoint> {
                 .normalize_column(s, &df_source.column(&m.field).unwrap())
         });
 
-        // --- STEP 3: GROUPING (Determines Z-Index & Category Color) ---
-        let color_field = self.encoding.color.as_ref().map(|c| c.field.as_str());
-        let grouped_data = df_source.group_by(color_field);
-        let palette = &context.spec.theme.palette;
+        // --- STEP 3: Calculate geometries in parallel. ---
+        let render_configs: Vec<PointElementConfig> = (0..row_count)
+            .maybe_into_par_iter()
+            .filter_map(|i| {
+                let x_n = x_norms[i]?;
+                let y_n = y_norms[i]?;
 
-        // --- STEP 4: MULTI-CORE PROCESSING PER GROUP ---
-        // We iterate sequentially through groups to respect "Order of Appearance" for Z-index,
-        // but process individual points within each group in parallel.
-        for (group_idx, (_name, row_indices)) in grouped_data.groups.iter().enumerate() {
-            // Resolve base color for this group (used for categorical grouping).
-            let base_group_color = if color_field.is_some() {
-                palette.get_color(group_idx)
-            } else {
-                mark_config.color
-            };
+                // 1. Position: convert normalized [0,1] to screen pixels.
+                let (px, py) = context.coord.transform(x_n, y_n, &context.panel);
 
-            // Calculate geometries in parallel.
-            let render_configs: Vec<PointElementConfig> = row_indices
-                .maybe_par_iter()
-                .filter_map(|&i| {
-                    let x_n = x_norms[i]?;
-                    let y_n = y_norms[i]?;
+                // 2. Aesthetics - Directly resolved from pre-calculated norms
+                // The ScaleTrait and VisualMapper already handle discrete vs continuous.
+                let fill = self.resolve_color_from_value(
+                    color_norms.as_ref().and_then(|n| n[i]),
+                    context,
+                    &mark_config.color,
+                );
 
-                    // Convert normalized [0,1] to screen pixels.
-                    let (px, py) = context.coord.transform(x_n, y_n, &context.panel);
+                let size = self.resolve_size_from_value(
+                    size_norms.as_ref().and_then(|n| n[i]),
+                    context,
+                    mark_config.size,
+                );
 
-                    // Resolve aesthetics (Priority: Scale Mapping > Group Color > Mark Default).
-                    let fill = if let Some(ref norms) = color_norms {
-                        self.resolve_color_from_value(norms[i], context, &base_group_color)
-                    } else {
-                        base_group_color
-                    };
+                let shape = self.resolve_shape_from_value(
+                    shape_norms.as_ref().and_then(|n| n[i]),
+                    context,
+                    mark_config.shape,
+                );
 
-                    let size = if let Some(ref norms) = size_norms {
-                        self.resolve_size_from_value(norms[i], context, mark_config.size)
-                    } else {
-                        mark_config.size
-                    };
-
-                    let shape = if let Some(ref norms) = shape_norms {
-                        self.resolve_shape_from_value(norms[i], context, mark_config.shape)
-                    } else {
-                        mark_config.shape
-                    };
-
-                    Some(PointElementConfig {
-                        x: px,
-                        y: py,
-                        shape,
-                        size,
-                        fill,
-                        stroke: mark_config.stroke,
-                        stroke_width: mark_config.stroke_width,
-                        opacity: mark_config.opacity,
-                    })
+                Some(PointElementConfig {
+                    x: px,
+                    y: py,
+                    shape,
+                    size,
+                    fill,
+                    stroke: mark_config.stroke,
+                    stroke_width: mark_config.stroke_width,
+                    opacity: mark_config.opacity,
                 })
-                .collect();
+            })
+            .collect();
 
-            // --- STEP 5: SEQUENTIAL DRAW DISPATCH ---
-            // Render the points for this group onto the backend.
-            for config in render_configs {
-                self.emit_draw_call(backend, config);
-            }
+        // --- STEP 4: SEQUENTIAL DRAW DISPATCH ---
+        // Render the points for this group onto the backend.
+        for config in render_configs {
+            self.emit_draw_call(backend, config);
         }
 
         Ok(())

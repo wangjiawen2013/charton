@@ -55,6 +55,9 @@ impl From<&str> for PathInterpolation {
 // MARK RENDERING
 // ============================================================================
 impl MarkRenderer for Chart<MarkLine> {
+    /// Transforms grouped raw data into connected paths (lines).
+    /// Handles aesthetics, statistical smoothing (LOESS), and interpolation
+    /// while maintaining Z-index order based on data appearance.
     fn render_marks(
         &self,
         backend: &mut dyn RenderBackend,
@@ -70,7 +73,7 @@ impl MarkRenderer for Chart<MarkLine> {
             .as_ref()
             .ok_or_else(|| ChartonError::Mark("MarkLine configuration is missing".into()))?;
 
-        // --- STEP 1: PRE-NORMALIZE COLUMNS ---
+        // --- STEP 1: SPECIFICATION VALIDATION & SCALING ---
         let x_enc = self
             .encoding
             .x
@@ -85,6 +88,7 @@ impl MarkRenderer for Chart<MarkLine> {
         let x_scale = context.coord.get_x_scale();
         let y_scale = context.coord.get_y_scale();
 
+        // Vectorized normalization of primary coordinates
         let x_norms = x_scale
             .scale_type()
             .normalize_column(x_scale, ds.column(&x_enc.field)?);
@@ -92,42 +96,29 @@ impl MarkRenderer for Chart<MarkLine> {
             .scale_type()
             .normalize_column(y_scale, ds.column(&y_enc.field)?);
 
-        let color_norms = if let Some(ref mapping) = context.spec.aesthetics.color {
-            let s_trait = mapping.scale_impl.as_ref();
-            Some(
-                s_trait
-                    .scale_type()
-                    .normalize_column(s_trait, ds.column(&mapping.field)?),
-            )
-        } else {
-            None
-        };
+        // Pre-normalize color column if a mapping exists (handles both Discrete and Continuous)
+        let color_norms = context.spec.aesthetics.color.as_ref().map(|m| {
+            let s = m.scale_impl.as_ref();
+            s.scale_type()
+                .normalize_column(s, ds.column(&m.field).unwrap())
+        });
 
-        // --- STEP 2: GROUPING ---
+        // --- STEP 2: GROUPING (Determining Path Separation) ---
+        // Groups are sorted by "First Appearance" to ensure deterministic Z-indexing.
         let group_field = context.spec.aesthetics.color.as_ref().map(|c| &c.field);
         let grouped_indices = ds.group_by(group_field.map(|s| s.as_str()));
 
-        // Access global theme palette
-        let palette = &context.spec.theme.palette;
-
-        // --- STEP 3: PARALLEL PATH PROCESSING ---
-        let x_ref = &x_norms;
-        let y_ref = &y_norms;
-        let c_ref = color_norms.as_ref();
-
-        // We use maybe_par_iter().enumerate() to maintain the "Order of Appearance"
-        // while calculating line paths in parallel.
+        // --- STEP 3: PARALLEL PATH CALCULATION ---
         let line_render_data: Vec<_> = grouped_indices
             .groups
             .maybe_par_iter()
-            .enumerate() // group_idx matches the order in grouped_indices.groups
-            .filter_map(|(group_idx, (_group_key, row_indices))| {
-                let &first_idx = row_indices.first()?;
+            .filter_map(|(_group_key, row_indices)| {
+                let first_idx = *row_indices.first()?;
 
-                // 3.1 & 3.2 Extraction and Sorting:
+                // 3.1 Data Extraction: Filter out rows with missing X or Y values
                 let mut points: Vec<(f64, f64)> = row_indices
                     .iter()
-                    .filter_map(|&idx| match (x_ref[idx], y_ref[idx]) {
+                    .filter_map(|&idx| match (x_norms[idx], y_norms[idx]) {
                         (Some(xn), Some(yn)) => Some((xn, yn)),
                         _ => None,
                     })
@@ -137,10 +128,10 @@ impl MarkRenderer for Chart<MarkLine> {
                     return None;
                 }
 
-                // Line marks usually require sorting by X to be monotonic.
+                // 3.2 Sorting: Ensure line monotonicity along the X-axis
                 points.sort_by(|a, b| a.0.partial_cmp(&b.0).unwrap_or(std::cmp::Ordering::Equal));
 
-                // 3.3 Statistical Smoothing (LOESS):
+                // 3.3 Statistical Smoothing: Optional LOESS processing
                 let proc_points = if mark_config.loess {
                     let xs: Vec<f64> = points.iter().map(|p| p.0).collect();
                     let ys: Vec<f64> = points.iter().map(|p| p.1).collect();
@@ -151,51 +142,44 @@ impl MarkRenderer for Chart<MarkLine> {
                     points
                 };
 
-                // 3.4 & 3.5 Projection and Interpolation:
-                let projected_iter = proc_points
+                // 3.4 Projection: Convert normalized coordinates to pixel space
+                let projected: Vec<(f64, f64)> = proc_points
                     .into_iter()
-                    .map(|(xn, yn)| context.coord.transform(xn, yn, &context.panel));
-
-                let expanded: Vec<(f64, f64)> = match mark_config.interpolation {
-                    PathInterpolation::Linear => projected_iter.collect(),
-                    PathInterpolation::StepAfter => {
-                        self.expand_step_after(projected_iter.collect())
-                    }
-                    PathInterpolation::StepBefore => {
-                        self.expand_step_before(projected_iter.collect())
-                    }
-                };
-
-                // 3.6 Cast to Backend Precision:
-                let final_points: Vec<(Precision, Precision)> = expanded
-                    .into_iter()
-                    .map(|(px, py)| (px as Precision, py as Precision))
+                    .map(|(xn, yn)| context.coord.transform(xn, yn, &context.panel))
                     .collect();
 
-                // 3.7 Color Resolution:
-                // If no explicit color mapping exists, use group_idx to pick from the palette.
-                // This ensures the 1st group seen in data gets the 1st color.
-                let final_color = if let Some(norms) = c_ref {
-                    let norm_color = norms[first_idx];
-                    self.resolve_color_from_value(norm_color, context, &mark_config.color)
-                } else if group_field.is_some() {
-                    palette.get_color(group_idx)
-                } else {
-                    mark_config.color
+                // 3.5 Interpolation: Expand points for Step-before/after paths
+                let expanded = match mark_config.interpolation {
+                    PathInterpolation::Linear => projected,
+                    PathInterpolation::StepAfter => self.expand_step_after(projected),
+                    PathInterpolation::StepBefore => self.expand_step_before(projected),
                 };
 
-                Some((final_points, final_color))
+                // 3.6 Unified Aesthetic Resolution:
+                // We resolve the color based on the first point's normalized value.
+                // This ensures symmetry with PointMark behavior.
+                let final_color = self.resolve_color_from_value(
+                    color_norms.as_ref().and_then(|n| n[first_idx]),
+                    context,
+                    &mark_config.color,
+                );
+
+                Some((expanded, final_color))
             })
             .collect();
 
-        // --- STEP 4: SEQUENTIAL DRAWING ---
-        // Drawing must be sequential to respect the Z-index defined by the group order.
+        // --- STEP 4: SEQUENTIAL DRAW DISPATCH ---
+        // Lines are drawn in sequence to respect the Z-order established by grouping.
         for (points, color) in line_render_data {
             if points.is_empty() {
                 continue;
             }
+
             backend.draw_path(PathConfig {
-                points,
+                points: points
+                    .into_iter()
+                    .map(|(px, py)| (px as Precision, py as Precision))
+                    .collect(),
                 stroke: color,
                 stroke_width: mark_config.stroke_width as Precision,
                 opacity: mark_config.opacity as Precision,

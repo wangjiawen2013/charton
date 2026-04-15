@@ -411,77 +411,81 @@ impl<T: Mark> Chart<T> {
         Ok(())
     }
 
-    /// Infers the semantic scale type (Linear, Discrete, or Temporal) for all active
-    /// encoding channels.
+    /// Infers or validates the semantic scale type (Linear, Discrete, or Temporal)
+    /// for all active encoding channels.
     ///
-    /// This version is "transformation-aware": if a field is not yet present in the
-    /// dataset schema (likely a generated column like 'ecdf' or 'count'), it skips
-    /// inference for that field without returning an error. This allows a second
-    /// pass to resolve these types after transformations are applied.
+    /// This implementation follows three key principles:
+    /// 1. **User Intent First**: If a user manually set a `scale_type`, we respect it.
+    /// 2. **Type Safety**: We validate that the data column is compatible with the
+    ///    chosen scale (e.g., prevent String data from using a Linear scale).
+    /// 3. **Transformation Awareness**: If a field is missing (generated later by
+    ///    stats), we skip it for a second pass.
     fn resolve_semantic_types(&mut self) -> Result<(), ChartonError> {
-        // Helper closure to safely infer scale type
-        let infer_scale = |field: &str| -> Result<Option<Scale>, ChartonError> {
-            // Handle virtual/empty columns (common in Pie charts)
+        // A helper to determine the final scale type based on user intent and data reality.
+        let resolve_channel_scale = |field: &str,
+                                     manual_scale: Option<Scale>|
+         -> Result<Option<Scale>, ChartonError> {
+            // Handle virtual/placeholder columns
             if field.is_empty() {
                 return Ok(Some(Scale::Discrete));
             }
 
-            // Check if the column exists in the current schema.
-            // If it doesn't exist yet, it is treated as a "future" generated column.
+            // If field doesn't exist yet, it might be a generated column (e.g., binning, ecdf).
+            // Defer inference to the next pass.
             if !self.data.schema.contains_key(field) {
-                return Ok(None);
+                return Ok(manual_scale);
             }
 
-            // Column exists, so determine its type from metadata.
-            // We use the existing .column() method which is safe now.
             let col = self.data.column(field)?;
-            Ok(Some(match col.semantic_type() {
+            let inferred = match col.semantic_type() {
                 SemanticType::Continuous => Scale::Linear,
                 SemanticType::Discrete => Scale::Discrete,
                 SemanticType::Temporal => Scale::Temporal,
-            }))
+            };
+
+            // --- VALIDATION LOGIC ---
+            if let Some(requested) = manual_scale {
+                match (col.semantic_type(), &requested) {
+                    // ILLEGAL: String/Categorical data cannot be mapped to a continuous mathematical axis.
+                    (SemanticType::Discrete, Scale::Linear)
+                    | (SemanticType::Discrete, Scale::Log)
+                    | (SemanticType::Discrete, Scale::Temporal) => {
+                        return Err(ChartonError::Encoding(format!(
+                            "Field '{}' is categorical (String) and cannot be used with a continuous Scale ({:?}).",
+                            field, requested
+                        )));
+                    }
+                    // LEGAL: Numbers can be treated as Discrete categories (e.g., Year 2024 -> "2024").
+                    // LEGAL: Temporal data can be treated as Linear (using timestamps) or Discrete.
+                    _ => Ok(Some(requested)),
+                }
+            } else {
+                // No user override, use the inferred type from data.
+                Ok(Some(inferred))
+            }
         };
 
-        // Apply inference to each channel only if the scale_type is not already set.
-        // This respects manual user overrides while filling in the blanks.
+        // Apply the resolution logic to all active encoding channels.
+        // We update the Option<Scale> in place.
+
         if let Some(ref mut x) = self.encoding.x {
-            if x.scale_type.is_none() {
-                if let Some(st) = infer_scale(&x.field)? {
-                    x.scale_type = Some(st);
-                }
-            }
+            x.scale_type = resolve_channel_scale(&x.field, x.scale_type.clone())?;
         }
 
         if let Some(ref mut y) = self.encoding.y {
-            if y.scale_type.is_none() {
-                if let Some(st) = infer_scale(&y.field)? {
-                    y.scale_type = Some(st);
-                }
-            }
+            y.scale_type = resolve_channel_scale(&y.field, y.scale_type.clone())?;
         }
 
         if let Some(ref mut color) = self.encoding.color {
-            if color.scale_type.is_none() {
-                if let Some(st) = infer_scale(&color.field)? {
-                    color.scale_type = Some(st);
-                }
-            }
+            color.scale_type = resolve_channel_scale(&color.field, color.scale_type.clone())?;
         }
 
         if let Some(ref mut size) = self.encoding.size {
-            if size.scale_type.is_none() {
-                if let Some(st) = infer_scale(&size.field)? {
-                    size.scale_type = Some(st);
-                }
-            }
+            size.scale_type = resolve_channel_scale(&size.field, size.scale_type.clone())?;
         }
 
         if let Some(ref mut shape) = self.encoding.shape {
-            if shape.scale_type.is_none() {
-                if let Some(st) = infer_scale(&shape.field)? {
-                    shape.scale_type = Some(st);
-                }
-            }
+            shape.scale_type = resolve_channel_scale(&shape.field, shape.scale_type.clone())?;
         }
 
         Ok(())
@@ -750,26 +754,34 @@ where
         })?;
 
         let primary_series = self.data.column(field_name)?;
-        let semantic_type = primary_series.semantic_type();
 
-        match semantic_type {
+        // --- Determine the active scale type (User Override > Inferred) ---
+        // This ensures if a user sets alt::color("year").scale_type(Scale::Discrete),
+        // we treat it as Discrete here.
+        let active_scale = self.encoding.get_scale_by_channel(channel).ok_or_else(|| {
+            ChartonError::Internal(format!(
+                "Scale type for channel {:?} must be resolved before calling get_data_bounds",
+                channel
+            ))
+        })?;
+
+        match active_scale {
             // --- DISCRETE DOMAIN ---
-            // Used for Categorical data (Strings/Booleans). Returns a list of unique labels.
-            SemanticType::Discrete => {
+            // Triggered if Scale is Discrete (even if data is numeric).
+            Scale::Discrete => {
                 let labels = primary_series.unique_values();
                 Ok(ScaleDomain::Discrete(labels))
             }
 
             // --- TEMPORAL DOMAIN ---
-            // Used for Date/Time data. Returns a range (min, max) in Unix timestamps.
-            SemanticType::Temporal => {
+            // Triggered if Scale is Temporal. Returns a range (min, max) in Unix timestamps.
+            Scale::Temporal => {
                 let (min_ts, max_ts) = primary_series.min_max();
                 Ok(ScaleDomain::Temporal(min_ts as i64, max_ts as i64))
             }
 
-            // --- CONTINUOUS DOMAIN ---
-            // Used for Numerical data. Returns a floating-point range (min, max).
-            SemanticType::Continuous => {
+            // --- CONTINUOUS DOMAIN (Linear, Log, Sqrt, etc.) ---
+            _ => {
                 let mut global_min = f64::INFINITY;
                 let mut global_max = f64::NEG_INFINITY;
                 let mut found_data = false;
@@ -779,8 +791,6 @@ where
                 let is_errorbar = matches!(mark_type, Some("errorbar"));
 
                 // --- STEP 1: Priority Check for Pre-computed Columns (Area & ErrorBar) ---
-                // For statistical or layout-heavy marks, the true visual bounds are stored
-                // in hidden temporary columns (e.g., stacked values or mean +/- std dev).
                 if (is_area || is_errorbar) && channel == Channel::Y {
                     let y_field = &self.encoding.y.as_ref().unwrap().field;
                     let temp_min_col = format!("{}_{}_min", TEMP_SUFFIX, y_field);
@@ -789,7 +799,6 @@ where
                     for col_name in [&temp_min_col, &temp_max_col] {
                         if let Ok(series) = self.data.column(col_name) {
                             let (m_min, m_max) = series.min_max();
-                            // Ignore NaNs as they may appear in empty groups or failed calculations
                             if !m_min.is_nan() {
                                 global_min = global_min.min(m_min);
                                 found_data = true;
@@ -813,8 +822,6 @@ where
                         && self.encoding.color.is_some();
 
                     if is_y_stacked {
-                        // Dynamic stacking for non-area marks (e.g., Stacked Bar charts).
-                        // We calculate the sum per category to find the height of the stacks.
                         let x_field = &self.encoding.x.as_ref().unwrap().field;
                         let y_field = &self.encoding.y.as_ref().unwrap().field;
 
@@ -837,8 +844,6 @@ where
                             found_data = true;
                         }
                     } else {
-                        // Standard scanning for marks like Line or Point.
-                        // We check the primary field and potential secondary field (y2).
                         let mut columns_to_scan = Vec::new();
                         columns_to_scan.push(field_name.to_string());
 
@@ -865,7 +870,6 @@ where
                 }
 
                 // --- STEP 3: Final Fallbacks and Scale Adjustments ---
-                // If no data columns were found, default to the primary series' own bounds.
                 if !found_data {
                     let (p_min, p_max) = primary_series.min_max();
                     global_min = p_min;
@@ -873,8 +877,6 @@ where
                 }
 
                 // --- HALF-BIN COMPENSATION ---
-                // For binned/histogram data, the points represent bin centers.
-                // Expand by half a bin width so the visual mark doesn't clip.
                 let bins = match channel {
                     Channel::X => self.encoding.x.as_ref().and_then(|e| e.bins),
                     Channel::Y => self.encoding.y.as_ref().and_then(|e| e.bins),
@@ -890,7 +892,6 @@ where
                 }
 
                 // --- ZERO BASELINE ---
-                // Force the scale to include 0.0 if requested (crucial for Bar charts).
                 if self.encoding.get_zero_by_channel(channel) {
                     global_min = global_min.min(0.0);
                     global_max = global_max.max(0.0);

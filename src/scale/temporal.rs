@@ -210,7 +210,7 @@ impl ScaleTrait for TemporalScale {
 
     /// Unused for temporal scales as they are numeric-based.
     fn normalize_string(&self, _value: &str) -> f64 {
-        0.0
+        f64::NAN
     }
 
     fn domain(&self) -> (f64, f64) {
