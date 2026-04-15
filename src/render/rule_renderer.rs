@@ -2,7 +2,7 @@ use crate::Precision;
 use crate::chart::Chart;
 use crate::core::context::PanelContext;
 use crate::core::layer::{LineConfig, MarkRenderer, RenderBackend};
-use crate::core::utils::Parallelizable;
+use crate::core::utils::IntoParallelizable;
 use crate::error::ChartonError;
 use crate::mark::rule::MarkRule;
 use crate::visual::color::SingleColor;
@@ -15,8 +15,12 @@ use rayon::prelude::*;
 // ============================================================================
 
 impl MarkRenderer for Chart<MarkRule> {
-    /// Renders rule marks (straight lines spanning a specific range).
-    /// Optimized with parallel geometry projection and deterministic grouping.
+    /// Renders "Rule" marks, which are straight line segments typically used for
+    /// axis rulers, error bars, or range indicators.
+    ///
+    /// This implementation uses a row-independent parallel approach (similar to PointMark)
+    /// because each rule is a standalone geometry that doesn't require connecting
+    /// points or path interpolation.
     fn render_marks(
         &self,
         backend: &mut dyn RenderBackend,
@@ -29,7 +33,7 @@ impl MarkRenderer for Chart<MarkRule> {
             return Ok(());
         }
 
-        // --- STEP 1: VALIDATION ---
+        // --- STEP 1: SPECIFICATION VALIDATION ---
         let x_enc = self
             .encoding
             .x
@@ -49,6 +53,7 @@ impl MarkRenderer for Chart<MarkRule> {
         let x_scale = context.coord.get_x_scale();
         let y_scale = context.coord.get_y_scale();
 
+        // Vectorized normalization of coordinates
         let x_norms = x_scale
             .scale_type()
             .normalize_column(x_scale, df_source.column(&x_enc.field)?);
@@ -56,82 +61,67 @@ impl MarkRenderer for Chart<MarkRule> {
             .scale_type()
             .normalize_column(y_scale, df_source.column(&y_enc.field)?);
 
-        // Normalize Y2 if provided; otherwise we'll default to 1.0 during projection
+        // Normalize Y2 if provided; defaults to 1.0 (top of the scale) for vertical rules
         let y2_norms = self.encoding.y2.as_ref().map(|e| {
             y_scale
                 .scale_type()
                 .normalize_column(y_scale, &df_source.column(&e.field).unwrap())
         });
 
-        // Pre-normalize color if mapping exists
+        // Pre-normalize color aesthetics for data-driven mapping
         let color_norms = context.spec.aesthetics.color.as_ref().map(|m| {
             let s = m.scale_impl.as_ref();
             s.scale_type()
                 .normalize_column(s, &df_source.column(&m.field).unwrap())
         });
 
-        // --- STEP 3: GROUPING (Determines Z-Index & Category Color) ---
-        let color_field = self.encoding.color.as_ref().map(|c| c.field.as_str());
-        let grouped_data = df_source.group_by(color_field);
-        let palette = &context.spec.theme.palette;
-
         let is_flipped = context.coord.is_flipped();
 
-        // --- STEP 4: MULTI-CORE PROCESSING PER GROUP ---
-        for (group_idx, (_name, row_indices)) in grouped_data.groups.iter().enumerate() {
-            let base_group_color = if color_field.is_some() {
-                palette.get_color(group_idx)
-            } else {
-                mark_config.color
-            };
+        // --- STEP 3: PARALLEL GEOMETRY PROJECTION ---
+        let render_configs: Vec<LineConfig> = (0..row_count)
+            .maybe_into_par_iter()
+            .filter_map(|i| {
+                let x_n = x_norms[i]?;
+                let yn1 = y1_norms[i]?;
+                let yn2 = y2_norms.as_ref().and_then(|ns| ns[i]).unwrap_or(1.0);
 
-            // Calculate rule geometries in parallel
-            let render_configs: Vec<LineConfig> = row_indices
-                .maybe_par_iter()
-                .filter_map(|&i| {
-                    let x_n = x_norms[i]?;
-                    let yn1 = y1_norms[i]?;
+                // Transform normalized coordinates [0, 1] to screen pixel space
+                let (p1_x, p1_y) = context.coord.transform(x_n, yn1, &context.panel);
+                let (p2_x, p2_y) = context.coord.transform(x_n, yn2, &context.panel);
 
-                    // Requirement: Default to 1.0 if y2 is missing
-                    let yn2 = y2_norms.as_ref().and_then(|ns| ns[i]).unwrap_or(1.0);
+                // Determine orientation based on coordinate system flipping:
+                // Standard: Constant X, Y spans from y1 to y2 (Vertical Rule)
+                // Flipped: Constant Y, X spans from x1 to x2 (Horizontal Rule)
+                let (x1, y1, x2, y2) = if !is_flipped {
+                    (p1_x, p1_y, p1_x, p2_y)
+                } else {
+                    (p1_x, p1_y, p2_x, p1_y)
+                };
 
-                    // Project endpoints to physical pixels
-                    let (p1_x, p1_y) = context.coord.transform(x_n, yn1, &context.panel);
-                    let (p2_x, p2_y) = context.coord.transform(x_n, yn2, &context.panel);
+                // Resolve color: Priority is Data Mapping > Mark Config Fallback
+                let final_color = self.resolve_color_from_value(
+                    color_norms.as_ref().and_then(|n| n[i]),
+                    context,
+                    &mark_config.color,
+                );
 
-                    // Correct orientation based on coord_flip logic:
-                    // Standard: Constant X, Y ranges from y1 to y2 (Vertical)
-                    // Flipped: Constant Y, X ranges from x1 to x2 (Horizontal)
-                    let (final_x1, final_y1, final_x2, final_y2) = if !is_flipped {
-                        (p1_x, p1_y, p1_x, p2_y)
-                    } else {
-                        (p1_x, p1_y, p2_x, p1_y)
-                    };
-
-                    // Resolve color (Continuous scale mapping vs Group fallback)
-                    let line_color = if let Some(ref norms) = color_norms {
-                        self.resolve_color_from_value(norms[i], context, &base_group_color)
-                    } else {
-                        base_group_color
-                    };
-
-                    Some(LineConfig {
-                        x1: final_x1 as Precision,
-                        y1: final_y1 as Precision,
-                        x2: final_x2 as Precision,
-                        y2: final_y2 as Precision,
-                        color: line_color,
-                        width: mark_config.stroke_width as Precision,
-                        opacity: mark_config.opacity as Precision,
-                        dash: vec![],
-                    })
+                Some(LineConfig {
+                    x1: x1 as Precision,
+                    y1: y1 as Precision,
+                    x2: x2 as Precision,
+                    y2: y2 as Precision,
+                    color: final_color,
+                    width: mark_config.stroke_width as Precision,
+                    opacity: mark_config.opacity as Precision,
+                    dash: vec![],
                 })
-                .collect();
+            })
+            .collect();
 
-            // --- STEP 5: SEQUENTIAL DRAW ---
-            for config in render_configs {
-                backend.draw_line(config);
-            }
+        // --- STEP 4: SEQUENTIAL DRAW DISPATCH ---
+        // Lines are drawn in original data order to maintain deterministic Z-indexing.
+        for config in render_configs {
+            backend.draw_line(config);
         }
 
         Ok(())

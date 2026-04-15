@@ -88,7 +88,7 @@ impl ScaleTrait for LinearScale {
 
     /// Continuous linear scales return a fallback for categorical string inputs.
     fn normalize_string(&self, _value: &str) -> f64 {
-        0.0
+        f64::NAN
     }
 
     /// Returns the data boundaries used by this scale.

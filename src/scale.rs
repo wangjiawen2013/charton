@@ -9,7 +9,7 @@ use self::linear::LinearScale;
 use self::log::LogScale;
 use self::mapper::VisualMapper;
 use self::temporal::TemporalScale;
-use crate::core::utils::{IntoParallelizable, Parallelizable};
+use crate::core::utils::IntoParallelizable;
 use crate::error::ChartonError;
 use std::sync::{Arc, RwLock};
 use time::OffsetDateTime;
@@ -146,73 +146,29 @@ impl Scale {
     /// This method maps raw data values to the normalized [0, 1] coordinate space.
     /// It leverages `rayon` for parallel processing to ensure low latency even with
     /// massive datasets (millions of rows).
+    /// High-performance normalization of an entire ColumnVector into a vector of f64.
     pub fn normalize_column(
         &self,
         scale_trait: &dyn ScaleTrait,
         column: &crate::core::data::ColumnVector,
     ) -> Vec<Option<f64>> {
-        use crate::core::data::ColumnVector;
+        (0..column.len())
+            .maybe_into_par_iter()
+            .map(|i| {
+                match self {
+                    // Discrete scale: Force everything to string and normalize.
+                    Scale::Discrete => column.get_str(i).map(|s| scale_trait.normalize_string(&s)),
 
-        match (self, column) {
-            // --- 1. FAST PATH: F64 Continuous Memory Access (Maximum Performance) ---
-            (Scale::Linear | Scale::Log, ColumnVector::F64 { data }) => {
-                data.maybe_par_iter()
-                    .map(|&v| {
-                        // NaN check acts as our null check.
-                        // This is extremely fast on modern hardware.
-                        if !v.is_nan() {
-                            Some(scale_trait.normalize(v))
-                        } else {
-                            None
-                        }
-                    })
-                    .collect()
-            }
-            // --- 2. Discrete / Categorical Scale ---
-            // Maps unique string labels to equidistant points in [0, 1].
-            (Scale::Discrete, ColumnVector::String { data, validity }) => {
-                data.maybe_par_iter() // Parallel iteration over strings
-                    .enumerate()
-                    .map(|(i, s)| {
-                        if ColumnVector::is_valid_in_mask(validity, i) {
-                            Some(scale_trait.normalize_string(s))
-                        } else {
-                            None // Represents a null/missing value in the chart
-                        }
-                    })
-                    .collect()
-            }
+                    // Continuous scales (Linear/Log): Use the numerical interface.
+                    Scale::Linear | Scale::Log => {
+                        column.get_f64(i).map(|v| scale_trait.normalize(v))
+                    }
 
-            // --- 3. Temporal / Time Scale ---
-            // Converts high-precision DateTimes to nanosecond timestamps before normalization.
-            (Scale::Temporal, ColumnVector::DateTime { data, validity }) => {
-                data.maybe_par_iter() // Parallel iteration over OffsetDateTime objects
-                    .enumerate()
-                    .map(|(i, dt)| {
-                        if ColumnVector::is_valid_in_mask(validity, i) {
-                            // Normalize based on Unix nanoseconds to maintain sub-second precision
-                            Some(scale_trait.normalize(dt.unix_timestamp_nanos() as f64))
-                        } else {
-                            None
-                        }
-                    })
-                    .collect()
-            }
-
-            // --- 4. GENERIC PATH: Other Numerical Types (F32, I64, I32, U32) ---
-            // Use the range-based parallel iterator as a fallback.
-            // col.get_f64(i) internally handles both type casting and bitmask lookups.
-            (_, col) => {
-                // Creates a parallel range to iterate by index, fetching data safely
-                (0..col.len())
-                    .maybe_into_par_iter()
-                    .map(|i| {
-                        // col.get_f64(i) handles type casting and validity bitmask internally
-                        col.get_f64(i).map(|v| scale_trait.normalize(v))
-                    })
-                    .collect()
-            }
-        }
+                    // Temporal scale: Also uses get_f64 (which returns nanoseconds).
+                    Scale::Temporal => column.get_f64(i).map(|v| scale_trait.normalize(v)),
+                }
+            })
+            .collect()
     }
 }
 
@@ -342,55 +298,49 @@ pub fn create_scale(
 /// Utility for extracting a normalized [0, 1] value from an `ExplicitTick`.
 ///
 /// This function acts as a bridge between raw data variants and the mathematical
-/// scale logic. It follows a "best-effort" conversion strategy:
-/// - **Discrete Scales**: Converts any input to a string to perform categorical mapping.
-/// - **Continuous Scales**: Attempts to treat the input as a numerical value (f64),
-///   falling back to 0.0 if the conversion is impossible.
+/// scale logic, enforcing the "Interpretation Mode" dictated by the scale type:
+///
+/// - **Discrete Scales**: Operates in "Universal Discrete" mode. Every input variant
+///   is coerced into its string representation to be mapped against categorical labels.
+/// - **Continuous Scales (Linear, Log, Temporal)**: Treats inputs as numerical values.
+///   Temporal types are converted to nanosecond-precision floats.
+///
+/// Returns `f64::NAN` if the conversion is impossible or the value cannot be mapped,
+/// ensuring invalid data is safely ignored by the renderer rather than defaulting to the origin.
 pub fn get_normalized_value(
     scale_trait: &dyn ScaleTrait,
     scale_type: &Scale,
     value: &ExplicitTick,
 ) -> f64 {
-    match (scale_type, value) {
-        // --- SECTION 1: THE HAPPY PATH (Standard Operations) ---
-
-        // 1.1 Discrete Mapping: Map string labels to their coordinates.
-        (Scale::Discrete, ExplicitTick::Discrete(s)) => scale_trait.normalize_string(s),
-
-        // 1.2 Continuous Mapping: Linear or Log scales using f64.
-        (Scale::Linear | Scale::Log, ExplicitTick::Continuous(v)) => scale_trait.normalize(*v),
-
-        // 1.3 Temporal Mapping: Using high-precision timestamps.
-        (Scale::Temporal, ExplicitTick::Timestamp(ns)) => scale_trait.normalize(*ns as f64),
-        (Scale::Temporal, ExplicitTick::Temporal(dt)) => {
-            scale_trait.normalize(dt.unix_timestamp_nanos() as f64)
+    match scale_type {
+        // --- 1. DISCRETE SCALE ---
+        // Mirroring the 'Universal Discrete' logic: everything is a string.
+        Scale::Discrete => {
+            let label = match value {
+                ExplicitTick::Discrete(s) => s.clone(),
+                ExplicitTick::Continuous(v) => v.to_string(),
+                ExplicitTick::Timestamp(ts) => ts.to_string(),
+                ExplicitTick::Temporal(dt) => dt.to_string(),
+            };
+            scale_trait.normalize_string(&label)
         }
 
-        // --- SECTION 2: THE RECOVERY PATH (Handling User Misconfigurations) ---
-
-        // 2.1 Coercion to Discrete: Treating numbers/dates as strings if passed to a Discrete axis.
-        // This mirrors ggplot2's behavior: silently stringifying values to keep rendering alive.
-        (Scale::Discrete, ExplicitTick::Continuous(v)) => {
-            scale_trait.normalize_string(&v.to_string())
+        // --- 2. CONTINUOUS SCALES (Linear, Log, Temporal) ---
+        // These all rely on f64 mapping (Temporal uses nanoseconds as f64).
+        _ => {
+            match value {
+                ExplicitTick::Continuous(v) => scale_trait.normalize(*v),
+                ExplicitTick::Timestamp(ns) => scale_trait.normalize(*ns as f64),
+                ExplicitTick::Temporal(dt) => {
+                    scale_trait.normalize(dt.unix_timestamp_nanos() as f64)
+                }
+                // If a user provides a String for a numeric axis, try to parse it.
+                ExplicitTick::Discrete(s) => s
+                    .parse::<f64>()
+                    .map(|v| scale_trait.normalize(v))
+                    .unwrap_or(f64::NAN),
+            }
         }
-        (Scale::Discrete, ExplicitTick::Timestamp(ts)) => {
-            scale_trait.normalize_string(&ts.to_string())
-        }
-        (Scale::Discrete, ExplicitTick::Temporal(dt)) => {
-            scale_trait.normalize_string(&dt.to_string())
-        }
-
-        // 2.2 Coercion to Continuous: Attempt to parse strings as f64 if passed to a numeric axis.
-        (Scale::Linear | Scale::Log, ExplicitTick::Discrete(s)) => {
-            s.parse::<f64>()
-                .map(|v| scale_trait.normalize(v))
-                .unwrap_or(0.0) // Fallback to 0.0 if parsing fails.
-        }
-
-        // --- SECTION 3: SAFETY NET (Fallback) ---
-
-        // Default catch-all for fundamentally incompatible combinations.
-        _ => 0.0,
     }
 }
 

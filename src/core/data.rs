@@ -476,54 +476,96 @@ impl ColumnVector {
 
     /// Returns a stable, unique list of values as Strings for Discrete scales.
     ///
-    /// This is ONLY intended for Discrete (Categorical) axes. For performance,
-    /// it only handles types that are commonly used as categories.
+    /// This method treats the column data as categorical labels, regardless of
+    /// the underlying storage type (numeric, string, or temporal). It preserves
+    /// the "First Appearance" order to ensure stable visual mapping.
     pub fn unique_values(&self) -> Vec<String> {
         let mut result = Vec::new();
+        let mut seen = AHashSet::new();
 
         match self {
-            // String is the primary candidate for Discrete scales.
+            // F64 uses NaN to represent nulls.
+            ColumnVector::F64 { data } => {
+                for &v in data {
+                    if !v.is_nan() {
+                        let s = v.to_string();
+                        if seen.insert(s.clone()) {
+                            result.push(s);
+                        }
+                    }
+                }
+            }
+
+            // F32 uses NaN to represent nulls.
+            ColumnVector::F32 { data } => {
+                for &v in data {
+                    if !v.is_nan() {
+                        let s = v.to_string();
+                        if seen.insert(s.clone()) {
+                            result.push(s);
+                        }
+                    }
+                }
+            }
+
+            // I64 uses a bitmask (1 = Valid, 0 = Null).
+            ColumnVector::I64 { data, validity } => {
+                for (i, &v) in data.iter().enumerate() {
+                    if Self::is_valid_in_mask(validity, i) {
+                        let s = v.to_string();
+                        if seen.insert(s.clone()) {
+                            result.push(s);
+                        }
+                    }
+                }
+            }
+
+            // I32 uses a bitmask.
+            ColumnVector::I32 { data, validity } => {
+                for (i, &v) in data.iter().enumerate() {
+                    if Self::is_valid_in_mask(validity, i) {
+                        let s = v.to_string();
+                        if seen.insert(s.clone()) {
+                            result.push(s);
+                        }
+                    }
+                }
+            }
+
+            // U32 uses a bitmask.
+            ColumnVector::U32 { data, validity } => {
+                for (i, &v) in data.iter().enumerate() {
+                    if Self::is_valid_in_mask(validity, i) {
+                        let s = v.to_string();
+                        if seen.insert(s.clone()) {
+                            result.push(s);
+                        }
+                    }
+                }
+            }
+
+            // String uses a bitmask.
             ColumnVector::String { data, validity } => {
-                let mut seen = AHashSet::new();
                 for (i, s) in data.iter().enumerate() {
                     if Self::is_valid_in_mask(validity, i) {
-                        if seen.insert(s) {
+                        if seen.insert(s.clone()) {
                             result.push(s.clone());
                         }
                     }
                 }
             }
 
-            // Integers can often act as Discrete categories (e.g., Year, ID, Group Number).
-            ColumnVector::I64 { data, validity } => {
-                let mut seen = AHashSet::new();
-                for (i, &v) in data.iter().enumerate() {
+            // DateTime uses a bitmask.
+            // We convert OffsetDateTime to a stable string representation.
+            ColumnVector::DateTime { data, validity } => {
+                for (i, dt) in data.iter().enumerate() {
                     if Self::is_valid_in_mask(validity, i) {
-                        if seen.insert(v) {
-                            result.push(v.to_string());
+                        let s = dt.to_string();
+                        if seen.insert(s.clone()) {
+                            result.push(s);
                         }
                     }
                 }
-            }
-
-            // For I32/U32, the logic is identical.
-            ColumnVector::I32 { data, validity } => {
-                let mut seen = AHashSet::new();
-                for (i, &v) in data.iter().enumerate() {
-                    if Self::is_valid_in_mask(validity, i) {
-                        if seen.insert(v) {
-                            result.push(v.to_string());
-                        }
-                    }
-                }
-            }
-
-            // We skip F64/F32 in unique_values.
-            // If a user forces a Float column to be Discrete, they should
-            // usually bin it first or cast it to String.
-            _ => {
-                // Return empty or a basic string representation if absolutely necessary,
-                // but usually, SemanticType::Discrete won't be assigned to Floats.
             }
         }
         result
@@ -1431,6 +1473,22 @@ impl Dataset {
 
     /// Partitions the dataset using aHash and Rayon for maximum throughput,
     /// while preserving the order of groups based on their first appearance.
+    ///
+    /// # Design & Implementation
+    /// This function employs a "Map-Reduce" strategy to handle large-scale data:
+    ///
+    /// 1. **Parallel Folding**: The row indices are partitioned across CPU cores. Each core
+    ///    maintains a local `AHashMap` to avoid global lock contention during the grouping phase.
+    /// 2. **Global Reduction**: Local maps are merged into a single global map. During merging,
+    ///    the global minimum `first_idx` is maintained for each group.
+    /// 3. **Order Preservation**: By tracking the `FirstSeenIndex`, the final output maintains
+    ///    the natural order of categories as they first appeared in the input.
+    /// 4. **Memory Access Optimization**: Indices within each group are sorted at the end
+    ///    to ensure contiguous memory access patterns during subsequent processing.
+    ///
+    /// # Arguments
+    /// * `col_name` - The name of the column to group by. If `None` or the column is missing,
+    ///   all rows are returned as a single group.
     pub fn group_by(&self, col_name: Option<&str>) -> GroupedIndices {
         // 1. Resolve the grouping column.
         let col_vector = match col_name {

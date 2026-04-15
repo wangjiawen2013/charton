@@ -1,23 +1,24 @@
 use crate::TEMP_SUFFIX;
 use crate::chart::Chart;
-use crate::core::data::{ColumnVector, Dataset, SemanticType};
+use crate::core::data::{ColumnVector, Dataset};
 use crate::core::utils::IntoParallelizable;
 use crate::encode::y::StackMode;
 use crate::error::ChartonError;
 use crate::mark::Mark;
+use crate::scale::Scale;
 use ahash::{AHashMap, AHashSet};
 
 #[cfg(feature = "parallel")]
 use rayon::prelude::*;
 
 impl<T: Mark> Chart<T> {
-    /// Prepares data for area/bar charts based on the Scale type and StackMode.
+    /// Prepares data for area charts based on the Scale type and StackMode.
     ///
     /// This version uses `unique_values()` to ensure that categorical axes (Discrete)
     /// maintain a stable order based on data appearance, preventing non-deterministic
     /// layout shifts caused by raw hash map iterations.
     pub(crate) fn transform_area_data(mut self) -> Result<Self, ChartonError> {
-        // --- STEP 1: Extract Encoding Metadata ---
+        // --- STEP 1: Extract Encoding Metadata & Scale Intent ---
         let x_enc = self
             .encoding
             .x
@@ -34,17 +35,15 @@ impl<T: Mark> Chart<T> {
         let mode = &y_enc.stack;
         let color_field = self.encoding.color.as_ref().map(|c| &c.field);
 
-        let x_col = self.data.column(x_field)?;
-        let x_semantic = x_col.semantic_type();
-
-        // Determine if X requires numeric sorting or order-preservation (categorical)
-        let is_continuous = matches!(
-            x_semantic,
-            SemanticType::Continuous | SemanticType::Temporal
-        );
+        // Instead of raw semantic_type, we check the resolved scale_type.
+        let x_scale_type = x_enc.scale_type.as_ref().ok_or_else(|| {
+            ChartonError::Internal("Scale type must be resolved before transformation".into())
+        })?;
+        let is_continuous = matches!(x_scale_type, Scale::Linear | Scale::Log | Scale::Temporal);
 
         // --- STEP 2: Establish Deterministic Order for X and Color ---
         // We use unique_values() for Discrete scales to preserve appearance order.
+        let x_col = self.data.column(x_field)?;
         let x_ticks_str = if !is_continuous {
             x_col.unique_values()
         } else {
@@ -193,12 +192,9 @@ impl<T: Mark> Chart<T> {
 
         let mut new_ds = Dataset::new();
 
-        // --- Handle X-Axis Reconstruction & Semantic Restoration ---
+        // Restore X channel based on the resolved Scale type
         if is_continuous {
-            if x_semantic == SemanticType::Temporal {
-                // If the original column was Temporal, we must restore the DateTime type.
-                // This converts the f64 nanosecond values back into OffsetDateTime objects
-                // so the renderer can apply time-based scales and formatting.
+            if matches!(x_scale_type, Scale::Temporal) {
                 let temporal_data: Vec<time::OffsetDateTime> = final_x_f
                     .into_iter()
                     .map(|ns| {
@@ -206,7 +202,6 @@ impl<T: Mark> Chart<T> {
                             .unwrap_or(time::OffsetDateTime::UNIX_EPOCH)
                     })
                     .collect();
-
                 new_ds.add_column(
                     x_field,
                     ColumnVector::DateTime {
@@ -215,11 +210,9 @@ impl<T: Mark> Chart<T> {
                     },
                 )?;
             } else {
-                // Standard continuous numerical values remain as F64.
                 new_ds.add_column(x_field, ColumnVector::F64 { data: final_x_f })?;
             }
         } else {
-            // Discrete/Categorical axes are restored as Strings.
             new_ds.add_column(
                 x_field,
                 ColumnVector::String {
@@ -229,12 +222,10 @@ impl<T: Mark> Chart<T> {
             )?;
         }
 
-        // --- Finalize Y and Color Channels ---
-        // Generate temporary field names for stack boundaries (min/max).
+        // Finalize Y boundaries and Color
         let y0_name = format!("{}_{}_min", TEMP_SUFFIX, y_field);
         let y1_name = format!("{}_{}_max", TEMP_SUFFIX, y_field);
 
-        // Store baseline (y0), top boundary (y1), and the primary Y value.
         new_ds.add_column(&y0_name, ColumnVector::F64 { data: final_y0 })?;
         new_ds.add_column(
             &y1_name,
@@ -244,7 +235,6 @@ impl<T: Mark> Chart<T> {
         )?;
         new_ds.add_column(y_field, ColumnVector::F64 { data: final_y1 })?;
 
-        // Restore the color field if it was used for grouping.
         if let Some(cf) = color_field {
             new_ds.add_column(
                 cf,
@@ -255,7 +245,6 @@ impl<T: Mark> Chart<T> {
             )?;
         }
 
-        // Update the chart dataset with the transformed data.
         self.data = new_ds;
         Ok(self)
     }

@@ -2,7 +2,7 @@ use crate::Precision;
 use crate::chart::Chart;
 use crate::core::context::PanelContext;
 use crate::core::layer::{MarkRenderer, RenderBackend, TextConfig};
-use crate::core::utils::Parallelizable;
+use crate::core::utils::IntoParallelizable;
 use crate::error::ChartonError;
 use crate::mark::text::MarkText;
 use crate::visual::color::SingleColor;
@@ -16,7 +16,7 @@ use rayon::prelude::*;
 
 impl MarkRenderer for Chart<MarkText> {
     /// Renders text marks by mapping data points to text elements in the backend.
-    /// Uses group-based parallel processing for performance and deterministic Z-index.
+    /// Uses row-based parallel processing for optimal performance.
     fn render_marks(
         &self,
         backend: &mut dyn RenderBackend,
@@ -29,7 +29,7 @@ impl MarkRenderer for Chart<MarkText> {
             return Ok(());
         }
 
-        // --- STEP 1: VALIDATION ---
+        // --- STEP 1: SPECIFICATION VALIDATION ---
         let x_enc = self
             .encoding
             .x
@@ -49,6 +49,7 @@ impl MarkRenderer for Chart<MarkText> {
         let x_scale = context.coord.get_x_scale();
         let y_scale = context.coord.get_y_scale();
 
+        // Vectorized normalization of primary coordinates
         let x_norms = x_scale
             .scale_type()
             .normalize_column(x_scale, df_source.column(&x_enc.field)?);
@@ -56,72 +57,63 @@ impl MarkRenderer for Chart<MarkText> {
             .scale_type()
             .normalize_column(y_scale, df_source.column(&y_enc.field)?);
 
-        // Pre-normalize color if mapping exists
+        // Pre-normalize color aesthetics if mapping exists
         let color_norms = context.spec.aesthetics.color.as_ref().map(|m| {
             let s = m.scale_impl.as_ref();
             s.scale_type()
                 .normalize_column(s, &df_source.column(&m.field).unwrap())
         });
 
-        // --- STEP 3: GROUPING (Determines Z-Index & Category Color) ---
-        let color_field = self.encoding.color.as_ref().map(|c| c.field.as_str());
-        let grouped_data = df_source.group_by(color_field);
-        let palette = &context.spec.theme.palette;
+        // --- STEP 3: PARALLEL PROCESSING ---
+        // We process rows independently to handle high-density text labels efficiently.
+        let render_configs: Vec<TextConfig> = (0..row_count)
+            .maybe_into_par_iter()
+            .filter_map(|i| {
+                // Extract normalized coordinates
+                let x_n = x_norms[i]?;
+                let y_n = y_norms[i]?;
 
-        // --- STEP 4: MULTI-CORE PROCESSING PER GROUP ---
-        for (group_idx, (_name, row_indices)) in grouped_data.groups.iter().enumerate() {
-            let base_group_color = if color_field.is_some() {
-                palette.get_color(group_idx)
-            } else {
-                mark_config.color
-            };
+                // 1. Position: Transform normalized [0,1] to screen pixel space
+                let (px, py) = context.coord.transform(x_n, y_n, &context.panel);
 
-            // Calculate text configurations in parallel
-            let render_configs: Vec<TextConfig> = row_indices
-                .maybe_par_iter()
-                .filter_map(|&i| {
-                    let x_n = x_norms[i]?;
-                    let y_n = y_norms[i]?;
+                // 2. Aesthetic Resolution: Resolve color using data mapping or fallback
+                let fill = self.resolve_color_from_value(
+                    color_norms.as_ref().and_then(|n| n[i]),
+                    context,
+                    &mark_config.color,
+                );
 
-                    // Coordinate Projection
-                    let (px, py) = context.coord.transform(x_n, y_n, &context.panel);
+                // 3. Text Content Resolution:
+                // Prioritize data field from encoding, fallback to static mark text.
+                let content = if let Some(ref text_enc) = self.encoding.text {
+                    df_source
+                        .column(&text_enc.field)
+                        .ok()?
+                        .get_str(i)
+                        .unwrap_or_default()
+                        .to_string()
+                } else {
+                    mark_config.text.clone()
+                };
 
-                    // Resolve Color
-                    let fill = if let Some(ref norms) = color_norms {
-                        self.resolve_color_from_value(norms[i], context, &base_group_color)
-                    } else {
-                        base_group_color
-                    };
-
-                    // Resolve Text Content
-                    let content = if let Some(ref text_enc) = self.encoding.text {
-                        df_source
-                            .column(&text_enc.field)
-                            .ok()?
-                            .get_str(i)
-                            .unwrap_or_default()
-                    } else {
-                        mark_config.text.clone()
-                    };
-
-                    Some(TextConfig {
-                        x: px as Precision,
-                        y: py as Precision,
-                        text: content,
-                        font_size: mark_config.font_size as Precision,
-                        font_family: mark_config.font_family.clone(),
-                        color: fill,
-                        text_anchor: mark_config.text_anchor.to_string(),
-                        font_weight: mark_config.font_weight.to_string(),
-                        opacity: mark_config.opacity as Precision,
-                    })
+                Some(TextConfig {
+                    x: px as Precision,
+                    y: py as Precision,
+                    text: content,
+                    font_size: mark_config.font_size as Precision,
+                    font_family: mark_config.font_family.clone(),
+                    color: fill,
+                    text_anchor: mark_config.text_anchor.to_string(),
+                    font_weight: mark_config.font_weight.to_string(),
+                    opacity: mark_config.opacity as Precision,
                 })
-                .collect();
+            })
+            .collect();
 
-            // --- STEP 5: SEQUENTIAL DRAW ---
-            for config in render_configs {
-                backend.draw_text(config);
-            }
+        // --- STEP 4: SEQUENTIAL DRAW DISPATCH ---
+        // Dispatch draw calls to the backend in deterministic data order.
+        for config in render_configs {
+            backend.draw_text(config);
         }
 
         Ok(())
