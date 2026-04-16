@@ -87,7 +87,11 @@ impl<T: Mark> Chart<T> {
 
             for (c_idx, c_val) in sub_tasks {
                 final_x.push(x_val.clone());
-                final_c.push(c_val.clone().unwrap_or_else(|| "default".to_string()));
+                final_c.push(
+                    c_val
+                        .clone()
+                        .unwrap_or_else(|| format!("{}_default", TEMP_SUFFIX)),
+                );
                 f_sub_idx.push(c_idx);
 
                 if let Some(indices) = group_map.get(&(x_val.clone(), c_val)) {
@@ -292,7 +296,7 @@ fn inject_boundary_row(
     // the furthest outliers without drawing any visual box marks.
     x.push(format!("{}_boundary", TEMP_SUFFIX));
     y.push(val);
-    c.push("default".into());
+    c.push(format!("{}_default", TEMP_SUFFIX));
     q1.push(f64::NAN);
     med.push(f64::NAN);
     q3.push(f64::NAN);

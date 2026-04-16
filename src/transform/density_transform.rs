@@ -1,3 +1,4 @@
+use crate::TEMP_SUFFIX;
 use crate::chart::Chart;
 use crate::core::data::{ColumnVector, Dataset};
 use crate::error::ChartonError;
@@ -277,7 +278,7 @@ impl<T: Mark> Chart<T> {
         let group_order: Vec<String> = if let Some(ref g_field) = params.groupby {
             self.data.column(g_field)?.unique_values()
         } else {
-            vec!["__default__".to_string()]
+            vec![format!("{}_default", TEMP_SUFFIX)]
         };
 
         // --- STEP 3: Aggregate Observations by Group ---
@@ -288,7 +289,7 @@ impl<T: Mark> Chart<T> {
             let group_key = if let Some(ref g_field) = params.groupby {
                 self.data.get_str_or(g_field, i, "null")
             } else {
-                "__default__".to_string()
+                format!("{}_default", TEMP_SUFFIX)
             };
 
             if let Some(val) = density_col.get_f64(i) {

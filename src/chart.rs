@@ -776,7 +776,15 @@ where
             // --- DISCRETE DOMAIN ---
             // Triggered if Scale is Discrete (even if data is numeric).
             Scale::Discrete => {
-                let labels = primary_series.unique_values();
+                let mut labels = primary_series.unique_values();
+                // Define the exact internal tags used during data transformation for boxplot.
+                let boundary_tag = format!("{}_boundary", TEMP_SUFFIX);
+                let default_tag = format!("{}_default", TEMP_SUFFIX);
+
+                // Precise Filtering: Remove only the exact internal markers.
+                // This ensures that system-injected categories remain invisible to the
+                // user-facing components like Legends and Axis labels.
+                labels.retain(|l| l != &boundary_tag && l != &default_tag);
                 Ok(ScaleDomain::Discrete(labels))
             }
 

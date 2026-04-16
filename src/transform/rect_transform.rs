@@ -16,11 +16,20 @@ impl<T: Mark> Chart<T> {
     /// 3. **Type Safety**: Binned continuous data is cast back to F64 for proper scaling.
     pub(crate) fn transform_rect_data(mut self) -> Result<Self, ChartonError> {
         // --- STEP 1: Extract Encodings ---
-        let x_enc = self.encoding.x.as_ref()
+        let x_enc = self
+            .encoding
+            .x
+            .as_ref()
             .ok_or_else(|| ChartonError::Encoding("X encoding missing".into()))?;
-        let y_enc = self.encoding.y.as_ref()
+        let y_enc = self
+            .encoding
+            .y
+            .as_ref()
             .ok_or_else(|| ChartonError::Encoding("Y encoding missing".into()))?;
-        let color_enc = self.encoding.color.as_ref()
+        let color_enc = self
+            .encoding
+            .color
+            .as_ref()
             .ok_or_else(|| ChartonError::Encoding("Color encoding missing".into()))?;
 
         // --- STEP 2: Access Source Columns ---
@@ -81,7 +90,7 @@ impl<T: Mark> Chart<T> {
             };
 
             let coord = (x_key, y_key);
-            
+
             // Track unique coordinates in order of discovery for stable rendering
             if seen_coords.insert(coord.clone()) {
                 appearance_order.push(coord.clone());
@@ -103,7 +112,7 @@ impl<T: Mark> Chart<T> {
             if let Some(indices) = groups.get(&coord) {
                 // Perform the statistical calculation on the color column
                 let aggregated_val = agg_op.aggregate_by_index(color_col, indices);
-                
+
                 final_x.push(coord.0);
                 final_y.push(coord.1);
                 final_color.push(aggregated_val);
@@ -137,7 +146,7 @@ impl<T: Mark> Chart<T> {
             &y_enc.field,
             cast_vec(final_y, y_is_discrete, y_bin_params.is_some()),
         )?;
-        
+
         // The color column is always numeric (f64) after aggregation
         new_ds.add_column(&color_enc.field, ColumnVector::F64 { data: final_color })?;
 
