@@ -75,15 +75,30 @@ impl MarkRenderer for Chart<MarkBoxplot> {
         let unit_step_norm = (x_scale.normalize(1.0) - x_scale.normalize(0.0)).abs();
 
         // --- STEP 3: PARALLEL GEOMETRY COMPUTATION ---
-        // We calculate all screen-space coordinates in parallel to maximize CPU utilization.
+        let x_col = df_source.column(&x_enc.field)?;
+        let boundary_tag = format!("{}_boundary", TEMP_SUFFIX);
+
         let box_elements: Vec<BoxElement> = (0..row_count)
             .maybe_into_par_iter()
             .filter_map(|i| {
+                // 1. Ghost/Boundary Check
+                let x_val = x_col.get_str(i)?;
+                if x_val == boundary_tag {
+                    return None;
+                }
+
+                // 2. Comprehensive Data Validation (Filter out Gaps)
+                // Use the '?' operator to skip rows where any essential stat is NaN/None
+                let q1_val = q1_n[i]?;
+                let q3_val = q3_n[i]?;
+                let med_val = med_n[i]?;
+                let min_val = min_n[i]?;
+                let max_val = max_n[i]?;
+
                 let total_groups = groups_count_col.get_f64(i).unwrap_or(1.0);
                 let sub_idx = sub_idx_col.get_f64(i).unwrap_or(0.0);
 
                 // --- DODGE LOGIC ---
-                // Determines the width and horizontal offset for grouped boxplots
                 let box_width_data = mark_config.width.min(
                     mark_config.span / (total_groups + (total_groups - 1.0) * mark_config.spacing),
                 );
@@ -94,7 +109,7 @@ impl MarkRenderer for Chart<MarkBoxplot> {
 
                 let x_center_n = x_norms[i]? + offset_norm;
 
-                // Resolve the box fill color
+                // --- RESOLVE COLOR ---
                 let fill = if let Some(ref norms) = color_norms {
                     self.resolve_color_from_value(norms[i], context, &mark_config.color)
                 } else {
@@ -102,45 +117,39 @@ impl MarkRenderer for Chart<MarkBoxplot> {
                 };
 
                 // --- COORDINATE PROJECTION ---
+                // Reuse the local validated variables (q1_val, med_val, etc.)
+                // to avoid redundant indexing and Option unwrapping.
                 let (bx1, by1) = context.coord.transform(
                     x_center_n - box_width_norm / 2.0,
-                    q1_n[i]?,
+                    q1_val,
                     &context.panel,
                 );
                 let (bx2, by2) = context.coord.transform(
                     x_center_n + box_width_norm / 2.0,
-                    q3_n[i]?,
+                    q3_val,
                     &context.panel,
                 );
+
                 let (p_min_x, p_min_y) =
-                    context
-                        .coord
-                        .transform(x_center_n, min_n[i]?, &context.panel);
+                    context.coord.transform(x_center_n, min_val, &context.panel);
                 let (p_max_x, p_max_y) =
-                    context
-                        .coord
-                        .transform(x_center_n, max_n[i]?, &context.panel);
-                let (p_q1_x, p_q1_y) =
-                    context
-                        .coord
-                        .transform(x_center_n, q1_n[i]?, &context.panel);
-                let (p_q3_x, p_q3_y) =
-                    context
-                        .coord
-                        .transform(x_center_n, q3_n[i]?, &context.panel);
+                    context.coord.transform(x_center_n, max_val, &context.panel);
+
+                let (p_q1_x, p_q1_y) = context.coord.transform(x_center_n, q1_val, &context.panel);
+                let (p_q3_x, p_q3_y) = context.coord.transform(x_center_n, q3_val, &context.panel);
+
                 let (m1x, m1y) = context.coord.transform(
                     x_center_n - box_width_norm / 2.0,
-                    med_n[i]?,
+                    med_val,
                     &context.panel,
                 );
                 let (m2x, m2y) = context.coord.transform(
                     x_center_n + box_width_norm / 2.0,
-                    med_n[i]?,
+                    med_val,
                     &context.panel,
                 );
 
                 // --- OUTLIER PARSING ---
-                // Outliers are stored as a stringified list; we parse and project them here.
                 let mut outlier_circles = Vec::new();
                 if let Some(raw_outliers) = outliers_col.get_str(i) {
                     let clean = raw_outliers.trim_matches(|c| c == '[' || c == ']');

@@ -331,25 +331,15 @@ impl<T: Mark> Chart<T> {
         self.validate_mandatory_encodings(&mark_type)?;
 
         // --- Step 3: First Pass Semantic Resolution ---
-        // Resolve Scale types for columns currently in the dataset.
-        // Skips columns that don't exist yet (e.g., generated ecdf/count).
+        // Injects inferred or user-defined Scales into self.encoding
         self.resolve_semantic_types()?;
 
-        // --- Step 4: Schema & Semantic Validation ---
-        // Only validate columns that physically exist in the dataset at this stage.
-        let active_fields = self.encoding.active_fields();
-        let existing_fields: Vec<&str> = active_fields
-            .iter()
-            .filter(|&&field| !field.is_empty() && self.data.schema.contains_key(field))
-            .cloned()
-            .collect();
-
-        let expected_semantics = self.get_expected_semantics(&mark_type);
-        self.data
-            .check_schema(&existing_fields, &expected_semantics)?;
+        // --- Step 4: Scale-to-Mark Validation (NEW LOGIC) ---
+        // Replace the old field-based check with Scale-based check.
+        // This validates if the Mark (e.g., "bar") can work with the Scale (e.g., "Discrete").
+        self.validate_scale_compatibility(&mark_type)?;
 
         // --- Step 5: Statistical Transformations ---
-        // This generates new columns. Note: we resolve pre-transform encodings first.
         self.resolve_pre_transform_encodings()?;
 
         match mark_type.as_str() {
@@ -367,12 +357,10 @@ impl<T: Mark> Chart<T> {
         }
 
         // --- Step 6: Second Pass Semantic Resolution ---
-        // Now that transformations are complete, columns like "count" or "ecdf"
-        // exist. We run resolution again to catch these new fields.
+        // Resolve scales for generated columns (count, ecdf, etc.)
         self.resolve_semantic_types()?;
 
         // --- Step 7: Visual Refinement ---
-        // Apply visual defaults (zeros, padding) now that all types are resolved.
         self.apply_visual_defaults()?;
 
         Ok(self)
@@ -491,71 +479,90 @@ impl<T: Mark> Chart<T> {
         Ok(())
     }
 
-    /// Returns the required semantic types (Continuous vs Discrete) for specific marks.
-    fn get_expected_semantics(&self, mark_type: &str) -> AHashMap<&str, Vec<SemanticType>> {
+    /// Helper method to perform the actual validation based on get_expected_scale_types
+    fn validate_scale_compatibility(&self, mark_type: &str) -> Result<(), ChartonError> {
+        let expectations = self.get_expected_scale_types(mark_type);
+
+        // We iterate through our defined expectations
+        for (channel, allowed_scales) in expectations {
+            // Use a helper to get the Scale from the encoding (x, y, color, etc.)
+            if let Some(actual_scale) = self.encoding.get_scale_by_channel(channel) {
+                if !allowed_scales.contains(&actual_scale) {
+                    return Err(ChartonError::Encoding(format!(
+                        "{} chart expects {:?} scale for channel {:?}, but found {:?}",
+                        mark_type, allowed_scales, channel, actual_scale
+                    )));
+                }
+            }
+        }
+        Ok(())
+    }
+
+    /// Returns the required Scale types for specific channels based on the mark type.
+    /// This ensures the chosen visualization (Mark) is mathematically compatible
+    /// with how the data is being projected (Scale).
+    fn get_expected_scale_types(&self, mark_type: &str) -> AHashMap<Channel, Vec<Scale>> {
         let mut expected = AHashMap::new();
 
-        // Global constraints for optional channels
-        if let Some(shape_enc) = &self.encoding.shape {
-            expected.insert(shape_enc.field.as_str(), vec![SemanticType::Discrete]);
-        }
-        if let Some(size_enc) = &self.encoding.size {
-            expected.insert(
-                size_enc.field.as_str(),
-                vec![SemanticType::Continuous, SemanticType::Temporal],
-            );
-        }
+        // --- GLOBAL CONSTRAINTS ---
+        // Shape encoding is fundamentally categorical.
+        expected.insert(Channel::Shape, vec![Scale::Discrete]);
 
-        // Mark-specific axis constraints
+        // Size encoding usually maps to a continuous range (area/length).
+        expected.insert(
+            Channel::Size,
+            vec![Scale::Linear, Scale::Log, Scale::Temporal],
+        );
+
+        // --- MARK-SPECIFIC AXIS CONSTRAINTS ---
         match mark_type {
             "bar" | "boxplot" => {
-                if let Some(x) = &self.encoding.x {
-                    expected.insert(x.field.as_str(), vec![SemanticType::Discrete]);
-                }
-                if let Some(y) = &self.encoding.y {
-                    expected.insert(
-                        y.field.as_str(),
-                        vec![SemanticType::Continuous, SemanticType::Temporal],
-                    );
-                }
+                // Standard Bar/Box: One axis must be discrete (categories),
+                // the other must be quantitative (height/value).
+                expected.insert(Channel::X, vec![Scale::Discrete]);
+                expected.insert(Channel::Y, vec![Scale::Linear, Scale::Log, Scale::Temporal]);
             }
             "hist" => {
-                if let Some(x) = &self.encoding.x {
-                    expected.insert(
-                        x.field.as_str(),
-                        vec![SemanticType::Continuous, SemanticType::Temporal],
-                    );
-                }
+                // Histograms require a quantitative X-axis to perform binning.
+                expected.insert(Channel::X, vec![Scale::Linear, Scale::Log, Scale::Temporal]);
+                // Y is usually the generated 'count' (Linear).
+                expected.insert(Channel::Y, vec![Scale::Linear]);
             }
             "rect" => {
-                if let Some(color) = &self.encoding.color {
-                    expected.insert(
-                        color.field.as_str(),
-                        vec![SemanticType::Continuous, SemanticType::Temporal],
-                    );
-                }
+                // Rect/Heatmap: X and Y can be anything,
+                // but the Color channel typically represents a magnitude.
+                expected.insert(
+                    Channel::Color,
+                    vec![Scale::Linear, Scale::Log, Scale::Temporal],
+                );
+            }
+            "line" | "area" => {
+                // Lines/Areas usually represent trends over time or continuous intervals.
+                expected.insert(
+                    Channel::X,
+                    vec![Scale::Linear, Scale::Temporal, Scale::Discrete],
+                );
+                expected.insert(Channel::Y, vec![Scale::Linear, Scale::Log]);
             }
             "errorbar" | "rule" => {
-                if let Some(y) = &self.encoding.y {
-                    expected.insert(
-                        y.field.as_str(),
-                        vec![SemanticType::Continuous, SemanticType::Temporal],
-                    );
-                }
-                if let Some(y2) = &self.encoding.y2 {
-                    expected.insert(
-                        y2.field.as_str(),
-                        vec![SemanticType::Continuous, SemanticType::Temporal],
-                    );
-                }
+                // Rules and Error bars are geometric intervals.
+                expected.insert(Channel::Y, vec![Scale::Linear, Scale::Log, Scale::Temporal]);
             }
             "text" => {
-                if let Some(text_enc) = &self.encoding.text {
-                    expected.insert(text_enc.field.as_str(), vec![SemanticType::Discrete]);
-                }
+                // Text marks usually just need a position.
+                // The Label itself doesn't have a scale, but the X/Y do.
+                expected.insert(
+                    Channel::X,
+                    vec![Scale::Linear, Scale::Discrete, Scale::Temporal],
+                );
+                expected.insert(
+                    Channel::Y,
+                    vec![Scale::Linear, Scale::Discrete, Scale::Temporal],
+                );
             }
             _ => {}
         }
+
         expected
     }
 
@@ -789,9 +796,10 @@ where
                 let mark_type = self.mark.as_ref().map(|m| m.mark_type());
                 let is_area = matches!(mark_type, Some("area"));
                 let is_errorbar = matches!(mark_type, Some("errorbar"));
+                let is_boxplot = matches!(mark_type, Some("boxplot"));
 
-                // --- STEP 1: Priority Check for Pre-computed Columns (Area & ErrorBar) ---
-                if (is_area || is_errorbar) && channel == Channel::Y {
+                // --- STEP 1: Priority Check for Pre-computed Columns (Area & ErrorBar & Boxplot) ---
+                if (is_area || is_errorbar || is_boxplot) && channel == Channel::Y {
                     let y_field = &self.encoding.y.as_ref().unwrap().field;
                     let temp_min_col = format!("{}_{}_min", TEMP_SUFFIX, y_field);
                     let temp_max_col = format!("{}_{}_max", TEMP_SUFFIX, y_field);

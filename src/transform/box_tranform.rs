@@ -1,13 +1,9 @@
 use crate::TEMP_SUFFIX;
 use crate::chart::Chart;
 use crate::core::data::{ColumnVector, Dataset, get_quantile};
-use crate::core::utils::IntoParallelizable;
 use crate::error::ChartonError;
 use crate::mark::Mark;
 use ahash::AHashMap;
-
-#[cfg(feature = "parallel")]
-use rayon::prelude::*;
 
 impl<T: Mark> Chart<T> {
     /// Performs high-performance statistical aggregation for Box Plots.
@@ -37,19 +33,13 @@ impl<T: Mark> Chart<T> {
         }
 
         // --- STEP 2: Establish Deterministic Order for X and Color ---
-        // Preservation of appearance order prevents "flickering" of categories and dodge slots.
         let x_order = x_col.unique_values();
-
         let mut color_field_name: Option<String> = None;
-        let mut color_to_idx = AHashMap::new();
         let mut color_order = Vec::new();
 
         if let Some(color_enc) = &self.encoding.color {
             let cf = color_enc.field.clone();
             color_order = self.data.column(&cf)?.unique_values();
-            for (i, c) in color_order.iter().enumerate() {
-                color_to_idx.insert(c.clone(), i as f64);
-            }
             color_field_name = Some(cf);
         }
 
@@ -60,7 +50,6 @@ impl<T: Mark> Chart<T> {
         };
 
         // --- STEP 3: Grouping phase ---
-        // We use a HashMap for grouping indices, but we will iterate over x_order later to maintain sequence.
         let mut group_map: AHashMap<(String, Option<String>), Vec<usize>> = AHashMap::new();
         for i in 0..row_count {
             let x_val = x_col.get_str_or(i, "null");
@@ -70,117 +59,137 @@ impl<T: Mark> Chart<T> {
             group_map.entry((x_val, c_val)).or_default().push(i);
         }
 
-        // --- STEP 4: Parallel statistical computation ---
-        // Instead of iterating over the HashMap directly (which is random),
-        // we construct a flat list of tasks based on our stable X and Color orders.
-        let mut tasks = Vec::new();
+        // --- STEP 4: Cartesian Product & Statistical Computation ---
+        // We iterate through every possible X + Color combination to ensure
+        // gaps are preserved (Gap Filling).
+        let mut final_x = Vec::new();
+        let mut final_y = Vec::new();
+        let mut final_c = Vec::new();
+        let mut f_q1 = Vec::new();
+        let mut f_median = Vec::new();
+        let mut f_q3 = Vec::new();
+        let mut f_min = Vec::new();
+        let mut f_max = Vec::new();
+        let mut f_sub_idx = Vec::new();
+        let mut f_outliers = Vec::new();
+
         for x_val in &x_order {
-            if color_order.is_empty() {
-                if let Some(indices) = group_map.get(&(x_val.clone(), None)) {
-                    tasks.push((x_val.clone(), None, indices.clone()));
-                }
+            // Handle both grouped and non-grouped scenarios
+            let sub_tasks: Vec<(f64, Option<String>)> = if color_order.is_empty() {
+                vec![(0.0, None)]
             } else {
-                for c_val in &color_order {
-                    if let Some(indices) = group_map.get(&(x_val.clone(), Some(c_val.clone()))) {
-                        tasks.push((x_val.clone(), Some(c_val.clone()), indices.clone()));
-                    }
-                }
-            }
-        }
+                color_order
+                    .iter()
+                    .enumerate()
+                    .map(|(i, c)| (i as f64, Some(c.clone())))
+                    .collect()
+            };
 
-        let stats_results: Vec<_> = tasks
-            .maybe_into_par_iter()
-            .map(|(x_val, c_val, indices)| {
-                let mut vals: Vec<f64> = indices.iter().filter_map(|&i| y_col.get_f64(i)).collect();
-                vals.sort_unstable_by(|a, b| a.partial_cmp(b).unwrap_or(std::cmp::Ordering::Equal));
+            for (c_idx, c_val) in sub_tasks {
+                final_x.push(x_val.clone());
+                final_c.push(c_val.clone().unwrap_or_else(|| "default".to_string()));
+                f_sub_idx.push(c_idx);
 
-                if vals.is_empty() {
-                    return (x_val, c_val, None);
-                }
+                if let Some(indices) = group_map.get(&(x_val.clone(), c_val)) {
+                    let mut vals: Vec<f64> =
+                        indices.iter().filter_map(|&i| y_col.get_f64(i)).collect();
+                    vals.sort_unstable_by(|a, b| {
+                        a.partial_cmp(b).unwrap_or(std::cmp::Ordering::Equal)
+                    });
 
-                let q1 = get_quantile(&vals, 0.25);
-                let median = get_quantile(&vals, 0.50);
-                let q3 = get_quantile(&vals, 0.75);
-                let iqr = q3 - q1;
-                let lower_fence = q1 - 1.5 * iqr;
-                let upper_fence = q3 + 1.5 * iqr;
-
-                let mut outliers = Vec::new();
-                let mut whisker_min = q1;
-                let mut whisker_max = q3;
-
-                for &v in &vals {
-                    if v < lower_fence || v > upper_fence {
-                        outliers.push(v);
+                    if vals.is_empty() {
+                        push_nan_row(
+                            &mut final_y,
+                            &mut f_q1,
+                            &mut f_median,
+                            &mut f_q3,
+                            &mut f_min,
+                            &mut f_max,
+                            &mut f_outliers,
+                        );
                     } else {
-                        if v < whisker_min {
-                            whisker_min = v;
+                        let q1 = get_quantile(&vals, 0.25);
+                        let median = get_quantile(&vals, 0.50);
+                        let q3 = get_quantile(&vals, 0.75);
+                        let iqr = q3 - q1;
+                        let lower_fence = q1 - 1.5 * iqr;
+                        let upper_fence = q3 + 1.5 * iqr;
+
+                        let mut outliers = Vec::new();
+                        let mut whisker_min = q1;
+                        let mut whisker_max = q3;
+
+                        for &v in &vals {
+                            if v < lower_fence || v > upper_fence {
+                                outliers.push(v);
+                            } else {
+                                if v < whisker_min {
+                                    whisker_min = v;
+                                }
+                                if v > whisker_max {
+                                    whisker_max = v;
+                                }
+                            }
                         }
-                        if v > whisker_max {
-                            whisker_max = v;
-                        }
+
+                        final_y.push(median);
+                        f_q1.push(q1);
+                        f_median.push(median);
+                        f_q3.push(q3);
+                        f_min.push(whisker_min);
+                        f_max.push(whisker_max);
+                        f_outliers.push(format!("{:?}", outliers));
                     }
+                } else {
+                    // Force a placeholder row for missing data to maintain DODGE alignment
+                    push_nan_row(
+                        &mut final_y,
+                        &mut f_q1,
+                        &mut f_median,
+                        &mut f_q3,
+                        &mut f_min,
+                        &mut f_max,
+                        &mut f_outliers,
+                    );
                 }
+            }
+        }
 
-                let sub_idx = c_val
-                    .as_ref()
-                    .and_then(|c| color_to_idx.get(c))
-                    .cloned()
-                    .unwrap_or(0.0);
+        // --- STEP 5: Boundary Injection ---
+        // Append two extra rows with global min/max.
+        // This ensures the Y-axis scale covers all data including outliers across all groups.
+        if global_min.is_finite() {
+            inject_boundary_row(
+                global_min,
+                &mut final_x,
+                &mut final_y,
+                &mut final_c,
+                &mut f_q1,
+                &mut f_median,
+                &mut f_q3,
+                &mut f_min,
+                &mut f_max,
+                &mut f_sub_idx,
+                &mut f_outliers,
+            );
+            inject_boundary_row(
+                global_max,
+                &mut final_x,
+                &mut final_y,
+                &mut final_c,
+                &mut f_q1,
+                &mut f_median,
+                &mut f_q3,
+                &mut f_min,
+                &mut f_max,
+                &mut f_sub_idx,
+                &mut f_outliers,
+            );
+        }
 
-                (
-                    x_val,
-                    c_val,
-                    Some(BoxStats {
-                        q1,
-                        median,
-                        q3,
-                        whisker_min,
-                        whisker_max,
-                        outliers,
-                        sub_idx,
-                    }),
-                )
-            })
-            .collect();
-
-        // --- STEP 5: Final Dataset Assembly ---
+        // --- STEP 6: Final Dataset Assembly ---
         let mut new_ds = Dataset::new();
-        let result_len = stats_results.iter().filter(|(_, _, s)| s.is_some()).count();
-
-        let mut final_x = Vec::with_capacity(result_len);
-        let mut final_y = Vec::with_capacity(result_len);
-        let mut final_c = Vec::with_capacity(result_len);
-        let mut f_q1 = Vec::with_capacity(result_len);
-        let mut f_median = Vec::with_capacity(result_len);
-        let mut f_q3 = Vec::with_capacity(result_len);
-        let mut f_min = Vec::with_capacity(result_len);
-        let mut f_max = Vec::with_capacity(result_len);
-        let mut f_sub_idx = Vec::with_capacity(result_len);
-        let mut f_outliers = Vec::with_capacity(result_len);
-
-        for (x, c, stats_opt) in stats_results {
-            if let Some(s) = stats_opt {
-                final_x.push(x);
-                final_c.push(c.unwrap_or_else(|| "default".to_string()));
-                final_y.push(s.median);
-                f_q1.push(s.q1);
-                f_median.push(s.median);
-                f_q3.push(s.q3);
-                f_min.push(s.whisker_min);
-                f_max.push(s.whisker_max);
-                f_sub_idx.push(s.sub_idx);
-                f_outliers.push(format!("{:?}", s.outliers));
-            }
-        }
-
-        // Global bounds injection for axis scaling
-        if !final_y.is_empty() {
-            final_y[0] = global_min;
-            if final_y.len() > 1 {
-                final_y[1] = global_max;
-            }
-        }
+        let result_len = final_x.len();
 
         new_ds.add_column(
             x_name,
@@ -237,18 +246,58 @@ impl<T: Mark> Chart<T> {
                 },
             )?;
         }
-
+        println!("{:?}", new_ds);
         self.data = new_ds;
         Ok(self)
     }
 }
 
-struct BoxStats {
-    q1: f64,
-    median: f64,
-    q3: f64,
-    whisker_min: f64,
-    whisker_max: f64,
-    outliers: Vec<f64>,
-    sub_idx: f64,
+// Helper to push NaN rows for gaps
+fn push_nan_row(
+    y: &mut Vec<f64>,
+    q1: &mut Vec<f64>,
+    med: &mut Vec<f64>,
+    q3: &mut Vec<f64>,
+    min: &mut Vec<f64>,
+    max: &mut Vec<f64>,
+    out: &mut Vec<String>,
+) {
+    y.push(f64::NAN);
+    q1.push(f64::NAN);
+    med.push(f64::NAN);
+    q3.push(f64::NAN);
+    min.push(f64::NAN);
+    max.push(f64::NAN);
+    out.push("[]".to_string());
+}
+
+/// Helper to inject invisible boundary points to ensure the Y-axis scale
+/// covers the absolute global range (including outliers).
+fn inject_boundary_row(
+    val: f64,
+    x: &mut Vec<String>,
+    y: &mut Vec<f64>,
+    c: &mut Vec<String>,
+    q1: &mut Vec<f64>,
+    med: &mut Vec<f64>,
+    q3: &mut Vec<f64>,
+    min: &mut Vec<f64>,
+    max: &mut Vec<f64>,
+    s_idx: &mut Vec<f64>,
+    out: &mut Vec<String>,
+) {
+    // STRATEGY: "Cloaking" (data exists, but is invisible)
+    // We use a unique boundary name that the renderer will ignore.
+    // This forced value in the 'y' column ensures the Scale accommodates
+    // the furthest outliers without drawing any visual box marks.
+    x.push(format!("{}_boundary", TEMP_SUFFIX));
+    y.push(val);
+    c.push("default".into());
+    q1.push(f64::NAN);
+    med.push(f64::NAN);
+    q3.push(f64::NAN);
+    min.push(f64::NAN);
+    max.push(f64::NAN);
+    s_idx.push(0.0);
+    out.push("[]".to_string());
 }
