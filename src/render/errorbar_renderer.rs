@@ -35,7 +35,7 @@ impl MarkRenderer for Chart<MarkErrorBar> {
             .map(|y| y.field.as_str())
             .ok_or_else(|| ChartonError::Encoding("Y-axis encoding is missing".into()))?;
 
-        // Determine if we are in Manual Mode (y + y2) or Auto Mode
+        // Determine if we are in Manual Mode (y + y2) or Auto Mode (statistical suffix)
         let is_manual_range = self.encoding.y2.is_some();
 
         let (y_min_field, y_max_field) = if let Some(y2) = &self.encoding.y2 {
@@ -66,7 +66,7 @@ impl MarkRenderer for Chart<MarkErrorBar> {
             .scale_type()
             .normalize_column(y_scale, ds.column(&y_max_field)?);
 
-        // BEST PRACTICE: Only compute center norms if we are NOT in manual mode
+        // Normalize center points only if required (Auto Mode + show_center enabled)
         let yc_norms = if !is_manual_range && mark_config.show_center {
             Some(
                 y_scale
@@ -77,7 +77,7 @@ impl MarkRenderer for Chart<MarkErrorBar> {
             None
         };
 
-        // Resolve aesthetic color if mapping exists
+        // Resolve aesthetic color mapping if present
         let color_norms = if let Some(ref mapping) = context.spec.aesthetics.color {
             let s_trait = mapping.scale_impl.as_ref();
             Some(
@@ -89,103 +89,108 @@ impl MarkRenderer for Chart<MarkErrorBar> {
             None
         };
 
-        // --- STEP 3: GROUPING & DODGING PREP ---
-        let color_field = self.encoding.color.as_ref().map(|c| c.field.as_str());
-        let grouped_data = ds.group_by(color_field);
-        let n_groups = grouped_data.groups.len() as f64;
+        // --- STEP 3: DODGING PREPARATION ---
+        // We use pre-computed helper columns injected during transform_errorbar_data.
+        // This ensures ErrorBars align perfectly with Boxplots even with missing data.
+        let sub_idx_col = ds.column(&format!("{}_sub_idx", TEMP_SUFFIX))?;
+        let groups_count_col = ds.column(&format!("{}_groups_count", TEMP_SUFFIX))?;
+
         let is_flipped = context.coord.is_flipped();
+
+        // Calculate the step size for one unit on the X scale to handle dodging widths
         let unit_step_norm = (x_scale.normalize(1.0) - x_scale.normalize(0.0)).abs();
 
         // --- STEP 4: RENDERING LOOP ---
-        for (group_idx, (_group_key, row_indices)) in grouped_data.groups.iter().enumerate() {
-            if row_indices.is_empty() {
+        // We iterate linearly through rows. The Cartesian product ensures NAN rows
+        // exist for missing groups, preserving the correct visual "slot" (gap).
+        for idx in 0..ds.row_count {
+            let Some(xn) = x_norms[idx] else {
                 continue;
-            }
-
-            let offset_norm = if color_field.is_some() && n_groups > 1.0 {
-                let actual_width =
-                    mark_config.span / (n_groups + (n_groups - 1.0) * mark_config.spacing);
-                let width_norm = actual_width.min(mark_config.width) * unit_step_norm;
-                let spacing_norm = width_norm * mark_config.spacing;
-                (group_idx as f64 - (n_groups - 1.0) / 2.0) * (width_norm + spacing_norm)
-            } else {
-                0.0
             };
 
-            for &idx in row_indices {
-                let Some(xn) = x_norms[idx] else {
-                    continue;
-                };
-                let x_final_n = xn + offset_norm;
+            // Get dodging metadata for the current row
+            let sub_idx = sub_idx_col.get_f64(idx).unwrap_or(0.0);
+            let n_groups = groups_count_col.get_f64(idx).unwrap_or(1.0);
 
-                // 4.1 Draw Whisker & Caps
-                if let (Some(yn1), Some(yn2)) = (y_min_norms[idx], y_max_norms[idx]) {
-                    let (x_pix1, y_pix1) = context.coord.transform(x_final_n, yn1, &context.panel);
-                    let (x_pix2, y_pix2) = context.coord.transform(x_final_n, yn2, &context.panel);
+            // Calculate horizontal offset (Dodge) using the same logic as Boxplot
+            let actual_width =
+                mark_config.span / (n_groups + (n_groups - 1.0) * mark_config.spacing);
+            let width_norm = actual_width.min(mark_config.width) * unit_step_norm;
+            let spacing_norm = width_norm * mark_config.spacing;
+            let offset_norm = (sub_idx - (n_groups - 1.0) / 2.0) * (width_norm + spacing_norm);
 
-                    backend.draw_line(LineConfig {
-                        x1: x_pix1 as Precision,
-                        y1: y_pix1 as Precision,
-                        x2: x_pix2 as Precision,
-                        y2: y_pix2 as Precision,
-                        color: mark_config.color,
-                        width: mark_config.stroke_width as Precision,
-                        opacity: mark_config.opacity as Precision,
-                        dash: vec![],
-                    });
+            let x_final_n = xn + offset_norm;
 
-                    let cap_len = mark_config.cap_length as Precision;
-                    if !is_flipped {
-                        for py in [y_pix1 as Precision, y_pix2 as Precision] {
-                            backend.draw_line(LineConfig {
-                                x1: x_pix1 as Precision - cap_len,
-                                y1: py,
-                                x2: x_pix1 as Precision + cap_len,
-                                y2: py,
-                                color: mark_config.color,
-                                width: mark_config.stroke_width as Precision,
-                                opacity: mark_config.opacity as Precision,
-                                dash: vec![],
-                            });
-                        }
-                    } else {
-                        for px in [x_pix1 as Precision, x_pix2 as Precision] {
-                            backend.draw_line(LineConfig {
-                                x1: px,
-                                y1: y_pix1 as Precision - cap_len,
-                                x2: px,
-                                y2: y_pix1 as Precision + cap_len,
-                                color: mark_config.color,
-                                width: mark_config.stroke_width as Precision,
-                                opacity: mark_config.opacity as Precision,
-                                dash: vec![],
-                            });
-                        }
-                    }
-                }
+            // Resolve color for this specific data point/group
+            let mark_color = if let Some(ref norms) = color_norms {
+                self.resolve_color_from_value(norms[idx], context, &mark_config.color)
+            } else {
+                mark_config.color
+            };
 
-                // 4.2 Draw Center Point
-                // Logic: Only render if we are in Auto Mode (no y2) and show_center is enabled.
-                if let Some(ref center_norms) = yc_norms {
-                    if let Some(ycn) = center_norms[idx] {
-                        let (cx, cy) = context.coord.transform(x_final_n, ycn, &context.panel);
+            // 4.1 Draw Whisker & Caps
+            // Block is skipped if values are NAN, creating a gap but keeping the slot reserved.
+            if let (Some(yn1), Some(yn2)) = (y_min_norms[idx], y_max_norms[idx]) {
+                let (x_pix1, y_pix1) = context.coord.transform(x_final_n, yn1, &context.panel);
+                let (x_pix2, y_pix2) = context.coord.transform(x_final_n, yn2, &context.panel);
 
-                        let group_color = if let Some(ref norms) = color_norms {
-                            self.resolve_color_from_value(norms[idx], context, &mark_config.color)
-                        } else {
-                            mark_config.color
-                        };
+                // Draw vertical (or horizontal if flipped) whisker line
+                backend.draw_line(LineConfig {
+                    x1: x_pix1 as Precision,
+                    y1: y_pix1 as Precision,
+                    x2: x_pix2 as Precision,
+                    y2: y_pix2 as Precision,
+                    color: mark_config.color,
+                    width: mark_config.stroke_width as Precision,
+                    opacity: mark_config.opacity as Precision,
+                    dash: vec![],
+                });
 
-                        backend.draw_circle(CircleConfig {
-                            x: cx as Precision,
-                            y: cy as Precision,
-                            radius: 3.0,
-                            fill: group_color,
-                            stroke: group_color,
-                            stroke_width: 0.0,
+                // Draw Caps at both ends of the whisker
+                let cap_len = mark_config.cap_length as Precision;
+                if !is_flipped {
+                    for py in [y_pix1 as Precision, y_pix2 as Precision] {
+                        backend.draw_line(LineConfig {
+                            x1: x_pix1 as Precision - cap_len,
+                            y1: py,
+                            x2: x_pix1 as Precision + cap_len,
+                            y2: py,
+                            color: mark_config.color,
+                            width: mark_config.stroke_width as Precision,
                             opacity: mark_config.opacity as Precision,
+                            dash: vec![],
                         });
                     }
+                } else {
+                    for px in [x_pix1 as Precision, x_pix2 as Precision] {
+                        backend.draw_line(LineConfig {
+                            x1: px,
+                            y1: y_pix1 as Precision - cap_len,
+                            x2: px,
+                            y2: y_pix1 as Precision + cap_len,
+                            color: mark_config.color,
+                            width: mark_config.stroke_width as Precision,
+                            opacity: mark_config.opacity as Precision,
+                            dash: vec![],
+                        });
+                    }
+                }
+            }
+
+            // 4.2 Draw Center Point (e.g., Mean or Median)
+            if let Some(ref center_norms) = yc_norms {
+                if let Some(ycn) = center_norms[idx] {
+                    let (cx, cy) = context.coord.transform(x_final_n, ycn, &context.panel);
+
+                    backend.draw_circle(CircleConfig {
+                        x: cx as Precision,
+                        y: cy as Precision,
+                        radius: 3.0,
+                        fill: mark_color,
+                        stroke: mark_color,
+                        stroke_width: 0.0,
+                        opacity: mark_config.opacity as Precision,
+                    });
                 }
             }
         }

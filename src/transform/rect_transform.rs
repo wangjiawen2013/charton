@@ -1,7 +1,8 @@
 use crate::chart::Chart;
-use crate::core::data::{ColumnVector, Dataset, SemanticType};
+use crate::core::data::{ColumnVector, Dataset};
 use crate::error::ChartonError;
 use crate::mark::Mark;
+use crate::scale::Scale;
 use ahash::{AHashMap, AHashSet};
 
 impl<T: Mark> Chart<T> {
@@ -15,20 +16,11 @@ impl<T: Mark> Chart<T> {
     /// 3. **Type Safety**: Binned continuous data is cast back to F64 for proper scaling.
     pub(crate) fn transform_rect_data(mut self) -> Result<Self, ChartonError> {
         // --- STEP 1: Extract Encodings ---
-        let x_enc = self
-            .encoding
-            .x
-            .as_ref()
+        let x_enc = self.encoding.x.as_ref()
             .ok_or_else(|| ChartonError::Encoding("X encoding missing".into()))?;
-        let y_enc = self
-            .encoding
-            .y
-            .as_ref()
+        let y_enc = self.encoding.y.as_ref()
             .ok_or_else(|| ChartonError::Encoding("Y encoding missing".into()))?;
-        let color_enc = self
-            .encoding
-            .color
-            .as_ref()
+        let color_enc = self.encoding.color.as_ref()
             .ok_or_else(|| ChartonError::Encoding("Color encoding missing".into()))?;
 
         // --- STEP 2: Access Source Columns ---
@@ -36,10 +28,11 @@ impl<T: Mark> Chart<T> {
         let y_col = self.data.column(&y_enc.field)?;
         let color_col = self.data.column(&color_enc.field)?;
 
-        let x_is_discrete = matches!(x_col.semantic_type(), SemanticType::Discrete);
-        let y_is_discrete = matches!(y_col.semantic_type(), SemanticType::Discrete);
+        // Determine if axes are discrete to decide between Categorical grouping or Binning
+        let x_is_discrete = matches!(x_enc.scale_type.as_ref().unwrap(), Scale::Discrete);
+        let y_is_discrete = matches!(y_enc.scale_type.as_ref().unwrap(), Scale::Discrete);
 
-        // --- STEP 3: Calculate Binning Parameters (Only for Continuous) ---
+        // --- STEP 3: Calculate Binning Parameters (Only for Continuous axes) ---
         let x_bin_params = if !x_is_discrete {
             let (min, max) = x_col.min_max();
             let n = x_enc.bins.unwrap_or(10);
@@ -58,16 +51,16 @@ impl<T: Mark> Chart<T> {
             None
         };
 
-        // --- STEP 4: Aggregation Pass ---
+        // --- STEP 4: Grouping Pass ---
+        // Instead of summing immediately, we collect row indices for each (X, Y) coordinate.
+        // This allows us to apply any AggregateOp (Mean, Median, etc.) later.
         let row_count = self.data.height();
-        // Storage for aggregated sums: Map<(X_Label, Y_Label), Summed_Value>
-        let mut lookup: AHashMap<(String, String), f64> = AHashMap::new();
-        // Use a Vec to track the order of appearance for unique (X, Y) pairs
+        let mut groups: AHashMap<(String, String), Vec<usize>> = AHashMap::new();
         let mut appearance_order = Vec::new();
         let mut seen_coords = AHashSet::new();
 
         for i in 0..row_count {
-            // Determine X identifier
+            // Resolve X coordinate identifier
             let x_key = match x_bin_params {
                 Some((min, n, width)) => {
                     let v = x_col.get_f64(i).unwrap_or(min);
@@ -77,7 +70,7 @@ impl<T: Mark> Chart<T> {
                 None => x_col.get_str_or(i, "null"),
             };
 
-            // Determine Y identifier
+            // Resolve Y coordinate identifier
             let y_key = match y_bin_params {
                 Some((min, n, width)) => {
                     let v = y_col.get_f64(i).unwrap_or(min);
@@ -88,47 +81,47 @@ impl<T: Mark> Chart<T> {
             };
 
             let coord = (x_key, y_key);
-            let val = color_col.get_f64(i).unwrap_or(0.0);
-
-            // Record this pair if it's the first time we see it
+            
+            // Track unique coordinates in order of discovery for stable rendering
             if seen_coords.insert(coord.clone()) {
                 appearance_order.push(coord.clone());
             }
 
-            // Aggregate (Sum) values sharing the same cell
-            *lookup.entry(coord).or_insert(0.0) += val;
+            // Collect the row index for later aggregation
+            groups.entry(coord).or_default().push(i);
         }
 
-        // --- STEP 5: Reconstruct the Dataset (Sparse Implementation) ---
+        // --- STEP 5: Aggregation Pass ---
         let mut final_x = Vec::with_capacity(appearance_order.len());
         let mut final_y = Vec::with_capacity(appearance_order.len());
         let mut final_color = Vec::with_capacity(appearance_order.len());
 
-        // Iterate through appearance_order instead of a Cartesian Product.
-        // This ensures:
-        // 1. Missing data points are truly skipped (not rendered as 0).
-        // 2. The resultant Dataset rows follow the input data's temporal/logical order.
+        // Use the user-specified aggregation operator from the color encoding
+        let agg_op = color_enc.aggregate;
+
         for coord in appearance_order {
-            if let Some(&val) = lookup.get(&coord) {
+            if let Some(indices) = groups.get(&coord) {
+                // Perform the statistical calculation on the color column
+                let aggregated_val = agg_op.aggregate_by_index(color_col, indices);
+                
                 final_x.push(coord.0);
                 final_y.push(coord.1);
-                final_color.push(val);
+                final_color.push(aggregated_val);
             }
         }
 
+        // --- STEP 6: Reconstruct the Dataset ---
         let mut new_ds = Dataset::new();
 
-        // Helper to convert internal string keys back to native types
+        // Internal helper to cast string keys back to F64 for numeric/binned scales
         let cast_vec = |labels: Vec<String>, is_discrete: bool, binned: bool| -> ColumnVector {
             if !is_discrete || binned {
-                // If numeric, parse back to F64 for the renderer/scales
                 let data = labels
                     .iter()
                     .map(|s| s.parse::<f64>().unwrap_or(0.0))
                     .collect();
                 ColumnVector::F64 { data }
             } else {
-                // If categorical, keep as String
                 ColumnVector::String {
                     data: labels,
                     validity: None,
@@ -144,6 +137,8 @@ impl<T: Mark> Chart<T> {
             &y_enc.field,
             cast_vec(final_y, y_is_discrete, y_bin_params.is_some()),
         )?;
+        
+        // The color column is always numeric (f64) after aggregation
         new_ds.add_column(&color_enc.field, ColumnVector::F64 { data: final_color })?;
 
         self.data = new_ds;
