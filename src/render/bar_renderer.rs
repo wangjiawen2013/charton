@@ -1,4 +1,5 @@
 use crate::Precision;
+use crate::TEMP_SUFFIX;
 use crate::chart::Chart;
 use crate::core::context::PanelContext;
 use crate::core::layer::{MarkRenderer, PolygonConfig, RenderBackend, TextConfig};
@@ -15,7 +16,8 @@ impl MarkRenderer for Chart<MarkBar> {
         context: &PanelContext,
     ) -> Result<(), ChartonError> {
         let ds = &self.data;
-        if ds.row_count == 0 {
+        let row_count = ds.height();
+        if row_count == 0 {
             return Ok(());
         }
 
@@ -45,30 +47,38 @@ impl MarkRenderer for Chart<MarkBar> {
         let is_polar = hints.needs_interpolation;
         let needs_nightingale_sqrt = is_polar && !is_pie_mode;
 
-        // --- STEP 2: Deterministic X-Mapping for Stack Accumulator ---
-        let x_uniques = ds.column(&x_enc.field)?.unique_values();
-        let mut x_idx_map = AHashMap::with_capacity(x_uniques.len());
-        for (i, val) in x_uniques.iter().enumerate() {
-            x_idx_map.insert(val, i);
-        }
-        let mut stack_acc = vec![0.0; x_uniques.len()];
-
-        // --- STEP 3: Vectorized Data Extraction ---
+        // --- STEP 2: Layout Context ---
+        // Access helper columns injected by transform_bar_data
+        let sub_indices = ds.column(&format!("{}_sub_idx", TEMP_SUFFIX))?.to_f64_vec();
+        let group_counts = ds
+            .column(&format!("{}_groups_count", TEMP_SUFFIX))?
+            .to_f64_vec();
+        let y_values = ds.column(&y_enc.field)?.to_f64_vec();
         let x_norms = x_scale
             .scale_type()
             .normalize_column(x_scale, ds.column(&x_enc.field)?);
-        let y_values = ds.column(&y_enc.field)?.to_f64_vec();
 
-        let color_norms = if let Some(ref color_map) = context.spec.aesthetics.color {
-            Some(
-                color_map
-                    .scale_impl
-                    .scale_type()
-                    .normalize_column(color_map.scale_impl.as_ref(), ds.column(&color_map.field)?),
-            )
-        } else {
-            None
-        };
+        // For stacking, we still need an accumulator.
+        // Because of the Cartesian Product order, we can map X labels to indices reliably.
+        let x_uniques = ds.column(&x_enc.field)?.unique_values();
+        let mut x_idx_map = AHashMap::with_capacity(x_uniques.len());
+        for (i, val) in x_uniques.iter().enumerate() {
+            x_idx_map.insert(val.as_str(), i);
+        }
+        let mut stack_acc = vec![0.0; x_uniques.len()];
+
+        // Visual Parameters
+        let eff_width = mark_config.width.unwrap_or(hints.default_bar_width);
+        let eff_spacing = mark_config.spacing.unwrap_or(hints.default_bar_spacing);
+        let eff_span = mark_config.span.unwrap_or(hints.default_bar_span);
+        let unit_step_norm = (x_scale.normalize(1.0) - x_scale.normalize(0.0)).abs();
+
+        // Color Mapping
+        let color_norms = context.spec.aesthetics.color.as_ref().map(|c| {
+            c.scale_impl
+                .scale_type()
+                .normalize_column(c.scale_impl.as_ref(), ds.column(&c.field).unwrap())
+        });
 
         let global_total = if is_pie_mode {
             y_values.iter().sum::<f64>().max(1.0)
@@ -76,162 +86,130 @@ impl MarkRenderer for Chart<MarkBar> {
             1.0
         };
 
-        // --- STEP 4: Grouping & Layout Parameter Resolution ---
-        let color_field = context
-            .spec
-            .aesthetics
-            .color
-            .as_ref()
-            .map(|c| c.field.as_str());
-        let grouped_data = ds.group_by(color_field);
+        // --- STEP 3: Linear Rendering Loop ---
+        // No more group_by! We process rows as a flat stream.
+        for idx in 0..row_count {
+            let y_val = y_values[idx];
+            let x_str = ds.get_str_or(&x_enc.field, idx, "null");
+            let sub_idx = sub_indices[idx];
+            let n_groups = group_counts[idx];
 
-        let n_groups = if is_pie_mode {
-            1.0
-        } else {
-            grouped_data.groups.len() as f64
-        };
+            // A: Resolve Y-Bounds
+            let (y_low_n, y_high_n) = if is_stacked {
+                let x_pos = *x_idx_map.get(x_str.as_str()).unwrap_or(&0);
+                let start = stack_acc[x_pos];
+                let end = start + y_val;
+                stack_acc[x_pos] = end;
 
-        let eff_width = mark_config.width.unwrap_or(hints.default_bar_width);
-        let eff_spacing = mark_config.spacing.unwrap_or(hints.default_bar_spacing);
-        let eff_span = mark_config.span.unwrap_or(hints.default_bar_span);
-        let eff_stroke = mark_config.stroke.unwrap_or(hints.default_bar_stroke);
-        let eff_stroke_width = mark_config
-            .stroke_width
-            .unwrap_or(hints.default_bar_stroke_width);
-
-        let unit_step_norm = (x_scale.normalize(1.0) - x_scale.normalize(0.0)).abs();
-
-        // Standard bar width for Cartesian or Stacked modes
-        let bar_width_data = if is_stacked || n_groups <= 1.0 {
-            eff_width.min(eff_span)
-        } else {
-            eff_span / (n_groups + (n_groups - 1.0) * eff_spacing)
-        };
-
-        let bar_width_norm = bar_width_data * unit_step_norm;
-        let spacing_norm = bar_width_norm * eff_spacing;
-
-        // --- STEP 5: Rendering Loop ---
-        for (group_idx, (_name, row_indices)) in grouped_data.groups.iter().enumerate() {
-            for &idx in row_indices {
-                let y_val = y_values[idx];
-
-                if y_val == 0.0 && !is_stacked {
-                    continue;
-                }
-
-                let x_str = ds.get_str_or(&x_enc.field, idx, "null");
-                let x_pos_idx = *x_idx_map.get(&x_str).unwrap_or(&0);
-                let x_tick_n = x_norms[idx].unwrap_or(0.0);
-
-                // A: Resolve Y-Bounds (Radius/Height)
-                let (y_low_n, y_high_n) = if is_stacked {
-                    let start = stack_acc[x_pos_idx];
-                    let end = start + y_val;
-                    stack_acc[x_pos_idx] = end;
-
-                    if needs_nightingale_sqrt {
-                        (
-                            y_scale.normalize(start).sqrt(),
-                            y_scale.normalize(end).sqrt(),
-                        )
-                    } else {
-                        (y_scale.normalize(start), y_scale.normalize(end))
-                    }
+                if needs_nightingale_sqrt {
+                    (
+                        y_scale.normalize(start).sqrt(),
+                        y_scale.normalize(end).sqrt(),
+                    )
                 } else {
-                    let n_val = y_scale.normalize(y_val);
-                    let final_n = if needs_nightingale_sqrt {
+                    (y_scale.normalize(start), y_scale.normalize(end))
+                }
+            } else {
+                let n_val = y_scale.normalize(y_val);
+                (
+                    y_scale.normalize(0.0),
+                    if needs_nightingale_sqrt {
                         n_val.sqrt()
                     } else {
                         n_val
-                    };
-                    (y_scale.normalize(0.0), final_n)
-                };
+                    },
+                )
+            };
 
-                // B: Resolve X-Position (Angular/Width) - FIX FOR ROSE CHART
-                // If it's polar coordinate but NOT pie and NOT stacked, it's a Rose Chart.
-                // In Rose Charts, we usually want bars to overlay each other with full width
-                // rather than dodging (which makes wedges extremely thin).
-                let (offset_norm, final_bar_width_norm) = if is_polar && !is_pie_mode && !is_stacked
-                {
-                    // Rose Mode: No offset, use full span width
-                    (0.0, eff_span * unit_step_norm)
-                } else if !is_stacked && n_groups > 1.0 {
-                    // Cartesian Dodge Mode
-                    let offset = (group_idx as f64 - (n_groups - 1.0) / 2.0)
-                        * (bar_width_norm + spacing_norm);
-                    (offset, bar_width_norm)
-                } else {
-                    // Single Bar or Stacked Mode
-                    (0.0, bar_width_norm)
-                };
+            // B: Resolve X-Position using Helper Columns
+            let bar_width_data = if is_stacked || n_groups <= 1.0 {
+                eff_width.min(eff_span)
+            } else {
+                eff_span / (n_groups + (n_groups - 1.0) * eff_spacing)
+            };
 
-                let x_center_n = x_tick_n + offset_norm;
-                let left_n = x_center_n - final_bar_width_norm / 2.0;
-                let right_n = x_center_n + final_bar_width_norm / 2.0;
+            let bar_width_norm = bar_width_data * unit_step_norm;
+            let spacing_norm = bar_width_norm * eff_spacing;
 
-                // C: Geometric Construction
-                let rect_path = if is_pie_mode {
-                    vec![
-                        (y_low_n, left_n),
-                        (y_low_n, right_n),
-                        (y_high_n, right_n),
-                        (y_high_n, left_n),
-                    ]
-                } else {
-                    vec![
-                        (left_n, y_low_n),
-                        (left_n, y_high_n),
-                        (right_n, y_high_n),
-                        (right_n, y_low_n),
-                    ]
-                };
+            let (offset_norm, final_bar_width_norm) = if is_polar && !is_pie_mode && !is_stacked {
+                (0.0, eff_span * unit_step_norm) // Rose overlay mode
+            } else if !is_stacked && n_groups > 1.0 {
+                // Simplified Dodge Calculation using sub_idx helper
+                let offset = (sub_idx - (n_groups - 1.0) / 2.0) * (bar_width_norm + spacing_norm);
+                (offset, bar_width_norm)
+            } else {
+                (0.0, bar_width_norm)
+            };
 
-                let pixel_points: Vec<(Precision, Precision)> = if hints.needs_interpolation {
-                    context
-                        .transform_path(&rect_path, true)
-                        .into_iter()
-                        .map(|(px, py)| (px as Precision, py as Precision))
-                        .collect()
-                } else {
-                    rect_path
-                        .iter()
-                        .map(|&(nx, ny)| {
-                            let (px, py) = context.coord.transform(nx, ny, &context.panel);
-                            (px as Precision, py as Precision)
-                        })
-                        .collect()
-                };
+            let x_tick_n = x_norms[idx].unwrap_or(0.0);
+            let x_center_n = x_tick_n + offset_norm;
+            let left_n = x_center_n - final_bar_width_norm / 2.0;
+            let right_n = x_center_n + final_bar_width_norm / 2.0;
 
-                // D: Visual Resolution
-                let color_val = color_norms.as_ref().and_then(|cn| cn[idx]);
-                let final_color =
-                    self.resolve_color_from_value(color_val, context, &mark_config.color);
+            // C: Geometric Construction (Same as before)
+            let rect_path = if is_pie_mode {
+                vec![
+                    (y_low_n, left_n),
+                    (y_low_n, right_n),
+                    (y_high_n, right_n),
+                    (y_high_n, left_n),
+                ]
+            } else {
+                vec![
+                    (left_n, y_low_n),
+                    (left_n, y_high_n),
+                    (right_n, y_high_n),
+                    (right_n, y_low_n),
+                ]
+            };
 
-                backend.draw_polygon(PolygonConfig {
-                    points: pixel_points,
-                    fill: final_color,
-                    stroke: eff_stroke,
-                    stroke_width: eff_stroke_width as Precision,
-                    fill_opacity: mark_config.opacity as Precision,
-                    stroke_opacity: mark_config.opacity as Precision,
-                });
+            // Transform to pixels
+            let pixel_points: Vec<(Precision, Precision)> = if hints.needs_interpolation {
+                context
+                    .transform_path(&rect_path, true)
+                    .into_iter()
+                    .map(|(px, py)| (px as Precision, py as Precision))
+                    .collect()
+            } else {
+                rect_path
+                    .iter()
+                    .map(|&(nx, ny)| {
+                        let (px, py) = context.coord.transform(nx, ny, &context.panel);
+                        (px as Precision, py as Precision)
+                    })
+                    .collect()
+            };
 
-                // E: Pie Mode Labels
-                if is_pie_mode {
-                    self.render_pie_label(
-                        y_val,
-                        global_total,
-                        y_low_n,
-                        y_high_n,
-                        left_n,
-                        right_n,
-                        y_enc.normalize,
-                        context,
-                        backend,
-                        mark_config.opacity as Precision,
-                    );
-                }
+            // D: Drawing
+            let color_val = color_norms.as_ref().and_then(|cn| cn[idx]);
+            let final_color = self.resolve_color_from_value(color_val, context, &mark_config.color);
+
+            backend.draw_polygon(PolygonConfig {
+                points: pixel_points,
+                fill: final_color,
+                stroke: mark_config.stroke.unwrap_or(hints.default_bar_stroke),
+                stroke_width: mark_config
+                    .stroke_width
+                    .unwrap_or(hints.default_bar_stroke_width)
+                    as Precision,
+                fill_opacity: mark_config.opacity as Precision,
+                stroke_opacity: mark_config.opacity as Precision,
+            });
+
+            // E: Labels for Pie
+            if is_pie_mode {
+                self.render_pie_label(
+                    y_val,
+                    global_total,
+                    y_low_n,
+                    y_high_n,
+                    left_n,
+                    right_n,
+                    y_enc.normalize,
+                    context,
+                    backend,
+                    mark_config.opacity as Precision,
+                );
             }
         }
 

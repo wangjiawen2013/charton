@@ -1,3 +1,4 @@
+use crate::TEMP_SUFFIX;
 use crate::chart::Chart;
 use crate::coordinate::{CoordSystem, CoordinateTrait, Rect};
 use crate::core::aesthetics::AestheticMapping;
@@ -189,6 +190,8 @@ impl LayeredChart {
         let mut has_expansion_info = false;
 
         // --- Step 1: Scan Layers ---
+        let boundary_tag = format!("{}_boundary", TEMP_SUFFIX);
+
         for (i, layer) in self.layers.iter().enumerate() {
             let (field, current_type) = match (layer.get_field(channel), layer.get_scale(channel)) {
                 (Some(f), Some(t)) => (f, t),
@@ -216,6 +219,13 @@ impl LayeredChart {
                 }
                 ScaleDomain::Discrete(labels) => {
                     for label in labels {
+                        // Cloaking Strategy: Skip the "phantom" category used by Boxplot.
+                        // This ensures the Y-axis stays wide enough for outliers, while the
+                        // X-axis remains clean, hiding the internal scaling machinery from the user.
+                        if label == boundary_tag {
+                            continue;
+                        }
+
                         if !all_labels.contains(&label) {
                             all_labels.push(label);
                         }

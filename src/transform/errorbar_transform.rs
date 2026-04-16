@@ -85,8 +85,6 @@ impl<T: Mark> Chart<T> {
             .collect();
 
         // --- STEP 4: Cartesian Product & Gap Filling (Deterministic Order) ---
-        // Instead of sorting alphabetically, we use the "Appearance Order" from unique_values().
-        // This ensures ErrorBars align perfectly with Bars and Boxplots.
         let lookup: AHashMap<(String, Option<String>), (f64, f64, f64)> =
             aggregated_results.into_iter().collect();
 
@@ -103,10 +101,15 @@ impl<T: Mark> Chart<T> {
         let mut final_ymax = Vec::new();
         let mut final_color = Vec::new();
 
-        // Execute Cartesian Product to ensure no missing slots in grouped charts.
+        // New helper columns for stable dodging
+        let mut final_sub_idx = Vec::new();
+        let mut final_groups_count = Vec::new();
+
+        let total_groups = if group_by_color { c_uniques.len() } else { 1 } as f64;
+
         for x in &x_uniques {
             if group_by_color {
-                for c in &c_uniques {
+                for (c_idx, c) in c_uniques.iter().enumerate() {
                     let key = (x.clone(), Some(c.clone()));
                     let stats = lookup
                         .get(&key)
@@ -118,6 +121,10 @@ impl<T: Mark> Chart<T> {
                     final_y.push(stats.0);
                     final_ymin.push(stats.1);
                     final_ymax.push(stats.2);
+
+                    // Track the specific slot index and total slots for this X-category
+                    final_sub_idx.push(c_idx as f64);
+                    final_groups_count.push(total_groups);
                 }
             } else {
                 let key = (x.clone(), None);
@@ -130,12 +137,17 @@ impl<T: Mark> Chart<T> {
                 final_y.push(stats.0);
                 final_ymin.push(stats.1);
                 final_ymax.push(stats.2);
+
+                // Single group case: index 0 of 1
+                final_sub_idx.push(0.0);
+                final_groups_count.push(1.0);
             }
         }
 
         // --- STEP 5: Rebuild Dataset ---
         let mut new_ds = Dataset::new();
-        // Set validity to None because Cartesian Product guarantees no null Strings.
+
+        // 1. Add primary axis (X)
         new_ds.add_column(
             x_field,
             ColumnVector::String {
@@ -143,10 +155,13 @@ impl<T: Mark> Chart<T> {
                 validity: None,
             },
         )?;
+
+        // 2. Add statistical Y columns
         new_ds.add_column(y_field, ColumnVector::F64 { data: final_y })?;
         new_ds.add_column(&y_min_col, ColumnVector::F64 { data: final_ymin })?;
         new_ds.add_column(&y_max_col, ColumnVector::F64 { data: final_ymax })?;
 
+        // 3. Add Color aesthetic column (if grouping is active)
         if group_by_color {
             new_ds.add_column(
                 color_field.unwrap(),
@@ -157,6 +172,21 @@ impl<T: Mark> Chart<T> {
             )?;
         }
 
+        // 4. Add Dodging helper columns (CRITICAL for alignment with Boxplots)
+        new_ds.add_column(
+            &format!("{}_sub_idx", TEMP_SUFFIX),
+            ColumnVector::F64 {
+                data: final_sub_idx,
+            },
+        )?;
+        new_ds.add_column(
+            &format!("{}_groups_count", TEMP_SUFFIX),
+            ColumnVector::F64 {
+                data: final_groups_count,
+            },
+        )?;
+
+        // Finalize
         self.data = new_ds;
         Ok(self)
     }

@@ -114,9 +114,32 @@ impl<T: Mark> Chart<T> {
 
         // --- STEP 5: Rebuild Dataset ---
         let mut new_ds = Dataset::new();
-        // For Pie mode, we use an empty string for the column name so the renderer identifies it.
-        let x_col_name = if is_pie { "" } else { &x_field };
 
+        // 1. Resolve column names and metadata
+        let x_col_name = if is_pie { "" } else { &x_field };
+        let total_c = if has_grouping_color {
+            c_uniques.len()
+        } else {
+            1
+        };
+        let total_rows = final_x.len();
+
+        // 2. Generate layout helper columns (consistent with Boxplot/Errorbar)
+        // These columns allow the renderer to calculate 'dodge' offsets without re-grouping.
+        let mut f_groups_count = Vec::with_capacity(total_rows);
+        let mut f_sub_idx = Vec::with_capacity(total_rows);
+
+        // Since final_x/final_color were built using nested loops in STEP 4,
+        // we replicate that structure here to align helper values.
+        for _ in &x_uniques {
+            for j in 0..total_c {
+                f_groups_count.push(total_c as f64);
+                f_sub_idx.push(j as f64);
+            }
+        }
+
+        // 3. Assemble the New Dataset
+        // Primary Axis (X)
         new_ds.add_column(
             x_col_name,
             ColumnVector::String {
@@ -124,8 +147,11 @@ impl<T: Mark> Chart<T> {
                 validity: None,
             },
         )?;
+
+        // Measures (Y)
         new_ds.add_column(&y_field, ColumnVector::F64 { data: final_y })?;
 
+        // Aesthetic Grouping (Color)
         if has_grouping_color {
             new_ds.add_column(
                 color_field.unwrap(),
@@ -136,6 +162,20 @@ impl<T: Mark> Chart<T> {
             )?;
         }
 
+        // Layout Helpers (The "Secret Sauce" for unified rendering)
+        new_ds.add_column(
+            &format!("{}_groups_count", TEMP_SUFFIX),
+            ColumnVector::F64 {
+                data: f_groups_count,
+            },
+        )?;
+
+        new_ds.add_column(
+            &format!("{}_sub_idx", TEMP_SUFFIX),
+            ColumnVector::F64 { data: f_sub_idx },
+        )?;
+
+        // --- STEP 6: Finalization ---
         self.data = new_ds;
         Ok(self)
     }

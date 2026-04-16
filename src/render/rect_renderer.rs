@@ -2,7 +2,7 @@ use crate::Precision;
 use crate::chart::Chart;
 use crate::core::context::PanelContext;
 use crate::core::layer::{MarkRenderer, RectConfig, RenderBackend};
-use crate::core::utils::Parallelizable;
+use crate::core::utils::IntoParallelizable;
 use crate::error::ChartonError;
 use crate::mark::rect::MarkRect;
 use crate::visual::color::SingleColor;
@@ -15,8 +15,12 @@ use rayon::prelude::*;
 // ============================================================================
 
 impl MarkRenderer for Chart<MarkRect> {
-    /// Renders rectangles, typically used for heatmaps or binned 2D plots.
-    /// Uses group-based parallel processing to maintain deterministic Z-index.
+    /// Orchestrates the transformation of aggregated data into rectangular geometries.
+    ///
+    /// Optimized for Heatmaps and Binned 2D plots by:
+    /// 1. Removing redundant grouping for improved parallel throughput.
+    /// 2. Using a unified 'Calculate -> Collect -> Emit' pipeline.
+    /// 3. Ensuring deterministic Z-indexing via sequential backend dispatch.
     fn render_marks(
         &self,
         backend: &mut dyn RenderBackend,
@@ -25,11 +29,13 @@ impl MarkRenderer for Chart<MarkRect> {
         let df_source = &self.data;
         let row_count = df_source.height();
 
+        // Guard against empty datasets to prevent unnecessary allocation
         if row_count == 0 {
             return Ok(());
         }
 
         // --- STEP 1: SPECIFICATION VALIDATION ---
+        // Ensure required encodings and mark configurations exist
         let x_enc = self
             .encoding
             .x
@@ -46,6 +52,7 @@ impl MarkRenderer for Chart<MarkRect> {
             .ok_or_else(|| ChartonError::Mark("MarkRect configuration is missing".into()))?;
 
         // --- STEP 2: POSITION & AESTHETIC NORMALIZATION ---
+        // Vectorized normalization: maps raw data values to a [0, 1] logical space
         let x_scale = context.coord.get_x_scale();
         let y_scale = context.coord.get_y_scale();
 
@@ -56,7 +63,7 @@ impl MarkRenderer for Chart<MarkRect> {
             .scale_type()
             .normalize_column(y_scale, df_source.column(&y_enc.field)?);
 
-        // Pre-normalize color if mapping exists (Crucial for Heatmaps)
+        // Pre-normalize color aesthetics (Essential for continuous Heatmap gradients)
         let color_norms = context.spec.aesthetics.color.as_ref().map(|m| {
             let s = m.scale_impl.as_ref();
             s.scale_type()
@@ -64,58 +71,46 @@ impl MarkRenderer for Chart<MarkRect> {
         });
 
         // --- STEP 3: SIZE CALCULATION ---
-        // Rectangles in heatmaps usually fill a specific bin width/height.
+        // Determine the fixed pixel dimensions of a single tile based on bin configuration
         let (rect_width, rect_height) = self.calculate_rect_size(context);
 
-        // --- STEP 4: GROUPING (Determines Z-Index & Category Color) ---
-        let color_field = self.encoding.color.as_ref().map(|c| c.field.as_str());
-        let grouped_data = df_source.group_by(color_field);
-        let palette = &context.spec.theme.palette;
+        // --- STEP 4: PARALLEL GEOMETRY GENERATION ---
+        // Map normalized data to screen-space RectConfig objects
+        let render_configs: Vec<RectConfig> = (0..row_count)
+            .maybe_into_par_iter()
+            .filter_map(|i| {
+                let x_n = x_norms[i]?;
+                let y_n = y_norms[i]?;
 
-        // --- STEP 5: MULTI-CORE PROCESSING PER GROUP ---
-        for (group_idx, (_name, row_indices)) in grouped_data.groups.iter().enumerate() {
-            // Resolve base color for this group (Category fallback)
-            let base_group_color = if color_field.is_some() {
-                palette.get_color(group_idx)
-            } else {
-                mark_config.color
-            };
+                // 1. Coordinate Transformation: Get the center point of the rectangle
+                let (px, py) = context.coord.transform(x_n, y_n, &context.panel);
 
-            // Calculate tile geometries in parallel
-            let render_configs: Vec<RectConfig> = row_indices
-                .maybe_par_iter()
-                .filter_map(|&i| {
-                    let x_n = x_norms[i]?;
-                    let y_n = y_norms[i]?;
+                // 2. Aesthetic Resolution: Resolve fill color from scale or fallback
+                let fill = self.resolve_color_from_value(
+                    color_norms.as_ref().and_then(|n| n[i]),
+                    context,
+                    &mark_config.color,
+                );
 
-                    // Convert normalized [0,1] to pixel coordinates (center of the tile)
-                    let (px, py) = context.coord.transform(x_n, y_n, &context.panel);
-
-                    // Resolve color (Continuous scale mapping vs Category fallback)
-                    let fill = if let Some(ref norms) = color_norms {
-                        self.resolve_color_from_value(norms[i], context, &base_group_color)
-                    } else {
-                        base_group_color
-                    };
-
-                    Some(RectConfig {
-                        // Offset center to get top-left corner
-                        x: (px - rect_width / 2.0) as Precision,
-                        y: (py - rect_height / 2.0) as Precision,
-                        width: rect_width as Precision,
-                        height: rect_height as Precision,
-                        fill,
-                        stroke: mark_config.stroke,
-                        stroke_width: mark_config.stroke_width as Precision,
-                        opacity: mark_config.opacity as Precision,
-                    })
+                // 3. Rect Boundary Calculation: Offset from center to top-left corner
+                Some(RectConfig {
+                    x: (px - rect_width / 2.0) as Precision,
+                    y: (py - rect_height / 2.0) as Precision,
+                    width: rect_width as Precision,
+                    height: rect_height as Precision,
+                    fill,
+                    stroke: mark_config.stroke,
+                    stroke_width: mark_config.stroke_width as Precision,
+                    opacity: mark_config.opacity as Precision,
                 })
-                .collect();
+            })
+            .collect();
 
-            // --- STEP 6: SEQUENTIAL DRAW DISPATCH ---
-            for config in render_configs {
-                backend.draw_rect(config);
-            }
+        // --- STEP 5: SEQUENTIAL DRAW DISPATCH ---
+        // Final rendering pass to the backend. Sequential execution ensures
+        // that the drawing order matches the data order (stable Z-indexing).
+        for config in render_configs {
+            backend.draw_rect(config);
         }
 
         Ok(())

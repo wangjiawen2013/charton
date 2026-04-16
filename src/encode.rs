@@ -115,38 +115,6 @@ impl Encoding {
         }
         .unwrap_or(false)
     }
-
-    /// Returns a list of all data fields currently active in this encoding.
-    ///
-    /// Useful for debugging or for pruning unused columns from a dataset
-    /// before processing.
-    pub(crate) fn active_fields(&self) -> Vec<&str> {
-        let mut fields = Vec::new();
-        // Check core channels
-        let core_channels = [
-            Channel::X,
-            Channel::Y,
-            Channel::Color,
-            Channel::Shape,
-            Channel::Size,
-        ];
-
-        for ch in core_channels {
-            if let Some(field) = self.get_field_by_channel(ch) {
-                fields.push(field);
-            }
-        }
-
-        // Handle specialty channels not yet in the main Channel enum
-        if let Some(ref y2) = self.y2 {
-            fields.push(y2.field.as_str());
-        }
-        if let Some(ref txt) = self.text {
-            fields.push(txt.field.as_str());
-        }
-
-        fields
-    }
 }
 
 /* ---------- IntoEncoding Implementations ---------- */
