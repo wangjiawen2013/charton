@@ -1,3 +1,4 @@
+use crate::TEMP_SUFFIX;
 use crate::chart::Chart;
 use crate::core::data::{ColumnVector, Dataset};
 use crate::error::ChartonError;
@@ -45,7 +46,7 @@ impl<T: Mark> Chart<T> {
         let color_list: Vec<String> = if let Some(c_enc) = color_enc {
             self.data.column(&c_enc.field)?.unique_values()
         } else {
-            vec!["__default__".to_string()]
+            vec![format!("{}_default", TEMP_SUFFIX)]
         };
 
         // --- STEP 4: Aggregate Counts (The "Group By" phase) ---
@@ -61,7 +62,7 @@ impl<T: Mark> Chart<T> {
             let color_label = if let Some(c_enc) = color_enc {
                 self.data.get_str_or(&c_enc.field, i, "null")
             } else {
-                "__default__".to_string()
+                format!("{}_default", TEMP_SUFFIX)
             };
 
             *lookup.entry((bin_idx, color_label)).or_insert(0.0) += 1.0;
