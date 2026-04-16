@@ -35,10 +35,10 @@
 <text x="47.50" y="175.50" text-anchor="middle" font-size="15" font-family="Inter, -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, 'PingFang SC', 'Microsoft YaHei', Ubuntu, Cantarell, 'Noto Sans', sans-serif" fill="rgba(51,51,51,1.000)" font-weight="bold" transform="rotate(-90, 47.50, 175.50)" dominant-baseline="middle">Y Values</text>
 <defs><clipPath id="plot-clip-area"><rect x="81.150" y="40.000" width="355.050" height="271.000" /></clipPath></defs>
 <line x1="97.289" y1="249.409" x2="97.289" y2="150.864" stroke="rgba(31,119,180,1.000)" stroke-width="1.000" stroke-opacity="1.000" />
-<line x1="258.675" y1="298.682" x2="258.675" y2="200.136" stroke="rgba(31,119,180,1.000)" stroke-width="1.000" stroke-opacity="1.000" />
-<line x1="420.061" y1="249.409" x2="420.061" y2="150.864" stroke="rgba(31,119,180,1.000)" stroke-width="1.000" stroke-opacity="1.000" />
 <line x1="177.982" y1="200.136" x2="177.982" y2="101.591" stroke="rgba(255,127,14,1.000)" stroke-width="1.000" stroke-opacity="1.000" />
+<line x1="258.675" y1="298.682" x2="258.675" y2="200.136" stroke="rgba(31,119,180,1.000)" stroke-width="1.000" stroke-opacity="1.000" />
 <line x1="339.368" y1="150.864" x2="339.368" y2="52.318" stroke="rgba(255,127,14,1.000)" stroke-width="1.000" stroke-opacity="1.000" />
+<line x1="420.061" y1="249.409" x2="420.061" y2="150.864" stroke="rgba(31,119,180,1.000)" stroke-width="1.000" stroke-opacity="1.000" />
 <text x="451.200" y="49.600" font-size="13.2" font-family="Inter, -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, 'PingFang SC', 'Microsoft YaHei', Ubuntu, Cantarell, 'Noto Sans', sans-serif" fill="rgba(51,51,51,1.000)" fill-opacity="1.000" text-anchor="start" font-weight="bold">color</text>
 <circle cx="460.200" cy="69.200" r="5.000" fill="rgba(31,119,180,1.000)" stroke="none" stroke-width="0.000" fill-opacity="1.000" stroke-opacity="1.000" />
 <text x="477.200" y="73.700" font-size="12.0" font-family="Inter, -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, 'PingFang SC', 'Microsoft YaHei', Ubuntu, Cantarell, 'Noto Sans', sans-serif" fill="rgba(51,51,51,1.000)" fill-opacity="1.000" text-anchor="start" font-weight="normal">A</text>

@@ -53,7 +53,7 @@ impl<T: Mark> Chart<T> {
         let color_series = if let Some(cf) = color_field {
             self.data.column(cf)?.unique_values()
         } else {
-            vec!["default".to_string()]
+            vec![format!("{}_default", TEMP_SUFFIX)]
         };
 
         // --- STEP 3: Build the Alignment Grid ---
@@ -80,8 +80,11 @@ impl<T: Mark> Chart<T> {
             };
 
             let c_val = color_field
-                .map(|cf| self.data.get_str_or(cf, i, "default"))
-                .unwrap_or_else(|| "default".to_string());
+                .map(|cf| {
+                    self.data
+                        .get_str_or(cf, i, &format!("{}_default", TEMP_SUFFIX))
+                })
+                .unwrap_or_else(|| format!("{}_default", TEMP_SUFFIX));
 
             let y_val = y_col.get_f64(i).unwrap_or(0.0);
             grid.entry(x_key).or_default().insert(c_val, y_val);
