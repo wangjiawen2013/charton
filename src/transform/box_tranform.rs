@@ -250,7 +250,7 @@ impl<T: Mark> Chart<T> {
                 },
             )?;
         }
-        println!("{:?}", new_ds);
+
         self.data = new_ds;
         Ok(self)
     }
