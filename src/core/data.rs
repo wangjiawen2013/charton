@@ -1200,6 +1200,7 @@ impl Dataset {
     }
 
     /// Adds a new column to the dataset (Imperative Style).
+    /// If a column with the same name already exists, it is overwritten with the new data.
     ///
     /// ### When to use:
     /// - Inside loops or conditional logic where columns are added dynamically.
@@ -1212,12 +1213,20 @@ impl Dataset {
         let name_str = name.into();
         let vec: ColumnVector = data.into();
 
-        // Ensure the new column matches the dataset's row count
+        // 1. Ensure the new column matches the dataset's row count (if not the first column)
         self.validate_len(&name_str, vec.len())?;
 
-        let index = self.columns.len();
-        self.columns.push(Arc::new(vec));
-        self.schema.insert(name_str, index);
+        // 2. Check if the column already exists in the schema
+        if let Some(&index) = self.schema.get(&name_str) {
+            // 3a. Overwrite existing column data at the stored index
+            self.columns[index] = Arc::new(vec);
+        } else {
+            // 3b. Add as a brand new column
+            let index = self.columns.len();
+            self.columns.push(Arc::new(vec));
+            self.schema.insert(name_str, index);
+        }
+
         Ok(())
     }
 
@@ -1358,62 +1367,6 @@ impl Dataset {
                 }
             }
         }
-    }
-
-    /// Validates a single column against a set of allowed [SemanticType]s.
-    ///
-    /// This prevents "illegal" mappings, such as trying to use a Categorical string
-    /// for a Continuous 'Size' channel.
-    pub fn validate_column_semantic(
-        &self,
-        column_name: &str,
-        allowed: &[SemanticType],
-    ) -> Result<SemanticType, ChartonError> {
-        // Access the column vector reference to inspect its semantic type.
-        let col = self.column(column_name)?;
-        let actual = col.semantic_type();
-
-        if !allowed.contains(&actual) {
-            return Err(ChartonError::Data(format!(
-                "Column '{}' (Semantic: {:?}) is incompatible. Expected one of: {:?}",
-                column_name, actual, allowed
-            )));
-        }
-
-        Ok(actual)
-    }
-
-    /// Performs a bulk validation of the dataset schema against encoding requirements.
-    ///
-    /// # Arguments
-    /// * `required_columns` - Column names that must exist in the dataset.
-    /// * `expected_semantics` - A map defining allowed semantic types for specific columns.
-    ///
-    /// # Returns
-    /// A map of column names to their resolved [SemanticType]s for downstream Scale initialization.
-    pub fn check_schema(
-        &self,
-        required_columns: &[&str],
-        expected_semantics: &AHashMap<&str, Vec<SemanticType>>,
-    ) -> Result<AHashMap<String, SemanticType>, ChartonError> {
-        let mut resolved_semantics = AHashMap::new();
-
-        for &col_name in required_columns {
-            // Default to allowing all types if no specific constraint is provided for this column.
-            let allowed = expected_semantics
-                .get(col_name)
-                .map(|v| v.as_slice())
-                .unwrap_or(&[
-                    SemanticType::Continuous,
-                    SemanticType::Discrete,
-                    SemanticType::Temporal,
-                ]);
-
-            let actual = self.validate_column_semantic(col_name, allowed)?;
-            resolved_semantics.insert(col_name.to_string(), actual);
-        }
-
-        Ok(resolved_semantics)
     }
 
     /// Generates a combined bitmask for multiple columns.
