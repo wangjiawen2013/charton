@@ -1,4 +1,3 @@
-use crate::TEMP_SUFFIX;
 use crate::chart::Chart;
 use crate::core::data::{ColumnVector, Dataset};
 use crate::error::ChartonError;
@@ -241,19 +240,20 @@ impl DensityTransform {
 
 impl<T: Mark> Chart<T> {
     /// Transform data by performing kernel density estimation (KDE).
-    /// Uses ColumnVector::unique_values() to ensure deterministic group ordering.
+    /// Uses ColumnVector::unique_values() to ensure deterministic group ordering
+    /// and consistent null-filtering behavior.
     pub fn transform_density(mut self, params: DensityTransform) -> Result<Self, ChartonError> {
         let density_field = &params.density;
         let density_col = self.data.column(density_field)?;
 
-        // --- STEP 1: Calculate Global Range ---
+        // --- STEP 1: Calculate Global Range (Ignoring Nulls) ---
         let (min_val, max_val) = density_col.min_max();
 
-        // Extend range by 30% to capture distribution tails.
+        // Extend range by 30% to capture distribution tails (standard visualization practice).
         let mut extended_min = 1.3 * min_val - 0.3 * max_val;
         let mut extended_max = 1.3 * max_val - 0.3 * min_val;
 
-        // Handle identical values case.
+        // Handle edge case where all values are identical.
         if (extended_max - extended_min).abs() < 1e-12 {
             let offset = if extended_min == 0.0 {
                 1.0
@@ -264,7 +264,7 @@ impl<T: Mark> Chart<T> {
             extended_max += offset;
         }
 
-        // 200 evaluation points for a smooth curve.
+        // Generate 200 evaluation points for a smooth curve.
         let steps = 200;
         let step_size = (extended_max - extended_min) / (steps as f64);
         let eval_points: Vec<f32> = (0..steps)
@@ -274,42 +274,63 @@ impl<T: Mark> Chart<T> {
         let x_axis_values: Vec<f64> = eval_points.iter().map(|&v| v as f64).collect();
 
         // --- STEP 2: Establish Deterministic Order ---
-        // unique_values() returns Vec<String> directly, preserving appearance order.
-        let group_order: Vec<String> = if let Some(ref g_field) = params.groupby {
-            self.data.column(g_field)?.unique_values()
+        // We use unique_values() to ensure the order of density curves matches
+        // the legend and other transforms (First Appearance).
+        let group_order: Vec<Option<String>> = if let Some(ref g_field) = params.groupby {
+            self.data
+                .column(g_field)?
+                .unique_values()
+                .into_iter()
+                .map(Some)
+                .collect()
         } else {
-            vec![format!("{}_default", TEMP_SUFFIX)]
+            // Use None as a placeholder for the global (no-groupby) case.
+            vec![None]
         };
 
         // --- STEP 3: Aggregate Observations by Group ---
-        let mut groups: AHashMap<String, Vec<f32>> = AHashMap::new();
+        // Using Option<String> keys to allow the logic to handle nulls naturally.
+        let mut groups: AHashMap<Option<String>, Vec<f32>> = AHashMap::new();
         let row_count = self.data.height();
 
-        for i in 0..row_count {
-            let group_key = if let Some(ref g_field) = params.groupby {
-                self.data.get_str_or(g_field, i, "null")
-            } else {
-                format!("{}_default", TEMP_SUFFIX)
-            };
-
-            if let Some(val) = density_col.get_f64(i) {
-                groups.entry(group_key).or_default().push(val as f32);
+        if let Some(ref g_field) = params.groupby {
+            let group_col = self.data.column(g_field)?;
+            for i in 0..row_count {
+                if let Some(val) = density_col.get_f64(i) {
+                    let key = group_col.get_str(i);
+                    groups.entry(key).or_default().push(val as f32);
+                }
             }
+        } else {
+            // Fast path for global density (no groupby).
+            let mut all_obs = Vec::with_capacity(row_count);
+            for i in 0..row_count {
+                if let Some(val) = density_col.get_f64(i) {
+                    all_obs.push(val as f32);
+                }
+            }
+            groups.insert(None, all_obs);
         }
 
-        // --- STEP 4: Compute KDE per Group (Iterate using stable order) ---
+        // --- STEP 4: Compute KDE per Group ---
         let mut final_x = Vec::new();
         let mut final_y = Vec::new();
         let mut final_group = Vec::new();
 
-        for group_name in group_order {
-            // Get observations; skip if group is missing or empty.
-            let observations = match groups.get(&group_name) {
+        for key in group_order {
+            // Get observations for this specific group.
+            // Note: If 'key' was None and not in group_order (due to unique_values filtering),
+            // those rows are effectively skipped.
+            let observations = match groups.get(&key) {
                 Some(obs) if !obs.is_empty() => obs,
                 _ => continue,
             };
 
-            // Trait dispatch for KDE calculation.
+            // Derive label for the output column.
+            // "all" is used only for the global group when no groupby field is provided.
+            let group_label = key.as_deref().unwrap_or("all").to_string();
+
+            // KDE calculation dispatch.
             let density_values: Vec<f64> = match (&params.bandwidth, &params.kernel) {
                 (BandwidthType::Scott, KernelType::Normal) => {
                     let kde = KernelDensityEstimator::new(observations.clone(), Scott, Normal);
@@ -415,10 +436,10 @@ impl<T: Mark> Chart<T> {
             final_y.extend(processed_y);
             final_x.extend(x_axis_values.clone());
 
-            // If grouping is active, repeat the group name for all 200 points.
+            // If a grouping field exists, populate the group column for every point in the curve.
             if params.groupby.is_some() {
                 for _ in 0..steps {
-                    final_group.push(group_name.clone());
+                    final_group.push(group_label.clone());
                 }
             }
         }
@@ -438,6 +459,7 @@ impl<T: Mark> Chart<T> {
             )?;
         }
 
+        // Replace chart data with the generated density dataset.
         self.data = new_ds;
         Ok(self)
     }
