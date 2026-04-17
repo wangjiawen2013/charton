@@ -46,7 +46,11 @@ Add to `Cargo.toml`:
 
 ```toml
 [dependencies]
-charton = "0.5"
+charton = "0.5" # For WASM or single-thread, use: default-features = false
+
+# Optional features:
+# "resvg" -> PNG support
+# "bridge" -> Altair/Matplotlib interop
 ```
 
 ## Quick Start

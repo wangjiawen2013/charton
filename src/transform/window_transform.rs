@@ -1,4 +1,3 @@
-use crate::TEMP_SUFFIX;
 use crate::chart::Chart;
 use crate::core::data::{ColumnVector, Dataset};
 use crate::error::ChartonError;
@@ -220,8 +219,10 @@ impl WindowTransform {
 impl<T: Mark> Chart<T> {
     /// Performs window transformations (Ranking, Row Numbers, or ECDF) on the chart data.
     ///
-    /// This implementation replaces previous external data frame logic with a native
-    /// columnar pipeline, using stable grouping and optional domain expansion for ECDF.
+    /// This implementation follows the "Mainstream Strategy":
+    /// 1. **Order Persistence**: Uses `unique_values()` to maintain "First Appearance" order.
+    /// 2. **Null Handling**: Rows with Null/NaN inputs result in NaN outputs.
+    /// 3. **ECDF Soundness**: Filters out Nulls before calculation so they don't skew the distribution.
     pub fn transform_window(mut self, params: WindowTransform) -> Result<Self, ChartonError> {
         let n = self.data.height();
         if n == 0 {
@@ -233,8 +234,6 @@ impl<T: Mark> Chart<T> {
         let target_col = self.data.column(field_name)?;
 
         // --- PHASE 1: UNIFIED GROUPING ---
-        // Partition row indices into groups. If no groupby is specified,
-        // the entire dataset is treated as a single group with key 'None'.
         let mut groups: AHashMap<Option<String>, Vec<usize>> = AHashMap::new();
         if let Some(ref group_field) = params.groupby {
             let group_col = self.data.column(group_field)?;
@@ -242,46 +241,81 @@ impl<T: Mark> Chart<T> {
                 groups.entry(group_col.get_str(i)).or_default().push(i);
             }
         } else {
+            // If no groupby is specified, treat the entire dataset as a single group
             groups.insert(None, (0..n).collect());
         }
 
-        // --- PHASE 2: OPERATION MATCHING ---
+        // --- PHASE 2: STABLE ORDER DETERMINATION ---
+        // We derive the iteration order from unique_values() to stay consistent
+        // with the "First Appearance" logic used for visual scales/legends.
+        let group_order: Vec<Option<String>> = if let Some(ref group_field) = params.groupby {
+            self.data
+                .column(group_field)?
+                .unique_values()
+                .into_iter()
+                .map(Some)
+                .collect()
+        } else {
+            vec![None]
+        };
+
+        // --- PHASE 3: OPERATION MATCHING ---
         match params.window.op {
             WindowOnlyOp::CumeDist => {
-                // ECDF requires Domain Expansion (Padding) to align start/end points.
-                // This returns a fresh Dataset because the row count changes.
-                self.data = self.apply_ecdf_with_padding(groups, &params)?;
+                // ECDF generates a new Dataset (row count changes due to padding)
+                self.data = self.apply_ecdf_with_padding(groups, group_order, &params)?;
             }
             WindowOnlyOp::RowNumber | WindowOnlyOp::Rank => {
-                // Ranking operations maintain the original row count of the existing dataset.
-                let mut results = vec![0.0; n];
+                // Ranking operations maintain original row count.
+                // Default to NaN so rows with Null inputs remain Null in output.
+                let mut results = vec![f64::NAN; n];
 
-                for (_, mut indices) in groups {
-                    // Sort indices within each group based on target column values.
-                    indices.sort_by(|&a, &b| {
-                        let va = target_col.get_f64(a).unwrap_or(f64::NEG_INFINITY);
-                        let vb = target_col.get_f64(b).unwrap_or(f64::NEG_INFINITY);
-                        va.partial_cmp(&vb).unwrap_or(std::cmp::Ordering::Equal)
-                    });
+                for key in group_order {
+                    if let Some(mut indices) = groups.remove(&key) {
+                        // Sort within group: Nulls Last
+                        indices.sort_by(|&a, &b| {
+                            let va = target_col.get_f64(a);
+                            let vb = target_col.get_f64(b);
+                            match (va, vb) {
+                                (Some(x), Some(y)) => {
+                                    x.partial_cmp(&y).unwrap_or(std::cmp::Ordering::Equal)
+                                }
+                                (None, Some(_)) => std::cmp::Ordering::Greater,
+                                (Some(_), None) => std::cmp::Ordering::Less,
+                                (None, None) => std::cmp::Ordering::Equal,
+                            }
+                        });
 
-                    match params.window.op {
-                        WindowOnlyOp::RowNumber => {
-                            for (i, &idx) in indices.iter().enumerate() {
-                                results[idx] = (i + 1) as f64;
+                        let mut last_val: Option<f64> = None;
+                        let mut last_rank = 0;
+                        let mut valid_count = 0;
+
+                        for &idx in &indices {
+                            let val = target_col.get_f64(idx);
+
+                            // Only calculate for non-null values
+                            if val.is_none() {
+                                continue;
+                            }
+
+                            valid_count += 1;
+                            match params.window.op {
+                                WindowOnlyOp::RowNumber => {
+                                    results[idx] = valid_count as f64;
+                                }
+                                WindowOnlyOp::Rank => {
+                                    let rank = if val == last_val {
+                                        last_rank
+                                    } else {
+                                        valid_count
+                                    };
+                                    results[idx] = rank as f64;
+                                    last_val = val;
+                                    last_rank = rank;
+                                }
+                                _ => unreachable!(),
                             }
                         }
-                        WindowOnlyOp::Rank => {
-                            let mut last_val = f64::NAN;
-                            let mut last_rank = 0;
-                            for (i, &idx) in indices.iter().enumerate() {
-                                let val = target_col.get_f64(idx).unwrap_or(f64::NAN);
-                                let rank = if val == last_val { last_rank } else { i + 1 };
-                                results[idx] = rank as f64;
-                                last_val = val;
-                                last_rank = rank;
-                            }
-                        }
-                        _ => unreachable!(),
                     }
                 }
                 self.data
@@ -298,20 +332,21 @@ impl<T: Mark> Chart<T> {
         Ok(self)
     }
 
-    /// Internal helper to handle ECDF logic including Domain Expansion (Padding).
+    /// Internal helper to handle ECDF logic with Domain Expansion (Padding).
     ///
-    /// Padding ensures the curve starts at (global_min, 0) and ends at (global_max, 1),
-    /// which is essential for visual alignment in multi-series step charts.
+    /// Padding ensures the curve starts at (min, 0) and ends at (max, 1),
+    /// which is essential for visual alignment in step charts.
     fn apply_ecdf_with_padding(
         &self,
-        groups: AHashMap<Option<String>, Vec<usize>>,
+        mut groups: AHashMap<Option<String>, Vec<usize>>,
+        group_order: Vec<Option<String>>,
         params: &WindowTransform,
     ) -> Result<Dataset, ChartonError> {
         let field_name = &params.window.field;
         let output_name = &params.window.as_;
         let target_col = self.data.column(field_name)?;
 
-        // --- STEP 1: CALCULATE GLOBAL BOUNDARIES ---
+        // --- STEP 1: CALCULATE GLOBAL BOUNDARIES (Numerical values only) ---
         let mut global_min = f64::MAX;
         let mut global_max = f64::MIN;
         let mut found_any = false;
@@ -329,8 +364,7 @@ impl<T: Mark> Chart<T> {
         }
 
         if !found_any {
-            global_min = 0.0;
-            global_max = 0.0;
+            return Ok(Dataset::new());
         }
 
         // --- STEP 2: EXPAND ROWS ---
@@ -338,67 +372,67 @@ impl<T: Mark> Chart<T> {
         let mut expanded_y = Vec::new();
         let mut expanded_groups = Vec::new();
 
-        // Sort group keys for deterministic output.
-        let mut keys: Vec<_> = groups.keys().collect();
-        keys.sort();
+        for key in group_order {
+            if let Some(indices) = groups.remove(&key) {
+                // Filter out Nulls: ECDF cannot represent missing data points
+                let mut valid_indices: Vec<usize> = indices
+                    .into_iter()
+                    .filter(|&idx| target_col.get_f64(idx).is_some())
+                    .collect();
 
-        for key in keys {
-            let indices = groups.get(key).unwrap();
-            let mut group_indices = indices.clone();
+                if valid_indices.is_empty() {
+                    continue;
+                }
 
-            group_indices.sort_by(|&a, &b| {
-                let va = target_col.get_f64(a).unwrap_or(f64::NEG_INFINITY);
-                let vb = target_col.get_f64(b).unwrap_or(f64::NEG_INFINITY);
-                va.partial_cmp(&vb).unwrap_or(std::cmp::Ordering::Equal)
-            });
+                // Sort valid numerical values
+                valid_indices.sort_by(|&a, &b| {
+                    target_col
+                        .get_f64(a)
+                        .partial_cmp(&target_col.get_f64(b))
+                        .unwrap()
+                });
 
-            let group_size = group_indices.len() as f64;
-            // "all" is used as the internal label if no grouping field exists.
-            let group_label = key
-                .as_deref()
-                .unwrap_or(&format!("{}_all", TEMP_SUFFIX))
-                .to_string();
+                let group_size = valid_indices.len() as f64;
+                let group_label = key.as_deref().unwrap_or("all").to_string();
 
-            // A. Start Padding (Global Min)
-            expanded_x.push(global_min);
-            expanded_y.push(0.0);
-            if params.groupby.is_some() {
-                expanded_groups.push(group_label.clone());
-            }
-
-            // B. Actual Data Points
-            for (i, &idx) in group_indices.iter().enumerate() {
-                let x_val = target_col.get_f64(idx).unwrap_or(0.0);
-                let count = (i + 1) as f64;
-                let y_val = if params.normalize {
-                    count / group_size
-                } else {
-                    count
-                };
-
-                expanded_x.push(x_val);
-                expanded_y.push(y_val);
+                // A. Start Padding (X_min, 0.0)
+                expanded_x.push(global_min);
+                expanded_y.push(0.0);
                 if params.groupby.is_some() {
                     expanded_groups.push(group_label.clone());
                 }
-            }
 
-            // C. End Padding (Global Max)
-            expanded_x.push(global_max);
-            expanded_y.push(if params.normalize { 1.0 } else { group_size });
-            if params.groupby.is_some() {
-                expanded_groups.push(group_label);
+                // B. Actual Cumulative Points
+                for (i, &idx) in valid_indices.iter().enumerate() {
+                    let x_val = target_col.get_f64(idx).unwrap();
+                    let count = (i + 1) as f64;
+                    let y_val = if params.normalize {
+                        count / group_size
+                    } else {
+                        count
+                    };
+
+                    expanded_x.push(x_val);
+                    expanded_y.push(y_val);
+                    if params.groupby.is_some() {
+                        expanded_groups.push(group_label.clone());
+                    }
+                }
+
+                // C. End Padding (X_max, 1.0 or Max Count)
+                expanded_x.push(global_max);
+                expanded_y.push(if params.normalize { 1.0 } else { group_size });
+                if params.groupby.is_some() {
+                    expanded_groups.push(group_label);
+                }
             }
         }
 
-        // --- STEP 3: CONSTRUCT NEW DATASET ---
+        // --- STEP 3: CONSTRUCT RESULT DATASET ---
         let mut new_ds = Dataset::new();
-
-        // Add numerical columns (F64 variant handles nulls via NaN).
         new_ds.add_column(field_name, ColumnVector::F64 { data: expanded_x })?;
         new_ds.add_column(output_name, ColumnVector::F64 { data: expanded_y })?;
 
-        // Only add the grouping column if it was present in the original request.
         if let Some(ref g_name) = params.groupby {
             new_ds.add_column(
                 g_name,
