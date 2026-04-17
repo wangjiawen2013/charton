@@ -46,11 +46,10 @@ Add to `Cargo.toml`:
 
 ```toml
 [dependencies]
-charton = "0.5" # For WASM or single-thread, use: default-features = false
-
-# Optional features:
-# "resvg" -> PNG support
-# "bridge" -> Altair/Matplotlib interop
+charton = "0.5"                                         # Standard (Parallel enabled)
+charton = { version = "0.5", default-features = false } # For WASM / Single-thread
+charton = { version = "0.5", features = ["resvg"] }     # With PNG support
+charton = { version = "0.5", features = ["bridge"] }    # With Altair/Matplotlib interop
 ```
 
 ## Quick Start
