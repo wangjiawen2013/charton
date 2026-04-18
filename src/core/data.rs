@@ -1493,7 +1493,7 @@ impl Dataset {
         // 3. Parallel Grouping with First-Appearance Tracking:
         // We store: Map<GroupName, (FirstSeenIndex, Vec<RowIndices>)>
         let groups_map = (0..self.row_count)
-            .into_par_iter()
+            .maybe_into_par_iter()
             .fold(
                 || AHashMap::<Option<String>, (usize, Vec<usize>)>::with_capacity(64),
                 |mut local_map, i| {
