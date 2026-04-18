@@ -322,11 +322,12 @@ impl ColumnVector {
     /// This implementation respects the specific null-representation of each
     /// variant (NaN for floats, bitmasks for others) to ensure accurate statistics.
     pub fn n_unique(&self) -> usize {
+        #[cfg(feature = "parallel")]
         match self {
             // --- FLOAT PATHS (F64/F32) ---
             // Normalizes -0.0 and 0.0 to the same bit representation and filters NaNs.
             ColumnVector::F64 { data } => {
-                data.maybe_par_iter()
+                data.par_iter()
                     .filter(|&&v| !v.is_nan())
                     .fold(
                         || AHashSet::new(),
@@ -348,7 +349,7 @@ impl ColumnVector {
             }
 
             ColumnVector::F32 { data } => data
-                .maybe_par_iter()
+                .par_iter()
                 .filter(|&&v| !v.is_nan())
                 .fold(
                     || AHashSet::new(),
@@ -370,7 +371,7 @@ impl ColumnVector {
             // --- STRING PATH ---
             // Uses the validity bitmask to skip null strings during parallel iteration.
             ColumnVector::String { data, validity } => (0..data.len())
-                .maybe_into_par_iter()
+                .into_par_iter()
                 .fold(
                     || AHashSet::new(),
                     |mut set, i| {
@@ -392,7 +393,7 @@ impl ColumnVector {
             // --- INTEGER PATHS (I64, I32, U32) ---
             // Efficiently processes primitive integers using thread-local sets.
             ColumnVector::I64 { data, validity } => (0..data.len())
-                .maybe_into_par_iter()
+                .into_par_iter()
                 .fold(
                     || AHashSet::new(),
                     |mut set, i| {
@@ -412,7 +413,7 @@ impl ColumnVector {
                 .len(),
 
             ColumnVector::I32 { data, validity } => (0..data.len())
-                .maybe_into_par_iter()
+                .into_par_iter()
                 .fold(
                     || AHashSet::new(),
                     |mut set, i| {
@@ -432,7 +433,7 @@ impl ColumnVector {
                 .len(),
 
             ColumnVector::U32 { data, validity } => (0..data.len())
-                .maybe_into_par_iter()
+                .into_par_iter()
                 .fold(
                     || AHashSet::new(),
                     |mut set, i| {
@@ -453,7 +454,7 @@ impl ColumnVector {
 
             // --- TEMPORAL PATH ---
             ColumnVector::DateTime { data, validity } => (0..data.len())
-                .maybe_into_par_iter()
+                .into_par_iter()
                 .fold(
                     || AHashSet::new(),
                     |mut set, i| {
@@ -471,6 +472,101 @@ impl ColumnVector {
                     },
                 )
                 .len(),
+        }
+
+        #[cfg(not(feature = "parallel"))]
+        {
+            self.n_unique_serial()
+        }
+    }
+
+    /// Returns the number of unique non-null values in the column using a serial implementation.
+    ///
+    /// This is used as the fallback when parallel features are disabled or for smaller
+    /// datasets where threading overhead is not justified.
+    #[cfg(not(feature = "parallel"))]
+    fn n_unique_serial(&self) -> usize {
+        match self {
+            // --- FLOAT PATHS ---
+            // We store the underlying bits (u64/u32) to handle floating point uniqueness
+            // while respecting IEEE 754 equality (normalizing -0.0 to 0.0).
+            ColumnVector::F64 { data } => {
+                let mut seen = AHashSet::with_capacity(data.len() / 4);
+                for &v in data {
+                    if !v.is_nan() {
+                        // Normalize -0.0 and 0.0 to have the same bit pattern
+                        let norm = if v == 0.0 { 0.0 } else { v };
+                        seen.insert(norm.to_bits());
+                    }
+                }
+                seen.len()
+            }
+
+            ColumnVector::F32 { data } => {
+                let mut seen = AHashSet::with_capacity(data.len() / 4);
+                for &v in data {
+                    if !v.is_nan() {
+                        let norm = if v == 0.0 { 0.0 } else { v };
+                        seen.insert(norm.to_bits());
+                    }
+                }
+                seen.len()
+            }
+
+            // --- INTEGER PATHS ---
+            // Directly store integers. We use the validity mask to skip nulls.
+            ColumnVector::I64 { data, validity } => {
+                let mut seen = AHashSet::new();
+                for (i, &v) in data.iter().enumerate() {
+                    if Self::is_valid_in_mask(validity, i) {
+                        seen.insert(v);
+                    }
+                }
+                seen.len()
+            }
+
+            ColumnVector::I32 { data, validity } => {
+                let mut seen = AHashSet::new();
+                for (i, &v) in data.iter().enumerate() {
+                    if Self::is_valid_in_mask(validity, i) {
+                        seen.insert(v);
+                    }
+                }
+                seen.len()
+            }
+
+            ColumnVector::U32 { data, validity } => {
+                let mut seen = AHashSet::new();
+                for (i, &v) in data.iter().enumerate() {
+                    if Self::is_valid_in_mask(validity, i) {
+                        seen.insert(v);
+                    }
+                }
+                seen.len()
+            }
+
+            // --- STRING PATH ---
+            // Store references (&String) to avoid expensive cloning during the set insertion.
+            ColumnVector::String { data, validity } => {
+                let mut seen = AHashSet::new();
+                for (i, s) in data.iter().enumerate() {
+                    if Self::is_valid_in_mask(validity, i) {
+                        seen.insert(s);
+                    }
+                }
+                seen.len()
+            }
+
+            // --- TEMPORAL PATH ---
+            ColumnVector::DateTime { data, validity } => {
+                let mut seen = AHashSet::new();
+                for (i, &dt) in data.iter().enumerate() {
+                    if Self::is_valid_in_mask(validity, i) {
+                        seen.insert(dt);
+                    }
+                }
+                seen.len()
+            }
         }
     }
 
