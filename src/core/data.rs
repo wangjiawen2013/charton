@@ -1,4 +1,4 @@
-use crate::core::utils::{IntoParallelizable, Parallelizable};
+use crate::core::utils::IntoParallelizable;
 use crate::error::ChartonError;
 use ahash::{AHashMap, AHashSet};
 use std::fmt;
@@ -323,16 +323,38 @@ impl ColumnVector {
     /// variant (NaN for floats, bitmasks for others) to ensure accurate statistics.
     pub fn n_unique(&self) -> usize {
         #[cfg(feature = "parallel")]
-        match self {
-            // --- FLOAT PATHS (F64/F32) ---
-            // Normalizes -0.0 and 0.0 to the same bit representation and filters NaNs.
-            ColumnVector::F64 { data } => {
-                data.par_iter()
+        {
+            match self {
+                // --- FLOAT PATHS (F64/F32) ---
+                // Normalizes -0.0 and 0.0 to the same bit representation and filters NaNs.
+                ColumnVector::F64 { data } => {
+                    data.par_iter()
+                        .filter(|&&v| !v.is_nan())
+                        .fold(
+                            || AHashSet::new(),
+                            |mut set, &v| {
+                                // In IEEE 754, -0.0 == 0.0 is true
+                                let norm = if v == 0.0 { 0.0 } else { v };
+                                set.insert(norm.to_bits());
+                                set
+                            },
+                        )
+                        .reduce(
+                            || AHashSet::new(),
+                            |mut s1, s2| {
+                                s1.extend(s2);
+                                s1
+                            },
+                        )
+                        .len()
+                }
+
+                ColumnVector::F32 { data } => data
+                    .par_iter()
                     .filter(|&&v| !v.is_nan())
                     .fold(
                         || AHashSet::new(),
                         |mut set, &v| {
-                            // In IEEE 754, -0.0 == 0.0 is true
                             let norm = if v == 0.0 { 0.0 } else { v };
                             set.insert(norm.to_bits());
                             set
@@ -345,133 +367,113 @@ impl ColumnVector {
                             s1
                         },
                     )
-                    .len()
+                    .len(),
+
+                // --- STRING PATH ---
+                // Uses the validity bitmask to skip null strings during parallel iteration.
+                ColumnVector::String { data, validity } => (0..data.len())
+                    .into_par_iter()
+                    .fold(
+                        || AHashSet::new(),
+                        |mut set, i| {
+                            if Self::is_valid_in_mask(validity, i) {
+                                set.insert(&data[i]);
+                            }
+                            set
+                        },
+                    )
+                    .reduce(
+                        || AHashSet::new(),
+                        |mut s1, s2| {
+                            s1.extend(s2);
+                            s1
+                        },
+                    )
+                    .len(),
+
+                // --- INTEGER PATHS (I64, I32, U32) ---
+                // Efficiently processes primitive integers using thread-local sets.
+                ColumnVector::I64 { data, validity } => (0..data.len())
+                    .into_par_iter()
+                    .fold(
+                        || AHashSet::new(),
+                        |mut set, i| {
+                            if Self::is_valid_in_mask(validity, i) {
+                                set.insert(data[i]);
+                            }
+                            set
+                        },
+                    )
+                    .reduce(
+                        || AHashSet::new(),
+                        |mut s1, s2| {
+                            s1.extend(s2);
+                            s1
+                        },
+                    )
+                    .len(),
+
+                ColumnVector::I32 { data, validity } => (0..data.len())
+                    .into_par_iter()
+                    .fold(
+                        || AHashSet::new(),
+                        |mut set, i| {
+                            if Self::is_valid_in_mask(validity, i) {
+                                set.insert(data[i]);
+                            }
+                            set
+                        },
+                    )
+                    .reduce(
+                        || AHashSet::new(),
+                        |mut s1, s2| {
+                            s1.extend(s2);
+                            s1
+                        },
+                    )
+                    .len(),
+
+                ColumnVector::U32 { data, validity } => (0..data.len())
+                    .into_par_iter()
+                    .fold(
+                        || AHashSet::new(),
+                        |mut set, i| {
+                            if Self::is_valid_in_mask(validity, i) {
+                                set.insert(data[i]);
+                            }
+                            set
+                        },
+                    )
+                    .reduce(
+                        || AHashSet::new(),
+                        |mut s1, s2| {
+                            s1.extend(s2);
+                            s1
+                        },
+                    )
+                    .len(),
+
+                // --- TEMPORAL PATH ---
+                ColumnVector::DateTime { data, validity } => (0..data.len())
+                    .into_par_iter()
+                    .fold(
+                        || AHashSet::new(),
+                        |mut set, i| {
+                            if Self::is_valid_in_mask(validity, i) {
+                                set.insert(data[i]);
+                            }
+                            set
+                        },
+                    )
+                    .reduce(
+                        || AHashSet::new(),
+                        |mut s1, s2| {
+                            s1.extend(s2);
+                            s1
+                        },
+                    )
+                    .len(),
             }
-
-            ColumnVector::F32 { data } => data
-                .par_iter()
-                .filter(|&&v| !v.is_nan())
-                .fold(
-                    || AHashSet::new(),
-                    |mut set, &v| {
-                        let norm = if v == 0.0 { 0.0 } else { v };
-                        set.insert(norm.to_bits());
-                        set
-                    },
-                )
-                .reduce(
-                    || AHashSet::new(),
-                    |mut s1, s2| {
-                        s1.extend(s2);
-                        s1
-                    },
-                )
-                .len(),
-
-            // --- STRING PATH ---
-            // Uses the validity bitmask to skip null strings during parallel iteration.
-            ColumnVector::String { data, validity } => (0..data.len())
-                .into_par_iter()
-                .fold(
-                    || AHashSet::new(),
-                    |mut set, i| {
-                        if Self::is_valid_in_mask(validity, i) {
-                            set.insert(&data[i]);
-                        }
-                        set
-                    },
-                )
-                .reduce(
-                    || AHashSet::new(),
-                    |mut s1, s2| {
-                        s1.extend(s2);
-                        s1
-                    },
-                )
-                .len(),
-
-            // --- INTEGER PATHS (I64, I32, U32) ---
-            // Efficiently processes primitive integers using thread-local sets.
-            ColumnVector::I64 { data, validity } => (0..data.len())
-                .into_par_iter()
-                .fold(
-                    || AHashSet::new(),
-                    |mut set, i| {
-                        if Self::is_valid_in_mask(validity, i) {
-                            set.insert(data[i]);
-                        }
-                        set
-                    },
-                )
-                .reduce(
-                    || AHashSet::new(),
-                    |mut s1, s2| {
-                        s1.extend(s2);
-                        s1
-                    },
-                )
-                .len(),
-
-            ColumnVector::I32 { data, validity } => (0..data.len())
-                .into_par_iter()
-                .fold(
-                    || AHashSet::new(),
-                    |mut set, i| {
-                        if Self::is_valid_in_mask(validity, i) {
-                            set.insert(data[i]);
-                        }
-                        set
-                    },
-                )
-                .reduce(
-                    || AHashSet::new(),
-                    |mut s1, s2| {
-                        s1.extend(s2);
-                        s1
-                    },
-                )
-                .len(),
-
-            ColumnVector::U32 { data, validity } => (0..data.len())
-                .into_par_iter()
-                .fold(
-                    || AHashSet::new(),
-                    |mut set, i| {
-                        if Self::is_valid_in_mask(validity, i) {
-                            set.insert(data[i]);
-                        }
-                        set
-                    },
-                )
-                .reduce(
-                    || AHashSet::new(),
-                    |mut s1, s2| {
-                        s1.extend(s2);
-                        s1
-                    },
-                )
-                .len(),
-
-            // --- TEMPORAL PATH ---
-            ColumnVector::DateTime { data, validity } => (0..data.len())
-                .into_par_iter()
-                .fold(
-                    || AHashSet::new(),
-                    |mut set, i| {
-                        if Self::is_valid_in_mask(validity, i) {
-                            set.insert(data[i]);
-                        }
-                        set
-                    },
-                )
-                .reduce(
-                    || AHashSet::new(),
-                    |mut s1, s2| {
-                        s1.extend(s2);
-                        s1
-                    },
-                )
-                .len(),
         }
 
         #[cfg(not(feature = "parallel"))]
@@ -675,45 +677,55 @@ impl ColumnVector {
     pub fn min_max(&self) -> (f64, f64) {
         let identity = (f64::INFINITY, f64::NEG_INFINITY);
 
-        match self {
-            // --- FLOAT PATHS ---
-            ColumnVector::F64 { data } => data
-                .maybe_par_iter()
-                .filter(|&&v| !v.is_nan())
-                .fold(|| identity, |(min, max), &v| (min.min(v), max.max(v)))
-                .reduce(|| identity, |(m1, x1), (m2, x2)| (m1.min(m2), x1.max(x2))),
-            ColumnVector::F32 { data } => data
-                .maybe_par_iter()
-                .filter(|&&v| !v.is_nan())
-                .fold(
-                    || identity,
-                    |(min, max), &v| {
-                        let v64 = v as f64;
-                        (min.min(v64), max.max(v64))
-                    },
-                )
-                .reduce(|| identity, |(m1, x1), (m2, x2)| (m1.min(m2), x1.max(x2))),
+        #[cfg(feature = "parallel")]
+        {
+            match self {
+                // --- FLOAT PATHS ---
+                ColumnVector::F64 { data } => data
+                    .par_iter()
+                    .filter(|&&v| !v.is_nan())
+                    .fold(|| identity, |(min, max), &v| (min.min(v), max.max(v)))
+                    .reduce(|| identity, |(m1, x1), (m2, x2)| (m1.min(m2), x1.max(x2))),
+                ColumnVector::F32 { data } => data
+                    .par_iter()
+                    .filter(|&&v| !v.is_nan())
+                    .fold(
+                        || identity,
+                        |(min, max), &v| {
+                            let v64 = v as f64;
+                            (min.min(v64), max.max(v64))
+                        },
+                    )
+                    .reduce(|| identity, |(m1, x1), (m2, x2)| (m1.min(m2), x1.max(x2))),
 
-            // --- INTEGER PATHS ---
-            // Explicitly cast primitives to f64 via the closure.
-            ColumnVector::I64 { data, validity } => {
-                self.parallel_scan_with_mask(data, validity, |&v| v as f64)
-            }
-            ColumnVector::I32 { data, validity } => {
-                self.parallel_scan_with_mask(data, validity, |&v| v as f64)
-            }
-            ColumnVector::U32 { data, validity } => {
-                self.parallel_scan_with_mask(data, validity, |&v| v as f64)
-            }
+                // --- INTEGER PATHS ---
+                // Explicitly cast primitives to f64 via the closure.
+                ColumnVector::I64 { data, validity } => {
+                    self.parallel_scan_with_mask(data, validity, |&v| v as f64)
+                }
+                ColumnVector::I32 { data, validity } => {
+                    self.parallel_scan_with_mask(data, validity, |&v| v as f64)
+                }
+                ColumnVector::U32 { data, validity } => {
+                    self.parallel_scan_with_mask(data, validity, |&v| v as f64)
+                }
 
-            // --- TEMPORAL PATH ---
-            // Converts OffsetDateTime to a Unix timestamp (nanoseconds) for numeric scaling.
-            ColumnVector::DateTime { data, validity } => {
-                self.parallel_scan_with_mask(data, validity, |&v| v.unix_timestamp_nanos() as f64)
-            }
+                // --- TEMPORAL PATH ---
+                // Converts OffsetDateTime to a Unix timestamp (nanoseconds) for numeric scaling.
+                ColumnVector::DateTime { data, validity } => {
+                    self.parallel_scan_with_mask(data, validity, |&v| {
+                        v.unix_timestamp_nanos() as f64
+                    })
+                }
 
-            // --- DISCRETE/OTHER ---
-            _ => (0.0, 0.0),
+                // --- DISCRETE/OTHER ---
+                _ => (0.0, 0.0),
+            }
+        }
+
+        #[cfg(not(feature = "parallel"))]
+        {
+            self.min_max_serial()
         }
     }
 
@@ -721,6 +733,7 @@ impl ColumnVector {
     ///
     /// Takes a data slice, an optional validity mask, and a conversion closure.
     /// Fails gracefully by skipping masked (null) values.
+    #[cfg(feature = "parallel")]
     fn parallel_scan_with_mask<T, F>(
         &self,
         data: &[T],
@@ -734,7 +747,7 @@ impl ColumnVector {
         let identity = (f64::INFINITY, f64::NEG_INFINITY);
 
         if let Some(mask) = validity {
-            data.maybe_par_iter()
+            data.par_iter()
                 .enumerate()
                 .fold(
                     || identity,
@@ -751,7 +764,7 @@ impl ColumnVector {
                 .reduce(|| identity, |(m1, x1), (m2, x2)| (m1.min(m2), x1.max(x2)))
         } else {
             // Optimization: No bitmask present, process all elements.
-            data.maybe_par_iter()
+            data.par_iter()
                 .fold(
                     || identity,
                     |(min, max), v| {
@@ -761,6 +774,89 @@ impl ColumnVector {
                 )
                 .reduce(|| identity, |(m1, x1), (m2, x2)| (m1.min(m2), x1.max(x2)))
         }
+    }
+
+    /// Serial implementation of min_max to handle non-parallel builds.
+    /// This handles NaN filtering for floats and uses serial_scan_with_mask for integers/dates.
+    #[cfg(not(feature = "parallel"))]
+    fn min_max_serial(&self) -> (f64, f64) {
+        let identity = (f64::INFINITY, f64::NEG_INFINITY);
+        match self {
+            ColumnVector::F64 { data } => {
+                let mut m = identity;
+                for &v in data {
+                    if !v.is_nan() {
+                        m.0 = m.0.min(v);
+                        m.1 = m.1.max(v);
+                    }
+                }
+                m
+            }
+            ColumnVector::F32 { data } => {
+                let mut m = identity;
+                for &v in data {
+                    if !v.is_nan() {
+                        let v64 = v as f64;
+                        m.0 = m.0.min(v64);
+                        m.1 = m.1.max(v64);
+                    }
+                }
+                m
+            }
+            ColumnVector::I64 { data, validity } => {
+                self.serial_scan_with_mask(data, validity, |&v| v as f64)
+            }
+            ColumnVector::I32 { data, validity } => {
+                self.serial_scan_with_mask(data, validity, |&v| v as f64)
+            }
+            ColumnVector::U32 { data, validity } => {
+                self.serial_scan_with_mask(data, validity, |&v| v as f64)
+            }
+            ColumnVector::DateTime { data, validity } => {
+                self.serial_scan_with_mask(data, validity, |&v| v.unix_timestamp_nanos() as f64)
+            }
+            _ => (0.0, 0.0),
+        }
+    }
+
+    /// Serial version of the mask scanner to avoid closure/trait conflicts.
+    #[cfg(not(feature = "parallel"))]
+    fn serial_scan_with_mask<T, F>(
+        &self,
+        data: &[T],
+        validity: &Option<Vec<u8>>,
+        convert: F,
+    ) -> (f64, f64)
+    where
+        F: Fn(&T) -> f64,
+    {
+        let mut min = f64::INFINITY;
+        let mut max = f64::NEG_INFINITY;
+
+        if let Some(mask) = validity {
+            for (i, v) in data.iter().enumerate() {
+                if (mask[i / 8] >> (i % 8)) & 1 == 1 {
+                    let val = convert(v);
+                    if val < min {
+                        min = val;
+                    }
+                    if val > max {
+                        max = val;
+                    }
+                }
+            }
+        } else {
+            for v in data {
+                let val = convert(v);
+                if val < min {
+                    min = val;
+                }
+                if val > max {
+                    max = val;
+                }
+            }
+        }
+        (min, max)
     }
 
     /// Converts an Apache Arrow Array into a Charton ColumnVector.
