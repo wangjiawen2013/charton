@@ -1125,6 +1125,36 @@ where
     }
 }
 
+impl<Item, const N: usize> From<&[Item; N]> for ColumnVector
+where
+    Vec<Item>: Into<ColumnVector>,
+    Item: Clone,
+{
+    fn from(arr: &[Item; N]) -> Self {
+        arr.to_vec().into()
+    }
+}
+
+impl<Item> From<&[Item]> for ColumnVector
+where
+    Vec<Item>: Into<ColumnVector>,
+    Item: Clone,
+{
+    fn from(slice: &[Item]) -> Self {
+        slice.to_vec().into()
+    }
+}
+
+impl<Item> From<&Vec<Item>> for ColumnVector
+where
+    Vec<Item>: Into<ColumnVector>,
+    Item: Clone,
+{
+    fn from(v: &Vec<Item>) -> Self {
+        v.as_slice().into()
+    }
+}
+
 /// Internal trait to bridge ColumnVector and concrete Rust types.
 /// Get data from a column vector.
 pub trait FromColumnVector: Sized {

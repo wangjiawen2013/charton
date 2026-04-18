@@ -1,6 +1,8 @@
 use charton::prelude::*;
 use std::error::Error;
 
+// The data is obtained from paper "Once-Weekly Semaglutide in Adults with Overweight or Obesity"
+// using [webplotdigitizer](https://automeris.io/).
 fn main() -> Result<(), Box<dyn Error>> {
     // Placebo group data (control group)
     let ds_placebo = vec![
