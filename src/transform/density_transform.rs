@@ -1,9 +1,9 @@
 use crate::chart::Chart;
-use crate::core::data::*;
+use crate::core::data::{ColumnVector, Dataset};
 use crate::error::ChartonError;
 use crate::mark::Mark;
+use ahash::AHashMap;
 use kernel_density_estimation::prelude::*;
-use polars::prelude::*;
 
 /// Kernel functions used in kernel density estimation
 ///
@@ -239,254 +239,228 @@ impl DensityTransform {
 }
 
 impl<T: Mark> Chart<T> {
-    /// Transform data by performing kernel density estimation
-    ///
-    /// This method computes kernel density estimates for the specified data field,
-    /// optionally grouped by another field. The resulting density estimates can
-    /// be configured to be cumulative, counts-based, or regular probability densities.
-    ///
-    /// # Parameters
-    /// * `params` - A `DensityTransform` configuration object specifying the details of the density estimation
-    ///
-    /// # Returns
-    /// * `Result<Self, ChartonError>` - The chart with transformed density data or an error if the transformation fails
-    ///
-    /// # Example
-    /// ```rust,ignore
-    /// let density_params = DensityTransform::new("values")
-    ///     .with_bandwidth(BandwidthType::Silverman)
-    ///     .with_kernel(KernelType::Epanechnikov)
-    ///     .with_groupby("category".to_string());
-    ///
-    /// chart.transform_density(density_params)?;
-    /// ```
+    /// Transform data by performing kernel density estimation (KDE).
+    /// Uses ColumnVector::unique_values() to ensure deterministic group ordering
+    /// and consistent null-filtering behavior.
     pub fn transform_density(mut self, params: DensityTransform) -> Result<Self, ChartonError> {
-        // Get all density values to compute global min/max
         let density_field = &params.density;
-        let density_series = self.data.column(density_field)?;
+        let density_col = self.data.column(density_field)?;
 
-        // Determine global min and max values for evaluation
-        let min_val = density_series.min::<f64>()?.unwrap();
-        let max_val = density_series.max::<f64>()?.unwrap();
+        // --- STEP 1: Calculate Global Range (Ignoring Nulls) ---
+        let (min_val, max_val) = density_col.min_max();
 
-        // Extend the range by 30% on both sides to better visualize the density tails
-        let extended_min = 1.3 * min_val - 0.3 * max_val;
-        let extended_max = 1.3 * max_val - 0.3 * min_val;
+        // Extend range by 30% to capture distribution tails (standard visualization practice).
+        let mut extended_min = 1.3 * min_val - 0.3 * max_val;
+        let mut extended_max = 1.3 * max_val - 0.3 * min_val;
 
-        // Handle edge case where all values are the same
-        let (min_val, max_val) = if (extended_max - extended_min).abs() < 1e-12 {
+        // Handle edge case where all values are identical.
+        if (extended_max - extended_min).abs() < 1e-12 {
             let offset = if extended_min == 0.0 {
                 1.0
             } else {
                 extended_min.abs() * 0.1
             };
-            (extended_min - offset, extended_max + offset)
-        } else {
-            (extended_min, extended_max)
-        };
+            extended_min -= offset;
+            extended_max += offset;
+        }
 
-        // Create evaluation points (default 200 steps)
+        // Generate 200 evaluation points for a smooth curve.
         let steps = 200;
-        let step_size = (max_val - min_val) / (steps as f64);
+        let step_size = (extended_max - extended_min) / (steps as f64);
         let eval_points: Vec<f32> = (0..steps)
-            .map(|i| (min_val + (i as f64) * step_size) as f32)
+            .map(|i| (extended_min + (i as f64) * step_size) as f32)
             .collect();
 
-        // Create value column (x-axis)
-        let value_column: Vec<f64> = eval_points.iter().map(|&v| v as f64).collect();
+        let x_axis_values: Vec<f64> = eval_points.iter().map(|&v| v as f64).collect();
 
-        // Determine the group field name once to avoid duplication
-        let group_field_name = params
-            .groupby
-            .clone()
-            .unwrap_or_else(|| format!("__charton_temp_group_{}", crate::TEMP_SUFFIX));
-
-        // Create a working DataFrame with grouping column
-        let working_df = if let Some(ref group_field) = params.groupby {
-            // Use existing group field
-            self.data.df.select([density_field, group_field])?
-        } else {
-            // Create a fake grouping column with a single group
-            let fake_group_series = Series::new(
-                (&group_field_name).into(),
-                vec!["fake"; self.data.df.height()],
-            );
+        // --- STEP 2: Establish Deterministic Order ---
+        // We use unique_values() to ensure the order of density curves matches
+        // the legend and other transforms (First Appearance).
+        let group_order: Vec<Option<String>> = if let Some(ref g_field) = params.groupby {
             self.data
-                .df
-                .select([density_field])?
-                .with_column(fake_group_series)?
-                .clone() // Ensure we're working with an owned DataFrame
+                .column(g_field)?
+                .unique_values()
+                .into_iter()
+                .map(Some)
+                .collect()
+        } else {
+            // Use None as a placeholder for the global (no-groupby) case.
+            vec![None]
         };
 
-        // Group by the group field and collect density values for each group
-        let grouped_df = working_df
-            .lazy()
-            .group_by_stable([col(&group_field_name)])
-            .agg([col(density_field).implode().alias(density_field)])
-            .collect()?;
+        // --- STEP 3: Aggregate Observations by Group ---
+        // Using Option<String> keys to allow the logic to handle nulls naturally.
+        let mut groups: AHashMap<Option<String>, Vec<f32>> = AHashMap::new();
+        let row_count = self.data.height();
 
-        let mut all_groups = Vec::new();
-        let mut all_x_values = Vec::new();
-        let mut all_y_values = Vec::new();
+        if let Some(ref g_field) = params.groupby {
+            let group_col = self.data.column(g_field)?;
+            for i in 0..row_count {
+                if let Some(val) = density_col.get_f64(i) {
+                    let key = group_col.get_str(i);
+                    groups.entry(key).or_default().push(val as f32);
+                }
+            }
+        } else {
+            // Fast path for global density (no groupby).
+            let mut all_obs = Vec::with_capacity(row_count);
+            for i in 0..row_count {
+                if let Some(val) = density_col.get_f64(i) {
+                    all_obs.push(val as f32);
+                }
+            }
+            groups.insert(None, all_obs);
+        }
 
-        // Process each group
-        for i in 0..grouped_df.height() {
-            // Get group name
-            let group_value = match grouped_df
-                .column(&group_field_name)
-                .map_err(ChartonError::Polars)?
-                .get(i)?
-            {
-                AnyValue::String(s) => s.to_string(),
-                AnyValue::Int32(v) => v.to_string(),
-                AnyValue::Int64(v) => v.to_string(),
-                AnyValue::Float64(v) => v.to_string(),
-                _ => "unknown".to_string(),
-            };
+        // --- STEP 4: Compute KDE per Group ---
+        let mut final_x = Vec::new();
+        let mut final_y = Vec::new();
+        let mut final_group = Vec::new();
 
-            // Get density values for this group
-            let list_series = grouped_df.column(density_field)?.get(i)?;
-
-            let group_vals: Vec<f64> = match list_series {
-                AnyValue::List(inner) => inner.f64()?.into_no_null_iter().collect(),
+        for key in group_order {
+            // Get observations for this specific group.
+            // Note: If 'key' was None and not in group_order (due to unique_values filtering),
+            // those rows are effectively skipped.
+            let observations = match groups.get(&key) {
+                Some(obs) if !obs.is_empty() => obs,
                 _ => continue,
             };
 
-            // Convert to f32 for kernel density estimation crate
-            let observations: Vec<f32> = group_vals.iter().map(|&v| v as f32).collect();
+            // Derive label for the output column.
+            // "all" is used only for the global group when no groupby field is provided.
+            let group_label = key.as_deref().unwrap_or("all").to_string();
 
-            // Create KDE based on specific combinations of bandwidth and kernel and calculate density values
+            // KDE calculation dispatch.
             let density_values: Vec<f64> = match (&params.bandwidth, &params.kernel) {
                 (BandwidthType::Scott, KernelType::Normal) => {
                     let kde = KernelDensityEstimator::new(observations.clone(), Scott, Normal);
-
-                    // Calculate density values
                     if params.cumulative {
-                        // Calculate cumulative density
-                        kde.cdf(&eval_points).iter().map(|&v| v as f64).collect()
+                        kde.cdf(&eval_points)
                     } else {
-                        // Calculate probability density
-                        kde.pdf(&eval_points).iter().map(|&v| v as f64).collect()
+                        kde.pdf(&eval_points)
                     }
                 }
-
                 (BandwidthType::Scott, KernelType::Epanechnikov) => {
                     let kde =
                         KernelDensityEstimator::new(observations.clone(), Scott, Epanechnikov);
-
                     if params.cumulative {
-                        kde.cdf(&eval_points).iter().map(|&v| v as f64).collect()
+                        kde.cdf(&eval_points)
                     } else {
-                        kde.pdf(&eval_points).iter().map(|&v| v as f64).collect()
+                        kde.pdf(&eval_points)
                     }
                 }
                 (BandwidthType::Scott, KernelType::Uniform) => {
                     let kde = KernelDensityEstimator::new(observations.clone(), Scott, Uniform);
-
                     if params.cumulative {
-                        kde.cdf(&eval_points).iter().map(|&v| v as f64).collect()
+                        kde.cdf(&eval_points)
                     } else {
-                        kde.pdf(&eval_points).iter().map(|&v| v as f64).collect()
+                        kde.pdf(&eval_points)
                     }
                 }
                 (BandwidthType::Silverman, KernelType::Normal) => {
                     let kde = KernelDensityEstimator::new(observations.clone(), Silverman, Normal);
-
                     if params.cumulative {
-                        kde.cdf(&eval_points).iter().map(|&v| v as f64).collect()
+                        kde.cdf(&eval_points)
                     } else {
-                        kde.pdf(&eval_points).iter().map(|&v| v as f64).collect()
+                        kde.pdf(&eval_points)
                     }
                 }
                 (BandwidthType::Silverman, KernelType::Epanechnikov) => {
                     let kde =
                         KernelDensityEstimator::new(observations.clone(), Silverman, Epanechnikov);
-
                     if params.cumulative {
-                        kde.cdf(&eval_points).iter().map(|&v| v as f64).collect()
+                        kde.cdf(&eval_points)
                     } else {
-                        kde.pdf(&eval_points).iter().map(|&v| v as f64).collect()
+                        kde.pdf(&eval_points)
                     }
                 }
                 (BandwidthType::Silverman, KernelType::Uniform) => {
                     let kde = KernelDensityEstimator::new(observations.clone(), Silverman, Uniform);
-
                     if params.cumulative {
-                        kde.cdf(&eval_points).iter().map(|&v| v as f64).collect()
+                        kde.cdf(&eval_points)
                     } else {
-                        kde.pdf(&eval_points).iter().map(|&v| v as f64).collect()
+                        kde.pdf(&eval_points)
                     }
                 }
-                (BandwidthType::Fixed(value), KernelType::Normal) => {
-                    let bandwidth = Box::new(|_: &[f32]| *value as f32);
-                    let kde = KernelDensityEstimator::new(observations.clone(), bandwidth, Normal);
-
+                (BandwidthType::Fixed(bw), KernelType::Normal) => {
+                    let h = *bw as f32;
+                    let kde = KernelDensityEstimator::new(
+                        observations.clone(),
+                        move |_: &[f32]| h,
+                        Normal,
+                    );
                     if params.cumulative {
-                        kde.cdf(&eval_points).iter().map(|&v| v as f64).collect()
+                        kde.cdf(&eval_points)
                     } else {
-                        kde.pdf(&eval_points).iter().map(|&v| v as f64).collect()
+                        kde.pdf(&eval_points)
                     }
                 }
-                (BandwidthType::Fixed(value), KernelType::Epanechnikov) => {
-                    let bandwidth = Box::new(|_: &[f32]| *value as f32);
-                    let kde =
-                        KernelDensityEstimator::new(observations.clone(), bandwidth, Epanechnikov);
-
+                (BandwidthType::Fixed(bw), KernelType::Epanechnikov) => {
+                    let h = *bw as f32;
+                    let kde = KernelDensityEstimator::new(
+                        observations.clone(),
+                        move |_: &[f32]| h,
+                        Epanechnikov,
+                    );
                     if params.cumulative {
-                        kde.cdf(&eval_points).iter().map(|&v| v as f64).collect()
+                        kde.cdf(&eval_points)
                     } else {
-                        kde.pdf(&eval_points).iter().map(|&v| v as f64).collect()
+                        kde.pdf(&eval_points)
                     }
                 }
-                (BandwidthType::Fixed(value), KernelType::Uniform) => {
-                    let bandwidth = Box::new(|_: &[f32]| *value as f32);
-                    let kde = KernelDensityEstimator::new(observations.clone(), bandwidth, Uniform);
-
+                (BandwidthType::Fixed(bw), KernelType::Uniform) => {
+                    let h = *bw as f32;
+                    let kde = KernelDensityEstimator::new(
+                        observations.clone(),
+                        move |_: &[f32]| h,
+                        Uniform,
+                    );
                     if params.cumulative {
-                        kde.cdf(&eval_points).iter().map(|&v| v as f64).collect()
+                        kde.cdf(&eval_points)
                     } else {
-                        kde.pdf(&eval_points).iter().map(|&v| v as f64).collect()
+                        kde.pdf(&eval_points)
                     }
                 }
-            };
-
-            let density_values = if params.counts {
-                // Scale by number of observations to get counts
-                density_values
-                    .into_iter()
-                    .map(|v| v * group_vals.len() as f64)
-                    .collect()
-            } else {
-                // Probability density
-                density_values
-            };
-
-            // Add results directly to the combined vectors
-            for _ in 0..value_column.len() {
-                all_groups.push(group_value.clone());
             }
-            all_x_values.extend(value_column.clone());
-            all_y_values.extend(density_values);
+            .into_iter()
+            .map(|v| v as f64)
+            .collect();
+
+            let obs_count = observations.len() as f64;
+            let processed_y = if params.counts {
+                density_values.into_iter().map(|v| v * obs_count).collect()
+            } else {
+                density_values
+            };
+
+            final_y.extend(processed_y);
+            final_x.extend(x_axis_values.clone());
+
+            // If a grouping field exists, populate the group column for every point in the curve.
+            if params.groupby.is_some() {
+                for _ in 0..steps {
+                    final_group.push(group_label.clone());
+                }
+            }
         }
 
-        // Create the result DataFrame
-        let result_df = if params.groupby.is_some() {
-            // Include group column if we have grouping
-            df![
-                &params.as_[0] => all_x_values,
-                &params.as_[1] => all_y_values,
-                &group_field_name => all_groups
-            ]
-        } else {
-            // Just the value and density columns
-            df![
-                &params.as_[0] => all_x_values,
-                &params.as_[1] => all_y_values
-            ]
-        };
+        // --- STEP 5: Build Final Dataset ---
+        let mut new_ds = Dataset::new();
+        new_ds.add_column(&params.as_[0], ColumnVector::F64 { data: final_x })?;
+        new_ds.add_column(&params.as_[1], ColumnVector::F64 { data: final_y })?;
 
-        self.data = DataFrameSource::new(result_df?);
+        if let Some(ref g_field) = params.groupby {
+            new_ds.add_column(
+                g_field,
+                ColumnVector::String {
+                    data: final_group,
+                    validity: None,
+                },
+            )?;
+        }
 
+        // Replace chart data with the generated density dataset.
+        self.data = new_ds;
         Ok(self)
     }
 }

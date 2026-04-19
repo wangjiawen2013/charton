@@ -1,3 +1,4 @@
+use crate::core::data::AggregateOp;
 use crate::scale::{Expansion, ResolvedScale, Scale, ScaleDomain};
 
 /// Represents a color encoding specification for chart elements.
@@ -15,6 +16,10 @@ pub struct Color {
     // --- User Configuration (Intent/Inputs) ---
     /// The name of the data column used for color encoding.
     pub(crate) field: String,
+
+    /// Statistical operation to apply to the data (e.g., Sum, Mean).
+    /// Defaults to `AggregateOp::Sum`.
+    pub(crate) aggregate: AggregateOp,
 
     /// The desired scale transformation (e.g., Linear, Discrete, Log).
     pub(crate) scale_type: Option<Scale>,
@@ -36,11 +41,17 @@ impl Color {
     pub fn new(field: &str) -> Self {
         Self {
             field: field.to_string(),
+            aggregate: AggregateOp::default(), // Defaults to Sum
             scale_type: None,
             domain: None,
             expansion: None,
             resolved_scale: ResolvedScale::none(),
         }
+    }
+
+    pub fn with_aggregate<A: Into<AggregateOp>>(mut self, op: A) -> Self {
+        self.aggregate = op.into();
+        self
     }
 
     /// Explicitly sets the scale type for color mapping (e.g., Linear, Log).

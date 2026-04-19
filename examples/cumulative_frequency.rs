@@ -1,15 +1,10 @@
 use charton::prelude::*;
-use polars::prelude::*;
 use std::error::Error;
 
 fn main() -> Result<(), Box<dyn Error>> {
-    let df = CsvReadOptions::default()
-        .with_has_header(true)
-        .try_into_reader_with_file_path(Some("./datasets/iris.csv".into()))?
-        .finish()?;
-
+    let ds = load_dataset("iris")?;
     // Create a chart with window transform
-    Chart::build(&df.select(["species", "sepal_length"])?)?
+    chart!(ds)?
         .transform_window(
             WindowTransform::new(WindowFieldDef::new(
                 "sepal_length",
@@ -21,7 +16,11 @@ fn main() -> Result<(), Box<dyn Error>> {
         )?
         .mark_line()?
         .configure_line(|l| l.with_interpolation("step")) // Add step interpolation
-        .encode((x("sepal_length"), y("ecdf"), color("species")))?
+        .encode((
+            alt::x("sepal_length"),
+            alt::y("ecdf"),
+            alt::color("species"),
+        ))?
         .with_title("Empirical Cumulative Distribution")
         .save("docs/src/images/cumulative_frequency.svg")?;
 

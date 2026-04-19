@@ -46,40 +46,85 @@ Add to `Cargo.toml`:
 
 ```toml
 [dependencies]
-charton = "0.4"
-polars = "0.49"
+charton = "0.5"                                         # Standard (Parallel enabled)
+charton = { version = "0.5", default-features = false } # For WASM / Single-thread
+charton = { version = "0.5", features = ["resvg"] }     # With PNG support
+charton = { version = "0.5", features = ["bridge"] }    # With Altair/Matplotlib interop
 ```
 
 ## Quick Start
-Charton provides a high-level, declarative API for Polars. Standard visualizations can be generated using a concise one-liner syntax:
+Charton provides a high-level, declarative API. Standard visualizations can be generated using a concise one-liner syntax:
 
 ```rust
 use charton::prelude::*;
-use polars::prelude::*;
-use std::error::Error;
 
-// Data preparation: Hooke's Law (Force vs. Extension)
-let df = df![
-    "force" => [1.0, 2.0, 3.0, 4.0, 5.0], 
-    "extension"   => [1.2, 2.3, 3.1, 4.4, 5.2]
-]?;
+// Data: Physical measurements (Height vs. Weight)
+let height = vec![160.0, 165.0, 170.0, 175.0, 180.0];
+let weight = vec![55.0, 62.0, 68.0, 75.0, 82.0];
 
 // One-liner plotting
-Chart::build(&df)?.mark_point()?.encode((x("force"), y("extension")))?.save("output.svg")?;
+chart!(height, weight)?.mark_point()?.encode((alt::x("height"), alt::y("weight")))?.save("out.svg")?;
 ```
+
+## From Macros to Production API
+While the `chart!` macro is a convenient syntactic sugar for rapid prototyping and simple scripts, the underlying `Chart::build` API is recommended for production environments where explicit data handling is required.
+
+### 1. Professional Build API
+For complex applications, use `Chart::build` to gain full control over the `Dataset` lifecycle.
+
+```rust
+let ds = Dataset::new()
+    .with_column("height", height)?
+    .with_column("weight", weight)?;
+
+Chart::build(ds)? // Equivalent to chart!(ds)?
+    .mark_point()?
+    .encode((alt::x("height"), alt::y("weight")))?
+    .save("out.svg")?;
+```
+
+> **Tip**: Use `add_column` instead if you need to add columns dynamically within loops or conditional logic.
+
+### 2. Polars Integration
+For Polars users, Charton provides the `load_polars_df!` macro to seamlessly convert a `DataFrame` into a Charton-ready `Dataset`.
+
+```rust
+use polars::prelude::*;
+
+// Efficiently convert Polars DataFrame to Charton Dataset
+let df = df![
+    "height" => vec![160.0, 165.0, 170.0, 175.0, 180.0],
+    "weight" => vec![55.0, 62.0, 68.0, 75.0, 82.0]
+]?;
+
+let ds = load_polars_df!(df)?;
+
+Chart::build(ds)? // Equivalent to chart!(ds)?
+    .mark_point()?
+    .encode((alt::x("height"), alt::y("weight")))?
+    .save("out.svg")?;
+```
+
+**Compatibility Note**: Charton uses versioned macros to handle Polars' rapid API evolutions. Versions below 0.42 are no longer supported.
+
+|Polars Version       |Macro to Use              |Status              |
+|:--------------------|:-------------------------|:-------------------|
+|0.53+                |`load_polars_df!(df)?`    |Latest (Standard)   |
+|0.42 - 0.52          |`load_polars_v42_52!(df)?`|Legacy Support      |
+|< 0.42               |N/A                       |Unsupported         |
 
 ## Layered Grammar
 Inspired by the Grammar of Graphics (as seen in `ggplot2` and `Altair`), Charton replaces rigid templates with a modular, layer-based system. Visualizations are constructed by stacking atomic marks, offering infinite flexibility beyond fixed chart types.
 
 ```rust
 // Create individual layers
-let line = Chart::build(&df)?
+let line = chart!(price, sales)?
     .mark_line()?
-    .encode((x("force"), y("extension")))?;
+    .encode((x("price"), y("sales")))?;
 
-let point = Chart::build(&df)?
+let point = chart!(price, sales)?
     .mark_point()?
-    .encode((x("force"), y("extension")))?;
+    .encode((x("price"), y("sales")))?;
 
 // Combine into a composite chart
 line.and(point).save("layered.svg")?;

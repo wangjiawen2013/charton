@@ -1,10 +1,10 @@
+use crate::core::data::Dataset;
 use crate::error::ChartonError;
-use polars::prelude::*;
 
 // iris dataset: Classic iris flower classification dataset from https://www.kaggle.com/datasets/uciml/iris
-pub fn get_data() -> Result<DataFrame, ChartonError> {
+pub fn get_data() -> Result<Dataset, ChartonError> {
     // Sepal length, width; Petal length, width (all numeric)
-    let sepal_length: &[f64; 150] = &[
+    let sepal_length: Vec<f64> = vec![
         5.1, 4.9, 4.7, 4.6, 5.0, 5.4, 4.6, 5.0, 4.4, 4.9, 5.4, 4.8, 4.8, 4.3, 5.8, 5.7, 5.4, 5.1,
         5.7, 5.1, 5.4, 5.1, 4.6, 5.1, 4.8, 5.0, 5.0, 5.2, 5.2, 4.7, 4.8, 5.4, 5.2, 5.5, 4.9, 5.0,
         5.5, 4.9, 4.4, 5.1, 5.0, 4.5, 4.4, 5.0, 5.1, 4.8, 5.1, 4.6, 5.3, 5.0, 7.0, 6.4, 6.9, 5.5,
@@ -16,7 +16,7 @@ pub fn get_data() -> Result<DataFrame, ChartonError> {
         6.7, 6.7, 6.3, 6.5, 6.2, 5.9,
     ];
 
-    let sepal_width: &[f64; 150] = &[
+    let sepal_width: Vec<f64> = vec![
         3.5, 3.0, 3.2, 3.1, 3.6, 3.9, 3.4, 3.4, 2.9, 3.1, 3.7, 3.4, 3.0, 3.0, 4.0, 4.4, 3.9, 3.5,
         3.8, 3.8, 3.4, 3.7, 3.6, 3.3, 3.4, 3.0, 3.4, 3.5, 3.4, 3.2, 3.1, 3.4, 4.1, 4.2, 3.1, 3.2,
         3.5, 3.1, 3.0, 3.4, 3.5, 2.3, 3.2, 3.5, 3.8, 3.0, 3.8, 3.2, 3.7, 3.3, 3.2, 3.2, 3.1, 2.3,
@@ -28,7 +28,7 @@ pub fn get_data() -> Result<DataFrame, ChartonError> {
         3.3, 3.0, 2.5, 3.0, 3.4, 3.0,
     ];
 
-    let petal_length: &[f64; 150] = &[
+    let petal_length: Vec<f64> = vec![
         1.4, 1.4, 1.3, 1.5, 1.4, 1.7, 1.4, 1.5, 1.4, 1.5, 1.5, 1.6, 1.4, 1.1, 1.2, 1.5, 1.3, 1.4,
         1.7, 1.5, 1.7, 1.5, 1.0, 1.7, 1.9, 1.6, 1.6, 1.5, 1.4, 1.6, 1.6, 1.5, 1.5, 1.4, 1.5, 1.2,
         1.3, 1.5, 1.3, 1.5, 1.3, 1.3, 1.3, 1.6, 1.9, 1.4, 1.6, 1.4, 1.5, 1.4, 4.7, 4.5, 4.9, 4.0,
@@ -40,7 +40,7 @@ pub fn get_data() -> Result<DataFrame, ChartonError> {
         5.7, 5.2, 5.0, 5.2, 5.4, 5.1,
     ];
 
-    let petal_width: &[f64; 150] = &[
+    let petal_width: Vec<f64> = vec![
         0.2, 0.2, 0.2, 0.2, 0.2, 0.4, 0.3, 0.2, 0.2, 0.1, 0.2, 0.2, 0.1, 0.1, 0.2, 0.4, 0.4, 0.3,
         0.3, 0.3, 0.2, 0.4, 0.2, 0.5, 0.2, 0.2, 0.4, 0.2, 0.2, 0.2, 0.2, 0.4, 0.1, 0.2, 0.1, 0.2,
         0.2, 0.1, 0.2, 0.2, 0.3, 0.3, 0.2, 0.6, 0.4, 0.3, 0.2, 0.2, 0.2, 0.2, 1.4, 1.5, 1.5, 1.3,
@@ -60,13 +60,12 @@ pub fn get_data() -> Result<DataFrame, ChartonError> {
         .collect();
 
     // Construct and return DataFrame
-    let df = df![
-        "sepal_length" => sepal_length,
-        "sepal_width"  => sepal_width,
-        "petal_length" => petal_length,
-        "petal_width"  => petal_width,
-        "species"      => species,
-    ]?;
+    let mut ds = Dataset::new();
+    ds.add_column("sepal_length", sepal_length)?;
+    ds.add_column("sepal_width", sepal_width)?;
+    ds.add_column("petal_length", petal_length)?;
+    ds.add_column("petal_width", petal_width)?;
+    ds.add_column("species", species)?;
 
-    Ok(df)
+    Ok(ds)
 }

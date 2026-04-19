@@ -1,6 +1,9 @@
+#[cfg(feature = "bridge")]
 use charton::prelude::*;
+#[cfg(feature = "bridge")]
 use std::error::Error;
 
+#[cfg(feature = "bridge")]
 fn main() -> Result<(), Box<dyn Error>> {
     let exe_path = r"F:\Programs\miniconda3\envs\cellpy\python.exe";
     let iris = load_dataset("iris")?;
@@ -31,4 +34,9 @@ chart = alt.Chart(iris).mark_circle().encode(
         .save("docs/src/images/altair.svg")?;
 
     Ok(())
+}
+
+#[cfg(not(feature = "bridge"))]
+fn main() {
+    println!("This example requires --features \"polars altair\" to run.");
 }

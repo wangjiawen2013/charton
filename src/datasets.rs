@@ -5,12 +5,12 @@ pub mod nightingale;
 pub mod penguins;
 pub mod unemployment;
 
+use crate::core::data::Dataset;
 use crate::error::ChartonError;
-use polars::prelude::*;
 
 /// Load built-in datasets.
 ///
-/// Based on the passed dataset name `dataset`, returns the corresponding `DataFrame` or an error.
+/// Based on the passed dataset name `dataset`, returns the corresponding `Dataset` or an error.
 ///
 /// # Arguments
 ///
@@ -23,7 +23,7 @@ use polars::prelude::*;
 ///
 /// # Returns
 ///
-/// On success, returns a `DataFrame` containing the specified dataset content;
+/// On success, returns a `Dataset` containing the specified dataset content;
 /// on failure, returns a `ChartonError`.
 ///
 /// # Examples
@@ -31,7 +31,7 @@ use polars::prelude::*;
 /// ```rust,ignore
 /// let df = load_dataset("mtcars")?;
 /// ```
-pub fn load_dataset(dataset: &str) -> Result<DataFrame, ChartonError> {
+pub fn load_dataset(dataset: &str) -> Result<Dataset, ChartonError> {
     match dataset {
         "mtcars" => mtcars::get_data(),
         "iris" => iris::get_data(),

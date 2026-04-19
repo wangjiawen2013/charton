@@ -1,21 +1,29 @@
 use charton::prelude::*;
-use polars::prelude::*;
 use std::error::Error;
 
 #[test]
 fn test_histogram_1() -> Result<(), Box<dyn Error>> {
-    let df = CsvReadOptions::default()
-        .with_has_header(true)
-        .try_into_reader_with_file_path(Some("./assets/iris.csv".into()))?
-        .finish()?;
-    let df_melted = df.unpivot(
-        ["sepal_length", "sepal_width", "petal_length", "petal_width"],
-        ["species"],
-    )?;
-    println!("{}", &df_melted);
+    let ds = load_dataset("iris")?;
+    println!("{:?}", &ds);
+
+    let raw_sl = ds.get_column::<f64>("sepal_length")?;
+    let raw_sw = ds.get_column::<f64>("sepal_width")?;
+
+    let mut value = Vec::with_capacity(raw_sl.len() + 50);
+    value.extend_from_slice(raw_sl);
+    value.extend_from_slice(&raw_sw[0..50]);
+
+    let mut variable = Vec::with_capacity(raw_sl.len() + 50);
+
+    variable.extend(std::iter::repeat_n(
+        "sepal_length".to_string(),
+        raw_sl.len(),
+    ));
+
+    variable.extend(std::iter::repeat_n("sepal_width".to_string(), 50));
 
     // Create a histogram chart
-    let histogram = Chart::build(&df_melted.head(Some(200)))?
+    let histogram = chart!(value, variable)?
         .mark_hist()?
         .configure_hist(|h| {
             h.with_color("steelblue")
@@ -24,9 +32,9 @@ fn test_histogram_1() -> Result<(), Box<dyn Error>> {
                 .with_stroke_width(0.0)
         })
         .encode((
-            x("value"),
-            y("count").with_normalize(true),
-            color("variable"),
+            alt::x("value"),
+            alt::y("count").with_normalize(true),
+            alt::color("variable"),
         ))?;
 
     histogram

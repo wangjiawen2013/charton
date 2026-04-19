@@ -9,12 +9,13 @@ use self::linear::LinearScale;
 use self::log::LogScale;
 use self::mapper::VisualMapper;
 use self::temporal::TemporalScale;
+use crate::core::utils::IntoParallelizable;
 use crate::error::ChartonError;
-
-use polars::datatypes::AnyValue;
-use polars::prelude::*;
 use std::sync::{Arc, RwLock};
 use time::OffsetDateTime;
+
+#[cfg(feature = "parallel")]
+use rayon::prelude::*;
 
 /// Defines how much a scale's domain should be expanded beyond the data limits.
 ///
@@ -140,38 +141,34 @@ pub enum Scale {
 }
 
 impl Scale {
-    /// High-performance vectorized normalization using Polars.
+    /// High-performance normalization of an entire ColumnVector into a vector of f64.
     ///
-    /// This bypasses row-by-row iteration for numerical data, applying the
-    /// scale transformation across entire memory chunks at once.
-    pub fn normalize_series(
+    /// This method maps raw data values to the normalized [0, 1] coordinate space.
+    /// It leverages `rayon` for parallel processing to ensure low latency even with
+    /// massive datasets (millions of rows).
+    /// High-performance normalization of an entire ColumnVector into a vector of f64.
+    pub fn normalize_column(
         &self,
         scale_trait: &dyn ScaleTrait,
-        series: &Series,
-    ) -> Result<Float64Chunked, ChartonError> {
-        match self {
-            Scale::Discrete => {
-                let out: Float64Chunked = series
-                    .iter()
-                    .map(|val| {
-                        let norm = match val {
-                            AnyValue::String(s) => scale_trait.normalize_string(s),
-                            AnyValue::StringOwned(s) => scale_trait.normalize_string(&s),
-                            _ => scale_trait.normalize_string(&val.to_string()),
-                        };
-                        Some(norm)
-                    })
-                    .collect();
-                Ok(out)
-            }
-            _ => {
-                let casted = series
-                    .cast(&DataType::Float64)
-                    .map_err(|e| ChartonError::Data(e.to_string()))?;
-                let ca = casted.f64().unwrap();
-                Ok(ca.apply(|opt_v| opt_v.map(|v| scale_trait.normalize(v))))
-            }
-        }
+        column: &crate::core::data::ColumnVector,
+    ) -> Vec<Option<f64>> {
+        (0..column.len())
+            .maybe_into_par_iter()
+            .map(|i| {
+                match self {
+                    // Discrete scale: Force everything to string and normalize.
+                    Scale::Discrete => column.get_str(i).map(|s| scale_trait.normalize_string(&s)),
+
+                    // Continuous scales (Linear/Log): Use the numerical interface.
+                    Scale::Linear | Scale::Log => {
+                        column.get_f64(i).map(|v| scale_trait.normalize(v))
+                    }
+
+                    // Temporal scale: Also uses get_f64 (which returns nanoseconds).
+                    Scale::Temporal => column.get_f64(i).map(|v| scale_trait.normalize(v)),
+                }
+            })
+            .collect()
     }
 }
 
@@ -298,22 +295,46 @@ pub fn create_scale(
     Ok(Arc::from(scale))
 }
 
-/// Utility for extracting a normalized value from an AnyValue.
+/// Utility for extracting a normalized [0, 1] value from an `ExplicitTick`.
+///
+/// This function acts as a bridge between raw data variants and the mathematical
+/// scale logic, enforcing the "Interpretation Mode" dictated by the scale type:
+///
+/// - **Discrete Scales**: Operates in "Universal Discrete" mode. Every input variant
+///   is coerced into its string representation to be mapped against categorical labels.
+/// - **Continuous Scales (Linear, Log, Temporal)**: Treats inputs as numerical values.
+///   Temporal types are converted to nanosecond-precision floats.
+///
+/// Returns `f64::NAN` if the conversion is impossible or the value cannot be mapped,
+/// ensuring invalid data is safely ignored by the renderer rather than defaulting to the origin.
 pub fn get_normalized_value(
     scale_trait: &dyn ScaleTrait,
     scale_type: &Scale,
-    value: &AnyValue,
+    value: &ExplicitTick,
 ) -> f64 {
     match scale_type {
-        Scale::Discrete => match value {
-            AnyValue::String(s) => scale_trait.normalize_string(s),
-            AnyValue::StringOwned(s) => scale_trait.normalize_string(s.as_str()),
-            _ => scale_trait.normalize_string(&value.to_string()),
+        // --- 1. DISCRETE SCALE ---
+        // Mirroring the 'Universal Discrete' logic: everything is a string.
+        Scale::Discrete => {
+            let label = match value {
+                ExplicitTick::Discrete(s) => s.clone(),
+                ExplicitTick::Continuous(v) => v.to_string(),
+                ExplicitTick::Timestamp(ts) => ts.to_string(),
+                ExplicitTick::Temporal(dt) => dt.to_string(),
+            };
+            scale_trait.normalize_string(&label)
+        }
+
+        // --- 2. CONTINUOUS SCALES (Linear, Log, Temporal) ---
+        // These all rely on f64 mapping (Temporal uses nanoseconds as f64).
+        _ => match value {
+            ExplicitTick::Continuous(v) => scale_trait.normalize(*v),
+            ExplicitTick::Timestamp(ns) => scale_trait.normalize(*ns as f64),
+            ExplicitTick::Temporal(dt) => scale_trait.normalize(dt.unix_timestamp_nanos() as f64),
+            ExplicitTick::Discrete(_) => {
+                unreachable!("Discrete values are blocked for cotinuous scales by validataion")
+            }
         },
-        _ => value
-            .try_extract::<f64>()
-            .map(|v| scale_trait.normalize(v))
-            .unwrap_or(0.0),
     }
 }
 

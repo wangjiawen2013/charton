@@ -386,7 +386,7 @@ impl LayeredChart {
         Chart<T>: Layer,
     {
         // Check if the layer has data before adding it
-        if layer.data.df.height() > 0 {
+        if layer.data.height() > 0 {
             self.layers.push(Arc::new(layer));
         }
         // If layer is empty, silently ignore it
@@ -879,46 +879,56 @@ impl LayeredChart {
                 std::fs::write(path_obj, svg_content).map_err(ChartonError::Io)?;
             }
             Some("png") => {
-                // Load system fonts
-                let mut opts = resvg::usvg::Options::default();
+                #[cfg(feature = "resvg")]
+                {
+                    // Load system fonts
+                    let mut opts = resvg::usvg::Options::default();
 
-                // 1. Create a new fontdb instead of cloning the default one
-                let mut fontdb = resvg::usvg::fontdb::Database::new();
+                    // 1. Create a new fontdb instead of cloning the default one
+                    let mut fontdb = resvg::usvg::fontdb::Database::new();
 
-                // 2. Load system fonts (utilizing resources from various OS)
-                fontdb.load_system_fonts();
+                    // 2. Load system fonts (utilizing resources from various OS)
+                    fontdb.load_system_fonts();
 
-                // 3. Load built-in "emergency" font to ensure display even in extreme environments
-                let default_font_data = include_bytes!("../../assets/fonts/Inter-Regular.ttf");
-                fontdb.load_font_data(default_font_data.to_vec());
+                    // 3. Load built-in "emergency" font to ensure display even in extreme environments
+                    let default_font_data = include_bytes!("../../assets/fonts/Inter-Regular.ttf");
+                    fontdb.load_font_data(default_font_data.to_vec());
 
-                // 4. Set explicit family mappings (Fallback logic)
-                // When users specify "sans-serif" but the system doesn't have mappings configured,
-                // resvg will try this font as a fallback.
-                fontdb.set_sans_serif_family("Inter");
+                    // 4. Set explicit family mappings (Fallback logic)
+                    // When users specify "sans-serif" but the system doesn't have mappings configured,
+                    // resvg will try this font as a fallback.
+                    fontdb.set_sans_serif_family("Inter");
 
-                opts.fontdb = std::sync::Arc::new(fontdb);
+                    opts.fontdb = std::sync::Arc::new(fontdb);
 
-                // Parse svg string
-                let tree = resvg::usvg::Tree::from_str(&svg_content, &opts)
-                    .map_err(|e| ChartonError::Render(format!("SVG parsing error: {:?}", e)))?;
+                    // Parse svg string
+                    let tree = resvg::usvg::Tree::from_str(&svg_content, &opts)
+                        .map_err(|e| ChartonError::Render(format!("SVG parsing error: {:?}", e)))?;
 
-                // Scale the image size to higher resolution
-                let pixmap_size = tree.size();
-                let scale = 2.0;
-                let width = (pixmap_size.width() * scale) as u32;
-                let height = (pixmap_size.height() * scale) as u32;
+                    // Scale the image size to higher resolution
+                    let pixmap_size = tree.size();
+                    let scale = 2.0;
+                    let width = (pixmap_size.width() * scale) as u32;
+                    let height = (pixmap_size.height() * scale) as u32;
 
-                // Create pixmap
-                let mut pixmap = resvg::tiny_skia::Pixmap::new(width, height)
-                    .ok_or(ChartonError::Render("Failed to create pixmap".into()))?;
+                    // Create pixmap
+                    let mut pixmap = resvg::tiny_skia::Pixmap::new(width, height)
+                        .ok_or(ChartonError::Render("Failed to create pixmap".into()))?;
 
-                // Render and save
-                let transform = resvg::tiny_skia::Transform::from_scale(scale, scale);
-                resvg::render(&tree, transform, &mut pixmap.as_mut());
-                pixmap
-                    .save_png(path_obj)
-                    .map_err(|e| ChartonError::Render(format!("PNG saving error: {:?}", e)))?;
+                    // Render and save
+                    let transform = resvg::tiny_skia::Transform::from_scale(scale, scale);
+                    resvg::render(&tree, transform, &mut pixmap.as_mut());
+                    pixmap
+                        .save_png(path_obj)
+                        .map_err(|e| ChartonError::Render(format!("PNG saving error: {:?}", e)))?;
+                }
+
+                #[cfg(not(feature = "resvg"))]
+                {
+                    return Err(ChartonError::Unimplemented(
+                        "PNG support is disabled. Please enable the 'resvg' feature".to_string(),
+                    ));
+                }
             }
             Some(format) => {
                 return Err(ChartonError::Unimplemented(format!(

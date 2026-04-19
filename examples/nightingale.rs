@@ -2,15 +2,15 @@ use charton::prelude::*;
 use std::error::Error;
 
 fn main() -> Result<(), Box<dyn Error>> {
-    let df = load_dataset("nightingale")?;
-    println!("{:?}", df);
+    let ds = load_dataset("nightingale")?;
+    println!("{:?}", ds);
 
-    Chart::build(&df)?
+    chart!(ds)?
         .mark_bar()?
         .encode((
-            x("Month"),
-            y("Deaths").with_stack("stacked").with_normalize(false),
-            color("Cause"),
+            alt::x("Month"),
+            alt::y("Deaths").with_stack("stacked").with_normalize(false),
+            alt::color("Cause"),
         ))?
         .with_title("Nightingale wind rose")
         .with_coord(CoordSystem::Polar)
