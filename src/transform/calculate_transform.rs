@@ -13,7 +13,7 @@ impl<T: Mark> Chart<T> {
     /// # Parameters
     /// * `as_name`: The name of the new column.
     /// * `f`: A closure mapping a row to an optional value.
-    ///        Returning `None` results in an `f64::NAN` (Null).
+    ///   Returning `None` results in an `f64::NAN` (Null).
     /// # Example
     /// ```rust,ignore
     /// chart.transform_calculate("bmi", |row| {

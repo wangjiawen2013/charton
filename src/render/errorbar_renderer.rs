@@ -95,8 +95,8 @@ impl MarkRenderer for Chart<MarkErrorBar> {
         // --- STEP 4: RENDERING ---
         if let (Some(sub_col), Some(cnt_col)) = (sub_idx_col, groups_count_col) {
             // Path A: Optimized linear rendering (Auto-statistical mode)
-            for idx in 0..ds.row_count {
-                let Some(xn) = x_norms[idx] else { continue };
+            for (idx, xn_opt) in x_norms.iter().enumerate().take(ds.row_count) {
+                let Some(xn) = *xn_opt else { continue };
                 let sub_idx = sub_col.get_f64(idx).unwrap_or(0.0);
                 let n_groups = cnt_col.get_f64(idx).unwrap_or(1.0);
                 self.render_errorbar_item(
@@ -150,6 +150,7 @@ impl MarkRenderer for Chart<MarkErrorBar> {
 
 // Keep the core drawing logic in one place to avoid code duplication between Path A and B
 impl Chart<MarkErrorBar> {
+    #[allow(clippy::too_many_arguments)]
     fn render_errorbar_item(
         &self,
         idx: usize,
@@ -236,19 +237,19 @@ impl Chart<MarkErrorBar> {
         }
 
         // --- 3. Draw Center Point ---
-        if let Some(center_norms) = yc_norms {
-            if let Some(ycn) = center_norms[idx] {
-                let (cx, cy) = context.coord.transform(x_final_n, ycn, &context.panel);
-                backend.draw_circle(CircleConfig {
-                    x: cx as Precision,
-                    y: cy as Precision,
-                    radius: 3.0,
-                    fill: mark_color,
-                    stroke: mark_color,
-                    stroke_width: 0.0,
-                    opacity: mark_config.opacity as Precision,
-                });
-            }
+        if let Some(center_norms) = yc_norms
+            && let Some(ycn) = center_norms[idx]
+        {
+            let (cx, cy) = context.coord.transform(x_final_n, ycn, &context.panel);
+            backend.draw_circle(CircleConfig {
+                x: cx as Precision,
+                y: cy as Precision,
+                radius: 3.0,
+                fill: mark_color,
+                stroke: mark_color,
+                stroke_width: 0.0,
+                opacity: mark_config.opacity as Precision,
+            });
         }
     }
 }
