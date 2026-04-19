@@ -104,6 +104,15 @@ impl ColumnVector {
         }
     }
 
+    /// Returns `true` if the column contains no elements.
+    ///
+    /// This is the preferred way to check for empty columns in Rust
+    /// as it aligns with standard library collection APIs.
+    #[inline]
+    pub fn is_empty(&self) -> bool {
+        self.len() == 0
+    }
+
     /// Checks if a specific row index is marked as valid in the optional bitmask.
     ///
     /// - If the mask is `None`, all rows are considered valid.
@@ -323,148 +332,106 @@ impl ColumnVector {
                 ColumnVector::F64 { data } => {
                     data.par_iter()
                         .filter(|&&v| !v.is_nan())
-                        .fold(
-                            || AHashSet::new(),
-                            |mut set, &v| {
-                                // In IEEE 754, -0.0 == 0.0 is true
-                                let norm = if v == 0.0 { 0.0 } else { v };
-                                set.insert(norm.to_bits());
-                                set
-                            },
-                        )
-                        .reduce(
-                            || AHashSet::new(),
-                            |mut s1, s2| {
-                                s1.extend(s2);
-                                s1
-                            },
-                        )
+                        .fold(AHashSet::new, |mut set, &v| {
+                            // In IEEE 754, -0.0 == 0.0 is true
+                            let norm = if v == 0.0 { 0.0 } else { v };
+                            set.insert(norm.to_bits());
+                            set
+                        })
+                        .reduce(AHashSet::new, |mut s1, s2| {
+                            s1.extend(s2);
+                            s1
+                        })
                         .len()
                 }
 
                 ColumnVector::F32 { data } => data
                     .par_iter()
                     .filter(|&&v| !v.is_nan())
-                    .fold(
-                        || AHashSet::new(),
-                        |mut set, &v| {
-                            let norm = if v == 0.0 { 0.0 } else { v };
-                            set.insert(norm.to_bits());
-                            set
-                        },
-                    )
-                    .reduce(
-                        || AHashSet::new(),
-                        |mut s1, s2| {
-                            s1.extend(s2);
-                            s1
-                        },
-                    )
+                    .fold(AHashSet::new, |mut set, &v| {
+                        let norm = if v == 0.0 { 0.0 } else { v };
+                        set.insert(norm.to_bits());
+                        set
+                    })
+                    .reduce(AHashSet::new, |mut s1, s2| {
+                        s1.extend(s2);
+                        s1
+                    })
                     .len(),
 
                 // --- STRING PATH ---
                 // Uses the validity bitmask to skip null strings during parallel iteration.
                 ColumnVector::String { data, validity } => (0..data.len())
                     .into_par_iter()
-                    .fold(
-                        || AHashSet::new(),
-                        |mut set, i| {
-                            if Self::is_valid_in_mask(validity, i) {
-                                set.insert(&data[i]);
-                            }
-                            set
-                        },
-                    )
-                    .reduce(
-                        || AHashSet::new(),
-                        |mut s1, s2| {
-                            s1.extend(s2);
-                            s1
-                        },
-                    )
+                    .fold(AHashSet::new, |mut set, i| {
+                        if Self::is_valid_in_mask(validity, i) {
+                            set.insert(&data[i]);
+                        }
+                        set
+                    })
+                    .reduce(AHashSet::new, |mut s1, s2| {
+                        s1.extend(s2);
+                        s1
+                    })
                     .len(),
 
                 // --- INTEGER PATHS (I64, I32, U32) ---
                 // Efficiently processes primitive integers using thread-local sets.
                 ColumnVector::I64 { data, validity } => (0..data.len())
                     .into_par_iter()
-                    .fold(
-                        || AHashSet::new(),
-                        |mut set, i| {
-                            if Self::is_valid_in_mask(validity, i) {
-                                set.insert(data[i]);
-                            }
-                            set
-                        },
-                    )
-                    .reduce(
-                        || AHashSet::new(),
-                        |mut s1, s2| {
-                            s1.extend(s2);
-                            s1
-                        },
-                    )
+                    .fold(AHashSet::new, |mut set, i| {
+                        if Self::is_valid_in_mask(validity, i) {
+                            set.insert(data[i]);
+                        }
+                        set
+                    })
+                    .reduce(AHashSet::new, |mut s1, s2| {
+                        s1.extend(s2);
+                        s1
+                    })
                     .len(),
 
                 ColumnVector::I32 { data, validity } => (0..data.len())
                     .into_par_iter()
-                    .fold(
-                        || AHashSet::new(),
-                        |mut set, i| {
-                            if Self::is_valid_in_mask(validity, i) {
-                                set.insert(data[i]);
-                            }
-                            set
-                        },
-                    )
-                    .reduce(
-                        || AHashSet::new(),
-                        |mut s1, s2| {
-                            s1.extend(s2);
-                            s1
-                        },
-                    )
+                    .fold(AHashSet::new, |mut set, i| {
+                        if Self::is_valid_in_mask(validity, i) {
+                            set.insert(data[i]);
+                        }
+                        set
+                    })
+                    .reduce(AHashSet::new, |mut s1, s2| {
+                        s1.extend(s2);
+                        s1
+                    })
                     .len(),
 
                 ColumnVector::U32 { data, validity } => (0..data.len())
                     .into_par_iter()
-                    .fold(
-                        || AHashSet::new(),
-                        |mut set, i| {
-                            if Self::is_valid_in_mask(validity, i) {
-                                set.insert(data[i]);
-                            }
-                            set
-                        },
-                    )
-                    .reduce(
-                        || AHashSet::new(),
-                        |mut s1, s2| {
-                            s1.extend(s2);
-                            s1
-                        },
-                    )
+                    .fold(AHashSet::new, |mut set, i| {
+                        if Self::is_valid_in_mask(validity, i) {
+                            set.insert(data[i]);
+                        }
+                        set
+                    })
+                    .reduce(AHashSet::new, |mut s1, s2| {
+                        s1.extend(s2);
+                        s1
+                    })
                     .len(),
 
                 // --- TEMPORAL PATH ---
                 ColumnVector::DateTime { data, validity } => (0..data.len())
                     .into_par_iter()
-                    .fold(
-                        || AHashSet::new(),
-                        |mut set, i| {
-                            if Self::is_valid_in_mask(validity, i) {
-                                set.insert(data[i]);
-                            }
-                            set
-                        },
-                    )
-                    .reduce(
-                        || AHashSet::new(),
-                        |mut s1, s2| {
-                            s1.extend(s2);
-                            s1
-                        },
-                    )
+                    .fold(AHashSet::new, |mut set, i| {
+                        if Self::is_valid_in_mask(validity, i) {
+                            set.insert(data[i]);
+                        }
+                        set
+                    })
+                    .reduce(AHashSet::new, |mut s1, s2| {
+                        s1.extend(s2);
+                        s1
+                    })
                     .len(),
             }
         }
