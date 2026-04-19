@@ -1,3 +1,5 @@
+[English](./README.md) | [简体中文](./README_zh.md)
+
 # Charton - A versatile plotting library for Rust
 **Altair-style declarative plotting for Rust. High-performance, Polars-native, and Wasm-ready.**
 > *"Really nice project. ... This works perfectly as an ecosystem."*
