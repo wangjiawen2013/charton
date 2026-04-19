@@ -605,10 +605,9 @@ impl ColumnVector {
             // String uses a bitmask.
             ColumnVector::String { data, validity } => {
                 for (i, s) in data.iter().enumerate() {
-                    if Self::is_valid_in_mask(validity, i)
-                        && seen.insert(s.clone()) {
-                            result.push(s.clone());
-                        }
+                    if Self::is_valid_in_mask(validity, i) && seen.insert(s.clone()) {
+                        result.push(s.clone());
+                    }
                 }
             }
 
@@ -1361,7 +1360,7 @@ pub struct Dataset {
 
 impl Dataset {
     pub fn new() -> Self {
-        Self::default() 
+        Self::default()
     }
 
     /// Internal helper to validate row length consistency across columns.
