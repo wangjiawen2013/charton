@@ -14,8 +14,8 @@ default = ["parallel"]
 # Enables universal columnar data ingestion via the Apache Arrow standard.
 arrow = ["dep:arrow"]
 
-# Enables compatibility with visualization ecosystems (e.g., Matplotlib, Altair).
-bridge = ["dep:polars", "dep:serde", "dep:serde_json", "dep:base64", "resvg"]
+# Enables compatibility with python visualization ecosystems (e.g., Matplotlib, Altair).
+python = ["pyo3/auto-initialize"]
 
 # Enables multi-threaded data processing via Rayon for massive datasets.
 # NOTE: Disable this feature when targeting WebAssembly (Wasm) unless 
@@ -23,17 +23,14 @@ bridge = ["dep:polars", "dep:serde", "dep:serde_json", "dep:base64", "resvg"]
 parallel = ["dep:rayon"]
 
 # Enables exporting SVG to PNG format using the resvg rendering engine.
-resvg = ["dep:resvg"]
+png = ["dep:resvg"]
 
 [dependencies]
 # --- Optional Dependencies ---
 arrow = { version = "58.1", default-features = false, optional = true }
-polars = { version = "0.53", default-features = false, features = ["lazy", "parquet", "ipc"], optional = true }
-serde = { version = "1.0", features = ["derive"], optional = true }
-serde_json = { version = "1.0", optional = true }
-base64 = { version = "0.22", optional = true }
 rayon = { version = "1.11", optional = true }
 resvg = { version = "0.47", optional = true }
+pyo3 = { version = "0.28", optional = true }
 
 # --- Core Dependencies ---
 thiserror = "2.0"
