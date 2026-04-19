@@ -605,11 +605,10 @@ impl ColumnVector {
             // String uses a bitmask.
             ColumnVector::String { data, validity } => {
                 for (i, s) in data.iter().enumerate() {
-                    if Self::is_valid_in_mask(validity, i) {
-                        if seen.insert(s.clone()) {
+                    if Self::is_valid_in_mask(validity, i)
+                        && seen.insert(s.clone()) {
                             result.push(s.clone());
                         }
-                    }
                 }
             }
 
@@ -1028,7 +1027,7 @@ impl ColumnVector {
     /// Since the 'offset' might not be a multiple of 8, we cannot simply slice the bytes.
     /// We must shift and realign bits so the new bitmap starts at bit 0 for the first row.
     fn slice_validity(&self, v: &[u8], offset: usize, len: usize) -> Vec<u8> {
-        let mut new_v = vec![0u8; (len + 7) / 8];
+        let mut new_v = vec![0u8; len.div_ceil(8)];
 
         for i in 0..len {
             let old_idx = offset + i;
@@ -1204,7 +1203,7 @@ where
     let mut data = Vec::with_capacity(lower);
 
     // Each u8 stores 8 rows of validity bits.
-    let mut validity = Vec::with_capacity((lower + 7) / 8);
+    let mut validity = Vec::with_capacity(lower.div_ceil(8));
     let mut has_nulls = false;
 
     let mut current_byte = 0u8;
@@ -1353,7 +1352,7 @@ pub struct GroupedIndices {
 ///
 /// `Dataset` is the internal "Single Source of Truth" for Charton.
 /// It decouples plotting logic from external data frame libraries.
-#[derive(Clone)]
+#[derive(Clone, Default)]
 pub struct Dataset {
     pub(crate) schema: AHashMap<String, usize>,
     pub(crate) columns: Vec<Arc<ColumnVector>>,
@@ -1362,11 +1361,7 @@ pub struct Dataset {
 
 impl Dataset {
     pub fn new() -> Self {
-        Self {
-            schema: AHashMap::new(),
-            columns: Vec::new(),
-            row_count: 0,
-        }
+        Self::default() 
     }
 
     /// Internal helper to validate row length consistency across columns.
