@@ -91,12 +91,12 @@ For Polars users, Charton provides the `load_polars_df!` macro to seamlessly con
 ```rust
 use polars::prelude::*;
 
-// Efficiently convert Polars DataFrame to Charton Dataset
 let df = df![
     "height" => vec![160.0, 165.0, 170.0, 175.0, 180.0],
     "weight" => vec![55.0, 62.0, 68.0, 75.0, 82.0]
 ]?;
 
+// Efficiently convert Polars DataFrame to Charton Dataset
 let ds = load_polars_df!(df)?;
 
 Chart::build(ds)? // Equivalent to chart!(ds)?
