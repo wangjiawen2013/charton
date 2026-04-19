@@ -118,13 +118,13 @@ Inspired by the Grammar of Graphics (as seen in `ggplot2` and `Altair`), Charton
 
 ```rust
 // Create individual layers
-let line = chart!(price, sales)?
+let line = chart!(height, weight)?
     .mark_line()?
-    .encode((x("price"), y("sales")))?;
+    .encode((x("height"), y("weight")))?;
 
-let point = chart!(price, sales)?
+let point = chart!(height, weight)?
     .mark_point()?
-    .encode((x("price"), y("sales")))?;
+    .encode((x("height"), y("weight")))?;
 
 // Combine into a composite chart
 line.and(point).save("layered.svg")?;
