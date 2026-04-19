@@ -120,11 +120,11 @@ Inspired by the Grammar of Graphics (as seen in `ggplot2` and `Altair`), Charton
 // Create individual layers
 let line = chart!(height, weight)?
     .mark_line()?
-    .encode((x("height"), y("weight")))?;
+    .encode((alt::x("height"), alt::y("weight")))?;
 
 let point = chart!(height, weight)?
     .mark_point()?
-    .encode((x("height"), y("weight")))?;
+    .encode((alt::x("height"), alt::y("weight")))?;
 
 // Combine into a composite chart
 line.and(point).save("layered.svg")?;
