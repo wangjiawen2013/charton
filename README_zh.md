@@ -8,7 +8,7 @@
 [![Build Status](https://github.com/wangjiawen2013/charton/actions/workflows/ci.yml/badge.svg)](https://github.com/wangjiawen2013/charton/actions)
 [![License](https://img.shields.io/badge/license-Apache2.0-blue.svg)](LICENSE)
 
-**Charton** is a high-performance Rust plotting library featuring a declarative API inspired by [Altair](https://altair-viz.github.io/). It provides native [Polars](https://github.com/pola-rs/polars) support and bridges the gap to the Python visualization ecosystem (Altair/Matplotlib). Integrated with evcxr_jupyter, it enables seamless interactive data exploration in notebooks.
+**Charton** 是一款高性能 Rust 绘图库，其声明式 API 灵感源自 [Altair](https://altair-viz.github.io/)。它提供原生 [Polars](https://github.com/pola-rs/polars) 支持，并填补了 Rust 与 Python 可视化生态系统（Altair/Matplotlib）之间的空白。通过与 evcxr_jupyter 集成，还可以在 Notebook 中实现交互式数据探索。
 
 <table>
     <tr>
@@ -41,83 +41,85 @@
     </tr>
 </table>
 
-## Installation
-Add to `Cargo.toml`:
+## 安装
+在 `Cargo.toml` 中添加：
 
 ```toml
 [dependencies]
-charton = "0.5"                                         # Standard (Parallel enabled)
-charton = { version = "0.5", default-features = false } # For WASM / Single-thread
-charton = { version = "0.5", features = ["resvg"] }     # With PNG support
-charton = { version = "0.5", features = ["bridge"] }    # With Altair/Matplotlib interop
+charton = "0.5"                                         # 标准版 (默认开启并行计算)
+charton = { version = "0.5", default-features = false } # 用于 WASM / 单线程环境
+charton = { version = "0.5", features = ["resvg"] }     # 支持导出 PNG
+charton = { version = "0.5", features = ["bridge"] }    # 支持 Altair/Matplotlib 互操作
 ```
 
-## Quick Start
-Charton provides a high-level, declarative API. Standard visualizations can be generated using a concise one-liner syntax:
+## 快速上手
+Charton 提供了高级声明式 API。通过一行代码就可以实现可视化：
 
 ```rust
 use charton::prelude::*;
 
-// Data: Physical measurements (Height vs. Weight)
+use charton::prelude::*;
+
+// 数据：身体指标（身高 vs. 体重）
 let height = vec![160.0, 165.0, 170.0, 175.0, 180.0];
 let weight = vec![55.0, 62.0, 68.0, 75.0, 82.0];
 
-// One-liner plotting
+// 一行代码绘图
 chart!(height, weight)?.mark_point()?.encode((alt::x("height"), alt::y("weight")))?.save("out.svg")?;
 ```
 
-## From Macros to Production API
-While the `chart!` macro is a convenient syntactic sugar for rapid prototyping and simple scripts, the underlying `Chart::build` API is recommended for production environments where explicit data handling is required.
+## 从宏到生产级 API
+虽然 `chart!` 宏在快速原型设计和书写简单脚本时非常方便，但在需要显式处理数据的生产环境中，建议使用底层的 `Chart::build` API。
 
-### 1. Professional Build API
-For complex applications, use `Chart::build` to gain full control over the `Dataset` lifecycle.
+### 1. 专业构建 API
+对于复杂的应用程序，使用 `Chart::build` 可以完全控制 `Dataset` 的生命周期。
 
 ```rust
 let ds = Dataset::new()
     .with_column("height", height)?
     .with_column("weight", weight)?;
 
-Chart::build(ds)? // Equivalent to chart!(ds)?
+Chart::build(ds)? // 等价于 chart!(ds)?
     .mark_point()?
     .encode((alt::x("height"), alt::y("weight")))?
     .save("out.svg")?;
 ```
 
-> **Tip**: Use `add_column` instead if you need to add columns dynamically within loops or conditional logic.
+> **提示**：如果需要在循环或条件逻辑中动态添加列，请使用 `add_column`。
 
-### 2. Polars Integration
-For Polars users, Charton provides the `load_polars_df!` macro to seamlessly convert a `DataFrame` into a Charton-ready `Dataset`.
+### 2. Polars 集成
+针对 Polars 用户，Charton 提供了 `load_polars_df!` 宏，可将 `DataFrame` 转换为 Charton 内部专用的 `Dataset`。
 
 ```rust
 use polars::prelude::*;
 
-// Efficiently convert Polars DataFrame to Charton Dataset
 let df = df![
     "height" => vec![160.0, 165.0, 170.0, 175.0, 180.0],
     "weight" => vec![55.0, 62.0, 68.0, 75.0, 82.0]
 ]?;
 
+// 将 Polars DataFrame 转换为 Charton Dataset
 let ds = load_polars_df!(df)?;
 
-Chart::build(ds)? // Equivalent to chart!(ds)?
+Chart::build(ds)? // 等价于 chart!(ds)?
     .mark_point()?
     .encode((alt::x("height"), alt::y("weight")))?
     .save("out.svg")?;
 ```
 
-**Compatibility Note**: Charton uses versioned macros to handle Polars' rapid API evolutions. Versions below 0.42 are no longer supported.
+**兼容性说明**: 由于 Polars API 变化频繁，Charton 使用带版本标记的宏来处理兼容性。不再支持 0.42 以下的版本。
 
-|Polars Version       |Macro to Use              |Status              |
-|:--------------------|:-------------------------|:-------------------|
-|0.53+                |`load_polars_df!(df)?`    |Latest (Standard)   |
-|0.42 - 0.52          |`load_polars_v42_52!(df)?`|Legacy Support      |
-|< 0.42               |N/A                       |Unsupported         |
+|Polars 版本          |使用的宏                   |状态          |
+|:--------------------|:-------------------------|:-------------|
+|0.53+                |`load_polars_df!(df)?`    |最新（标准）   |
+|0.42 - 0.52          |`load_polars_v42_52!(df)?`|旧版支持       |
+|< 0.42               |N/A                       |不支持        |
 
-## Layered Grammar
-Inspired by the Grammar of Graphics (as seen in `ggplot2` and `Altair`), Charton replaces rigid templates with a modular, layer-based system. Visualizations are constructed by stacking atomic marks, offering infinite flexibility beyond fixed chart types.
+## 分层语法
+受图形语法（如 `ggplot2` 和 `Altair`）影响，Charton 用模块化的图层系统取代了固定模板。通过组合原子标记（Marks）能构建出丰富的图表类型，极大的提高了作图灵活性。
 
 ```rust
-// Create individual layers
+// 创建独立图层
 let line = chart!(height, weight)?
     .mark_line()?
     .encode((alt::x("height"), alt::y("weight")))?;
@@ -126,40 +128,40 @@ let point = chart!(height, weight)?
     .mark_point()?
     .encode((alt::x("height"), alt::y("weight")))?;
 
-// Combine into a composite chart
+// 组合成复合图表
 line.and(point).save("layered.svg")?;
 ```
 
-Charton can also leverages Rust’s functional paradigms, enabling infinite layer composition via fluent chaining or iterator folding. This allows for effortless, dynamic generation of complex multi-layered plots.
+Charton 还能利用 Rust 的函数式范式，通过流式链式调用或迭代器折叠实现多种图层组合，动态生成复杂的多层图形。
 
 ```rust
 let layers: Vec<LayeredChart> = vec![line.into(), point.into(), bar.into() /* , ... etc */];
 
-// Equivalent to line.and(point).and(bar)...
+// 等同于 line.and(point).and(bar)...
 let lc = layers.into_iter()
     .reduce(|acc, layer| acc.and(layer))
     .expect("Failed to fold layers");
 ```
 
-## Interactive Notebooks (Jupyter)
-Charton integrates with evcxr_jupyter for interactive data exploration. Replacing .save() with .show() renders SVGs directly within notebook cells:
+## 交互式作图 (Jupyter)
+Charton 与 evcxr_jupyter 集成，支持交互式数据探索。将 `.save()` 替换为 `.show()` 即可直接在 jupyter notebook 单元格中显示 SVG：
 
 ![evcxr jupyter](assets/evcxr_jupyter.png)
 
-## WebAssembly and Frontend
-Charton supports WebAssembly and modern web frontend; please refer to [Charton Docs](https://wangjiawen2013.github.io/charton) for details.
+## WebAssembly 与前端
+Charton 支持 WebAssembly 和现代 Web 前端；详情请参考 [Charton Docs](https://wangjiawen2013.github.io/charton)。
 
-## Leveraging External Plotting Power
-Charton bridges Rust with mature visualization ecosystems like **Altair** and **Matplotlib** via a high-speed IPC, enabling users to leverage diverse, professional-grade plotting tools within a unified workflow. please refer to [Charton Docs](https://wangjiawen2013.github.io/charton) for details.
+## 利用第三方可视化生态
+Charton 通过高速 IPC 将 Rust 与成熟的可视化生态（如 **Altair** 和 **Matplotlib**）连接起来，使用户能够在统一的工作流中利用多样化、专业级的绘图工具。详情请参考 [Charton Docs](https://wangjiawen2013.github.io/charton)。
 
-## Industrial-Grade Visualization
-Charton scales the Grammar of Graphics to heavy-duty production. By adopting the same proven philosophy as ggplot2, Altair, and the evolving ECharts, it validates its architecture as the industry standard, delivering strict type safety and zero-copy Polars integration for robust pipelines under extreme loads. This is powered by a rigorous Scale Arbitration engine that consolidates data domains into a "Single Source of Truth," ensuring absolute mathematical consistency and seamless cross-plot mapping while eliminating the fragile, hard-coded patches and silent overrides common in template-based tools.
+## 工业级可视化 
+相比于一些图表工具中随处可见的硬编码和隐式配置覆盖，Charton 坚持“图形语法”的底层逻辑，为极端负载下的数据处理提供了稳健、安全的类型保障。最核心的 Scale Arbitration（比例仲裁）机制将复杂的业务数据统一抽象为了单一的事实来源。这意味着不再需要处理破碎的绘图补丁，就能在不同图层间获得完全一致的数学表现和色彩映射。
 
 ![Comparison](assets/comparison.png)
-*This figure demonstrates semantic synchronization in Charton. Heterogeneous samples (point layer) are anchored to a global background (bar layer). By enforcing a single mathematical truth across all layers, Charton maintains absolute color consistency, ensuring samples are accurately contextualized within the global background.*
+*该图展示了 Charton 中的语义同步。异源数据（散点）被锚定在全局背景（柱状图）上。通过在所有图层中强制执行单一事实来源，Charton 保持了绝对的颜色一致性，确保样本在全局背景中得到准确的语境化呈现。*
 
-## Publish Quality
-Designed for precision, Charton provides pixel-perfect control over complex marks. Whether it is a multi-layered ErrorBar for biomedical research or a high-density scatter plot for finance, Charton delivers the aesthetic rigor required by top-tier journals.
+## 出版级质量
+Charton 作图精准，提供对复杂标记的像素级控制。无论是用于生物医学研究的多层误差线（ErrorBar），还是用于金融领域的高密度散点图，Charton 都能提供顶尖期刊所需的审美严谨性。
 
 <table>
     <tr>
@@ -168,10 +170,10 @@ Designed for precision, Charton provides pixel-perfect control over complex mark
     </tr>
 </table>
 
-*A reproduction of Figure 1A from the 2021 NEJM landmark study on once-weekly semaglutide for weight management, implemented using Charton.*
+*使用 Charton 复现了 2021 年新英格兰医学杂志上发表的使用减肥药司美格鲁肽进行体重管理的研究论文中的图 1A*
 
-## Documentation
-Please go to the [Charton Docs](https://wangjiawen2013.github.io/charton) for full documentation.
+## 文档
+请访问 [Charton Docs](https://wangjiawen2013.github.io/charton) 查看完整文档。
 
 ## License
-Charton is licensed under the **Apache License 2.0**.
+Charton 基于 **Apache License 2.0** 许可证开源。
