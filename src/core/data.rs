@@ -1,17 +1,8 @@
-use crate::core::utils::IntoParallelizable;
 use crate::error::ChartonError;
 use ahash::{AHashMap, AHashSet};
 use std::fmt;
 use std::sync::Arc;
 use time::OffsetDateTime;
-
-#[cfg(feature = "arrow")]
-use arrow::array::{Array, Float32Array, Float64Array, Int64Array, StringArray};
-#[cfg(feature = "arrow")]
-use arrow::datatypes::{DataType, TimeUnit};
-
-#[cfg(feature = "parallel")]
-use rayon::prelude::*;
 
 /// Encapsulates a single column of data with high-performance null handling.
 ///
@@ -324,6 +315,8 @@ impl ColumnVector {
     pub fn n_unique(&self) -> usize {
         #[cfg(feature = "parallel")]
         {
+            use rayon::prelude::*;
+
             match self {
                 // --- FLOAT PATHS (F64/F32) ---
                 // Normalizes -0.0 and 0.0 to the same bit representation and filters NaNs.
@@ -675,10 +668,11 @@ impl ColumnVector {
     /// (NaN for floats and bitmasks for other types) and uses Rayon for
     /// multi-threaded execution.
     pub fn min_max(&self) -> (f64, f64) {
-        let identity = (f64::INFINITY, f64::NEG_INFINITY);
-
         #[cfg(feature = "parallel")]
         {
+            use rayon::prelude::*;
+
+            let identity = (f64::INFINITY, f64::NEG_INFINITY);
             match self {
                 // --- FLOAT PATHS ---
                 ColumnVector::F64 { data } => data
@@ -744,6 +738,8 @@ impl ColumnVector {
         T: Copy + Sync + Send,
         F: Fn(&T) -> f64 + Sync + Send,
     {
+        use rayon::prelude::*;
+
         let identity = (f64::INFINITY, f64::NEG_INFINITY);
 
         if let Some(mask) = validity {
@@ -1646,33 +1642,13 @@ impl Dataset {
         Ok(final_mask)
     }
 
-    /// Partitions the dataset using aHash and Rayon for maximum throughput,
+    /// Partitions the dataset using aHash and Rayon (if enabled) for maximum throughput,
     /// while preserving the order of groups based on their first appearance.
-    ///
-    /// # Design & Implementation
-    /// This function employs a "Map-Reduce" strategy to handle large-scale data:
-    ///
-    /// 1. **Parallel Folding**: The row indices are partitioned across CPU cores. Each core
-    ///    maintains a local `AHashMap` to avoid global lock contention during the grouping phase.
-    /// 2. **Global Reduction**: Local maps are merged into a single global map. During merging,
-    ///    the global minimum `first_idx` is maintained for each group.
-    /// 3. **Order Preservation**: By tracking the `FirstSeenIndex`, the final output maintains
-    ///    the natural order of categories as they first appeared in the input.
-    /// 4. **Memory Access Optimization**: Indices within each group are sorted at the end
-    ///    to ensure contiguous memory access patterns during subsequent processing.
-    ///
-    /// # Arguments
-    /// * `col_name` - The name of the column to group by. If `None` or the column is missing,
-    ///   all rows are returned as a single group.
     pub fn group_by(&self, col_name: Option<&str>) -> GroupedIndices {
         // 1. Resolve the grouping column.
-        let col_vector = match col_name {
-            Some(name) => self.column(name).ok(),
-            None => None,
-        };
+        let col_vector = col_name.and_then(|name| self.column(name).ok());
 
         // 2. Handle the "No Grouping" case.
-        // We return a Vec with a single group containing all indices.
         let vector = match col_vector {
             Some(v) => v,
             None => {
@@ -1682,19 +1658,33 @@ impl Dataset {
             }
         };
 
-        // 3. Parallel Grouping with First-Appearance Tracking:
-        // We store: Map<GroupName, (FirstSeenIndex, Vec<RowIndices>)>
+        // 3. Dispatch to the appropriate implementation based on the "parallel" feature.
+        #[cfg(feature = "parallel")]
+        {
+            self.group_by_parallel(vector)
+        }
+
+        #[cfg(not(feature = "parallel"))]
+        {
+            self.group_by_serial(vector)
+        }
+    }
+
+    #[cfg(feature = "parallel")]
+    fn group_by_parallel(&self, vector: &ColumnVector) -> GroupedIndices {
+        use rayon::prelude::*;
+
+        // Map<GroupName, (FirstSeenIndex, Vec<RowIndices>)>
         let groups_map = (0..self.row_count)
-            .maybe_into_par_iter()
+            .into_par_iter()
             .fold(
                 || AHashMap::<Option<String>, (usize, Vec<usize>)>::with_capacity(64),
                 |mut local_map, i| {
                     let key = vector.get_str(i);
                     local_map
                         .entry(key)
-                        .and_modify(|(_first_idx, indices)| {
-                            // The local_map processes indices in increasing order,
-                            // so first_idx is already the minimum for this chunk.
+                        .and_modify(|(_, indices)| {
+                            // Local fold preserves order within chunks
                             indices.push(i);
                         })
                         .or_insert((i, vec![i]));
@@ -1707,7 +1697,7 @@ impl Dataset {
                     for (key, (first_idx2, mut indices2)) in map2.drain() {
                         map1.entry(key)
                             .and_modify(|(first_idx1, indices1)| {
-                                // Keep the global minimum index to preserve data order
+                                // Maintain global minimum first_idx to preserve input order
                                 if first_idx2 < *first_idx1 {
                                     *first_idx1 = first_idx2;
                                 }
@@ -1719,20 +1709,45 @@ impl Dataset {
                 },
             );
 
-        // 4. Finalize Order: Convert the HashMap to a Vec sorted by first_idx.
+        self.finalize_groups(groups_map)
+    }
+
+    #[cfg(not(feature = "parallel"))]
+    fn group_by_serial(&self, vector: &ColumnVector) -> GroupedIndices {
+        let mut groups_map = AHashMap::<Option<String>, (usize, Vec<usize>)>::with_capacity(64);
+
+        // Simple single-threaded loop: order is naturally preserved during scanning
+        for i in 0..self.row_count {
+            let key = vector.get_str(i);
+            groups_map
+                .entry(key)
+                .and_modify(|(_, indices)| {
+                    indices.push(i);
+                })
+                .or_insert((i, vec![i]));
+        }
+
+        self.finalize_groups(groups_map)
+    }
+
+    /// Finalizes the grouping by sorting groups by their first appearance
+    /// and sorting indices within each group for memory locality.
+    fn finalize_groups(
+        &self,
+        groups_map: ahash::AHashMap<Option<String>, (usize, Vec<usize>)>,
+    ) -> GroupedIndices {
+        // 1. Convert HashMap to Vec for sorting
         let mut sorted_groups: Vec<(Option<String>, (usize, Vec<usize>))> =
             groups_map.into_iter().collect();
 
-        // Sort groups based on when they first appeared in the data.
-        // This allows users to control chart order via data sorting.
+        // 2. Sort groups based on their first appearance (First-Seen Index)
         sorted_groups.sort_by_key(|(_key, (first_idx, _indices))| *first_idx);
 
-        // 5. Build the final GroupedIndices structure.
+        // 3. Extract final groups and sort internal indices
         let groups = sorted_groups
             .into_iter()
             .map(|(key, (_first_idx, mut indices))| {
-                // Sort indices within the group to ensure contiguous memory access
-                // patterns during the rendering phase.
+                // Sorting indices ensures contiguous memory access during rendering
                 indices.sort_unstable();
                 (key, indices)
             })
@@ -1755,6 +1770,9 @@ impl Dataset {
     pub fn from_record_batches(
         batches: &[arrow::record_batch::RecordBatch],
     ) -> Result<Self, ChartonError> {
+        use arrow::array::{Array, Float32Array, Float64Array, Int64Array, StringArray};
+        use arrow::datatypes::{DataType, TimeUnit};
+
         if batches.is_empty() {
             return Ok(Self::new());
         }
