@@ -1,10 +1,10 @@
+use crate::core::data::Dataset;
 use crate::error::ChartonError;
-use polars::prelude::*;
-use time::OffsetDateTime;
+use time::{Date, Month, OffsetDateTime};
 
 // unemployment dataset: A sub set of country's unemployment rate from past 31 years from https://www.kaggle.com/datasets/pantanjali/unemployment-dataset
-pub fn get_data() -> Result<DataFrame, ChartonError> {
-    let country = [
+pub fn get_data() -> Result<Dataset, ChartonError> {
+    let country = vec![
         "Belarus",
         "Ireland",
         "Moldova",
@@ -83,7 +83,7 @@ pub fn get_data() -> Result<DataFrame, ChartonError> {
         "Senegal",
         "Slovenia",
     ];
-    let year = [
+    let year = vec![
         2011, 2011, 2011, 2011, 2011, 2011, 2011, 2012, 2012, 2012, 2012, 2012, 2012, 2012, 2013,
         2013, 2013, 2013, 2013, 2013, 2013, 2014, 2014, 2014, 2014, 2014, 2014, 2014, 2015, 2015,
         2015, 2015, 2015, 2015, 2015, 2016, 2016, 2016, 2016, 2016, 2016, 2016, 2017, 2017, 2017,
@@ -91,7 +91,7 @@ pub fn get_data() -> Result<DataFrame, ChartonError> {
         2019, 2019, 2019, 2020, 2020, 2020, 2020, 2020, 2020, 2020, 2021, 2021, 2021, 2021, 2021,
         2021, 2021,
     ];
-    let unemployment = [
+    let unemployment = vec![
         6.17, 15.35, 6.68, 6.38, 15.7, 10.36, 8.17, 6.05, 15.45, 5.58, 6.2, 14.5, 9.44, 8.84, 6.01,
         13.73, 5.1, 6.11, 14.3, 8.58, 10.1, 5.99, 11.86, 3.73, 5.72, 13.9, 7.65, 9.67, 5.84, 9.91,
         4.7, 5.38, 12.0, 6.76, 8.96, 5.84, 8.37, 4.02, 4.69, 11.8, 4.46, 8.0, 5.65, 6.71, 4.1, 4.0,
@@ -100,38 +100,29 @@ pub fn get_data() -> Result<DataFrame, ChartonError> {
         4.42,
     ];
 
-    // Convert i32 years into nanosecond timestamps (i64)
-    let year_nanos: Vec<i64> = year
+    // Convert i32 years into OffsetDateTime
+    let year_dates: Vec<OffsetDateTime> = year
         .iter()
         .map(|&y| {
-            // Use the 'time' crate to construct a date and retrieve the nanosecond timestamp.
-            // We assume each year starts at midnight on January 1st (00:00:00).
-            OffsetDateTime::from_unix_timestamp(0)
-                .unwrap()
-                .replace_year(y)
-                .unwrap()
-                .replace_month(time::Month::January)
-                .unwrap()
-                .replace_day(1)
-                .unwrap()
-                .unix_timestamp_nanos() as i64
+            Date::from_calendar_date(y, Month::January, 1)
+                // 1. Create a "Date" object (Year-Month-Day).
+                // It only contains the calendar day, no time information yet.
+                .expect("invalid date")
+                // 2. Transform "Date" into "PrimitiveDateTime".
+                // Adds a time component (00:00:00.000) to the specific date.
+                .midnight()
+                // 3. Transform "PrimitiveDateTime" into "OffsetDateTime".
+                // Attaches a TimeZone (UTC offset +00:00) so it becomes a
+                // fixed point in global history (a "Timestamp").
+                .assume_utc()
         })
         .collect();
 
-    // Construct the DataFrame using the df! macro
-    let mut df = df![
-        "Country" => country,
-        "Year" => year_nanos,
-        "Unemployment rate (%)" => unemployment
-    ]?;
+    // Construct the Dataset
+    let ds = Dataset::new()
+        .with_column("Country", country)?
+        .with_column("Year", year_dates)?
+        .with_column("Unemployment rate (%)", unemployment)?;
 
-    // Cast the "Year" column from Int64 to Datetime(Nanoseconds).
-    // This allows 'interpret_semantic_type' to recognize it as a Temporal type.
-    df.with_column(
-        df.column("Year")?
-            .cast(&DataType::Datetime(TimeUnit::Nanoseconds, None))?
-            .with_name("Year".into()),
-    )?;
-
-    Ok(df)
+    Ok(ds)
 }

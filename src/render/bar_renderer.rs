@@ -1,12 +1,13 @@
 use crate::Precision;
+use crate::TEMP_SUFFIX;
 use crate::chart::Chart;
 use crate::core::context::PanelContext;
-use crate::core::layer::{MarkRenderer, PolygonConfig, RenderBackend};
+use crate::core::layer::{MarkRenderer, PolygonConfig, RenderBackend, TextConfig};
 use crate::encode::y::StackMode;
 use crate::error::ChartonError;
 use crate::mark::bar::MarkBar;
 use crate::visual::color::SingleColor;
-use polars::prelude::*;
+use ahash::AHashMap;
 
 impl MarkRenderer for Chart<MarkBar> {
     fn render_marks(
@@ -14,15 +15,16 @@ impl MarkRenderer for Chart<MarkBar> {
         backend: &mut dyn RenderBackend,
         context: &PanelContext,
     ) -> Result<(), ChartonError> {
-        let df = &self.data.df;
-        if df.height() == 0 {
+        let ds = &self.data;
+        let row_count = ds.height();
+        if row_count == 0 {
             return Ok(());
         }
 
         let mark_config = self
             .mark
             .as_ref()
-            .ok_or_else(|| ChartonError::Mark("MarkBar config missing".into()))?;
+            .ok_or_else(|| ChartonError::Mark("MarkBar configuration is missing".into()))?;
 
         // --- STEP 1: Encoding & Scales ---
         let x_enc = self
@@ -35,245 +37,245 @@ impl MarkRenderer for Chart<MarkBar> {
             .y
             .as_ref()
             .ok_or(ChartonError::Encoding("Y missing".into()))?;
+
         let x_scale = context.coord.get_x_scale();
         let y_scale = context.coord.get_y_scale();
 
         let is_stacked = y_enc.stack != StackMode::None;
-        let x_field = &x_enc.field;
-        let color_field = self.encoding.color.as_ref().map(|c| c.field.as_str());
-
-        // PIE MODE: An empty X field indicates a single-axis radial layout.
-        let is_pie_mode = x_field.is_empty();
-
-        // --- STEP 2: Coordinate & Mode Detection ---
+        let is_pie_mode = x_enc.field.is_empty();
         let hints = context.coord.layout_hints();
         let is_polar = hints.needs_interpolation;
         let needs_nightingale_sqrt = is_polar && !is_pie_mode;
 
-        // --- STEP 3: Visual Parameter Resolution ---
+        // --- STEP 2: Layout Context ---
+        // Access helper columns injected by transform_bar_data
+        let sub_indices = ds.column(&format!("{}_sub_idx", TEMP_SUFFIX))?.to_f64_vec();
+        let group_counts = ds
+            .column(&format!("{}_groups_count", TEMP_SUFFIX))?
+            .to_f64_vec();
+        let y_values = ds.column(&y_enc.field)?.to_f64_vec();
+        let x_norms = x_scale
+            .scale_type()
+            .normalize_column(x_scale, ds.column(&x_enc.field)?);
+
+        // For stacking, we still need an accumulator.
+        // Because of the Cartesian Product order, we can map X labels to indices reliably.
+        let x_uniques = ds.column(&x_enc.field)?.unique_values();
+        let mut x_idx_map = AHashMap::with_capacity(x_uniques.len());
+        for (i, val) in x_uniques.iter().enumerate() {
+            x_idx_map.insert(val.as_str(), i);
+        }
+        let mut stack_acc = vec![0.0; x_uniques.len()];
+
+        // Visual Parameters
         let eff_width = mark_config.width.unwrap_or(hints.default_bar_width);
         let eff_spacing = mark_config.spacing.unwrap_or(hints.default_bar_spacing);
         let eff_span = mark_config.span.unwrap_or(hints.default_bar_span);
-        let eff_stroke = mark_config.stroke.unwrap_or(hints.default_bar_stroke);
-        let eff_stroke_width = mark_config
-            .stroke_width
-            .unwrap_or(hints.default_bar_stroke_width);
+        let unit_step_norm = (x_scale.normalize(1.0) - x_scale.normalize(0.0)).abs();
 
-        // --- STEP 4: X-Axis Step Calculation ---
-        let n0 = x_scale.normalize(0.0);
-        let n1 = x_scale.normalize(1.0);
-        let unit_step_norm = (n1 - n0).abs();
+        // Color Mapping
+        let color_norms = context.spec.aesthetics.color.as_ref().map(|c| {
+            c.scale_impl
+                .scale_type()
+                .normalize_column(c.scale_impl.as_ref(), ds.column(&c.field).unwrap())
+        });
 
-        // --- STEP 5: Grouping & Layout Strategy ---
-        let x_uniques_count = df.column(x_field)?.n_unique()?;
-        let total_rows = df.height();
-
-        let n_groups = if is_pie_mode {
-            1.0
-        } else {
-            (total_rows as f64 / x_uniques_count as f64).max(1.0)
-        };
-
-        let bar_width_data = if is_stacked || n_groups <= 1.0 {
-            eff_width.min(eff_span)
-        } else {
-            eff_span / (n_groups + (n_groups - 1.0) * eff_spacing)
-        };
-
-        let bar_width_norm = bar_width_data * unit_step_norm;
-        let spacing_norm = bar_width_norm * eff_spacing;
-
-        // --- STEP 6: Partitioning ---
-        let is_self_mapping = color_field.is_some_and(|cf| cf == x_field);
-        let groups = match color_field {
-            Some(col) if !is_self_mapping => df.partition_by_stable([col], true)?,
-            _ => vec![df.clone()],
-        };
-
-        // --- STEP 7.0: Global Total Calculation (CRITICAL FOR PIE PERCENTAGES) ---
-        // We calculate this before the loop to ensure percentages are relative to the whole.
         let global_total = if is_pie_mode {
-            df.column(&y_enc.field)?.f64()?.sum().unwrap_or(1.0)
+            y_values.iter().sum::<f64>().max(1.0)
         } else {
             1.0
         };
 
-        let mut stack_acc = Vec::new();
+        // --- STEP 3: Linear Rendering Loop ---
+        // No more group_by! We process rows as a flat stream.
+        for idx in 0..row_count {
+            let y_val = y_values[idx];
+            let x_str = ds.get_str_or(&x_enc.field, idx, "null");
+            let sub_idx = sub_indices[idx];
+            let n_groups = group_counts[idx];
 
-        // --- STEP 7: Render Loop ---
-        for (group_idx, group_df) in groups.iter().enumerate() {
-            let group_color_fixed = if !is_self_mapping {
-                Some(self.resolve_group_color(group_df, context, &mark_config.color)?)
-            } else {
-                None
-            };
+            // A: Resolve Y-Bounds
+            let (y_low_n, y_high_n) = if is_stacked {
+                let x_pos = *x_idx_map.get(x_str.as_str()).unwrap_or(&0);
+                let start = stack_acc[x_pos];
+                let end = start + y_val;
+                stack_acc[x_pos] = end;
 
-            let x_series = group_df.column(x_field)?.as_materialized_series();
-            let y_series = group_df.column(&y_enc.field)?.as_materialized_series();
-
-            let x_norms = x_scale.scale_type().normalize_series(x_scale, x_series)?;
-            let y_vals: Vec<f64> = y_series.f64()?.into_no_null_iter().collect();
-
-            for (i, (opt_x_n, y_val)) in x_norms.into_iter().zip(y_vals).enumerate() {
-                if y_val == 0.0 && !is_stacked {
-                    continue;
+                if needs_nightingale_sqrt {
+                    (
+                        y_scale.normalize(start).sqrt(),
+                        y_scale.normalize(end).sqrt(),
+                    )
+                } else {
+                    (y_scale.normalize(start), y_scale.normalize(end))
                 }
-
-                let final_color = if is_self_mapping {
-                    let row_df = group_df.slice(i as i64, 1);
-                    self.resolve_group_color(&row_df, context, &mark_config.color)?
-                } else {
-                    group_color_fixed.unwrap_or(mark_config.color)
-                };
-
-                let x_tick_n = opt_x_n.unwrap_or(0.0);
-
-                // --- RESOLVE Y-BOUNDS (Radius Calculation) ---
-                let (y_low_n, y_high_n) = if is_stacked {
-                    if stack_acc.len() <= i {
-                        stack_acc.push(0.0);
-                    }
-                    let start = stack_acc[i];
-                    let end = start + y_val;
-                    stack_acc[i] = end;
-
+            } else {
+                let n_val = y_scale.normalize(y_val);
+                (
+                    y_scale.normalize(0.0),
                     if needs_nightingale_sqrt {
-                        (
-                            y_scale.normalize(start).sqrt(),
-                            y_scale.normalize(end).sqrt(),
-                        )
-                    } else {
-                        (y_scale.normalize(start), y_scale.normalize(end))
-                    }
-                } else {
-                    let n_val = y_scale.normalize(y_val);
-                    let final_n = if needs_nightingale_sqrt {
                         n_val.sqrt()
                     } else {
                         n_val
-                    };
-                    (y_scale.normalize(0.0), final_n)
-                };
+                    },
+                )
+            };
 
-                // --- POSITIONING & DODGING ---
-                let offset_norm = if !is_stacked && n_groups > 1.0 {
-                    (group_idx as f64 - (n_groups - 1.0) / 2.0) * (bar_width_norm + spacing_norm)
-                } else {
-                    0.0
-                };
+            // B: Resolve X-Position using Helper Columns
+            let bar_width_data = if is_stacked || n_groups <= 1.0 {
+                eff_width.min(eff_span)
+            } else {
+                eff_span / (n_groups + (n_groups - 1.0) * eff_spacing)
+            };
 
-                let x_center_n = x_tick_n + offset_norm;
-                let left_n = x_center_n - bar_width_norm / 2.0;
-                let right_n = x_center_n + bar_width_norm / 2.0;
+            let bar_width_norm = bar_width_data * unit_step_norm;
+            let spacing_norm = bar_width_norm * eff_spacing;
 
-                // --- GEOMETRIC TRANSFORMATION ---
-                let rect_path = if is_pie_mode {
-                    vec![
-                        (y_low_n, left_n),
-                        (y_low_n, right_n),
-                        (y_high_n, right_n),
-                        (y_high_n, left_n),
-                    ]
-                } else {
-                    vec![
-                        (left_n, y_low_n),
-                        (left_n, y_high_n),
-                        (right_n, y_high_n),
-                        (right_n, y_low_n),
-                    ]
-                };
+            let (offset_norm, final_bar_width_norm) = if is_polar && !is_pie_mode && !is_stacked {
+                (0.0, eff_span * unit_step_norm) // Rose overlay mode
+            } else if !is_stacked && n_groups > 1.0 {
+                // Simplified Dodge Calculation using sub_idx helper
+                let offset = (sub_idx - (n_groups - 1.0) / 2.0) * (bar_width_norm + spacing_norm);
+                (offset, bar_width_norm)
+            } else {
+                (0.0, bar_width_norm)
+            };
 
-                let pixel_points = if hints.needs_interpolation {
-                    context.transform_path(&rect_path, true)
-                } else {
-                    rect_path
-                        .iter()
-                        .map(|(nx, ny)| context.coord.transform(*nx, *ny, &context.panel))
-                        .collect::<Vec<_>>()
-                };
+            let x_tick_n = x_norms[idx].unwrap_or(0.0);
+            let x_center_n = x_tick_n + offset_norm;
+            let left_n = x_center_n - final_bar_width_norm / 2.0;
+            let right_n = x_center_n + final_bar_width_norm / 2.0;
 
-                backend.draw_polygon(PolygonConfig {
-                    points: pixel_points
-                        .into_iter()
-                        .map(|(x, y)| (x as Precision, y as Precision))
-                        .collect(),
-                    fill: final_color,
-                    stroke: eff_stroke,
-                    stroke_width: eff_stroke_width as Precision,
-                    fill_opacity: mark_config.opacity as Precision,
-                    stroke_opacity: mark_config.opacity as Precision,
-                });
+            // C: Geometric Construction (Same as before)
+            let rect_path = if is_pie_mode {
+                vec![
+                    (y_low_n, left_n),
+                    (y_low_n, right_n),
+                    (y_high_n, right_n),
+                    (y_high_n, left_n),
+                ]
+            } else {
+                vec![
+                    (left_n, y_low_n),
+                    (left_n, y_high_n),
+                    (right_n, y_high_n),
+                    (right_n, y_low_n),
+                ]
+            };
 
-                // --- 8. PIE/DONUT CENTERED LABELING ---
-                if is_pie_mode {
-                    let theme = context.spec.theme;
+            // Transform to pixels
+            let pixel_points: Vec<(Precision, Precision)> = if hints.needs_interpolation {
+                context
+                    .transform_path(&rect_path, true)
+                    .into_iter()
+                    .map(|(px, py)| (px as Precision, py as Precision))
+                    .collect()
+            } else {
+                rect_path
+                    .iter()
+                    .map(|&(nx, ny)| {
+                        let (px, py) = context.coord.transform(nx, ny, &context.panel);
+                        (px as Precision, py as Precision)
+                    })
+                    .collect()
+            };
 
-                    // Calculate percentage using the pre-calculated global_total.
-                    let percentage = if y_enc.normalize {
-                        y_val * 100.0
-                    } else {
-                        (y_val / global_total) * 100.0
-                    };
+            // D: Drawing
+            let color_val = color_norms.as_ref().and_then(|cn| cn[idx]);
+            let final_color = self.resolve_color_from_value(color_val, context, &mark_config.color);
 
-                    // Only render labels for sectors > 3% to maintain clarity.
-                    if percentage > 3.0 {
-                        let label_text = format!("{:.1}%", percentage);
+            backend.draw_polygon(PolygonConfig {
+                points: pixel_points,
+                fill: final_color,
+                stroke: mark_config.stroke.unwrap_or(hints.default_bar_stroke),
+                stroke_width: mark_config
+                    .stroke_width
+                    .unwrap_or(hints.default_bar_stroke_width)
+                    as Precision,
+                fill_opacity: mark_config.opacity as Precision,
+                stroke_opacity: mark_config.opacity as Precision,
+            });
 
-                        // Centroid logic: Midpoint of angular and radial spans.
-                        let mid_angle_n = (y_low_n + y_high_n) / 2.0;
-                        let mid_radius_n = (left_n + right_n) / 2.0;
-
-                        let (lx, ly) =
-                            context
-                                .coord
-                                .transform(mid_angle_n, mid_radius_n, &context.panel);
-
-                        backend.draw_text(crate::core::layer::TextConfig {
-                            x: lx as Precision,
-                            y: ly as Precision,
-                            text: label_text,
-                            font_size: (theme.tick_label_size - 1.0) as Precision,
-                            font_family: theme.tick_label_family.clone(),
-                            color: SingleColor::new("white"),
-                            text_anchor: "middle".into(),
-                            font_weight: "bold".into(),
-                            opacity: mark_config.opacity as Precision,
-                        });
-                    }
-                }
+            // E: Labels for Pie
+            if is_pie_mode {
+                self.render_pie_label(
+                    y_val,
+                    global_total,
+                    y_low_n,
+                    y_high_n,
+                    left_n,
+                    right_n,
+                    y_enc.normalize,
+                    context,
+                    backend,
+                    mark_config.opacity as Precision,
+                );
             }
         }
+
         Ok(())
     }
 }
 
 impl Chart<MarkBar> {
-    /// Resolves the color for a specific data subset.
-    /// In self-mapping mode (x == color), this is called per row.
-    /// In grouping mode (x != color), this is called once per partition.
-    fn resolve_group_color(
+    fn resolve_color_from_value(
         &self,
-        df: &DataFrame,
+        val: Option<f64>,
         context: &PanelContext,
         fallback: &SingleColor,
-    ) -> Result<SingleColor, ChartonError> {
-        if let Some(ref mapping) = context.spec.aesthetics.color {
-            let s = df.column(&mapping.field)?.as_materialized_series();
+    ) -> SingleColor {
+        if let (Some(v), Some(mapping)) = (val, &context.spec.aesthetics.color) {
             let s_trait = mapping.scale_impl.as_ref();
-
-            // Normalize the first value of the provided DataFrame slice.
-            let norms = s_trait
-                .scale_type()
-                .normalize_series(s_trait, &s.head(Some(1)))?;
-            let norm = norms.get(0).unwrap_or(0.0);
-
-            // Map normalized value to color via palette.
-            Ok(s_trait
+            s_trait
                 .mapper()
-                .map(|m| m.map_to_color(norm, s_trait.logical_max()))
-                .unwrap_or_else(|| *fallback))
+                .as_ref()
+                .map(|m| m.map_to_color(v, s_trait.logical_max()))
+                .unwrap_or(*fallback)
         } else {
-            Ok(*fallback)
+            *fallback
+        }
+    }
+
+    #[allow(clippy::too_many_arguments)]
+    fn render_pie_label(
+        &self,
+        y_val: f64,
+        total: f64,
+        y_low_n: f64,
+        y_high_n: f64,
+        left_n: f64,
+        right_n: f64,
+        is_normalized: bool,
+        context: &PanelContext,
+        backend: &mut dyn RenderBackend,
+        opacity: f32,
+    ) {
+        let percentage = if is_normalized {
+            y_val * 100.0
+        } else {
+            (y_val / total) * 100.0
+        };
+
+        if percentage > 3.0 {
+            let label_text = format!("{:.1}%", percentage);
+            let mid_angle_n = (y_low_n + y_high_n) / 2.0;
+            let mid_radius_n = (left_n + right_n) / 2.0;
+            let (lx, ly) = context
+                .coord
+                .transform(mid_angle_n, mid_radius_n, &context.panel);
+            let theme = &context.spec.theme;
+
+            backend.draw_text(TextConfig {
+                x: lx as Precision,
+                y: ly as Precision,
+                text: label_text,
+                font_size: (theme.tick_label_size - 1.0) as Precision,
+                font_family: theme.tick_label_family.clone(),
+                color: SingleColor::new("white"),
+                text_anchor: "middle".into(),
+                font_weight: "bold".into(),
+                opacity: opacity as Precision,
+            });
         }
     }
 }

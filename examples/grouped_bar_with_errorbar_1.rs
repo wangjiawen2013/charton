@@ -2,20 +2,24 @@ use charton::prelude::*;
 use std::error::Error;
 
 fn main() -> Result<(), Box<dyn Error>> {
-    let df = load_dataset("penguins")?;
-    println!("{:?}", df);
+    let ds = load_dataset("penguins")?;
+    println!("{:?}", ds);
 
     // 2. Build the Error Bar layer
-    let errorbar = Chart::build(&df)?
+    let errorbar = chart!(&ds)?
         .mark_errorbar()?
         // Mapping 'Sex' to color triggers the dodge logic
-        .encode((x("Species"), y("Body Mass (g)"), color("Sex")))?;
+        .encode((
+            alt::x("Species"),
+            alt::y("Body Mass (g)"),
+            alt::color("Sex"),
+        ))?;
 
     // 3. Add a Bar layer to see the alignment
-    let bar = Chart::build(&df)?.mark_bar()?.encode((
-        x("Species"),
-        y("Body Mass (g)").with_aggregate("mean"),
-        color("Sex"),
+    let bar = chart!(ds)?.mark_bar()?.encode((
+        alt::x("Species"),
+        alt::y("Body Mass (g)").with_aggregate("mean"),
+        alt::color("Sex"),
     ))?;
 
     // 4. Create the multiple layered Chart

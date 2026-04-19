@@ -1,16 +1,11 @@
 use charton::prelude::*;
-use polars::prelude::*;
 use std::error::Error;
 
 #[test]
 fn tests_transform_window_1() -> Result<(), Box<dyn Error>> {
-    let df = CsvReadOptions::default()
-        .with_has_header(true)
-        .try_into_reader_with_file_path(Some("./assets/iris.csv".into()))?
-        .finish()?;
-
+    let ds = load_dataset("iris")?;
     // Create a chart with window transform
-    let chart = Chart::build(&df.select(["species", "sepal_length"])?)?
+    let chart = chart!(ds)?
         .transform_window(
             WindowTransform::new(WindowFieldDef::new(
                 "sepal_length",
@@ -22,7 +17,11 @@ fn tests_transform_window_1() -> Result<(), Box<dyn Error>> {
         )?
         .mark_line()?
         .configure_line(|l| l.with_interpolation("step")) // Add step interpolation
-        .encode((x("sepal_length"), y("ecdf"), color("species")))?;
+        .encode((
+            alt::x("sepal_length"),
+            alt::y("ecdf"),
+            alt::color("species"),
+        ))?;
 
     chart
         .with_size(600, 400)

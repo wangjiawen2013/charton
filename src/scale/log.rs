@@ -94,7 +94,7 @@ impl ScaleTrait for LogScale {
 
     /// Continuous logarithmic scales return a default for categorical inputs.
     fn normalize_string(&self, _value: &str) -> f64 {
-        0.0
+        f64::NAN
     }
 
     /// Returns the data boundaries (min, max).

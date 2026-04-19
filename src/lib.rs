@@ -22,37 +22,52 @@ pub mod theme;
 pub mod transform;
 pub mod visual;
 
-#[cfg(not(target_arch = "wasm32"))]
+/// Cross-language interoperability bridge, enabling data exchange with
+/// external visualization ecosystems such as Altair, Matplotlib, and R.
+#[cfg(all(feature = "bridge", not(target_arch = "wasm32")))]
 pub mod bridge;
 
+#[cfg(feature = "arrow")]
+pub use arrow;
+
+/// Global macros providing syntactic sugar for data construction,
+/// external library integration, and developer convenience.
+#[macro_use]
+pub mod macros;
+
+pub mod alt {
+    pub use crate::encode::color::color;
+    pub use crate::encode::shape::shape;
+    pub use crate::encode::size::size;
+    pub use crate::encode::text::text;
+    pub use crate::encode::x::x;
+    pub use crate::encode::y::y;
+    pub use crate::encode::y2::y2;
+}
+
 pub mod prelude {
-    pub use crate::core::data::{DataFrameSource, IntoChartonSource};
-    pub use crate::datasets::load_dataset;
-    pub use time::OffsetDateTime;
-
-    pub use crate::encode::{
-        Encoding, color::color, shape::shape, size::size, text::text, x::x, y::y, y2::y2,
-    };
-
+    pub use crate::alt;
     pub use crate::chart::Chart;
+    pub use crate::coordinate::CoordSystem;
     pub use crate::core::composite::LayeredChart;
     pub use crate::core::conversion::IntoLayered;
+    pub use crate::core::data::{ColumnVector, Dataset, IntoColumn, ToDataset};
+    pub use crate::datasets::load_dataset;
+    pub use crate::render::line_renderer::PathInterpolation;
     pub use crate::scale::{Expansion, Scale};
-
-    pub use crate::coordinate::CoordSystem;
+    pub use crate::theme::Theme;
     pub use crate::transform::{
         density_transform::{BandwidthType, DensityTransform, KernelType},
         window_transform::{WindowFieldDef, WindowOnlyOp, WindowTransform},
     };
-
-    pub use crate::render::line_renderer::PathInterpolation;
-    pub use crate::theme::Theme;
     pub use crate::visual::color::{ColorMap, ColorPalette, SingleColor};
     pub use crate::visual::shape::PointShape;
+    pub use crate::{chart, load_polars_df, load_polars_v42_52};
+    pub use time::OffsetDateTime;
 
-    #[cfg(not(target_arch = "wasm32"))]
+    #[cfg(all(feature = "bridge", not(target_arch = "wasm32")))]
     pub use crate::bridge::base::{Altair, Matplotlib, Plot, Visualization};
-    #[cfg(not(target_arch = "wasm32"))]
+    #[cfg(all(feature = "bridge", not(target_arch = "wasm32")))]
     pub use crate::data; // Macro data!
 }
 
