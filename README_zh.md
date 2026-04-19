@@ -1,6 +1,8 @@
+[English](./README.md) | [简体中文](./README_zh.md)
+
 # Charton - 一个多功能的 Rust 绘图库
 **Rust 版 Altair 风格声明式绘图。高性能、Polars 原生支持、且兼容 Wasm。**
-> *"非常棒的项目。... 作为一个生态系统运行得非常完美。"*
+> *“非常棒的项目。... 作为一个生态系统运行得非常完美。”*
 > — [**Ritchie Vink**](https://github.com/pola-rs/polars/issues/25941), Polars 创始人
 
 [![Crates.io](https://img.shields.io/crates/v/charton.svg)](https://crates.io/crates/charton)
@@ -170,7 +172,7 @@ Charton 作图精准，提供对复杂标记的像素级控制。无论是用于
     </tr>
 </table>
 
-*使用 Charton 复现了 2021 年新英格兰医学杂志上发表的使用减肥药司美格鲁肽进行体重管理的研究论文中的图 1A*
+*使用 Charton 复现了 2021 年新英格兰医学杂志上发表的使用减肥药司美格鲁肽进行体重管理的研究论文中的图 1A。*
 
 ## 文档
 请访问 [Charton Docs](https://wangjiawen2013.github.io/charton) 查看完整文档。
