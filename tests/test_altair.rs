@@ -1,7 +1,9 @@
+#[cfg(feature = "bridge")]
 use charton::prelude::*;
-use polars::prelude::df;
+#[cfg(feature = "bridge")]
 use std::error::Error;
 
+#[cfg(feature = "bridge")]
 #[test]
 #[ignore = "Requires Python environment with altair"]
 fn test_altair_1() -> Result<(), Box<dyn Error>> {

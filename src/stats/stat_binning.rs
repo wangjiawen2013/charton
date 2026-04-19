@@ -1,54 +1,88 @@
-use polars::prelude::*;
+use crate::core::data::ColumnVector;
+use crate::core::utils::Parallelizable;
 
-/// Cut continuous data into discrete bins
+#[cfg(feature = "parallel")]
+use rayon::prelude::*;
+
+/// Categorizes continuous numerical data into discrete bins. It maps each value to a label based on
+/// defined bin edges.
 ///
 /// # Arguments
-/// * `series` - A Series containing continuous data (f64)
-/// * `bins` - A vector of bin edges (must be sorted in ascending order)
-/// * `labels` - Labels for the bins
+/// * `values` - A slice of f64 data points to be binned.
+/// * `validity` - An optional bitmask (from ColumnVector) to handle null values.
+/// * `bins` - A sorted slice of bin edges (e.g., `[0.0, 10.0, 20.0]`).
+/// * `labels` - String labels corresponding to each bin (length must be `bins.len() - 1`).
 ///
 /// # Returns
-/// A String Series with bin labels
-pub(crate) fn cut(series: &Series, bins: &[f64], labels: &[String]) -> Series {
-    let values: Vec<f64> = series.f64().unwrap().into_no_null_iter().collect();
-    let mut result_categories = Vec::with_capacity(values.len());
+/// A vector of `Option<String>`, where `None` represents a null or out-of-bounds value.
+pub(crate) fn cut(
+    values: &[f64],
+    validity: &Option<Vec<u8>>,
+    bins: &[f64],
+    labels: &[String],
+) -> Vec<Option<String>> {
+    // Pre-allocate the result vector to match input size
+    values
+        .maybe_par_iter()
+        .enumerate()
+        .map(|(i, &val)| {
+            // 1. Check for nulls in the bitmask or NaN values in the float data
+            if !ColumnVector::is_valid_in_mask(validity, i) || val.is_nan() {
+                return None;
+            }
 
-    for val in values {
-        let index = find_bin(val, bins);
-        result_categories.push(labels[index].clone());
-    }
+            // 2. Perform high-performance binary search to find the correct bin
+            let bin_idx = find_bin(val, bins);
 
-    Series::new(series.name().clone(), result_categories)
+            // 3. Return the corresponding label
+            Some(labels[bin_idx].clone())
+        })
+        .collect()
 }
 
-/// Find the bin for value using left-closed, right-open [a, b) interval.
+/// Efficiently finds the bin index for a given value using Binary Search.
 ///
-/// This function determines which bin a value belongs to based on the provided bin edges.
-/// It uses a left-closed, right-open interval for all bins except the last one, which
-/// includes the rightmost edge to handle the maximum value.
+/// This implementation follows the standard "left-closed, right-open" [a, b) interval
+/// logic, except for the final bin which is fully closed [a, b] to include
+/// the maximum edge value.
 ///
-/// # Arguments
-/// * `value` - The value to find a bin for
-/// * `bins` - A slice of bin edges, must be sorted in ascending order
-///
-/// # Returns
-/// The index of the bin that contains the value
-///
-/// # Examples
-/// ```rust,ignore
-/// let bins = &[0.0, 1.0, 2.0, 3.0];
-/// assert_eq!(find_bin(0.5, bins), 0);  // Falls in [0.0, 1.0)
-/// assert_eq!(find_bin(1.0, bins), 1);  // Falls in [1.0, 2.0)
-/// assert_eq!(find_bin(3.0, bins), 2);  // Equals right edge, falls in [2.0, 3.0]
-/// ```
-///
+/// # Logic
+/// - If `val` is exactly the last edge, it is included in the last bin.
+/// - If `val` is below the first edge or above the last, it is clamped to the nearest bin.
 fn find_bin(value: f64, bins: &[f64]) -> usize {
-    // `bins` must be sorted. If `value == bins.last()`, it goes to the last bin.
-    // Search using iterator windows of size 2: (bins[i], bins[i+1])
-    if let Some(index) = bins.windows(2).position(|w| value >= w[0] && value < w[1]) {
-        return index;
+    let last_bin_idx = bins.len() - 2;
+    let last_edge = bins[bins.len() - 1];
+
+    // Special case: The value hits the exact upper bound of the last bin
+    if value >= last_edge {
+        return last_bin_idx;
     }
 
-    // If not found, value must equal the last right edge.
-    bins.len() - 2
+    // Binary search O(log N) is significantly faster than linear windows() O(N)
+    match bins.binary_search_by(|probe| {
+        probe
+            .partial_cmp(&value)
+            .expect("Failed to compare floating point values")
+    }) {
+        // Exact match found: value is the start of the interval [value, next_edge)
+        Ok(idx) => {
+            // If the exact match is the last edge, it belongs to the previous bin
+            if idx > last_bin_idx {
+                last_bin_idx
+            } else {
+                idx
+            }
+        }
+        // No exact match: `err` is the index where the value would be inserted.
+        // Therefore, the value falls into the bin starting at `err - 1`.
+        Err(err) => {
+            if err == 0 {
+                0
+            } else if err > last_bin_idx {
+                last_bin_idx
+            } else {
+                err - 1
+            }
+        }
+    }
 }

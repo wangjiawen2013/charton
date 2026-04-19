@@ -1,7 +1,8 @@
 use crate::chart::Chart;
+use crate::core::data::{ColumnVector, Dataset};
 use crate::error::ChartonError;
 use crate::mark::Mark;
-use polars::prelude::*;
+use ahash::AHashMap;
 
 /// Window-specific operations for computing window functions
 ///
@@ -216,209 +217,232 @@ impl WindowTransform {
 }
 
 impl<T: Mark> Chart<T> {
-    /// Transform data by performing window operations
+    /// Performs window transformations (Ranking, Row Numbers, or ECDF) on the chart data.
     ///
-    /// This method computes window functions on the data, such as cumulative distribution,
-    /// ranking, or lag/lead operations. The computation can be grouped by a specified field
-    /// and configured with various window parameters.
-    ///
-    /// # Parameters
-    /// * `params` - A `WindowTransform` configuration object specifying the window operation details
-    ///
-    /// # Returns
-    /// * `Result<Self, ChartonError>` - The chart with transformed window data or an error if the transformation fails
-    ///
-    /// # Example
-    /// ```rust,ignore
-    /// let window_field = WindowFieldDef::new("value", WindowOnlyOp::CumeDist, "cumulative_dist");
-    /// let window_params = WindowTransform::new(window_field).with_groupby("category");
-    ///
-    /// chart.transform_window(window_params)?;
-    /// ```
+    /// This implementation follows the "Mainstream Strategy":
+    /// 1. **Order Persistence**: Uses `unique_values()` to maintain "First Appearance" order.
+    /// 2. **Null Handling**: Rows with Null/NaN inputs result in NaN outputs.
+    /// 3. **ECDF Soundness**: Filters out Nulls before calculation so they don't skew the distribution.
     pub fn transform_window(mut self, params: WindowTransform) -> Result<Self, ChartonError> {
-        // Process the window operation
+        let n = self.data.height();
+        if n == 0 {
+            return Ok(self);
+        }
+
         let field_name = &params.window.field;
-        let window_op = &params.window.op;
-        let output_field_name = &params.window.as_;
-        let normalize = params.normalize;
+        let output_name = &params.window.as_;
+        let target_col = self.data.column(field_name)?;
 
-        // Determine the group field name once to avoid duplication code
-        let group_field_name = params
-            .groupby
-            .clone()
-            .unwrap_or_else(|| format!("{}_group", crate::TEMP_SUFFIX));
-
-        // Create a working DataFrame with grouping column
-        let working_df = if let Some(ref group_field) = params.groupby {
-            // Use existing group field
-            self.data.df.select([field_name, group_field])?
+        // --- PHASE 1: UNIFIED GROUPING ---
+        let mut groups: AHashMap<Option<String>, Vec<usize>> = AHashMap::new();
+        if let Some(ref group_field) = params.groupby {
+            let group_col = self.data.column(group_field)?;
+            for i in 0..n {
+                groups.entry(group_col.get_str(i)).or_default().push(i);
+            }
         } else {
-            // Create a temp grouping column with a single group
-            let temp_group_series = Series::new(
-                (&group_field_name).into(),
-                vec!["temp"; self.data.df.height()],
-            );
+            // If no groupby is specified, treat the entire dataset as a single group
+            groups.insert(None, (0..n).collect());
+        }
+
+        // --- PHASE 2: STABLE ORDER DETERMINATION ---
+        // We derive the iteration order from unique_values() to stay consistent
+        // with the "First Appearance" logic used for visual scales/legends.
+        let group_order: Vec<Option<String>> = if let Some(ref group_field) = params.groupby {
             self.data
-                .df
-                .select([field_name])?
-                .with_column(temp_group_series)?
-                .clone()
+                .column(group_field)?
+                .unique_values()
+                .into_iter()
+                .map(Some)
+                .collect()
+        } else {
+            vec![None]
         };
 
-        // Apply window operations using the working_df with guaranteed group column
-        match window_op {
-            // ============================================================================
-            // WINDOW TRANSFORM: CUMULATIVE DISTRIBUTION (ECDF)
-            // ============================================================================
+        // --- PHASE 3: OPERATION MATCHING ---
+        match params.window.op {
             WindowOnlyOp::CumeDist => {
-                let cumulative_freq_col = format!("{}_cum", crate::TEMP_SUFFIX);
-                let total_freq_col = format!("{}_total", crate::TEMP_SUFFIX);
-                let group_order_col = format!("{}_order", crate::TEMP_SUFFIX);
-
-                // --- STEP 1: CALCULATE GLOBAL BOUNDARIES ---
-                // To align multiple groups, we must find the global min/max of the X-axis (field_name).
-                // This ensures every line starts and ends at the same horizontal position.
-                let global_min = self.data.df.column(field_name)?.f64()?.min().unwrap_or(0.0);
-                let global_max = self.data.df.column(field_name)?.f64()?.max().unwrap_or(0.0);
-
-                // --- STEP 2: STABLE GROUP ORDERING ---
-                // Record the original appearance order of groups to prevent shuffling during joins.
-                let group_order_df = working_df
-                    .clone()
-                    .lazy()
-                    .select([col(&group_field_name)])
-                    .unique_stable(None, UniqueKeepStrategy::First)
-                    .with_row_index(&group_order_col, None);
-
-                // --- STEP 3: COMPUTE EMPIRICAL CUMULATIVE VALUES ---
-                let mut dataset = working_df
-                    .lazy()
-                    .with_columns([as_struct(vec![col(field_name)])
-                        .rank(
-                            RankOptions {
-                                method: RankMethod::Max, // Standard for ECDF: count points <= current X
-                                descending: false,
-                            },
-                            None,
-                        )
-                        .over([col(&group_field_name)])
-                        .cast(DataType::Float64)
-                        .alias(&cumulative_freq_col)])
-                    .join(
-                        group_order_df,
-                        [col(&group_field_name)],
-                        [col(&group_field_name)],
-                        JoinArgs::new(JoinType::Left),
-                    );
-
-                // --- STEP 4: AGGREGATE TOTALS PER GROUP ---
-                // Needed for both normalization (0.0 to 1.0) and padding the end of the line.
-                let total_frequency_per_group = dataset
-                    .clone()
-                    .group_by([col(&group_field_name)])
-                    .agg([col(&cumulative_freq_col).max().alias(&total_freq_col)]);
-
-                dataset = dataset.join(
-                    total_frequency_per_group.clone(),
-                    [col(&group_field_name)],
-                    [col(&group_field_name)],
-                    JoinArgs::new(JoinType::Left),
-                );
-
-                // --- STEP 5: DOMAIN EXPANSION (PADDING) ---
-                // Create virtual points to ensure lines don't "hang" in mid-air.
-                let groups_lf = dataset
-                    .clone()
-                    .select([col(&group_field_name)])
-                    .unique_stable(None, UniqueKeepStrategy::First);
-
-                // A. Starting points: All groups start at (global_min, 0.0)
-                let min_padding = groups_lf
-                    .clone()
-                    .join(
-                        total_frequency_per_group.clone(),
-                        [col(&group_field_name)],
-                        [col(&group_field_name)],
-                        JoinArgs::new(JoinType::Left),
-                    )
-                    .with_columns([
-                        lit(global_min).alias(field_name),
-                        lit(0.0).alias(&cumulative_freq_col),
-                    ]);
-
-                // B. Ending points: All groups extend to (global_max, group_max_count)
-                let max_padding = groups_lf
-                    .join(
-                        total_frequency_per_group,
-                        [col(&group_field_name)],
-                        [col(&group_field_name)],
-                        JoinArgs::new(JoinType::Left),
-                    )
-                    .with_columns([
-                        lit(global_max).alias(field_name),
-                        col(&total_freq_col).alias(&cumulative_freq_col),
-                    ]);
-
-                // --- STEP 6: CONCAT, NORMALIZE, SORT, AND DEDUPLICATE ---
-
-                // Define the exact column set we want for the union.
-                // Based on your error, these are the 4 essential columns.
-                let schema = vec![
-                    col(&group_field_name),
-                    col(field_name),
-                    col(&cumulative_freq_col),
-                    col(&total_freq_col),
-                ];
-
-                // Apply .select(schema) to every part to force column and order alignment.
-                let final_lazy = concat(
-                    [
-                        min_padding.select(schema.clone()),
-                        dataset.select(schema.clone()),
-                        max_padding.select(schema),
-                    ],
-                    UnionArgs::default(),
-                )?
-                // Now that schemas match, we can safely normalize and sort
-                .with_columns([when(lit(normalize))
-                    .then(col(&cumulative_freq_col) / col(&total_freq_col))
-                    .otherwise(col(&cumulative_freq_col))
-                    .alias(output_field_name)])
-                // Note: We don't need group_order_col for the union.
-                // We can just sort by the group name directly now.
-                .sort_by_exprs(
-                    [col(&group_field_name), col(field_name)],
-                    SortMultipleOptions::default(),
-                )
-                .unique_stable(
-                    Some(vec![
-                        group_field_name.clone().into(),
-                        field_name.into(),
-                        output_field_name.into(),
-                    ]),
-                    UniqueKeepStrategy::First,
-                )
-                .drop([cumulative_freq_col.as_str(), total_freq_col.as_str()]);
-
-                self.data.df = final_lazy.collect()?;
+                // ECDF generates a new Dataset (row count changes due to padding)
+                self.data = self.apply_ecdf_with_padding(groups, group_order, &params)?;
             }
-            WindowOnlyOp::RowNumber => {
-                // Add row number column using Polars' lazy API with grouping
+            WindowOnlyOp::RowNumber | WindowOnlyOp::Rank => {
+                // Ranking operations maintain original row count.
+                // Default to NaN so rows with Null inputs remain Null in output.
+                let mut results = vec![f64::NAN; n];
+
+                for key in group_order {
+                    if let Some(mut indices) = groups.remove(&key) {
+                        // Sort within group: Nulls Last
+                        indices.sort_by(|&a, &b| {
+                            let va = target_col.get_f64(a);
+                            let vb = target_col.get_f64(b);
+                            match (va, vb) {
+                                (Some(x), Some(y)) => {
+                                    x.partial_cmp(&y).unwrap_or(std::cmp::Ordering::Equal)
+                                }
+                                (None, Some(_)) => std::cmp::Ordering::Greater,
+                                (Some(_), None) => std::cmp::Ordering::Less,
+                                (None, None) => std::cmp::Ordering::Equal,
+                            }
+                        });
+
+                        let mut last_val: Option<f64> = None;
+                        let mut last_rank = 0;
+                        let mut valid_count = 0;
+
+                        for &idx in &indices {
+                            let val = target_col.get_f64(idx);
+
+                            // Only calculate for non-null values
+                            if val.is_none() {
+                                continue;
+                            }
+
+                            valid_count += 1;
+                            match params.window.op {
+                                WindowOnlyOp::RowNumber => {
+                                    results[idx] = valid_count as f64;
+                                }
+                                WindowOnlyOp::Rank => {
+                                    let rank = if val == last_val {
+                                        last_rank
+                                    } else {
+                                        valid_count
+                                    };
+                                    results[idx] = rank as f64;
+                                    last_val = val;
+                                    last_rank = rank;
+                                }
+                                _ => unreachable!(),
+                            }
+                        }
+                    }
+                }
+                self.data
+                    .add_column(output_name, ColumnVector::F64 { data: results })?;
             }
             _ => {
                 return Err(ChartonError::Unimplemented(format!(
-                    "Window operation {:?} is not yet implemented",
-                    window_op
+                    "Operation {:?} not implemented",
+                    params.window.op
                 )));
             }
         }
 
-        // If no real groupby was specified, remove the temp group column
-        if params.groupby.is_none() {
-            self.data.df = self.data.df.lazy().drop([group_field_name]).collect()?;
-        }
-        println!("{}", normalize);
-        println!("{}", self.data.df);
         Ok(self)
+    }
+
+    /// Internal helper to handle ECDF logic with Domain Expansion (Padding).
+    ///
+    /// Padding ensures the curve starts at (min, 0) and ends at (max, 1),
+    /// which is essential for visual alignment in step charts.
+    fn apply_ecdf_with_padding(
+        &self,
+        mut groups: AHashMap<Option<String>, Vec<usize>>,
+        group_order: Vec<Option<String>>,
+        params: &WindowTransform,
+    ) -> Result<Dataset, ChartonError> {
+        let field_name = &params.window.field;
+        let output_name = &params.window.as_;
+        let target_col = self.data.column(field_name)?;
+
+        // --- STEP 1: CALCULATE GLOBAL BOUNDARIES (Numerical values only) ---
+        let mut global_min = f64::MAX;
+        let mut global_max = f64::MIN;
+        let mut found_any = false;
+
+        for i in 0..self.data.height() {
+            if let Some(v) = target_col.get_f64(i) {
+                if v < global_min {
+                    global_min = v;
+                }
+                if v > global_max {
+                    global_max = v;
+                }
+                found_any = true;
+            }
+        }
+
+        if !found_any {
+            return Ok(Dataset::new());
+        }
+
+        // --- STEP 2: EXPAND ROWS ---
+        let mut expanded_x = Vec::new();
+        let mut expanded_y = Vec::new();
+        let mut expanded_groups = Vec::new();
+
+        for key in group_order {
+            if let Some(indices) = groups.remove(&key) {
+                // Filter out Nulls: ECDF cannot represent missing data points
+                let mut valid_indices: Vec<usize> = indices
+                    .into_iter()
+                    .filter(|&idx| target_col.get_f64(idx).is_some())
+                    .collect();
+
+                if valid_indices.is_empty() {
+                    continue;
+                }
+
+                // Sort valid numerical values
+                valid_indices.sort_by(|&a, &b| {
+                    target_col
+                        .get_f64(a)
+                        .partial_cmp(&target_col.get_f64(b))
+                        .unwrap()
+                });
+
+                let group_size = valid_indices.len() as f64;
+                let group_label = key.as_deref().unwrap_or("all").to_string();
+
+                // A. Start Padding (X_min, 0.0)
+                expanded_x.push(global_min);
+                expanded_y.push(0.0);
+                if params.groupby.is_some() {
+                    expanded_groups.push(group_label.clone());
+                }
+
+                // B. Actual Cumulative Points
+                for (i, &idx) in valid_indices.iter().enumerate() {
+                    let x_val = target_col.get_f64(idx).unwrap();
+                    let count = (i + 1) as f64;
+                    let y_val = if params.normalize {
+                        count / group_size
+                    } else {
+                        count
+                    };
+
+                    expanded_x.push(x_val);
+                    expanded_y.push(y_val);
+                    if params.groupby.is_some() {
+                        expanded_groups.push(group_label.clone());
+                    }
+                }
+
+                // C. End Padding (X_max, 1.0 or Max Count)
+                expanded_x.push(global_max);
+                expanded_y.push(if params.normalize { 1.0 } else { group_size });
+                if params.groupby.is_some() {
+                    expanded_groups.push(group_label);
+                }
+            }
+        }
+
+        // --- STEP 3: CONSTRUCT RESULT DATASET ---
+        let mut new_ds = Dataset::new();
+        new_ds.add_column(field_name, ColumnVector::F64 { data: expanded_x })?;
+        new_ds.add_column(output_name, ColumnVector::F64 { data: expanded_y })?;
+
+        if let Some(ref g_name) = params.groupby {
+            new_ds.add_column(
+                g_name,
+                ColumnVector::String {
+                    data: expanded_groups,
+                    validity: None,
+                },
+            )?;
+        }
+
+        Ok(new_ds)
     }
 }

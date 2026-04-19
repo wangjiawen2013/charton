@@ -1,10 +1,9 @@
 use charton::prelude::*;
 
 fn main() -> Result<(), Box<dyn std::error::Error>> {
-    let df = load_dataset("iris")?;
-    let df = df.select(["sepal_length", "species"])?;
+    let ds = load_dataset("iris")?;
 
-    Chart::build(&df)?
+    chart!(ds)?
         .transform_density(
             DensityTransform::new("sepal_length")
                 .with_as("sepal_length", "density")
@@ -12,7 +11,11 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
         )?
         .mark_area()?
         .configure_area(|a| a.with_opacity(0.5))
-        .encode((x("sepal_length"), y("density"), color("species")))?
+        .encode((
+            alt::x("sepal_length"),
+            alt::y("density"),
+            alt::color("species"),
+        ))?
         .save("docs/src/images/density.svg")?;
 
     Ok(())

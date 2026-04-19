@@ -7,7 +7,7 @@ pub mod y;
 pub mod y2;
 
 use self::{color::Color, shape::Shape, size::Size, text::Text, x::X, y::Y, y2::Y2};
-use crate::scale::{Expansion, Scale, ScaleDomain};
+use crate::scale::{Expansion, Scale};
 
 /// Represents the various visual aesthetics that can be mapped to data.
 ///
@@ -95,17 +95,6 @@ impl Encoding {
         }
     }
 
-    /// Retrieves the user-defined domain override for a specific channel.
-    pub fn get_domain_by_channel(&self, channel: Channel) -> Option<ScaleDomain> {
-        match channel {
-            Channel::X => self.x.as_ref().and_then(|v| v.domain.clone()),
-            Channel::Y => self.y.as_ref().and_then(|v| v.domain.clone()),
-            Channel::Color => self.color.as_ref().and_then(|v| v.domain.clone()),
-            Channel::Shape => self.shape.as_ref().and_then(|v| v.domain.clone()),
-            Channel::Size => self.size.as_ref().and_then(|v| v.domain.clone()),
-        }
-    }
-
     /// Retrieves the expansion (padding) preferences for a channel.
     pub fn get_expand_by_channel(&self, channel: Channel) -> Option<Expansion> {
         match channel {
@@ -125,38 +114,6 @@ impl Encoding {
             _ => None,
         }
         .unwrap_or(false)
-    }
-
-    /// Returns a list of all data fields currently active in this encoding.
-    ///
-    /// Useful for debugging or for pruning unused columns from a dataset
-    /// before processing.
-    pub(crate) fn active_fields(&self) -> Vec<&str> {
-        let mut fields = Vec::new();
-        // Check core channels
-        let core_channels = [
-            Channel::X,
-            Channel::Y,
-            Channel::Color,
-            Channel::Shape,
-            Channel::Size,
-        ];
-
-        for ch in core_channels {
-            if let Some(field) = self.get_field_by_channel(ch) {
-                fields.push(field);
-            }
-        }
-
-        // Handle specialty channels not yet in the main Channel enum
-        if let Some(ref y2) = self.y2 {
-            fields.push(y2.field.as_str());
-        }
-        if let Some(ref txt) = self.text {
-            fields.push(txt.field.as_str());
-        }
-
-        fields
     }
 }
 
