@@ -344,10 +344,8 @@ impl<T: Mark> Chart<T> {
 
         match mark_type.as_str() {
             "boxplot" => self = self.transform_boxplot_data()?,
-            "errorbar" => {
-                if self.encoding.y2.is_none() {
-                    self = self.transform_errorbar_data()?;
-                }
+            "errorbar" if self.encoding.y2.is_none() => {
+                self = self.transform_errorbar_data()?;
             }
             "rect" => self = self.transform_rect_data()?,
             "bar" => self = self.transform_bar_data()?,
@@ -438,10 +436,10 @@ impl<T: Mark> Chart<T> {
                     (SemanticType::Discrete, Scale::Linear)
                     | (SemanticType::Discrete, Scale::Log)
                     | (SemanticType::Discrete, Scale::Temporal) => {
-                        return Err(ChartonError::Encoding(format!(
+                        Err(ChartonError::Encoding(format!(
                             "Field '{}' is categorical (String) and cannot be used with a continuous Scale ({:?}).",
                             field, requested
-                        )));
+                        )))
                     }
                     // LEGAL: Numbers can be treated as Discrete categories (e.g., Year 2024 -> "2024").
                     // LEGAL: Temporal data can be treated as Linear (using timestamps) or Discrete.
@@ -457,23 +455,23 @@ impl<T: Mark> Chart<T> {
         // We update the Option<Scale> in place.
 
         if let Some(ref mut x) = self.encoding.x {
-            x.scale_type = resolve_channel_scale(&x.field, x.scale_type.clone())?;
+            x.scale_type = resolve_channel_scale(&x.field, x.scale_type)?;
         }
 
         if let Some(ref mut y) = self.encoding.y {
-            y.scale_type = resolve_channel_scale(&y.field, y.scale_type.clone())?;
+            y.scale_type = resolve_channel_scale(&y.field, y.scale_type)?;
         }
 
         if let Some(ref mut color) = self.encoding.color {
-            color.scale_type = resolve_channel_scale(&color.field, color.scale_type.clone())?;
+            color.scale_type = resolve_channel_scale(&color.field, color.scale_type)?;
         }
 
         if let Some(ref mut size) = self.encoding.size {
-            size.scale_type = resolve_channel_scale(&size.field, size.scale_type.clone())?;
+            size.scale_type = resolve_channel_scale(&size.field, size.scale_type)?;
         }
 
         if let Some(ref mut shape) = self.encoding.shape {
-            shape.scale_type = resolve_channel_scale(&shape.field, shape.scale_type.clone())?;
+            shape.scale_type = resolve_channel_scale(&shape.field, shape.scale_type)?;
         }
 
         Ok(())
@@ -486,13 +484,13 @@ impl<T: Mark> Chart<T> {
         // We iterate through our defined expectations
         for (channel, allowed_scales) in expectations {
             // Use a helper to get the Scale from the encoding (x, y, color, etc.)
-            if let Some(actual_scale) = self.encoding.get_scale_by_channel(channel) {
-                if !allowed_scales.contains(&actual_scale) {
-                    return Err(ChartonError::Encoding(format!(
-                        "{} chart expects {:?} scale for channel {:?}, but found {:?}",
-                        mark_type, allowed_scales, channel, actual_scale
-                    )));
-                }
+            if let Some(actual_scale) = self.encoding.get_scale_by_channel(channel)
+                && !allowed_scales.contains(&actual_scale)
+            {
+                return Err(ChartonError::Encoding(format!(
+                    "{} chart expects {:?} scale for channel {:?}, but found {:?}",
+                    mark_type, allowed_scales, channel, actual_scale
+                )));
             }
         }
         Ok(())
@@ -863,10 +861,10 @@ where
                         let mut columns_to_scan = Vec::new();
                         columns_to_scan.push(field_name.to_string());
 
-                        if channel == Channel::Y {
-                            if let Some(y2_enc) = &self.encoding.y2 {
-                                columns_to_scan.push(y2_enc.field.clone());
-                            }
+                        if channel == Channel::Y
+                            && let Some(y2_enc) = &self.encoding.y2
+                        {
+                            columns_to_scan.push(y2_enc.field.clone());
                         }
 
                         for col_name in &columns_to_scan {
@@ -899,12 +897,13 @@ where
                     _ => None,
                 };
 
-                if let Some(n_bins) = bins {
-                    if n_bins > 1 && global_max > global_min {
-                        let bin_width = (global_max - global_min) / (n_bins as f64 - 1.0);
-                        global_min -= bin_width / 2.0;
-                        global_max += bin_width / 2.0;
-                    }
+                if let Some(n_bins) = bins
+                    && n_bins > 1
+                    && global_max > global_min
+                {
+                    let bin_width = (global_max - global_min) / (n_bins as f64 - 1.0);
+                    global_min -= bin_width / 2.0;
+                    global_max += bin_width / 2.0;
                 }
 
                 // --- ZERO BASELINE ---
