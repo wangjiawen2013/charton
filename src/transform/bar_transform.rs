@@ -56,7 +56,7 @@ impl<T: Mark> Chart<T> {
         let y_col = self.data.column(&y_field)?;
         let mut lookup: AHashMap<(String, Option<String>), f64> = group_map
             .into_iter()
-            .map(|(key, indices)| (key, agg_op.aggregate_by_index(&y_col, &indices)))
+            .map(|(key, indices)| (key, agg_op.aggregate_by_index(y_col, &indices)))
             .collect();
 
         // --- STEP 3: Normalization (100% Stacked / Percentage mode) ---
@@ -164,14 +164,14 @@ impl<T: Mark> Chart<T> {
 
         // Layout Helpers (The "Secret Sauce" for unified rendering)
         new_ds.add_column(
-            &format!("{}_groups_count", TEMP_SUFFIX),
+            format!("{}_groups_count", TEMP_SUFFIX),
             ColumnVector::F64 {
                 data: f_groups_count,
             },
         )?;
 
         new_ds.add_column(
-            &format!("{}_sub_idx", TEMP_SUFFIX),
+            format!("{}_sub_idx", TEMP_SUFFIX),
             ColumnVector::F64 { data: f_sub_idx },
         )?;
 

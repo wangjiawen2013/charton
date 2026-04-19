@@ -137,7 +137,7 @@ impl MarkRenderer for Chart<MarkLine> {
                     let ys: Vec<f64> = points.iter().map(|p| p.1).collect();
                     let (lx, ly) =
                         crate::stats::stat_loess::loess(&xs, &ys, mark_config.loess_bandwidth);
-                    lx.into_iter().zip(ly.into_iter()).collect()
+                    lx.into_iter().zip(ly).collect()
                 } else {
                     points
                 };
@@ -228,7 +228,7 @@ impl Chart<MarkLine> {
     ///
     /// # Arguments
     /// * `val` - A normalized value in the range [0.0, 1.0].
-    ///           For discrete data, this is the relative index of the category.
+    ///   For discrete data, this is the relative index of the category.
     /// * `context` - The current rendering context containing scale mappings.
     /// * `fallback` - Default color to use if no mapping is found or the value is null.
     fn resolve_color_from_value(

@@ -65,14 +65,14 @@ impl MarkRenderer for Chart<MarkRule> {
         let y2_norms = self.encoding.y2.as_ref().map(|e| {
             y_scale
                 .scale_type()
-                .normalize_column(y_scale, &df_source.column(&e.field).unwrap())
+                .normalize_column(y_scale, df_source.column(&e.field).unwrap())
         });
 
         // Pre-normalize color aesthetics for data-driven mapping
         let color_norms = context.spec.aesthetics.color.as_ref().map(|m| {
             let s = m.scale_impl.as_ref();
             s.scale_type()
-                .normalize_column(s, &df_source.column(&m.field).unwrap())
+                .normalize_column(s, df_source.column(&m.field).unwrap())
         });
 
         let is_flipped = context.coord.is_flipped();

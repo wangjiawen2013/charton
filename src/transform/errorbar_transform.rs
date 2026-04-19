@@ -48,8 +48,10 @@ impl<T: Mark> Chart<T> {
 
         // --- STEP 3: Parallel Aggregation ---
         // Convert groups to a Vec for high-performance parallel processing.
+        #[allow(clippy::type_complexity)]
         let groups: Vec<((String, Option<String>), Vec<usize>)> = group_map.into_iter().collect();
 
+        #[allow(clippy::type_complexity)]
         let aggregated_results: Vec<((String, Option<String>), (f64, f64, f64))> = groups
             .maybe_into_par_iter()
             .map(|(key, indices)| {
@@ -174,13 +176,13 @@ impl<T: Mark> Chart<T> {
 
         // 4. Add Dodging helper columns (CRITICAL for alignment with Boxplots)
         new_ds.add_column(
-            &format!("{}_sub_idx", TEMP_SUFFIX),
+            format!("{}_sub_idx", TEMP_SUFFIX),
             ColumnVector::F64 {
                 data: final_sub_idx,
             },
         )?;
         new_ds.add_column(
-            &format!("{}_groups_count", TEMP_SUFFIX),
+            format!("{}_groups_count", TEMP_SUFFIX),
             ColumnVector::F64 {
                 data: final_groups_count,
             },

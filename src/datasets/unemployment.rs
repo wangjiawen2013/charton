@@ -104,7 +104,7 @@ pub fn get_data() -> Result<Dataset, ChartonError> {
     let year_dates: Vec<OffsetDateTime> = year
         .iter()
         .map(|&y| {
-            Date::from_calendar_date(y as i32, Month::January, 1)
+            Date::from_calendar_date(y, Month::January, 1)
                 // 1. Create a "Date" object (Year-Month-Day).
                 // It only contains the calendar day, no time information yet.
                 .expect("invalid date")

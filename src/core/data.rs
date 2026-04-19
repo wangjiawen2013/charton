@@ -1558,7 +1558,7 @@ impl Dataset {
         }
 
         // Start with all bits set to 1 (Valid)
-        let byte_count = (self.row_count + 7) / 8;
+        let byte_count = self.row_count.div_ceil(8);
         let mut final_mask = vec![0xFFu8; byte_count];
 
         for &name in column_names {
@@ -1594,7 +1594,7 @@ impl Dataset {
         }
 
         // Clean trailing bits in the last byte
-        if self.row_count % 8 != 0 {
+        if !self.row_count.is_multiple_of(8) {
             let last_idx = byte_count - 1;
             let mask = (1 << (self.row_count % 8)) - 1;
             final_mask[last_idx] &= mask;
@@ -1652,23 +1652,20 @@ impl Dataset {
                     local_map
                 },
             )
-            .reduce(
-                || AHashMap::default(),
-                |mut map1, mut map2| {
-                    for (key, (first_idx2, mut indices2)) in map2.drain() {
-                        map1.entry(key)
-                            .and_modify(|(first_idx1, indices1)| {
-                                // Maintain global minimum first_idx to preserve input order
-                                if first_idx2 < *first_idx1 {
-                                    *first_idx1 = first_idx2;
-                                }
-                                indices1.append(&mut indices2);
-                            })
-                            .or_insert((first_idx2, indices2));
-                    }
-                    map1
-                },
-            );
+            .reduce(AHashMap::default, |mut map1, mut map2| {
+                for (key, (first_idx2, mut indices2)) in map2.drain() {
+                    map1.entry(key)
+                        .and_modify(|(first_idx1, indices1)| {
+                            // Maintain global minimum first_idx to preserve input order
+                            if first_idx2 < *first_idx1 {
+                                *first_idx1 = first_idx2;
+                            }
+                            indices1.append(&mut indices2);
+                        })
+                        .or_insert((first_idx2, indices2));
+                }
+                map1
+            });
 
         self.finalize_groups(groups_map)
     }
@@ -1693,6 +1690,7 @@ impl Dataset {
 
     /// Finalizes the grouping by sorting groups by their first appearance
     /// and sorting indices within each group for memory locality.
+    #[allow(clippy::type_complexity)]
     fn finalize_groups(
         &self,
         groups_map: ahash::AHashMap<Option<String>, (usize, Vec<usize>)>,

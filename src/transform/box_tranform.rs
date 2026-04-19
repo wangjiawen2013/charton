@@ -204,37 +204,37 @@ impl<T: Mark> Chart<T> {
         )?;
         new_ds.add_column(y_name, ColumnVector::F64 { data: final_y })?;
         new_ds.add_column(
-            &format!("{}_q1", TEMP_SUFFIX),
+            format!("{}_q1", TEMP_SUFFIX),
             ColumnVector::F64 { data: f_q1 },
         )?;
         new_ds.add_column(
-            &format!("{}_median", TEMP_SUFFIX),
+            format!("{}_median", TEMP_SUFFIX),
             ColumnVector::F64 { data: f_median },
         )?;
         new_ds.add_column(
-            &format!("{}_q3", TEMP_SUFFIX),
+            format!("{}_q3", TEMP_SUFFIX),
             ColumnVector::F64 { data: f_q3 },
         )?;
         new_ds.add_column(
-            &format!("{}_min", TEMP_SUFFIX),
+            format!("{}_min", TEMP_SUFFIX),
             ColumnVector::F64 { data: f_min },
         )?;
         new_ds.add_column(
-            &format!("{}_max", TEMP_SUFFIX),
+            format!("{}_max", TEMP_SUFFIX),
             ColumnVector::F64 { data: f_max },
         )?;
         new_ds.add_column(
-            &format!("{}_sub_idx", TEMP_SUFFIX),
+            format!("{}_sub_idx", TEMP_SUFFIX),
             ColumnVector::F64 { data: f_sub_idx },
         )?;
         new_ds.add_column(
-            &format!("{}_groups_count", TEMP_SUFFIX),
+            format!("{}_groups_count", TEMP_SUFFIX),
             ColumnVector::F64 {
                 data: vec![groups_count; result_len],
             },
         )?;
         new_ds.add_column(
-            &format!("{}_outliers", TEMP_SUFFIX),
+            format!("{}_outliers", TEMP_SUFFIX),
             ColumnVector::String {
                 data: f_outliers,
                 validity: None,
@@ -277,6 +277,7 @@ fn push_nan_row(
 
 /// Helper to inject invisible boundary points to ensure the Y-axis scale
 /// covers the absolute global range (including outliers).
+#[allow(clippy::too_many_arguments)]
 fn inject_boundary_row(
     val: f64,
     x: &mut Vec<String>,
