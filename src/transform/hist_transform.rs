@@ -99,15 +99,16 @@ impl<T: Mark> Chart<T> {
         let mut final_y = Vec::new();
         let mut final_color = Vec::new();
 
-        for bin_idx in 0..n_bins {
+        for (bin_idx, &mid) in bin_middles.iter().enumerate().take(n_bins) {
             for color in &color_list {
                 let count = lookup
                     .get(&(bin_idx, color.clone()))
                     .copied()
                     .unwrap_or(0.0);
 
-                final_x.push(bin_middles[bin_idx]);
+                final_x.push(mid);
                 final_y.push(count);
+
                 if color_enc.is_some() {
                     final_color.push(color.clone());
                 }

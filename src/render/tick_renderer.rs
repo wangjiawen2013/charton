@@ -61,7 +61,7 @@ impl MarkRenderer for Chart<MarkTick> {
         let color_norms = context.spec.aesthetics.color.as_ref().map(|m| {
             let s = m.scale_impl.as_ref();
             s.scale_type()
-                .normalize_column(s, &df_source.column(&m.field).unwrap())
+                .normalize_column(s, df_source.column(&m.field).unwrap())
         });
 
         let is_flipped = context.coord.is_flipped();

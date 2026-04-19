@@ -66,19 +66,19 @@ impl MarkRenderer for Chart<MarkPoint> {
         let color_norms = context.spec.aesthetics.color.as_ref().map(|m| {
             let s = m.scale_impl.as_ref();
             s.scale_type()
-                .normalize_column(s, &df_source.column(&m.field).unwrap())
+                .normalize_column(s, df_source.column(&m.field).unwrap())
         });
 
         let size_norms = context.spec.aesthetics.size.as_ref().map(|m| {
             let s = m.scale_impl.as_ref();
             s.scale_type()
-                .normalize_column(s, &df_source.column(&m.field).unwrap())
+                .normalize_column(s, df_source.column(&m.field).unwrap())
         });
 
         let shape_norms = context.spec.aesthetics.shape.as_ref().map(|m| {
             let s = m.scale_impl.as_ref();
             s.scale_type()
-                .normalize_column(s, &df_source.column(&m.field).unwrap())
+                .normalize_column(s, df_source.column(&m.field).unwrap())
         });
 
         // --- STEP 3: Calculate geometries in parallel. ---
@@ -246,9 +246,9 @@ impl Chart<MarkPoint> {
                 };
 
                 let points = if shape == PointShape::Star {
-                    self.calculate_star(x as f64, y as f64, size * 1.2, size * 0.5, 5)
+                    self.calculate_star(x, y, size * 1.2, size * 0.5, 5)
                 } else {
-                    self.calculate_polygon(x as f64, y as f64, size * scale_adj, sides, rotation)
+                    self.calculate_polygon(x, y, size * scale_adj, sides, rotation)
                 };
 
                 backend.draw_polygon(PolygonConfig {

@@ -236,6 +236,7 @@ impl Chart<MarkBar> {
         }
     }
 
+    #[allow(clippy::too_many_arguments)]
     fn render_pie_label(
         &self,
         y_val: f64,
