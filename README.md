@@ -132,17 +132,6 @@ let point = chart!(height, weight)?
 line.and(point).save("layered.svg")?;
 ```
 
-Charton can also leverages Rust’s functional paradigms, enabling infinite layer composition via fluent chaining or iterator folding. This allows for effortless, dynamic generation of complex multi-layered plots.
-
-```rust
-let layers: Vec<LayeredChart> = vec![line.into(), point.into(), bar.into() /* , ... etc */];
-
-// Equivalent to line.and(point).and(bar)...
-let lc = layers.into_iter()
-    .reduce(|acc, layer| acc.and(layer))
-    .expect("Failed to fold layers");
-```
-
 ## Interactive Notebooks (Jupyter)
 Charton integrates with evcxr_jupyter for interactive data exploration. Replacing .save() with .show() renders SVGs directly within notebook cells:
 
