@@ -11,5 +11,3 @@ pub mod altair;
 pub mod converter;
 pub mod matplotlib;
 pub mod py_session;
-
-// ... Your trait definitions and shared logic here ...
