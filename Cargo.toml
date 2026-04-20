@@ -9,7 +9,7 @@ authors = ["Jiawen Wang <wangjiawen2013@163.com>"]
 
 [features]
 # Default features enabled for standard desktop builds.
-default = ["parallel"]
+default = ["parallel", "python"]
 
 # Enables universal columnar data ingestion via the Apache Arrow standard.
 arrow = ["dep:arrow"]
