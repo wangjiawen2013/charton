@@ -3,7 +3,7 @@
 //! Structure:
 //! - `bridge.rs`: Module entry point: defines the generic `Plot` container.
 //! - `py_session.rs`: Python session management: handles GIL and scope injection.
-//! - `converter.rs`: Data conversion: transforms `Dataset` to Python objects (Pandas/Polars).
+//! - `converter.rs`: Data conversion: transforms `Dataset` to Python objects.
 //! - `altair.rs`: Altair implementation using PyO3.
 //! - `matplotlib.rs`: Matplotlib implementation using PyO3.
 
@@ -17,25 +17,45 @@ use crate::error::ChartonError;
 use std::marker::PhantomData;
 use std::path::{Path, PathBuf};
 
+/// Struct for altair renderer
+pub struct Altair;
+
+/// Struct for matplotlib renderer
+pub struct Matplotlib;
+
+/// A container that pairs a `Dataset` with its original Rust variable name.
+pub struct InputData {
+    pub dataset: Dataset,
+    pub name: String,
+}
+
+/// Captures a `Dataset` variable, clones it, and preserves its original identifier name.
+#[macro_export]
+macro_rules! data {
+    ($var:ident) => {
+        $crate::bridge::InputData {
+            // .clone() is cheap due to Arc-based columns in Dataset
+            dataset: $var.clone(),
+            name: stringify!($var).to_string(),
+        }
+    };
+}
+
 /// A generic Plot container.
-/// The type parameter `T` acts as a "Phantom Tag" to distinguish
-/// between different renderers (Altair vs Matplotlib) at compile time.
 pub struct Plot<T> {
-    /// The actual data to be plotted.
     pub data: Dataset,
-    /// Path to the Python interpreter (for venv/conda support).
+    pub data_name: String,
     pub exe_path: String,
-    /// The user-provided Python script.
     pub raw_plotting_code: String,
-    /// Zero-sized marker to keep the generic T alive.
     _renderer: PhantomData<T>,
 }
 
 impl<T> Plot<T> {
-    /// Standard constructor. Accepts the Dataset directly.
-    pub fn build(data: Dataset) -> Result<Self, ChartonError> {
+    /// Standard constructor. Accepts InputData which pairs a Dataset with its name.
+    pub fn build(input: InputData) -> Result<Self, ChartonError> {
         Ok(Self {
-            data,
+            data: input.dataset,
+            data_name: input.name,
             exe_path: String::new(),
             raw_plotting_code: String::new(),
             _renderer: PhantomData,
@@ -43,17 +63,9 @@ impl<T> Plot<T> {
     }
 
     /// Builder method to specify a custom Python environment path.
-    pub fn with_exe_path<P: AsRef<Path>>(mut self, path: P) -> Result<Self, ChartonError> {
-        let p = path.as_ref();
-        // Optional: Early check for path existence
-        if !p.exists() {
-            return Err(ChartonError::Internal(format!(
-                "Python executable not found at: {:?}",
-                p
-            )));
-        }
-        self.exe_path = p.to_string_lossy().to_string();
-        Ok(self)
+    pub fn with_exe_path<P: AsRef<Path>>(mut self, path: P) -> Self {
+        self.exe_path = path.as_ref().to_string_lossy().to_string();
+        self
     }
 
     /// Builder method to attach the Python plotting script.
@@ -63,13 +75,19 @@ impl<T> Plot<T> {
     }
 
     /// Internal utility to spin up a PythonSession using the stored exe_path.
-    /// Access is restricted to the bridge crate to maintain encapsulation.
     pub(crate) fn get_session(&self) -> Result<py_session::PythonSession, ChartonError> {
-        let path = if self.exe_path.is_empty() {
+        let path_opt = if self.exe_path.is_empty() {
             None
         } else {
-            Some(PathBuf::from(&self.exe_path))
+            let p = PathBuf::from(&self.exe_path);
+            if !p.exists() {
+                return Err(ChartonError::Internal(format!(
+                    "Python path not found: {:?}",
+                    p
+                )));
+            }
+            Some(p)
         };
-        py_session::PythonSession::new(path)
+        py_session::PythonSession::new(path_opt)
     }
 }
