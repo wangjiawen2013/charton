@@ -27,7 +27,7 @@ pub mod bridge;
 #[cfg(feature = "arrow")]
 pub use arrow;
 
-#[cfg(feature = "Python")]
+#[cfg(feature = "python")]
 pub use crate::data; // Macro data!
 
 /// Global macros providing syntactic sugar for data construction,
