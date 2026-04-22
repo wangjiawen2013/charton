@@ -516,15 +516,56 @@ pub enum ColorPalette {
     Pastel2,
     Dark2,
     Accent,
+    Custom(Vec<SingleColor>), // Custom palette
+}
+
+impl From<Vec<SingleColor>> for ColorPalette {
+    /// Creates a custom palette from a pre-constructed vector of `SingleColor` objects.
+    ///
+    /// **Example:** `with_palette(vec![SingleColor::none(), SingleColor::new("red")])`
+    fn from(colors: Vec<SingleColor>) -> Self {
+        ColorPalette::Custom(colors)
+    }
+}
+
+impl From<Vec<&str>> for ColorPalette {
+    /// Creates a custom palette from a dynamic vector of CSS color strings.
+    ///
+    /// **Example:** `with_palette(vec!["#ff0000", "rgba(0,0,255,1.0)"])`
+    fn from(colors: Vec<&str>) -> Self {
+        let palette = colors.into_iter().map(SingleColor::new).collect();
+        ColorPalette::Custom(palette)
+    }
+}
+
+impl<const N: usize> From<[&str; N]> for ColorPalette {
+    /// Creates a custom palette from a fixed-size array of CSS color strings.
+    ///
+    /// **Example:** `with_palette(["#333", "#6fc481", "red"])`
+    fn from(colors: [&str; N]) -> Self {
+        let palette = colors.iter().map(|s| SingleColor::new(s)).collect();
+        ColorPalette::Custom(palette)
+    }
 }
 
 impl ColorPalette {
     /// Returns a specific color from the palette by index (with automatic wrapping).
     /// Bypasses hex parsing by using pre-calculated RGBA components.
     pub(crate) fn get_color(&self, index: usize) -> SingleColor {
-        let colors = self.rgba_colors();
-        let (r, g, b) = colors[index % colors.len()];
-        SingleColor::from_rgba(r, g, b, 1.0)
+        match self {
+            ColorPalette::Custom(colors) => {
+                if colors.is_empty() {
+                    SingleColor::none()
+                } else {
+                    colors[index % colors.len()]
+                }
+            }
+            _ => {
+                let colors = self.rgba_colors();
+                let (r, g, b) = colors[index % colors.len()];
+                SingleColor::from_rgba(r, g, b, 1.0)
+            }
+        }
     }
 
     /// Internal storage of palette colors as normalized (r, g, b) f64 tuples.
@@ -641,6 +682,7 @@ impl ColorPalette {
                 (0.749, 0.357, 0.090),
                 (0.400, 0.400, 0.400),
             ],
+            ColorPalette::Custom(_) => unreachable!("Use get_color for Custom variant"),
         }
     }
 }
