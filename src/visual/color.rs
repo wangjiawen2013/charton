@@ -505,7 +505,7 @@ impl ColorMap {
 
 /// Discrete color palettes for categorical data visualization.
 /// Optimized to return `SingleColor` with pre-calculated f64 RGBA values.
-#[derive(Clone, Copy, Debug, PartialEq)]
+#[derive(Clone, Debug, PartialEq)]
 pub enum ColorPalette {
     Tab10,
     Tab20,
