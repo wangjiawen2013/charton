@@ -22,13 +22,13 @@ pub mod theme;
 pub mod transform;
 pub mod visual;
 
+/// Cross-language interoperability bridge, enabling data exchange with
+/// external visualization ecosystems such as Altair, Matplotlib, and R.
+#[cfg(all(feature = "bridge", not(target_arch = "wasm32")))]
 pub mod bridge;
 
 #[cfg(feature = "arrow")]
 pub use arrow;
-
-#[cfg(feature = "python")]
-pub use crate::data; // Macro data!
 
 /// Global macros providing syntactic sugar for data construction,
 /// external library integration, and developer convenience.
@@ -64,6 +64,11 @@ pub mod prelude {
     pub use crate::visual::shape::PointShape;
     pub use crate::{chart, load_polars_df, load_polars_v42_52};
     pub use time::OffsetDateTime;
+
+    #[cfg(all(feature = "bridge", not(target_arch = "wasm32")))]
+    pub use crate::bridge::base::{Altair, Matplotlib, Plot, Visualization};
+    #[cfg(all(feature = "bridge", not(target_arch = "wasm32")))]
+    pub use crate::data; // Macro data!
 }
 
 /// Temporary column name used internally by Polars to avoid naming conflicts.

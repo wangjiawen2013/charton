@@ -1,93 +1,333 @@
-//! This module provides the core bridging logic between Rust and Python.
-//!
-//! Structure:
-//! - `bridge.rs`: Module entry point: defines the generic `Plot` container.
-//! - `py_session.rs`: Python session management: handles GIL and scope injection.
-//! - `converter.rs`: Data conversion: transforms `Dataset` to Python objects.
-//! - `altair.rs`: Altair implementation using PyO3.
-//! - `matplotlib.rs`: Matplotlib implementation using PyO3.
+//! `bridge`: Python interoperability (requires Python installed). More languages may be supported in the future.
+mod python;
+mod r;
 
-pub mod altair;
-pub mod converter;
-pub mod matplotlib;
-pub mod py_session;
+pub mod base {
+    use crate::error::ChartonError;
+    use polars::prelude::{DataFrame, LazyFrame, ParquetReader, SerReader};
+    use serde::{Deserialize, Serialize};
+    use std::marker::PhantomData;
 
-use crate::core::dataset::Dataset;
-use crate::error::ChartonError;
-use std::marker::PhantomData;
-use std::path::{Path, PathBuf};
-
-/// Struct for altair renderer
-pub struct Altair;
-
-/// Struct for matplotlib renderer
-pub struct Matplotlib;
-
-/// A container that pairs a `Dataset` with its original Rust variable name.
-pub struct InputData {
-    pub dataset: Dataset,
-    pub name: String,
-}
-
-/// Captures a `Dataset` variable, clones it, and preserves its original identifier name.
-#[macro_export]
-macro_rules! data {
-    ($var:ident) => {
-        $crate::bridge::InputData {
-            // .clone() is cheap due to Arc-based columns in Dataset
-            dataset: $var.clone(),
-            name: stringify!($var).to_string(),
-        }
-    };
-}
-
-/// A generic Plot container.
-pub struct Plot<T> {
-    pub data: Dataset,
-    pub data_name: String,
-    pub exe_path: String,
-    pub raw_plotting_code: String,
-    _renderer: PhantomData<T>,
-}
-
-impl<T> Plot<T> {
-    /// Standard constructor. Accepts InputData which pairs a Dataset with its name.
-    pub fn build(input: InputData) -> Result<Self, ChartonError> {
-        Ok(Self {
-            data: input.dataset,
-            data_name: input.name,
-            exe_path: String::new(),
-            raw_plotting_code: String::new(),
-            _renderer: PhantomData,
-        })
+    /// A container that associates a name with a DataFrame value.
+    ///
+    /// This struct wraps a Polars DataFrame along with its string name, enabling named data
+    /// exchange between Rust and other language environments. It is primarily used for
+    /// passing data to visualization libraries through the bridge system.
+    ///
+    /// The struct derives `Serialize` and `Deserialize` traits, allowing it to be
+    /// easily converted to and from various data formats (like JSON) when communicating
+    /// with external systems.
+    ///
+    /// # Fields
+    /// * `name` - A string identifier for the DataFrame
+    /// * `df` - The actual Polars DataFrame containing the data
+    #[derive(Serialize, Deserialize, Debug)]
+    pub struct InputData {
+        // The name identifier for this dataframe, typically derived from the variable name
+        pub(crate) name: String,
+        pub(crate) df: DataFrame,
     }
 
-    /// Builder method to specify a custom Python environment path.
-    pub fn with_exe_path<P: AsRef<Path>>(mut self, path: P) -> Self {
-        self.exe_path = path.as_ref().to_string_lossy().to_string();
-        self
+    /// A container that associates a name with a serialized data value.
+    ///
+    /// This struct wraps a serialized string representation of data along with its string name,
+    /// It is primarily used for storing serialized data from `InputData`.
+    ///
+    /// The struct derives `Serialize` and `Deserialize` traits, allowing it to be
+    /// easily converted to and from various data formats when communicating with external systems.
+    ///
+    /// # Fields
+    /// * `name` - A string identifier for the serialized data
+    /// * `value` - The serialized data as a string representation
+    #[derive(Serialize, Deserialize, Debug)]
+    pub struct SerializedData {
+        // The name identifier for this value, typically derived from the variable name
+        pub(crate) name: String,
+        pub(crate) value: String,
     }
 
-    /// Builder method to attach the Python plotting script.
-    pub fn with_plotting_code(mut self, code: &str) -> Self {
-        self.raw_plotting_code = code.to_string();
-        self
-    }
-
-    /// Internal utility to spin up a PythonSession using the stored exe_path.
-    pub(crate) fn get_session(&self) -> Result<py_session::PythonSession, ChartonError> {
-        let path_opt = if self.exe_path.is_empty() {
-            None
-        } else {
-            let p = PathBuf::from(&self.exe_path);
-            if !p.exists() {
-                return Err(ChartonError::Internal(format!(
-                    "Python path not found: {:?}",
-                    p
-                )));
+    impl InputData {
+        /// Creates a new InputData instance with a custom name
+        ///
+        /// # Arguments
+        /// * `name` - The variable name of the DataFrame
+        /// * `df` - The DataFrame to wrap
+        ///
+        /// # Returns
+        /// A new InputData instance
+        fn new(name: &str, df: DataFrame) -> Self {
+            Self {
+                name: name.to_string(),
+                df,
             }
-            Some(p)
+        }
+    }
+
+    impl TryFrom<(&str, &DataFrame)> for InputData {
+        type Error = ChartonError;
+
+        fn try_from((name, df): (&str, &DataFrame)) -> Result<Self, Self::Error> {
+            Ok(InputData::new(name, df.clone()))
+        }
+    }
+
+    impl TryFrom<(&str, &LazyFrame)> for InputData {
+        type Error = ChartonError;
+
+        fn try_from((name, lf): (&str, &LazyFrame)) -> Result<Self, Self::Error> {
+            let df = lf.clone().collect()?;
+            Ok(InputData::new(name, df))
+        }
+    }
+
+    impl TryFrom<(&str, &Vec<u8>)> for InputData {
+        type Error = ChartonError;
+
+        /// Creates a new InputData from a name and Parquet-encoded data.
+        ///
+        /// This allows users to pass DataFrames serialized as Parquet data,
+        /// enabling interoperability between different Polars versions and
+        /// external systems that export data in Parquet format.
+        ///
+        /// # Arguments
+        /// * `name` - The variable name to associate with the DataFrame
+        /// * `parquet_data` - A reference to the vector of bytes containing
+        ///   Parquet-serialized DataFrame
+        ///
+        /// # Returns
+        /// A new InputData instance containing the deserialized DataFrame
+        /// with the provided name.
+        ///
+        /// # Errors
+        /// Returns a ChartonError if the Parquet data cannot be read into a DataFrame.
+        fn try_from((name, parquet_data): (&str, &Vec<u8>)) -> Result<Self, Self::Error> {
+            let cursor = std::io::Cursor::new(parquet_data);
+            let df = ParquetReader::new(cursor).finish()?;
+            Ok(InputData::new(name, df))
+        }
+    }
+
+    impl SerializedData {
+        pub(crate) fn new(name: &str, value: String) -> Self {
+            Self {
+                name: name.to_string(),
+                value,
+            }
+        }
+    }
+
+    /// A macro that creates a `InputData` instance from a variable.
+    ///
+    /// This macro simplifies the creation of `InputData` instances by automatically
+    /// using the variable's name as the string identifier. It converts the variable
+    /// identifier to a string using `stringify!` and wraps the variable's value
+    /// in a `InputData` container.
+    ///
+    /// # Parameters
+    /// * `$var` - An identifier for a variable whose name will be used as the identifier
+    ///   and whose value will be stored in the `InputData`
+    ///
+    /// # Example
+    /// ```rust,ignore
+    /// let dataframe = DataFrame::new(...);
+    /// let named_value = data!(&dataframe)?;
+    /// // This will use TryFrom implementation to convert the data
+    /// ```
+    ///
+    /// # Returns
+    /// A `InputData` instance with the variable's name as the identifier and the
+    /// variable's value as the contained data.
+    #[macro_export]
+    macro_rules! data {
+        (&$var:ident) => {
+            <$crate::bridge::base::InputData as ::std::convert::TryFrom<_>>::try_from((
+                stringify!($var),
+                &$var,
+            ))
         };
-        py_session::PythonSession::new(path_opt)
+    }
+
+    /// A marker trait for visualization library renderers.
+    ///
+    /// This trait serves as a common interface for different visualization tools
+    /// that can be used to render plots. It doesn't define any methods itself, but
+    /// acts as a type-level marker to ensure type safety when working with different
+    /// rendering engines.
+    ///
+    /// Implementors of this trait represent specific visualization libraries such as:
+    /// - `Altair`: For creating statistical visualizations using the Altair library
+    /// - `Matplotlib`: For creating plots using the Matplotlib library
+    ///
+    /// This trait is used in conjunction with the `Plot` struct to enable generic
+    /// programming over different visualization tools.
+    pub trait Renderer {}
+
+    /// A marker struct representing the Altair visualization library.
+    ///
+    /// This struct implements the `Renderer` trait and serves as a marker type
+    /// to indicate that Altair should be used as the visualization tool.
+    /// Altair is a statistical visualization library based on Vega-Lite that
+    /// provides a declarative interface for creating interactive visualizations.
+    ///
+    /// This struct does not contain any fields or methods itself, but is used
+    /// as a type parameter in the `Plot` struct to select Altair as the rendering
+    /// engine for generating visualizations.
+    ///
+    /// # Example
+    /// ```ignore
+    /// let plot = Plot::<Altair>::build(&data)?;
+    /// ```
+    pub struct Altair {}
+    impl Renderer for Altair {}
+
+    /// A marker struct representing the Matplotlib visualization library.
+    ///
+    /// This struct implements the `Renderer` trait and serves as a marker type
+    /// to indicate that Matplotlib should be used as the visualization tool.
+    /// Matplotlib is a comprehensive library for creating static, animated, and
+    /// interactive visualizations in Python.
+    ///
+    /// This struct does not contain any fields or methods itself, but is used
+    /// as a type parameter in the `Plot` struct to select Matplotlib as the rendering
+    /// engine for generating visualizations.
+    ///
+    /// # Example
+    /// ```ignore
+    /// let plot = Plot::<Matplotlib>::build(&data)?;
+    /// ```
+    pub struct Matplotlib {}
+    impl Renderer for Matplotlib {}
+
+    /// A trait that defines the core functionality for visualization libraries.
+    ///
+    /// This trait specifies the essential methods that any visualization tool
+    /// must implement to integrate with the bridge system. It provides a unified
+    /// interface for creating, configuring, and executing visualizations across
+    /// different rendering engines such as Altair or Matplotlib.
+    ///
+    /// The trait is designed to work with `InputData` as input data and supports
+    /// common operations like setting execution paths, customizing plotting code,
+    /// displaying visualizations, saving to files.
+    pub trait Visualization {
+        /// Creates a new visualization instance with the provided data.
+        ///
+        /// This method initializes a visualization object with the given DataFrame
+        /// wrapped in a `InputData`. The implementation will convert the DataFrame
+        /// to a format suitable for the specific visualization library.
+        ///
+        /// # Parameters
+        /// * `data` - A `InputData` containing a DataFrame to be visualized
+        ///
+        /// # Returns
+        /// A Result containing either:
+        /// - Ok(Self) with the new visualization instance
+        /// - Err(ChartonError) if there was an error during initialization
+        fn build(data: InputData) -> Result<Self, ChartonError>
+        where
+            Self: Sized;
+
+        /// Sets the interpreter/executable path for running the visualization code
+        ///
+        /// # Parameters
+        /// * `exe_path` - Path to the interpreter or executable that will run the visualization code
+        ///
+        /// # Returns
+        /// Self with the updated executable path
+        ///
+        /// # Errors
+        /// Returns a ChartonError if the provided path does not exist or is not executable
+        fn with_exe_path<P: AsRef<std::path::Path>>(
+            self,
+            exe_path: P,
+        ) -> Result<Self, ChartonError>
+        where
+            Self: Sized;
+
+        // Change the with_plotting_code method signature
+        /// Sets custom plotting code to be executed by the renderer.
+        ///
+        /// This method allows users to provide their own plotting code for generating
+        /// visualizations.
+        ///
+        /// # Parameters
+        /// * `plotting_code` - A string slice containing the plotting code to execute
+        ///
+        /// # Returns
+        /// Self with the updated plotting code
+        fn with_plotting_code(self, code: &str) -> Self;
+
+        /// Executes the visualization code and displays the result in Jupyter.
+        ///
+        /// This method runs the generated or provided plotting code and renders
+        /// the visualization directly in a Jupyter notebook environment.
+        ///
+        /// # Returns
+        /// Result indicating success or a ChartonError if the operation fails
+        fn show(&self) -> Result<(), ChartonError>;
+
+        /// Executes the visualization code and saves the output to a file.
+        ///
+        /// This method runs the visualization code and saves the resulting plot
+        /// to the specified file path. The format is typically inferred from
+        /// the file extension. Currently, only SVG and PNG format are supported.
+        ///
+        /// # Parameters
+        /// * `path` - A path-like object specifying where to save the visualization
+        ///
+        /// # Returns
+        /// Result indicating success or a ChartonError if the operation fails
+        fn save<P: AsRef<std::path::Path>>(&self, path: P) -> Result<(), ChartonError>;
+    }
+
+    // Helper trait for generating plotting scripts with common methods
+    pub(crate) trait ExternalRendererExecutor {
+        // Responsible for dynamically generating complete plotting scripts based on output format (json/svg/png).
+        fn generate_full_plotting_code(&self, output_format: &str) -> Result<String, ChartonError>;
+
+        // Responsible for executing the generated plotting script and returning the result.
+        fn execute_plotting_code(&self, code: &str) -> Result<String, ChartonError>;
+    }
+
+    /// A generic struct for creating visualizations using different rendering tools.
+    ///
+    /// This struct represents a visualization that can be rendered using various
+    /// visualization libraries (renderers) such as Altair or Matplotlib. It uses
+    /// Rust's generics and the `Renderer` trait to provide a flexible interface
+    /// for switching between different visualization tools at compile time.
+    ///
+    /// The struct holds the data to be visualized, the path to the execution environment,
+    /// the plotting code to be run, and uses `PhantomData` to maintain type information
+    /// about the specific renderer being used.
+    ///
+    /// # Type Parameters
+    /// * `T` - The renderer type that implements the `Renderer` trait, such as `Altair` or `Matplotlib`
+    ///
+    /// # Fields
+    /// * `data` - The data to be visualized, wrapped in a `SerializedData`
+    /// * `exe_path` - Path to the interpreter or compiler for executing the visualization code
+    /// * `raw_plotting_code` - The raw plotting code that generates the visualization by user
+    /// * `_renderer` - PhantomData to hold type information about the renderer
+    pub struct Plot<T: Renderer> {
+        pub(crate) data: SerializedData,
+        pub(crate) exe_path: String,
+        pub(crate) raw_plotting_code: String,
+        pub(crate) _renderer: PhantomData<T>,
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use crate::data;
+    use polars::prelude::df;
+
+    #[test]
+    fn data_works() {
+        let df = df![
+            "a" => [1, 2, 3],
+            "b" => [4, 5, 6]
+        ]
+        .unwrap();
+        let result = data!(&df).unwrap();
+        assert_eq!(result.name, "df");
     }
 }

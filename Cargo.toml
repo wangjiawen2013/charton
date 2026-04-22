@@ -9,13 +9,13 @@ authors = ["Jiawen Wang <wangjiawen2013@163.com>"]
 
 [features]
 # Default features enabled for standard desktop builds.
-default = ["parallel", "python"]
+default = ["parallel"]
 
 # Enables universal columnar data ingestion via the Apache Arrow standard.
 arrow = ["dep:arrow"]
 
-# Enables compatibility with python visualization ecosystems (e.g., Matplotlib, Altair).
-python = ["pyo3/auto-initialize"]
+# Enables compatibility with visualization ecosystems (e.g., Matplotlib, Altair).
+bridge = ["dep:polars", "dep:serde", "dep:serde_json", "dep:base64", "dep:resvg"]
 
 # Enables multi-threaded data processing via Rayon for massive datasets.
 # NOTE: Disable this feature when targeting WebAssembly (Wasm) unless 
@@ -26,12 +26,6 @@ parallel = ["dep:rayon"]
 png = ["dep:resvg"]
 
 [dependencies]
-# --- Optional Dependencies ---
-arrow = { version = "58.1", default-features = false, optional = true }
-rayon = { version = "1.11", optional = true }
-resvg = { version = "0.47", optional = true }
-pyo3 = { version = "0.28", optional = true }
-
 # --- Core Dependencies ---
 thiserror = "2.0"
 time = { version = "0.3", features = ["macros", "formatting"] }
@@ -39,3 +33,12 @@ kernel-density-estimation = "0.2"
 ahash = "0.8"
 csscolorparser = "0.8"
 html-escape = "0.2"
+
+# --- Optional Dependencies ---
+arrow = { version = "58.1", default-features = false, optional = true }
+polars = { version = "0.53", default-features = false, features = ["lazy", "parquet", "ipc"], optional = true }
+serde = { version = "1.0", features = ["derive"], optional = true }
+serde_json = { version = "1.0", optional = true }
+base64 = { version = "0.22", optional = true }
+rayon = { version = "1.11", optional = true }
+resvg = { version = "0.47", optional = true }

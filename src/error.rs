@@ -1,7 +1,6 @@
+#[cfg(feature = "bridge")]
+use polars::error::PolarsError;
 use thiserror::Error;
-
-#[cfg(feature = "python")]
-use pyo3::PyErr;
 
 /// The main error type for the charton crate.
 ///
@@ -49,10 +48,9 @@ pub enum ChartonError {
     #[error("svg/usvg error")]
     Svg,
 
-    /// Errors originated from the Python runtime
-    #[cfg(feature = "python")]
-    #[error("Python error: {0}")]
-    Python(String),
+    /// Error related to executable path validation.
+    #[error("Executable path error: {0}")]
+    ExecutablePath(String),
 
     /// Error for unimplemented features.
     #[error("Unimplemented feature: {0}")]
@@ -61,11 +59,13 @@ pub enum ChartonError {
     /// Error for internal logic errors.
     #[error("Internal error: {0}")]
     Internal(String),
-}
 
-#[cfg(feature = "python")]
-impl From<pyo3::PyErr> for ChartonError {
-    fn from(err: pyo3::PyErr) -> Self {
-        ChartonError::Python(err.to_string())
-    }
+    /// Error from the Polars library.
+    ///
+    /// This variant automatically converts `PolarsError` instances into `ChartonError`.
+    /// The `?` operator will automatically perform this conversion when working with
+    /// Polars operations that can fail.
+    #[cfg(feature = "bridge")]
+    #[error("polars error: {0}")]
+    Polars(#[from] PolarsError),
 }
