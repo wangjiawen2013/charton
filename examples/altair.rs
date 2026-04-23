@@ -7,33 +7,28 @@ use std::error::Error;
 
 #[cfg(feature = "bridge")]
 fn main() -> Result<(), Box<dyn Error>> {
-    let exe_path = r"F:\Programs\miniforge3\envs\cellpy\python.exe";
-    let iris = load_dataset("iris")?;
+    // Set the path to your Python executable on windows/linux/macOS
+    let exe_path = r"where-is-my/python";
+    let df1 = df![
+        "Model" => ["S1", "M1", "R2", "P8", "M4", "T5", "V1"],
+        "Price" => [2430, 3550, 5700, 8750, 2315, 3560, 980],
+        "Discount" => [Some(0.65), Some(0.73), Some(0.82), None, Some(0.51), None, Some(0.26)],
+    ]?;
 
+    // Code for plotting with Altair
     let raw_plotting_code = r#"
 import altair as alt
 
-features = [
-    'sepal_length',
-    'sepal_width',
-]
-
-chart = alt.Chart(iris).mark_circle().encode(
-    alt.X(alt.repeat("column"), type="quantitative"),
-    alt.Y(alt.repeat("row"), type="quantitative"),
-    color='species'
-).properties(
-    width=130,
-    height=105
-).repeat(
-    row=features,
-    column=features
-)
+chart = alt.Chart(df1).mark_point().encode(
+    x='Price',
+    y='Discount',
+    color='Model',
+).properties(width=200, height=200)
 "#;
-    Plot::<Altair>::build(data!(&iris)?)?
+    Plot::<Altair>::build(data!(&df1)?)?
         .with_exe_path(exe_path)?
         .with_plotting_code(raw_plotting_code)
-        .save("docs/src/images/altair.svg")?;
+        .save("scatter.svg")?;
 
     Ok(())
 }
