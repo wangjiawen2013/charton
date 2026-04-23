@@ -1,6 +1,8 @@
 #[cfg(feature = "bridge")]
 use charton::prelude::*;
 #[cfg(feature = "bridge")]
+use polars::prelude::*;
+#[cfg(feature = "bridge")]
 use std::error::Error;
 
 #[cfg(feature = "bridge")]
