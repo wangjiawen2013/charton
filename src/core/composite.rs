@@ -849,7 +849,7 @@ impl LayeredChart {
     /// let df = df!["x" => [1, 2, 3], "y" => [10, 20, 30]]?;
     /// let chart = Chart::build(&df)?
     ///     .mark_point()?
-    ///     .encode(x("x"), y("y"))?;
+    ///     .encode(alt::x("x"), alt::y("y"))?;
     ///
     /// chart.save("my_chart.svg")?; // Save as SVG file
     /// ```
@@ -879,7 +879,7 @@ impl LayeredChart {
                 std::fs::write(path_obj, svg_content).map_err(ChartonError::Io)?;
             }
             Some("png") => {
-                #[cfg(feature = "resvg")]
+                #[cfg(feature = "png")]
                 {
                     // Load system fonts
                     let mut opts = resvg::usvg::Options::default();
@@ -923,10 +923,10 @@ impl LayeredChart {
                         .map_err(|e| ChartonError::Render(format!("PNG saving error: {:?}", e)))?;
                 }
 
-                #[cfg(not(feature = "resvg"))]
+                #[cfg(not(feature = "png"))]
                 {
                     return Err(ChartonError::Unimplemented(
-                        "PNG support is disabled. Please enable the 'resvg' feature".to_string(),
+                        "PNG support is disabled. Please enable the 'png' feature".to_string(),
                     ));
                 }
             }

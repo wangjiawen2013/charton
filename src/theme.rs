@@ -336,8 +336,8 @@ impl Theme {
         self
     }
 
-    pub fn with_palette(mut self, palette: ColorPalette) -> Self {
-        self.palette = palette;
+    pub fn with_palette<P: Into<ColorPalette>>(mut self, palette: P) -> Self {
+        self.palette = palette.into();
         self
     }
 

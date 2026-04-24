@@ -9,8 +9,8 @@ fn main() -> Result<(), Box<dyn Error>> {
         .encode((
             alt::x("wt"),
             alt::y("mpg"),
-            alt::color("gear"),
-            alt::shape("gear"),
+            alt::color("gear").with_scale(Scale::Discrete),
+            alt::shape("gear").with_scale(Scale::Discrete),
             alt::size("mpg"),
         ))?
         .coord_flip()
