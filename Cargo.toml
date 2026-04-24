@@ -1,6 +1,6 @@
 [package]
 name = "charton"
-version = "0.5.0"
+version = "0.5.1"
 edition = "2024"
 description = "A high-performance, layered charting system for Rust, featuring a flexible data core and multi-backend rendering."
 license = "Apache-2.0"
