@@ -32,7 +32,7 @@ impl VisualMapper {
     pub fn new_color_default(scale_type: &Scale, theme: &Theme) -> Self {
         match scale_type {
             Scale::Discrete => VisualMapper::DiscreteColor {
-                palette: theme.palette,
+                palette: theme.palette.clone(),
             },
             _ => VisualMapper::ContinuousColor {
                 map: theme.color_map,

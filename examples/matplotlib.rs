@@ -1,11 +1,13 @@
 #[cfg(feature = "bridge")]
 use charton::prelude::*;
 #[cfg(feature = "bridge")]
+use polars::prelude::*;
+#[cfg(feature = "bridge")]
 use std::error::Error;
 
 #[cfg(feature = "bridge")]
 fn main() -> Result<(), Box<dyn Error>> {
-    let exe_path = r"F:\Programs\miniconda3\envs\cellpy\python.exe";
+    let exe_path = r"F:\Programs\miniforge3\envs\cellpy\python.exe";
     let df = df![
         "a" => [1],
         "b" => [2],

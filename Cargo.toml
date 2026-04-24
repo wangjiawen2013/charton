@@ -1,6 +1,6 @@
 [package]
 name = "charton"
-version = "0.5.0"
+version = "0.5.1"
 edition = "2024"
 description = "A high-performance, layered charting system for Rust, featuring a flexible data core and multi-backend rendering."
 license = "Apache-2.0"
@@ -15,7 +15,7 @@ default = ["parallel"]
 arrow = ["dep:arrow"]
 
 # Enables compatibility with visualization ecosystems (e.g., Matplotlib, Altair).
-bridge = ["dep:polars", "dep:serde", "dep:serde_json", "dep:base64", "resvg"]
+bridge = ["dep:polars", "dep:serde", "dep:serde_json", "dep:base64", "dep:resvg"]
 
 # Enables multi-threaded data processing via Rayon for massive datasets.
 # NOTE: Disable this feature when targeting WebAssembly (Wasm) unless 
@@ -23,9 +23,17 @@ bridge = ["dep:polars", "dep:serde", "dep:serde_json", "dep:base64", "resvg"]
 parallel = ["dep:rayon"]
 
 # Enables exporting SVG to PNG format using the resvg rendering engine.
-resvg = ["dep:resvg"]
+png = ["dep:resvg"]
 
 [dependencies]
+# --- Core Dependencies ---
+thiserror = "2.0"
+time = { version = "0.3", features = ["macros", "formatting"] }
+kernel-density-estimation = "0.2"
+ahash = "0.8"
+csscolorparser = "0.8"
+html-escape = "0.2"
+
 # --- Optional Dependencies ---
 arrow = { version = "58.1", default-features = false, optional = true }
 polars = { version = "0.53", default-features = false, features = ["lazy", "parquet", "ipc"], optional = true }
@@ -34,11 +42,3 @@ serde_json = { version = "1.0", optional = true }
 base64 = { version = "0.22", optional = true }
 rayon = { version = "1.11", optional = true }
 resvg = { version = "0.47", optional = true }
-
-# --- Core Dependencies ---
-thiserror = "2.0"
-time = { version = "0.3", features = ["macros", "formatting"] }
-kernel-density-estimation = "0.2"
-ahash = "0.8"
-csscolorparser = "0.8"
-html-escape = "0.2"

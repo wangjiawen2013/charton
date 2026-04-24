@@ -1,13 +1,15 @@
 #[cfg(feature = "bridge")]
 use charton::prelude::*;
 #[cfg(feature = "bridge")]
+use polars::prelude::*;
+#[cfg(feature = "bridge")]
 use std::error::Error;
 
 #[cfg(feature = "bridge")]
 #[test]
 #[ignore = "Requires Python environment with altair"]
 fn test_altair_1() -> Result<(), Box<dyn Error>> {
-    let exe_path = r"D:\Programs\miniconda3\envs\cellpy\python.exe";
+    let exe_path = r"F:\Programs\miniforge3\envs\cellpy\python.exe";
     let df1 = df![
         "Model" => ["S1", "M1", "R2", "P8", "M4", "T5", "V1"],
         "Price" => [2430, 3550, 5700, 8750, 2315, 3560, 980],
