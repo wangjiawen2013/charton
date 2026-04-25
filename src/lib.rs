@@ -53,6 +53,10 @@ pub mod prelude {
     pub use crate::core::conversion::IntoLayered;
     pub use crate::core::data::{ColumnVector, Dataset, IntoColumn, ToDataset};
     pub use crate::datasets::load_dataset;
+    pub use crate::mark::{
+        area::MarkArea, bar::MarkBar, boxplot::MarkBoxplot, errorbar::MarkErrorBar, line::MarkLine,
+        point::MarkPoint, rect::MarkRect, rule::MarkRule, text::MarkText, tick::MarkTick,
+    };
     pub use crate::render::line_renderer::PathInterpolation;
     pub use crate::scale::{Expansion, Scale};
     pub use crate::theme::Theme;
