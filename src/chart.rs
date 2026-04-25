@@ -357,14 +357,14 @@ impl<T: Mark> Chart<T> {
         // --- Step 6: Second Pass Semantic Resolution ---
         // Resolve scales for generated columns (count, ecdf, etc.)
         //
-        // NOTE: Grouping transforms (e.g., Grouped ErrorBar/Scatter) coerce numeric X-values
-        // into discrete Strings to enable side-by-side "dodging".
+        // NOTE: This pass also acts as the final guardrail for data-scale consistency.
+        // If a transform (in Step 5) was forced to coerce data into a Discrete format
+        // (e.g., to handle grouping), but the Scale resolved in Step 3/4 remains
+        // Continuous (Linear), this will trigger a type mismatch error.
         //
-        // If the X-scale was previously inferred or set as Continuous (Linear), this pass
-        // will trigger a Semantic Mismatch error. This is intentional: grouping requires
-        // discrete "slots," and shifting marks on a linear axis would be statistically
-        // misleading. Users must explicitly use a Discrete (Band) scale to acknowledge
-        // this semantic change.
+        // This ensures that we never render "dodged" marks (errorbars, or
+        // swarm points) on a continuous axis, as shifting their positions would
+        // invalidate the numerical meaning of the X-coordinate.
         self.resolve_semantic_types()?;
 
         // --- Step 7: Visual Refinement ---
