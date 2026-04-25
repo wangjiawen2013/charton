@@ -143,11 +143,10 @@ Charton supports WebAssembly and modern web frontend; please refer to [Charton D
 ## Leveraging External Plotting Power
 Charton bridges Rust with mature visualization ecosystems like **Altair** and **Matplotlib** via a high-speed IPC, enabling users to leverage diverse, professional-grade plotting tools within a unified workflow. please refer to [Charton Docs](https://wangjiawen2013.github.io/charton) for details.
 
-## Industrial-Grade Visualization
-Charton scales the Grammar of Graphics to heavy-duty production. By adopting the same proven philosophy as ggplot2, Altair, and the evolving ECharts, it validates its architecture as the industry standard, delivering strict type safety and zero-copy Polars integration for robust pipelines under extreme loads. This is powered by a rigorous Scale Arbitration engine that consolidates data domains into a "Single Source of Truth," ensuring absolute mathematical consistency and seamless cross-plot mapping while eliminating the fragile, hard-coded patches and silent overrides common in template-based tools.
-
+## True Layer Synchronization
+Stop fighting with fragile, hard-coded patches. Charton treats scaling as a **Single Source of Truth**, making it possible to combine heterogeneous data sources into one plot while maintaining total mathematical consistency across every mark and axis.
 ![Comparison](assets/comparison.png)
-*This figure demonstrates semantic synchronization in Charton. Heterogeneous samples (point layer) are anchored to a global background (bar layer). By enforcing a single mathematical truth across all layers, Charton maintains absolute color consistency, ensuring samples are accurately contextualized within the global background.*
+*This figure demonstrates semantic synchronization in Charton. Point samples and bar backgrounds from different data sources are anchored to a unified scale, ensuring absolute color and spatial consistency.*
 
 ## Publish Quality
 Designed for precision, Charton provides pixel-perfect control over complex marks. Whether it is a multi-layered ErrorBar for biomedical research or a high-density scatter plot for finance, Charton delivers the aesthetic rigor required by top-tier journals.
