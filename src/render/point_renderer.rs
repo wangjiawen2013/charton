@@ -1,4 +1,5 @@
 use crate::Precision;
+use crate::TEMP_SUFFIX;
 use crate::chart::Chart;
 use crate::core::context::PanelContext;
 use crate::core::layer::{
@@ -18,116 +19,121 @@ use rayon::prelude::*;
 // ============================================================================
 
 impl MarkRenderer for Chart<MarkPoint> {
-    /// Orchestrates the transformation of raw data into visual geometries.
-    /// Uses group-based parallel processing to ensure deterministic Z-indexing
-    /// and appearance-based color mapping.
     fn render_marks(
         &self,
         backend: &mut dyn RenderBackend,
         context: &PanelContext,
     ) -> Result<(), ChartonError> {
-        let df_source = &self.data;
-        let row_count = df_source.height();
-
+        let df = &self.data;
+        let row_count = df.height();
         if row_count == 0 {
             return Ok(());
         }
 
-        // --- STEP 1: SPECIFICATION VALIDATION ---
+        // --- 1. RESOLVE CONFIG & ENCODINGS ---
+        // Replace the placeholders with actual ChartonError variants
+        let mark_config = self
+            .mark
+            .as_ref()
+            .ok_or_else(|| ChartonError::Mark("Point config missing".into()))?;
         let x_enc = self
             .encoding
             .x
             .as_ref()
-            .ok_or_else(|| ChartonError::Encoding("X-axis encoding is missing".into()))?;
+            .ok_or_else(|| ChartonError::Encoding("X encoding missing".into()))?;
         let y_enc = self
             .encoding
             .y
             .as_ref()
-            .ok_or_else(|| ChartonError::Encoding("Y-axis encoding is missing".into()))?;
-        let mark_config = self
-            .mark
-            .as_ref()
-            .ok_or_else(|| ChartonError::Mark("MarkPoint configuration is missing".into()))?;
+            .ok_or_else(|| ChartonError::Encoding("Y encoding missing".into()))?;
 
-        // --- STEP 2: POSITION & AESTHETIC NORMALIZATION ---
-        // Vectorized normalization via Dataset columns.
-        let x_norms = context
-            .coord
-            .get_x_scale()
-            .scale_type()
-            .normalize_column(context.coord.get_x_scale(), df_source.column(&x_enc.field)?);
-        let y_norms = context
-            .coord
-            .get_y_scale()
-            .scale_type()
-            .normalize_column(context.coord.get_y_scale(), df_source.column(&y_enc.field)?);
+        let x_scale = context.coord.get_x_scale();
+        let y_scale = context.coord.get_y_scale();
 
-        // Pre-normalize aesthetics if mappings exist.
+        // --- 2. VECTORIZED NORMALIZATION ---
+        let x_norms = x_scale
+            .scale_type()
+            .normalize_column(x_scale, df.column(&x_enc.field)?);
+        let y_norms = y_scale
+            .scale_type()
+            .normalize_column(y_scale, df.column(&y_enc.field)?);
+
+        // Resolve color mapping if it exists in the global aesthetics
         let color_norms = context.spec.aesthetics.color.as_ref().map(|m| {
             let s = m.scale_impl.as_ref();
             s.scale_type()
-                .normalize_column(s, df_source.column(&m.field).unwrap())
+                .normalize_column(s, df.column(&m.field).unwrap())
         });
 
-        let size_norms = context.spec.aesthetics.size.as_ref().map(|m| {
-            let s = m.scale_impl.as_ref();
-            s.scale_type()
-                .normalize_column(s, df_source.column(&m.field).unwrap())
-        });
+        // --- 3. METADATA HANDLING (SAFE FALLBACK) ---
+        // We use .ok() to convert Result to Option so the renderer doesn't
+        // crash if transform_point_data wasn't called (e.g., when color is missing).
+        let sub_idx_col = df.column(&format!("{}_sub_idx", TEMP_SUFFIX)).ok();
+        let groups_cnt_col = df.column(&format!("{}_groups_count", TEMP_SUFFIX)).ok();
+        let swarm_rank_col = df.column(&format!("{}_swarm_rank", TEMP_SUFFIX)).ok();
 
-        let shape_norms = context.spec.aesthetics.shape.as_ref().map(|m| {
-            let s = m.scale_impl.as_ref();
-            s.scale_type()
-                .normalize_column(s, df_source.column(&m.field).unwrap())
-        });
+        let unit_step_norm = (x_scale.normalize(1.0) - x_scale.normalize(0.0)).abs();
+        let spread_factor = mark_config.size * unit_step_norm;
 
-        // --- STEP 3: Calculate geometries in parallel. ---
-        let render_configs: Vec<PointElementConfig> = (0..row_count)
+        // --- 4. GEOMETRY GENERATION ---
+        let point_elements: Vec<_> = (0..row_count)
             .maybe_into_par_iter()
             .filter_map(|i| {
-                let x_n = x_norms[i]?;
+                let x_base = x_norms[i]?;
                 let y_n = y_norms[i]?;
 
-                // 1. Position: convert normalized [0,1] to screen pixels.
-                let (px, py) = context.coord.transform(x_n, y_n, &context.panel);
+                // Graceful defaults for missing layout columns
+                let sub_idx = sub_idx_col
+                    .as_ref()
+                    .and_then(|c| c.get_f64(i))
+                    .unwrap_or(0.0);
+                let n_groups = groups_cnt_col
+                    .as_ref()
+                    .and_then(|c| c.get_f64(i))
+                    .unwrap_or(1.0);
+                let swarm_rank = swarm_rank_col
+                    .as_ref()
+                    .and_then(|c| c.get_f64(i))
+                    .unwrap_or(0.0);
 
-                // 2. Aesthetics - Directly resolved from pre-calculated norms
-                // The ScaleTrait and VisualMapper already handle discrete vs continuous.
-                let fill = self.resolve_color_from_value(
-                    color_norms.as_ref().and_then(|n| n[i]),
-                    context,
-                    &mark_config.color,
-                );
+                // --- 4.1 DODGE OFFSET ---
+                let dodge_offset = if n_groups > 1.0 {
+                    let actual_width =
+                        mark_config.span / (n_groups + (n_groups - 1.0) * mark_config.spacing);
+                    let width_norm = actual_width.min(mark_config.width) * unit_step_norm;
+                    let spacing_norm = width_norm * mark_config.spacing;
+                    (sub_idx - (n_groups - 1.0) / 2.0) * (width_norm + spacing_norm)
+                } else {
+                    0.0
+                };
 
-                let size = self.resolve_size_from_value(
-                    size_norms.as_ref().and_then(|n| n[i]),
-                    context,
-                    mark_config.size,
-                );
+                // --- 4.2 SWARM OFFSET ---
+                let swarm_offset = swarm_rank * spread_factor * 0.8;
 
-                let shape = self.resolve_shape_from_value(
-                    shape_norms.as_ref().and_then(|n| n[i]),
-                    context,
-                    mark_config.shape,
-                );
+                let final_x_n = x_base + dodge_offset + swarm_offset;
+                let (px, py) = context.coord.transform(final_x_n, y_n, &context.panel);
 
-                Some(PointElementConfig {
-                    x: px,
-                    y: py,
-                    shape,
-                    size,
-                    fill,
-                    stroke: mark_config.stroke,
-                    stroke_width: mark_config.stroke_width,
-                    opacity: mark_config.opacity,
-                })
+                let fill = if let Some(ref norms) = color_norms {
+                    self.resolve_color_from_value(norms[i], context, &mark_config.color)
+                } else {
+                    mark_config.color
+                };
+
+                Some((px, py, fill))
             })
             .collect();
 
-        // --- STEP 4: SEQUENTIAL DRAW DISPATCH ---
-        // Render the points for this group onto the backend.
-        for config in render_configs {
-            self.emit_draw_call(backend, config);
+        // --- 5. FINAL DRAWING ---
+        for (x, y, color) in point_elements {
+            backend.draw_circle(CircleConfig {
+                x: x as Precision,
+                y: y as Precision,
+                radius: (mark_config.size / 2.0) as Precision,
+                fill: color,
+                stroke: mark_config.stroke,
+                stroke_width: mark_config.stroke_width as Precision,
+                opacity: mark_config.opacity as Precision,
+            });
         }
 
         Ok(())

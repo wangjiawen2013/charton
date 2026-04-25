@@ -14,6 +14,10 @@ pub struct MarkPoint {
     pub(crate) opacity: f64,
     pub(crate) stroke: SingleColor,
     pub(crate) stroke_width: f64,
+    // --- Layout parameters for grouping (dodge) ---
+    pub(crate) width: f64,   // Relative width of a error bar
+    pub(crate) spacing: f64, // Proportional gap between bars in a group
+    pub(crate) span: f64,    // Total category width allocated to the group
 }
 
 impl MarkPoint {
@@ -25,6 +29,10 @@ impl MarkPoint {
             opacity: 1.0,
             stroke: SingleColor::new("none"),
             stroke_width: 0.0,
+            // Default layout values synced with MarkBar for seamless layering
+            width: 0.5,
+            spacing: 0.0,
+            span: 0.7,
         }
     }
 
@@ -68,6 +76,24 @@ impl MarkPoint {
     /// Sets the thickness of the point's outline.
     pub fn with_stroke_width(mut self, width: f64) -> Self {
         self.stroke_width = width;
+        self
+    }
+
+    /// Sets the relative width of the marks.
+    pub fn with_width(mut self, width: f64) -> Self {
+        self.width = width;
+        self
+    }
+
+    /// Sets the spacing between marks in a grouped layout.
+    pub fn with_spacing(mut self, spacing: f64) -> Self {
+        self.spacing = spacing.clamp(0.0, 1.0);
+        self
+    }
+
+    /// Sets the total span of the group within a category.
+    pub fn with_span(mut self, span: f64) -> Self {
+        self.span = span.clamp(0.0, 1.0);
         self
     }
 }
