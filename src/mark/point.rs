@@ -2,6 +2,30 @@ use crate::mark::Mark;
 use crate::visual::color::SingleColor;
 use crate::visual::shape::PointShape;
 
+/// Position adjustment methods for point marks on discrete axes.
+#[derive(Debug, Clone, Copy, Default, PartialEq)]
+pub enum PointLayout {
+    /// Points are placed exactly on the category center (may overlap).
+    #[default]
+    Standard,
+    /// Points are randomly shifted horizontally within the allocated width.
+    Jitter,
+    /// Points are arranged using a force-directed layout to avoid overlap.
+    Beeswarm,
+}
+
+/// Implements conversion from string slices for a more ergonomic Fluent API.
+impl From<&str> for PointLayout {
+    fn from(s: &str) -> Self {
+        match s.to_lowercase().as_str() {
+            "jitter" | "random" => PointLayout::Jitter,
+            "beeswarm" | "swarm" | "force" => PointLayout::Beeswarm,
+            "standard" | "none" | "center" => PointLayout::Standard,
+            _ => PointLayout::Standard,
+        }
+    }
+}
+
 /// Mark type for point/scatter charts.
 ///
 /// The `MarkPoint` struct defines the visual properties of point elements.
@@ -14,10 +38,19 @@ pub struct MarkPoint {
     pub(crate) opacity: f64,
     pub(crate) stroke: SingleColor,
     pub(crate) stroke_width: f64,
+
+    // --- Layout strategy ---
+    /// The physical arrangement strategy (Standard, Jitter, or Beeswarm).
+    pub(crate) layout: PointLayout,
+
     // --- Layout parameters for grouping (dodge) ---
-    pub(crate) width: f64, // Relative width of a group at a axis position (discrete scale)
-    pub(crate) spacing: f64, // Proportional gap between groups at a axis position (discrete scale)
-    pub(crate) span: f64,  // Total width of all groups at the axis position (discrete scale)
+    /// Relative width of a group/lane. In Jitter/Beeswarm mode,
+    /// points stay within this boundary.
+    pub(crate) width: f64,
+    /// Proportional gap between groups at an axis position.
+    pub(crate) spacing: f64,
+    /// Total width of all groups combined at the axis position.
+    pub(crate) span: f64,
 }
 
 impl MarkPoint {
@@ -29,7 +62,7 @@ impl MarkPoint {
             opacity: 1.0,
             stroke: SingleColor::new("none"),
             stroke_width: 0.0,
-            // Default layout values synced with MarkBar for seamless layering
+            layout: PointLayout::Standard,
             width: 0.5,
             spacing: 0.0,
             span: 0.7,
@@ -76,6 +109,14 @@ impl MarkPoint {
     /// Sets the thickness of the point's outline.
     pub fn with_stroke_width(mut self, width: f64) -> Self {
         self.stroke_width = width;
+        self
+    }
+
+    /// Sets the layout strategy for point marks.
+    ///
+    /// Accepts `PointLayout` variants or string literals like "jitter".
+    pub fn with_layout(mut self, layout: impl Into<PointLayout>) -> Self {
+        self.layout = layout.into();
         self
     }
 
