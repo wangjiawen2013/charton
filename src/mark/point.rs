@@ -64,7 +64,7 @@ impl MarkPoint {
             stroke_width: 0.0,
             layout: PointLayout::Standard,
             width: 0.5,
-            spacing: 0.0,
+            spacing: 0.2,
             span: 0.7,
         }
     }
