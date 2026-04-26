@@ -37,13 +37,14 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
     // The engine's transform_point_data will detect "treatments" as Discrete,
     // automatically applying both Dodge (side-by-side) and Beeswarm (collision) logic.
     chart!(categories, outcomes, treatments)?
-        .mark_point()?.configure_point(|m| m.with_layout("jitter"))
+        .mark_point()?
+        .configure_point(|m| m.with_layout("beeswarm").with_size(2.0))
         .encode((
             alt::x("categories"),
             alt::y("outcomes"),
             alt::color("treatments"),
         ))?
-        .save("examples/beeswarm_discrete_final.svg")?;
+        .save("docs/src/images/beeswarm.svg")?;
 
     println!("✨ Beeswarm example with discrete grouping (rand 0.9) generated successfully!");
     Ok(())
