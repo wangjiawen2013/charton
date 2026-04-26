@@ -37,7 +37,7 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
     // The engine's transform_point_data will detect "treatments" as Discrete,
     // automatically applying both Dodge (side-by-side) and Beeswarm (collision) logic.
     chart!(categories, outcomes, treatments)?
-        .mark_point()?
+        .mark_point()?.configure_point(|m| m.with_layout("jitter"))
         .encode((
             alt::x("categories"),
             alt::y("outcomes"),
