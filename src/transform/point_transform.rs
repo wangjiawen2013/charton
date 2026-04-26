@@ -7,149 +7,113 @@ use crate::scale::Scale;
 use ahash::AHashMap;
 
 impl<T: Mark> Chart<T> {
-    /// Transforms point data for categorical axes by calculating sub-grouping (Dodge)
-    /// and density-based horizontal distribution (Beeswarm).
+    /// Transforms the point data to support categorical layouts such as Dodging and Beeswarm.
     ///
-    /// The transformation follows a two-step positioning logic:
-    /// 1. Dodge: Assigns points to discrete sub-slots based on the color encoding.
-    /// 2. Beeswarm: Assigns a relative 'rank' to points that collide vertically.
+    /// ### Logic Overview:
+    /// 1. **Early Exit for Continuous Scales**: If the X-axis is a numerical or temporal scale
+    ///    (Linear, Log, Temporal), the raw coordinates are preserved to maintain mathematical precision.
+    /// 2. **Aesthetic Grouping**: If a `color` encoding is present (and differs from the X field),
+    ///    the points are assigned to discrete "slots" (lanes) within each X-category.
+    /// 3. **Layout Helper Injections**:
+    ///     * `sub_idx`: The zero-indexed slot position for the point's group.
+    ///     * `groups_count`: The total number of groups at that X-position (used for width normalization).
+    ///     * `swarm_local_idx`: A sequential counter for points sharing the same logic-space,
+    ///        serving as the processing order for Quadtree-based collision resolution.
     pub(crate) fn transform_point_data(mut self) -> Result<Self, ChartonError> {
-        // --- 1. PRE-FLIGHT CHECKS ---
-        let x_enc = self
-            .encoding
-            .x
-            .as_ref()
-            .ok_or_else(|| ChartonError::Encoding("X encoding missing".into()))?;
-        let y_enc = self
-            .encoding
-            .y
-            .as_ref()
-            .ok_or_else(|| ChartonError::Encoding("Y encoding missing".into()))?;
-
-        // Transformation is only triggered if 'color' is provided (for dodging/grouping)
-        let color_field = match &self.encoding.color {
-            Some(c) => &c.field,
-            None => return Ok(self),
-        };
-
-        // Only applicable for Categorical (Discrete) X-axes.
-        let x_scale_type = x_enc.scale_type.as_ref().ok_or_else(|| {
-            ChartonError::Internal("Scale type must be resolved before transformation".into())
+        // --- STEP 1: Pre-flight Validation ---
+        let x_enc = self.encoding.x.as_ref().ok_or_else(|| {
+            ChartonError::Encoding("X encoding is required for transformation".into())
         })?;
 
+        let x_field = &x_enc.field;
+
+        // Transformation logic requires resolved scales to distinguish between Discrete and Continuous axes.
+        let x_scale_type = x_enc.scale_type.as_ref().ok_or_else(|| {
+            ChartonError::Internal(
+                "Scale type must be resolved prior to data transformation".into(),
+            )
+        })?;
+
+        // Early Exit: Continuous axes do not support dodging as they rely on exact coordinate mapping.
         if matches!(x_scale_type, Scale::Linear | Scale::Log | Scale::Temporal) {
             return Ok(self);
         }
 
+        // --- STEP 2: Grouping Context Identification ---
+        // Grouping/Dodging is typically triggered by a secondary aesthetic (usually Color).
+        let color_field = match &self.encoding.color {
+            Some(c) => &c.field,
+            None => return Ok(self), // No grouping aesthetic; use default single-column layout.
+        };
+
+        // If the color field is identical to the X field, it's a 1-to-1 mapping (no dodging needed).
+        if color_field == x_field {
+            return Ok(self);
+        }
+
+        // --- STEP 3: Categorical Indexing ---
+        let x_col = self.data.column(x_field)?;
+        let color_col = self.data.column(color_field)?;
+
+        // Determine unique groups to establish deterministic slot ordering.
+        let color_uniques = color_col.unique_values();
+        let color_map: AHashMap<String, usize> = color_uniques
+            .iter()
+            .enumerate()
+            .map(|(i, v)| (v.clone(), i))
+            .collect();
+
         let row_count = self.data.height();
-        let x_col = self.data.column(&x_enc.field)?;
-        let y_col = self.data.column(&y_enc.field)?;
+        let total_groups = color_uniques.len() as f64;
 
-        // --- 2. LOCAL DENSITY HEURISTIC ---
-        // Since we don't have the final global Y-scale yet, we use a local
-        // heuristic (2% of the column range) to detect vertical collisions.
-        let (l_min, l_max) = y_col.min_max();
-        let local_span = (l_max - l_min).abs().max(1e-12);
-        let threshold = local_span * 0.02;
-
-        // --- 3. GROUPING LOGIC ---
-        // We group row indices by both X-category and Color-category.
-        // This ensures that 'Dodge' slots are isolated from each other.
-        let mut group_map: AHashMap<(String, String), Vec<usize>> = AHashMap::new();
-        for i in 0..row_count {
-            let x_val = x_col.get_str_or(i, "null");
-            let c_val = self.data.get_str_or(color_field, i, "null");
-            group_map.entry((x_val, c_val)).or_default().push(i);
-        }
-
-        // --- 4. RELATIVE SWARM RANK CALCULATION ---
-        // Instead of calculating pixel offsets, we calculate an integer 'rank'.
-        // Rank 0 = Center, Rank 1 = Right, Rank -1 = Left, etc.
-        let mut swarm_ranks = vec![0.0; row_count];
-        for (_, indices) in group_map.iter() {
-            if indices.len() <= 1 {
-                continue;
-            }
-
-            // Sort by Y for stable, sequential collision detection
-            let mut sorted_group = indices.clone();
-            sorted_group.sort_by(|&a, &b| {
-                y_col
-                    .get_f64(a)
-                    .partial_cmp(&y_col.get_f64(b))
-                    .unwrap_or(std::cmp::Ordering::Equal)
-            });
-
-            let mut last_y = -f64::INFINITY;
-            let mut collision_stack = 0;
-
-            for &idx in &sorted_group {
-                let curr_y = y_col.get_f64(idx).unwrap_or(0.0);
-
-                if (curr_y - last_y).abs() < threshold {
-                    collision_stack += 1;
-                } else {
-                    collision_stack = 0;
-                }
-
-                // Determine horizontal displacement direction
-                // local_idx 0 -> 0.0
-                // local_idx 1 -> 1.0
-                // local_idx 2 -> -1.0
-                // local_idx 3 -> 2.0 ...
-                let direction = if collision_stack % 2 == 0 { 1.0 } else { -1.0 };
-                let magnitude = (collision_stack as f64 / 2.0).ceil();
-
-                swarm_ranks[idx] = direction * magnitude;
-                last_y = curr_y;
-            }
-        }
-
-        // --- 5. DATA ASSEMBLY & ATOMIC REORDERING ---
-        let mut sorted_indices = Vec::with_capacity(row_count);
+        // Pre-allocate vectors for columnar injection.
         let mut final_sub_idx = Vec::with_capacity(row_count);
         let mut final_groups_count = Vec::with_capacity(row_count);
-        let mut final_swarm = Vec::with_capacity(row_count);
+        let mut final_swarm_idx = Vec::with_capacity(row_count);
 
-        let x_uniques = x_col.unique_values();
-        let c_uniques = self.data.column(color_field)?.unique_values();
-        let total_groups = c_uniques.len() as f64;
+        // Counter to track point density within a specific (Category, Color) intersection.
+        let mut group_counters: AHashMap<(String, String), usize> = AHashMap::new();
 
-        for x_val in &x_uniques {
-            for (c_idx, c_val) in c_uniques.iter().enumerate() {
-                if let Some(indices) = group_map.get(&(x_val.clone(), c_val.clone())) {
-                    for &idx in indices {
-                        sorted_indices.push(idx);
-                        final_sub_idx.push(c_idx as f64);
-                        final_groups_count.push(total_groups);
-                        final_swarm.push(swarm_ranks[idx]);
-                    }
-                }
-            }
+        // --- STEP 4: Iterative Metadata Generation ---
+        for i in 0..row_count {
+            let x_val = x_col.get_str_or(i, "null");
+            let c_val = color_col.get_str_or(i, "null");
+
+            // A. sub_idx: Maps the point to its specific dodge-lane.
+            let c_idx = *color_map.get(&c_val).unwrap_or(&0);
+            final_sub_idx.push(c_idx as f64);
+
+            // B. groups_count: Defines the divisor for calculating lane widths in the renderer.
+            final_groups_count.push(total_groups);
+
+            // C. swarm_local_idx: Provides the sequence ID for Force-Directed Beeswarm layouts.
+            // Using Entry API for efficient local group counting.
+            let b_idx = group_counters.entry((x_val, c_val)).or_insert(0);
+            final_swarm_idx.push(*b_idx as f64);
+            *b_idx += 1;
         }
 
-        // Use take_rows to perform a type-safe, null-safe reordering of all columns
-        let mut new_ds = self.data.take_rows(&sorted_indices)?;
-
-        // Append the calculated layout metadata as temporary columns for the renderer
-        new_ds.add_column(
+        // --- STEP 5: Dataset Augmentation ---
+        // Injected temporary columns allow the MarkRenderer to remain stateless and parallelizable.
+        self.data.add_column(
             format!("{}_sub_idx", TEMP_SUFFIX),
             ColumnVector::F64 {
                 data: final_sub_idx,
             },
         )?;
-        new_ds.add_column(
+        self.data.add_column(
             format!("{}_groups_count", TEMP_SUFFIX),
             ColumnVector::F64 {
                 data: final_groups_count,
             },
         )?;
-        new_ds.add_column(
-            format!("{}_swarm_rank", TEMP_SUFFIX),
-            ColumnVector::F64 { data: final_swarm },
+        self.data.add_column(
+            format!("{}_swarm_local_idx", TEMP_SUFFIX),
+            ColumnVector::F64 {
+                data: final_swarm_idx,
+            },
         )?;
 
-        self.data = new_ds;
         Ok(self)
     }
 }

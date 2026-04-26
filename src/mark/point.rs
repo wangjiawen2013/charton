@@ -15,9 +15,9 @@ pub struct MarkPoint {
     pub(crate) stroke: SingleColor,
     pub(crate) stroke_width: f64,
     // --- Layout parameters for grouping (dodge) ---
-    pub(crate) width: f64,   // Relative width of a error bar
-    pub(crate) spacing: f64, // Proportional gap between bars in a group
-    pub(crate) span: f64,    // Total category width allocated to the group
+    pub(crate) width: f64, // Relative width of a group at a axis position (discrete scale)
+    pub(crate) spacing: f64, // Proportional gap between groups at a axis position (discrete scale)
+    pub(crate) span: f64,  // Total width of all groups at the axis position (discrete scale)
 }
 
 impl MarkPoint {
