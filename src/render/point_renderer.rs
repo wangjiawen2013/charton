@@ -26,41 +26,81 @@ impl MarkRenderer for Chart<MarkPoint> {
     ) -> Result<(), ChartonError> {
         let df_source = &self.data;
         let row_count = df_source.height();
-        if row_count == 0 { return Ok(()); }
+        if row_count == 0 {
+            return Ok(());
+        }
 
         // --- STEP 1: SPECIFICATION & ENCODINGS ---
-        let x_enc = self.encoding.x.as_ref().ok_or_else(|| ChartonError::Encoding("X missing".into()))?;
-        let y_enc = self.encoding.y.as_ref().ok_or_else(|| ChartonError::Encoding("Y missing".into()))?;
-        let mark_config = self.mark.as_ref().ok_or_else(|| ChartonError::Mark("MarkPoint config missing".into()))?;
+        let x_enc = self
+            .encoding
+            .x
+            .as_ref()
+            .ok_or_else(|| ChartonError::Encoding("X missing".into()))?;
+        let y_enc = self
+            .encoding
+            .y
+            .as_ref()
+            .ok_or_else(|| ChartonError::Encoding("Y missing".into()))?;
+        let mark_config = self
+            .mark
+            .as_ref()
+            .ok_or_else(|| ChartonError::Mark("MarkPoint config missing".into()))?;
 
         // --- STEP 2: SCALES & NORMALIZATION ---
         let x_scale = context.coord.get_x_scale();
         let y_scale = context.coord.get_y_scale();
-        
+
         // Synchronized unit step calculation (Matches BoxPlot & ErrorBar)
         let unit_step_norm = (x_scale.normalize(1.0) - x_scale.normalize(0.0)).abs();
 
-        let x_norms = x_scale.scale_type().normalize_column(x_scale, df_source.column(&x_enc.field)?);
-        let y_norms = y_scale.scale_type().normalize_column(y_scale, df_source.column(&y_enc.field)?);
+        let x_norms = x_scale
+            .scale_type()
+            .normalize_column(x_scale, df_source.column(&x_enc.field)?);
+        let y_norms = y_scale
+            .scale_type()
+            .normalize_column(y_scale, df_source.column(&y_enc.field)?);
 
         // Retrieve pre-computed dodge columns
         let sub_idx_col = df_source.column(&format!("{}_sub_idx", TEMP_SUFFIX)).ok();
-        let groups_count_col = df_source.column(&format!("{}_groups_count", TEMP_SUFFIX)).ok();
+        let groups_count_col = df_source
+            .column(&format!("{}_groups_count", TEMP_SUFFIX))
+            .ok();
 
         // Aesthetic mappings
-        let color_norms = context.spec.aesthetics.color.as_ref().map(|m| m.scale_impl.scale_type().normalize_column(m.scale_impl.as_ref(), df_source.column(&m.field).unwrap()));
-        let size_norms = context.spec.aesthetics.size.as_ref().map(|m| m.scale_impl.scale_type().normalize_column(m.scale_impl.as_ref(), df_source.column(&m.field).unwrap()));
-        let shape_norms = context.spec.aesthetics.shape.as_ref().map(|m| m.scale_impl.scale_type().normalize_column(m.scale_impl.as_ref(), df_source.column(&m.field).unwrap()));
+        let color_norms = context.spec.aesthetics.color.as_ref().map(|m| {
+            m.scale_impl
+                .scale_type()
+                .normalize_column(m.scale_impl.as_ref(), df_source.column(&m.field).unwrap())
+        });
+        let size_norms = context.spec.aesthetics.size.as_ref().map(|m| {
+            m.scale_impl
+                .scale_type()
+                .normalize_column(m.scale_impl.as_ref(), df_source.column(&m.field).unwrap())
+        });
+        let shape_norms = context.spec.aesthetics.shape.as_ref().map(|m| {
+            m.scale_impl
+                .scale_type()
+                .normalize_column(m.scale_impl.as_ref(), df_source.column(&m.field).unwrap())
+        });
 
         // --- STEP 3: LAYOUT EXECUTION ---
         let render_configs: Vec<PointElementConfig> = match mark_config.layout {
             PointLayout::Beeswarm => {
                 // BEESWARM: Stateful collision resolution
                 self.resolve_beeswarm_layout(
-                    row_count, &x_norms, &y_norms, &color_norms, &size_norms, &shape_norms,
-                    sub_idx_col, groups_count_col, unit_step_norm, context, mark_config
+                    row_count,
+                    &x_norms,
+                    &y_norms,
+                    &color_norms,
+                    &size_norms,
+                    &shape_norms,
+                    sub_idx_col,
+                    groups_count_col,
+                    unit_step_norm,
+                    context,
+                    mark_config,
                 )
-            },
+            }
             _ => {
                 // STANDARD / JITTER: Parallel processing
                 (0..row_count)
@@ -78,12 +118,14 @@ impl MarkRenderer for Chart<MarkPoint> {
                             let sub_idx = sub_col.get_f64(i).unwrap_or(0.0);
 
                             let box_width_data = mark_config.width.min(
-                                mark_config.span / (total_groups + (total_groups - 1.0) * mark_config.spacing),
+                                mark_config.span
+                                    / (total_groups + (total_groups - 1.0) * mark_config.spacing),
                             );
                             let box_width_norm = box_width_data * unit_step_norm;
                             let spacing_norm = box_width_norm * mark_config.spacing;
-                            
-                            x_final_n += (sub_idx - (total_groups - 1.0) / 2.0) * (box_width_norm + spacing_norm);
+
+                            x_final_n += (sub_idx - (total_groups - 1.0) / 2.0)
+                                * (box_width_norm + spacing_norm);
                             lane_width_norm = box_width_norm;
                         }
 
@@ -94,10 +136,19 @@ impl MarkRenderer for Chart<MarkPoint> {
                             let seed = (i as u64).wrapping_mul(1103515245).wrapping_add(12345);
                             let noise = ((seed & 0x7FFFFFFF) as f64 / 2147483647.0) - 0.5;
                             let lane_px_limit = lane_width_norm * context.panel.width;
-                            px += noise * lane_px_limit; 
+                            px += noise * lane_px_limit;
                         }
 
-                        Some(self.build_element_config(i, px, py, &color_norms, &size_norms, &shape_norms, context, mark_config))
+                        Some(self.build_element_config(
+                            i,
+                            px,
+                            py,
+                            &color_norms,
+                            &size_norms,
+                            &shape_norms,
+                            context,
+                            mark_config,
+                        ))
                     })
                     .collect()
             }
@@ -128,17 +179,24 @@ impl Chart<MarkPoint> {
         mark_config: &MarkPoint,
     ) -> Vec<PointElementConfig> {
         let mut configs = Vec::with_capacity(row_count);
-        let mut occupancy: std::collections::HashMap<(usize, usize), Vec<(f64, f64, f64)>> = std::collections::HashMap::new();
+        let mut occupancy: std::collections::HashMap<(usize, usize), Vec<(f64, f64, f64)>> =
+            std::collections::HashMap::new();
 
         for i in 0..row_count {
-            let x_n = match x_norms[i] { Some(v) => v, None => continue };
-            let y_n = match y_norms[i] { Some(v) => v, None => continue };
+            let x_n = match x_norms[i] {
+                Some(v) => v,
+                None => continue,
+            };
+            let y_n = match y_norms[i] {
+                Some(v) => v,
+                None => continue,
+            };
 
             let mut x_final_n = x_n;
             let mut lane_id = 0;
-            // Default lane width if no groups found
             let mut lane_px_width = unit_step_norm * mark_config.span * context.panel.width;
 
+            // --- STEP 1: CALCULATE CATEGORY CENTER ---
             if let (Some(sub_col), Some(cnt_col)) = (sub_idx_col, groups_count_col) {
                 let total_groups = cnt_col.get_f64(i).unwrap_or(1.0);
                 let sub_idx = sub_col.get_f64(i).unwrap_or(0.0);
@@ -149,45 +207,87 @@ impl Chart<MarkPoint> {
                 );
                 let box_width_norm = box_width_data * unit_step_norm;
                 let spacing_norm = box_width_norm * mark_config.spacing;
-                
-                x_final_n += (sub_idx - (total_groups - 1.0) / 2.0) * (box_width_norm + spacing_norm);
+
+                x_final_n +=
+                    (sub_idx - (total_groups - 1.0) / 2.0) * (box_width_norm + spacing_norm);
                 lane_px_width = box_width_norm * context.panel.width;
             }
 
             let (base_px, py) = context.coord.transform(x_final_n, y_n, &context.panel);
-            let size = self.resolve_size_from_value(size_norms.as_ref().and_then(|n| n[i]), context, mark_config.size);
-            
+            let size = self.resolve_size_from_value(
+                size_norms.as_ref().and_then(|n| n[i]),
+                context,
+                mark_config.size,
+            );
+
+            // --- STEP 2: SYMMETRIC COLLISION RESOLUTION ---
             let cat_key = ((x_n * 1000.0) as usize, lane_id);
             let siblings = occupancy.entry(cat_key).or_insert_with(Vec::new);
-            
+
             let mut final_px = base_px;
             let max_shift = lane_px_width * 0.5;
 
-            let mut attempts = 0;
-            let mut collision = true;
-            while collision && attempts < 50 {
-                collision = false;
-                for (ox, oy, or) in siblings.iter() {
-                    let dx = final_px - *ox;
-                    let dy = py - *oy;
-                    let dist_sq = dx * dx + dy * dy;
-                    let min_d = (size + *or) * 1.02;
+            // We use a "Bidirectional Search" to find the closest non-overlapping X position
+            // We check offsets: 0, +1, -1, +2, -2, +3, -3...
+            let mut found = false;
+            let step_px = 1.0; // Resolution of search
 
-                    if dist_sq < min_d * min_d {
-                        collision = true;
-                        final_px += if dx >= 0.0 { 1.0 } else { -1.0 };
+            // Limit search to the lane boundary to prevent infinite loops
+            let max_attempts = (max_shift / step_px) as i32 + 1;
+
+            for offset_step in 0..max_attempts {
+                // Try both positive and negative directions to ensure symmetry
+                for sign in [1.0, -1.0] {
+                    // offset_step 0 only needs to be checked once
+                    if offset_step == 0 && sign == -1.0 {
+                        continue;
+                    }
+
+                    let test_px = base_px + (offset_step as f64 * step_px * sign);
+
+                    // Check if test_px collides with any existing siblings
+                    let mut collision = false;
+                    for (ox, oy, or) in siblings.iter() {
+                        let dx = test_px - *ox;
+                        let dy = py - *oy;
+                        let dist_sq = dx * dx + dy * dy;
+                        let min_d = (size + *or) * 1.02; // 2% visual buffer
+
+                        if dist_sq < min_d * min_d {
+                            collision = true;
+                            break;
+                        }
+                    }
+
+                    if !collision {
+                        final_px = test_px;
+                        found = true;
                         break;
                     }
                 }
-                if (final_px - base_px).abs() > max_shift {
-                    final_px = base_px + (final_px - base_px).signum() * max_shift;
+                if found {
                     break;
                 }
-                attempts += 1;
+            }
+
+            // --- STEP 3: BOUNDARY CLAMPING ---
+            // If even the best search position is outside, force it back.
+            // This causes overlaps at high density, which is your requested behavior.
+            if (final_px - base_px).abs() > max_shift {
+                final_px = base_px + (final_px - base_px).signum() * max_shift;
             }
 
             siblings.push((final_px, py, size));
-            configs.push(self.build_element_config(i, final_px, py, color_norms, size_norms, shape_norms, context, mark_config));
+            configs.push(self.build_element_config(
+                i,
+                final_px,
+                py,
+                color_norms,
+                size_norms,
+                shape_norms,
+                context,
+                mark_config,
+            ));
         }
         configs
     }
@@ -207,9 +307,21 @@ impl Chart<MarkPoint> {
         PointElementConfig {
             x,
             y,
-            fill: self.resolve_color_from_value(color_norms.as_ref().and_then(|n| n[i]), context, &mark_config.color),
-            size: self.resolve_size_from_value(size_norms.as_ref().and_then(|n| n[i]), context, mark_config.size),
-            shape: self.resolve_shape_from_value(shape_norms.as_ref().and_then(|n| n[i]), context, mark_config.shape),
+            fill: self.resolve_color_from_value(
+                color_norms.as_ref().and_then(|n| n[i]),
+                context,
+                &mark_config.color,
+            ),
+            size: self.resolve_size_from_value(
+                size_norms.as_ref().and_then(|n| n[i]),
+                context,
+                mark_config.size,
+            ),
+            shape: self.resolve_shape_from_value(
+                shape_norms.as_ref().and_then(|n| n[i]),
+                context,
+                mark_config.shape,
+            ),
             stroke: mark_config.stroke,
             stroke_width: mark_config.stroke_width,
             opacity: mark_config.opacity,
