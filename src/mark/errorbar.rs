@@ -15,8 +15,8 @@ pub struct MarkErrorBar {
     pub(crate) show_center: bool,
     // --- Layout parameters for grouping (dodge) ---
     pub(crate) width: f64,   // Relative width of a error bar
-    pub(crate) spacing: f64, // Proportional gap between bars in a group
-    pub(crate) span: f64,    // Total category width allocated to the group
+    pub(crate) spacing: f64, // Proportional gap between bars in a axis position (discrete scale)
+    pub(crate) span: f64,    // Total category width in a axis position (discrete scale)
 }
 
 impl MarkErrorBar {
