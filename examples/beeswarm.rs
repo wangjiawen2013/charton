@@ -1,44 +1,49 @@
 use charton::prelude::*;
-use rand::prelude::*;
-use rand_distr::{Distribution, Normal};
 
 fn main() -> Result<(), Box<dyn std::error::Error>> {
-    // 1. Initialize the random number generator (rand 0.9 syntax)
-    let mut rng = rand::rng();
-
-    let mut categories = Vec::new(); // X-axis: Major groups
-    let mut outcomes = Vec::new(); // Y-axis: Quantitative results
-    let mut treatments = Vec::new(); // Color: Discrete sub-groups (for Dodge/Grouping)
+    let mut categories = Vec::new();
+    let mut outcomes = Vec::new();
+    let mut treatments = Vec::new();
 
     let configs = [
         ("Cohort A", 45.0, 12.0),
-        ("Cohort B", 70.0, 6.0), // Narrow std_dev creates high density for Beeswarm
+        ("Cohort B", 70.0, 6.0),
         ("Cohort C", 35.0, 18.0),
     ];
 
-    // Define discrete sub-categories
     let treatment_types = ["Placebo", "Active"];
 
+    // Use a simple deterministic counter to simulate "randomness"
+    let mut seed: u32 = 42;
+
     for (label, mean, std_dev) in configs {
-        let dist = Normal::new(mean, std_dev)?;
-
-        // Generate 150 points per cohort to showcase density-based layout
-        for _ in 0..150 {
+        for i in 0..150 {
             categories.push(label.to_string());
-            outcomes.push(dist.sample(&mut rng));
 
-            // Randomly assign a discrete label for categorical color mapping
-            let sub_idx = rng.random_range(0..treatment_types.len());
+            // 1. Deterministic Pseudo-random using LCG
+            seed = seed.wrapping_mul(1103515245).wrapping_add(12345);
+            let raw_rand = (seed & 0x7FFFFFFF) as f64 / 2147483647.0;
+
+            // 2. Simple Box-Muller transform to simulate Normal Distribution
+            // This creates the "cluster" effect needed to show off Beeswarm
+            let u1 = raw_rand;
+            let u2 = ((i as f64 * 0.1).sin() + 1.0) / 2.0; // Another "random" seed
+            let z0 = (-2.0 * u1.ln().max(-10.0)).sqrt() * (2.0 * std::f64::consts::PI * u2).cos();
+
+            outcomes.push(mean + z0 * std_dev);
+
+            // 3. Deterministic sub-group assignment
+            let sub_idx = (i % 2) as usize;
             treatments.push(treatment_types[sub_idx].to_string());
         }
     }
 
     // 2. Render the Chart
-    // The engine's transform_point_data will detect "treatments" as Discrete,
-    // automatically applying both Dodge (side-by-side) and Beeswarm (collision) logic.
     chart!(categories, outcomes, treatments)?
         .mark_point()?
-        .configure_point(|m| m.with_layout("beeswarm").with_size(2.0))
+        .configure_point(|m| {
+            m.with_layout("beeswarm").with_size(2.5).with_width(0.8) // Restrict spread within the box width
+        })
         .encode((
             alt::x("categories"),
             alt::y("outcomes"),
@@ -46,6 +51,6 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
         ))?
         .save("docs/src/images/beeswarm.svg")?;
 
-    println!("✨ Beeswarm example with discrete grouping (rand 0.9) generated successfully!");
+    println!("✨ Deterministic Beeswarm example generated successfully (No rand dependency)!");
     Ok(())
 }

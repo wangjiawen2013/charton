@@ -33,8 +33,6 @@ kernel-density-estimation = "0.2"
 ahash = "0.8"
 csscolorparser = "0.8"
 html-escape = "0.2"
-rand = "0.10"
-rand_distr = "0.6"
 
 # --- Optional Dependencies ---
 arrow = { version = "58.1", default-features = false, optional = true }
