@@ -151,7 +151,9 @@ impl MarkRenderer for Chart<MarkBoxplot> {
 
                 // --- OUTLIER PARSING ---
                 let mut outlier_circles = Vec::new();
-                if let Some(raw_outliers) = outliers_col.get_str(i) {
+                if mark_config.show_outliers
+                    && let Some(raw_outliers) = outliers_col.get_str(i)
+                {
                     let clean = raw_outliers.trim_matches(|c| c == '[' || c == ']');
                     for val_str in clean.split(',').filter(|s| !s.trim().is_empty()) {
                         if let Ok(val) = val_str.trim().parse::<f64>() {
