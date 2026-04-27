@@ -41,9 +41,7 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
     // 2. Render the Chart
     chart!(categories, outcomes, treatments)?
         .mark_point()?
-        .configure_point(|m| {
-            m.with_layout("beeswarm").with_size(2.5).with_width(0.8) // Restrict spread within the box width
-        })
+        .configure_point(|m| m.with_layout("beeswarm").with_size(2.5))
         .encode((
             alt::x("categories"),
             alt::y("outcomes"),
@@ -51,6 +49,5 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
         ))?
         .save("docs/src/images/beeswarm.svg")?;
 
-    println!("✨ Deterministic Beeswarm example generated successfully (No rand dependency)!");
     Ok(())
 }
