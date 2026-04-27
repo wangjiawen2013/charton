@@ -252,9 +252,7 @@ impl Chart<MarkErrorBar> {
             });
         }
     }
-}
 
-impl Chart<MarkErrorBar> {
     /// Maps a normalized aesthetic value to a concrete color using the scale's palette.
     fn resolve_color_from_value(
         &self,
