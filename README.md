@@ -48,8 +48,8 @@ Add to `Cargo.toml`:
 
 ```toml
 [dependencies]
-charton = "0.5"                                         # Standard (Parallel enabled)
-charton = { version = "0.5", default-features = false } # For WASM / Single-thread
+charton = "0.5"                                         # Standard (Single-threaded)
+charton = { version = "0.5", features = ["parallel"] }  # Multi-threaded processing
 charton = { version = "0.5", features = ["resvg"] }     # With PNG support
 charton = { version = "0.5", features = ["bridge"] }    # With Altair/Matplotlib interop
 ```
