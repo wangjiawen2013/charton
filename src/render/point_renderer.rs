@@ -171,6 +171,8 @@ impl MarkRenderer for Chart<MarkPoint> {
 }
 
 impl Chart<MarkPoint> {
+    #[allow(clippy::too_many_arguments)]
+    #[allow(clippy::type_complexity)]
     fn resolve_beeswarm_layout(
         &self,
         row_count: usize,
@@ -242,7 +244,7 @@ impl Chart<MarkPoint> {
 
             // Step 2: Symmetric Collision Resolution
             let cat_key = ((x_n * 1000.0) as usize, lane_id);
-            let siblings = occupancy.entry(cat_key).or_insert_with(Vec::new);
+            let siblings = occupancy.entry(cat_key).or_default();
 
             let mut best_displacement = 0.0;
             let max_shift = lane_px_width * 0.5;
@@ -307,9 +309,9 @@ impl Chart<MarkPoint> {
                 i,
                 final_px,
                 final_py,
-                &color_norms,
-                &size_norms,
-                &shape_norms,
+                color_norms,
+                size_norms,
+                shape_norms,
                 context,
                 mark_config,
             ));
@@ -318,6 +320,7 @@ impl Chart<MarkPoint> {
     }
 
     /// Helper to build the visual configuration for a single point element.
+    #[allow(clippy::too_many_arguments)]
     fn build_element_config(
         &self,
         i: usize,

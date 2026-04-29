@@ -383,7 +383,7 @@ impl ColumnVector {
         validity.as_ref().map(|_| {
             let num_rows = indices.len();
             // Initialize a new bitmask filled with zeros (all null by default)
-            let mut new_mask = vec![0u8; (num_rows + 7) / 8];
+            let mut new_mask = vec![0u8; num_rows.div_ceil(8)];
 
             for (new_idx, &old_idx) in indices.iter().enumerate() {
                 // Check original bit state using the existing bitwise logic
