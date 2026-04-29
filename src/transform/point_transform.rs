@@ -18,7 +18,7 @@ impl<T: Mark> Chart<T> {
     ///     * `sub_idx`: The zero-indexed slot position for the point's group.
     ///     * `groups_count`: The total number of groups at that X-position (used for width normalization).
     ///     * `swarm_local_idx`: A sequential counter for points sharing the same logic-space,
-    ///        serving as the processing order for Quadtree-based collision resolution.
+    ///      serving as the processing order for Quadtree-based collision resolution.
     pub(crate) fn transform_point_data(mut self) -> Result<Self, ChartonError> {
         // --- STEP 1: Pre-flight Validation ---
         let x_enc = self.encoding.x.as_ref().ok_or_else(|| {
