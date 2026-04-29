@@ -14,7 +14,7 @@
 # The Core Engine: Dataset
 - [The Dataset Struct](engine/dataset_core.md)             # 基础定义：内存布局、Arc 共享及列的增删改查 (CRUD)
 - [Data Ingestion & Polars](engine/ingestion.md)           # 数据来源：Polars 零拷贝转换与原生类型导入
-- [Compute & Transformation](engine/compute.md)            # 高级操作：GroupBy、Slice、Take 与下采样算法
+- [Compute & Transformation](engine/compute.md)            # 高级操作：GroupBy、Slice、Take 和下采样算法
 - [Validation & Integrity](engine/integrity.md)            # 数据质量：长度校验、空值 (NaN/Null) 处理策略
 
 # The Grammar of Graphics
