@@ -151,7 +151,9 @@ impl MarkRenderer for Chart<MarkBoxplot> {
 
                 // --- OUTLIER PARSING ---
                 let mut outlier_circles = Vec::new();
-                if let Some(raw_outliers) = outliers_col.get_str(i) {
+                if mark_config.show_outliers
+                    && let Some(raw_outliers) = outliers_col.get_str(i)
+                {
                     let clean = raw_outliers.trim_matches(|c| c == '[' || c == ']');
                     for val_str in clean.split(',').filter(|s| !s.trim().is_empty()) {
                         if let Ok(val) = val_str.trim().parse::<f64>() {
@@ -164,7 +166,7 @@ impl MarkRenderer for Chart<MarkBoxplot> {
                                 fill: mark_config.outlier_color,
                                 stroke: SingleColor::new("none"),
                                 stroke_width: 0.0,
-                                opacity: mark_config.opacity as Precision,
+                                opacity: mark_config.opacity as Precision, // fill opacity
                             });
                         }
                     }
@@ -179,7 +181,7 @@ impl MarkRenderer for Chart<MarkBoxplot> {
                         fill,
                         stroke: mark_config.stroke,
                         stroke_width: mark_config.stroke_width as Precision,
-                        opacity: mark_config.opacity as Precision,
+                        opacity: mark_config.opacity as Precision, // fill opacity
                     },
                     whisker_low: [p_min_x, p_min_y, p_q1_x, p_q1_y],
                     whisker_high: [p_max_x, p_max_y, p_q3_x, p_q3_y],
@@ -203,7 +205,7 @@ impl MarkRenderer for Chart<MarkBoxplot> {
                 y2: el.whisker_low[3] as Precision,
                 color: mark_config.stroke,
                 width: mark_config.stroke_width as Precision,
-                opacity: mark_config.opacity as Precision,
+                opacity: 1.0,
                 dash: vec![],
             });
             backend.draw_line(LineConfig {
@@ -213,7 +215,7 @@ impl MarkRenderer for Chart<MarkBoxplot> {
                 y2: el.whisker_high[3] as Precision,
                 color: mark_config.stroke,
                 width: mark_config.stroke_width as Precision,
-                opacity: mark_config.opacity as Precision,
+                opacity: 1.0,
                 dash: vec![],
             });
 
@@ -225,7 +227,7 @@ impl MarkRenderer for Chart<MarkBoxplot> {
                 y2: el.median_line[3] as Precision,
                 color: mark_config.stroke,
                 width: (mark_config.stroke_width * 2.0) as Precision,
-                opacity: mark_config.opacity as Precision,
+                opacity: 1.0,
                 dash: vec![],
             });
 

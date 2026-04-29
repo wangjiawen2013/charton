@@ -39,24 +39,15 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
     }
 
     // 2. Render the Chart
-    let beeswarm = chart!(categories, outcomes, treatments)?
+    chart!(categories, outcomes, treatments)?
         .mark_point()?
         .configure_point(|m| m.with_layout("beeswarm").with_size(2.5))
         .encode((
             alt::x("categories"),
             alt::y("outcomes"),
             alt::color("treatments"),
-        ))?;
-    
-    let boxplot = chart!(categories, outcomes, treatments)?
-        .mark_boxplot()?.configure_boxplot(|b| b.with_outliers(false).with_opacity(0.0).with_stroke_width(1.5))
-        .encode((
-            alt::x("categories"),
-            alt::y("outcomes"),
-            alt::color("treatments"),
-        ))?;
-    
-    beeswarm.and(boxplot).save("docs/src/images/beeswarm.svg")?;
+        ))?
+        .save("docs/src/images/beeswarm.svg")?;
 
     Ok(())
 }

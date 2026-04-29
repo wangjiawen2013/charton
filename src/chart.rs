@@ -343,6 +343,7 @@ impl<T: Mark> Chart<T> {
         self.resolve_pre_transform_encodings()?;
 
         match mark_type.as_str() {
+            "point" => self = self.transform_point_data()?,
             "boxplot" => self = self.transform_boxplot_data()?,
             "errorbar" if self.encoding.y2.is_none() => {
                 self = self.transform_errorbar_data()?;

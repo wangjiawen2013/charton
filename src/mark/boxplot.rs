@@ -14,6 +14,7 @@ pub struct MarkBoxplot {
     pub(crate) stroke_width: f64,
     pub(crate) outlier_color: SingleColor,
     pub(crate) outlier_size: f64,
+    pub(crate) show_outliers: bool,
     pub(crate) width: f64,
     pub(crate) spacing: f64,
     pub(crate) span: f64,
@@ -29,6 +30,7 @@ impl MarkBoxplot {
             stroke_width: 1.0,
             outlier_color: SingleColor::new("black"),
             outlier_size: 3.0,
+            show_outliers: true,
             // span = width + spacing
             width: 0.5,   // This means the width of all boxes in a position is 0.5
             spacing: 0.2, // Gap(spacing*width) between dodged box elements in a group. 0.0-0.5 usually gives a beautiful layout.
@@ -67,6 +69,12 @@ impl MarkBoxplot {
     /// Sets the color of the outlier points.
     pub fn with_outlier_color(mut self, color: impl Into<SingleColor>) -> Self {
         self.outlier_color = color.into();
+        self
+    }
+
+    /// Enables or disables the display of outlier points.
+    pub fn with_outliers(mut self, show: bool) -> Self {
+        self.show_outliers = show;
         self
     }
 

@@ -18,7 +18,7 @@ pub struct DiscreteScale {
     index_map: AHashMap<String, usize>,
 
     /// The expanded index boundaries: (min_idx, max_idx).
-    /// Typically (-0.6, N - 1 + 0.6) to provide breathing room for visual marks
+    /// Typically (-0.4, N - 1 + 0.4) to provide breathing room for visual marks
     /// like bars so they don't touch the axis edges.
     expanded_range: (f64, f64),
 
