@@ -38,7 +38,7 @@
         <td><img src="docs/src/images/simple_stacked_area.svg" alt="Simple Stacked Area" /><p align="center">Simple Stack Area</p></td>
         <td><img src="docs/src/images/normalized_stacked_area.svg" alt="Normalized Stacked Area" /><p align="center">Normalized Stacked Area</p></td>
         <td><img src="docs/src/images/steamgraph.svg" alt="Steamgraph" /><p align="center">Steamgraph</p></td>
-        <td><img src="docs/src/images/rule.svg" alt="Rule" /><p align="center">Rule</p></td>
+        <td><img src="docs/src/images/beeswarm.svg" alt="Beeswarm" /><p align="center">Beeswarm</p></td>
         <td><img src="docs/src/images/strip.svg" alt="Strip" /><p align="center">Strip</p></td>
     </tr>
 </table>
@@ -48,8 +48,8 @@ Add to `Cargo.toml`:
 
 ```toml
 [dependencies]
-charton = "0.5"                                         # Standard (Parallel enabled)
-charton = { version = "0.5", default-features = false } # For WASM / Single-thread
+charton = "0.5"                                         # Standard (Single-threaded)
+charton = { version = "0.5", features = ["parallel"] }  # Multi-threaded processing
 charton = { version = "0.5", features = ["resvg"] }     # With PNG support
 charton = { version = "0.5", features = ["bridge"] }    # With Altair/Matplotlib interop
 ```

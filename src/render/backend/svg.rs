@@ -128,7 +128,7 @@ impl<'a> RenderBackend for SvgBackend<'a> {
         let _ = write!(
             self.buffer,
             r#"" stroke-width="{:.3}" fill-opacity="{:.3}" stroke-opacity="{:.3}""#,
-            stroke_width, opacity, opacity
+            stroke_width, opacity, 1.0
         );
         self.write_clip_attr();
         let _ = self.buffer.write_str(" />\n");
