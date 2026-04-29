@@ -317,6 +317,87 @@ impl ColumnVector {
         self.get_str(row).unwrap_or_else(|| default.to_string())
     }
 
+    /// Creates a new ColumnVector containing only the specified rows.
+    ///
+    /// This preserves the original variant type and re-indexes the validity
+    /// bitmask to ensure null-state consistency after row reordering.
+    pub fn take(&self, indices: &[usize]) -> Self {
+        match self {
+            ColumnVector::F64 { data } => {
+                let new_data = indices.iter().map(|&i| data[i]).collect();
+                ColumnVector::F64 { data: new_data }
+            }
+            ColumnVector::F32 { data } => {
+                let new_data = indices.iter().map(|&i| data[i]).collect();
+                ColumnVector::F32 { data: new_data }
+            }
+            ColumnVector::I64 { data, validity } => {
+                let new_data = indices.iter().map(|&i| data[i]).collect();
+                let new_validity = self.take_validity(validity, indices);
+                ColumnVector::I64 {
+                    data: new_data,
+                    validity: new_validity,
+                }
+            }
+            ColumnVector::I32 { data, validity } => {
+                let new_data = indices.iter().map(|&i| data[i]).collect();
+                let new_validity = self.take_validity(validity, indices);
+                ColumnVector::I32 {
+                    data: new_data,
+                    validity: new_validity,
+                }
+            }
+            ColumnVector::U32 { data, validity } => {
+                let new_data = indices.iter().map(|&i| data[i]).collect();
+                let new_validity = self.take_validity(validity, indices);
+                ColumnVector::U32 {
+                    data: new_data,
+                    validity: new_validity,
+                }
+            }
+            ColumnVector::String { data, validity } => {
+                let new_data = indices.iter().map(|&i| data[i].clone()).collect();
+                let new_validity = self.take_validity(validity, indices);
+                ColumnVector::String {
+                    data: new_data,
+                    validity: new_validity,
+                }
+            }
+            ColumnVector::DateTime { data, validity } => {
+                let new_data = indices.iter().map(|&i| data[i]).collect();
+                let new_validity = self.take_validity(validity, indices);
+                ColumnVector::DateTime {
+                    data: new_data,
+                    validity: new_validity,
+                }
+            }
+        }
+    }
+
+    /// Re-indexes the packed bitmask (validity map) based on the provided row indices.
+    ///
+    /// It maps each new row position to its original bit-state. This is essential
+    /// for maintaining 'Null' integrity when rows are shuffled for layout
+    /// algorithms like Beeswarm or Sorting.
+    fn take_validity(&self, validity: &Option<Vec<u8>>, indices: &[usize]) -> Option<Vec<u8>> {
+        validity.as_ref().map(|_| {
+            let num_rows = indices.len();
+            // Initialize a new bitmask filled with zeros (all null by default)
+            let mut new_mask = vec![0u8; (num_rows + 7) / 8];
+
+            for (new_idx, &old_idx) in indices.iter().enumerate() {
+                // Check original bit state using the existing bitwise logic
+                if Self::is_valid_in_mask(validity, old_idx) {
+                    let byte_idx = new_idx / 8;
+                    let bit_idx = new_idx % 8;
+                    // Set the bit in the new packed u8 vector
+                    new_mask[byte_idx] |= 1 << bit_idx;
+                }
+            }
+            new_mask
+        })
+    }
+
     /// Returns the number of unique non-null values in the column.
     ///
     /// This implementation respects the specific null-representation of each
@@ -1601,6 +1682,42 @@ impl Dataset {
         }
 
         Ok(final_mask)
+    }
+
+    /// Performs a high-performance row selection and reordering across the entire dataset.
+    ///
+    /// This method ensures that all columns (X, Y, Color, etc.) are reordered
+    /// simultaneously, preserving the integrity of each data record. It returns
+    /// a ChartonError if any provided index is out of the valid range [0, height).
+    pub fn take_rows(&self, indices: &[usize]) -> Result<Self, ChartonError> {
+        let h = self.height();
+
+        // --- Boundary Check ---
+        // Validate all indices upfront to ensure the operation fails safely
+        // with an Error instead of a thread panic.
+        for &idx in indices {
+            if idx >= h {
+                return Err(ChartonError::Data(format!(
+                    "Index {} is out of bounds for Dataset with height {}",
+                    idx, h
+                )));
+            }
+        }
+
+        let mut new_ds = Dataset::new();
+
+        // Iterate through the schema to maintain original column mapping
+        for (name, &col_index) in &self.schema {
+            let old_col = &self.columns[col_index];
+
+            // Execute the take operation for each column vector
+            let new_col = old_col.take(indices);
+
+            // Register the reordered column in the new dataset
+            new_ds.add_column(name.clone(), new_col)?;
+        }
+
+        Ok(new_ds)
     }
 
     /// Partitions the dataset using aHash and Rayon (if enabled) for maximum throughput,

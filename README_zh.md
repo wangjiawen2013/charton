@@ -38,7 +38,7 @@
         <td><img src="docs/src/images/simple_stacked_area.svg" alt="Simple Stacked Area" /><p align="center">Simple Stack Area</p></td>
         <td><img src="docs/src/images/normalized_stacked_area.svg" alt="Normalized Stacked Area" /><p align="center">Normalized Stacked Area</p></td>
         <td><img src="docs/src/images/steamgraph.svg" alt="Steamgraph" /><p align="center">Steamgraph</p></td>
-        <td><img src="docs/src/images/rule.svg" alt="Rule" /><p align="center">Rule</p></td>
+        <td><img src="docs/src/images/beeswarm.svg" alt="Beeswarm" /><p align="center">Beeswarm</p></td>
         <td><img src="docs/src/images/strip.svg" alt="Strip" /><p align="center">Strip</p></td>
     </tr>
 </table>
@@ -48,8 +48,8 @@
 
 ```toml
 [dependencies]
-charton = "0.5"                                         # 标准版 (默认开启并行计算)
-charton = { version = "0.5", default-features = false } # 用于 WASM / 单线程环境
+charton = "0.5"                                         # 标准版 (单线程)
+charton = { version = "0.5", features = ["parallel"] }  # 多线程加速
 charton = { version = "0.5", features = ["resvg"] }     # 支持导出 PNG
 charton = { version = "0.5", features = ["bridge"] }    # 支持 Altair/Matplotlib 互操作
 ```
