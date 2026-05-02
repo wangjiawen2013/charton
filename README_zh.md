@@ -50,7 +50,7 @@
 [dependencies]
 charton = "0.5"                                         # 标准版 (单线程)
 charton = { version = "0.5", features = ["parallel"] }  # 多线程加速
-charton = { version = "0.5", features = ["resvg"] }     # 支持导出 PNG
+charton = { version = "0.5", features = ["png"] }     # 支持导出 PNG
 charton = { version = "0.5", features = ["bridge"] }    # 支持 Altair/Matplotlib 互操作
 ```
 
