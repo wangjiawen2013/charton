@@ -17,7 +17,7 @@ default = []
 parallel = ["dep:rayon"]
 
 # Enables exporting SVG to PDF format using the usvg rendering engine.
-pdf = ["dep:usvg", "dep:svg2pdf"]
+pdf = ["dep:svg2pdf"]
 
 # Enables exporting SVG to PNG format using the resvg rendering engine.
 png = ["dep:resvg"]
@@ -39,7 +39,6 @@ html-escape = "0.2"
 
 # --- Optional Dependencies ---
 rayon = { version = "1.11", optional = true }
-usvg = { version = "0.47", optional = true }
 svg2pdf = { version = "0.13", optional = true }
 resvg = { version = "0.47", optional = true }
 arrow = { version = "58.1", default-features = false, optional = true }
