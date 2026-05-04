@@ -138,10 +138,10 @@ Charton integrates with evcxr_jupyter for interactive data exploration. Replacin
 ![evcxr jupyter](assets/evcxr_jupyter.png)
 
 ## WebAssembly and Frontend
-Charton supports WebAssembly and modern web frontend; please refer to [Charton Docs](https://wangjiawen2013.github.io/charton) for details.
+Charton supports WebAssembly and modern web frontend; please refer to [Charton Docs](https://wangjiawen2013.github.io/charton) for details (*Skeleton only, work in progress*).
 
 ## Leveraging External Plotting Power
-Charton bridges Rust with mature visualization ecosystems like **Altair** and **Matplotlib** via a high-speed IPC, enabling users to leverage diverse, professional-grade plotting tools within a unified workflow. please refer to [Charton Docs](https://wangjiawen2013.github.io/charton) for details.
+Charton bridges Rust with mature visualization ecosystems like **Altair** and **Matplotlib** via a high-speed IPC, enabling users to leverage diverse, professional-grade plotting tools within a unified workflow. please refer to [Charton Docs](https://wangjiawen2013.github.io/charton) for details (*Skeleton only, work in progress*).
 
 ## True Layer Synchronization
 Stop fighting with fragile, hard-coded patches. Charton treats scaling as a **Single Source of Truth**, making it possible to combine heterogeneous data sources into one plot while maintaining total mathematical consistency across every mark and axis.
@@ -161,7 +161,7 @@ Designed for precision, Charton provides pixel-perfect control over complex mark
 *A reproduction of Figure 1A from the 2021 NEJM landmark study on once-weekly semaglutide for weight management, implemented using Charton.*
 
 ## Documentation
-Please go to the [Charton Docs](https://wangjiawen2013.github.io/charton) for full documentation.
+Please go to the [Charton Docs](https://wangjiawen2013.github.io/charton) for full documentation (*Skeleton only, work in progress*).
 
 ## License
 Charton is licensed under the **Apache License 2.0**.
