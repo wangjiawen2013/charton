@@ -19,14 +19,15 @@ parallel = ["dep:rayon"]
 # Enables exporting SVG to PDF format using the usvg rendering engine.
 pdf = ["dep:svg2pdf"]
 
-# Enables exporting SVG to PNG format using the resvg rendering engine.
-png = ["dep:resvg"]
+# Enables high-performance raster rendering (PNG, etc.)
+raster = ["dep:tiny-skia", "dep:ab-glyph"]
+png = ["raster"] # png is an alias of raster
 
 # Enables universal columnar data ingestion via the Apache Arrow standard.
 arrow = ["dep:arrow"]
 
 # Enables compatibility with visualization ecosystems (e.g., Matplotlib, Altair).
-bridge = ["dep:polars", "dep:serde", "dep:serde_json", "dep:base64", "dep:resvg"]
+bridge = ["dep:polars", "dep:serde", "dep:serde_json", "dep:base64"]
 
 [dependencies]
 # --- Core Dependencies ---
@@ -40,7 +41,8 @@ html-escape = "0.2"
 # --- Optional Dependencies ---
 rayon = { version = "1.11", optional = true }
 svg2pdf = { version = "0.13", optional = true }
-resvg = { version = "0.47", optional = true }
+tiny-skia = { version = "0.12", optional = true }
+ab-glyph = { version = "0.2", optional = true }
 arrow = { version = "58.1", default-features = false, optional = true }
 polars = { version = "0.53", default-features = false, features = ["lazy", "parquet", "ipc"], optional = true }
 serde = { version = "1.0", features = ["derive"], optional = true }
