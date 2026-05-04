@@ -11,7 +11,6 @@ use crate::scale::{
     Expansion, ExplicitTick, Scale, ScaleDomain, create_scale, mapper::VisualMapper,
 };
 use crate::theme::Theme;
-use html_escape::encode_safe;
 use std::fmt::Write;
 use std::sync::Arc;
 
@@ -591,7 +590,11 @@ impl LayeredChart {
     /// Instead, it dynamically calculates its vertical position to be centered within
     /// the space defined by `top_margin`. This ensures the title remains visually
     /// balanced even as the chart scales or if large margins are specified.
-    fn render_title(&self, svg: &mut String, panel: &Rect) -> Result<(), ChartonError> {
+    fn render_title<B: RenderBackend>(
+        &self,
+        backend: &mut B,
+        panel: &Rect,
+    ) -> Result<(), ChartonError> {
         // 1. Guard: Check if a title exists.
         let title_text = match &self.title {
             Some(t) => t,
@@ -603,35 +606,33 @@ impl LayeredChart {
         let center_x = self.width as f64 / 2.0;
 
         // 3. Vertical Positioning Logic:
-        // Instead of a hardcoded '25.0', we calculate the available vertical space
-        // above the plot panel (panel.y).
+        // We calculate the available vertical space above the plot panel (panel.y).
         // We place the text's baseline in the middle of this area.
         let title_area_height = panel.y;
         let font_size = self.theme.title_size;
 
         // Calculate the vertical midpoint.
         // Note: Using 'dominant-baseline="middle"' allows us to use the exact midpoint as the Y coordinate.
-        let center_y = title_area_height / 4.0;
+        let center_y = title_area_height / 3.0;
 
         // 4. Style Metadata Extraction:
         let font_family = &self.theme.title_family;
         let font_color = &self.theme.title_color;
 
-        // 5. SVG Generation:
-        // - x: Absolute horizontal center.
-        // - y: Midpoint of the top margin area.
-        // - text-anchor="middle": Centers the text horizontally.
-        // - dominant-baseline="middle": Centers the text vertically around the Y coordinate.
-        writeln!(
-            svg,
-            r#"<text x="{:.2}" y="{:.2}" text-anchor="middle" dominant-baseline="middle" font-family="{}" font-size="{}" fill="{}" font-weight="bold">{}</text>"#,
-            center_x,
-            center_y,
-            font_family,
-            font_size,
-            font_color.to_css_string(),
-            encode_safe(title_text)
-        )?;
+        // 5. Construct TextConfig and Draw
+        let config = TextConfig {
+            x: center_x as Precision,
+            y: center_y as Precision,
+            text: title_text.clone(),
+            font_size: font_size as Precision,
+            font_family: self.theme.title_family.clone(),
+            color: font_color.clone(),
+            text_anchor: "middle".to_string(),
+            font_weight: "bold".to_string(),
+            opacity: 1.0,
+        };
+
+        backend.draw_text(config);
 
         Ok(())
     }
@@ -640,7 +641,7 @@ impl LayeredChart {
     ///
     /// This implementation coordinates the final rendering pipeline with a clear separation
     /// between global specifications (ChartSpec) and local drawing environments (PanelContext).
-    pub fn render(&mut self, svg: &mut String) -> Result<(), ChartonError> {
+    pub fn render<B: Backend>(&mut self, backend: &mut B) -> Result<(), ChartonError> {
         // 0. Guard: Ensure there's something to render.
         if self.layers.is_empty() {
             return Ok(());
@@ -676,7 +677,7 @@ impl LayeredChart {
 
         // 4b. Render Chart Title.
         // Title is typically global to the entire chart canvas.
-        self.render_title(svg, &primary_panel_ctx.panel)?;
+        self.render_title(backend, &primary_panel_ctx.panel)?;
 
         // 4c. Render Axes (X and Y).
         // Only render axes if the theme allows and at least one layer requires them.
@@ -688,7 +689,7 @@ impl LayeredChart {
             let y_explicit = self.y_ticks.as_deref();
 
             primary_panel_ctx.coord.render_axes(
-                svg,
+                backend,
                 &self.theme,
                 &primary_panel_ctx.panel,
                 x_label,
@@ -699,19 +700,15 @@ impl LayeredChart {
         }
 
         // 4d. Render Marks (Data Geometries).
-        // We create a backend with a clipping region defined by the current panel.
-        let mut backend =
-            crate::render::backend::svg::SvgBackend::new(svg, Some(&primary_panel_ctx.panel));
-
         for layer in &self.layers {
             // Each layer renders its marks within the provided PanelContext.
-            layer.render_marks(&mut backend, &primary_panel_ctx)?;
+            layer.render_marks(backend, &primary_panel_ctx)?;
         }
 
         // 4e. Render Unified Legends & Guides.
         // Legends are rendered globally, using the ChartSpec for visual rules.
         crate::render::legend_renderer::LegendRenderer::render_legend(
-            svg,
+            backend,
             &guide_specs,
             &self.theme,
             &primary_panel_ctx,
@@ -720,70 +717,108 @@ impl LayeredChart {
         Ok(())
     }
 
-    /// Generates the complete SVG string for the chart.
+    /// Generates and returns the SVG representation of the chart.
     ///
-    /// This method serves as the core rendering entry point. To maintain the original
-    /// chart state (the "recipe") for potential multiple exports (e.g., saving as
-    /// both SVG and PNG), it performs the following:
-    /// 1. Creates a decoupled clone of itself.
-    /// 2. Executes the stateful "Training Phase" and drawing logic on the clone.
-    /// 3. Wraps the result in standard SVG XML headers and background elements.
+    /// This method renders the entire chart as an SVG string. It creates a mutable
+    /// clone of the chart to perform the stateful training phase (syncing scales
+    /// and aesthetics) without mutating the original chart instance.
     ///
     /// # Returns
-    /// A Result containing the full SVG markup string or a ChartonError.
-    fn generate_svg(&self) -> Result<String, ChartonError> {
+    /// A Result containing the complete SVG markup or a ChartonError.
+    pub fn to_svg(&self) -> Result<String, ChartonError> {
+        let mut chart_instance = self.clone();
         let mut svg_content = String::new();
 
         // 1. SVG Header & ViewBox Setup
-        // We define the width, height, and viewBox to ensure the chart scales
-        // correctly across different screen resolutions and aspect ratios.
+        // Define dimensions and coordinate system to ensure proper scaling.
         svg_content.push_str(&format!(
             r#"<svg width="{}" height="{}" viewBox="0 0 {} {}" xmlns="http://www.w3.org/2000/svg">"#,
             self.width, self.height, self.width, self.height
         ));
 
-        // 2. Background Layer
-        // The background color is now managed by the global theme.
-        // We render a full-size rectangle using the theme's background_color.
-        svg_content.push_str(&format!(
-            r#"<rect width="100%" height="100%" fill="{}" />"#,
-            self.theme.background_color.to_css_string()
-        ));
+        // 2. Localized Backend Scope
+        // We initialize the SvgBackend. The background is rendered through the
+        // backend interface to ensure consistency across different output formats.
+        {
+            let mut backend = crate::render::backend::svg::SvgBackend::new(&mut svg_content, None);
 
-        // 3. Local State Training & Rendering
-        // Because the rendering process (specifically the Sync/Back-fill phase)
-        // mutates internal scales and domains to ensure visual consistency,
-        // we operate on a mutable clone. This preserves 'self' for future calls.
-        let mut chart_instance = self.clone();
+            // Render Background
+            backend.draw_rect(RectConfig {
+                x: 0.0,
+                y: 0.0,
+                width: self.width as Precision,
+                height: self.height as Precision,
+                fill: Some(self.theme.background_color.clone()),
+                stroke: None,
+                stroke_width: 0.0,
+                opacity: 1.0,
+            });
 
-        // Pass the mutable reference of the clone to the rendering pipeline.
-        chart_instance.render(&mut svg_content)?;
+            // Orchestrate the full rendering pipeline
+            chart_instance.render(&mut backend)?;
+        }
 
-        // 4. Finalize SVG Document
-        // Close the root SVG tag to complete the XML structure.
+        // 3. Finalize SVG Document
         svg_content.push_str("</svg>");
 
         Ok(svg_content)
     }
 
-    /// Generates and returns the SVG representation of the chart.
+    /// Generates and returns a PNG representation of the chart as a byte vector.
     ///
-    /// This method renders the entire chart as an SVG (Scalable Vector Graphics) string,
-    /// including all layers, axes, labels, legends, and other visual elements. The
-    /// generated SVG can be embedded directly in HTML documents.
+    /// This method renders the entire chart into a pixel buffer using the `tiny-skia`
+    /// engine. It creates a mutable clone of the chart to perform the stateful
+    /// "Training Phase" (synchronizing scales and aesthetics) while preserving
+    /// the original chart as an immutable recipe.
     ///
     /// # Returns
-    /// A Result containing either:
-    /// - Ok(String) with the complete SVG markup of the chart
-    /// - Err(ChartonError) if there was an error during rendering
-    ///
-    /// # Example
-    /// ```rust,ignore
-    /// let svg_string = chart.to_svg()?;
-    /// std::fs::write("chart.svg", svg_string)?;
-    /// ```
-    pub fn to_svg(&self) -> Result<String, ChartonError> {
-        self.generate_svg()
+    /// A Result containing the PNG encoded bytes or a ChartonError.
+    pub fn to_png(&self) -> Result<Vec<u8>, ChartonError> {
+        // 1. Create a mutable clone for the stateful rendering phase.
+        // This ensures the training phase doesn't mutate the original chart instance.
+        let mut chart_instance = self.clone();
+
+        // 2. Initialize the Pixmap (pixel buffer).
+        // If dimensions are invalid or memory allocation fails, we return a descriptive Render error.
+        let mut pixmap =
+            tiny_skia::Pixmap::new(self.width as u32, self.height as u32).ok_or_else(|| {
+                ChartonError::Render(
+                    "Invalid chart dimensions or out of memory for Pixmap".to_string(),
+                )
+            })?;
+
+        // 3. Localized Backend Scope.
+        {
+            // Initialize the RasterBackend with a 1.0 DPI scale.
+            // The backend automatically retrieves the globally cached 'static font from utils.
+            let mut backend = crate::render::backend::raster::RasterBackend::new(&mut pixmap, 1.0);
+
+            // Render Background.
+            // We use the backend's draw_rect to ensure the background is the first
+            // layer in the drawing stack, matching SVG's 100% rect behavior.
+            backend.draw_rect(RectConfig {
+                x: 0.0,
+                y: 0.0,
+                width: self.width as Precision,
+                height: self.height as Precision,
+                fill: Some(self.theme.background_color.clone()),
+                stroke: None,
+                stroke_width: 0.0,
+                opacity: 1.0,
+            });
+
+            // Execute the unified rendering pipeline.
+            // This is the core logic shared between all export formats (SVG, PNG, etc.).
+            chart_instance.render(&mut backend)?;
+        }
+
+        // 4. Finalize PNG Document.
+        // Encode the raw pixel buffer into a standard PNG byte stream.
+        let png_bytes = pixmap
+            .encode_png()
+            .map_err(|e| ChartonError::Render(format!("Failed to encode PNG: {}", e)))?;
+
+        Ok(png_bytes)
     }
 
     /// Generate the chart and display in Jupyter
@@ -814,7 +849,7 @@ impl LayeredChart {
     /// chart.show()?; // Displays in Jupyter notebook
     /// ```
     pub fn show(&self) -> Result<(), ChartonError> {
-        let svg_content = self.generate_svg()?;
+        let svg_content = self.to_svg()?;
 
         // Check if we're in EVCXR Jupyter environment
         if std::env::var("EVCXR_IS_RUNTIME").is_ok() {
@@ -916,52 +951,17 @@ impl LayeredChart {
             Some("png") => {
                 #[cfg(feature = "png")]
                 {
-                    // Load system fonts
-                    let mut opts = resvg::usvg::Options::default();
+                    // Directly render to PNG bytes using the high-performance RasterBackend.
+                    let png_data = self.to_png()?;
 
-                    // 1. Create a new fontdb instead of cloning the default one
-                    let mut fontdb = resvg::usvg::fontdb::Database::new();
-
-                    // 2. Load system fonts (utilizing resources from various OS)
-                    fontdb.load_system_fonts();
-
-                    // 3. Load built-in "emergency" font to ensure display even in extreme environments
-                    let default_font_data = include_bytes!("../../assets/fonts/Inter-Regular.ttf");
-                    fontdb.load_font_data(default_font_data.to_vec());
-
-                    // 4. Set explicit family mappings (Fallback logic)
-                    // When users specify "sans-serif" but the system doesn't have mappings configured,
-                    // resvg will try this font as a fallback.
-                    fontdb.set_sans_serif_family("Inter");
-
-                    opts.fontdb = std::sync::Arc::new(fontdb);
-
-                    // Parse svg string
-                    let tree = resvg::usvg::Tree::from_str(&svg_content, &opts)
-                        .map_err(|e| ChartonError::Render(format!("SVG parsing error: {:?}", e)))?;
-
-                    // Scale the image size to higher resolution
-                    let pixmap_size = tree.size();
-                    let scale = 2.0;
-                    let width = (pixmap_size.width() * scale) as u32;
-                    let height = (pixmap_size.height() * scale) as u32;
-
-                    // Create pixmap
-                    let mut pixmap = resvg::tiny_skia::Pixmap::new(width, height)
-                        .ok_or(ChartonError::Render("Failed to create pixmap".into()))?;
-
-                    // Render and save
-                    let transform = resvg::tiny_skia::Transform::from_scale(scale, scale);
-                    resvg::render(&tree, transform, &mut pixmap.as_mut());
-                    pixmap
-                        .save_png(path_obj)
-                        .map_err(|e| ChartonError::Render(format!("PNG saving error: {:?}", e)))?;
+                    // Write the binary data directly to the file system.
+                    std::fs::write(path_obj, png_data).map_err(ChartonError::Io)?;
                 }
-
                 #[cfg(not(feature = "png"))]
                 {
                     return Err(ChartonError::Unimplemented(
-                        "PNG support is disabled. Please enable the 'png' feature".to_string(),
+                        "PNG support is disabled. Please enable the 'png' feature in Cargo.toml"
+                            .to_string(),
                     ));
                 }
             }

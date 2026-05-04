@@ -9,7 +9,7 @@ authors = ["Jiawen Wang <wangjiawen2013@163.com>"]
 
 [features]
 # Default features enabled for standard desktop builds.
-default = ["png2"]
+default = ["png"]
 
 # Enables multi-threaded data processing via Rayon for massive datasets.
 # NOTE: Disable this feature when targeting WebAssembly (Wasm) unless 
@@ -21,7 +21,7 @@ pdf = ["dep:svg2pdf"]
 
 # Enables high-performance raster rendering (PNG, etc.)
 raster = ["dep:tiny-skia", "dep:ab-glyph"]
-png2 = ["raster"] # png is an alias of raster
+png = ["raster"] # png is an alias of raster
 
 # Enables universal columnar data ingestion via the Apache Arrow standard.
 arrow = ["dep:arrow"]
