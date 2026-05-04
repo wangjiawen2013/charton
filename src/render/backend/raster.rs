@@ -1,8 +1,8 @@
 use crate::Precision;
 use crate::core::layer::{
-    CircleConfig, GradientRectConfig, LineConfig, PathConfig, PolygonConfig, RectConfig, TextConfig,
+    CircleConfig, GradientRectConfig, LineConfig, PathConfig, PolygonConfig, RectConfig,
+    RenderBackend, TextConfig,
 };
-use crate::render::backend::RenderBackend;
 use crate::visual::color::SingleColor;
 use ab_glyph::{Font, FontRef, Glyph, PxScale, ScaleFont};
 use tiny_skia::{
@@ -274,7 +274,7 @@ impl<'a> RenderBackend for RasterBackend<'a> {
     }
 
     fn draw_text(&mut self, config: TextConfig) {
-        // 1. Early exit if color is None or text is empty
+        // Early exit if color is None or text is empty
         if config.color.is_none() || config.text.is_empty() {
             return;
         }
@@ -282,17 +282,32 @@ impl<'a> RenderBackend for RasterBackend<'a> {
         let scale = PxScale::from(config.font_size);
         let scaled_font = self.font.as_scaled(scale);
 
-        // 2. Initial horizontal positioning based on text-anchor
+        // Initial horizontal positioning based on text-anchor
         let mut x = config.x;
-        let y = config.y;
+        let mut y = config.y; // Make mutable for dominant-baseline adjustment
 
+        // Horizontal alignment: matches SVG text-anchor
         match config.text_anchor.as_str() {
             "middle" => x -= self.get_precise_width(&config.text, scale) / 2.0,
             "end" => x -= self.get_precise_width(&config.text, scale),
-            _ => {} // "start" is the default, no offset needed
+            _ => {} // Default: start
         }
 
-        // 3. Setup Paint with opacity matching SVG fill-opacity
+        // Vertical alignment: matches SVG dominant-baseline
+        let ascent = scaled_font.ascent();
+        let descent = scaled_font.descent();
+        let text_height = ascent - descent;
+
+        match config.dominant_baseline.as_str() {
+            "hanging" => y += ascent,
+            "central" | "middle" => y += (text_height / 2.0) - descent,
+            _ => {} // Default: alphabetic
+        }
+
+        // Mark font_weight as used (matches SVG attribute)
+        let _ = config.font_weight;
+
+        // Setup paint with color and opacity
         let mut paint = Paint::default();
         if let Some(c) = self.to_skia_color(&config.color, config.opacity) {
             paint.set_color(c);
@@ -301,19 +316,22 @@ impl<'a> RenderBackend for RasterBackend<'a> {
             return;
         }
 
-        // 4. Iterate and render glyphs
+        // Rotation center: SAME AS SVG (original x, y)
+        let rot_x = config.x;
+        let rot_y = config.y;
+
+        // Render glyphs
         let mut last_glyph_id = None;
         for c in config.text.chars() {
             let glyph_id = self.font.glyph_id(c);
 
-            // Apply Kerning (font metrics)
+            // Apply kerning
             if let Some(last_id) = last_glyph_id {
                 x += self.font.kern(last_id, glyph_id) as Precision;
             }
 
-            // SVG 'y' is the baseline. We subtract 'ascent' to convert to tiny-skia's top-left system.
-            let glyph = glyph_id
-                .with_scale_and_position(scale, ab_glyph::point(x, y - scaled_font.ascent()));
+            // Create glyph at positioned coordinates
+            let glyph = glyph_id.with_scale_and_position(scale, ab_glyph::point(x, y - ascent));
 
             if let Some(outline) = self.font.outline_glyph(glyph) {
                 let mut pb = PathBuilder::new();
@@ -328,13 +346,22 @@ impl<'a> RenderBackend for RasterBackend<'a> {
                 });
 
                 if let Some(path) = pb.finish() {
-                    // SVG text usually doesn't have a stroke, just a fill
+                    // Rotation transform: EXACTLY SAME AS SVG rotate(angle x y)
+                    let mut transform = self.transform;
+                    if config.angle != 0.0 {
+                        transform = transform
+                            .pre_translate(rot_x, rot_y)
+                            .pre_rotate(config.angle.to_radians())
+                            .pre_translate(-rot_x, -rot_y);
+                    }
+
+                    // Draw path
                     self.pixmap
-                        .fill_path(&path, &paint, FillRule::Winding, self.transform, None);
+                        .fill_path(&path, &paint, FillRule::Winding, transform, None);
                 }
             }
 
-            // Move cursor forward
+            // Advance text cursor
             x += scaled_font.h_advance(glyph_id) as Precision;
             last_glyph_id = Some(glyph_id);
         }

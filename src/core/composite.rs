@@ -4,7 +4,7 @@ use crate::core::aesthetics::AestheticMapping;
 use crate::core::aesthetics::GlobalAesthetics;
 use crate::core::context::{ChartSpec, PanelContext};
 use crate::core::guide::GuideSpec;
-use crate::core::layer::Layer;
+use crate::core::layer::{Layer, RenderBackend};
 use crate::encode::Channel;
 use crate::error::ChartonError;
 use crate::scale::{
@@ -641,7 +641,7 @@ impl LayeredChart {
     ///
     /// This implementation coordinates the final rendering pipeline with a clear separation
     /// between global specifications (ChartSpec) and local drawing environments (PanelContext).
-    pub fn render<B: Backend>(&mut self, backend: &mut B) -> Result<(), ChartonError> {
+    pub fn render<B: RenderBackend>(&mut self, backend: &mut B) -> Result<(), ChartonError> {
         // 0. Guard: Ensure there's something to render.
         if self.layers.is_empty() {
             return Ok(());
