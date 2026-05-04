@@ -11,19 +11,22 @@ authors = ["Jiawen Wang <wangjiawen2013@163.com>"]
 # Default features enabled for standard desktop builds.
 default = []
 
-# Enables universal columnar data ingestion via the Apache Arrow standard.
-arrow = ["dep:arrow"]
-
-# Enables compatibility with visualization ecosystems (e.g., Matplotlib, Altair).
-bridge = ["dep:polars", "dep:serde", "dep:serde_json", "dep:base64", "dep:resvg"]
-
 # Enables multi-threaded data processing via Rayon for massive datasets.
 # NOTE: Disable this feature when targeting WebAssembly (Wasm) unless 
 # using a specialized thread-pool adapter like wasm-bindgen-rayon.
 parallel = ["dep:rayon"]
 
+# Enables exporting SVG to PDF format using the usvg rendering engine.
+pdf = ["dep:usvg", "dep:svg2pdf"]
+
 # Enables exporting SVG to PNG format using the resvg rendering engine.
 png = ["dep:resvg"]
+
+# Enables universal columnar data ingestion via the Apache Arrow standard.
+arrow = ["dep:arrow"]
+
+# Enables compatibility with visualization ecosystems (e.g., Matplotlib, Altair).
+bridge = ["dep:polars", "dep:serde", "dep:serde_json", "dep:base64", "dep:resvg"]
 
 [dependencies]
 # --- Core Dependencies ---
@@ -35,10 +38,12 @@ csscolorparser = "0.8"
 html-escape = "0.2"
 
 # --- Optional Dependencies ---
+rayon = { version = "1.11", optional = true }
+usvg = { version = "0.47", optional = true }
+svg2pdf = { version = "0.13", optional = true }
+resvg = { version = "0.47", optional = true }
 arrow = { version = "58.1", default-features = false, optional = true }
 polars = { version = "0.53", default-features = false, features = ["lazy", "parquet", "ipc"], optional = true }
 serde = { version = "1.0", features = ["derive"], optional = true }
 serde_json = { version = "1.0", optional = true }
 base64 = { version = "0.22", optional = true }
-rayon = { version = "1.11", optional = true }
-resvg = { version = "0.47", optional = true }
