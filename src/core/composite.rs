@@ -878,6 +878,41 @@ impl LayeredChart {
             Some("svg") => {
                 std::fs::write(path_obj, svg_content).map_err(ChartonError::Io)?;
             }
+            Some("pdf") => {
+                #[cfg(feature = "pdf")]
+                {
+                    // Initialize default SVG parsing and rendering options.
+                    let mut opts = svg2pdf::usvg::Options::default();
+
+                    // Assign the globally cached font database.
+                    opts.fontdb = crate::core::utils::get_font_db();
+
+                    // 1. Parse the SVG string into a usvg Tree.
+                    let tree = svg2pdf::usvg::Tree::from_str(&svg_content, &opts)
+                        .map_err(|e| ChartonError::Render(format!("SVG parsing error: {:?}", e)))?;
+
+                    // 2. Generate PDF bytes.
+                    // to_pdf is the preferred high-level API, allowing for specific
+                    // page and conversion settings. Default PageOptions will scale
+                    // the PDF page to match the SVG's viewBox/size.
+                    let pdf_data = svg2pdf::to_pdf(
+                        &tree,
+                        svg2pdf::ConversionOptions::default(),
+                        svg2pdf::PageOptions::default(),
+                    )
+                    .map_err(|e| ChartonError::Render(format!("PDF generation error: {:?}", e)))?;
+
+                    // 3. Save the binary PDF data to the file system.
+                    std::fs::write(path_obj, pdf_data).map_err(ChartonError::Io)?;
+                }
+
+                #[cfg(not(feature = "pdf"))]
+                {
+                    return Err(ChartonError::Unimplemented(
+                        "PDF support is disabled. Please enable the 'pdf' feature".to_string(),
+                    ));
+                }
+            }
             Some("png") => {
                 #[cfg(feature = "png")]
                 {
