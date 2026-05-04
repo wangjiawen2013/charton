@@ -254,36 +254,6 @@ impl Visualization for Plot<Altair> {
                 let svg_content = self.to_svg()?;
                 std::fs::write(path_obj, svg_content).map_err(ChartonError::Io)?;
             }
-            Some("png") => {
-                let svg_content = self.to_svg()?;
-
-                // Load system fonts
-                let mut opts = resvg::usvg::Options::default();
-                let mut fontdb = (*opts.fontdb).clone();
-                fontdb.load_system_fonts();
-                opts.fontdb = std::sync::Arc::new(fontdb);
-
-                // Parse svg string
-                let tree = resvg::usvg::Tree::from_str(&svg_content, &opts)
-                    .map_err(|e| ChartonError::Render(format!("SVG parsing error: {:?}", e)))?;
-
-                // Scale the image size to higher resolution
-                let pixmap_size = tree.size();
-                let scale = 2.0;
-                let width = (pixmap_size.width() * scale) as u32;
-                let height = (pixmap_size.height() * scale) as u32;
-
-                // Create pixmap
-                let mut pixmap = resvg::tiny_skia::Pixmap::new(width, height)
-                    .ok_or(ChartonError::Render("Failed to create pixmap".into()))?;
-
-                // Render and save
-                let transform = resvg::tiny_skia::Transform::from_scale(scale, scale);
-                resvg::render(&tree, transform, &mut pixmap.as_mut());
-                pixmap
-                    .save_png(path_obj)
-                    .map_err(|e| ChartonError::Render(format!("PNG saving error: {:?}", e)))?;
-            }
             Some("json") => {
                 let json_content = self.to_json()?;
                 std::fs::write(path_obj, json_content).map_err(ChartonError::Io)?;
