@@ -21,6 +21,48 @@ pub(crate) fn estimate_text_width(text: &str, font_size: f64) -> f64 {
         * font_size
 }
 
+// =============================== Font Database Utilities =====================================
+#[cfg(feature = "pdf")]
+use std::sync::{Arc, OnceLock};
+
+/// Global cache for the font database to avoid expensive system scans on every render.
+/// We use Arc to allow thread-safe sharing across multiple chart generation tasks.
+#[cfg(feature = "pdf")]
+static GLOBAL_FONT_DB: OnceLock<Arc<svg2pdf::usvg::fontdb::Database>> = OnceLock::new();
+
+/// Retrieves a shared instance of the font database.
+///
+/// The first call triggers a full system font scan and loads the embedded fallback fonts.
+/// Subsequent calls return a cloned reference to the cached database, reducing the
+/// font initialization overhead to nearly 0ms.
+#[cfg(feature = "pdf")]
+pub(crate) fn get_font_db() -> Arc<svg2pdf::usvg::fontdb::Database> {
+    GLOBAL_FONT_DB
+        .get_or_init(|| {
+            // Initialize the database using the usvg version re-exported by svg2pdf.
+            let mut fontdb = svg2pdf::usvg::fontdb::Database::new();
+
+            // 1. Scan the operating system's font directories.
+            // This is an expensive I/O operation, which is why we cache the result globally.
+            fontdb.load_system_fonts();
+
+            // 2. Load the built-in "emergency" font.
+            // This ensures consistent text rendering even in restricted environments
+            // like minimal Docker containers or CI runners where system fonts may be missing.
+            let default_font_data = include_bytes!("../../assets/fonts/Inter-Regular.ttf");
+            fontdb.load_font_data(default_font_data.to_vec());
+
+            // 3. Define the default fallback family for 'sans-serif' requests.
+            // When an SVG specifies "sans-serif" but no system mapping exists,
+            // the renderer will use the "Inter" font we just loaded.
+            fontdb.set_sans_serif_family("Inter");
+
+            Arc::new(fontdb)
+        })
+        .clone()
+}
+
+//=============================== Parallelization Utilities =====================================
 use ahash::AHashMap;
 #[cfg(feature = "parallel")]
 use rayon::prelude::*;
