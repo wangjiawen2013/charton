@@ -51,6 +51,7 @@ Add to `Cargo.toml`:
 charton = "0.5"                                         # Standard (Single-threaded)
 charton = { version = "0.5", features = ["parallel"] }  # Multi-threaded processing
 charton = { version = "0.5", features = ["png"] }       # With PNG support
+charton = { version = "0.5", features = ["pdf"] }       # With PDF support
 charton = { version = "0.5", features = ["bridge"] }    # With Altair/Matplotlib interop
 ```
 
