@@ -547,7 +547,6 @@ dependencies = [
  "svg2pdf",
  "thiserror",
  "time",
- "usvg 0.47.0",
 ]
 
 [[package]]
