@@ -56,9 +56,9 @@ impl Polar {
 }
 
 impl CoordinateTrait for Polar {
-    fn render_axes<B: RenderBackend>(
+    fn render_axes(
         &self,
-        backend: &mut B,
+        backend: &mut dyn RenderBackend,
         theme: &Theme,
         panel: &Rect,
         x_label: &str,

@@ -93,8 +93,10 @@ impl LegendRenderer {
                 font_family: font_family.clone(),
                 color: theme.title_color,
                 text_anchor: "start".to_string(),
+                dominant_baseline: "middle".into(),
                 font_weight: "bold".to_string(),
                 opacity: 1.0,
+                angle: 0.0,
             };
             backend.draw_text(text_config);
 
@@ -229,8 +231,10 @@ impl LegendRenderer {
                     font_family: font_family.clone(),
                     color: theme.legend_label_color,
                     text_anchor: "start".to_string(),
+                    dominant_baseline: "middle".into(),
                     font_weight: "normal".to_string(),
                     opacity: 1.0,
+                    angle: 0.0,
                 };
                 backend.draw_text(text_config);
 
@@ -302,8 +306,10 @@ impl LegendRenderer {
                 font_family: font_family.clone(),
                 color: theme.legend_label_color,
                 text_anchor: "start".to_string(),
+                dominant_baseline: "middle".into(),
                 font_weight: "normal".to_string(),
                 opacity: 1.0,
+                angle: 0.0,
             };
             backend.draw_text(text_config);
 
