@@ -1,6 +1,7 @@
 pub mod cartesian;
 pub mod polar;
 
+use crate::core::layer::RenderBackend;
 use crate::error::ChartonError;
 use crate::scale::{ExplicitTick, ScaleTrait};
 use crate::theme::Theme;
@@ -70,7 +71,7 @@ pub trait CoordinateTrait: Send + Sync {
     #[allow(clippy::too_many_arguments)]
     fn render_axes(
         &self,
-        svg: &mut String,
+        svg: &mut dyn RenderBackend,
         theme: &Theme,
         panel: &Rect,
         x_label: &str,

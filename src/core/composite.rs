@@ -1,17 +1,17 @@
+use crate::Precision;
 use crate::chart::Chart;
 use crate::coordinate::{CoordSystem, CoordinateTrait, Rect};
 use crate::core::aesthetics::AestheticMapping;
 use crate::core::aesthetics::GlobalAesthetics;
 use crate::core::context::{ChartSpec, PanelContext};
 use crate::core::guide::GuideSpec;
-use crate::core::layer::{Layer, RenderBackend};
+use crate::core::layer::{Layer, RectConfig, RenderBackend, TextConfig};
 use crate::encode::Channel;
 use crate::error::ChartonError;
 use crate::scale::{
     Expansion, ExplicitTick, Scale, ScaleDomain, create_scale, mapper::VisualMapper,
 };
 use crate::theme::Theme;
-use std::fmt::Write;
 use std::sync::Arc;
 
 /// A complete specification for a visual channel before the final Scale object is created.
@@ -625,11 +625,13 @@ impl LayeredChart {
             y: center_y as Precision,
             text: title_text.clone(),
             font_size: font_size as Precision,
-            font_family: self.theme.title_family.clone(),
+            font_family: font_family.clone(),
             color: font_color.clone(),
             text_anchor: "middle".to_string(),
+            dominant_baseline: "middle".into(),
             font_weight: "bold".to_string(),
             opacity: 1.0,
+            angle: 0.0,
         };
 
         backend.draw_text(config);
@@ -748,8 +750,8 @@ impl LayeredChart {
                 y: 0.0,
                 width: self.width as Precision,
                 height: self.height as Precision,
-                fill: Some(self.theme.background_color.clone()),
-                stroke: None,
+                fill: self.theme.background_color.clone(),
+                stroke: "none".into(),
                 stroke_width: 0.0,
                 opacity: 1.0,
             });
@@ -801,8 +803,8 @@ impl LayeredChart {
                 y: 0.0,
                 width: self.width as Precision,
                 height: self.height as Precision,
-                fill: Some(self.theme.background_color.clone()),
-                stroke: None,
+                fill: self.theme.background_color.clone(),
+                stroke: "none".into(),
                 stroke_width: 0.0,
                 opacity: 1.0,
             });
@@ -889,7 +891,7 @@ impl LayeredChart {
     /// chart.save("my_chart.svg")?; // Save as SVG file
     /// ```
     pub fn save<P: AsRef<std::path::Path>>(&self, path: P) -> Result<(), ChartonError> {
-        let svg_content = self.generate_svg()?;
+        let svg_content = self.to_svg()?;
 
         // Convert to Path for file operations
         let path_obj = path.as_ref();

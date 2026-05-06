@@ -24,6 +24,16 @@ pub struct PointElementConfig {
     pub opacity: f64,
 }
 
+pub struct CircleConfig {
+    pub x: Precision,
+    pub y: Precision,
+    pub radius: Precision,
+    pub fill: SingleColor,
+    pub stroke: SingleColor,
+    pub stroke_width: Precision,
+    pub opacity: Precision,
+}
+
 pub struct RectConfig {
     pub x: Precision,
     pub y: Precision,

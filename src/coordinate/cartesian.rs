@@ -1,7 +1,6 @@
 use super::{CoordLayout, CoordinateTrait, Rect};
 use crate::core::layer::RenderBackend;
 use crate::error::ChartonError;
-use crate::render::backend;
 use crate::scale::{ExplicitTick, ScaleTrait};
 use crate::theme::Theme;
 use crate::visual::color::SingleColor;
@@ -44,9 +43,9 @@ impl Cartesian2D {
 }
 
 impl CoordinateTrait for Cartesian2D {
-    fn render_axes<B: RenderBackend>(
+    fn render_axes(
         &self,
-        backend: &mut B,
+        backend: &mut dyn RenderBackend,
         theme: &Theme,
         panel: &Rect,
         x_label: &str,
