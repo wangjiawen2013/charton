@@ -4,7 +4,7 @@ use crate::core::layer::{
     RenderBackend, TextConfig,
 };
 use crate::visual::color::SingleColor;
-use ab_glyph::{Font, FontRef, Glyph, PxScale, ScaleFont};
+use ab_glyph::{Font, FontRef, PxScale, ScaleFont};
 use tiny_skia::{
     Color, FillRule, LineCap, LineJoin, Paint, PathBuilder, Pixmap, Rect as SkiaRect, Stroke,
     Transform,

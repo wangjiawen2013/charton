@@ -1,8 +1,9 @@
+use crate::Precision;
 use crate::coordinate::{CoordinateTrait, Rect, polar::Polar};
+use crate::core::layer::{CircleConfig, PathConfig, RenderBackend, TextConfig};
 use crate::error::ChartonError;
 use crate::scale::ExplicitTick;
 use crate::theme::Theme;
-use std::fmt::Write;
 
 /// Renders the polar coordinate system axes (Radial and Angular).
 ///
@@ -12,7 +13,7 @@ use std::fmt::Write;
 /// 3. Padding: Added theme-based padding to prevent text from touching the outer ring.
 #[allow(clippy::too_many_arguments)]
 pub fn render_polar_axes(
-    svg: &mut String,
+    backend: &mut dyn RenderBackend,
     theme: &Theme,
     panel: &Rect,
     coord: &Polar,
@@ -24,44 +25,42 @@ pub fn render_polar_axes(
     let x_scale = coord.get_x_scale();
     let y_scale = coord.get_y_scale();
 
-    // Geometric constants for polar-to-cartesian projection
+    // Calculate geometric center and maximum radius of the polar chart
     let center_x = panel.x + panel.width / 2.0;
     let center_y = panel.y + panel.height / 2.0;
     let max_r = panel.width.min(panel.height) / 2.0;
 
-    // --- 1. RADIAL AXIS (Y-Axis) ---
-    // We draw the outer boundary and a single label for the maximum value.
+    // --- SECTION 1: RADIAL AXIS (Y-Axis / Circles) ---
 
-    // Draw the boundary circle (The 100% or Max limit line)
-    writeln!(
-        svg,
-        r#"<circle cx="{:.2}" cy="{:.2}" r="{:.2}" fill="none" stroke="{}" stroke-width="{:.2}" opacity="0.5"/>"#,
-        center_x,
-        center_y,
-        max_r,
-        theme.grid_color.to_css_string(),
-        theme.grid_width
-    )?;
+    // Draw the outermost boundary circle
+    backend.draw_circle(CircleConfig {
+        x: center_x as Precision,
+        y: center_y as Precision,
+        radius: max_r as Precision,
+        fill: "none".into(),
+        stroke: theme.grid_color.clone(),
+        stroke_width: theme.grid_width as Precision,
+        opacity: 0.5,
+    });
 
-    // Fetch and format the Maximum Value using the Scale's internal formatter
+    // Determine the maximum value for the radial label
     let y_domain = y_scale.domain();
     let max_val = y_domain.1;
 
-    // In a Pie Chart, x_scale domain is typically empty and the sum at the edge is redundant.
+    // Skip redundant labels if it's a Pie chart (indicated by empty x_label)
     let is_pie = x_label.is_empty();
-
     let y_ticks = crate::scale::format_ticks(&[max_val]);
     let max_label = y_ticks.first().map(|t| t.label.as_str()).unwrap_or("");
 
     if !is_pie && !max_label.is_empty() {
-        // Apply padding so the label floats just outside the max radius
+        // Place the label slightly outside the max radius using theme padding
         let label_r = max_r + theme.tick_label_padding + 2.0;
         let theta_start = coord.start_angle;
 
         let tx = center_x + label_r * theta_start.cos();
         let ty = center_y + label_r * theta_start.sin();
 
-        // Quadrant-based alignment logic (Synchronized with X-axis logic below)
+        // Quadrant-aware logic: determines alignment based on the label's angle
         let cos_s = theta_start.cos();
         let sin_s = theta_start.sin();
 
@@ -73,29 +72,31 @@ pub fn render_polar_axes(
             "middle"
         };
         let baseline = if sin_s > 0.5 {
-            "hanging" // Bottom: Text hangs below the point
+            "hanging"
         } else if sin_s < -0.5 {
-            "auto" // Top: Text stands above the point
+            "auto"
         } else {
-            "middle" // Sides: Vertically centered
+            "middle"
         };
 
-        writeln!(
-            svg,
-            r#"<text x="{:.2}" y="{:.2}" font-size="{}" font-family="{}" fill="{}" text-anchor="{}" dominant-baseline="{}" opacity="0.9">{}</text>"#,
-            tx,
-            ty,
-            theme.tick_label_size - 1.0,
-            theme.tick_label_family,
-            theme.tick_label_color.to_css_string(),
-            anchor,
-            baseline,
-            max_label
-        )?;
+        backend.draw_text(TextConfig {
+            x: tx as Precision,
+            y: ty as Precision,
+            text: max_label.to_string(),
+            font_size: (theme.tick_label_size - 1.0) as Precision,
+            font_family: theme.tick_label_family.clone(),
+            color: theme.tick_label_color.clone(),
+            text_anchor: anchor.to_string(),
+            dominant_baseline: baseline.to_string(),
+            font_weight: "normal".to_string(),
+            opacity: 0.9,
+            angle: 0.0, // Keep text horizontal for readability
+        });
     }
 
-    // --- 2. ANGULAR AXIS (X-Axis) ---
-    // Renders radial grid lines and circumferential category/value labels.
+    // --- SECTION 2: ANGULAR AXIS (X-Axis / Spokes) ---
+
+    // Generate ticks for the circumference based on the total perimeter
     let x_ticks =
         x_scale.suggest_ticks(theme.suggest_tick_count(2.0 * std::f64::consts::PI * max_r));
 
@@ -103,25 +104,25 @@ pub fn render_polar_axes(
         let x_n = x_scale.normalize(tick.value);
         let theta = coord.start_angle + x_n * (coord.end_angle - coord.start_angle);
 
-        // Calculate grid line endpoints
+        // Project radial line coordinates from inner_radius to max_radius
         let x1 = center_x + (coord.inner_radius * max_r) * theta.cos();
         let y1 = center_y + (coord.inner_radius * max_r) * theta.sin();
         let x2 = center_x + max_r * theta.cos();
         let y2 = center_y + max_r * theta.sin();
 
-        // Radial Spokes (Grid lines separating sectors)
-        writeln!(
-            svg,
-            r#"<line x1="{:.2}" y1="{:.2}" x2="{:.2}" y2="{:.2}" stroke="{}" stroke-width="{:.2}" opacity="0.5"/>"#,
-            x1,
-            y1,
-            x2,
-            y2,
-            theme.grid_color.to_css_string(),
-            theme.grid_width
-        )?;
+        // Draw radial grid lines (spokes) separating different categories/sectors
+        backend.draw_path(PathConfig {
+            points: vec![
+                (x1 as Precision, y1 as Precision),
+                (x2 as Precision, y2 as Precision),
+            ],
+            stroke: theme.grid_color.clone(),
+            stroke_width: theme.grid_width as Precision,
+            opacity: 0.5,
+            dash: vec![], // Solid line
+        });
 
-        // Circumference labels with "Smart Positioning"
+        // Calculate label coordinates with padding
         let label_r = max_r + theme.tick_label_padding + 2.0;
         let lx = center_x + label_r * theta.cos();
         let ly = center_y + label_r * theta.sin();
@@ -129,7 +130,8 @@ pub fn render_polar_axes(
         let cos_t = theta.cos();
         let sin_t = theta.sin();
 
-        // Horizontal Anchoring: Decides if text grows left, right, or center
+        // Resolve text anchoring: ensures text "grows" away from the circle center
+        // to prevent overlapping with grid lines.
         let anchor = if cos_t > 0.1 {
             "start"
         } else if cos_t < -0.1 {
@@ -137,31 +139,30 @@ pub fn render_polar_axes(
         } else {
             "middle"
         };
-
-        // Vertical Alignment: Prevents text from overlapping the circular boundary
         let baseline = if sin_t > 0.5 {
-            "hanging" // Bottom labels
+            "hanging"
         } else if sin_t < -0.5 {
-            "auto" // Top labels
+            "auto"
         } else {
-            "middle" // Side labels
+            "middle"
         };
 
-        writeln!(
-            svg,
-            r#"<text x="{:.2}" y="{:.2}" font-size="{}" font-family="{}" fill="{}" text-anchor="{}" dominant-baseline="{}">{}</text>"#,
-            lx,
-            ly,
-            theme.tick_label_size,
-            theme.tick_label_family,
-            theme.tick_label_color.to_css_string(),
-            anchor,
-            baseline,
-            tick.label
-        )?;
+        backend.draw_text(TextConfig {
+            x: lx as Precision,
+            y: ly as Precision,
+            text: tick.label.clone(),
+            font_size: theme.tick_label_size as Precision,
+            font_family: theme.tick_label_family.clone(),
+            color: theme.tick_label_color.clone(),
+            text_anchor: anchor.to_string(),
+            dominant_baseline: baseline.to_string(),
+            font_weight: "normal".to_string(),
+            opacity: 1.0,
+            angle: 0.0,
+        });
     }
 
-    // Explicitly ignore labels to satisfy compiler if unused
+    // Silence unused parameter warnings for future label implementations
     let _ = (x_label, y_label);
 
     Ok(())
