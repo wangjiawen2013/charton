@@ -329,38 +329,60 @@ impl<'a> RenderBackend for RasterBackend<'a> {
                 x += scaled_font.kern(last_id, glyph_id) as Precision;
             }
 
-            // Create glyph at positioned coordinates
-            let glyph = glyph_id.with_scale_and_position(scale, ab_glyph::point(x, y - ascent));
+            // 1. Get the raw, unscaled outline for the glyph ID
+            if let Some(outline) = font.outline(glyph_id) {
+                let mut pb = PathBuilder::new();
 
-            // if let Some(outline) = font.outline_glyph(glyph) {
-            //     let mut pb = PathBuilder::new();
-            //     outline.draw(|event| match event {
-            //         ab_glyph::OutlineEvent::MoveTo(p) => pb.move_to(p.x, p.y),
-            //         ab_glyph::OutlineEvent::LineTo(p) => pb.line_to(p.x, p.y),
-            //         ab_glyph::OutlineEvent::QuadTo(p1, p) => pb.quad_to(p1.x, p1.y, p.x, p.y),
-            //         ab_glyph::OutlineEvent::CurveTo(p1, p2, p) => {
-            //             pb.cubic_to(p1.x, p1.y, p2.x, p2.y, p.x, p.y)
-            //         }
-            //         ab_glyph::OutlineEvent::Close => pb.close(),
-            //     });
+                // 2. Iterate through raw curves and build a tiny-skia Path
+                for curve in outline.curves {
+                    match curve {
+                        ab_glyph::OutlineCurve::Line(p1, p2) => {
+                            pb.move_to(p1.x, p1.y);
+                            pb.line_to(p2.x, p2.y);
+                        }
+                        ab_glyph::OutlineCurve::Quad(p1, p2, p3) => {
+                            pb.move_to(p1.x, p1.y);
+                            pb.quad_to(p2.x, p2.y, p3.x, p3.y);
+                        }
+                        ab_glyph::OutlineCurve::Cubic(p1, p2, p3, p4) => {
+                            pb.move_to(p1.x, p1.y);
+                            pb.cubic_to(p2.x, p2.y, p3.x, p3.y, p4.x, p4.y);
+                        }
+                    }
+                }
 
-            //     if let Some(path) = pb.finish() {
-            //         // Rotation transform: EXACTLY SAME AS SVG rotate(angle x y)
-            //         let mut transform = self.transform;
-            //         if config.angle != 0.0 {
-            //             transform = transform
-            //                 .pre_translate(rot_x, rot_y)
-            //                 .pre_rotate(config.angle.to_radians())
-            //                 .pre_translate(-rot_x, -rot_y);
-            //         }
+                if let Some(path) = pb.finish() {
+                    let mut transform = self.transform;
 
-            //         // Draw path
-            //         self.pixmap
-            //             .fill_path(&path, &paint, FillRule::Winding, transform, None);
-            //     }
-            // }
+                    // 3. Apply rotation around the specified rotation point (SVG-style)
+                    if config.angle != 0.0 {
+                        transform = transform
+                            .pre_translate(rot_x as f32, rot_y as f32)
+                            .pre_rotate(config.angle as f32)
+                            .pre_translate(-(rot_x as f32), -(rot_y as f32));
+                    }
 
-            // Advance text cursor
+                    // 4. Final positioning and scaling:
+                    // - Move to the text cursor (x, y)
+                    // - Adjust for font baseline (minus ascent)
+                    // - Scale the raw font units to the desired pixel size
+                    transform = transform.pre_translate(x as f32, y as f32);
+                    let font_scale = config.font_size as f32;
+                    transform = transform.pre_scale(font_scale, -font_scale);
+
+                    // 5. Render the vector path to the pixmap
+                    self.pixmap.fill_path(
+                        &path,
+                        &paint,
+                        tiny_skia::FillRule::Winding,
+                        transform,
+                        None,
+                    );
+                    println!("Drawing glyph at x: {}, y: {}, path bounds: {:?}", x, y, path.compute_tight_bounds());
+                }
+            }
+
+            // Update the horizontal cursor position for the next character
             x += scaled_font.h_advance(glyph_id) as Precision;
             last_glyph_id = Some(glyph_id);
         }
