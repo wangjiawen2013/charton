@@ -4,7 +4,7 @@ use crate::core::layer::{
     RenderBackend, TextConfig,
 };
 use crate::visual::color::SingleColor;
-use ab_glyph::{Font, FontRef, PxScale, ScaleFont};
+use ab_glyph::{Font, FontArc, PxScale, ScaleFont};
 use tiny_skia::{
     Color, FillRule, LineCap, LineJoin, Paint, PathBuilder, Pixmap, Rect as SkiaRect, Stroke,
     Transform,
@@ -20,8 +20,6 @@ pub struct RasterBackend<'a> {
     pub pixmap: &'a mut Pixmap,
     /// Global transformation matrix, typically used for DPI scaling.
     pub transform: Transform,
-    /// Reference to a globally cached font to avoid redundant parsing.
-    font: &'static FontRef<'static>,
 }
 
 impl<'a> RasterBackend<'a> {
@@ -34,8 +32,6 @@ impl<'a> RasterBackend<'a> {
         Self {
             pixmap,
             transform: Transform::from_scale(scale, scale),
-            // Access the global font instance cached in utils.
-            font: crate::core::utils::get_raster_font(),
         }
     }
 
@@ -48,20 +44,19 @@ impl<'a> RasterBackend<'a> {
         }
 
         let rgba = color.rgba();
-        Color::from_rgba(rgba[0], rgba[1], rgba[2], (rgba[3] * opacity))
+        Color::from_rgba(rgba[0], rgba[1], rgba[2], rgba[3] * opacity)
     }
 
     /// Calculates the precise width of a text string using font metrics.
-    /// Essential for horizontal alignment (middle/end anchors).
-    fn get_precise_width(&self, text: &str, scale: PxScale) -> Precision {
-        let scaled_font = self.font.as_scaled(scale);
+    fn get_precise_width(&self, text: &str, scale: PxScale, font: &FontArc) -> Precision {
+        let scaled_font = font.as_scaled(scale);
         let mut width: Precision = 0.0;
         let mut last_glyph_id = None;
 
         for c in text.chars() {
-            let glyph_id = self.font.glyph_id(c);
+            let glyph_id = font.glyph_id(c);
             if let Some(last_id) = last_glyph_id {
-                width += self.font.kern(last_id, glyph_id) as Precision;
+                width += scaled_font.kern(last_id, glyph_id) as Precision;
             }
             width += scaled_font.h_advance(glyph_id) as Precision;
             last_glyph_id = Some(glyph_id);
@@ -137,7 +132,7 @@ impl<'a> RenderBackend for RasterBackend<'a> {
                 // 2. Handle dash array for dashed lines (e.g., grid lines)
                 if !config.dash.is_empty() {
                     // Use the existing dash Vec directly
-                    stroke.dash = tiny_skia::Dash::new(config.dash, 0.0);
+                    stroke.dash = tiny_skia::StrokeDash::new(config.dash, 0.0);
                 }
 
                 self.pixmap
@@ -176,10 +171,9 @@ impl<'a> RenderBackend for RasterBackend<'a> {
                 };
 
                 // Stroke requires converting the rect to a path
-                if let Some(path) = PathBuilder::from_rect(rect) {
-                    self.pixmap
-                        .stroke_path(&path, &paint, &stroke, self.transform, None);
-                }
+                let path = PathBuilder::from_rect(rect);
+                self.pixmap
+                    .stroke_path(&path, &paint, &stroke, self.transform, None);
             }
         }
     }
@@ -217,7 +211,7 @@ impl<'a> RenderBackend for RasterBackend<'a> {
 
                 // 4. Handle Dash Array
                 if !config.dash.is_empty() {
-                    stroke.dash = tiny_skia::Dash::new(config.dash, 0.0);
+                    stroke.dash = tiny_skia::StrokeDash::new(config.dash, 0.0);
                 }
 
                 self.pixmap
@@ -279,17 +273,22 @@ impl<'a> RenderBackend for RasterBackend<'a> {
             return;
         }
 
+        // Dynamically resolve the font based on the config's font_family
+        // If font_family is empty or not found, get_raster_font will fallback to Inter/sans-serif
+        let font = crate::core::utils::get_raster_font(&config.font_family);
+
         let scale = PxScale::from(config.font_size);
-        let scaled_font = self.font.as_scaled(scale);
+        let scaled_font = font.as_scaled(scale);
 
         // Initial horizontal positioning based on text-anchor
         let mut x = config.x;
         let mut y = config.y; // Make mutable for dominant-baseline adjustment
 
         // Horizontal alignment: matches SVG text-anchor
+        let width = self.get_precise_width(&config.text, scale, &font);
         match config.text_anchor.as_str() {
-            "middle" => x -= self.get_precise_width(&config.text, scale) / 2.0,
-            "end" => x -= self.get_precise_width(&config.text, scale),
+            "middle" => x -= width / 2.0,
+            "end" => x -= width,
             _ => {} // Default: start
         }
 
@@ -323,43 +322,43 @@ impl<'a> RenderBackend for RasterBackend<'a> {
         // Render glyphs
         let mut last_glyph_id = None;
         for c in config.text.chars() {
-            let glyph_id = self.font.glyph_id(c);
+            let glyph_id = font.glyph_id(c);
 
             // Apply kerning
             if let Some(last_id) = last_glyph_id {
-                x += self.font.kern(last_id, glyph_id) as Precision;
+                x += scaled_font.kern(last_id, glyph_id) as Precision;
             }
 
             // Create glyph at positioned coordinates
             let glyph = glyph_id.with_scale_and_position(scale, ab_glyph::point(x, y - ascent));
 
-            if let Some(outline) = self.font.outline_glyph(glyph) {
-                let mut pb = PathBuilder::new();
-                outline.draw(|event| match event {
-                    ab_glyph::OutlineEvent::MoveTo(p) => pb.move_to(p.x, p.y),
-                    ab_glyph::OutlineEvent::LineTo(p) => pb.line_to(p.x, p.y),
-                    ab_glyph::OutlineEvent::QuadTo(p1, p) => pb.quad_to(p1.x, p1.y, p.x, p.y),
-                    ab_glyph::OutlineEvent::CurveTo(p1, p2, p) => {
-                        pb.cubic_to(p1.x, p1.y, p2.x, p2.y, p.x, p.y)
-                    }
-                    ab_glyph::OutlineEvent::Close => pb.close(),
-                });
+            // if let Some(outline) = font.outline_glyph(glyph) {
+            //     let mut pb = PathBuilder::new();
+            //     outline.draw(|event| match event {
+            //         ab_glyph::OutlineEvent::MoveTo(p) => pb.move_to(p.x, p.y),
+            //         ab_glyph::OutlineEvent::LineTo(p) => pb.line_to(p.x, p.y),
+            //         ab_glyph::OutlineEvent::QuadTo(p1, p) => pb.quad_to(p1.x, p1.y, p.x, p.y),
+            //         ab_glyph::OutlineEvent::CurveTo(p1, p2, p) => {
+            //             pb.cubic_to(p1.x, p1.y, p2.x, p2.y, p.x, p.y)
+            //         }
+            //         ab_glyph::OutlineEvent::Close => pb.close(),
+            //     });
 
-                if let Some(path) = pb.finish() {
-                    // Rotation transform: EXACTLY SAME AS SVG rotate(angle x y)
-                    let mut transform = self.transform;
-                    if config.angle != 0.0 {
-                        transform = transform
-                            .pre_translate(rot_x, rot_y)
-                            .pre_rotate(config.angle.to_radians())
-                            .pre_translate(-rot_x, -rot_y);
-                    }
+            //     if let Some(path) = pb.finish() {
+            //         // Rotation transform: EXACTLY SAME AS SVG rotate(angle x y)
+            //         let mut transform = self.transform;
+            //         if config.angle != 0.0 {
+            //             transform = transform
+            //                 .pre_translate(rot_x, rot_y)
+            //                 .pre_rotate(config.angle.to_radians())
+            //                 .pre_translate(-rot_x, -rot_y);
+            //         }
 
-                    // Draw path
-                    self.pixmap
-                        .fill_path(&path, &paint, FillRule::Winding, transform, None);
-                }
-            }
+            //         // Draw path
+            //         self.pixmap
+            //             .fill_path(&path, &paint, FillRule::Winding, transform, None);
+            //     }
+            // }
 
             // Advance text cursor
             x += scaled_font.h_advance(glyph_id) as Precision;
@@ -406,13 +405,15 @@ impl<'a> RenderBackend for RasterBackend<'a> {
             };
 
             // 3. Set Shader
-            paint.shader = tiny_skia::LinearGradient::new(
+            if let Some(shader) = tiny_skia::LinearGradient::new(
                 start,
                 end,
                 skia_stops,
                 tiny_skia::SpreadMode::Pad, // Matches SVG default
                 self.transform,             // Apply current global transform
-            );
+            ) {
+                paint.shader = shader;
+            }
 
             // 4. Draw
             self.pixmap.fill_rect(rect, &paint, self.transform, None);

@@ -1,3 +1,5 @@
+use ahash::AHashMap;
+
 /// Estimates text width using character categorization.
 pub(crate) fn estimate_text_width(text: &str, font_size: f64) -> f64 {
     let mut narrow_chars = 0;
@@ -62,8 +64,151 @@ pub(crate) fn get_font_db() -> Arc<svg2pdf::usvg::fontdb::Database> {
         .clone()
 }
 
+// =============================== Raster Font Utilities (PNG) =====================================
+#[cfg(feature = "png")]
+use ab_glyph::FontArc;
+#[cfg(feature = "png")]
+use std::sync::{OnceLock, RwLock};
+
+/// Global cache for raster fonts.
+/// Maps lowercase font family names to FontArc instances.
+#[cfg(feature = "png")]
+static RASTER_FONT_REGISTRY: OnceLock<RwLock<AHashMap<String, FontArc>>> = OnceLock::new();
+
+/// Global cache for the system font database.
+/// This allows us to search for system fonts by name without rescanning the OS directories every time.
+#[cfg(feature = "png")]
+static SYSTEM_FONT_DB: OnceLock<fontdb::Database> = OnceLock::new();
+
+/// Retrieves or initializes the global system font database.
+/// This performs an expensive I/O operation (scanning OS font dirs) only once.
+#[cfg(feature = "png")]
+fn get_system_font_db() -> &'static fontdb::Database {
+    SYSTEM_FONT_DB.get_or_init(|| {
+        let mut db = fontdb::Database::new();
+        // Load all available system fonts
+        db.load_system_fonts();
+        db
+    })
+}
+
+/// Initializes the font registry with the default embedded font (Inter).
+#[cfg(feature = "png")]
+fn get_raster_registry() -> &'static RwLock<AHashMap<String, FontArc>> {
+    RASTER_FONT_REGISTRY.get_or_init(|| {
+        let mut map = AHashMap::new();
+
+        // Load default fallback font (Inter) from embedded assets
+        let default_font_data = include_bytes!("../../assets/fonts/Inter-Regular.ttf");
+        if let Ok(font) = FontArc::try_from_slice(default_font_data) {
+            // Register as "inter" for explicit requests
+            map.insert("inter".to_string(), font.clone());
+            // Register as "sans-serif" for generic fallbacks
+            map.insert("sans-serif".to_string(), font);
+        } else {
+            eprintln!("Warning: Failed to load default Inter font for raster rendering.");
+        }
+
+        RwLock::new(map)
+    })
+}
+
+/// Retrieves a raster font by family name.
+///
+/// Logic:
+/// 1. Check if the font is already loaded in our local cache.
+/// 2. If not, search the System Font Database for the family name.
+/// 3. If found in system, load it into memory, cache it, and return it.
+/// 4. If not found in system, fallback to "sans-serif" (Inter).
+///
+/// # Arguments
+/// * `family` - The font family name (e.g., "Arial", "Times New Roman", "Inter"). Case-insensitive.
+#[cfg(feature = "png")]
+pub(crate) fn get_raster_font(family: &str) -> FontArc {
+    let registry = get_raster_registry();
+
+    // 1. Fast path: Check if already loaded in our local cache
+    {
+        let map = registry.read().expect("Failed to read font registry");
+        if let Some(font) = map.get(&family.to_lowercase()) {
+            return font.clone();
+        }
+    }
+
+    // 2. Slow path: Search system fonts and load if found
+    // We need a write lock to insert the newly loaded font into the cache
+    let mut map = registry.write().expect("Failed to write to font registry");
+
+    // Double-check after acquiring write lock (another thread might have loaded it)
+    if let Some(font) = map.get(&family.to_lowercase()) {
+        return font.clone();
+    }
+
+    // Search in the global system font database
+    let sys_db = get_system_font_db();
+    let families = [fontdb::Family::Name(family)];
+    let query = fontdb::Query {
+        families: &families,
+        weight: fontdb::Weight::NORMAL,
+        stretch: fontdb::Stretch::Normal,
+        style: fontdb::Style::Normal,
+    };
+
+    if let Some(id) = sys_db.query(&query) {
+        if let Some(face_info) = sys_db.face(id) {
+            // Check if the font source is a file and read it
+            if let fontdb::Source::File(ref path) = face_info.source {
+                if let Ok(font_data) = std::fs::read(path) {
+                    // Parse the font data into an AbGlyph FontArc
+                    if let Ok(font) = FontArc::try_from_vec(font_data) {
+                        // Cache it for future requests
+                        map.insert(family.to_lowercase(), font.clone());
+                        return font;
+                    }
+                }
+            }
+        }
+    }
+
+    // 3. Fallback: If system font not found or failed to load, use sans-serif (Inter)
+    if let Some(font) = map.get("sans-serif") {
+        return font.clone();
+    }
+
+    // Ultimate fallback: Panic if no fonts are available (should not happen if Inter loads correctly)
+    panic!(
+        "No fonts available. Default 'Inter' font failed to load and '{}' not found in system.",
+        family
+    );
+}
+
+/// Registers a new font for raster rendering from raw data.
+///
+/// This allows users to add custom fonts that are not present in the system
+/// or embedded assets.
+///
+/// # Arguments
+/// * `name` - The font family name (e.g., "MyCustomFont").
+/// * `data` - The raw TTF/OTF font data.
+///
+/// # Example
+/// ```ignore
+/// use charton::core::utils::register_raster_font;
+/// let font_data = std::fs::read("path/to/font.ttf")?;
+/// register_raster_font("MyFont", font_data)?;
+/// ```
+#[cfg(feature = "png")]
+pub fn register_raster_font(name: &str, data: Vec<u8>) -> Result<(), Box<dyn std::error::Error>> {
+    // try_from_vec takes ownership of the Vec, ensuring the data lives as long as the FontArc
+    let font = FontArc::try_from_vec(data)?;
+
+    let registry = get_raster_registry();
+    let mut map = registry.write().expect("Failed to write to font registry");
+    map.insert(name.to_lowercase(), font);
+    Ok(())
+}
+
 //=============================== Parallelization Utilities =====================================
-use ahash::AHashMap;
 #[cfg(feature = "parallel")]
 use rayon::prelude::*;
 

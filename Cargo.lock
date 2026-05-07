@@ -554,6 +554,7 @@ dependencies = [
  "arrow",
  "base64",
  "csscolorparser",
+ "fontdb",
  "html-escape",
  "kernel-density-estimation",
  "polars",

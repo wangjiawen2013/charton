@@ -797,7 +797,7 @@ impl LayeredChart {
 
             // Render Background.
             // We use the backend's draw_rect to ensure the background is the first
-            // layer in the drawing stack, matching SVG's 100% rect behavior.
+            // layer in the drawing stack.
             backend.draw_rect(RectConfig {
                 x: 0.0,
                 y: 0.0,
@@ -891,8 +891,6 @@ impl LayeredChart {
     /// chart.save("my_chart.svg")?; // Save as SVG file
     /// ```
     pub fn save<P: AsRef<std::path::Path>>(&self, path: P) -> Result<(), ChartonError> {
-        let svg_content = self.to_svg()?;
-
         // Convert to Path for file operations
         let path_obj = path.as_ref();
 
@@ -913,6 +911,7 @@ impl LayeredChart {
 
         match ext.as_deref() {
             Some("svg") => {
+                let svg_content = self.to_svg()?;
                 std::fs::write(path_obj, svg_content).map_err(ChartonError::Io)?;
             }
             Some("pdf") => {

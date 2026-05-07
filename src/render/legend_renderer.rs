@@ -1,4 +1,3 @@
-use super::backend::svg::SvgBackend;
 use crate::Precision;
 use crate::core::context::PanelContext;
 use crate::core::guide::{GuideKind, GuideSize, GuideSpec, LegendPosition};
@@ -23,8 +22,8 @@ impl LegendRenderer {
     ///
     /// It coordinates the layout flow (wrapping blocks) based on the available space
     /// around the provided PanelContext.
-    pub fn render_legend(
-        buffer: &mut String,
+    pub fn render_legend<B: RenderBackend>(
+        backend: &mut B,
         specs: &[GuideSpec],
         theme: &Theme,
         ctx: &PanelContext,
@@ -36,7 +35,6 @@ impl LegendRenderer {
             return;
         }
 
-        let mut backend = SvgBackend::new(buffer, None);
         let font_size = theme.legend_label_size;
         let font_family = &theme.legend_label_family;
 
@@ -105,12 +103,12 @@ impl LegendRenderer {
             // 2. Render content based on GuideKind (Continuous Gradient vs. Discrete Symbols)
             let actual_block_size = match spec.kind {
                 GuideKind::ColorBar => {
-                    Self::draw_colorbar(&mut backend, spec, ctx, current_x, content_y_offset, theme)
+                    Self::draw_colorbar(backend, spec, ctx, current_x, content_y_offset, theme)
                 }
                 GuideKind::Legend => {
                     let (labels, colors, shapes, sizes) = Self::resolve_mappings(spec, ctx);
                     Self::draw_spec_group(
-                        &mut backend,
+                        backend,
                         spec,
                         &labels,
                         &colors,
@@ -139,8 +137,8 @@ impl LegendRenderer {
     }
 
     /// Renders a continuous color gradient bar (ColorBar).
-    fn draw_colorbar(
-        backend: &mut dyn RenderBackend,
+    fn draw_colorbar<B: RenderBackend>(
+        backend: &mut B,
         spec: &GuideSpec,
         ctx: &PanelContext,
         x: f64,
