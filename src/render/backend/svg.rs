@@ -232,7 +232,7 @@ impl<'a> RenderBackend for SvgBackend<'a> {
         self.write_color(&color);
         let _ = write!(
             self.buffer,
-            r#"" fill-opacity="{:.3}" text-anchor="{}" font-weight="{}" dominant_baseline="{}""#,
+            r#"" fill-opacity="{:.3}" text-anchor="{}" font-weight="{}" dominant-baseline="{}""#,
             opacity, text_anchor, font_weight, dominant_baseline
         );
         let _ = write!(
