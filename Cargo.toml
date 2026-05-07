@@ -20,7 +20,7 @@ parallel = ["dep:rayon"]
 pdf = ["dep:svg2pdf"]
 
 # Enables high-performance raster rendering (PNG, etc.)
-raster = ["dep:tiny-skia", "dep:ab_glyph"]
+raster = ["dep:tiny-skia", "dep:ab_glyph", "dep:fontdb"]
 png = ["raster"] # png is an alias of raster
 
 # Enables universal columnar data ingestion via the Apache Arrow standard.
@@ -43,6 +43,7 @@ rayon = { version = "1.11", optional = true }
 svg2pdf = { version = "0.13", optional = true }
 tiny-skia = { version = "0.12", optional = true }
 ab_glyph = { version = "0.2", optional = true }
+fontdb = { version = "0.23", optional = true }
 arrow = { version = "58.1", default-features = false, optional = true }
 polars = { version = "0.53", default-features = false, features = ["lazy", "parquet", "ipc"], optional = true }
 serde = { version = "1.0", features = ["derive"], optional = true }
