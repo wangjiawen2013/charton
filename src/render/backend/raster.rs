@@ -268,31 +268,29 @@ impl<'a> RenderBackend for RasterBackend<'a> {
     }
 
     fn draw_text(&mut self, config: TextConfig) {
-        // Early exit if color is None or text is empty
+        // 1. Pre-checks
         if config.color.is_none() || config.text.is_empty() {
             return;
         }
 
-        // Dynamically resolve the font based on the config's font_family
-        // If font_family is empty or not found, get_raster_font will fallback to Inter/sans-serif
+        // 2. Font Resolution
         let font = crate::core::utils::get_raster_font(&config.font_family);
-
         let scale = PxScale::from(config.font_size);
         let scaled_font = font.as_scaled(scale);
 
-        // Initial horizontal positioning based on text-anchor
+        // 3. Layout Calculations
         let mut x = config.x;
-        let mut y = config.y; // Make mutable for dominant-baseline adjustment
+        let mut y = config.y; 
 
-        // Horizontal alignment: matches SVG text-anchor
+        // Horizontal Alignment
         let width = self.get_precise_width(&config.text, scale, &font);
         match config.text_anchor.as_str() {
             "middle" => x -= width / 2.0,
             "end" => x -= width,
-            _ => {} // Default: start
+            _ => {} 
         }
 
-        // Vertical alignment: matches SVG dominant-baseline
+        // Vertical Alignment
         let ascent = scaled_font.ascent();
         let descent = scaled_font.descent();
         let text_height = ascent - descent;
@@ -300,13 +298,10 @@ impl<'a> RenderBackend for RasterBackend<'a> {
         match config.dominant_baseline.as_str() {
             "hanging" => y += ascent,
             "central" | "middle" => y += (text_height / 2.0) - descent,
-            _ => {} // Default: alphabetic
+            _ => {} // Alphabetic: y stays at baseline
         }
 
-        // Mark font_weight as used (matches SVG attribute)
-        let _ = config.font_weight;
-
-        // Setup paint with color and opacity
+        // 4. Paint Setup
         let mut paint = Paint::default();
         if let Some(c) = self.to_skia_color(&config.color, config.opacity) {
             paint.set_color(c);
@@ -315,25 +310,23 @@ impl<'a> RenderBackend for RasterBackend<'a> {
             return;
         }
 
-        // Rotation center: SAME AS SVG (original x, y)
         let rot_x = config.x;
         let rot_y = config.y;
 
-        // Render glyphs
+        // 5. Glyph Rendering Loop
         let mut last_glyph_id = None;
         for c in config.text.chars() {
             let glyph_id = font.glyph_id(c);
 
-            // Apply kerning
+            // Apply Kerning
             if let Some(last_id) = last_glyph_id {
                 x += scaled_font.kern(last_id, glyph_id) as Precision;
             }
 
-            // 1. Get the raw, unscaled outline for the glyph ID
+            // Get the Raw Vector Outline (Font Units)
             if let Some(outline) = font.outline(glyph_id) {
                 let mut pb = PathBuilder::new();
 
-                // 2. Iterate through raw curves and build a tiny-skia Path
                 for curve in outline.curves {
                     match curve {
                         ab_glyph::OutlineCurve::Line(p1, p2) => {
@@ -354,7 +347,7 @@ impl<'a> RenderBackend for RasterBackend<'a> {
                 if let Some(path) = pb.finish() {
                     let mut transform = self.transform;
 
-                    // 3. Apply rotation around the specified rotation point (SVG-style)
+                    // A. Apply Rotation around the original (config.x, config.y)
                     if config.angle != 0.0 {
                         transform = transform
                             .pre_translate(rot_x as f32, rot_y as f32)
@@ -362,15 +355,18 @@ impl<'a> RenderBackend for RasterBackend<'a> {
                             .pre_translate(-(rot_x as f32), -(rot_y as f32));
                     }
 
-                    // 4. Final positioning and scaling:
-                    // - Move to the text cursor (x, y)
-                    // - Adjust for font baseline (minus ascent)
-                    // - Scale the raw font units to the desired pixel size
-                    transform = transform.pre_translate(x as f32, y as f32);
-                    let font_scale = config.font_size as f32;
-                    transform = transform.pre_scale(font_scale, -font_scale);
+                    // B. Position the glyph at current cursor (x, y)
+                    transform = transform.pre_translate(x.round() as f32, y.round() as f32);
 
-                    // 5. Render the vector path to the pixmap
+                    // C. Scale from "Font Units" to "Pixels"
+                    // Most fonts use 1000 or 2048 units per EM. 
+                    // We divide by this to get a normalized 0..1 scale, then multiply by font_size.
+                    let units_per_em = font.units_per_em().unwrap_or(1000.0) as f32;
+                    let s = (config.font_size as f32) / units_per_em;
+                    
+                    // Flip Y (-s) because font coordinates are Y-up, Skia is Y-down.
+                    transform = transform.pre_scale(s, -s);
+
                     self.pixmap.fill_path(
                         &path,
                         &paint,
@@ -378,11 +374,10 @@ impl<'a> RenderBackend for RasterBackend<'a> {
                         transform,
                         None,
                     );
-                    println!("Drawing glyph at x: {}, y: {}, path bounds: {:?}", x, y, path.compute_tight_bounds());
                 }
             }
 
-            // Update the horizontal cursor position for the next character
+            // Advance cursor to the next character
             x += scaled_font.h_advance(glyph_id) as Precision;
             last_glyph_id = Some(glyph_id);
         }
