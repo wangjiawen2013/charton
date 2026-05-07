@@ -268,125 +268,152 @@ impl<'a> RenderBackend for RasterBackend<'a> {
     }
 
     fn draw_text(&mut self, config: TextConfig) {
-        // 1. Safety Guard: Skip rendering if no color or empty text
+        // 1. Safety check: avoid unnecessary processing for empty text or missing colors
         if config.color.is_none() || config.text.is_empty() {
             return;
         }
 
-        // --- TUNING PARAMETER: Contrast/Darkness ---
-        // Increase this to make text "blacker", decrease to make it "smoother".
-        // Suggested range: 1.2 (soft) to 1.6 (bold/sharp).
-        const CONTRAST_BOOST: f32 = 1.4;
+        // --- VECTOR TUNING: STEM DARKENING ---
+        // Pure vector rendering often looks "thin" on digital screens because anti-aliasing
+        // softens the edges. Adding a very fine stroke (0.2px) mimics "Stem Darkening", 
+        // a technique used by high-end engines like FreeType to make text look bolder and more legible.
+        const STEM_DARKENING_WIDTH: f32 = 0.01; 
 
+        // Load font and scale it to the requested pixel size
         let font = crate::core::utils::get_raster_font(&config.font_family);
         let scale = PxScale::from(config.font_size);
         let scaled_font = font.as_scaled(scale);
 
-        // 2. Pixel Grid Snapping
-        // Rounding the starting coordinates is crucial to prevent "blurry" vertical stems.
-        let mut x = config.x.round();
-        let mut y = config.y.round();
+        // Initial cursor coordinates (using f32 for sub-pixel precision to maintain "vector feel")
+        let mut x = config.x as f32;
+        let mut y = config.y as f32;
 
-        // Horizontal Alignment Calculation
+        // 2. LAYOUT CALCULATION: Handle text alignment (Start, Middle, End)
         let width = self.get_precise_width(&config.text, scale, &font);
         match config.text_anchor.as_str() {
-            "middle" => x -= (width / 2.0).round(),
-            "end" => x -= width.round(),
-            _ => {} // Default: Start
+            "middle" => x -= width / 2.0,
+            "end" => x -= width,
+            _ => {}
         }
 
-        // Vertical Alignment Calculation (Baseline snapping)
+        // 3. BASELINE CALCULATION: Handle vertical positioning (Dominant Baseline)
         let ascent = scaled_font.ascent();
         let descent = scaled_font.descent();
         match config.dominant_baseline.as_str() {
-            "hanging" => y += ascent.round(),
-            "central" | "middle" => y += ((ascent - descent) / 2.0 - descent).round(),
-            _ => {} // Default: Alphabetic
+            "hanging" => y += ascent,
+            "central" | "middle" => y += (ascent - descent) / 2.0 - descent,
+            _ => {} 
         }
 
+        // Prepare Skia-style paint and color
         let base_color = self.to_skia_color(&config.color, config.opacity).unwrap();
+        let mut paint = tiny_skia::Paint::default();
+        paint.set_color(base_color);
+        paint.anti_alias = true; // Crucial for smooth, non-pixelated vector edges
 
-        // 3. Setup Global Transformation (Handling SVG Rotation)
-        let mut global_transform = self.transform;
-        if config.angle != 0.0 {
-            global_transform = global_transform
-                .pre_translate(config.x as f32, config.y as f32)
-                .pre_rotate(config.angle as f32)
-                .pre_translate(-(config.x as f32), -(config.y as f32));
-        }
-
+        // Constants for mapping font units (EM) to screen pixels
         let mut last_glyph_id = None;
+        let units_per_em = font.units_per_em().unwrap_or(1000.0) as f32;
+        let font_to_px_scale = (config.font_size as f32) / units_per_em;
+
+        // Iterate through each character in the string
         for c in config.text.chars() {
             let glyph_id = font.glyph_id(c);
-
-            // Apply Kerning (adjust space between specific pairs like 'AV')
+            
+            // Apply Kerning: Adjust horizontal spacing between specific pairs (e.g., 'AV')
             if let Some(last_id) = last_glyph_id {
-                x += scaled_font.kern(last_id, glyph_id).round();
+                x += scaled_font.kern(last_id, glyph_id);
             }
 
-            let glyph =
-                glyph_id.with_scale_and_position(scale, ab_glyph::point(x as f32, y as f32));
+            // Retrieve the vector outline for the current glyph
+            if let Some(outline) = font.outline(glyph_id) {
+                let mut pb = tiny_skia::PathBuilder::new();
+                
+                // Helper closure to convert font-space points to screen-space pixels
+                // Note: We flip the Y coordinate because font space is Y-up and screen space is Y-down.
+                let map_p = |p: ab_glyph::Point| (p.x * font_to_px_scale, -p.y * font_to_px_scale);
 
-            if let Some(outlined) = font.outline_glyph(glyph) {
-                let bounds = outlined.px_bounds();
-                let w = bounds.width() as u32;
-                let h = bounds.height() as u32;
+                // --- CRITICAL FIX: PATH CONTINUITY ---
+                // To fill a shape, the path must be a continuous series of connected lines/curves.
+                // We track 'current_pen_pos' to avoid redundant 'move_to' calls, which break the shape.
+                let mut current_pen_pos: Option<ab_glyph::Point> = None;
 
-                if w > 0 && h > 0 {
-                    // 4. Per-Glyph Rasterization
-                    // We create a tiny temporary canvas for the single character.
-                    let mut glyph_pixmap = tiny_skia::Pixmap::new(w, h).unwrap();
-                    let pixels = glyph_pixmap.pixels_mut();
+                for curve in outline.curves {
+                    // Determine the start and end points of the current segment
+                    let (start_pt, end_pt) = match curve {
+                        ab_glyph::OutlineCurve::Line(p1, p2) => (p1, p2),
+                        ab_glyph::OutlineCurve::Quad(p1, _, p3) => (p1, p3),
+                        ab_glyph::OutlineCurve::Cubic(p1, _, _, p4) => (p1, p4),
+                    };
 
-                    outlined.draw(|px, py, coverage| {
-                        if coverage <= 0.001 {
-                            return;
+                    // Only "lift the pen" and move if the new segment doesn't start where the last one ended.
+                    // This ensures we create closed 'contours' that can be filled with color.
+                    if current_pen_pos != Some(start_pt) {
+                        let (sx, sy) = map_p(start_pt);
+                        pb.move_to(sx, sy);
+                    }
+
+                    // Add the specific geometric primitive to the path
+                    match curve {
+                        ab_glyph::OutlineCurve::Line(_, p2) => {
+                            let (px, py) = map_p(p2);
+                            pb.line_to(px, py);
                         }
-
-                        // --- SMOOTHNESS vs DARKNESS LOGIC ---
-                        // By multiplying coverage, we shift the anti-aliasing ramp.
-                        // This creates a "Stem Darkening" effect used by pro renderers.
-                        let alpha_factor = (coverage * CONTRAST_BOOST).min(1.0);
-
-                        let idx = (py as usize * w as usize) + px as usize;
-
-                        // Manually compute Premultiplied Alpha for maximum clarity
-                        let alpha = base_color.alpha() * alpha_factor;
-                        if let Some(c) = tiny_skia::Color::from_rgba(
-                            base_color.red(),
-                            base_color.green(),
-                            base_color.blue(),
-                            alpha,
-                        ) {
-                            pixels[idx] = c.premultiply().to_color_u8();
+                        ab_glyph::OutlineCurve::Quad(_, p2, p3) => {
+                            let (p2x, p2y) = map_p(p2);
+                            let (p3x, p3y) = map_p(p3);
+                            pb.quad_to(p2x, p2y, p3x, p3y);
                         }
-                    });
+                        ab_glyph::OutlineCurve::Cubic(_, p2, p3, p4) => {
+                            let (p2x, p2y) = map_p(p2);
+                            let (p3x, p3y) = map_p(p3);
+                            let (p4x, p4y) = map_p(p4);
+                            pb.cubic_to(p2x, p2y, p3x, p3y, p4x, p4y);
+                        }
+                    }
+                    // Update the pen position for the next iteration
+                    current_pen_pos = Some(end_pt);
+                }
 
-                    // 5. Blit the Glyph to Main Canvas
-                    let mut paint = tiny_skia::PixmapPaint::default();
+                // Finalize the path and apply transformations
+                if let Some(path) = pb.finish() {
+                    let mut transform = self.transform;
+                    
+                    // 4. ROTATION LOGIC: Rotate around the anchor point (config.x, config.y)
+                    if config.angle != 0.0 {
+                        transform = transform
+                            .pre_translate(config.x as f32, config.y as f32)
+                            .pre_rotate(config.angle as f32)
+                            .pre_translate(-(config.x as f32), -(config.y as f32));
+                    }
+                    
+                    // Position the high-res vector path at the current cursor 'x' and 'y'
+                    transform = transform.pre_translate(x, y);
 
-                    // --- ROTATION SMOOTHNESS ---
-                    // Bilinear quality prevents "staircase" artifacts during rotation.
-                    // For 0-degree text, this performs a perfect 1:1 pixel copy.
-                    paint.quality = tiny_skia::FilterQuality::Bilinear;
-
-                    // Move the small glyph pixmap to its intended world position
-                    let glyph_transform =
-                        global_transform.pre_translate(bounds.min.x, bounds.min.y);
-
-                    self.pixmap.draw_pixmap(
-                        0,
-                        0,
-                        glyph_pixmap.as_ref(),
-                        &paint,
-                        glyph_transform,
-                        None,
+                    // --- RENDERING PHASE ---
+                    
+                    // Pass 1: FILL (The core color)
+                    // This fills the interior of the closed path. Since the path is now continuous,
+                    // the interior will be solid and dark.
+                    self.pixmap.fill_path(
+                        &path, 
+                        &paint, 
+                        tiny_skia::FillRule::Winding, 
+                        transform, 
+                        None
                     );
+                    
+                    // Pass 2: STROKE (The darkening agent)
+                    // We add a tiny stroke to reinforce the edges. This compensates for 
+                    // LCD/OLED sub-pixel rendering effects that can make thin fonts look grey.
+                    let mut stroke = tiny_skia::Stroke::default();
+                    stroke.width = STEM_DARKENING_WIDTH;
+                    self.pixmap.stroke_path(&path, &paint, &stroke, transform, None);
                 }
             }
 
-            // Advance cursor for the next character
-            x += scaled_font.h_advance(glyph_id).round();
+            // Move the cursor forward by the glyph's advance width for the next character
+            x += scaled_font.h_advance(glyph_id);
             last_glyph_id = Some(glyph_id);
         }
     }
@@ -445,3 +472,112 @@ impl<'a> RenderBackend for RasterBackend<'a> {
         }
     }
 }
+
+// 这个矢量的可做参考：
+// fn draw_text(&mut self, config: TextConfig) {
+//     if config.color.is_none() || config.text.is_empty() {
+//         return;
+//     }
+
+//     // --- VECTOR TUNING PARAMETERS ---
+//     // The width of the "ink" stroke to prevent the text from looking too thin.
+//     // 0.1 to 0.25 keeps it crisp but bold.
+//     const STEM_DARKENING_WIDTH: f32 = 0.15; 
+
+//     let font = crate::core::utils::get_raster_font(&config.font_family);
+//     let scale = PxScale::from(config.font_size);
+//     let scaled_font = font.as_scaled(scale);
+
+//     // 1. USE FLOATS: Remove .round() to enable sub-pixel positioning.
+//     // This makes the movement and spacing feel "more vector" and fluid.
+//     let mut x = config.x as f32;
+//     let mut y = config.y as f32;
+
+//     let width = self.get_precise_width(&config.text, scale, &font);
+//     match config.text_anchor.as_str() {
+//         "middle" => x -= width / 2.0,
+//         "end" => x -= width,
+//         _ => {}
+//     }
+
+//     let ascent = scaled_font.ascent();
+//     let descent = scaled_font.descent();
+//     match config.dominant_baseline.as_str() {
+//         "hanging" => y += ascent,
+//         "central" | "middle" => y += (ascent - descent) / 2.0 - descent,
+//         _ => {} 
+//     }
+
+//     let base_color = self.to_skia_color(&config.color, config.opacity).unwrap();
+//     let mut paint = tiny_skia::Paint::default();
+//     paint.set_color(base_color);
+//     paint.anti_alias = true; // Essential for the vector look.
+
+//     let mut last_glyph_id = None;
+//     let units_per_em = font.units_per_em().unwrap_or(1000.0) as f32;
+//     let font_to_px_scale = (config.font_size as f32) / units_per_em;
+
+//     for c in config.text.chars() {
+//         let glyph_id = font.glyph_id(c);
+//         if let Some(last_id) = last_glyph_id {
+//             x += scaled_font.kern(last_id, glyph_id);
+//         }
+
+//         // 2. CONVERT TO PATH: Transform ab_glyph curves directly into tiny-skia paths.
+//         if let Some(outline) = font.outline(glyph_id) {
+//             let mut pb = tiny_skia::PathBuilder::new();
+            
+//             // Helper to map font units to screen pixels
+//             let map_p = |p: ab_glyph::Point| (p.x * font_to_px_scale, -p.y * font_to_px_scale);
+
+//             for curve in outline.curves {
+//                 match curve {
+//                     ab_glyph::OutlineCurve::Line(p1, p2) => {
+//                         let (p1x, p1y) = map_p(p1);
+//                         let (p2x, p2y) = map_p(p2);
+//                         pb.move_to(p1x, p1y);
+//                         pb.line_to(p2x, p2y);
+//                     }
+//                     ab_glyph::OutlineCurve::Quad(p1, p2, p3) => {
+//                         let (p1x, p1y) = map_p(p1);
+//                         let (p2x, p2y) = map_p(p2);
+//                         let (p3x, p3y) = map_p(p3);
+//                         pb.move_to(p1x, p1y);
+//                         pb.quad_to(p2x, p2y, p3x, p3y);
+//                     }
+//                     ab_glyph::OutlineCurve::Cubic(p1, p2, p3, p4) => {
+//                         let (p1x, p1y) = map_p(p1);
+//                         let (p2x, p2y) = map_p(p2);
+//                         let (p3x, p3y) = map_p(p3);
+//                         let (p4x, p4y) = map_p(p4);
+//                         pb.move_to(p1x, p1y);
+//                         pb.cubic_to(p2x, p2y, p3x, p3y, p4x, p4y);
+//                     }
+//                 }
+//             }
+
+//             if let Some(path) = pb.finish() {
+//                 let mut transform = self.transform;
+//                 if config.angle != 0.0 {
+//                     transform = transform
+//                         .pre_translate(config.x as f32, config.y as f32)
+//                         .pre_rotate(config.angle as f32)
+//                         .pre_translate(-(config.x as f32), -(config.y as f32));
+//                 }
+//                 // Use the floating-point x, y for the final transform
+//                 transform = transform.pre_translate(x, y);
+
+//                 // 3. DUAL RENDERING: Fill the shape AND add a subtle stroke.
+//                 // This gives the "vector" look - perfect edges with strong presence.
+//                 self.pixmap.fill_path(&path, &paint, tiny_skia::FillRule::Winding, transform, None);
+                
+//                 let mut stroke = tiny_skia::Stroke::default();
+//                 stroke.width = STEM_DARKENING_WIDTH;
+//                 self.pixmap.stroke_path(&path, &paint, &stroke, transform, None);
+//             }
+//         }
+
+//         x += scaled_font.h_advance(glyph_id);
+//         last_glyph_id = Some(glyph_id);
+//     }
+// }
