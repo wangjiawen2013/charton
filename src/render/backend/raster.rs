@@ -267,157 +267,125 @@ impl<'a> RenderBackend for RasterBackend<'a> {
         }
     }
 
-    fn draw_text(&mut self, config: TextConfig) {
-        // 1. Safety check: avoid unnecessary processing for empty text or missing colors
-        if config.color.is_none() || config.text.is_empty() {
-            return;
-        }
-
-        // --- VECTOR TUNING: STEM DARKENING ---
-        // Pure vector rendering often looks "thin" on digital screens because anti-aliasing
-        // softens the edges. Adding a very fine stroke (0.2px) mimics "Stem Darkening",
-        // a technique used by high-end engines like FreeType to make text look bolder and more legible.
-        const STEM_DARKENING_WIDTH: f32 = 0.01;
-
-        // Load font and scale it to the requested pixel size
-        let font = crate::core::utils::get_raster_font(&config.font_family);
-        let scale = PxScale::from(config.font_size);
-        let scaled_font = font.as_scaled(scale);
-
-        // Initial cursor coordinates (using f32 for sub-pixel precision to maintain "vector feel")
-        let mut x = config.x as f32;
-        let mut y = config.y as f32;
-
-        // 2. LAYOUT CALCULATION: Handle text alignment (Start, Middle, End)
-        let width = self.get_precise_width(&config.text, scale, &font);
-        match config.text_anchor.as_str() {
-            "middle" => x -= width / 2.0,
-            "end" => x -= width,
-            _ => {}
-        }
-
-        // 3. BASELINE CALCULATION: Handle vertical positioning (Dominant Baseline)
-        let ascent = scaled_font.ascent();
-        let descent = scaled_font.descent();
-        match config.dominant_baseline.as_str() {
-            "hanging" => y += ascent,
-            "central" | "middle" => y += (ascent - descent) / 2.0 - descent,
-            _ => {}
-        }
-
-        // Prepare Skia-style paint and color
-        let base_color = self.to_skia_color(&config.color, config.opacity).unwrap();
-        let mut paint = tiny_skia::Paint::default();
-        paint.set_color(base_color);
-        paint.anti_alias = true; // Crucial for smooth, non-pixelated vector edges
-
-        // Constants for mapping font units (EM) to screen pixels
-        let mut last_glyph_id = None;
-        let units_per_em = font.units_per_em().unwrap_or(1000.0) as f32;
-        let font_to_px_scale = (config.font_size as f32) / units_per_em;
-
-        // Iterate through each character in the string
-        for c in config.text.chars() {
-            let glyph_id = font.glyph_id(c);
-
-            // Apply Kerning: Adjust horizontal spacing between specific pairs (e.g., 'AV')
-            if let Some(last_id) = last_glyph_id {
-                x += scaled_font.kern(last_id, glyph_id);
-            }
-
-            // Retrieve the vector outline for the current glyph
-            if let Some(outline) = font.outline(glyph_id) {
-                let mut pb = tiny_skia::PathBuilder::new();
-
-                // Helper closure to convert font-space points to screen-space pixels
-                // Note: We flip the Y coordinate because font space is Y-up and screen space is Y-down.
-                let map_p = |p: ab_glyph::Point| (p.x * font_to_px_scale, -p.y * font_to_px_scale);
-
-                // --- CRITICAL FIX: PATH CONTINUITY ---
-                // To fill a shape, the path must be a continuous series of connected lines/curves.
-                // We track 'current_pen_pos' to avoid redundant 'move_to' calls, which break the shape.
-                let mut current_pen_pos: Option<ab_glyph::Point> = None;
-
-                for curve in outline.curves {
-                    // Determine the start and end points of the current segment
-                    let (start_pt, end_pt) = match curve {
-                        ab_glyph::OutlineCurve::Line(p1, p2) => (p1, p2),
-                        ab_glyph::OutlineCurve::Quad(p1, _, p3) => (p1, p3),
-                        ab_glyph::OutlineCurve::Cubic(p1, _, _, p4) => (p1, p4),
-                    };
-
-                    // Only "lift the pen" and move if the new segment doesn't start where the last one ended.
-                    // This ensures we create closed 'contours' that can be filled with color.
-                    if current_pen_pos != Some(start_pt) {
-                        let (sx, sy) = map_p(start_pt);
-                        pb.move_to(sx, sy);
-                    }
-
-                    // Add the specific geometric primitive to the path
-                    match curve {
-                        ab_glyph::OutlineCurve::Line(_, p2) => {
-                            let (px, py) = map_p(p2);
-                            pb.line_to(px, py);
-                        }
-                        ab_glyph::OutlineCurve::Quad(_, p2, p3) => {
-                            let (p2x, p2y) = map_p(p2);
-                            let (p3x, p3y) = map_p(p3);
-                            pb.quad_to(p2x, p2y, p3x, p3y);
-                        }
-                        ab_glyph::OutlineCurve::Cubic(_, p2, p3, p4) => {
-                            let (p2x, p2y) = map_p(p2);
-                            let (p3x, p3y) = map_p(p3);
-                            let (p4x, p4y) = map_p(p4);
-                            pb.cubic_to(p2x, p2y, p3x, p3y, p4x, p4y);
-                        }
-                    }
-                    // Update the pen position for the next iteration
-                    current_pen_pos = Some(end_pt);
-                }
-
-                // Finalize the path and apply transformations
-                if let Some(path) = pb.finish() {
-                    let mut transform = self.transform;
-
-                    // 4. ROTATION LOGIC: Rotate around the anchor point (config.x, config.y)
-                    if config.angle != 0.0 {
-                        transform = transform
-                            .pre_translate(config.x as f32, config.y as f32)
-                            .pre_rotate(config.angle as f32)
-                            .pre_translate(-(config.x as f32), -(config.y as f32));
-                    }
-
-                    // Position the high-res vector path at the current cursor 'x' and 'y'
-                    transform = transform.pre_translate(x, y);
-
-                    // --- RENDERING PHASE ---
-
-                    // Pass 1: FILL (The core color)
-                    // This fills the interior of the closed path. Since the path is now continuous,
-                    // the interior will be solid and dark.
-                    self.pixmap.fill_path(
-                        &path,
-                        &paint,
-                        tiny_skia::FillRule::Winding,
-                        transform,
-                        None,
-                    );
-
-                    // Pass 2: STROKE (The darkening agent)
-                    // We add a tiny stroke to reinforce the edges. This compensates for
-                    // LCD/OLED sub-pixel rendering effects that can make thin fonts look grey.
-                    let mut stroke = tiny_skia::Stroke::default();
-                    stroke.width = STEM_DARKENING_WIDTH;
-                    self.pixmap
-                        .stroke_path(&path, &paint, &stroke, transform, None);
-                }
-            }
-
-            // Move the cursor forward by the glyph's advance width for the next character
-            x += scaled_font.h_advance(glyph_id);
-            last_glyph_id = Some(glyph_id);
-        }
+fn draw_text(&mut self, config: TextConfig) {
+    if config.color.is_none() || config.text.is_empty() {
+        return;
     }
+
+    let font = crate::core::utils::get_raster_font(&config.font_family);
+    let scale = PxScale::from(config.font_size);
+    let scaled_font = font.as_scaled(scale);
+
+    let anchor_x = config.x as f32;
+    let anchor_y = config.y as f32;
+
+    // 1. 严格计算水平宽度 (用于 text-anchor)
+    let width = self.get_precise_width(&config.text, scale, &font);
+    const TRACKING: f32 = 0.3;
+    let total_tracking = if config.text.len() > 1 { (config.text.len() - 1) as f32 * TRACKING } else { 0.0 };
+    let full_width = width + total_tracking;
+
+    let mut dx = 0.0;
+    match config.text_anchor.as_str() {
+        "middle" => dx -= full_width / 2.0,
+        "end" => dx -= full_width,
+        _ => {}
+    }
+
+    // 2. 严格对齐 SVG dominant-baseline
+    // 在 SVG 中，默认 y 就是 baseline，所以 dy = 0
+    let mut dy = 0.0;
+    let ascent = scaled_font.ascent();
+    let descent = scaled_font.descent();
+
+    match config.dominant_baseline.as_str() {
+        "hanging" => dy += ascent, 
+        "central" | "middle" => {
+            // 这是关键：SVG 的 middle 是相对于 Baseline 的偏移
+            // 通常是 (ascent + descent) / 2，但注意 descent 是负值
+            dy += (ascent + descent) / 2.0; 
+        }
+        _ => {} // alphabetic: dy = 0 (baseline 对齐)
+    }
+
+    // 3. 构建与 SVG 相同的变换矩阵
+    // SVG: transform="rotate(angle, x, y)"
+    let mut global_transform = self.transform;
+    if config.angle != 0.0 {
+        global_transform = global_transform
+            .pre_translate(anchor_x, anchor_y)
+            .pre_rotate(config.angle as f32)
+            .pre_translate(-anchor_x, -anchor_y);
+    }
+
+    let mut current_x = anchor_x + dx;
+    let draw_y = anchor_y + dy;
+
+    let base_color = self.to_skia_color(&config.color, config.opacity).unwrap();
+    let mut paint = tiny_skia::Paint::default();
+    paint.set_color(base_color);
+    paint.anti_alias = true;
+
+    let units_per_em = font.units_per_em().unwrap_or(1000.0) as f32;
+    let font_to_px = (config.font_size as f32) / units_per_em;
+
+    let mut last_glyph_id = None;
+
+    for c in config.text.chars() {
+        let glyph_id = font.glyph_id(c);
+        if let Some(last_id) = last_glyph_id {
+            current_x += scaled_font.kern(last_id, glyph_id);
+        }
+
+        if let Some(outline) = font.outline(glyph_id) {
+            let mut pb = tiny_skia::PathBuilder::new();
+            // 注意：这里 p.y 取负是因为 ab_glyph 坐标系是向上增长的
+            let map_p = |p: ab_glyph::Point| (p.x * font_to_px, -p.y * font_to_px);
+
+            let mut current_pen: Option<ab_glyph::Point> = None;
+            for curve in outline.curves {
+                let (start, end) = match curve {
+                    ab_glyph::OutlineCurve::Line(p1, p2) => (p1, p2),
+                    ab_glyph::OutlineCurve::Quad(p1, _, p3) => (p1, p3),
+                    ab_glyph::OutlineCurve::Cubic(p1, _, _, p4) => (p1, p4),
+                };
+
+                if current_pen != Some(start) {
+                    let (sx, sy) = map_p(start);
+                    pb.move_to(sx, sy);
+                }
+
+                match curve {
+                    ab_glyph::OutlineCurve::Line(_, p2) => { let (px, py) = map_p(p2); pb.line_to(px, py); }
+                    ab_glyph::OutlineCurve::Quad(_, p2, p3) => {
+                        let (p2x, p2y) = map_p(p2); let (p3x, p3y) = map_p(p3);
+                        pb.quad_to(p2x, p2y, p3x, p3y);
+                    }
+                    ab_glyph::OutlineCurve::Cubic(_, p2, p3, p4) => {
+                        let (p2x, p2y) = map_p(p2); let (p3x, p3y) = map_p(p3);
+                        let (p4x, p4y) = map_p(p4);
+                        pb.cubic_to(p2x, p2y, p3x, p3y, p4x, p4y);
+                    }
+                }
+                current_pen = Some(end);
+            }
+
+            if let Some(path) = pb.finish() {
+                // 先应用旋转，再平移到当前字母的 baseline 位置
+                let glyph_transform = global_transform.pre_translate(current_x, draw_y);
+                self.pixmap.fill_path(&path, &paint, tiny_skia::FillRule::Winding, glyph_transform, None);
+                
+                // 极细微描边增强
+                let mut stroke = tiny_skia::Stroke::default();
+                stroke.width = 0.05;
+                self.pixmap.stroke_path(&path, &paint, &stroke, glyph_transform, None);
+            }
+        }
+
+        current_x += scaled_font.h_advance(glyph_id) + TRACKING;
+        last_glyph_id = Some(glyph_id);
+    }
+}
 
     fn draw_gradient_rect(&mut self, config: GradientRectConfig) {
         let GradientRectConfig {
