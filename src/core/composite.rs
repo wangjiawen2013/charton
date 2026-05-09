@@ -100,6 +100,9 @@ pub struct LayeredChart {
     pub(crate) polar_start_angle: Option<f64>,
     pub(crate) polar_end_angle: Option<f64>,
     pub(crate) polar_inner_radius: Option<f64>,
+
+    // The device pixel ratio for raster rendering. Defaults to 2.0.
+    pub(crate) scale_factor: f32,
 }
 
 impl Default for LayeredChart {
@@ -153,6 +156,8 @@ impl LayeredChart {
             polar_start_angle: None,
             polar_end_angle: None,
             polar_inner_radius: None,
+
+            scale_factor: 2.0,
         }
     }
 
@@ -775,6 +780,7 @@ impl LayeredChart {
     ///
     /// # Returns
     /// A Result containing the PNG encoded bytes or a ChartonError.
+    #[cfg(feature = "png")]
     pub fn to_png(&self) -> Result<Vec<u8>, ChartonError> {
         // 1. Create a mutable clone for the stateful rendering phase.
         // This ensures the training phase doesn't mutate the original chart instance.
@@ -782,18 +788,20 @@ impl LayeredChart {
 
         // 2. Initialize the Pixmap (pixel buffer).
         // If dimensions are invalid or memory allocation fails, we return a descriptive Render error.
-        let mut pixmap =
-            tiny_skia::Pixmap::new(self.width as u32, self.height as u32).ok_or_else(|| {
-                ChartonError::Render(
-                    "Invalid chart dimensions or out of memory for Pixmap".to_string(),
-                )
-            })?;
+        let mut pixmap = tiny_skia::Pixmap::new(
+            (self.width as f32 * self.scale_factor) as u32,
+            (self.height as f32 * self.scale_factor) as u32,
+        )
+        .ok_or_else(|| {
+            ChartonError::Render("Invalid chart dimensions or out of memory for Pixmap".to_string())
+        })?;
 
         // 3. Localized Backend Scope.
         {
-            // Initialize the RasterBackend with a 1.0 DPI scale.
+            // Renders the chart using the configured scale_factor (defaulting to 2.0x for High-DPI quality).
             // The backend automatically retrieves the globally cached 'static font from utils.
-            let mut backend = crate::render::backend::raster::RasterBackend::new(&mut pixmap, 1.0);
+            let mut backend =
+                crate::render::backend::raster::RasterBackend::new(&mut pixmap, self.scale_factor);
 
             // Render Background.
             // We use the backend's draw_rect to ensure the background is the first

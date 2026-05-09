@@ -217,6 +217,20 @@ pub trait IntoLayered: Into<LayeredChart> + Clone {
         lc
     }
 
+    /// Sets the scale factor for rendering.
+    ///
+    /// # Note
+    /// This factor **only affects raster outputs** (e.g., PNG). It determines the
+    /// physical pixel density (High-DPI).
+    ///
+    /// This field has **no effect on vector outputs** (e.g., SVG), as vector
+    /// formats are resolution-independent by nature.
+    fn with_scale_factor(self, factor: f32) -> LayeredChart {
+        let mut lc: LayeredChart = self.into();
+        lc.scale_factor = factor;
+        lc
+    }
+
     // --- Terminal Actions ---
 
     /// Generates and returns the SVG representation of the chart.
