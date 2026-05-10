@@ -31,7 +31,6 @@ impl PointShape {
         PointShape::Diamond,
         PointShape::Pentagon,
         PointShape::Hexagon,
-        PointShape::Octagon,
     ];
 }
 
@@ -49,7 +48,6 @@ impl From<&str> for PointShape {
             "diamond" => PointShape::Diamond,
             "pentagon" => PointShape::Pentagon,
             "hexagon" => PointShape::Hexagon,
-            "octagon" => PointShape::Octagon,
             _ => PointShape::Circle, // Robust fallback
         }
     }
