@@ -1,4 +1,3 @@
-use super::backend::svg::SvgBackend;
 use crate::Precision;
 use crate::core::context::PanelContext;
 use crate::core::guide::{GuideKind, GuideSize, GuideSpec, LegendPosition};
@@ -23,8 +22,8 @@ impl LegendRenderer {
     ///
     /// It coordinates the layout flow (wrapping blocks) based on the available space
     /// around the provided PanelContext.
-    pub fn render_legend(
-        buffer: &mut String,
+    pub fn render_legend<B: RenderBackend>(
+        backend: &mut B,
         specs: &[GuideSpec],
         theme: &Theme,
         ctx: &PanelContext,
@@ -36,7 +35,6 @@ impl LegendRenderer {
             return;
         }
 
-        let mut backend = SvgBackend::new(buffer, None);
         let font_size = theme.legend_label_size;
         let font_family = &theme.legend_label_family;
 
@@ -88,13 +86,15 @@ impl LegendRenderer {
             let text_config = TextConfig {
                 text: spec.title.clone(),
                 x: current_x as Precision,
-                y: (current_y + (font_size * 0.8)) as Precision,
+                y: (current_y + (font_size / 2.0)) as Precision,
                 font_size: (font_size * 1.1) as Precision,
                 font_family: font_family.clone(),
                 color: theme.title_color,
                 text_anchor: "start".to_string(),
+                dominant_baseline: "central".into(),
                 font_weight: "bold".to_string(),
                 opacity: 1.0,
+                angle: 0.0,
             };
             backend.draw_text(text_config);
 
@@ -103,12 +103,12 @@ impl LegendRenderer {
             // 2. Render content based on GuideKind (Continuous Gradient vs. Discrete Symbols)
             let actual_block_size = match spec.kind {
                 GuideKind::ColorBar => {
-                    Self::draw_colorbar(&mut backend, spec, ctx, current_x, content_y_offset, theme)
+                    Self::draw_colorbar(backend, spec, ctx, current_x, content_y_offset, theme)
                 }
                 GuideKind::Legend => {
                     let (labels, colors, shapes, sizes) = Self::resolve_mappings(spec, ctx);
                     Self::draw_spec_group(
-                        &mut backend,
+                        backend,
                         spec,
                         &labels,
                         &colors,
@@ -137,8 +137,8 @@ impl LegendRenderer {
     }
 
     /// Renders a continuous color gradient bar (ColorBar).
-    fn draw_colorbar(
-        backend: &mut dyn RenderBackend,
+    fn draw_colorbar<B: RenderBackend>(
+        backend: &mut B,
         spec: &GuideSpec,
         ctx: &PanelContext,
         x: f64,
@@ -224,13 +224,15 @@ impl LegendRenderer {
                 let text_config = TextConfig {
                     text: tick.label.clone(),
                     x: (x + bar_w + theme.legend_marker_text_gap) as Precision,
-                    y: (tick_y + font_size * 0.3) as Precision,
+                    y: tick_y as Precision,
                     font_size: font_size as Precision,
                     font_family: font_family.clone(),
                     color: theme.legend_label_color,
                     text_anchor: "start".to_string(),
+                    dominant_baseline: "central".into(),
                     font_weight: "normal".to_string(),
                     opacity: 1.0,
+                    angle: 0.0,
                 };
                 backend.draw_text(text_config);
 
@@ -297,13 +299,15 @@ impl LegendRenderer {
             let text_config = TextConfig {
                 text: label.clone(),
                 x: (col_x + fixed_container_size + theme.legend_marker_text_gap) as Precision,
-                y: (item_y + row_h * 0.75) as Precision,
+                y: (item_y + row_h / 2.0) as Precision,
                 font_size: font_size as Precision,
                 font_family: font_family.clone(),
                 color: theme.legend_label_color,
                 text_anchor: "start".to_string(),
+                dominant_baseline: "central".into(),
                 font_weight: "normal".to_string(),
                 opacity: 1.0,
+                angle: 0.0,
             };
             backend.draw_text(text_config);
 
@@ -317,7 +321,7 @@ impl LegendRenderer {
     }
 
     /// Maps data values into visual properties using the GlobalAesthetics context.
-    #[allow(clippy::type_complexity)] // A type alias isn't needed for a single usage.
+    #[allow(clippy::type_complexity)]
     fn resolve_mappings(
         spec: &GuideSpec,
         ctx: &PanelContext,
@@ -427,6 +431,7 @@ impl LegendRenderer {
         )
     }
 
+    /// Renders a single geometric symbol based on the PointShape variant.
     fn draw_symbol(
         backend: &mut dyn RenderBackend,
         shape: &PointShape,
@@ -437,7 +442,7 @@ impl LegendRenderer {
     ) {
         match shape {
             PointShape::Circle => {
-                let circle_config = CircleConfig {
+                backend.draw_circle(CircleConfig {
                     x: cx as Precision,
                     y: cy as Precision,
                     radius: r as Precision,
@@ -445,11 +450,10 @@ impl LegendRenderer {
                     stroke: SingleColor::new("none"),
                     stroke_width: 0.0,
                     opacity: 1.0,
-                };
-                backend.draw_circle(circle_config);
+                });
             }
             PointShape::Square => {
-                let rect_config = RectConfig {
+                backend.draw_rect(RectConfig {
                     x: (cx - r) as Precision,
                     y: (cy - r) as Precision,
                     width: (r * 2.0) as Precision,
@@ -458,55 +462,86 @@ impl LegendRenderer {
                     stroke: SingleColor::new("none"),
                     stroke_width: 0.0,
                     opacity: 1.0,
-                };
-                backend.draw_rect(rect_config);
+                });
             }
-            PointShape::Triangle => {
-                let pts = vec![
-                    (cx as Precision, (cy - r) as Precision),
-                    ((cx - r) as Precision, (cy + r) as Precision),
-                    ((cx + r) as Precision, (cy + r) as Precision),
-                ];
-                let polygon_config = PolygonConfig {
-                    points: pts,
-                    fill: *color,
-                    stroke: SingleColor::new("none"),
-                    stroke_width: 0.0,
-                    fill_opacity: 1.0,
-                    stroke_opacity: 1.0,
-                };
-                backend.draw_polygon(polygon_config);
-            }
-            PointShape::Diamond => {
-                let pts = vec![
-                    (cx as Precision, (cy - r) as Precision),
-                    ((cx + r) as Precision, cy as Precision),
-                    (cx as Precision, (cy + r) as Precision),
-                    ((cx - r) as Precision, cy as Precision),
-                ];
-                let polygon_config = PolygonConfig {
-                    points: pts,
-                    fill: *color,
-                    stroke: SingleColor::new("none"),
-                    stroke_width: 0.0,
-                    fill_opacity: 1.0,
-                    stroke_opacity: 1.0,
-                };
-                backend.draw_polygon(polygon_config);
-            }
+            // For all other geometric shapes, we calculate vertices and use draw_polygon
             _ => {
-                let circle_config = CircleConfig {
-                    x: cx as Precision,
-                    y: cy as Precision,
-                    radius: r as Precision,
-                    fill: *color,
-                    stroke: SingleColor::new("none"),
-                    stroke_width: 0.0,
-                    opacity: 1.0,
+                let points = match shape {
+                    PointShape::Triangle => Self::gen_regular_poly(cx, cy, r, 3, -90.0),
+                    PointShape::Diamond => Self::gen_regular_poly(cx, cy, r, 4, 0.0),
+                    PointShape::Pentagon => Self::gen_regular_poly(cx, cy, r, 5, -90.0),
+                    PointShape::Hexagon => Self::gen_regular_poly(cx, cy, r, 6, 0.0),
+                    PointShape::Star => Self::gen_star(cx, cy, r, r * 0.45, 5),
+                    _ => Vec::new(),
                 };
-                backend.draw_circle(circle_config);
+
+                if !points.is_empty() {
+                    backend.draw_polygon(PolygonConfig {
+                        points,
+                        fill: *color,
+                        stroke: SingleColor::new("none"),
+                        stroke_width: 0.0,
+                        fill_opacity: 1.0,
+                        stroke_opacity: 1.0,
+                    });
+                } else {
+                    // Final fallback to Circle if shape is undefined
+                    backend.draw_circle(CircleConfig {
+                        x: cx as Precision,
+                        y: cy as Precision,
+                        radius: r as Precision,
+                        fill: *color,
+                        stroke: SingleColor::new("none"),
+                        stroke_width: 0.0,
+                        opacity: 1.0,
+                    });
+                }
             }
         }
+    }
+
+    /// Generates vertices for a regular polygon inscribed in a circle of radius r.
+    /// rotation_deg: Offset angle in degrees (e.g., -90 to point the first vertex upward).
+    fn gen_regular_poly(
+        cx: f64,
+        cy: f64,
+        r: f64,
+        sides: usize,
+        rotation_deg: f64,
+    ) -> Vec<(Precision, Precision)> {
+        let mut pts = Vec::with_capacity(sides);
+        let start_angle = rotation_deg.to_radians();
+        for i in 0..sides {
+            let angle = start_angle + (i as f64 * 2.0 * std::f64::consts::PI / sides as f64);
+            pts.push((
+                (cx + r * angle.cos()) as Precision,
+                (cy + r * angle.sin()) as Precision,
+            ));
+        }
+        pts
+    }
+
+    /// Generates vertices for a star shape.
+    /// inner_r: The radius of the inner vertices (points of the star).
+    /// points: Number of star points (e.g., 5 for a standard pentagram).
+    fn gen_star(
+        cx: f64,
+        cy: f64,
+        outer_r: f64,
+        inner_r: f64,
+        points: usize,
+    ) -> Vec<(Precision, Precision)> {
+        let mut pts = Vec::with_capacity(points * 2);
+        let start_angle = -std::f64::consts::PI / 2.0; // Point upwards
+        for i in 0..(points * 2) {
+            let curr_r = if i % 2 == 0 { outer_r } else { inner_r };
+            let angle = start_angle + (i as f64 * std::f64::consts::PI / points as f64);
+            pts.push((
+                (cx + curr_r * angle.cos()) as Precision,
+                (cy + curr_r * angle.sin()) as Precision,
+            ));
+        }
+        pts
     }
 
     /// Calculates the initial (x, y) anchor for the legend block based on the panel position.

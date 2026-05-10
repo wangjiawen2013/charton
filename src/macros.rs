@@ -151,8 +151,13 @@ macro_rules! load_polars_df {
 
                 // --- Fallback ---
                 _ => {
-                    // Currently skipping other types (e.g., Boolean, List)
-                    // TODO: Implement DataType::List
+                    return Err($crate::error::ChartonError::Data(format!(
+                        "Unsupported Polars DataType '{:?}' in column '{}'. \
+                        Charton currently supports: f64, f32, i64, i32, u32, String, and DateTime. \
+                        Please cast this column to one of these types in your DataFrame before plotting.",
+                        series.dtype(),
+                        name
+                    )));
                 }
             }
         }
@@ -368,8 +373,13 @@ macro_rules! load_polars_v42_52 {
 
                 // --- Fallback ---
                 _ => {
-                    // Currently skipping other types (e.g., Boolean, List)
-                    // TODO: Implement DataType::List
+                    return Err($crate::error::ChartonError::Data(format!(
+                        "Unsupported Polars DataType '{:?}' in column '{}'. \
+                        Charton currently supports: f64, f32, i64, i32, u32, String, and DateTime. \
+                        Please cast this column to one of these types in your DataFrame before plotting.",
+                        series.dtype(),
+                        name
+                    )));
                 }
             }
         }

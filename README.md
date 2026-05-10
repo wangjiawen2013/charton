@@ -1,7 +1,7 @@
 [English](./README.md) | [简体中文](./README_zh.md)
 
 # Charton - A versatile plotting library for Rust
-**Altair-style declarative plotting for Rust. High-performance, Polars-native, and Wasm-ready.**
+**Altair-style declarative plotting for Rust. High-performance, Polars-friendly, and Wasm-ready.**
 > *"Really nice project. ... This works perfectly as an ecosystem."*
 > — [**Ritchie Vink**](https://github.com/pola-rs/polars/issues/25941), Creator of Polars
 
@@ -10,7 +10,7 @@
 [![Build Status](https://github.com/wangjiawen2013/charton/actions/workflows/ci.yml/badge.svg)](https://github.com/wangjiawen2013/charton/actions)
 [![License](https://img.shields.io/badge/license-Apache2.0-blue.svg)](LICENSE)
 
-**Charton** is a high-performance Rust plotting library featuring a declarative API inspired by [Altair](https://altair-viz.github.io/). It provides native [Polars](https://github.com/pola-rs/polars) support and bridges the gap to the Python visualization ecosystem (Altair/Matplotlib). Integrated with evcxr_jupyter, it enables seamless interactive data exploration in notebooks.
+**Charton** is a high-performance Rust plotting library featuring a declarative API inspired by [Altair](https://altair-viz.github.io/). It provides [Polars](https://github.com/pola-rs/polars) support and bridges the gap to the Python visualization ecosystem (Altair/Matplotlib). Integrated with evcxr_jupyter, it enables seamless interactive data exploration in notebooks.
 
 <table>
     <tr>
