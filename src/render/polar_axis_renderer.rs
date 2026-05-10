@@ -38,7 +38,7 @@ pub fn render_polar_axes(
         y: center_y as Precision,
         radius: max_r as Precision,
         fill: "none".into(),
-        stroke: theme.grid_color.clone(),
+        stroke: theme.grid_color,
         stroke_width: theme.grid_width as Precision,
         opacity: 0.5,
     });
