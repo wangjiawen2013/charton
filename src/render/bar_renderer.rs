@@ -273,8 +273,10 @@ impl Chart<MarkBar> {
                 font_family: theme.tick_label_family.clone(),
                 color: SingleColor::new("white"),
                 text_anchor: "middle".into(),
+                dominant_baseline: "middle".into(),
                 font_weight: "bold".into(),
                 opacity: opacity as Precision,
+                angle: 0.0,
             });
         }
     }

@@ -44,10 +44,6 @@ pub enum ChartonError {
     #[error("io error: {0}")]
     Io(#[from] std::io::Error),
 
-    /// Error related to SVG processing or usvg operations.
-    #[error("svg/usvg error")]
-    Svg,
-
     /// Error related to executable path validation.
     #[error("Executable path error: {0}")]
     ExecutablePath(String),

@@ -1,9 +1,9 @@
+use crate::Precision;
 use crate::coordinate::{CoordinateTrait, Rect, cartesian::Cartesian2D};
+use crate::core::layer::{PathConfig, RenderBackend, TextConfig};
 use crate::error::ChartonError;
 use crate::scale::ExplicitTick;
 use crate::theme::Theme;
-use html_escape::encode_safe;
-use std::fmt::Write;
 
 /// Orchestrates the visual rendering of both horizontal and vertical axes for a panel.
 ///
@@ -11,7 +11,7 @@ use std::fmt::Write;
 /// in the `PanelContext`. In a faceted chart, this is called for each individual panel.
 #[allow(clippy::too_many_arguments)]
 pub fn render_cartesian_axes(
-    svg: &mut String,
+    backend: &mut dyn RenderBackend, // A generic backend for rendering.
     theme: &Theme,
     panel: &Rect,
     coord: &Cartesian2D,
@@ -41,21 +41,21 @@ pub fn render_cartesian_axes(
     };
 
     // 1. Process the Physical Bottom Axis (X-axis in standard, Y-axis in flipped)
-    draw_axis_line(svg, theme, panel, true)?;
-    draw_ticks_and_labels(svg, theme, panel, coord, true, bottom_explicit)?;
-    draw_axis_title(svg, theme, panel, coord, bottom_label, true)?;
+    draw_axis_line(backend, theme, panel, true)?;
+    draw_ticks_and_labels(backend, theme, panel, coord, true, bottom_explicit)?;
+    draw_axis_title(backend, theme, panel, coord, bottom_label, true)?;
 
     // 2. Process the Physical Left Axis (Y-axis in standard, X-axis in flipped)
-    draw_axis_line(svg, theme, panel, false)?;
-    draw_ticks_and_labels(svg, theme, panel, coord, false, left_explicit)?;
-    draw_axis_title(svg, theme, panel, coord, left_label, false)?;
+    draw_axis_line(backend, theme, panel, false)?;
+    draw_ticks_and_labels(backend, theme, panel, coord, false, left_explicit)?;
+    draw_axis_title(backend, theme, panel, coord, left_label, false)?;
 
     Ok(())
 }
 
 /// Renders the straight line (spine) of the axis.
 fn draw_axis_line(
-    svg: &mut String,
+    backend: &mut dyn RenderBackend,
     theme: &Theme,
     panel: &Rect,
     is_bottom: bool,
@@ -73,26 +73,24 @@ fn draw_axis_line(
         (panel.x, panel.y, panel.x, panel.y + panel.height)
     };
 
-    writeln!(
-        svg,
-        r#"<line x1="{:.2}" y1="{:.2}" x2="{:.2}" y2="{:.2}" stroke="{}" stroke-width="{}" stroke-linecap="square"/>"#,
-        x1,
-        y1,
-        x2,
-        y2,
-        theme.label_color.to_css_string(),
-        theme.axis_width
-    )?;
+    // Using PathConfig to draw the single line segment of the axis spine
+    backend.draw_path(PathConfig {
+        points: vec![
+            (x1 as Precision, y1 as Precision),
+            (x2 as Precision, y2 as Precision),
+        ],
+        stroke: theme.label_color,
+        stroke_width: theme.axis_width as Precision,
+        opacity: 1.0,
+        dash: vec![], // Solid line
+    });
+
     Ok(())
 }
 
-/// Renders the tick marks and their corresponding text labels.
-///
-/// This function handles the physical placement of ticks and labels.
-/// Crucially, when `is_flipped` is true, it ensures that the data scale
-/// and the visual rotation angle are correctly cross-referenced.
+/// Renders the individual ticks and their associated labels.
 fn draw_ticks_and_labels(
-    svg: &mut String,
+    backend: &mut dyn RenderBackend,
     theme: &Theme,
     panel: &Rect,
     coord: &dyn CoordinateTrait,
@@ -101,7 +99,7 @@ fn draw_ticks_and_labels(
 ) -> Result<(), ChartonError> {
     let is_flipped = coord.is_flipped();
 
-    // Select the logical scale currently occupying this physical axis.
+    // 1. Select logical scale based on coordinate orientation
     let target_scale = if is_flipped {
         if is_bottom {
             coord.get_y_scale()
@@ -114,23 +112,18 @@ fn draw_ticks_and_labels(
         coord.get_y_scale()
     };
 
+    // 2. Generate ticks based on available pixel space
     let ticks = match explicit_ticks {
-        // 1. User-provided explicit ticks: prioritize and process manual specifications.
         Some(explicit) => target_scale.create_explicit_ticks(explicit),
-
-        // 2. Default: fallback to automatic tick suggestion based on available screen space.
         None => {
             let available_space = if is_bottom { panel.width } else { panel.height };
-            let final_count = theme.suggest_tick_count(available_space);
-            target_scale.suggest_ticks(final_count)
+            target_scale.suggest_ticks(theme.suggest_tick_count(available_space))
         }
     };
 
     let tick_len = 6.0;
 
-    // FIX: The rotation angle must be resolved using the same logic as the scale.
-    // If the chart is flipped, the labels on the bottom (horizontal) axis
-    // are now representing the Y-dimension data and should use the Y-angle.
+    // 3. Resolve rotation angle for tick labels
     let angle = if is_bottom {
         if is_flipped {
             theme.y_tick_label_angle
@@ -152,22 +145,35 @@ fn draw_ticks_and_labels(
             (panel.x, panel.y + (1.0 - norm_pos) * panel.height)
         };
 
-        let (x2, y2, dx, dy, anchor, baseline) = if is_bottom {
-            // Anchor is 'end' for rotated text to ensure the string "hangs" off the tick properly.
+        // --- DRAW TICK LINE ---
+        let (x2, y2) = if is_bottom {
+            (px, py + tick_len)
+        } else {
+            (px - tick_len, py)
+        };
+
+        backend.draw_path(PathConfig {
+            points: vec![
+                (px as Precision, py as Precision),
+                (x2 as Precision, y2 as Precision),
+            ],
+            stroke: theme.label_color,
+            stroke_width: theme.tick_width as Precision,
+            opacity: 1.0,
+            dash: vec![],
+        });
+
+        // --- DRAW TICK LABEL ---
+        let (dx, dy, anchor, baseline) = if is_bottom {
             let x_anchor = if angle == 0.0 { "middle" } else { "end" };
             (
-                px,
-                py + tick_len,
                 0.0,
                 tick_len + theme.tick_label_padding,
                 x_anchor,
                 "hanging",
             )
         } else {
-            // Left axis labels are typically right-aligned to the tick end.
             (
-                px - tick_len,
-                py,
                 -(tick_len + theme.tick_label_padding + 1.0),
                 0.0,
                 "end",
@@ -175,48 +181,26 @@ fn draw_ticks_and_labels(
             )
         };
 
-        writeln!(
-            svg,
-            r#"<line x1="{:.2}" y1="{:.2}" x2="{:.2}" y2="{:.2}" stroke="{}" stroke-width="{:.1}"/>"#,
-            px,
-            py,
-            x2,
-            y2,
-            theme.label_color.to_css_string(),
-            theme.tick_width
-        )?;
-
-        let final_x = px + dx;
-        let final_y = py + dy;
-        let transform = if angle != 0.0 {
-            format!(
-                r#" transform="rotate({:.1}, {:.2}, {:.2})""#,
-                angle, final_x, final_y
-            )
-        } else {
-            "".to_string()
-        };
-
-        writeln!(
-            svg,
-            r#"<text x="{:.2}" y="{:.2}" font-size="{}" font-family="{}" fill="{}" text-anchor="{}" dominant-baseline="{}"{}>{}</text>"#,
-            final_x,
-            final_y,
-            theme.tick_label_size,
-            theme.tick_label_family,
-            theme.tick_label_color.to_css_string(),
-            anchor,
-            baseline,
-            transform,
-            tick.label
-        )?;
+        backend.draw_text(TextConfig {
+            text: tick.label.clone(),
+            x: (px + dx) as Precision,
+            y: (py + dy) as Precision,
+            font_size: theme.tick_label_size as Precision,
+            font_family: theme.tick_label_family.clone(),
+            color: theme.tick_label_color,
+            text_anchor: anchor.to_string(),
+            dominant_baseline: baseline.to_string(),
+            font_weight: "normal".to_string(), // Ticks usually use normal weight
+            opacity: 1.0,
+            angle: angle as Precision,
+        });
     }
     Ok(())
 }
 
 /// Renders the axis title, calculating offsets based on the bounding box of rotated tick labels.
 fn draw_axis_title(
-    svg: &mut String,
+    backend: &mut dyn RenderBackend,
     theme: &Theme,
     panel: &Rect,
     coord: &dyn CoordinateTrait,
@@ -228,12 +212,10 @@ fn draw_axis_title(
     }
 
     let is_flipped = coord.is_flipped();
-
     let tick_line_len = 6.0;
     let title_gap = 5.0;
 
     // Resolve which angle and scale are mapped to this physical axis.
-    // This logic MUST match draw_ticks_and_labels exactly.
     let (angle_rad, target_scale) = if is_flipped {
         if is_bottom {
             (theme.y_tick_label_angle.to_radians(), coord.get_y_scale())
@@ -253,39 +235,37 @@ fn draw_axis_title(
     if is_bottom {
         let x = panel.x + panel.width / 2.0;
 
-        // Calculate the maximum vertical extension (Descent) of the labels.
-        // We use the absolute sine and cosine to find the total height of the rotated bounding box.
+        // Calculate the maximum vertical extension (Descent) of the labels to avoid overlap.
         let max_tick_height = ticks
             .iter()
             .map(|t| {
                 let w = crate::core::utils::estimate_text_width(&t.label, theme.tick_label_size);
                 let h = theme.tick_label_size;
-
-                // For a box (w, h) rotated by theta, the vertical projection is |w*sin(theta)| + |h*cos(theta)|.
-                // This represents the total height occupied by the rotated text.
                 w.abs() * angle_rad.sin().abs() + h * angle_rad.cos().abs()
             })
             .fold(0.0, f64::max);
 
         // Compute total vertical offset from the panel edge.
-        // Includes: tick lines + labels + theme padding + additional gap.
         let v_offset = tick_line_len + max_tick_height + theme.label_padding + title_gap;
         let y = panel.y + panel.height + v_offset;
 
-        writeln!(
-            svg,
-            r#"<text x="{:.2}" y="{:.2}" text-anchor="middle" font-size="{}" font-family="{}" fill="{}" font-weight="bold" dominant-baseline="hanging">{}</text>"#,
-            x,
-            y,
-            theme.label_size,
-            theme.label_family,
-            theme.label_color.to_css_string(),
-            encode_safe(label)
-        )?;
+        backend.draw_text(TextConfig {
+            x: x as Precision,
+            y: y as Precision,
+            text: label.to_string(),
+            font_size: theme.label_size as Precision,
+            font_family: theme.label_family.clone(),
+            color: theme.label_color,
+            text_anchor: "middle".to_string(),
+            dominant_baseline: "hanging".to_string(),
+            font_weight: "bold".to_string(),
+            opacity: 1.0,
+            angle: 0.0,
+        });
     } else {
         let y = panel.y + panel.height / 2.0;
 
-        // Calculate the maximum horizontal extension for the left axis.
+        // Calculate the maximum horizontal extension for the left axis to prevent clipping.
         let max_tick_width = ticks
             .iter()
             .map(|t| {
@@ -295,9 +275,7 @@ fn draw_axis_title(
             })
             .fold(0.0, f64::max);
 
-        // For the vertical title, we rotate 90 degrees and align the center (middle baseline).
-        // Therefore, we add half the label_size to ensure the title doesn't bleed into the labels.
-        // + 3.0 for some extra padding, it's an empirical value.
+        // Total horizontal offset for vertical axis title.
         let h_offset = tick_line_len
             + max_tick_width
             + theme.label_padding
@@ -306,18 +284,19 @@ fn draw_axis_title(
             + 3.0;
         let x = panel.x - h_offset;
 
-        writeln!(
-            svg,
-            r#"<text x="{:.2}" y="{:.2}" text-anchor="middle" font-size="{}" font-family="{}" fill="{}" font-weight="bold" transform="rotate(-90, {:.2}, {:.2})" dominant-baseline="middle">{}</text>"#,
-            x,
-            y,
-            theme.label_size,
-            theme.label_family,
-            theme.label_color.to_css_string(),
-            x,
-            y,
-            encode_safe(label)
-        )?;
+        backend.draw_text(TextConfig {
+            x: x as Precision,
+            y: y as Precision,
+            text: label.to_string(),
+            font_size: theme.label_size as Precision,
+            font_family: theme.label_family.clone(),
+            color: theme.label_color,
+            text_anchor: "middle".to_string(),
+            dominant_baseline: "middle".to_string(),
+            font_weight: "bold".to_string(),
+            opacity: 1.0,
+            angle: -90.0, // Rotate Counter-Clockwise(CCW) for vertical alignment
+        });
     }
 
     Ok(())
