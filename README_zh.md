@@ -1,7 +1,7 @@
 [English](./README.md) | [简体中文](./README_zh.md)
 
 # Charton - 一个多功能的 Rust 绘图库
-**Rust 版 Altair 风格声明式绘图。高性能、Polars 原生支持、且兼容 Wasm。**
+**Rust 版 Altair 风格声明式绘图。高性能、Polars 友好、且兼容 Wasm。**
 > *“非常棒的项目。... 作为一个生态系统运行得非常完美。”*
 > — [**Ritchie Vink**](https://github.com/pola-rs/polars/issues/25941), Polars 创始人
 
@@ -10,7 +10,7 @@
 [![Build Status](https://github.com/wangjiawen2013/charton/actions/workflows/ci.yml/badge.svg)](https://github.com/wangjiawen2013/charton/actions)
 [![License](https://img.shields.io/badge/license-Apache2.0-blue.svg)](LICENSE)
 
-**Charton** 是一款高性能 Rust 绘图库，其声明式 API 灵感源自 [Altair](https://altair-viz.github.io/)。它提供原生 [Polars](https://github.com/pola-rs/polars) 支持，并填补了 Rust 与 Python 可视化生态系统（Altair/Matplotlib）之间的空白。通过与 evcxr_jupyter 集成，还可以在 Notebook 中实现交互式数据探索。
+**Charton** 是一款高性能 Rust 绘图库，其声明式 API 灵感源自 [Altair](https://altair-viz.github.io/)。它支持 [Polars](https://github.com/pola-rs/polars) 数据框，并可使用已有的 Python 可视化工具（Altair/Matplotlib）。通过与 evcxr_jupyter 集成，还可以在 Notebook 中实现交互式数据探索。
 
 <table>
     <tr>
