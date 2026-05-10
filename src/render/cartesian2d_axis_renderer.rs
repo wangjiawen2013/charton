@@ -157,7 +157,7 @@ fn draw_ticks_and_labels(
                 (px as Precision, py as Precision),
                 (x2 as Precision, y2 as Precision),
             ],
-            stroke: theme.label_color.clone(),
+            stroke: theme.label_color,
             stroke_width: theme.tick_width as Precision,
             opacity: 1.0,
             dash: vec![],
