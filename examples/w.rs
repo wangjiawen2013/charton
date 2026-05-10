@@ -9,17 +9,17 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
     // 2. 开始计时：只计算从 Chart 构建到文件保存的过程
     let start = Instant::now();
 
-    Chart::build(ds)?
+    Chart::build(&ds)?
         .mark_point()?
         .encode((alt::x("x"), alt::y("y")))?
-        .with_title("Performance Test: 10,000 Points")
+        .with_title(format!("Performance Test: {} Points", ds.height()))
         .save("stress_test.svg")?;
 
     let duration = start.elapsed();
 
     // 3. 输出结果
     println!("--------------------------------------");
-    println!("渲染并保存 10,000 个点耗时: {:?}", duration);
+    println!("渲染并保存 {} 个点耗时: {:?}", ds.height(), duration);
     println!("--------------------------------------");
 
     Ok(())
@@ -27,7 +27,7 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
 
 /// 构建一万个点的压力测试数据集
 pub fn get_10k_dataset() -> Result<Dataset, ChartonError> {
-    let count = 10_000;
+    let count = 1000;
 
     // 1. 使用迭代器生成 X 轴数据 (0.0, 0.01, 0.02 ... 99.99)
     let x: Vec<f64> = (0..count).map(|i| i as f64 * 0.01).collect();

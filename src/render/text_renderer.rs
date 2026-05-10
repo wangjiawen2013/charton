@@ -104,8 +104,10 @@ impl MarkRenderer for Chart<MarkText> {
                     font_family: mark_config.font_family.clone(),
                     color: fill,
                     text_anchor: mark_config.text_anchor.to_string(),
+                    dominant_baseline: "middle".to_string(), // Common default for data point labels
                     font_weight: mark_config.font_weight.to_string(),
                     opacity: mark_config.opacity as Precision,
+                    angle: 0.0, // Data labels are horizontal by default
                 })
             })
             .collect();

@@ -69,9 +69,11 @@ pub struct TextConfig {
     pub font_size: Precision,
     pub font_family: String,
     pub color: SingleColor,
-    pub text_anchor: String, // "start", "middle", "end"
-    pub font_weight: String, // "normal", "bold", or numeric "400"
+    pub text_anchor: String,       // "start", "middle", "end"
+    pub dominant_baseline: String, // "alphabetic", "hanging", "central", etc.
+    pub font_weight: String,       // "normal", "bold", or numeric "400"
     pub opacity: Precision,
+    pub angle: Precision, // Rotation angle in degrees
 }
 
 pub struct LineConfig {
