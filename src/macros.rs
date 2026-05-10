@@ -157,7 +157,7 @@ macro_rules! load_polars_df {
                         Please cast this column to one of these types in your DataFrame before plotting.",
                         series.dtype(),
                         name
-                    )));
+                    )).into());
                 }
             }
         }
@@ -379,7 +379,7 @@ macro_rules! load_polars_v42_52 {
                         Please cast this column to one of these types in your DataFrame before plotting.",
                         series.dtype(),
                         name
-                    )));
+                    )).into());
                 }
             }
         }
