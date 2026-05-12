@@ -926,6 +926,7 @@ impl LayeredChart {
                 #[cfg(feature = "pdf")]
                 {
                     // Initialize default SVG parsing and rendering options.
+                    let svg_content = self.to_svg()?;
                     let mut opts = svg2pdf::usvg::Options::default();
 
                     // Assign the globally cached font database.
