@@ -376,7 +376,7 @@ impl LayeredChart {
     /// let base_layer = Chart::<MarkBar>::build(&df1)?
     ///     .mark_bar()?
     ///     .encode(x("x"), y("y"))?;
-    ///     
+    ///
     /// let overlay_layer = Chart::<MarkLine>::build(&df2)?
     ///     .mark_line()?
     ///     .encode(x("x"), y("y"))?;
@@ -917,16 +917,16 @@ impl LayeredChart {
             .and_then(|e| e.to_str())
             .map(|s| s.to_lowercase());
 
-        let svg_content = self.to_svg()?;
-
         match ext.as_deref() {
             Some("svg") => {
+                let svg_content = self.to_svg()?;
                 std::fs::write(path_obj, svg_content).map_err(ChartonError::Io)?;
             }
             Some("pdf") => {
                 #[cfg(feature = "pdf")]
                 {
                     // Initialize default SVG parsing and rendering options.
+                    let svg_content = self.to_svg()?;
                     let mut opts = svg2pdf::usvg::Options::default();
 
                     // Assign the globally cached font database.
