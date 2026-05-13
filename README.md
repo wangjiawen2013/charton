@@ -10,9 +10,12 @@
 [![Build Status](https://github.com/wangjiawen2013/charton/actions/workflows/ci.yml/badge.svg)](https://github.com/wangjiawen2013/charton/actions)
 [![License](https://img.shields.io/badge/license-Apache2.0-blue.svg)](LICENSE)
 
-> **Chart like LEGO™ — compose limitless custom charts from standardized building blocks.**
+<p align="center">
+  <b>Chart like You Mean It</b><br>
+  <i>standard blocks — limitless charts</i>
+</p>
 
-**Charton** is a high-performance Rust plotting library featuring a declarative API inspired by [Altair](https://altair-viz.github.io/). It provides [Polars](https://github.com/pola-rs/polars) support and bridges the gap to the Python visualization ecosystem (Altair/Matplotlib). Integrated with evcxr_jupyter, it enables seamless interactive data exploration in notebooks.
+Charton is a high-performance Rust plotting library featuring a declarative API inspired by [Altair](https://altair-viz.github.io/). It provides [Polars](https://github.com/pola-rs/polars) support and bridges the gap to the Python visualization ecosystem (Altair/Matplotlib). Integrated with evcxr_jupyter, it enables seamless interactive data exploration in notebooks.
 
 <table>
     <tr>
