@@ -10,6 +10,8 @@
 [![Build Status](https://github.com/wangjiawen2013/charton/actions/workflows/ci.yml/badge.svg)](https://github.com/wangjiawen2013/charton/actions)
 [![License](https://img.shields.io/badge/license-Apache2.0-blue.svg)](LICENSE)
 
+> **乐高式绘图 — 标准组件，无限图表。**
+
 **Charton** 是一款高性能 Rust 绘图库，其声明式 API 灵感源自 [Altair](https://altair-viz.github.io/)。它支持 [Polars](https://github.com/pola-rs/polars) 数据框，并可使用已有的 Python 可视化工具（Altair/Matplotlib）。通过与 evcxr_jupyter 集成，还可以在 Notebook 中实现交互式数据探索。
 
 <table>
