@@ -172,4 +172,4 @@ Charton 作图精准，提供对复杂标记的像素级控制。无论是用于
 请访问 [Charton Docs](https://wangjiawen2013.github.io/charton) 查看完整文档（文档待完善）。
 
 ## License
-Charton 基于 **Apache License 2.0** 许可证开源。
+Charton 基于 Apache License 2.0 许可证开源。
