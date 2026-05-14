@@ -42,7 +42,6 @@ impl<T: Mark> Chart<T> {
             .collect();
 
         // --- STEP 3: Establish Deterministic Order for Color ---
-        // We use unique_values() to capture the first-appearance order.
         let color_list: Vec<String> = if let Some(c_enc) = color_enc {
             self.data.column(&c_enc.field)?.unique_values()
         } else {
@@ -50,13 +49,11 @@ impl<T: Mark> Chart<T> {
         };
 
         // --- STEP 4: Aggregate Counts (The "Group By" phase) ---
-        // Key: (bin_index, color_label), Value: count
         let mut lookup: AHashMap<(usize, String), f64> = AHashMap::new();
         let row_count = self.data.height();
 
         for i in 0..row_count {
             let val = x_col.get_f64(i).unwrap_or(min_val);
-            // Calculate which bin this value falls into
             let bin_idx = (((val - min_val) / bin_width).floor() as usize).min(n_bins - 1);
 
             let color_label = if let Some(c_enc) = color_enc {
@@ -71,7 +68,6 @@ impl<T: Mark> Chart<T> {
         // --- STEP 5: Apply Normalization (Optional) ---
         if y_enc.normalize {
             if color_enc.is_some() {
-                // Normalize within each color group: sum(counts per color) = 1.0
                 let mut color_sums = AHashMap::new();
                 for ((_, color), count) in &lookup {
                     *color_sums.entry(color.clone()).or_insert(0.0) += *count;
@@ -83,7 +79,6 @@ impl<T: Mark> Chart<T> {
                     }
                 }
             } else {
-                // Global normalization: sum(all counts) = 1.0
                 let total: f64 = lookup.values().sum();
                 if total > 0.0 {
                     for count in lookup.values_mut() {
@@ -93,8 +88,7 @@ impl<T: Mark> Chart<T> {
             }
         }
 
-        // --- STEP 6: Cartesian Product & Gap Filling (Using the established order) ---
-        // We iterate over the fixed bin indices and the ordered color_list.
+        // --- STEP 6: Cartesian Product & Gap Filling ---
         let mut final_x = Vec::new();
         let mut final_y = Vec::new();
         let mut final_color = Vec::new();
@@ -117,15 +111,30 @@ impl<T: Mark> Chart<T> {
 
         // --- STEP 7: Rebuild Dataset ---
         let mut new_ds = Dataset::new();
-        new_ds.add_column(bin_field, ColumnVector::F64 { data: final_x })?;
-        new_ds.add_column(count_field, ColumnVector::F64 { data: final_y })?;
+
+        // Updated to use Float64 variant with validity: None
+        // (Calculated bins and counts are guaranteed to be present)
+        new_ds.add_column(
+            bin_field,
+            ColumnVector::Float64 {
+                data: final_x,
+                validity: None,
+            },
+        )?;
+        new_ds.add_column(
+            count_field,
+            ColumnVector::Float64 {
+                data: final_y,
+                validity: None,
+            },
+        )?;
 
         if let Some(c_enc) = color_enc {
             new_ds.add_column(
                 &c_enc.field,
                 ColumnVector::String {
                     data: final_color,
-                    validity: None, // Cartesian product ensures every slot is filled with a valid String
+                    validity: None,
                 },
             )?;
         }
