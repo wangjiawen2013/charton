@@ -436,7 +436,7 @@ impl<T: Mark> Chart<T> {
             let inferred = match col.semantic_type() {
                 SemanticType::Continuous => Scale::Linear,
                 SemanticType::Discrete => Scale::Discrete,
-                SemanticType::Temporal => Scale::Temporal,
+                SemanticType::Temporal(_) => Scale::Temporal,
             };
 
             // --- VALIDATION LOGIC ---
@@ -603,7 +603,7 @@ impl<T: Mark> Chart<T> {
 
             // Determine bins based on the semantic interpretation of the column data.
             match series.semantic_type() {
-                SemanticType::Continuous | SemanticType::Temporal => {
+                SemanticType::Continuous | SemanticType::Temporal(_) => {
                     if unique_count <= 1 {
                         Ok(1)
                     } else {

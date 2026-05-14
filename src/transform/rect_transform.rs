@@ -13,7 +13,7 @@ impl<T: Mark> Chart<T> {
     ///    Only coordinates present in the source data are generated.
     /// 2. **Stable Order**: Uses the dataset's internal discovery logic to ensure
     ///    categorical axes respect the data's natural order.
-    /// 3. **Type Safety**: Binned continuous data is cast back to F64 for proper scaling.
+    /// 3. **Type Safety**: Binned continuous data is cast back to Float64 for proper scaling.
     pub(crate) fn transform_rect_data(mut self) -> Result<Self, ChartonError> {
         // --- STEP 1: Extract Encodings ---
         let x_enc = self
@@ -61,8 +61,6 @@ impl<T: Mark> Chart<T> {
         };
 
         // --- STEP 4: Grouping Pass ---
-        // Instead of summing immediately, we collect row indices for each (X, Y) coordinate.
-        // This allows us to apply any AggregateOp (Mean, Median, etc.) later.
         let row_count = self.data.height();
         let mut groups: AHashMap<(String, String), Vec<usize>> = AHashMap::new();
         let mut appearance_order = Vec::new();
@@ -105,12 +103,10 @@ impl<T: Mark> Chart<T> {
         let mut final_y = Vec::with_capacity(appearance_order.len());
         let mut final_color = Vec::with_capacity(appearance_order.len());
 
-        // Use the user-specified aggregation operator from the color encoding
         let agg_op = color_enc.aggregate;
 
         for coord in appearance_order {
             if let Some(indices) = groups.get(&coord) {
-                // Perform the statistical calculation on the color column
                 let aggregated_val = agg_op.aggregate_by_index(color_col, indices);
 
                 final_x.push(coord.0);
@@ -122,14 +118,18 @@ impl<T: Mark> Chart<T> {
         // --- STEP 6: Reconstruct the Dataset ---
         let mut new_ds = Dataset::new();
 
-        // Internal helper to cast string keys back to F64 for numeric/binned scales
+        // Internal helper to cast string keys back to Float64 for numeric/binned scales
         let cast_vec = |labels: Vec<String>, is_discrete: bool, binned: bool| -> ColumnVector {
             if !is_discrete || binned {
                 let data = labels
                     .iter()
                     .map(|s| s.parse::<f64>().unwrap_or(0.0))
                     .collect();
-                ColumnVector::F64 { data }
+                // Migrated to Float64 variant with validity: None
+                ColumnVector::Float64 {
+                    data,
+                    validity: None,
+                }
             } else {
                 ColumnVector::String {
                     data: labels,
@@ -147,8 +147,15 @@ impl<T: Mark> Chart<T> {
             cast_vec(final_y, y_is_discrete, y_bin_params.is_some()),
         )?;
 
-        // The color column is always numeric (f64) after aggregation
-        new_ds.add_column(&color_enc.field, ColumnVector::F64 { data: final_color })?;
+        // The color column is always numeric (f64) after aggregation.
+        // Migrated to Float64 variant.
+        new_ds.add_column(
+            &color_enc.field,
+            ColumnVector::Float64 {
+                data: final_color,
+                validity: None,
+            },
+        )?;
 
         self.data = new_ds;
         Ok(self)

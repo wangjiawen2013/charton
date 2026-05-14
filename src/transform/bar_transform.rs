@@ -9,16 +9,23 @@ use ahash::AHashMap;
 impl<T: Mark> Chart<T> {
     pub(crate) fn transform_bar_data(mut self) -> Result<Self, ChartonError> {
         // --- STEP 1: Context Extraction ---
-        let y_enc = self.encoding.y.as_mut().unwrap();
+        let y_enc = self
+            .encoding
+            .y
+            .as_mut()
+            .ok_or_else(|| ChartonError::Encoding("Y encoding missing".into()))?;
         let agg_op = y_enc.aggregate;
-        let x_enc = self.encoding.x.as_ref().unwrap();
+        let x_enc = self
+            .encoding
+            .x
+            .as_ref()
+            .ok_or_else(|| ChartonError::Encoding("X encoding missing".into()))?;
         let color_enc_opt = self.encoding.color.as_ref();
 
         let mut x_field = x_enc.field.clone();
         let y_field = y_enc.field.clone();
 
-        // Check if we are in Pie mode (empty X field).
-        // If so, we force Stacked mode to create a circular stack.
+        // Check for Pie mode (empty X field)
         let is_pie = x_field.is_empty();
         if is_pie {
             y_enc.stack = StackMode::Stacked;
@@ -26,16 +33,25 @@ impl<T: Mark> Chart<T> {
         }
 
         let color_field = color_enc_opt.map(|ce| &ce.field);
-
-        // A color field triggers grouping ONLY if it's different from the X axis field.
         let has_grouping_color = if let Some(cf) = color_field {
             cf != &x_field
         } else {
             false
         };
 
-        // --- STEP 2: Aggregate Data into a Lookup Map ---
-        // We group raw rows by (X-Category, Color-Category) to prepare for aggregation.
+        // Capture prototypes for categorical restoration
+        let x_col_proto = if !is_pie {
+            Some(self.data.column(&x_field)?.clone())
+        } else {
+            None
+        };
+        let c_col_proto = if has_grouping_color {
+            Some(self.data.column(color_field.unwrap())?.clone())
+        } else {
+            None
+        };
+
+        // --- STEP 2: Aggregate Data ---
         let mut group_map: AHashMap<(String, Option<String>), Vec<usize>> = AHashMap::new();
         let row_count = self.data.height();
 
@@ -59,9 +75,7 @@ impl<T: Mark> Chart<T> {
             .map(|(key, indices)| (key, agg_op.aggregate_by_index(y_col, &indices)))
             .collect();
 
-        // --- STEP 3: Normalization (100% Stacked / Percentage mode) ---
-        // If normalization is requested, we divide each value by the sum of its X-group.
-        // This is essential for "Normalized Rose Charts" where all petals have the same radius.
+        // --- STEP 3: Normalization ---
         if y_enc.normalize || y_enc.stack == StackMode::Normalize {
             let mut x_sums: AHashMap<String, f64> = AHashMap::new();
             for ((x, _), val) in &lookup {
@@ -74,8 +88,6 @@ impl<T: Mark> Chart<T> {
         }
 
         // --- STEP 4: Cartesian Product & Gap Filling ---
-        // We ensure every X-category has the same set of Color-categories (filling missing gaps with 0.0).
-        // This prevents "shifting" in stacked charts (including Nightingale Rose) when data is sparse.
         let x_uniques = if is_pie {
             vec!["all".to_string()]
         } else {
@@ -95,8 +107,6 @@ impl<T: Mark> Chart<T> {
         for x in &x_uniques {
             if has_grouping_color {
                 for c in &c_uniques {
-                    // Using .get() instead of .remove() to keep the lookup intact if needed for debug.
-                    // Missing combinations are filled with 0.0 to maintain stack alignment.
                     let val = lookup
                         .get(&(x.clone(), Some(c.clone())))
                         .cloned()
@@ -112,11 +122,8 @@ impl<T: Mark> Chart<T> {
             }
         }
 
-        // --- STEP 5: Rebuild Dataset ---
+        // --- STEP 5: Rebuild Dataset with Type Awareness ---
         let mut new_ds = Dataset::new();
-
-        // 1. Resolve column names and metadata
-        let x_col_name = if is_pie { "" } else { &x_field };
         let total_c = if has_grouping_color {
             c_uniques.len()
         } else {
@@ -124,13 +131,81 @@ impl<T: Mark> Chart<T> {
         };
         let total_rows = final_x.len();
 
-        // 2. Generate layout helper columns (consistent with Boxplot/Errorbar)
-        // These columns allow the renderer to calculate 'dodge' offsets without re-grouping.
+        // 1. Restore X Axis (Categorical support)
+        if is_pie {
+            new_ds.add_column(
+                "",
+                ColumnVector::String {
+                    data: final_x,
+                    validity: None,
+                },
+            )?;
+        } else {
+            let x_cv = match x_col_proto {
+                Some(ColumnVector::Categorical { values, .. }) => {
+                    let val_map: AHashMap<&str, u32> = values
+                        .iter()
+                        .enumerate()
+                        .map(|(idx, s)| (s.as_str(), idx as u32))
+                        .collect();
+                    let keys = final_x
+                        .iter()
+                        .map(|s| *val_map.get(s.as_str()).unwrap_or(&0))
+                        .collect();
+                    ColumnVector::Categorical {
+                        keys,
+                        values,
+                        validity: None,
+                    }
+                }
+                _ => ColumnVector::String {
+                    data: final_x,
+                    validity: None,
+                },
+            };
+            new_ds.add_column(&x_field, x_cv)?;
+        }
+
+        // 2. Restore Color Axis (Categorical support)
+        if has_grouping_color {
+            let c_cv = match c_col_proto {
+                Some(ColumnVector::Categorical { values, .. }) => {
+                    let val_map: AHashMap<&str, u32> = values
+                        .iter()
+                        .enumerate()
+                        .map(|(idx, s)| (s.as_str(), idx as u32))
+                        .collect();
+                    let keys = final_color
+                        .iter()
+                        .map(|s| *val_map.get(s.as_str()).unwrap_or(&0))
+                        .collect();
+                    ColumnVector::Categorical {
+                        keys,
+                        values,
+                        validity: None,
+                    }
+                }
+                _ => ColumnVector::String {
+                    data: final_color,
+                    validity: None,
+                },
+            };
+            new_ds.add_column(color_field.unwrap(), c_cv)?;
+        }
+
+        // 3. Measures (Y is always F64 after aggregation)
+        new_ds.add_column(
+            &y_field,
+            ColumnVector::Float64 {
+                data: final_y,
+                validity: None,
+            },
+        )?;
+
+        // 4. Layout Helpers (consistent with new Float64 variant)
         let mut f_groups_count = Vec::with_capacity(total_rows);
         let mut f_sub_idx = Vec::with_capacity(total_rows);
 
-        // Since final_x/final_color were built using nested loops in STEP 4,
-        // we replicate that structure here to align helper values.
         for _ in &x_uniques {
             for j in 0..total_c {
                 f_groups_count.push(total_c as f64);
@@ -138,41 +213,19 @@ impl<T: Mark> Chart<T> {
             }
         }
 
-        // 3. Assemble the New Dataset
-        // Primary Axis (X)
         new_ds.add_column(
-            x_col_name,
-            ColumnVector::String {
-                data: final_x,
+            format!("{}_groups_count", TEMP_SUFFIX),
+            ColumnVector::Float64 {
+                data: f_groups_count,
                 validity: None,
             },
         )?;
-
-        // Measures (Y)
-        new_ds.add_column(&y_field, ColumnVector::F64 { data: final_y })?;
-
-        // Aesthetic Grouping (Color)
-        if has_grouping_color {
-            new_ds.add_column(
-                color_field.unwrap(),
-                ColumnVector::String {
-                    data: final_color,
-                    validity: None,
-                },
-            )?;
-        }
-
-        // Layout Helpers (The "Secret Sauce" for unified rendering)
-        new_ds.add_column(
-            format!("{}_groups_count", TEMP_SUFFIX),
-            ColumnVector::F64 {
-                data: f_groups_count,
-            },
-        )?;
-
         new_ds.add_column(
             format!("{}_sub_idx", TEMP_SUFFIX),
-            ColumnVector::F64 { data: f_sub_idx },
+            ColumnVector::Float64 {
+                data: f_sub_idx,
+                validity: None,
+            },
         )?;
 
         // --- STEP 6: Finalization ---

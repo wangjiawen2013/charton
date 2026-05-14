@@ -8,8 +8,8 @@ use ahash::AHashMap;
 impl<T: Mark> Chart<T> {
     /// Performs high-performance statistical aggregation for Box Plots.
     ///
-    /// This version uses `unique_values()` to ensure that both X-axis categories
-    /// and Color dodge slots maintain a stable, appearance-based order.
+    /// This version ensures that gaps in categorical combinations are filled
+    /// to maintain visual alignment (Dodge) and injects boundary points for scaling.
     pub(crate) fn transform_boxplot_data(mut self) -> Result<Self, ChartonError> {
         let x_name = &self.encoding.x.as_ref().unwrap().field;
         let y_name = &self.encoding.y.as_ref().unwrap().field;
@@ -18,6 +18,10 @@ impl<T: Mark> Chart<T> {
         let x_col = self.data.column(x_name)?;
         let y_col = self.data.column(y_name)?;
         let row_count = self.data.height();
+
+        // Prototype capture for type restoration
+        let x_col_proto = x_col.clone();
+        let mut color_col_proto: Option<ColumnVector> = None;
 
         let mut global_min = f64::INFINITY;
         let mut global_max = f64::NEG_INFINITY;
@@ -39,7 +43,9 @@ impl<T: Mark> Chart<T> {
 
         if let Some(color_enc) = &self.encoding.color {
             let cf = color_enc.field.clone();
-            color_order = self.data.column(&cf)?.unique_values();
+            let c_col = self.data.column(&cf)?;
+            color_order = c_col.unique_values();
+            color_col_proto = Some(c_col.clone());
             color_field_name = Some(cf);
         }
 
@@ -60,8 +66,6 @@ impl<T: Mark> Chart<T> {
         }
 
         // --- STEP 4: Cartesian Product & Statistical Computation ---
-        // We iterate through every possible X + Color combination to ensure
-        // gaps are preserved (Gap Filling).
         let mut final_x = Vec::new();
         let mut final_y = Vec::new();
         let mut final_c = Vec::new();
@@ -74,7 +78,6 @@ impl<T: Mark> Chart<T> {
         let mut f_outliers = Vec::new();
 
         for x_val in &x_order {
-            // Handle both grouped and non-grouped scenarios
             let sub_tasks: Vec<(f64, Option<String>)> = if color_order.is_empty() {
                 vec![(0.0, None)]
             } else {
@@ -145,7 +148,7 @@ impl<T: Mark> Chart<T> {
                         f_outliers.push(format!("{:?}", outliers));
                     }
                 } else {
-                    // Force a placeholder row for missing data to maintain DODGE alignment
+                    // Gap Filling: maintain alignment for missing data
                     push_nan_row(
                         &mut final_y,
                         &mut f_q1,
@@ -159,9 +162,7 @@ impl<T: Mark> Chart<T> {
             }
         }
 
-        // --- STEP 5: Boundary Injection ---
-        // Append two extra rows with global min/max.
-        // This ensures the Y-axis scale covers all data including outliers across all groups.
+        // --- STEP 5: Boundary Injection (Invisible points for Y-Scale) ---
         if global_min.is_finite() {
             inject_boundary_row(
                 global_min,
@@ -191,46 +192,90 @@ impl<T: Mark> Chart<T> {
             );
         }
 
-        // --- STEP 6: Final Dataset Assembly ---
+        // --- STEP 6: Final Dataset Assembly with Categorical Restoration ---
         let mut new_ds = Dataset::new();
         let result_len = final_x.len();
 
-        new_ds.add_column(
-            x_name,
-            ColumnVector::String {
+        // Restore X axis (Categorical vs String)
+        let x_cv = match x_col_proto {
+            ColumnVector::Categorical { values, .. } => {
+                let val_map: AHashMap<&str, u32> = values
+                    .iter()
+                    .enumerate()
+                    .map(|(idx, s)| (s.as_str(), idx as u32))
+                    .collect();
+                let keys = final_x
+                    .iter()
+                    .map(|s| *val_map.get(s.as_str()).unwrap_or(&0))
+                    .collect();
+                ColumnVector::Categorical {
+                    keys,
+                    values,
+                    validity: None,
+                }
+            }
+            _ => ColumnVector::String {
                 data: final_x,
                 validity: None,
             },
+        };
+        new_ds.add_column(x_name, x_cv)?;
+
+        // Build Statistical Columns (Now using Float64)
+        new_ds.add_column(
+            y_name,
+            ColumnVector::Float64 {
+                data: final_y,
+                validity: None,
+            },
         )?;
-        new_ds.add_column(y_name, ColumnVector::F64 { data: final_y })?;
         new_ds.add_column(
             format!("{}_q1", TEMP_SUFFIX),
-            ColumnVector::F64 { data: f_q1 },
+            ColumnVector::Float64 {
+                data: f_q1,
+                validity: None,
+            },
         )?;
         new_ds.add_column(
             format!("{}_median", TEMP_SUFFIX),
-            ColumnVector::F64 { data: f_median },
+            ColumnVector::Float64 {
+                data: f_median,
+                validity: None,
+            },
         )?;
         new_ds.add_column(
             format!("{}_q3", TEMP_SUFFIX),
-            ColumnVector::F64 { data: f_q3 },
+            ColumnVector::Float64 {
+                data: f_q3,
+                validity: None,
+            },
         )?;
         new_ds.add_column(
             format!("{}_min", TEMP_SUFFIX),
-            ColumnVector::F64 { data: f_min },
+            ColumnVector::Float64 {
+                data: f_min,
+                validity: None,
+            },
         )?;
         new_ds.add_column(
             format!("{}_max", TEMP_SUFFIX),
-            ColumnVector::F64 { data: f_max },
+            ColumnVector::Float64 {
+                data: f_max,
+                validity: None,
+            },
         )?;
         new_ds.add_column(
             format!("{}_sub_idx", TEMP_SUFFIX),
-            ColumnVector::F64 { data: f_sub_idx },
+            ColumnVector::Float64 {
+                data: f_sub_idx,
+                validity: None,
+            },
         )?;
         new_ds.add_column(
             format!("{}_groups_count", TEMP_SUFFIX),
-            ColumnVector::F64 {
+            ColumnVector::Float64 {
                 data: vec![groups_count; result_len],
+                validity: None,
             },
         )?;
         new_ds.add_column(
@@ -241,14 +286,31 @@ impl<T: Mark> Chart<T> {
             },
         )?;
 
+        // Restore Color axis
         if let Some(ref f) = color_field_name {
-            new_ds.add_column(
-                f,
-                ColumnVector::String {
+            let c_cv = match color_col_proto {
+                Some(ColumnVector::Categorical { values, .. }) => {
+                    let val_map: AHashMap<&str, u32> = values
+                        .iter()
+                        .enumerate()
+                        .map(|(idx, s)| (s.as_str(), idx as u32))
+                        .collect();
+                    let keys = final_c
+                        .iter()
+                        .map(|s| *val_map.get(s.as_str()).unwrap_or(&0))
+                        .collect();
+                    ColumnVector::Categorical {
+                        keys,
+                        values,
+                        validity: None,
+                    }
+                }
+                _ => ColumnVector::String {
                     data: final_c,
                     validity: None,
                 },
-            )?;
+            };
+            new_ds.add_column(f, c_cv)?;
         }
 
         self.data = new_ds;
@@ -256,7 +318,7 @@ impl<T: Mark> Chart<T> {
     }
 }
 
-// Helper to push NaN rows for gaps
+/// Helper to push NaN rows for gaps to maintain layout consistency.
 fn push_nan_row(
     y: &mut Vec<f64>,
     q1: &mut Vec<f64>,
@@ -275,8 +337,7 @@ fn push_nan_row(
     out.push("[]".to_string());
 }
 
-/// Helper to inject invisible boundary points to ensure the Y-axis scale
-/// covers the absolute global range (including outliers).
+/// Helper to inject boundary points that ensure the Y-axis scale covers outliers.
 #[allow(clippy::too_many_arguments)]
 fn inject_boundary_row(
     val: f64,
@@ -291,10 +352,6 @@ fn inject_boundary_row(
     s_idx: &mut Vec<f64>,
     out: &mut Vec<String>,
 ) {
-    // STRATEGY: "Cloaking" (data exists, but is invisible)
-    // We use a unique boundary name that the renderer will ignore.
-    // This forced value in the 'y' column ensures the Scale accommodates
-    // the furthest outliers without drawing any visual box marks.
     x.push(format!("{}_boundary", TEMP_SUFFIX));
     y.push(val);
     c.push(format!("{}_default", TEMP_SUFFIX));
