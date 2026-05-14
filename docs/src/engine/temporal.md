@@ -1,53 +1,88 @@
 # The Temporal Engine: Hybrid Precision Model
 
-In Charton, time is more than just a label—it's a high-performance coordinate system. To balance the extreme precision required by scientific data with the practical constraints of web visualization and memory efficiency, Charton employs a **Hybrid Precision Model**.
-
-This engine treats different temporal types with specialized physical representations, ensuring that your time-series data is both SIMD-friendly and logically intuitive.
+In Charton, time is more than just a label—it's a high-performance coordinate system. To balance the extreme precision required by scientific data with the practical constraints of web visualization, Charton employs a **Hybrid Precision Model** powered by **Anchored Offset Mapping (ARTM)**.
 
 ## 1. The Physical Blueprint
 
-Charton stores temporal data as raw integers ($i32$ or $i64$) to bypass the overhead of object-oriented time libraries during computation. This "Physicalization" is the key to our eager execution performance.
+Charton bypasses the overhead of object-oriented time libraries by "physicalizing" data into raw integers. This ensures 100% compatibility with **Polars/Arrow** memory layouts and enables **SIMD** acceleration.
 
-| Logical Type | Physical Type | Base Unit | Range / Capability |
+| Semantic Subtype | Physical Storage | Default Unit | Role in ARTM |
 | :--- | :--- | :--- | :--- |
-| **Date** | `i32` | **Days** | Efficient calendar math; 100% Polars compatible. |
-| **Time** | `i64` | **Nanoseconds** | Scientific-grade precision within a 24-hour window. |
-| **Datetime** | `i64` | **Milliseconds** | Native alignment with JavaScript/Web ecosystems. |
-| **Duration** | `i64` | **Milliseconds** | Large-span intervals (up to 290 million years). |
+| **DateTime** | `i64` | Multi-Unit (ms, us, ns) | Absolute points; uses Dynamic Anchoring. |
+| **Date** | `i32` | Days | Calendar intervals; saves 50% memory. |
+| **Time** | `i64` | Nanoseconds | Intra-day precision; Fixed Anchor at `00:00`. |
+| **Duration** | `i64` | Multi-Unit | Relative spans; Fixed Anchor at `0`. |
 
-## 2. Design Philosophy
+---
 
-### Date: The Epoch Offset
-Instead of using complex Julian dates or strings, Charton stores `Date` as the number of **whole days** since the Unix Epoch (January 1, 1970).
-*   **Memory Efficiency**: Using $i32$ days keeps the footprint tiny (4 bytes per row).
-*   **Arithmetic**: Date-shifting (e.g., "7 days later") becomes a simple integer addition.
+## 2. The Core Innovation: Anchored Offset Mapping (ARTM)
 
-### Time: Midnight-Relative Nanoseconds
-For the `Time` variant (representing time-of-day), Charton locks the precision to **Nanoseconds** relative to `00:00:00`.
-*   **Precision without Compromise**: A single day contains $86,400 \times 10^9$ nanoseconds. This fits comfortably within an $i64$.
-*   **Use Case**: Ideal for high-frequency trading (HFT) or sub-millisecond sensor logs.
+### 2.1 The Problem: Floating-Point Precision Trap
+Standard web visualization and graphics APIs (Canvas, WebGPU, SVG) rely on `f64` (double-precision floating point) for coordinate calculations. However, `f64` uses a fixed 53-bit mantissa, meaning its precision is relative to the size of the number:
 
-### Datetime & Duration: The Millisecond Bridge
-`Datetime` and `Duration` are standardized to **Milliseconds**. 
-*   **Web Synergy**: JavaScript's `Date` object and most browser-side libraries operate in milliseconds. Using this unit eliminates costly division cycles when sending data over WASM.
-*   **The 2262 Problem**: Using nanoseconds for absolute timestamps limits the range to roughly 292 years. By using milliseconds, Charton can represent a range of $\pm 290$ million years.
+*   **At Unix Epoch ($\approx 1.7 \times 10^{18}$ ns)**: The smallest gap `f64` can represent is **~256ns**. 
+*   **The Symptom**: Without ARTM, zooming into a sub-microsecond window causes "coordinate jitter" or "stepped curves" because adjacent nanosecond timestamps are rounded to the same floating-point value.
 
-## 3. High-Performance Alignment
+### 2.2 The Solution: Integer Anchoring
+ARTM solves this by decoupling the **Reference Point** from the **Relative Motion**. It acts like a "Zero-Point Shift" performed in the lossless integer domain.
 
-The Temporal Engine is designed for **Eager Execution**. When a vector of objects is ingested, it is immediately "flattened" into its physical primitive.
+1.  **Anchor Selection ($T_0$)**: Upon ingestion, Charton selects a 64-bit integer anchor (usually the minimum value of the current domain).
+2.  **Integer Subtraction**: For every data point $T_{raw}$, we compute the delta: $\Delta = T_{raw} - T_0$. 
+    *   *Why?* This removes the "big number noise" (the billions of seconds since 1970) using exact CPU integer arithmetic (**zero loss**).
+3.  **Visual Mapping**: The small resulting integer $\Delta$ is cast to `f64` and multiplied by the `unit_factor`.
 
-### SIMD-Ready Layout
-Because data is stored in contiguous memory blocks (e.g., `Vec<i64>`), the CPU can use **SIMD (Single Instruction, Multiple Data)** to process thousands of timestamps in a single clock cycle.
 
-### Null Handling (The Validity Bitmask)
-Charton does not use "Sentinel Values" (like -1) for null dates. Instead, it maintains a separate **Validity Bitmask**. 
-*   **Physical Layer**: Nulls are often stored as `0` (Unix Epoch) in the data array to maintain memory alignment.
-*   **Logic Layer**: The engine checks the bitmask; if the bit for a row is `0`, the renderer ignores that point, preventing "ghost" points at 1970-01-01.
 
-## 4. Choosing the Right Type
+### 2.3 Why We Use ARTM
+*   **Resolution Empowerment**: By shifting the data range to start at `0`, we force the `f64` value into its highest-precision region (near the origin), where it can easily represent sub-nanosecond increments.
+*   **Sub-Pixel Smoothness**: Even with `f64`, we need fractional coordinates for anti-aliasing and smooth animations. ARTM ensures these fractions are derived from precise offsets, not rounded timestamps.
+*   **Immutable Fidelity**: Whether you are mapping the blink of an eye or a geological era, the relative displacement remains jitter-free.
 
-| If your data is... | Recommended Type | Why? |
+---
+
+## 3. The Scaling Bridge: Multi-Unit Synergy
+
+While ARTM handles **Resolution (How clear it is)**, the `TimeUnit` handles **Range (How much it holds)**.
+
+| Unit | Scaling Factor ($f \rightarrow s$) | Role & Benefit |
 | :--- | :--- | :--- |
-| **Stock Market (Intraday)** | `Time` | Needs nanosecond precision for ticks. |
-| **Standard Time-Series** | `Datetime` | Best compatibility with web formatters. |
-| **Daily Sales / Logs** | `Date` | Saves 50% memory compared to Datetime. |
+| **Days** | `86400.0` | **Macro-Scale**: Allows `i64` to span 580 billion years (Cosmological data). |
+| **Millis** | `1e-3` | **Web Synergy**: Native alignment with JavaScript `Date` and standard logs. |
+| **Nanos** | `1e-9` | **Micro-Scale**: 1ns precision for HFT, protected by ARTM up to 292 years. |
+
+### The Benefit of Retention
+By retaining the `TimeUnit` instead of force-converting everything to nanoseconds:
+*   **Zero-Copy Ingestion**: We map Polars `Int64` buffers directly without re-sampling or multiplication.
+*   **Adaptive Ticks**: The engine knows that for a "Date" type, the smallest meaningful tick is 1 day, preventing the UI from generating nonsensical "half-day" labels during zoom.
+
+---
+
+## 4. Ecosystem Synergy: Polars & Time Crate
+
+Charton is the visual extension of the Rust data ecosystem.
+
+*   **Polars Integration**: Directly consumes Polars `Series`, respecting the `TimeUnit` metadata to eliminate pre-processing overhead.
+*   **Time Crate Support**: Provides `From<Vec<T>>` for `time::OffsetDateTime` and `time::Date`, flattening objects into primitives for **Eager Execution**.
+
+---
+
+## 5. Performance Layer
+
+*   **SIMD Acceleration**: Storing data in contiguous `i32/i64` blocks allows the CPU to process thousands of offsets in a single clock cycle.
+*   **Validity Bitmask**: Uses a separate bitmask for Nulls. This avoids "Sentinel Values" (like -1) and prevents "ghost points" at the 1970 Epoch.
+
+---
+
+## 6. Choosing the Right Type
+
+| Data Scenario | Recommended Subtype | Why? |
+| :--- | :--- | :--- |
+| **Quant / HFT** | `Time` / `DateTime(ns)` | ARTM preserves 1ns precision; `Time` (0-anchor) is ultra-fast. |
+| **Web Analytics** | `DateTime(ms)` | Perfect balance of performance and JS compatibility. |
+| **Logistics / ERP** | `Date` | 50% memory saving; aligns with business calendar logic. |
+| **System Profiling** | `Duration` | Native support for "1h 20m" formatting instead of decimal seconds. |
+
+---
+
+### Summary: Accuracy Without Compromise
+By combining **TimeUnit-aware storage** with **Anchored Offset Mapping**, Charton achieves a rare feat: it is coarse enough to hold the history of the universe, yet sharp enough to distinguish the individual ticks of a high-frequency trade—all while maintaining the sub-pixel smoothness required for modern web interfaces.
