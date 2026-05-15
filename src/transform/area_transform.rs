@@ -191,22 +191,24 @@ impl<T: Mark> Chart<T> {
         if is_continuous {
             let restored_x = match x_prototype {
                 ColumnVector::Datetime { unit, timezone, .. } => ColumnVector::Datetime {
-                    data: final_x_f.into_iter().map(|v| v as i64).collect(),
+                    // Apply round() to ensure values like 0.999... correctly snap back to
+                    // integers, minimizing precision loss during float-to-int conversion.
+                    data: final_x_f.into_iter().map(|v| v.round() as i64).collect(),
                     validity: None,
                     unit,
                     timezone,
                 },
                 ColumnVector::Date { .. } => ColumnVector::Date {
-                    data: final_x_f.into_iter().map(|v| v as i32).collect(),
+                    data: final_x_f.into_iter().map(|v| v.round() as i32).collect(),
                     validity: None,
                 },
                 ColumnVector::Duration { unit, .. } => ColumnVector::Duration {
-                    data: final_x_f.into_iter().map(|v| v as i64).collect(),
+                    data: final_x_f.into_iter().map(|v| v.round() as i64).collect(),
                     validity: None,
                     unit,
                 },
                 ColumnVector::Time { unit, .. } => ColumnVector::Time {
-                    data: final_x_f.into_iter().map(|v| v as i64).collect(),
+                    data: final_x_f.into_iter().map(|v| v.round() as i64).collect(),
                     validity: None,
                     unit,
                 },
