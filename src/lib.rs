@@ -67,7 +67,7 @@ pub mod prelude {
     pub use crate::visual::color::{ColorMap, ColorPalette, SingleColor};
     pub use crate::visual::shape::PointShape;
     pub use crate::{chart, load_polars_df, load_polars_v42_52};
-    pub use time::OffsetDateTime;
+    pub use time::{Date, Time, OffsetDateTime, Duration, Month};
 
     #[cfg(all(feature = "bridge", not(target_arch = "wasm32")))]
     pub use crate::bridge::base::{Altair, Matplotlib, Plot, Visualization};
