@@ -177,7 +177,7 @@ macro_rules! load_polars_df {
                         "Unsupported Polars DataType '{:?}' in column '{}'.",
                         series.dtype(),
                         name
-                    )));
+                    )).into());
                 }
             }
         }
@@ -537,7 +537,7 @@ macro_rules! load_polars_v42_52 {
                         "Unsupported Polars DataType '{:?}' in column '{}'.",
                         series.dtype(),
                         name
-                    )));
+                    )).into());
                 }
             }
         }
