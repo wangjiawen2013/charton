@@ -18,7 +18,8 @@ macro_rules! load_polars_df {
         let df = $df;
         let mut dataset: $crate::core::data::Dataset = $crate::core::data::Dataset::new();
 
-        for series in df.columns() {
+        for column in df.columns() {
+            let series = column.as_series().unwrap();
             let name = series.name().to_string();
             match series.dtype() {
                 // --- Continuous: Numerical types mapped to Charton's quantitative vectors ---
@@ -67,22 +68,19 @@ macro_rules! load_polars_df {
                 }
                 polars::prelude::DataType::Categorical(_, _)
                 | polars::prelude::DataType::Enum(_, _) => {
-                    let ca = series.categorical().unwrap();
+                    let ca = series.cat32().unwrap();
                     let physical = ca.physical();
 
                     // Direct buffer extraction for maximum performance
                     let keys: Vec<u32> = physical.into_no_null_iter().collect();
-                    let rev_map = ca.get_rev_map();
-                    let values: Vec<String> = (0..rev_map.len())
-                        .map(|i| rev_map.get(i as u32).unwrap().to_string())
-                        .collect();
+                    let values: Vec<String> = ca.iter_str().map(|opt| opt.unwrap().to_string()).collect();
 
                     // Recover validity bitmask if the column contains nulls
                     let validity = if physical.null_count() > 0 {
                         physical
                             .chunks()
                             .get(0)
-                            .and_then(|array| array.validity().map(|v| v.as_slice().to_vec()))
+                            .and_then(|array| array.validity().map(|v| v.as_slice().0.to_vec()))
                     } else {
                         None
                     };
@@ -281,7 +279,8 @@ macro_rules! load_polars_v42_52 {
         let df = $df;
         let mut dataset: $crate::core::data::Dataset = $crate::core::data::Dataset::new();
 
-        for series in df.get_columns() {
+        for column in df.get_columns() {
+            let series = column.as_series().unwrap();
             let name = series.name().to_string();
             match series.dtype() {
                 // --- Continuous: Floating Point Types ---
@@ -388,7 +387,7 @@ macro_rules! load_polars_v42_52 {
                 // --- Discrete: Categorical & Enum (Dictionary-encoded) ---
                 polars::prelude::DataType::Categorical(_, _)
                 | polars::prelude::DataType::Enum(_, _) => {
-                    let ca = series.categorical().map_err(|e| {
+                    let ca = series.cat32().map_err(|e| {
                         $crate::error::ChartonError::Data(format!(
                             "Column '{}' categorical error: {}",
                             name, e
@@ -398,19 +397,14 @@ macro_rules! load_polars_v42_52 {
 
                     // Direct buffer extraction for dictionary keys
                     let keys: Vec<u32> = physical.into_no_null_iter().collect();
-
-                    // Map physical indices back to string labels
-                    let rev_map = ca.get_rev_map();
-                    let values: Vec<String> = (0..rev_map.len())
-                        .map(|i| rev_map.get(i as u32).unwrap().to_string())
-                        .collect();
+                    let values: Vec<String> = ca.iter_str().map(|opt| opt.unwrap().to_string()).collect();
 
                     // Recover bitmask for null values from the Arrow buffer
                     let validity = if physical.null_count() > 0 {
                         physical
                             .chunks()
                             .get(0)
-                            .and_then(|array| array.validity().map(|v| v.as_slice().to_vec()))
+                            .and_then(|array| array.validity().map(|v| v.as_slice().0.to_vec()))
                     } else {
                         None
                     };
