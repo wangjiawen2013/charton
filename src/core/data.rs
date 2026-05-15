@@ -2890,10 +2890,13 @@ impl Dataset {
             // --- Categorical & Strings ---
             ColumnVector::Categorical { keys, values, .. } => {
                 let key = keys[row] as usize;
-                let label = values.get(key).map(|s| s.as_str()).unwrap_or("err_key");
-                self.format_string(label)
+                values
+                    .get(key)
+                    .map(|s| s.as_str())
+                    .unwrap_or("err_key")
+                    .to_string()
             }
-            ColumnVector::String { data, .. } => self.format_string(&data[row]),
+            ColumnVector::String { data, .. } => data[row].to_string(),
 
             // --- Temporal Types ---
 
@@ -2942,29 +2945,9 @@ impl Dataset {
         }
     }
 
-    /// Consistently truncates strings for display across raw Strings and Categorical labels.
-    /// It stops scanning the input string as soon as the threshold is reached.
-    fn format_string(&self, s: &str) -> String {
-        const MAX_CHARS: usize = 10; // Threshold to trigger truncation
-        const TRUNCATE_TO: usize = 7; // Visible characters before the ellipsis
-
-        let mut char_indices = s.char_indices();
-
-        // Peek at the (MAX_CHARS + 1)-th character
-        if char_indices.nth(MAX_CHARS).is_some() {
-            // String is too long. Find the byte offset of the TRUNCATE_TO character.
-            let byte_idx = s
-                .char_indices()
-                .nth(TRUNCATE_TO)
-                .map(|(idx, _)| idx)
-                .unwrap_or(s.len());
-
-            format!("{}...", &s[..byte_idx])
-        } else {
-            s.to_string()
-        }
-    }
-
+    /// Internal rendering engine that formats a specific range of rows as a table.
+    /// This implementation includes a Polars-style type row (e.g., (str), (f64))
+    /// below each column header for better data inspection.
     fn render_to_format(
         &self,
         f: &mut fmt::Formatter<'_>,
@@ -2989,20 +2972,50 @@ impl Dataset {
         let mut names: Vec<_> = self.schema.keys().collect();
         names.sort_by_key(|name| self.schema.get(*name).expect("Schema integrity error"));
 
-        // Column width constant for simple tabular alignment
-        const COL_WIDTH: usize = 12;
+        if names.is_empty() {
+            return Ok(());
+        }
 
-        // 3. Format and print the header row (Column Names)
-        for (i, name) in names.iter().enumerate() {
+        // ======================== Core Fix: Calculate per-column width (Polars-style) ========================
+        let mut column_widths = Vec::new();
+        for name in &names {
+            // Length of the column header name
+            let name_len = name.chars().count();
+
+            // Length of the data type label, e.g., (str), (f64)
+            let dtype = self
+                .column(name)
+                .map(|col| col.dtype_name())
+                .unwrap_or("unknown");
+            let type_label = format!("({})", dtype);
+            let type_len = type_label.chars().count();
+
+            // Find the longest string representation in the current data window
+            let mut max_data_len = 0;
+            for row in offset..end_index {
+                let cell = self.debug_cell(name, row);
+                let len = cell.chars().count();
+                if len > max_data_len {
+                    max_data_len = len;
+                }
+            }
+
+            // Final column width = MAX(header, dtype, data)
+            let width = *[name_len, type_len, max_data_len].iter().max().unwrap();
+            column_widths.push(width);
+        }
+
+        // ======================== Print Header Row ========================
+        for (i, (name, &width)) in names.iter().zip(&column_widths).enumerate() {
             if i > 0 {
                 write!(f, "| ")?;
             }
-            write!(f, "{:<width$}", name, width = COL_WIDTH)?;
+            write!(f, "{:<width$}", name, width = width)?;
         }
         writeln!(f)?;
 
-        // 4. Format and print the data type row (Polars-style)
-        for (i, name) in names.iter().enumerate() {
+        // ======================== Print Data Type Row ========================
+        for (i, (name, &width)) in names.iter().zip(&column_widths).enumerate() {
             if i > 0 {
                 write!(f, "| ")?;
             }
@@ -3010,29 +3023,23 @@ impl Dataset {
                 .column(name)
                 .map(|col| col.dtype_name())
                 .unwrap_or("unknown");
-
             let type_label = format!("({})", dtype);
-            write!(f, "{:<width$}", type_label, width = COL_WIDTH)?;
+            write!(f, "{:<width$}", type_label, width = width)?;
         }
         writeln!(f)?;
 
-        // 5. Print the separator line
-        // Calculate total line width: (Width * Count) + (Separator_Width * (Count - 1))
-        let total_line_width = if !names.is_empty() {
-            COL_WIDTH * names.len() + 2 * (names.len() - 1)
-        } else {
-            0
-        };
-        writeln!(f, "{}", "-".repeat(total_line_width))?;
+        // ======================== Print Separator Line ========================
+        let total_sep: usize = column_widths.iter().sum::<usize>() + 2 * (names.len() - 1);
+        writeln!(f, "{}", "-".repeat(total_sep))?;
 
-        // 6. Iterate through the validated row range
+        // ======================== Print Data Rows ========================
         for row in offset..end_index {
-            for (i, name) in names.iter().enumerate() {
+            for (i, (name, &width)) in names.iter().zip(&column_widths).enumerate() {
                 if i > 0 {
                     write!(f, "| ")?;
                 }
                 let cell = self.debug_cell(name, row);
-                write!(f, "{:<width$}", cell, width = COL_WIDTH)?;
+                write!(f, "{:<width$}", cell, width = width)?;
             }
             writeln!(f)?;
         }
