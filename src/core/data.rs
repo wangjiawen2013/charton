@@ -11,26 +11,29 @@ use time::{Date, Duration, OffsetDateTime, Time};
 /// high-fidelity alignment with the Polars/Arrow ecosystem, the addition of
 /// `Second` and `Day` allows Charton to represent vast geological or
 /// astronomical timescales without integer overflow.
+///
+/// NOTE: Currently, all internal layout math is normalized to nanoseconds.
+/// This field is preserved for future high-fidelity tooltip formatting and write-back filters.
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Default)]
 pub enum TimeUnit {
     /// 10^-9 seconds. The default precision for high-frequency data.
     /// Max range in i64: ~292 years.
     #[default]
-    Nanosecond,
+    Nanoseconds,
 
     /// 10^-6 seconds. Commonly used in system telemetry and sensors.
     /// Max range in i64: ~292,000 years.
-    Microsecond,
+    Microseconds,
 
     /// 10^-3 seconds. The standard precision for web-based timestamps (JS Date).
-    Millisecond,
+    Milliseconds,
 
     /// 1 second. Ideal for long-duration spans or large-scale historical events.
-    Second,
+    Seconds,
 
     /// 24 hours. Optimized for macro-scale trends (e.g., sales, climate cycles).
     /// Allows i64 to represent spans exceeding the age of the universe.
-    Day,
+    Days,
 }
 
 /// Encapsulates a single column of data with a high-performance memory layout.
@@ -125,8 +128,6 @@ pub enum ColumnVector {
     /// Datetime representing a specific point in time.
     ///
     /// Stored as an i64 representing elapsed time since the UNIX Epoch.
-    /// The specific scale is defined by `TimeUnit`. ARTM is used during rendering
-    /// to prevent floating-point jitter at high zoom levels.
     Datetime {
         data: Vec<i64>,
         validity: Option<Vec<u8>>,
@@ -149,8 +150,6 @@ pub enum ColumnVector {
     /// Time representing a specific time of day, independent of any date.
     ///
     /// Stored as an i64 representing the offset since midnight (00:00:00).
-    /// Unlike standard Polars `Time`, this variant supports flexible `TimeUnit`
-    /// to unify ARTM processing logic across all temporal scales.
     Time {
         data: Vec<i64>,
         validity: Option<Vec<u8>>,
@@ -170,26 +169,93 @@ pub enum SemanticType {
     /// Maps to: DiscreteScale (Ordinal or Nominal).
     Discrete,
 
-    /// Time-based data. The subtype informs the Scale about anchoring
-    /// and calendar arithmetic rules.
-    /// Maps to: TemporalScale.
-    Temporal(TemporalSubtype),
-}
-
-/// Defines the specific nature of temporal data to guide ARTM anchoring and formatting.
-#[derive(Debug, Clone, Copy, PartialEq, Eq)]
-pub enum TemporalSubtype {
-    /// Absolute points in time (Epoch-based). Requires dynamic anchoring.
-    DateTime,
-    /// Calendar days. Optimized for date-only arithmetic.
-    Date,
-    /// Time of day (offset from midnight). Typically fixed anchor at 0.
-    Time,
-    /// Relative time spans. Fixed anchor at 0.
-    Duration,
+    /// Time-based data.
+    Temporal,
 }
 
 impl ColumnVector {
+    /// Creates a Categorical column from pre-encoded keys and a dictionary.
+    ///
+    /// This is the preferred method for bridges (like Polars) where data is
+    /// already physically separated into indices and values.
+    pub fn from_categorical(
+        keys: Vec<u32>,
+        values: Vec<String>,
+        validity: Option<Vec<u8>>,
+    ) -> Self {
+        Self::Categorical {
+            keys,
+            values,
+            validity,
+        }
+    }
+
+    /// Creates a `Categorical` column from a sequence of strings.
+    ///
+    /// This method automatically handles:
+    /// 1. Dictionary encoding (deduplicating strings into the `values` vector).
+    /// 2. Null tracking (generating the `validity` bitmask if `None` is present).
+    /// 3. Physical mapping (assigning `u32` keys to each entry).
+    pub fn from_strings_as_categorical<S, I>(iter: I) -> Self
+    where
+        S: AsRef<str>,
+        I: IntoIterator<Item = Option<S>>,
+    {
+        let mut values = Vec::new();
+        let mut lookup = std::collections::HashMap::new();
+        let mut keys = Vec::new();
+
+        let mut validity_builder = Vec::new();
+        let mut current_byte = 0u8;
+        let mut bit_idx = 0;
+        let mut has_null = false;
+
+        for item in iter {
+            // Expand validity bitmask buffer
+            if bit_idx == 8 {
+                validity_builder.push(current_byte);
+                current_byte = 0;
+                bit_idx = 0;
+            }
+
+            match item {
+                Some(s) => {
+                    let s_ref = s.as_ref();
+                    // Get existing key or create new one
+                    let &mut key = lookup.entry(s_ref.to_string()).or_insert_with(|| {
+                        let new_key = values.len() as u32;
+                        values.push(s_ref.to_string());
+                        new_key
+                    });
+                    keys.push(key);
+                    // Mark as valid (1)
+                    current_byte |= 1 << bit_idx;
+                }
+                None => {
+                    keys.push(0); // Placeholder for null
+                    has_null = true;
+                    // Mark as invalid (0)
+                }
+            }
+            bit_idx += 1;
+        }
+
+        // Push trailing validity bits
+        if bit_idx > 0 {
+            validity_builder.push(current_byte);
+        }
+
+        Self::Categorical {
+            keys,
+            values,
+            validity: if has_null {
+                Some(validity_builder)
+            } else {
+                None
+            },
+        }
+    }
+
     /// Infers the [SemanticType] of the column based on its internal storage variant.
     ///
     /// This is a low-latency operation used to guide the selection of
@@ -212,14 +278,10 @@ impl ColumnVector {
             | ColumnVector::Boolean { .. } => SemanticType::Discrete,
 
             // --- Temporal: Points or spans in time ---
-            // Each maps to a specific subtype to drive ARTM anchoring and axis formatting.
-            ColumnVector::Date { .. } => SemanticType::Temporal(TemporalSubtype::Date),
-
-            ColumnVector::Datetime { .. } => SemanticType::Temporal(TemporalSubtype::DateTime),
-
-            ColumnVector::Time { .. } => SemanticType::Temporal(TemporalSubtype::Time),
-
-            ColumnVector::Duration { .. } => SemanticType::Temporal(TemporalSubtype::Duration),
+            ColumnVector::Date { .. }
+            | ColumnVector::Datetime { .. }
+            | ColumnVector::Time { .. }
+            | ColumnVector::Duration { .. } => SemanticType::Temporal,
         }
     }
 
@@ -257,27 +319,27 @@ impl ColumnVector {
             // For Datetime, Time, and Duration, Polars usually clarifies the unit.
             // Since we return &'static str, we pick the most descriptive shorthand.
             ColumnVector::Datetime { unit, .. } => match unit {
-                TimeUnit::Nanosecond => "datetime[ns]",
-                TimeUnit::Microsecond => "datetime[us]",
-                TimeUnit::Millisecond => "datetime[ms]",
-                TimeUnit::Second => "datetime[s]",
-                TimeUnit::Day => "datetime[d]",
+                TimeUnit::Nanoseconds => "datetime[ns]",
+                TimeUnit::Microseconds => "datetime[us]",
+                TimeUnit::Milliseconds => "datetime[ms]",
+                TimeUnit::Seconds => "datetime[s]",
+                TimeUnit::Days => "datetime[d]",
             },
 
             ColumnVector::Duration { unit, .. } => match unit {
-                TimeUnit::Nanosecond => "duration[ns]",
-                TimeUnit::Microsecond => "duration[us]",
-                TimeUnit::Millisecond => "duration[ms]",
-                TimeUnit::Second => "duration[s]",
-                TimeUnit::Day => "duration[d]",
+                TimeUnit::Nanoseconds => "duration[ns]",
+                TimeUnit::Microseconds => "duration[us]",
+                TimeUnit::Milliseconds => "duration[ms]",
+                TimeUnit::Seconds => "duration[s]",
+                TimeUnit::Days => "duration[d]",
             },
 
             ColumnVector::Time { unit, .. } => match unit {
-                TimeUnit::Nanosecond => "time[ns]",
-                TimeUnit::Microsecond => "time[us]",
-                TimeUnit::Millisecond => "time[ms]",
-                TimeUnit::Second => "time[s]",
-                TimeUnit::Day => "time[d]",
+                TimeUnit::Nanoseconds => "time[ns]",
+                TimeUnit::Microseconds => "time[us]",
+                TimeUnit::Milliseconds => "time[ms]",
+                TimeUnit::Seconds => "time[s]",
+                TimeUnit::Days => "time[d]",
             },
         }
     }
@@ -1212,7 +1274,6 @@ impl ColumnVector {
                 ColumnVector::Duration { data, validity, .. } => {
                     self.parallel_scan_with_mask(data, validity, |&v| v as f64)
                 }
-                // FIXED: Added .. to handle unit field
                 ColumnVector::Time { data, validity, .. } => {
                     self.parallel_scan_with_mask(data, validity, |&v| v as f64)
                 }
@@ -1299,7 +1360,6 @@ impl ColumnVector {
             ColumnVector::Duration { data, validity, .. } => {
                 self.serial_scan_with_mask(data, validity, |&v| v as f64)
             }
-            // FIXED: Added .. to handle unit field
             ColumnVector::Time { data, validity, .. } => {
                 self.serial_scan_with_mask(data, validity, |&v| v as f64)
             }
@@ -1766,8 +1826,8 @@ impl From<Vec<Option<Date>>> for ColumnVector {
 }
 
 impl From<Vec<Option<OffsetDateTime>>> for ColumnVector {
-    /// Maps OffsetDateTime to i64 nanoseconds relative to Unix Epoch.
-    /// Aligns with TimeUnit::Nanosecond for maximum precision.
+    /// Projects OffsetDateTime objects into i64 nanoseconds.
+    /// Retains the maximum precision provided by the input objects.
     fn from(v: Vec<Option<OffsetDateTime>>) -> Self {
         let mapped = v
             .into_iter()
@@ -1777,8 +1837,8 @@ impl From<Vec<Option<OffsetDateTime>>> for ColumnVector {
         ColumnVector::Datetime {
             data,
             validity,
-            unit: TimeUnit::Nanosecond,
-            timezone: None, // Default to naive/UTC-based offset
+            unit: TimeUnit::Nanoseconds,
+            timezone: None,
         }
     }
 }
@@ -1786,40 +1846,30 @@ impl From<Vec<Option<OffsetDateTime>>> for ColumnVector {
 impl From<Vec<Option<Time>>> for ColumnVector {
     /// Maps Time objects to i64 nanoseconds elapsed since 00:00:00.
     fn from(v: Vec<Option<Time>>) -> Self {
-        let mapped = v.into_iter().map(|opt| {
-            opt.map(|t| {
-                let (h, m, s, n) = t.as_hms_nano();
-                (h as i64 * 3_600_000_000_000)
-                    + (m as i64 * 60_000_000_000)
-                    + (s as i64 * 1_000_000_000)
-                    + (n as i64)
-            })
-        });
+        let mapped = v
+            .into_iter()
+            .map(|opt| opt.map(|t| (t - Time::MIDNIGHT).whole_nanoseconds() as i64));
 
         let (data, validity) = collect_with_validity(mapped, 0i64);
         ColumnVector::Time {
             data,
             validity,
-            unit: TimeUnit::Nanosecond,
+            unit: TimeUnit::Nanoseconds,
         }
     }
 }
 
 impl From<Vec<Option<Duration>>> for ColumnVector {
-    /// Maps Duration objects to i64 nanoseconds.
-    /// This maintains mathematical symmetry with Datetime's nanosecond anchoring.
     fn from(v: Vec<Option<Duration>>) -> Self {
-        let mapped = v.into_iter().map(|opt| {
-            // time::Duration provides whole_nanoseconds returning an i128.
-            // We cast to i64 as it covers +/- 292 years, sufficient for most durations.
-            opt.map(|d| d.whole_nanoseconds() as i64)
-        });
+        let mapped = v
+            .into_iter()
+            .map(|opt| opt.map(|d| d.whole_nanoseconds() as i64));
 
         let (data, validity) = collect_with_validity(mapped, 0i64);
         ColumnVector::Duration {
             data,
             validity,
-            unit: TimeUnit::Nanosecond, // Align with the system's default anchor unit
+            unit: TimeUnit::Nanoseconds,
         }
     }
 }
@@ -1929,10 +1979,11 @@ impl From<Vec<&str>> for ColumnVector {
     }
 }
 
-// --- Temporal Variant Implementations (Non-Optional) ---
+// --- Non-Nullable Temporal Variant Implementations ---
 
 impl From<Vec<Date>> for ColumnVector {
     /// Maps Date objects to i32 days relative to Unix Epoch (1970-01-01).
+    /// Standard epoch-day representation (Industrial standard).
     fn from(v: Vec<Date>) -> Self {
         let unix_epoch = Date::from_calendar_date(1970, time::Month::January, 1).unwrap();
         let data: Vec<i32> = v
@@ -1948,8 +1999,8 @@ impl From<Vec<Date>> for ColumnVector {
 }
 
 impl From<Vec<OffsetDateTime>> for ColumnVector {
-    /// Maps OffsetDateTime to i64 nanoseconds relative to Unix Epoch.
-    /// Standardizes on Nanosecond precision to avoid data loss.
+    /// Projects OffsetDateTime objects into i64 nanoseconds.
+    /// Retains the maximum precision provided by the input objects.
     fn from(v: Vec<OffsetDateTime>) -> Self {
         let data: Vec<i64> = v
             .into_iter()
@@ -1959,37 +2010,32 @@ impl From<Vec<OffsetDateTime>> for ColumnVector {
         ColumnVector::Datetime {
             data,
             validity: None,
-            unit: TimeUnit::Nanosecond,
-            timezone: None, // Initialized as naive/UTC-based
+            unit: TimeUnit::Nanoseconds,
+            timezone: None,
         }
     }
 }
 
 impl From<Vec<Time>> for ColumnVector {
     /// Maps Time objects to i64 nanoseconds elapsed since 00:00:00.
+    /// Uses MIDNIGHT as the reference to capture full nanosecond fidelity.
     fn from(v: Vec<Time>) -> Self {
         let data: Vec<i64> = v
             .into_iter()
-            .map(|t| {
-                let (h, m, s, n) = t.as_hms_nano();
-                (h as i64 * 3_600_000_000_000)
-                    + (m as i64 * 60_000_000_000)
-                    + (s as i64 * 1_000_000_000)
-                    + (n as i64)
-            })
+            .map(|t| (t - Time::MIDNIGHT).whole_nanoseconds() as i64)
             .collect();
 
         ColumnVector::Time {
             data,
             validity: None,
-            unit: TimeUnit::Nanosecond,
+            unit: TimeUnit::Nanoseconds,
         }
     }
 }
 
 impl From<Vec<Duration>> for ColumnVector {
     /// Maps Duration objects to i64 nanoseconds.
-    /// This ensures mathematical symmetry: Datetime - Datetime = Duration.
+    /// Preserves raw duration magnitude in high precision.
     fn from(v: Vec<Duration>) -> Self {
         let data: Vec<i64> = v
             .into_iter()
@@ -1999,7 +2045,7 @@ impl From<Vec<Duration>> for ColumnVector {
         ColumnVector::Duration {
             data,
             validity: None,
-            unit: TimeUnit::Nanosecond,
+            unit: TimeUnit::Nanoseconds,
         }
     }
 }
@@ -2866,11 +2912,11 @@ impl Dataset {
                 // Convert various units to Nanoseconds using i128 to avoid overflow.
                 // i64 seconds * 1e9 safely fits in i128.
                 let timestamp_nanos = match unit {
-                    TimeUnit::Nanosecond => data[row] as i128,
-                    TimeUnit::Microsecond => data[row] as i128 * 1_000,
-                    TimeUnit::Millisecond => data[row] as i128 * 1_000_000,
-                    TimeUnit::Second => data[row] as i128 * 1_000_000_000,
-                    TimeUnit::Day => data[row] as i128 * 86_400_000_000_000,
+                    TimeUnit::Nanoseconds => data[row] as i128,
+                    TimeUnit::Microseconds => data[row] as i128 * 1_000,
+                    TimeUnit::Milliseconds => data[row] as i128 * 1_000_000,
+                    TimeUnit::Seconds => data[row] as i128 * 1_000_000_000,
+                    TimeUnit::Days => data[row] as i128 * 86_400_000_000_000,
                 };
 
                 OffsetDateTime::from_unix_timestamp_nanos(timestamp_nanos)

@@ -441,15 +441,37 @@ impl<T: Mark> Chart<T> {
         // --- STEP 5: Build Final Dataset ---
         let mut new_ds = Dataset::new();
 
-        // Use Float64 variant with validity: None (KDE output points are always valid)
-        new_ds.add_column(
-            &params.as_[0],
-            ColumnVector::Float64 {
+        let x_prototype = density_col.clone(); // density_col is X axis
+        let restored_x = match x_prototype {
+            ColumnVector::Datetime { unit, timezone, .. } => ColumnVector::Datetime {
+                data: final_x.into_iter().map(|v| v.round() as i64).collect(),
+                validity: None,
+                unit,
+                timezone,
+            },
+            ColumnVector::Date { .. } => ColumnVector::Date {
+                data: final_x.into_iter().map(|v| v.round() as i32).collect(),
+                validity: None,
+            },
+            ColumnVector::Duration { unit, .. } => ColumnVector::Duration {
+                data: final_x.into_iter().map(|v| v.round() as i64).collect(),
+                validity: None,
+                unit,
+            },
+            ColumnVector::Time { unit, .. } => ColumnVector::Time {
+                data: final_x.into_iter().map(|v| v.round() as i64).collect(),
+                validity: None,
+                unit,
+            },
+            _ => ColumnVector::Float64 {
                 data: final_x,
                 validity: None,
             },
-        )?;
+        };
 
+        new_ds.add_column(&params.as_[0], restored_x)?;
+
+        // Use Float64 variant with validity: None (KDE output points are always valid)
         new_ds.add_column(
             &params.as_[1],
             ColumnVector::Float64 {

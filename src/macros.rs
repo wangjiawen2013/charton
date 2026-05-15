@@ -1,40 +1,17 @@
 /// Converts a Polars [`DataFrame`] into a Charton [`Dataset`].
 ///
-/// This macro iterates through the columns of the provided DataFrame and extracts
-/// data into contiguous `Vec<Option<T>>` structures, making them ready for
-/// Charton's internal processing.
+/// This macro bridge facilitates the transition from Polars' analytical ecosystem
+/// to Charton's visualization-ready data structures. It preserves the semantic
+/// integrity of each column:
 ///
-/// # Behavior
-/// - **Supported Types**: Processes `Float32`, `Float64`, `Int32`, `Int64`, `DateTime` and `String` columns.
-/// - **Unsupported Types**: Columns with other data types (e.g., `Boolean`, `List`)
-///   are silently skipped in the current implementation.
-/// - **Null Handling**: Preserves null values by mapping Polars series to `Vec<Option<T>>`.
+/// ### Mapping Logic:
+/// - **Continuous**: Maps all Floating Point and Integer types (from `Int8` to `UInt64`).
+/// - **Discrete**: Maps `String`, `Boolean`, and encoded `Categorical/Enum` types.
+/// - **Temporal**: Maps `Date`, `Time`, `Duration`, and `Datetime` (normalized to nanoseconds).
 ///
-/// # Arguments
-/// * `$df` - An expression that evaluates to a `polars::prelude::DataFrame`.
-///
-/// # Returns
-/// A `Result` where:
-/// * `Ok(Dataset)`: A new dataset populated with the supported columns from the DataFrame.
-/// * `Err(ChartonError)`: A crate-specific error, typically [`ChartonError::Data`] if
-///   column casting fails, or other variants as defined in the bridge.
-///
-/// # Example
-/// ```ignore
-/// use polars::prelude::*;
-/// use charton::load_polars_df;
-///
-/// let df = df! {
-///     "x" => &[1.0_f32, 2.0_f32, 3.0_f32],
-///     "y" => &["A", "B", "C"]
-/// }?;
-///
-/// let dataset = load_polars_df!(df)?;
-/// assert_eq!(dataset.width(), 2);
-/// ```
-///
-// We rely on the user's environment having 'polars' available.
-// This import is local to the generated block and resolves in the caller's context.
+/// # Errors
+/// Returns [`ChartonError::Data`] if a column contains a Polars type not yet
+/// supported by Charton's core vectors (e.g., List, Struct, or Binary).
 #[macro_export]
 macro_rules! load_polars_df {
     ($df:expr) => {{
@@ -44,129 +21,167 @@ macro_rules! load_polars_df {
         for series in df.columns() {
             let name = series.name().to_string();
             match series.dtype() {
-                // --- Floating Point Types (Uses NaN for Nulls) ---
-                polars::prelude::DataType::Float32 => {
-                    let ca = series.f32().map_err(|e| {
-                        $crate::error::ChartonError::Data(format!(
-                            "Column '{}' cast error: {}",
-                            name, e
-                        ))
-                    })?;
-                    let vec: Vec<Option<f32>> = ca.into_iter().collect();
-                    dataset.add_column(name, vec)?;
-                }
+                // --- Continuous: Numerical types mapped to Charton's quantitative vectors ---
                 polars::prelude::DataType::Float64 => {
-                    let ca = series.f64().map_err(|e| {
-                        $crate::error::ChartonError::Data(format!(
-                            "Column '{}' cast error: {}",
-                            name, e
-                        ))
-                    })?;
-                    let vec: Vec<Option<f64>> = ca.into_iter().collect();
+                    let vec: Vec<Option<f64>> = series.f64().unwrap().into_iter().collect();
                     dataset.add_column(name, vec)?;
                 }
-
-                // --- Integer Types (Uses Bitmask for Nulls) ---
+                polars::prelude::DataType::Float32 => {
+                    let vec: Vec<Option<f32>> = series.f32().unwrap().into_iter().collect();
+                    dataset.add_column(name, vec)?;
+                }
                 polars::prelude::DataType::Int64 => {
-                    let ca = series.i64().map_err(|e| {
-                        $crate::error::ChartonError::Data(format!(
-                            "Column '{}' cast error: {}",
-                            name, e
-                        ))
-                    })?;
-                    let vec: Vec<Option<i64>> = ca.into_iter().collect();
+                    let vec: Vec<Option<i64>> = series.i64().unwrap().into_iter().collect();
                     dataset.add_column(name, vec)?;
                 }
                 polars::prelude::DataType::Int32 => {
-                    let ca = series.i32().map_err(|e| {
-                        $crate::error::ChartonError::Data(format!(
-                            "Column '{}' cast error: {}",
-                            name, e
-                        ))
-                    })?;
-                    let vec: Vec<Option<i32>> = ca.into_iter().collect();
+                    let vec: Vec<Option<i32>> = series.i32().unwrap().into_iter().collect();
+                    dataset.add_column(name, vec)?;
+                }
+                polars::prelude::DataType::Int16 => {
+                    let vec: Vec<Option<i16>> = series.i16().unwrap().into_iter().collect();
+                    dataset.add_column(name, vec)?;
+                }
+                polars::prelude::DataType::Int8 => {
+                    let vec: Vec<Option<i8>> = series.i8().unwrap().into_iter().collect();
+                    dataset.add_column(name, vec)?;
+                }
+                polars::prelude::DataType::UInt64 => {
+                    let vec: Vec<Option<u64>> = series.u64().unwrap().into_iter().collect();
                     dataset.add_column(name, vec)?;
                 }
                 polars::prelude::DataType::UInt32 => {
-                    let ca = series.u32().map_err(|e| {
-                        $crate::error::ChartonError::Data(format!(
-                            "Column '{}' cast error: {}",
-                            name, e
-                        ))
-                    })?;
-                    let vec: Vec<Option<u32>> = ca.into_iter().collect();
+                    let vec: Vec<Option<u32>> = series.u32().unwrap().into_iter().collect();
                     dataset.add_column(name, vec)?;
                 }
-                // --- String Type (Uses Bitmask for Nulls) ---
+
+                // --- Discrete: Qualitative types preserving categorical identity ---
                 polars::prelude::DataType::String => {
-                    let ca = series.str().map_err(|e| {
-                        $crate::error::ChartonError::Data(format!(
-                            "Column '{}' cast error: {}",
-                            name, e
-                        ))
-                    })?;
-                    // Convert Polars &str to owned String for ColumnVector::String
-                    let vec: Vec<Option<String>> = ca
+                    let vec: Vec<Option<String>> = series
+                        .str()
+                        .unwrap()
                         .into_iter()
                         .map(|opt| opt.map(|s| s.to_string()))
                         .collect();
                     dataset.add_column(name, vec)?;
                 }
+                polars::prelude::DataType::Categorical(_, _)
+                | polars::prelude::DataType::Enum(_, _) => {
+                    let ca = series.categorical().unwrap();
+                    let physical = ca.physical();
 
-                // --- Temporal Type (Datetme)
-                // Bridges Polars Datetime (i64 + TimeUnit) to time::OffsetDateTime.
-                polars::prelude::DataType::Datetime(unit, _) => {
-                    let ca = series.datetime().map_err(|e| {
-                        $crate::error::ChartonError::Data(format!(
-                            "Column '{}' datetime cast error: {}",
-                            name, e
-                        ))
-                    })?;
+                    // Direct buffer extraction for maximum performance
+                    let keys: Vec<u32> = physical.into_no_null_iter().collect();
+                    let rev_map = ca.get_rev_map();
+                    let values: Vec<String> = (0..rev_map.len())
+                        .map(|i| rev_map.get(i as u32).unwrap().to_string())
+                        .collect();
 
-                    let mut dt_vec: Vec<Option<$crate::prelude::OffsetDateTime>> =
-                        Vec::with_capacity(ca.len());
+                    // Recover validity bitmask if the column contains nulls
+                    let validity = if physical.null_count() > 0 {
+                        physical
+                            .chunks()
+                            .get(0)
+                            .and_then(|array| array.validity().map(|v| v.as_slice().to_vec()))
+                    } else {
+                        None
+                    };
 
-                    // `physical_ca` is a reference to the underlying `Int64Chunked` array.
-                    // By accessing the physical layer, we bypass Polars' logical wrappers (like NaiveDateTime)
-                    // and work directly with raw i64 Unix timestamps. This avoids complex type casting
-                    // and ensures we can treat the data as primitive integers for performance.
-                    let physical_ca = ca.physical();
-
-                    for opt_ts in physical_ca.into_iter() {
-                        let dt = opt_ts.and_then(|ts| {
-                            // Map Polars unit to total nanoseconds since Unix Epoch
-                            let nanos = match unit {
-                                polars::prelude::TimeUnit::Milliseconds => (ts as i128) * 1_000_000,
-                                polars::prelude::TimeUnit::Microseconds => (ts as i128) * 1_000,
-                                polars::prelude::TimeUnit::Nanoseconds => ts as i128,
-                            };
-
-                            // Attempt to create the OffsetDateTime
-                            $crate::prelude::OffsetDateTime::from_unix_timestamp_nanos(nanos).ok()
-                        });
-                        dt_vec.push(dt);
-                    }
-                    dataset.add_column(name, dt_vec)?;
+                    let cv =
+                        $crate::core::data::ColumnVector::from_categorical(keys, values, validity);
+                    dataset.add_column(name, cv)?;
+                }
+                polars::prelude::DataType::Boolean => {
+                    let vec: Vec<Option<bool>> = series.bool().unwrap().into_iter().collect();
+                    dataset.add_column(name, vec)?;
                 }
 
-                // --- Fallback ---
+                // --- Temporal: Time-series data normalized to Charton standards ---
+                polars::prelude::DataType::Datetime(unit, _) => {
+                    let ca = series.datetime().unwrap();
+                    let multiplier = match unit {
+                        polars::prelude::TimeUnit::Milliseconds => 1_000_000i128,
+                        polars::prelude::TimeUnit::Microseconds => 1_000i128,
+                        polars::prelude::TimeUnit::Nanoseconds => 1i128,
+                    };
+
+                    let dt_vec: Vec<Option<$crate::prelude::OffsetDateTime>> = ca
+                        .physical()
+                        .into_iter()
+                        .map(|opt_ts| {
+                            opt_ts.and_then(|ts| {
+                                let nanos = (ts as i128) * multiplier;
+                                $crate::prelude::OffsetDateTime::from_unix_timestamp_nanos(nanos)
+                                    .ok()
+                            })
+                        })
+                        .collect();
+                    dataset.add_column(name, dt_vec)?;
+                }
+                polars::prelude::DataType::Date => {
+                    let ca = series.date().unwrap();
+                    let unix_epoch = $crate::prelude::Date::from_calendar_date(
+                        1970,
+                        $crate::prelude::Month::January,
+                        1,
+                    )
+                    .unwrap();
+                    let date_vec: Vec<Option<$crate::prelude::Date>> = ca
+                        .physical()
+                        .into_iter()
+                        .map(|opt| {
+                            opt.and_then(|d| {
+                                unix_epoch.checked_add($crate::prelude::Duration::days(d as i64))
+                            })
+                        })
+                        .collect();
+                    dataset.add_column(name, date_vec)?;
+                }
+                polars::prelude::DataType::Time => {
+                    let ca = series.time().unwrap();
+                    let time_vec: Vec<Option<$crate::prelude::Time>> = ca
+                        .physical()
+                        .into_iter()
+                        .map(|opt| {
+                            opt.and_then(|n| {
+                                $crate::prelude::Time::from_hms_nano(0, 0, 0, n as u32).ok()
+                            })
+                        })
+                        .collect();
+                    dataset.add_column(name, time_vec)?;
+                }
+                polars::prelude::DataType::Duration(unit) => {
+                    let ca = series.duration().unwrap();
+                    let dur_vec: Vec<Option<$crate::prelude::Duration>> = ca
+                        .physical()
+                        .into_iter()
+                        .map(|opt_v| {
+                            opt_v.map(|v| match unit {
+                                polars::prelude::TimeUnit::Milliseconds => {
+                                    $crate::prelude::Duration::milliseconds(v)
+                                }
+                                polars::prelude::TimeUnit::Microseconds => {
+                                    $crate::prelude::Duration::microseconds(v)
+                                }
+                                polars::prelude::TimeUnit::Nanoseconds => {
+                                    $crate::prelude::Duration::nanoseconds(v)
+                                }
+                            })
+                        })
+                        .collect();
+                    dataset.add_column(name, dur_vec)?;
+                }
+
                 _ => {
                     return Err($crate::error::ChartonError::Data(format!(
-                        "Unsupported Polars DataType '{:?}' in column '{}'. \
-                        Charton currently supports: f64, f32, i64, i32, u32, String, and DateTime. \
-                        Please cast this column to one of these types in your DataFrame before plotting.",
+                        "Unsupported Polars DataType '{:?}' in column '{}'.",
                         series.dtype(),
                         name
-                    )).into());
+                    )));
                 }
             }
         }
-
-        // Return a Result to allow the use of '?' in the calling context
-        // and resolve the "unused Result" warning.
-        let res: std::result::Result<$crate::core::data::Dataset, $crate::error::ChartonError> =
-            Ok(dataset);
-        res
+        Ok(dataset)
     }};
 }
 
@@ -257,6 +272,9 @@ macro_rules! chart {
 }
 
 /// Polars v0.42-v0.52 specific data ingestion macro.
+///
+/// This version is tailored for older Polars APIs (using `get_columns()`) and
+/// maps data to Charton's Categorical, Continuous, and Temporal semantic types.
 #[macro_export]
 macro_rules! load_polars_v42_52 {
     ($df:expr) => {{
@@ -266,17 +284,7 @@ macro_rules! load_polars_v42_52 {
         for series in df.get_columns() {
             let name = series.name().to_string();
             match series.dtype() {
-                // --- Floating Point Types (Uses NaN for Nulls) ---
-                polars::prelude::DataType::Float32 => {
-                    let ca = series.f32().map_err(|e| {
-                        $crate::error::ChartonError::Data(format!(
-                            "Column '{}' cast error: {}",
-                            name, e
-                        ))
-                    })?;
-                    let vec: Vec<Option<f32>> = ca.into_iter().collect();
-                    dataset.add_column(name, vec)?;
-                }
+                // --- Continuous: Floating Point Types ---
                 polars::prelude::DataType::Float64 => {
                     let ca = series.f64().map_err(|e| {
                         $crate::error::ChartonError::Data(format!(
@@ -287,8 +295,18 @@ macro_rules! load_polars_v42_52 {
                     let vec: Vec<Option<f64>> = ca.into_iter().collect();
                     dataset.add_column(name, vec)?;
                 }
+                polars::prelude::DataType::Float32 => {
+                    let ca = series.f32().map_err(|e| {
+                        $crate::error::ChartonError::Data(format!(
+                            "Column '{}' cast error: {}",
+                            name, e
+                        ))
+                    })?;
+                    let vec: Vec<Option<f32>> = ca.into_iter().collect();
+                    dataset.add_column(name, vec)?;
+                }
 
-                // --- Integer Types (Uses Bitmask for Nulls) ---
+                // --- Continuous: Signed Integers ---
                 polars::prelude::DataType::Int64 => {
                     let ca = series.i64().map_err(|e| {
                         $crate::error::ChartonError::Data(format!(
@@ -309,6 +327,38 @@ macro_rules! load_polars_v42_52 {
                     let vec: Vec<Option<i32>> = ca.into_iter().collect();
                     dataset.add_column(name, vec)?;
                 }
+                polars::prelude::DataType::Int16 => {
+                    let ca = series.i16().map_err(|e| {
+                        $crate::error::ChartonError::Data(format!(
+                            "Column '{}' cast error: {}",
+                            name, e
+                        ))
+                    })?;
+                    let vec: Vec<Option<i16>> = ca.into_iter().collect();
+                    dataset.add_column(name, vec)?;
+                }
+                polars::prelude::DataType::Int8 => {
+                    let ca = series.i8().map_err(|e| {
+                        $crate::error::ChartonError::Data(format!(
+                            "Column '{}' cast error: {}",
+                            name, e
+                        ))
+                    })?;
+                    let vec: Vec<Option<i8>> = ca.into_iter().collect();
+                    dataset.add_column(name, vec)?;
+                }
+
+                // --- Continuous: Unsigned Integers ---
+                polars::prelude::DataType::UInt64 => {
+                    let ca = series.u64().map_err(|e| {
+                        $crate::error::ChartonError::Data(format!(
+                            "Column '{}' cast error: {}",
+                            name, e
+                        ))
+                    })?;
+                    let vec: Vec<Option<u64>> = ca.into_iter().collect();
+                    dataset.add_column(name, vec)?;
+                }
                 polars::prelude::DataType::UInt32 => {
                     let ca = series.u32().map_err(|e| {
                         $crate::error::ChartonError::Data(format!(
@@ -319,7 +369,8 @@ macro_rules! load_polars_v42_52 {
                     let vec: Vec<Option<u32>> = ca.into_iter().collect();
                     dataset.add_column(name, vec)?;
                 }
-                // --- String Type (Uses Bitmask for Nulls) ---
+
+                // --- Discrete: Strings ---
                 polars::prelude::DataType::String => {
                     let ca = series.str().map_err(|e| {
                         $crate::error::ChartonError::Data(format!(
@@ -327,7 +378,6 @@ macro_rules! load_polars_v42_52 {
                             name, e
                         ))
                     })?;
-                    // Convert Polars &str to owned String for ColumnVector::String
                     let vec: Vec<Option<String>> = ca
                         .into_iter()
                         .map(|opt| opt.map(|s| s.to_string()))
@@ -335,57 +385,162 @@ macro_rules! load_polars_v42_52 {
                     dataset.add_column(name, vec)?;
                 }
 
-                // --- Temporal Type (Datetme)
-                // Bridges Polars Datetime (i64 + TimeUnit) to time::OffsetDateTime.
-                polars::prelude::DataType::Datetime(unit, _) => {
-                    let ca = series.datetime().map_err(|e| {
+                // --- Discrete: Categorical & Enum (Dictionary-encoded) ---
+                polars::prelude::DataType::Categorical(_, _)
+                | polars::prelude::DataType::Enum(_, _) => {
+                    let ca = series.categorical().map_err(|e| {
                         $crate::error::ChartonError::Data(format!(
-                            "Column '{}' datetime cast error: {}",
+                            "Column '{}' categorical error: {}",
                             name, e
                         ))
                     })?;
+                    let physical = ca.physical();
 
-                    let mut dt_vec: Vec<Option<$crate::prelude::OffsetDateTime>> =
-                        Vec::with_capacity(ca.len());
+                    // Direct buffer extraction for dictionary keys
+                    let keys: Vec<u32> = physical.into_no_null_iter().collect();
 
-                    // `physical_ca` is a reference to the underlying `Int64Chunked` array.
-                    // By accessing the physical layer, we bypass Polars' logical wrappers (like NaiveDateTime)
-                    // and work directly with raw i64 Unix timestamps. This avoids complex type casting
-                    // and ensures we can treat the data as primitive integers for performance.
+                    // Map physical indices back to string labels
+                    let rev_map = ca.get_rev_map();
+                    let values: Vec<String> = (0..rev_map.len())
+                        .map(|i| rev_map.get(i as u32).unwrap().to_string())
+                        .collect();
+
+                    // Recover bitmask for null values from the Arrow buffer
+                    let validity = if physical.null_count() > 0 {
+                        physical
+                            .chunks()
+                            .get(0)
+                            .and_then(|array| array.validity().map(|v| v.as_slice().to_vec()))
+                    } else {
+                        None
+                    };
+
+                    let cv =
+                        $crate::core::data::ColumnVector::from_categorical(keys, values, validity);
+                    dataset.add_column(name, cv)?;
+                }
+
+                // --- Discrete: Boolean ---
+                polars::prelude::DataType::Boolean => {
+                    let ca = series.bool().map_err(|e| {
+                        $crate::error::ChartonError::Data(format!(
+                            "Column '{}' cast error: {}",
+                            name, e
+                        ))
+                    })?;
+                    let vec: Vec<Option<bool>> = ca.into_iter().collect();
+                    dataset.add_column(name, vec)?;
+                }
+
+                // --- Temporal: Datetime (Normalized to Nanoseconds) ---
+                polars::prelude::DataType::Datetime(unit, _) => {
+                    let ca = series.datetime().map_err(|e| {
+                        $crate::error::ChartonError::Data(format!(
+                            "Column '{}' datetime error: {}",
+                            name, e
+                        ))
+                    })?;
+                    let multiplier = match unit {
+                        polars::prelude::TimeUnit::Milliseconds => 1_000_000i128,
+                        polars::prelude::TimeUnit::Microseconds => 1_000i128,
+                        polars::prelude::TimeUnit::Nanoseconds => 1i128,
+                    };
                     let physical_ca = ca.physical();
-
-                    for opt_ts in physical_ca.into_iter() {
-                        let dt = opt_ts.and_then(|ts| {
-                            // Map Polars unit to total nanoseconds since Unix Epoch
-                            let nanos = match unit {
-                                polars::prelude::TimeUnit::Milliseconds => (ts as i128) * 1_000_000,
-                                polars::prelude::TimeUnit::Microseconds => (ts as i128) * 1_000,
-                                polars::prelude::TimeUnit::Nanoseconds => ts as i128,
-                            };
-
-                            // Attempt to create the OffsetDateTime
-                            $crate::prelude::OffsetDateTime::from_unix_timestamp_nanos(nanos).ok()
-                        });
-                        dt_vec.push(dt);
-                    }
+                    let dt_vec: Vec<Option<$crate::prelude::OffsetDateTime>> = physical_ca
+                        .into_iter()
+                        .map(|opt_ts| {
+                            opt_ts.and_then(|ts| {
+                                let nanos = (ts as i128) * multiplier;
+                                $crate::prelude::OffsetDateTime::from_unix_timestamp_nanos(nanos)
+                                    .ok()
+                            })
+                        })
+                        .collect();
                     dataset.add_column(name, dt_vec)?;
                 }
 
-                // --- Fallback ---
+                // --- Temporal: Date ---
+                polars::prelude::DataType::Date => {
+                    let ca = series.date().map_err(|e| {
+                        $crate::error::ChartonError::Data(format!(
+                            "Column '{}' date error: {}",
+                            name, e
+                        ))
+                    })?;
+                    let unix_epoch = $crate::prelude::Date::from_calendar_date(
+                        1970,
+                        $crate::prelude::Month::January,
+                        1,
+                    )
+                    .unwrap();
+                    let physical_ca = ca.physical();
+                    let date_vec: Vec<Option<$crate::prelude::Date>> = physical_ca
+                        .into_iter()
+                        .map(|opt| {
+                            opt.and_then(|d| {
+                                unix_epoch.checked_add($crate::prelude::Duration::days(d as i64))
+                            })
+                        })
+                        .collect();
+                    dataset.add_column(name, date_vec)?;
+                }
+
+                // --- Temporal: Time ---
+                polars::prelude::DataType::Time => {
+                    let ca = series.time().map_err(|e| {
+                        $crate::error::ChartonError::Data(format!(
+                            "Column '{}' time error: {}",
+                            name, e
+                        ))
+                    })?;
+                    let physical_ca = ca.physical();
+                    let time_vec: Vec<Option<$crate::prelude::Time>> = physical_ca
+                        .into_iter()
+                        .map(|opt| {
+                            opt.and_then(|n| {
+                                $crate::prelude::Time::from_hms_nano(0, 0, 0, n as u32).ok()
+                            })
+                        })
+                        .collect();
+                    dataset.add_column(name, time_vec)?;
+                }
+
+                // --- Temporal: Duration ---
+                polars::prelude::DataType::Duration(unit) => {
+                    let ca = series.duration().map_err(|e| {
+                        $crate::error::ChartonError::Data(format!(
+                            "Column '{}' duration error: {}",
+                            name, e
+                        ))
+                    })?;
+                    let multiplier = match unit {
+                        polars::prelude::TimeUnit::Milliseconds => 1_000_000i128,
+                        polars::prelude::TimeUnit::Microseconds => 1_000i128,
+                        polars::prelude::TimeUnit::Nanoseconds => 1i128,
+                    };
+                    let physical_ca = ca.physical();
+                    let dur_vec: Vec<Option<$crate::prelude::Duration>> = physical_ca
+                        .into_iter()
+                        .map(|opt_v| {
+                            opt_v.map(|v| {
+                                $crate::prelude::Duration::nanoseconds(
+                                    ((v as i128) * multiplier) as i64,
+                                )
+                            })
+                        })
+                        .collect();
+                    dataset.add_column(name, dur_vec)?;
+                }
+
                 _ => {
                     return Err($crate::error::ChartonError::Data(format!(
-                        "Unsupported Polars DataType '{:?}' in column '{}'. \
-                        Charton currently supports: f64, f32, i64, i32, u32, String, and DateTime. \
-                        Please cast this column to one of these types in your DataFrame before plotting.",
+                        "Unsupported Polars DataType '{:?}' in column '{}'.",
                         series.dtype(),
                         name
-                    )).into());
+                    )));
                 }
             }
         }
-
-        // Return a Result to allow the use of '?' in the calling context
-        // and resolve the "unused Result" warning.
         let res: std::result::Result<$crate::core::data::Dataset, $crate::error::ChartonError> =
             Ok(dataset);
         res
