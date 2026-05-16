@@ -23,17 +23,17 @@ If your data is complete, you can pass collections of `String` or `&str` directl
 ```rust
 // Supporting Vec<&str> or Vec<String>
 let cities = vec!["London", "Paris", "London", "Tokyo"];
-let col = ColumnVector::from_values_as_categorical(cities);
+let col = ColumnVector::from_str_as_cat(cities);
 ```
 
 ### 2. From Optional Strings (With Null Support)
 
-For datasets with missing values, use `from_strings_as_categorical`. This version automatically builds the internal Validity Bitmask.
+For datasets with missing values, use `from_str_as_cat_opt`. This version automatically builds the internal Validity Bitmask.
 
 ```rust
 // Supporting Vec<Option<&str>> or Vec<Option<String>>
 let status = vec![Some("High"), None, Some("Low"), Some("High")];
-let col = ColumnVector::from_strings_as_categorical(status);
+let col = ColumnVector::from_str_as_cat_opt(status);
 ```
 
 ### 3. Why Use Categorical?
