@@ -4,38 +4,6 @@ use std::fmt;
 use std::sync::Arc;
 use time::{Date, Duration, OffsetDateTime, Time};
 
-/// Represents the precision and scale of temporal data.
-///
-/// This enum defines how the underlying integer values (i64/i32) should be
-/// interpreted. While `Millisecond`, `Microsecond`, and `Nanosecond` ensure
-/// high-fidelity alignment with the Polars/Arrow ecosystem, the addition of
-/// `Second` and `Day` allows Charton to represent vast geological or
-/// astronomical timescales without integer overflow.
-///
-/// NOTE: Currently, all internal layout math is normalized to nanoseconds.
-/// This field is preserved for future high-fidelity tooltip formatting and write-back filters.
-#[derive(Clone, Copy, Debug, PartialEq, Eq, Default)]
-pub enum TimeUnit {
-    /// 10^-9 seconds. The default precision for high-frequency data.
-    /// Max range in i64: ~292 years.
-    #[default]
-    Nanoseconds,
-
-    /// 10^-6 seconds. Commonly used in system telemetry and sensors.
-    /// Max range in i64: ~292,000 years.
-    Microseconds,
-
-    /// 10^-3 seconds. The standard precision for web-based timestamps (JS Date).
-    Milliseconds,
-
-    /// 1 second. Ideal for long-duration spans or large-scale historical events.
-    Seconds,
-
-    /// 24 hours. Optimized for macro-scale trends (e.g., sales, climate cycles).
-    /// Allows i64 to represent spans exceeding the age of the universe.
-    Days,
-}
-
 /// Encapsulates a single column of data with a high-performance memory layout.
 ///
 /// Naming and structure are designed to be "Polars-friendly", allowing near
@@ -131,7 +99,6 @@ pub enum ColumnVector {
     Datetime {
         data: Vec<i64>,
         validity: Option<Vec<u8>>,
-        unit: TimeUnit,
         /// Optional IANA timezone string (e.g., "UTC", "Asia/Singapore").
         /// Essential for correct label formatting on axes.
         timezone: Option<String>,
@@ -139,12 +106,10 @@ pub enum ColumnVector {
 
     /// Duration representing a time span or interval.
     ///
-    /// Stored as an i64. By utilizing `TimeUnit`, it can represent spans
-    /// ranging from nanoseconds (HFT latency) to days (geological eras).
+    /// Stored as an i64.
     Duration {
         data: Vec<i64>,
         validity: Option<Vec<u8>>,
-        unit: TimeUnit,
     },
 
     /// Time representing a specific time of day, independent of any date.
@@ -153,7 +118,6 @@ pub enum ColumnVector {
     Time {
         data: Vec<i64>,
         validity: Option<Vec<u8>>,
-        unit: TimeUnit,
     },
 }
 
@@ -327,29 +291,9 @@ impl ColumnVector {
 
             // For Datetime, Time, and Duration, Polars usually clarifies the unit.
             // Since we return &'static str, we pick the most descriptive shorthand.
-            ColumnVector::Datetime { unit, .. } => match unit {
-                TimeUnit::Nanoseconds => "datetime[ns]",
-                TimeUnit::Microseconds => "datetime[us]",
-                TimeUnit::Milliseconds => "datetime[ms]",
-                TimeUnit::Seconds => "datetime[s]",
-                TimeUnit::Days => "datetime[d]",
-            },
-
-            ColumnVector::Duration { unit, .. } => match unit {
-                TimeUnit::Nanoseconds => "duration[ns]",
-                TimeUnit::Microseconds => "duration[us]",
-                TimeUnit::Milliseconds => "duration[ms]",
-                TimeUnit::Seconds => "duration[s]",
-                TimeUnit::Days => "duration[d]",
-            },
-
-            ColumnVector::Time { unit, .. } => match unit {
-                TimeUnit::Nanoseconds => "time[ns]",
-                TimeUnit::Microseconds => "time[us]",
-                TimeUnit::Milliseconds => "time[ms]",
-                TimeUnit::Seconds => "time[s]",
-                TimeUnit::Days => "time[d]",
-            },
+            ColumnVector::Datetime { .. } => "datetime[ns]",
+            ColumnVector::Duration { .. } => "duration[ns]",
+            ColumnVector::Time { .. } => "time[ns]",
         }
     }
 
@@ -880,31 +824,19 @@ impl ColumnVector {
             ColumnVector::Datetime {
                 data,
                 validity,
-                unit,
                 timezone,
             } => ColumnVector::Datetime {
                 data: indices.iter().map(|&i| data[i]).collect(),
                 validity: self.take_validity(validity, indices),
-                unit: *unit,
                 timezone: timezone.clone(),
             },
-            ColumnVector::Duration {
-                data,
-                validity,
-                unit,
-            } => ColumnVector::Duration {
+            ColumnVector::Duration { data, validity } => ColumnVector::Duration {
                 data: indices.iter().map(|&i| data[i]).collect(),
                 validity: self.take_validity(validity, indices),
-                unit: *unit,
             },
-            ColumnVector::Time {
-                data,
-                validity,
-                unit,
-            } => ColumnVector::Time {
+            ColumnVector::Time { data, validity } => ColumnVector::Time {
                 data: indices.iter().map(|&i| data[i]).collect(),
                 validity: self.take_validity(validity, indices),
-                unit: *unit,
             },
         }
     }
@@ -1639,40 +1571,28 @@ impl ColumnVector {
                     .as_ref()
                     .map(|v| self.slice_validity(v, actual_offset, actual_len)),
             },
-            ColumnVector::Time {
-                data,
-                validity,
-                unit,
-            } => ColumnVector::Time {
+            ColumnVector::Time { data, validity } => ColumnVector::Time {
                 data: data[actual_offset..end].to_vec(),
                 validity: validity
                     .as_ref()
                     .map(|v| self.slice_validity(v, actual_offset, actual_len)),
-                unit: *unit,
             },
             ColumnVector::Datetime {
                 data,
                 validity,
-                unit,
                 timezone,
             } => ColumnVector::Datetime {
                 data: data[actual_offset..end].to_vec(),
                 validity: validity
                     .as_ref()
                     .map(|v| self.slice_validity(v, actual_offset, actual_len)),
-                unit: *unit,
                 timezone: timezone.clone(),
             },
-            ColumnVector::Duration {
-                data,
-                validity,
-                unit,
-            } => ColumnVector::Duration {
+            ColumnVector::Duration { data, validity } => ColumnVector::Duration {
                 data: data[actual_offset..end].to_vec(),
                 validity: validity
                     .as_ref()
                     .map(|v| self.slice_validity(v, actual_offset, actual_len)),
-                unit: *unit,
             },
         }
     }
@@ -1846,7 +1766,6 @@ impl From<Vec<Option<OffsetDateTime>>> for ColumnVector {
         ColumnVector::Datetime {
             data,
             validity,
-            unit: TimeUnit::Nanoseconds,
             timezone: None,
         }
     }
@@ -1860,11 +1779,7 @@ impl From<Vec<Option<Time>>> for ColumnVector {
             .map(|opt| opt.map(|t| (t - Time::MIDNIGHT).whole_nanoseconds() as i64));
 
         let (data, validity) = collect_with_validity(mapped, 0i64);
-        ColumnVector::Time {
-            data,
-            validity,
-            unit: TimeUnit::Nanoseconds,
-        }
+        ColumnVector::Time { data, validity }
     }
 }
 
@@ -1875,11 +1790,7 @@ impl From<Vec<Option<Duration>>> for ColumnVector {
             .map(|opt| opt.map(|d| d.whole_nanoseconds() as i64));
 
         let (data, validity) = collect_with_validity(mapped, 0i64);
-        ColumnVector::Duration {
-            data,
-            validity,
-            unit: TimeUnit::Nanoseconds,
-        }
+        ColumnVector::Duration { data, validity }
     }
 }
 
@@ -2019,7 +1930,6 @@ impl From<Vec<OffsetDateTime>> for ColumnVector {
         ColumnVector::Datetime {
             data,
             validity: None,
-            unit: TimeUnit::Nanoseconds,
             timezone: None,
         }
     }
@@ -2037,7 +1947,6 @@ impl From<Vec<Time>> for ColumnVector {
         ColumnVector::Time {
             data,
             validity: None,
-            unit: TimeUnit::Nanoseconds,
         }
     }
 }
@@ -2054,7 +1963,6 @@ impl From<Vec<Duration>> for ColumnVector {
         ColumnVector::Duration {
             data,
             validity: None,
-            unit: TimeUnit::Nanoseconds,
         }
     }
 }
@@ -2918,18 +2826,12 @@ impl Dataset {
             }
 
             // Datetime: i64 since Epoch with specific precision
-            ColumnVector::Datetime { data, unit, .. } => {
+            ColumnVector::Datetime { data, .. } => {
                 use time::{OffsetDateTime, format_description::well_known::Rfc3339};
 
                 // Convert various units to Nanoseconds using i128 to avoid overflow.
                 // i64 seconds * 1e9 safely fits in i128.
-                let timestamp_nanos = match unit {
-                    TimeUnit::Nanoseconds => data[row] as i128,
-                    TimeUnit::Microseconds => data[row] as i128 * 1_000,
-                    TimeUnit::Milliseconds => data[row] as i128 * 1_000_000,
-                    TimeUnit::Seconds => data[row] as i128 * 1_000_000_000,
-                    TimeUnit::Days => data[row] as i128 * 86_400_000_000_000,
-                };
+                let timestamp_nanos = data[row] as i128;
 
                 OffsetDateTime::from_unix_timestamp_nanos(timestamp_nanos)
                     .ok()
@@ -2938,9 +2840,7 @@ impl Dataset {
             }
 
             // Duration: Physical count of units
-            ColumnVector::Duration { data, unit, .. } => {
-                format!("{}{:?}", data[row], unit)
-            }
+            ColumnVector::Duration { data, .. } => data[row].to_string(),
 
             // Time: i64 nanoseconds since midnight
             ColumnVector::Time { data, .. } => {

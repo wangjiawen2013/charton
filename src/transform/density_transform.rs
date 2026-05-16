@@ -443,25 +443,22 @@ impl<T: Mark> Chart<T> {
 
         let x_prototype = density_col.clone(); // density_col is X axis
         let restored_x = match x_prototype {
-            ColumnVector::Datetime { unit, timezone, .. } => ColumnVector::Datetime {
+            ColumnVector::Datetime { timezone, .. } => ColumnVector::Datetime {
                 data: final_x.into_iter().map(|v| v.round() as i64).collect(),
                 validity: None,
-                unit,
                 timezone,
             },
             ColumnVector::Date { .. } => ColumnVector::Date {
                 data: final_x.into_iter().map(|v| v.round() as i32).collect(),
                 validity: None,
             },
-            ColumnVector::Duration { unit, .. } => ColumnVector::Duration {
+            ColumnVector::Duration { .. } => ColumnVector::Duration {
                 data: final_x.into_iter().map(|v| v.round() as i64).collect(),
                 validity: None,
-                unit,
             },
-            ColumnVector::Time { unit, .. } => ColumnVector::Time {
+            ColumnVector::Time { .. } => ColumnVector::Time {
                 data: final_x.into_iter().map(|v| v.round() as i64).collect(),
                 validity: None,
-                unit,
             },
             _ => ColumnVector::Float64 {
                 data: final_x,
