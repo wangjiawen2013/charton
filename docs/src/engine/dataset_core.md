@@ -43,6 +43,8 @@ Ideal for dynamic logic or loops where you only have a mutable reference (`&mut 
 
 ```rust
 let mut ds = Dataset::new();
+let sepal_length = vec![5.1, 4.9, 4.7, 4.6, 5.0];
+let species = vec![Some("Iris-setosa"), None, None, None, Some("Iris-virginica")];
 ds.add_column("sepal_length", sepal_length)?;
 ds.add_column("species", species)?;
 ```
@@ -65,47 +67,64 @@ let ds = raw_data.to_dataset()?;
 To ensure full compatibility with diverse workflows, `Dataset` can hold numerical, categorical, and temporal types simultaneously. Below is a 5-row example demonstrating every supported category using the `time` crate.
 
 ```rust
-use charton::{Dataset, ColumnVector, TimeUnit, ToDataset, IntoColumn};
-use time::macros::{datetime, date};
+use charton::prelude::*;
+use time::{Date, Duration, Month};
+use time::macros::datetime;
 
-let complex_data = vec![
-    // 1. Numerical & Boolean
-    ("id", vec![1u64, 2, 3, 4, 5].into_column()),
-    ("active", vec![true, true, false, true, false].into_column()),
-    ("score", vec![Some(95.5), Some(88.0), None, Some(76.2), Some(91.0)].into_column()),
-    
-    // 2. Categorical (Dictionary Encoded)
-    ("group", ColumnVector::from_values_as_categorical(
-        vec!["High", "Low", "High", "Medium", "Low"]
-    )),
-    
-    // 3. Raw Strings (Unique Labels)
-    ("label", vec!["Alpha", "Beta", "Gamma", "Delta", "Epsilon"].into_column()),
-    
-    // 4. Temporal: Datetime & Date
-    ("timestamp", vec![
-        datetime!(2026-05-01 00:00 UTC),
-        datetime!(2026-05-01 12:00 UTC),
-        datetime!(2026-05-02 00:00 UTC),
-        datetime!(2026-05-02 12:00 UTC),
-        datetime!(2026-05-03 00:00 UTC),
-    ].into_column()),
-    
-    ("date", vec![
-        date!(2026-05-01), date!(2026-05-02), date!(2026-05-03), 
-        date!(2026-05-04), date!(2026-05-05)
-    ].into_column()),
-    
-    // 5. Duration (Time Deltas)
-    ("lead_time", ColumnVector::Duration {
-        data: vec![100, 250, 500, 750, 1000],
-        unit: TimeUnit::Nanoseconds,
-        validity: None,
-    }),
-];
+fn main() -> Result<(), Box<dyn std::error::Error>> {
+    let complex_data = vec![
+        // 1. Numerical & Boolean
+        ("id", vec![1u64, 2, 3, 4, 5].into_column()),
+        ("active", vec![true, true, false, true, false].into_column()),
+        ("score", vec![Some(95.5), Some(88.0), None, Some(76.2), Some(91.0)].into_column()),
+        
+        // 2. Categorical (Dictionary Encoded)
+        ("group", ColumnVector::from_str_as_cat(
+            vec!["High", "Low", "High", "Medium", "Low"]
+        )),
+        
+        // 3. Raw Strings (Unique Labels)
+        ("label", vec!["Alpha", "Beta", "Gamma", "Delta", "Epsilon"].into_column()),
+        
+        // 4. Temporal: Datetime & Date
+        // Using time::macros::datetime! is the standard, idiomatic way 
+        // to create OffsetDateTime instances in Rust code.
+        ("timestamp", vec![
+            datetime!(2026-05-01 00:00 UTC),
+            datetime!(2026-05-01 12:00 UTC),
+            datetime!(2026-05-02 00:00 UTC),
+            datetime!(2026-05-02 12:00 UTC),
+            datetime!(2026-05-03 00:00 UTC),
+        ].into_column()),
+        
+        // Using Date::from_calendar_date is the standard safe constructor for Dates.
+        ("date", vec![
+            Date::from_calendar_date(2026, Month::May, 1)?,
+            Date::from_calendar_date(2026, Month::May, 2)?,
+            Date::from_calendar_date(2026, Month::May, 3)?,
+            Date::from_calendar_date(2026, Month::May, 4)?,
+            Date::from_calendar_date(2026, Month::May, 5)?,
+        ].into_column()),
+        
+        // 5. Duration (Time Deltas)
+        // Using Duration::seconds is the standard constructor.
+        ("lead_time", vec![
+            Duration::seconds(100),
+            Duration::seconds(250),
+            Duration::seconds(500),
+            Duration::seconds(750),
+            Duration::seconds(1000),
+        ].into_column()),
+    ];
 
-let ds = complex_data.to_dataset()?;
+    let ds = complex_data.to_dataset()?;
+
+    println!("{:?}", ds);
+    
+    Ok(())
+}
 ```
+*Note: The above example uses the `time` crate with features `parsing` and `macros` on for temporal types.*
 
 ## Core API Reference
 ### Inspection
@@ -134,12 +153,12 @@ Printing the Dataset via {:?} renders a clean, aligned table with type markers.
 
 ```text
 Dataset View: rows 0..5 (Total 5 rows)
-id          | active      | score       | group       | lead_time   
-(u64)       | (bool)      | (f64)       | (cat)       | (dur)       
---------------------------------------------------------------------
-1           | true        | 95.5000     | High        | 100ms       
-2           | true        | 88.0000     | Low         | 250ms       
-3           | false       | null        | High        | 500ms       
-4           | true        | 76.2000     | Medium      | 750ms       
-5           | false       | 91.0000     | Low         | 1000ms
+id   | active| score  | group | label  | timestamp           | date      | lead_time     
+(u64)| (bool)| (f64)  | (cat) | (str)  | (datetime[ns])      | (date)    | (duration[ns])
+-----------------------------------------------------------------------------------------
+1    | true  | 95.5000| High  | Alpha  | 2026-05-01T00:00:00Z| 2026-05-01| 100000000000  
+2    | true  | 88.0000| Low   | Beta   | 2026-05-01T12:00:00Z| 2026-05-02| 250000000000  
+3    | false | null   | High  | Gamma  | 2026-05-02T00:00:00Z| 2026-05-03| 500000000000  
+4    | true  | 76.2000| Medium| Delta  | 2026-05-02T12:00:00Z| 2026-05-04| 750000000000  
+5    | false | 91.0000| Low   | Epsilon| 2026-05-03T00:00:00Z| 2026-05-05| 1000000000000 
 ```
