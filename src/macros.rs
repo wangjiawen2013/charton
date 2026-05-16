@@ -24,16 +24,16 @@ macro_rules! load_polars_df {
         let mut dataset: $crate::core::data::Dataset = $crate::core::data::Dataset::new();
 
         for column in df.columns() {
-            // Convert Result<Series, PolarsError> to Result<Series, ChartonError>
-            let series = column.as_series().map_err(|e| {
+            // Convert Option<&Series> to Result<&Series, ChartonError>
+            let series = column.as_series().ok_or_else(|| {
                 $crate::error::ChartonError::Data(format!(
-                    "Failed to convert column to Series: {}",
-                    e
+                    "Column '{}' is not a Series",
+                    column.name()
                 ))
             })?;
-            
+
             let name = series.name().to_string();
-            
+
             match series.dtype() {
                 // --- Continuous: Numerical types ---
                 polars::prelude::DataType::Float64 => {
@@ -131,7 +131,7 @@ macro_rules! load_polars_df {
                         .collect();
                     dataset.add_column(name, vec)?;
                 }
-                
+
                 polars::prelude::DataType::Categorical(_, _)
                 | polars::prelude::DataType::Enum(_, _) => {
                     let ca = series.cat32().map_err(|e| {
@@ -144,7 +144,7 @@ macro_rules! load_polars_df {
 
                     // Extract keys (indices)
                     let keys: Vec<u32> = physical.into_no_null_iter().collect();
-                    
+
                     // Extract dictionary values
                     let values: Vec<String> = ca
                         .iter_str()
@@ -164,7 +164,7 @@ macro_rules! load_polars_df {
                     let cv = $crate::core::data::ColumnVector::from_categorical(keys, values, validity);
                     dataset.add_column(name, cv)?;
                 }
-                
+
                 polars::prelude::DataType::Boolean => {
                     let ca = series.bool().map_err(|e| {
                         $crate::error::ChartonError::Data(format!(
@@ -177,7 +177,7 @@ macro_rules! load_polars_df {
                 }
 
                 // --- Temporal: Normalized to Charton Standards ---
-                
+
                 polars::prelude::DataType::Datetime(unit, _tz) => {
                     let ca = series.datetime().map_err(|e| {
                         $crate::error::ChartonError::Data(format!(
@@ -185,7 +185,7 @@ macro_rules! load_polars_df {
                             name, e
                         ))
                     })?;
-                    
+
                     // Convert Polars physical timestamp to Chrono/Time compatible nanoseconds
                     let multiplier = match unit {
                         polars::prelude::TimeUnit::Milliseconds => 1_000_000i128,
@@ -203,8 +203,8 @@ macro_rules! load_polars_df {
                             })
                         })
                         .collect();
-                    
-                    // The From<Vec<Option<OffsetDateTime>>> impl in data.rs will 
+
+                    // The From<Vec<Option<OffsetDateTime>>> impl in data.rs will
                     // convert these to i64 nanoseconds internally.
                     dataset.add_column(name, dt_vec)?;
                 }
@@ -216,7 +216,7 @@ macro_rules! load_polars_df {
                             name, e
                         ))
                     })?;
-                    
+
                     let unix_epoch = $crate::prelude::ctime::Date::from_calendar_date(
                         1970,
                         $crate::prelude::ctime::Month::January,
@@ -232,8 +232,8 @@ macro_rules! load_polars_df {
                             })
                         })
                         .collect();
-                        
-                    // The From<Vec<Option<Date>>> impl in data.rs will 
+
+                    // The From<Vec<Option<Date>>> impl in data.rs will
                     // convert these to i32 days since epoch internally.
                     dataset.add_column(name, date_vec)?;
                 }
@@ -245,7 +245,7 @@ macro_rules! load_polars_df {
                             name, e
                         ))
                     })?;
-                    
+
                     let time_vec: Vec<Option<$crate::prelude::ctime::Time>> = ca
                         .physical()
                         .into_iter()
@@ -256,8 +256,8 @@ macro_rules! load_polars_df {
                             })
                         })
                         .collect();
-                        
-                    // The From<Vec<Option<Time>>> impl in data.rs will 
+
+                    // The From<Vec<Option<Time>>> impl in data.rs will
                     // convert these to i64 nanoseconds since midnight internally.
                     dataset.add_column(name, time_vec)?;
                 }
@@ -269,11 +269,11 @@ macro_rules! load_polars_df {
                             name, e
                         ))
                     })?;
-                    
+
                     let multiplier = match unit {
-                        polars::prelude::TimeUnit::Milliseconds => 1_000_000i128,
-                        polars::prelude::TimeUnit::Microseconds => 1_000i128,
-                        polars::prelude::TimeUnit::Nanoseconds => 1i128,
+                        polars::prelude::TimeUnit::Milliseconds => 1_000_000,
+                        polars::prelude::TimeUnit::Microseconds => 1_000,
+                        polars::prelude::TimeUnit::Nanoseconds => 1,
                     };
 
                     let dur_vec: Vec<Option<$crate::prelude::ctime::Duration>> = ca
@@ -281,13 +281,13 @@ macro_rules! load_polars_df {
                         .into_iter()
                         .map(|opt_v| {
                             opt_v.map(|v| {
-                                let total_nanos = (v as i128) * multiplier;
+                                let total_nanos = v * multiplier;
                                 $crate::prelude::ctime::Duration::nanoseconds(total_nanos)
                             })
                         })
                         .collect();
-                        
-                    // The From<Vec<Option<Duration>>> impl in data.rs will 
+
+                    // The From<Vec<Option<Duration>>> impl in data.rs will
                     // convert these to i64 nanoseconds internally.
                     dataset.add_column(name, dur_vec)?;
                 }
@@ -302,7 +302,11 @@ macro_rules! load_polars_df {
                 }
             }
         }
-        Ok(dataset)
+
+        // Return a Result to allow the use of '?' in the calling context. Macros can't infer data types automatically.
+        let res: std::result::Result<$crate::core::data::Dataset, $crate::error::ChartonError> =
+            Ok(dataset);
+        res
     }};
 }
 

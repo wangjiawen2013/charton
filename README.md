@@ -9,6 +9,7 @@
 [![Documentation](https://docs.rs/charton/badge.svg)](https://docs.rs/charton)
 [![Build Status](https://github.com/wangjiawen2013/charton/actions/workflows/ci.yml/badge.svg)](https://github.com/wangjiawen2013/charton/actions)
 [![License](https://img.shields.io/badge/license-Apache2.0-blue.svg)](LICENSE)
+[![oosmetrics](https://api.oosmetrics.com/api/v1/badge/achievement/9decc337-d2d8-474e-ac9e-3f1accf03dae.svg)](https://oosmetrics.com/repo/wangjiawen2013/charton)
 
 <p align="center">
   <b>Chart like You Mean It</b><br>
