@@ -99,7 +99,7 @@ let complex_data = vec![
     // 5. Duration (Time Deltas)
     ("lead_time", ColumnVector::Duration {
         data: vec![100, 250, 500, 750, 1000],
-        unit: TimeUnit::Millisecond,
+        unit: TimeUnit::Nanoseconds,
         validity: None,
     }),
 ];

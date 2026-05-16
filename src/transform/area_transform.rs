@@ -190,27 +190,24 @@ impl<T: Mark> Chart<T> {
         // Restore X column based on the physical prototype
         if is_continuous {
             let restored_x = match x_prototype {
-                ColumnVector::Datetime { unit, timezone, .. } => ColumnVector::Datetime {
+                ColumnVector::Datetime { timezone, .. } => ColumnVector::Datetime {
                     // Apply round() to ensure values like 0.999... correctly snap back to
                     // integers, minimizing precision loss during float-to-int conversion.
                     data: final_x_f.into_iter().map(|v| v.round() as i64).collect(),
                     validity: None,
-                    unit,
                     timezone,
                 },
                 ColumnVector::Date { .. } => ColumnVector::Date {
                     data: final_x_f.into_iter().map(|v| v.round() as i32).collect(),
                     validity: None,
                 },
-                ColumnVector::Duration { unit, .. } => ColumnVector::Duration {
+                ColumnVector::Duration { .. } => ColumnVector::Duration {
                     data: final_x_f.into_iter().map(|v| v.round() as i64).collect(),
                     validity: None,
-                    unit,
                 },
-                ColumnVector::Time { unit, .. } => ColumnVector::Time {
+                ColumnVector::Time { .. } => ColumnVector::Time {
                     data: final_x_f.into_iter().map(|v| v.round() as i64).collect(),
                     validity: None,
-                    unit,
                 },
                 // Fallback for all other numeric types to Float64 for coordinate precision
                 _ => ColumnVector::Float64 {
