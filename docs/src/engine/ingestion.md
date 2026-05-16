@@ -57,11 +57,10 @@ Charton ensures strict metadata alignment during conversion. The following table
 This example demonstrates a complex scenario where Polars handles numerical, categorical, and multiple temporal types simultaneously before converting to Charton.
 
 ```rust
+use chart::prelude::*;
 use polars::prelude::*;
-use charton::{Dataset, TimeUnit};
-use std::convert::TryInto;
 
-fn ingest_complex_dataframe() -> Result<Dataset, Box<dyn std::error::Error>> {
+fn main() -> Result<(), Box<dyn std::error::Error>> {
     // Create a DataFrame with diverse types
     let df = df!(
         "id" => &[1, 2, 3, 4, 5],
@@ -71,17 +70,11 @@ fn ingest_complex_dataframe() -> Result<Dataset, Box<dyn std::error::Error>> {
         "lead_time" => &[100i64, 250, 500, 750, 1000],
     )?;
 
-    // Cast types in Polars for optimal Charton ingestion
-    let processed_df = df.lazy()
-        .with_column(col("status").cast(DataType::Categorical(None, Default::default())))
-        .with_column(col("ts").cast(DataType::Datetime(TimeUnit::Milliseconds, None)))
-        .with_column(col("lead_time").cast(DataType::Duration(TimeUnit::Milliseconds)))
-        .collect()?;
-
-    // Final conversion to Charton
-    let ds: Dataset = processed_df.try_into()?;
+    // Conversion to Charton
+    let ds: Dataset = load_polars_df!(df)?;
+    println!("{:?}", ds);
     
-    Ok(ds)
+    Ok(())
 }
 ```
 
