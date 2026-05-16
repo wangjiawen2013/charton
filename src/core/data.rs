@@ -196,7 +196,7 @@ impl ColumnVector {
     /// 1. Dictionary encoding (deduplicating strings into the `values` vector).
     /// 2. Null tracking (generating the `validity` bitmask if `None` is present).
     /// 3. Physical mapping (assigning `u32` keys to each entry).
-    pub fn from_strings_as_categorical<S, I>(iter: I) -> Self
+    pub fn from_str_as_cat_opt<S, I>(iter: I) -> Self
     where
         S: AsRef<str>,
         I: IntoIterator<Item = Option<S>>,
@@ -254,6 +254,15 @@ impl ColumnVector {
                 None
             },
         }
+    }
+
+    /// no null version: support &str / String / &String
+    pub fn from_str_as_cat<S, I>(iter: I) -> Self
+    where
+        S: AsRef<str>,
+        I: IntoIterator<Item = S>,
+    {
+        Self::from_str_as_cat_opt(iter.into_iter().map(Some))
     }
 
     /// Infers the [SemanticType] of the column based on its internal storage variant.
