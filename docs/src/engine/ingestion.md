@@ -13,27 +13,29 @@ In a typical Charton application, data flows through the following pipeline:
 
 ## Polars Integration
 
-By enabling the `charton-polars` feature, you can leverage the `TryFrom` trait to convert data seamlessly.
-
-### Basic Conversion Example
+Charton uses the `load_polars_df!()` macro to convert a Polars `DataFrame` into a Charton `Dataset`.
 
 ```rust
+use charton::prelude::*;
 use polars::prelude::*;
-use charton::core::Dataset;
-use std::convert::TryFrom;
 
 fn main() -> Result<(), Box<dyn std::error::Error>> {
-    // 1. Load data using Polars
-    let df = CsvReader::from_path("sensor_metrics.csv")?
-        .infer_schema(None)
-        .has_header(true)
-        .finish()?;
+    // Create DataFrame with diverse types, including native Polars temporal types
+    let df = df!(
+        "id" => &[1, 2, 3, 4, 5],
+        "status" => &["High", "Low", "High", "Medium", "Low"],
+        "value" => &[Some(1.2), None, Some(5.6), Some(7.8), None],
+        "date" => Series::new("date".into(), &[19858i32, 19859, 19860, 19861, 19862]).cast(&DataType::Date)?, // ~2024-05-15
+        "datetime" => Series::new("datetime".into(), &[1715760000000i64, 1715763600000, 1715767200000, 1715770800000, 1715774400000])
+            .cast(&DataType::Datetime(TimeUnit::Milliseconds, None))?,
+        "duration" => Series::new("duration".into(), &[3_600_000i64, 7_200_000, 1_800_000, 10_800_000, 5_400_000])
+            .cast(&DataType::Duration(TimeUnit::Milliseconds))?,
+    )?;
 
-    // 2. Convert to Charton Dataset
-    // This preserves all physical types and validity masks (Nulls)
-    let ds = Dataset::try_from(df)?;
+    // Conversion to Charton dataset
+    let ds = load_polars_df!(df)?;
+    println!("{:?}", ds);
 
-    println!("Ingested: {} rows x {} columns", ds.height(), ds.width());
     Ok(())
 }
 ```
@@ -44,61 +46,15 @@ Charton ensures strict metadata alignment during conversion. The following table
 
 | Polars Logical Type   | Charton Physical Type | Notes |
 |-----------------------|-----------------------|-------|
-| `Int32`, `Int64`      | `i32`, `i64`          | Direct physical mapping. |
-| `Float32`, `Float64`  | `f32`, `f64`          | NaN values are treated as Nulls. |
-| `Boolean`             | `bool`                | Mapped to bitmask-backed boolean vectors. |
-| `Utf8 / String`       | `String`              | Stored as raw string vectors. |
-| `Categorical`         | `Categorical`         | Preserves dictionary encoding; ideal for legends. |
-| `Datetime`            | `Datetime`            | Mapped to `i64` preserving `TimeUnit` (ns, ms, s). |
-| `Duration`            | `Duration`            | Mapped to `i64` preserving `TimeUnit`. |
+| `Int8`, `Int16`, `Int32`, `Int64` | `i8`, `i16`, `i32`, `i64` | Direct physical mapping. |
+| `UInt32`, `UInt64` | `u32`, `u64` | Direct physical mapping. |
+| `Float32`, `Float64` | `f32`, `f64` | NaN values are treated as Nulls. |
+| `Boolean` | `bool` | Mapped to nullable boolean vector. |
+| `Utf8` / `String` | `String` | Stored as nullable string vectors. |
+| `Categorical(_, _)`, `Enum(_, _)` | `Categorical` | Preserves dictionary encoding + validity. |
+| `Date` | `Date` | Stored as i32 days since Unix epoch. |
+| `Time` | `Time` | Stored as i64 nanoseconds since midnight. |
+| `Datetime(unit, _)` | `Datetime` | Normalized to i64 nanoseconds since Unix epoch. |
+| `Duration(unit)` | `Duration` | Normalized to i64 nanoseconds. |
 
-### Advanced: Heterogeneous "Full-Stack" Ingestion
-
-This example demonstrates a complex scenario where Polars handles numerical, categorical, and multiple temporal types simultaneously before converting to Charton.
-
-```rust
-use chart::prelude::*;
-use polars::prelude::*;
-
-fn main() -> Result<(), Box<dyn std::error::Error>> {
-    // Create a DataFrame with diverse types
-    let df = df!(
-        "id" => &[1, 2, 3, 4, 5],
-        "status" => &["High", "Low", "High", "Medium", "Low"],
-        "val" => &[Some(1.2), None, Some(5.6), Some(7.8), None],
-        "ts" => &[1715760000000i64, 1715763600000, 1715767200000, 1715770800000, 1715774400000],
-        "lead_time" => &[100i64, 250, 500, 750, 1000],
-    )?;
-
-    // Conversion to Charton
-    let ds: Dataset = load_polars_df!(df)?;
-    println!("{:?}", ds);
-    
-    Ok(())
-}
-```
-
-### Performance & Memory Best Practices
-
-#### 1. Shallow Copying
-
-While Polars utilizes the Arrow memory layout and Charton uses its own `Arc<ColumnVector>` abstraction, Charton aims to minimize overhead. For large primitive columns (f64/i64), the conversion involves very little overhead as it primarily re-wraps existing buffers into `Arc` containers.
-
-#### 2. Pre-aggregation (The "Gold" Rule)
-
-Do not send millions of raw rows directly to Charton. While the `Dataset` can hold them, the browser's rendering engine will struggle with the sheer number of elements.
-
-* Best Practice: Perform heavy lifting (GroupBy, Rolling windows, Aggregations) in Polars' lazy mode first. Only convert the "reduced" result (e.g., a few thousand points) to a Charton `Dataset`.
-
-#### 3. Automatic Unit Recognition
-
-Charton's `Debug` implementation automatically recognizes units inherited from Polars. If a Polars column is in `Microseconds`, Charton will display `500us`; if `Milliseconds`, it shows `500ms`. This ensures clarity when debugging visualization logic.
-
-```text
-Dataset Debug Output (converted from Polars):
----------------------------------------------
-lead_time (dur) | ts (dt)
----------------------------------------------
-100ms           | 2026-05-15T00:00:00Z
-250ms           | 2026-05-15T00:00:01Z
-```
+*Note: Categorical does not appear to be a primitive type in rust Polars.*
