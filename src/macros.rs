@@ -73,7 +73,8 @@ macro_rules! load_polars_df {
 
                     // Direct buffer extraction for maximum performance
                     let keys: Vec<u32> = physical.into_no_null_iter().collect();
-                    let values: Vec<String> = ca.iter_str().map(|opt| opt.unwrap().to_string()).collect();
+                    let values: Vec<String> =
+                        ca.iter_str().map(|opt| opt.unwrap().to_string()).collect();
 
                     // Recover validity bitmask if the column contains nulls
                     let validity = if physical.null_count() > 0 {
@@ -175,7 +176,8 @@ macro_rules! load_polars_df {
                         "Unsupported Polars DataType '{:?}' in column '{}'.",
                         series.dtype(),
                         name
-                    )).into());
+                    ))
+                    .into());
                 }
             }
         }
@@ -397,7 +399,8 @@ macro_rules! load_polars_v42_52 {
 
                     // Direct buffer extraction for dictionary keys
                     let keys: Vec<u32> = physical.into_no_null_iter().collect();
-                    let values: Vec<String> = ca.iter_str().map(|opt| opt.unwrap().to_string()).collect();
+                    let values: Vec<String> =
+                        ca.iter_str().map(|opt| opt.unwrap().to_string()).collect();
 
                     // Recover bitmask for null values from the Arrow buffer
                     let validity = if physical.null_count() > 0 {
@@ -531,7 +534,8 @@ macro_rules! load_polars_v42_52 {
                         "Unsupported Polars DataType '{:?}' in column '{}'.",
                         series.dtype(),
                         name
-                    )).into());
+                    ))
+                    .into());
                 }
             }
         }
