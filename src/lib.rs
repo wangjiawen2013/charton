@@ -46,6 +46,7 @@ pub mod alt {
 }
 
 pub mod prelude {
+    pub use time as ctime;
     pub use crate::alt;
     pub use crate::chart::Chart;
     pub use crate::coordinate::CoordSystem;
@@ -66,7 +67,7 @@ pub mod prelude {
     };
     pub use crate::visual::color::{ColorMap, ColorPalette, SingleColor};
     pub use crate::visual::shape::PointShape;
-    pub use crate::{chart, load_polars_df, load_polars_v42_52};
+    pub use crate::{chart, load_polars_df};
 
     #[cfg(all(feature = "bridge", not(target_arch = "wasm32")))]
     pub use crate::bridge::base::{Altair, Matplotlib, Plot, Visualization};
