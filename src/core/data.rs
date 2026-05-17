@@ -505,15 +505,13 @@ impl ColumnVector {
             // These require an explicit NaN check to ensure the output buffer
             // is safe for rendering (NaNs can cause issues in coordinate systems).
             ColumnVector::Float64 { data, validity } => {
-                for i in 0..n {
-                    let v = data[i];
+                for (i, &v) in data.iter().enumerate().take(n) {
                     let is_valid = Self::is_valid_in_mask(validity, i);
                     out.push(if is_valid && !v.is_nan() { v } else { 0.0 });
                 }
             }
             ColumnVector::Float32 { data, validity } => {
-                for i in 0..n {
-                    let v = data[i];
+                for (i, &v) in data.iter().enumerate().take(n) {
                     let is_valid = Self::is_valid_in_mask(validity, i);
                     out.push(if is_valid && !v.is_nan() {
                         v as f64
@@ -530,9 +528,9 @@ impl ColumnVector {
             | ColumnVector::Datetime { data, validity, .. }
             | ColumnVector::Duration { data, validity, .. }
             | ColumnVector::Time { data, validity, .. } => {
-                for i in 0..n {
+                for (i, &v) in data.iter().enumerate().take(n) {
                     out.push(if Self::is_valid_in_mask(validity, i) {
-                        data[i] as f64
+                        v as f64
                     } else {
                         0.0
                     });
@@ -542,9 +540,9 @@ impl ColumnVector {
             // --- 32-bit Integer & Date Types ---
             // Date is physically stored as an i32 representing days since the Epoch.
             ColumnVector::Int32 { data, validity } | ColumnVector::Date { data, validity } => {
-                for i in 0..n {
+                for (i, &v) in data.iter().enumerate().take(n) {
                     out.push(if Self::is_valid_in_mask(validity, i) {
-                        data[i] as f64
+                        v as f64
                     } else {
                         0.0
                     });
@@ -554,18 +552,18 @@ impl ColumnVector {
             // --- Unsigned Integer Types ---
             // Handled separately to accommodate different underlying data types in the enum variants.
             ColumnVector::UInt32 { data, validity } => {
-                for i in 0..n {
+                for (i, &v) in data.iter().enumerate().take(n) {
                     out.push(if Self::is_valid_in_mask(validity, i) {
-                        data[i] as f64
+                        v as f64
                     } else {
                         0.0
                     });
                 }
             }
             ColumnVector::UInt64 { data, validity } => {
-                for i in 0..n {
+                for (i, &v) in data.iter().enumerate().take(n) {
                     out.push(if Self::is_valid_in_mask(validity, i) {
-                        data[i] as f64
+                        v as f64
                     } else {
                         0.0
                     });
@@ -574,18 +572,18 @@ impl ColumnVector {
 
             // --- Small Integer Types ---
             ColumnVector::Int16 { data, validity } => {
-                for i in 0..n {
+                for (i, &v) in data.iter().enumerate().take(n) {
                     out.push(if Self::is_valid_in_mask(validity, i) {
-                        data[i] as f64
+                        v as f64
                     } else {
                         0.0
                     });
                 }
             }
             ColumnVector::Int8 { data, validity } => {
-                for i in 0..n {
+                for (i, &v) in data.iter().enumerate().take(n) {
                     out.push(if Self::is_valid_in_mask(validity, i) {
-                        data[i] as f64
+                        v as f64
                     } else {
                         0.0
                     });
@@ -595,8 +593,8 @@ impl ColumnVector {
             // --- Boolean Type ---
             // Logical mapping where true becomes 1.0 and false becomes 0.0.
             ColumnVector::Boolean { data, validity } => {
-                for i in 0..n {
-                    out.push(if Self::is_valid_in_mask(validity, i) && data[i] {
+                for (i, &v) in data.iter().enumerate().take(n) {
+                    out.push(if Self::is_valid_in_mask(validity, i) && v {
                         1.0
                     } else {
                         0.0
@@ -1979,7 +1977,7 @@ where
 
     // Optimization: Pre-allocate memory based on size_hint
     let mut data = Vec::with_capacity(lower);
-    let mut validity = Vec::with_capacity((lower + 7) / 8);
+    let mut validity = Vec::with_capacity(lower.div_ceil(8));
     let mut has_nulls = false;
 
     let mut current_byte = 0u8;
@@ -2446,7 +2444,7 @@ impl Dataset {
 
             // 2. Implicit Nulls: Floating-point NaNs.
             // We scan data in chunks of 8 to minimize mask memory writes.
-            match &*col {
+            match col {
                 ColumnVector::Float64 { data, .. } => {
                     self.apply_nan_mask_f64(data, &mut final_mask);
                 }
@@ -2459,11 +2457,11 @@ impl Dataset {
 
         // 3. Tail Cleanup: Zero out unused bits in the final byte.
         let remainder = self.row_count & 7; // Equal to % 8
-        if remainder != 0 {
-            if let Some(last_byte) = final_mask.last_mut() {
-                let padding_mask = (1 << remainder) - 1;
-                *last_byte &= padding_mask;
-            }
+        if remainder != 0
+            && let Some(last_byte) = final_mask.last_mut()
+        {
+            let padding_mask = (1 << remainder) - 1;
+            *last_byte &= padding_mask;
         }
 
         Ok(final_mask)
@@ -2846,7 +2844,7 @@ impl Dataset {
             ColumnVector::Time { data, .. } => {
                 use time::Time;
                 // Use rem_euclid to handle potential negative offsets safely
-                let nanos_in_day = (data[row] % 86_400_000_000_000).abs() as u32;
+                let nanos_in_day = (data[row] % 86_400_000_000_000).unsigned_abs() as u32;
                 Time::from_hms_nano(0, 0, 0, nanos_in_day)
                     .map(|t| t.to_string())
                     .unwrap_or_else(|_| "err_time".to_string())
