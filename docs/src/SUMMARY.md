@@ -12,6 +12,8 @@
 - [Scale Arbitration](concepts/scale_arbitration.md)       # 缩放同步机制：多个 Layer 如何共用一个 Scale
 
 # The Core Engine: Dataset
+- [The Atomic Unit: ColumnVector](engine/column_vector.md)
+- [The Temporal Engine](engine/temporal.md)
 - [The Dataset Struct](engine/dataset_core.md)             # 基础定义：内存布局、Arc 共享及列的增删改查 (CRUD)
 - [Data Ingestion & Polars](engine/ingestion.md)           # 数据来源：Polars 零拷贝转换与原生类型导入
 - [Compute & Transformation](engine/compute.md)            # 高级操作：GroupBy、Slice、Take 与下采样算法
@@ -20,7 +22,6 @@
 # The Grammar of Graphics
 - [Encodings & Channels](grammar/encodings.md)             # 数据维度到视觉通道（x, y, color）的映射
 - [Scales & Domains](grammar/scales.md)                    # 定义域与值域：线性、对数、序数缩放
-- [The Temporal Engine](grammar/temporal.md)               # 高精度时间序列：纳秒级精度与格式化
 - [Marks & Geometries](grammar/marks.md)                   # 几何标记：Point, Line, Bar, Area 等
 - [Coordinate Systems](grammar/coordinates.md)             # 笛卡尔坐标、极坐标与地理投影
 

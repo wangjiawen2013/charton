@@ -87,30 +87,33 @@ impl<T: Mark> Chart<T> {
             final_groups_count.push(total_groups);
 
             // C. swarm_local_idx: Provides the sequence ID for Force-Directed Beeswarm layouts.
-            // Using Entry API for efficient local group counting.
             let b_idx = group_counters.entry((x_val, c_val)).or_insert(0);
             final_swarm_idx.push(*b_idx as f64);
             *b_idx += 1;
         }
 
         // --- STEP 5: Dataset Augmentation ---
-        // Injected temporary columns allow the MarkRenderer to remain stateless and parallelizable.
+        // Updated to use ColumnVector::Float64 with validity: None.
+        // Helper metadata is always valid (non-null) for all points.
         self.data.add_column(
             format!("{}_sub_idx", TEMP_SUFFIX),
-            ColumnVector::F64 {
+            ColumnVector::Float64 {
                 data: final_sub_idx,
+                validity: None,
             },
         )?;
         self.data.add_column(
             format!("{}_groups_count", TEMP_SUFFIX),
-            ColumnVector::F64 {
+            ColumnVector::Float64 {
                 data: final_groups_count,
+                validity: None,
             },
         )?;
         self.data.add_column(
             format!("{}_swarm_local_idx", TEMP_SUFFIX),
-            ColumnVector::F64 {
+            ColumnVector::Float64 {
                 data: final_swarm_idx,
+                validity: None,
             },
         )?;
 
