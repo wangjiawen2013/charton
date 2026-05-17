@@ -246,8 +246,6 @@ impl<T: Mark> Chart<T> {
         }
 
         // --- PHASE 2: STABLE ORDER DETERMINATION ---
-        // We derive the iteration order from unique_values() to stay consistent
-        // with the "First Appearance" logic used for visual scales/legends.
         let group_order: Vec<Option<String>> = if let Some(ref group_field) = params.groupby {
             self.data
                 .column(group_field)?
@@ -318,8 +316,14 @@ impl<T: Mark> Chart<T> {
                         }
                     }
                 }
-                self.data
-                    .add_column(output_name, ColumnVector::F64 { data: results })?;
+                // Updated to Float64 variant with validity: None
+                self.data.add_column(
+                    output_name,
+                    ColumnVector::Float64 {
+                        data: results,
+                        validity: None,
+                    },
+                )?;
             }
             _ => {
                 return Err(ChartonError::Unimplemented(format!(
@@ -333,9 +337,6 @@ impl<T: Mark> Chart<T> {
     }
 
     /// Internal helper to handle ECDF logic with Domain Expansion (Padding).
-    ///
-    /// Padding ensures the curve starts at (min, 0) and ends at (max, 1),
-    /// which is essential for visual alignment in step charts.
     fn apply_ecdf_with_padding(
         &self,
         mut groups: AHashMap<Option<String>, Vec<usize>>,
@@ -346,7 +347,7 @@ impl<T: Mark> Chart<T> {
         let output_name = &params.window.as_;
         let target_col = self.data.column(field_name)?;
 
-        // --- STEP 1: CALCULATE GLOBAL BOUNDARIES (Numerical values only) ---
+        // --- STEP 1: CALCULATE GLOBAL BOUNDARIES ---
         let mut global_min = f64::MAX;
         let mut global_max = f64::MIN;
         let mut found_any = false;
@@ -374,7 +375,6 @@ impl<T: Mark> Chart<T> {
 
         for key in group_order {
             if let Some(indices) = groups.remove(&key) {
-                // Filter out Nulls: ECDF cannot represent missing data points
                 let mut valid_indices: Vec<usize> = indices
                     .into_iter()
                     .filter(|&idx| target_col.get_f64(idx).is_some())
@@ -384,7 +384,6 @@ impl<T: Mark> Chart<T> {
                     continue;
                 }
 
-                // Sort valid numerical values
                 valid_indices.sort_by(|&a, &b| {
                     target_col
                         .get_f64(a)
@@ -395,7 +394,7 @@ impl<T: Mark> Chart<T> {
                 let group_size = valid_indices.len() as f64;
                 let group_label = key.as_deref().unwrap_or("all").to_string();
 
-                // A. Start Padding (X_min, 0.0)
+                // A. Start Padding
                 expanded_x.push(global_min);
                 expanded_y.push(0.0);
                 if params.groupby.is_some() {
@@ -419,7 +418,7 @@ impl<T: Mark> Chart<T> {
                     }
                 }
 
-                // C. End Padding (X_max, 1.0 or Max Count)
+                // C. End Padding
                 expanded_x.push(global_max);
                 expanded_y.push(if params.normalize { 1.0 } else { group_size });
                 if params.groupby.is_some() {
@@ -430,8 +429,21 @@ impl<T: Mark> Chart<T> {
 
         // --- STEP 3: CONSTRUCT RESULT DATASET ---
         let mut new_ds = Dataset::new();
-        new_ds.add_column(field_name, ColumnVector::F64 { data: expanded_x })?;
-        new_ds.add_column(output_name, ColumnVector::F64 { data: expanded_y })?;
+        // Updated to Float64 variant with validity: None
+        new_ds.add_column(
+            field_name,
+            ColumnVector::Float64 {
+                data: expanded_x,
+                validity: None,
+            },
+        )?;
+        new_ds.add_column(
+            output_name,
+            ColumnVector::Float64 {
+                data: expanded_y,
+                validity: None,
+            },
+        )?;
 
         if let Some(ref g_name) = params.groupby {
             new_ds.add_column(

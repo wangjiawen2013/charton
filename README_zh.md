@@ -10,7 +10,12 @@
 [![Build Status](https://github.com/wangjiawen2013/charton/actions/workflows/ci.yml/badge.svg)](https://github.com/wangjiawen2013/charton/actions)
 [![License](https://img.shields.io/badge/license-Apache2.0-blue.svg)](LICENSE)
 
-**Charton** 是一款高性能 Rust 绘图库，其声明式 API 灵感源自 [Altair](https://altair-viz.github.io/)。它支持 [Polars](https://github.com/pola-rs/polars) 数据框，并可使用已有的 Python 可视化工具（Altair/Matplotlib）。通过与 evcxr_jupyter 集成，还可以在 Notebook 中实现交互式数据探索。
+<p align="center">
+  <b>意到图成</b><br>
+  <i>标准组件 — 无限图表</i>
+</p>
+
+Charton 是一款高性能 Rust 绘图库，其声明式 API 灵感源自 [Altair](https://altair-viz.github.io/)。它支持 [Polars](https://github.com/pola-rs/polars) 数据框，并可使用已有的 Python 可视化工具（Altair/Matplotlib）。通过与 evcxr_jupyter 集成，还可以在 Notebook 中实现交互式数据探索。
 
 <table>
     <tr>
@@ -50,8 +55,8 @@
 [dependencies]
 charton = "0.5"                                         # 标准版 (单线程)
 charton = { version = "0.5", features = ["parallel"] }  # 多线程加速
-charton = { version = "0.5", features = ["png"] }     # 支持导出 PNG
-charton = { version = "0.5", features = ["pdf"] }     # 支持导出 PDF
+charton = { version = "0.5", features = ["png"] }       # 支持导出 PNG
+charton = { version = "0.5", features = ["pdf"] }       # 支持导出 PDF
 charton = { version = "0.5", features = ["bridge"] }    # 支持 Altair/Matplotlib 互操作
 ```
 
@@ -108,13 +113,13 @@ Chart::build(ds)? // 等价于 chart!(ds)?
     .save("out.svg")?;
 ```
 
-**兼容性说明**: 由于 Polars API 变化频繁，Charton 使用带版本标记的宏来处理兼容性。不再支持 0.42 以下的版本。
+**兼容性说明**: 由于 Polars API 变化频繁，Charton 使用带版本标记的宏来处理兼容性。不再支持 0.44 以下的版本。
 
 |Polars 版本          |使用的宏                   |状态          |
 |:--------------------|:-------------------------|:-------------|
 |0.53+                |`load_polars_df!(df)?`    |最新（标准）   |
-|0.42 - 0.52          |`load_polars_v42_52!(df)?`|旧版支持       |
-|< 0.42               |N/A                       |不支持        |
+|0.44 - 0.52          |`load_polars_v44_52!(df)?`|旧版支持       |
+|< 0.44               |N/A                       |不支持        |
 
 ## 分层语法
 受图形语法（如 `ggplot2` 和 `Altair`）影响，Charton 用模块化的图层系统取代了固定模板。通过组合原子标记（Marks）能构建出丰富的图表类型，极大的提高了作图灵活性。
@@ -167,4 +172,4 @@ Charton 作图精准，提供对复杂标记的像素级控制。无论是用于
 请访问 [Charton Docs](https://wangjiawen2013.github.io/charton) 查看完整文档（文档待完善）。
 
 ## License
-Charton 基于 **Apache License 2.0** 许可证开源。
+Charton 基于 Apache License 2.0 许可证开源。

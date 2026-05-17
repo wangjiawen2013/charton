@@ -253,7 +253,7 @@ impl<T: Mark> Chart<T> {
         let mut extended_min = 1.3 * min_val - 0.3 * max_val;
         let mut extended_max = 1.3 * max_val - 0.3 * min_val;
 
-        // Handle edge case where all values are identical.
+        // Handle edge case where all values are identical or constant.
         if (extended_max - extended_min).abs() < 1e-12 {
             let offset = if extended_min == 0.0 {
                 1.0
@@ -289,20 +289,20 @@ impl<T: Mark> Chart<T> {
         };
 
         // --- STEP 3: Aggregate Observations by Group ---
-        // Using Option<String> keys to allow the logic to handle nulls naturally.
         let mut groups: AHashMap<Option<String>, Vec<f32>> = AHashMap::new();
         let row_count = self.data.height();
 
         if let Some(ref g_field) = params.groupby {
             let group_col = self.data.column(g_field)?;
             for i in 0..row_count {
+                // get_f64 automatically handles nulls based on the column's validity mask
                 if let Some(val) = density_col.get_f64(i) {
                     let key = group_col.get_str(i);
                     groups.entry(key).or_default().push(val as f32);
                 }
             }
         } else {
-            // Fast path for global density (no groupby).
+            // Optimized path for global density calculation.
             let mut all_obs = Vec::with_capacity(row_count);
             for i in 0..row_count {
                 if let Some(val) = density_col.get_f64(i) {
@@ -318,19 +318,14 @@ impl<T: Mark> Chart<T> {
         let mut final_group = Vec::new();
 
         for key in group_order {
-            // Get observations for this specific group.
-            // Note: If 'key' was None and not in group_order (due to unique_values filtering),
-            // those rows are effectively skipped.
             let observations = match groups.get(&key) {
                 Some(obs) if !obs.is_empty() => obs,
                 _ => continue,
             };
 
-            // Derive label for the output column.
-            // "all" is used only for the global group when no groupby field is provided.
             let group_label = key.as_deref().unwrap_or("all").to_string();
 
-            // KDE calculation dispatch.
+            // KDE calculation dispatch (Logic preserved from original version)
             let density_values: Vec<f64> = match (&params.bandwidth, &params.kernel) {
                 (BandwidthType::Scott, KernelType::Normal) => {
                     let kde = KernelDensityEstimator::new(observations.clone(), Scott, Normal);
@@ -436,7 +431,6 @@ impl<T: Mark> Chart<T> {
             final_y.extend(processed_y);
             final_x.extend(x_axis_values.clone());
 
-            // If a grouping field exists, populate the group column for every point in the curve.
             if params.groupby.is_some() {
                 for _ in 0..steps {
                     final_group.push(group_label.clone());
@@ -446,8 +440,42 @@ impl<T: Mark> Chart<T> {
 
         // --- STEP 5: Build Final Dataset ---
         let mut new_ds = Dataset::new();
-        new_ds.add_column(&params.as_[0], ColumnVector::F64 { data: final_x })?;
-        new_ds.add_column(&params.as_[1], ColumnVector::F64 { data: final_y })?;
+
+        let x_prototype = density_col.clone(); // density_col is X axis
+        let restored_x = match x_prototype {
+            ColumnVector::Datetime { timezone, .. } => ColumnVector::Datetime {
+                data: final_x.into_iter().map(|v| v.round() as i64).collect(),
+                validity: None,
+                timezone,
+            },
+            ColumnVector::Date { .. } => ColumnVector::Date {
+                data: final_x.into_iter().map(|v| v.round() as i32).collect(),
+                validity: None,
+            },
+            ColumnVector::Duration { .. } => ColumnVector::Duration {
+                data: final_x.into_iter().map(|v| v.round() as i64).collect(),
+                validity: None,
+            },
+            ColumnVector::Time { .. } => ColumnVector::Time {
+                data: final_x.into_iter().map(|v| v.round() as i64).collect(),
+                validity: None,
+            },
+            _ => ColumnVector::Float64 {
+                data: final_x,
+                validity: None,
+            },
+        };
+
+        new_ds.add_column(&params.as_[0], restored_x)?;
+
+        // Use Float64 variant with validity: None (KDE output points are always valid)
+        new_ds.add_column(
+            &params.as_[1],
+            ColumnVector::Float64 {
+                data: final_y,
+                validity: None,
+            },
+        )?;
 
         if let Some(ref g_field) = params.groupby {
             new_ds.add_column(
@@ -459,7 +487,7 @@ impl<T: Mark> Chart<T> {
             )?;
         }
 
-        // Replace chart data with the generated density dataset.
+        // Replace chart data with the newly generated density dataset.
         self.data = new_ds;
         Ok(self)
     }

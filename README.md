@@ -10,7 +10,12 @@
 [![Build Status](https://github.com/wangjiawen2013/charton/actions/workflows/ci.yml/badge.svg)](https://github.com/wangjiawen2013/charton/actions)
 [![License](https://img.shields.io/badge/license-Apache2.0-blue.svg)](LICENSE)
 
-**Charton** is a high-performance Rust plotting library featuring a declarative API inspired by [Altair](https://altair-viz.github.io/). It provides [Polars](https://github.com/pola-rs/polars) support and bridges the gap to the Python visualization ecosystem (Altair/Matplotlib). Integrated with evcxr_jupyter, it enables seamless interactive data exploration in notebooks.
+<p align="center">
+  <b>Chart like You Mean It</b><br>
+  <i>standard blocks — limitless charts</i>
+</p>
+
+Charton is a high-performance Rust plotting library featuring a declarative API inspired by [Altair](https://altair-viz.github.io/). It provides [Polars](https://github.com/pola-rs/polars) support and bridges the gap to the Python visualization ecosystem (Altair/Matplotlib). Integrated with evcxr_jupyter, it enables seamless interactive data exploration in notebooks.
 
 <table>
     <tr>
@@ -108,13 +113,13 @@ Chart::build(ds)? // Equivalent to chart!(ds)?
     .save("out.svg")?;
 ```
 
-**Compatibility Note**: Charton uses versioned macros to handle Polars' rapid API evolutions. Versions below 0.42 are no longer supported.
+**Compatibility Note**: Charton uses versioned macros to handle Polars' rapid API evolutions. Versions below 0.44 are no longer supported.
 
 |Polars Version       |Macro to Use              |Status              |
 |:--------------------|:-------------------------|:-------------------|
 |0.53+                |`load_polars_df!(df)?`    |Latest (Standard)   |
-|0.42 - 0.52          |`load_polars_v42_52!(df)?`|Legacy Support      |
-|< 0.42               |N/A                       |Unsupported         |
+|0.44 - 0.52          |`load_polars_v44_52!(df)?`|Legacy Support      |
+|< 0.44               |N/A                       |Unsupported         |
 
 ## Layered Grammar
 Inspired by the Grammar of Graphics (as seen in `ggplot2` and `Altair`), Charton replaces rigid templates with a modular, layer-based system. Visualizations are constructed by stacking atomic marks, offering infinite flexibility beyond fixed chart types.
@@ -165,4 +170,4 @@ Designed for precision, Charton provides pixel-perfect control over complex mark
 Please go to the [Charton Docs](https://wangjiawen2013.github.io/charton) for full documentation (*Docs are in the outlining stage*).
 
 ## License
-Charton is licensed under the **Apache License 2.0**.
+Charton is licensed under the Apache License 2.0.
