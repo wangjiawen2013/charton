@@ -7,18 +7,18 @@ use crate::error::ChartonError;
 use crate::mark::Mark;
 use crate::scale::Scale;
 use ahash::{AHashMap, AHashSet};
+use std::hash::{Hash, Hasher};
 
 #[cfg(feature = "parallel")]
 use rayon::prelude::*;
 
 impl<T: Mark> Chart<T> {
-    /// Prepares data for area charts based on the Scale type and StackMode.
+    /// Prepares data for area charts by performing stacking and imputation.
     ///
-    /// This version uses `unique_values()` to ensure that categorical axes (Discrete)
-    /// maintain a stable order based on data appearance, preventing non-deterministic
-    /// layout shifts caused by raw hash map iterations.
+    /// This implementation supports the latest physical ColumnVector types, ensuring
+    /// temporal metadata (TimeUnit, Timezone) is preserved through the transformation.
     pub(crate) fn transform_area_data(mut self) -> Result<Self, ChartonError> {
-        // --- STEP 1: Extract Encoding Metadata & Scale Intent ---
+        // --- STEP 1: Extract Encoding & Scale Metadata ---
         let x_enc = self
             .encoding
             .x
@@ -35,15 +35,19 @@ impl<T: Mark> Chart<T> {
         let mode = &y_enc.stack;
         let color_field = self.encoding.color.as_ref().map(|c| &c.field);
 
-        // Instead of raw semantic_type, we check the resolved scale_type.
         let x_scale_type = x_enc.scale_type.as_ref().ok_or_else(|| {
             ChartonError::Internal("Scale type must be resolved before transformation".into())
         })?;
+
+        // Check if X is a continuous axis (including Temporal)
         let is_continuous = matches!(x_scale_type, Scale::Linear | Scale::Log | Scale::Temporal);
 
-        // --- STEP 2: Establish Deterministic Order for X and Color ---
-        // We use unique_values() for Discrete scales to preserve appearance order.
+        // --- STEP 2: Establish Order & Capture Column Metadata ---
         let x_col = self.data.column(x_field)?;
+
+        // We clone the column header/metadata to restore physical types in Step 5
+        let x_prototype = x_col.clone();
+
         let x_ticks_str = if !is_continuous {
             x_col.unique_values()
         } else {
@@ -57,7 +61,6 @@ impl<T: Mark> Chart<T> {
         };
 
         // --- STEP 3: Build the Alignment Grid ---
-        // Maps X-coordinates and Color-series into a lookup table for stacking.
         let mut x_ticks_num: Vec<f64> = Vec::new();
         let mut x_set = AHashSet::new();
         let mut grid: AHashMap<u64, AHashMap<String, f64>> = AHashMap::new();
@@ -65,18 +68,18 @@ impl<T: Mark> Chart<T> {
         let y_col = self.data.column(y_field)?;
 
         for i in 0..row_count {
-            let (x_key, _x_val_f) = if is_continuous {
+            let x_key = if is_continuous {
+                // get_f64 automatically maps all numeric/temporal types to a double precision float
                 let v = x_col.get_f64(i).unwrap_or(0.0);
                 if x_set.insert(v.to_bits()) {
                     x_ticks_num.push(v);
                 }
-                (v.to_bits(), Some(v))
+                v.to_bits()
             } else {
                 let s = x_col.get_str_or(i, "null");
                 let mut hasher = ahash::AHasher::default();
-                std::hash::Hash::hash(&s, &mut hasher);
-                use std::hash::Hasher;
-                (hasher.finish(), None)
+                s.hash(&mut hasher);
+                hasher.finish()
             };
 
             let c_val = color_field
@@ -90,14 +93,12 @@ impl<T: Mark> Chart<T> {
             grid.entry(x_key).or_default().insert(c_val, y_val);
         }
 
-        // Continuous scales (Time/Linear) MUST be sorted by value to draw polygons correctly.
         if is_continuous {
-            x_ticks_num
-                .sort_unstable_by(|a, b| a.partial_cmp(b).unwrap_or(std::cmp::Ordering::Equal));
+            // Ensure stable rendering for polygons by sorting the continuous axis
+            x_ticks_num.sort_unstable_by(|a, b| a.total_cmp(b));
         }
 
-        // --- STEP 4: Parallel Stacking & Imputation ---
-        // We iterate through our deterministic X and Color lists to calculate baselines.
+        // --- STEP 4: Stacking & Imputation ---
         let tick_count = if is_continuous {
             x_ticks_num.len()
         } else {
@@ -110,26 +111,21 @@ impl<T: Mark> Chart<T> {
                 let mut current_y = 0.0;
                 let mut tick_data = Vec::with_capacity(color_series.len());
 
-                // Derive the X-key for grid lookup
                 let (x_key, out_f, out_s) = if is_continuous {
                     let v = x_ticks_num[idx];
                     (v.to_bits(), Some(v), None)
                 } else {
                     let s = &x_ticks_str[idx];
                     let mut hasher = ahash::AHasher::default();
-                    std::hash::Hash::hash(s, &mut hasher);
-                    use std::hash::Hasher;
+                    s.hash(&mut hasher);
                     (hasher.finish(), None, Some(s.clone()))
                 };
 
                 let series_values = grid.get(&x_key).unwrap();
-
-                // Pre-calculate total height at this X-tick for Normalize/Center modes
                 let total: f64 = color_series
                     .iter()
                     .map(|c| series_values.get(c).copied().unwrap_or(0.0))
                     .sum();
-
                 let offset = if matches!(mode, StackMode::Center) {
                     -total / 2.0
                 } else {
@@ -139,13 +135,11 @@ impl<T: Mark> Chart<T> {
                 for c_name in &color_series {
                     let maybe_val = series_values.get(c_name).copied();
 
-                    // In Overlay mode (None), we skip missing values to avoid "dropping to zero"
-                    // if a specific series doesn't exist at this X-tick.
+                    // In Overlay mode (None), skip missing series to prevent visual gaps
                     if matches!(mode, StackMode::None) && maybe_val.is_none() {
                         continue;
                     }
 
-                    // For stacking/normalizing, missing values MUST be 0.0 to keep series aligned.
                     let val = maybe_val.unwrap_or(0.0);
 
                     let (y0, y1) = match mode {
@@ -162,7 +156,6 @@ impl<T: Mark> Chart<T> {
                     };
 
                     tick_data.push((out_f, out_s.clone(), c_name.clone(), y0, y1));
-
                     if !matches!(mode, StackMode::None) {
                         current_y += val;
                     }
@@ -171,8 +164,7 @@ impl<T: Mark> Chart<T> {
             })
             .collect();
 
-        // --- STEP 5: Reconstruct Dataset ---
-        // Flatten the stacked results back into columnar format.
+        // --- STEP 5: Reconstruction & Physical Type Restoration ---
         let mut final_x_f = Vec::new();
         let mut final_x_s = Vec::new();
         let mut final_y0 = Vec::new();
@@ -195,50 +187,91 @@ impl<T: Mark> Chart<T> {
 
         let mut new_ds = Dataset::new();
 
-        // Restore X channel based on the resolved Scale type
+        // Restore X column based on the physical prototype
         if is_continuous {
-            if matches!(x_scale_type, Scale::Temporal) {
-                let temporal_data: Vec<time::OffsetDateTime> = final_x_f
-                    .into_iter()
-                    .map(|ns| {
-                        time::OffsetDateTime::from_unix_timestamp_nanos(ns as i128)
-                            .unwrap_or(time::OffsetDateTime::UNIX_EPOCH)
-                    })
-                    .collect();
-                new_ds.add_column(
-                    x_field,
-                    ColumnVector::DateTime {
-                        data: temporal_data,
-                        validity: None,
-                    },
-                )?;
-            } else {
-                new_ds.add_column(x_field, ColumnVector::F64 { data: final_x_f })?;
-            }
+            let restored_x = match x_prototype {
+                ColumnVector::Datetime { timezone, .. } => ColumnVector::Datetime {
+                    // Apply round() to ensure values like 0.999... correctly snap back to
+                    // integers, minimizing precision loss during float-to-int conversion.
+                    data: final_x_f.into_iter().map(|v| v.round() as i64).collect(),
+                    validity: None,
+                    timezone,
+                },
+                ColumnVector::Date { .. } => ColumnVector::Date {
+                    data: final_x_f.into_iter().map(|v| v.round() as i32).collect(),
+                    validity: None,
+                },
+                ColumnVector::Duration { .. } => ColumnVector::Duration {
+                    data: final_x_f.into_iter().map(|v| v.round() as i64).collect(),
+                    validity: None,
+                },
+                ColumnVector::Time { .. } => ColumnVector::Time {
+                    data: final_x_f.into_iter().map(|v| v.round() as i64).collect(),
+                    validity: None,
+                },
+                // Fallback for all other numeric types to Float64 for coordinate precision
+                _ => ColumnVector::Float64 {
+                    data: final_x_f,
+                    validity: None,
+                },
+            };
+            new_ds.add_column(x_field, restored_x)?;
         } else {
-            new_ds.add_column(
-                x_field,
-                ColumnVector::String {
+            let restored_x = match x_prototype {
+                // If original was Categorical, re-encode to preserve memory and speed
+                ColumnVector::Categorical { values, .. } => {
+                    let val_map: AHashMap<&str, u32> = values
+                        .iter()
+                        .enumerate()
+                        .map(|(idx, s)| (s.as_str(), idx as u32))
+                        .collect();
+
+                    let keys: Vec<u32> = final_x_s
+                        .iter()
+                        .map(|s| *val_map.get(s.as_str()).unwrap_or(&0))
+                        .collect();
+
+                    ColumnVector::Categorical {
+                        keys,
+                        values,
+                        validity: None,
+                    }
+                }
+                // Fallback to standard String vector
+                _ => ColumnVector::String {
                     data: final_x_s,
                     validity: None,
                 },
-            )?;
+            };
+            new_ds.add_column(x_field, restored_x)?;
         }
 
-        // Finalize Y boundaries and Color
-        let y0_name = format!("{}_{}_min", TEMP_SUFFIX, y_field);
-        let y1_name = format!("{}_{}_max", TEMP_SUFFIX, y_field);
-
-        new_ds.add_column(&y0_name, ColumnVector::F64 { data: final_y0 })?;
+        // --- STEP 6: Add Computed Y Bounds & Color ---
+        // Y-axis results of stacking are always Float64 coordinates
         new_ds.add_column(
-            &y1_name,
-            ColumnVector::F64 {
-                data: final_y1.clone(),
+            &format!("{}_{}_min", TEMP_SUFFIX, y_field),
+            ColumnVector::Float64 {
+                data: final_y0,
+                validity: None,
             },
         )?;
-        new_ds.add_column(y_field, ColumnVector::F64 { data: final_y1 })?;
+        new_ds.add_column(
+            &format!("{}_{}_max", TEMP_SUFFIX, y_field),
+            ColumnVector::Float64 {
+                data: final_y1.clone(),
+                validity: None,
+            },
+        )?;
+        new_ds.add_column(
+            y_field,
+            ColumnVector::Float64 {
+                data: final_y1,
+                validity: None,
+            },
+        )?;
 
         if let Some(cf) = color_field {
+            // Note: If color_field is also Categorical, you could apply the same re-encoding logic here
             new_ds.add_column(
                 cf,
                 ColumnVector::String {

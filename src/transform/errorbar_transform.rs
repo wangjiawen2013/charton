@@ -29,8 +29,6 @@ impl<T: Mark> Chart<T> {
         let color_field = color_enc_opt.map(|ce| &ce.field);
 
         // --- STEP 2: Unified Grouping ---
-        // We use a HashMap to collect indices for each group.
-        // Note: HashMaps are unordered, which we will fix in Step 4.
         let mut group_map: AHashMap<(String, Option<String>), Vec<usize>> = AHashMap::new();
         let x_col = self.data.column(x_field)?;
         let y_col = self.data.column(y_field)?;
@@ -47,11 +45,8 @@ impl<T: Mark> Chart<T> {
         }
 
         // --- STEP 3: Parallel Aggregation ---
-        // Convert groups to a Vec for high-performance parallel processing.
-        #[allow(clippy::type_complexity)]
         let groups: Vec<((String, Option<String>), Vec<usize>)> = group_map.into_iter().collect();
 
-        #[allow(clippy::type_complexity)]
         let aggregated_results: Vec<((String, Option<String>), (f64, f64, f64))> = groups
             .maybe_into_par_iter()
             .map(|(key, indices)| {
@@ -79,14 +74,14 @@ impl<T: Mark> Chart<T> {
                         / (valid_count - 1) as f64;
                     variance.sqrt()
                 } else {
-                    0.0 // Single point has no deviation
+                    0.0
                 };
 
                 (key, (mean, mean - std, mean + std))
             })
             .collect();
 
-        // --- STEP 4: Cartesian Product & Gap Filling (Deterministic Order) ---
+        // --- STEP 4: Cartesian Product & Gap Filling ---
         let lookup: AHashMap<(String, Option<String>), (f64, f64, f64)> =
             aggregated_results.into_iter().collect();
 
@@ -102,8 +97,6 @@ impl<T: Mark> Chart<T> {
         let mut final_ymin = Vec::new();
         let mut final_ymax = Vec::new();
         let mut final_color = Vec::new();
-
-        // New helper columns for stable dodging
         let mut final_sub_idx = Vec::new();
         let mut final_groups_count = Vec::new();
 
@@ -123,8 +116,6 @@ impl<T: Mark> Chart<T> {
                     final_y.push(stats.0);
                     final_ymin.push(stats.1);
                     final_ymax.push(stats.2);
-
-                    // Track the specific slot index and total slots for this X-category
                     final_sub_idx.push(c_idx as f64);
                     final_groups_count.push(total_groups);
                 }
@@ -139,8 +130,6 @@ impl<T: Mark> Chart<T> {
                 final_y.push(stats.0);
                 final_ymin.push(stats.1);
                 final_ymax.push(stats.2);
-
-                // Single group case: index 0 of 1
                 final_sub_idx.push(0.0);
                 final_groups_count.push(1.0);
             }
@@ -149,7 +138,7 @@ impl<T: Mark> Chart<T> {
         // --- STEP 5: Rebuild Dataset ---
         let mut new_ds = Dataset::new();
 
-        // 1. Add primary axis (X)
+        // 1. Add primary axis (X) as String (or preserve Categorical if necessary)
         new_ds.add_column(
             x_field,
             ColumnVector::String {
@@ -158,12 +147,32 @@ impl<T: Mark> Chart<T> {
             },
         )?;
 
-        // 2. Add statistical Y columns
-        new_ds.add_column(y_field, ColumnVector::F64 { data: final_y })?;
-        new_ds.add_column(&y_min_col, ColumnVector::F64 { data: final_ymin })?;
-        new_ds.add_column(&y_max_col, ColumnVector::F64 { data: final_ymax })?;
+        // 2. Add statistical Y columns using the new Float64 variant
+        // Since gap filling uses f64::NAN, we don't necessarily need a validity mask here
+        // unless your renderer strictly requires it for NANs.
+        new_ds.add_column(
+            y_field,
+            ColumnVector::Float64 {
+                data: final_y,
+                validity: None,
+            },
+        )?;
+        new_ds.add_column(
+            &y_min_col,
+            ColumnVector::Float64 {
+                data: final_ymin,
+                validity: None,
+            },
+        )?;
+        new_ds.add_column(
+            &y_max_col,
+            ColumnVector::Float64 {
+                data: final_ymax,
+                validity: None,
+            },
+        )?;
 
-        // 3. Add Color aesthetic column (if grouping is active)
+        // 3. Add Color aesthetic column
         if group_by_color {
             new_ds.add_column(
                 color_field.unwrap(),
@@ -174,21 +183,22 @@ impl<T: Mark> Chart<T> {
             )?;
         }
 
-        // 4. Add Dodging helper columns (CRITICAL for alignment with Boxplots)
+        // 4. Add Dodging helper columns (Updated to Float64)
         new_ds.add_column(
             format!("{}_sub_idx", TEMP_SUFFIX),
-            ColumnVector::F64 {
+            ColumnVector::Float64 {
                 data: final_sub_idx,
+                validity: None,
             },
         )?;
         new_ds.add_column(
             format!("{}_groups_count", TEMP_SUFFIX),
-            ColumnVector::F64 {
+            ColumnVector::Float64 {
                 data: final_groups_count,
+                validity: None,
             },
         )?;
 
-        // Finalize
         self.data = new_ds;
         Ok(self)
     }
