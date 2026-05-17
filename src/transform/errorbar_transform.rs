@@ -10,6 +10,7 @@ use ahash::AHashMap;
 use rayon::prelude::*;
 
 impl<T: Mark> Chart<T> {
+    #[allow(clippy::type_complexity)]
     pub(crate) fn transform_errorbar_data(mut self) -> Result<Self, ChartonError> {
         // --- STEP 1: Extract Encoding Context ---
         let x_field = &self.encoding.x.as_ref().unwrap().field;
