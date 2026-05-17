@@ -249,14 +249,14 @@ impl<T: Mark> Chart<T> {
         // --- STEP 6: Add Computed Y Bounds & Color ---
         // Y-axis results of stacking are always Float64 coordinates
         new_ds.add_column(
-            &format!("{}_{}_min", TEMP_SUFFIX, y_field),
+            format!("{}_{}_min", TEMP_SUFFIX, y_field),
             ColumnVector::Float64 {
                 data: final_y0,
                 validity: None,
             },
         )?;
         new_ds.add_column(
-            &format!("{}_{}_max", TEMP_SUFFIX, y_field),
+            format!("{}_{}_max", TEMP_SUFFIX, y_field),
             ColumnVector::Float64 {
                 data: final_y1.clone(),
                 validity: None,
