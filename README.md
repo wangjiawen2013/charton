@@ -9,7 +9,6 @@
 [![Documentation](https://docs.rs/charton/badge.svg)](https://docs.rs/charton)
 [![Build Status](https://github.com/wangjiawen2013/charton/actions/workflows/ci.yml/badge.svg)](https://github.com/wangjiawen2013/charton/actions)
 [![License](https://img.shields.io/badge/license-Apache2.0-blue.svg)](LICENSE)
-[![oosmetrics](https://api.oosmetrics.com/api/v1/badge/achievement/9decc337-d2d8-474e-ac9e-3f1accf03dae.svg)](https://oosmetrics.com/repo/wangjiawen2013/charton)
 
 <p align="center">
   <b>Chart like You Mean It</b><br>
@@ -114,13 +113,13 @@ Chart::build(ds)? // Equivalent to chart!(ds)?
     .save("out.svg")?;
 ```
 
-**Compatibility Note**: Charton uses versioned macros to handle Polars' rapid API evolutions. Versions below 0.42 are no longer supported.
+**Compatibility Note**: Charton uses versioned macros to handle Polars' rapid API evolutions. Versions below 0.44 are no longer supported.
 
 |Polars Version       |Macro to Use              |Status              |
 |:--------------------|:-------------------------|:-------------------|
 |0.53+                |`load_polars_df!(df)?`    |Latest (Standard)   |
-|0.42 - 0.52          |`load_polars_v42_52!(df)?`|Legacy Support      |
-|< 0.42               |N/A                       |Unsupported         |
+|0.44 - 0.52          |`load_polars_v44_52!(df)?`|Legacy Support      |
+|< 0.44               |N/A                       |Unsupported         |
 
 ## Layered Grammar
 Inspired by the Grammar of Graphics (as seen in `ggplot2` and `Altair`), Charton replaces rigid templates with a modular, layer-based system. Visualizations are constructed by stacking atomic marks, offering infinite flexibility beyond fixed chart types.
