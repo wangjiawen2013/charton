@@ -28,7 +28,7 @@ charton = { version = "0.5", features = ["png", "pdf"] }
 charton = { version = "0.5", features = ["bridge"] }
 ```
 
-## Feature Flag Maxtrix
+## Feature Flag Matrix
 
 | Feature Flag | Core Mechanism & Dependencies | Target Use Case |
 | :--- | :--- | :--- |

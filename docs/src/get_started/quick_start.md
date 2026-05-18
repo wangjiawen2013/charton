@@ -1,58 +1,89 @@
-# Interactive Notebooks
+# Quick Start
 
-In modern data engineering and scientific exploration, immediate feedback loops are essential. Charton natively implements runtime hooks for the Rust Jupyter kernel (`evcxr_jupyter`). By replacing disk-bound `.save()` sequences with the specialized `.show()` terminal API, you can render high-fidelity, inline SVG vector visuals instantly within individual notebook cells.
+Charton’s API design mirrors the declarative philosophy of the Grammar of Graphics. To balance rapid prototyping flexibility with production-grade engineering rigor, Charton offers a dual-API paradigm: a fluid, concise `chart!` macro syntax and a deterministic, explicitly managed `Chart::build` Builder API.
 
-## Prerequisites
+## Swift Prototyping with Macros
 
-Before initiating plotting routines inside a notebook, ensure the underlying EVCXR kernel is initialized globally within your local system architecture. See the [Jupyter/evcxr article](https://depth-first.com/articles/2020/09/21/interactive-rust-in-a-repl-and-jupyter-notebook-with-evcxr).
-
-## Notebook Inline Execution Blueprint
-
-Create a fresh cell inside your Jupyter Notebook using the Rust (evcxr) kernel, and input the following configuration:
+For data exploration, standalone scripts, or interactive notebook environments, the `chart!` macro offers an elegant, one-liner fluid interface to bind and map raw vectors instantaneously.
 
 ```rust
-:dep charton = { version = "0.5" }
-:dep polars = { version = "0.53", features = ["lazy"] }
-
 use charton::prelude::*;
-use polars::prelude::*;
 
-// 1. Initialize evaluation dataframe
-let df = df!["x" => [1, 2, 3], "y" => [10, 20, 30]].unwrap();
-let ds = load_polars_df!(df).unwrap();
+fn main() -> Result<(), Box<dyn std::error::Error>> {
+    // 1. Prepare raw observation vectors (Physical measurements: Height vs. Weight)
+    let height = vec![160.0, 165.0, 170.0, 175.0, 180.0];
+    let weight = vec![55.0, 62.0, 68.0, 75.0, 82.0];
 
-// 2. Compose the declarative graph layer
-let chart = Chart::build(ds).unwrap()
-    .mark_point().unwrap()
-    .encode((alt::x("x"), alt::y("y"))).unwrap();
+    // 2. Linear declarative pipeline: bind -> instantiate mark -> map encoding -> save
+    chart!(height, weight)?
+        .mark_point()?
+        .encode((alt::x("height"), alt::y("weight")))?
+        .save("out.svg")?;
 
-// 3. Execute inline visualization: renders high-fidelity vector graphics right into the notebook cell
-chart.show().unwrap();
-```
-
-## Deep Dive: Seamless Environment Self-Adaptation
-The `.show()` method can seamlessly adapt its output behavior whether it is executed inside a live, interactive Jupyter workspace or run within a traditional console application. This resilience is achieved via Charton’s internal runtime environment probing mechanism.
-
-Take a look at how `.show()` is engineered under the hood:
-
-```rust
-pub fn show(&self) -> Result<(), ChartonError> {
-    // 1. Core Execution: Serialize the in-memory chart nodes and abstract layers into an SVG string
-    let svg_content = self.to_svg()?;
-
-    // 2. Probing Environment: Query the active process context for the EVCXR runtime signature
-    if std::env::var("EVCXR_IS_RUNTIME").is_ok() {
-        // 3. Protocol Handshake: When explicitly run within a Jupyter container,
-        // intercept standard output and stream the tailored HTML payload wrapper
-        println!(
-            "EVCXR_BEGIN_CONTENT text/html\n{}\nEVCXR_END_CONTENT",
-            svg_content
-        );
-    }
-
-    // 4. Fallback Boundary Safety: If triggered within a regular CLI, microservice, 
-    // or CI/CD test harness, this method safely concludes with an Ok(()) without
-    // polluting standard error or panicking.
     Ok(())
 }
 ```
+
+## Production-Grade Builder API
+
+While the macro interface is exceptional for quick iterations, enterprise applications demand explicit control over data structures and memory boundaries. The `Chart::build` API decouples data layout from visual marks, ensuring absolute type safety and allowing for dynamic dataset mutation.
+
+```rust
+use charton::prelude::*;
+
+fn main() -> Result<(), Box<dyn std::error::Error>> {
+    let height = vec![160.0, 165.0, 170.0, 175.0, 180.0];
+    let weight = vec![55.0, 62.0, 68.0, 75.0, 82.0];
+
+    // 1. Explicitly manage the lifecycle of your Dataset
+    let mut ds = Dataset::new()
+        .with_column("height", height)?
+        .with_column("weight", weight)?;
+
+    // Note: If you need to append data dynamically within conditional branches or loops,
+    // utilize the `add_column` method instead:
+    // ds.add_column("age", vec![20, 22, 25, 30, 35])?;
+
+    // 2. Build the chart deterministically via a strongly-typed constructor pipeline
+    Chart::build(ds)?
+        .mark_point()?
+        .encode((alt::x("height"), alt::y("weight")))?
+        .save("production_out.svg")?;
+
+    Ok(())
+}
+```
+
+## High-Performance Polars Integration
+
+Charton provides native, high-efficiency ingestion interfaces for Polars DataFrames. To shield your codebase from Polars’ rapid API evolution, Charton ships with versioned compilation macros to maintain bulletproof backwards compatibility.
+
+```rust
+use polars::prelude::*;
+use charton::prelude::*;
+
+fn main() -> Result<(), Box<dyn std::error::Error>> {
+    // 1. Instantiate a standard Polars DataFrame
+    let df = df![
+        "height" => vec![160.0, 165.0, 170.0, 175.0, 180.0],
+        "weight" => vec![55.0, 62.0, 68.0, 75.0, 82.0]
+    ]?;
+
+    // 2. Perform zero-copy / highly efficient conversion into a Charton Dataset 
+    // using the optimized version-specific macro
+    let ds = load_polars_df!(df)?;
+
+    // 3. Bind to the production Builder API
+    Chart::build(ds)?
+        .mark_point()?
+        .encode((alt::x("height"), alt::y("weight")))?
+        .save("polars_chart.svg")?;
+
+    Ok(())
+}
+```
+
+⚠️ Polars Version Compatibility Reference:
+- Polars 0.53+: Use the modern standard macro `load_polars_df!(df)?`.
+- Polars 0.44 - 0.52: Use the legacy support macro `load_polars_v44_52!(df)?`.
+- Polars < 0.44: Unsupported. Upgrading your upstream Polars dependency is highly recommended.
