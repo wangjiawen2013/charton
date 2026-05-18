@@ -1,9 +1,9 @@
 # Summary
 
 # Getting Started
-- [Installation](getting_started/installation.md)          # 环境配置与 Cargo 特性（Feature）选择
-- [Quick Start](getting_started/quick_start.md)            # 宏语法与 Builder API 的快速对比示例
-- [Interactive Notebooks](getting_started/notebooks.md)    # 在 Jupyter/evcxr 中的交互式绘图配置
+- [Installation](getting_started/installation.md)
+- [Quick Start](getting_started/quick_start.md)
+- [Interactive Notebooks](getting_started/notebooks.md)
 
 # Concepts & Philosophy
 - [The Charton Mental Model](concepts/mental_model.md)     # 声明式绘图思维与所有权处理逻辑
@@ -14,8 +14,8 @@
 # The Core Engine: Dataset
 - [The Atomic Unit: ColumnVector](engine/column_vector.md)
 - [The Temporal Engine](engine/temporal.md)
-- [The Dataset Struct](engine/dataset_core.md)             # 基础定义：内存布局、Arc 共享及列的增删改查 (CRUD)
-- [Data Ingestion & Polars](engine/ingestion.md)           # 数据来源：Polars 零拷贝转换与原生类型导入
+- [The Dataset Struct](engine/dataset_core.md)
+- [Data Ingestion & Polars](engine/ingestion.md)
 - [Compute & Transformation](engine/compute.md)            # 高级操作：GroupBy、Slice、Take 与下采样算法
 - [Validation & Integrity](engine/integrity.md)            # 数据质量：长度校验、空值 (NaN/Null) 处理策略
 
