@@ -3,7 +3,7 @@
 # Getting Started
 - [Installation](getting_started/installation.md)          # 环境配置与 Cargo 特性（Feature）选择
 - [Quick Start](getting_started/quick_start.md)            # 宏语法与 Builder API 的快速对比示例
-- [Interactive Notebooks](getting_started/notebook.md)    # 在 Jupyter/evcxr 中的交互式绘图配置
+- [Interactive Notebooks](getting_started/notebooks.md)    # 在 Jupyter/evcxr 中的交互式绘图配置
 
 # Concepts & Philosophy
 - [The Charton Mental Model](concepts/mental_model.md)     # 声明式绘图思维与所有权处理逻辑
