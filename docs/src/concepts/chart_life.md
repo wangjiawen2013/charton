@@ -1,32 +1,47 @@
-# The Life of a Chart
+# From Data to Pixels (The Chart Life Cycle)
 
-A chart in Charton is more than just a static image; it is the end product of a high-speed data transformation pipeline. From the moment you load a raw CSV to the millisecond a pixel lights up on your GPU, data undergoes a series of rigorous stages—validation, mapping, and hardware acceleration.
+A chart in Charton is a dynamic sequence of transformations. This chapter traces the "biography" of a data point—from its raw state in a Polars DataFrame to its final geometric representation on a canvas.
 
-This section traces the "biography" of a chart, revealing how Charton's columnar architecture ensures that even millions of data points move through this lifecycle with near-zero latency.
+## Phase 1: Specification (The "Lazy" Definition)
 
-## Data Pipeline: From Bytes to Pixels
+When you call `Chart::build()` and chain methods like `.mark_point()` or `.encode()`, Charton does not perform any calculations. Instead, it populates a ChartSpec.
 
-Charton follows a strictly columnar, one-way data pipeline designed for maximum throughput and GPU efficiency. The journey consists of five distinct stages:
+- Intent Gathering: The system records which columns are mapped to which channels (X, Y, Color, etc.).
+- Lazy Evaluation: Data remains in its original DataFrame. This allows you to define complex multi-layer charts without triggering expensive computations prematurely.
 
-### 1. Ingestion (`ToDataset`)
+## Phase 2: Training (The Arbitration)
 
-Data enters the system through the `ToDataset` trait. Whether originating from a CSV, a Polars DataFrame, or a simple `Vec`, data is transformed into a Columnar Dataset. This stage performs type-checking and builds Validity Bitmaps to track missing values (`null`) without bloating memory.
+As defined in the `Layer` trait, the system must perform a "Training" phase before rendering.
 
-### 2. Encoding (Visual Mapping)
+- Data Extraction: The `LayeredChart` triggers `get_data_bounds()` for every layer.
+- Columnar Efficiency: Thanks to the Apache Arrow integration, Charton accesses contiguous memory slices (`&[T]`) for specific columns. This "Columnar" approach minimizes CPU cache misses.
+- Domain Resolution: The orchestrator merges these bounds into a global ScaleDomain. This is where the "mathematical truth" of the chart is established.
 
-In this phase, the user defines the "Grammar of Graphics." You map semantic data columns to visual channels (Encodings).
+## Phase 3: Layout Negotiation
 
-- Example: Map the `timestamp` column to the X-Axis and the `value` column to the Y-Axis.
-- Charton validates these mappings against the Dataset Schema to ensure type compatibility before rendering begins.
+Before a single pixel is drawn, Charton must solve a spatial puzzle: How much space is left for the data after placing the labels? As seen in `layout.rs`, Charton uses a Greedy Stacking Algorithm:
 
-### 3. Extraction(Zero-Copy Retrieval)
+- First Pass (Measurement): The engine estimates the width/height of axis titles and tick labels based on font metrics.
+- Constraint Calculation: It subtracts these dimensions from the total canvas size to determine the `PanelContext`—the exact "Physical Rectangle" where the data marks will live.
+- Legend Placement: Legends are "stacked" (either vertically or horizontally) using a Flex-box style logic, further refining the available plotting area.
 
-When the renderer prepares a frame, it requests data from the `Dataset` using `get_column_<T>`. Because Charton uses a columnar layout, this returns a direct slice (`&[T]`) of contiguous memory. There is no row-by-row iteration or unnecessary cloning at this stage, keeping CPU cache hits high.
+## Phase 4: Realization (Mapping to Geometry)
 
-### 4. Uploading (GPU Buffering)
+Now the abstract data meets physical space. The `Mapper` system takes over:
 
-The extracted memory slices are uploaded directly to WGPU Vertex Buffers. For types like `f64` or `f32`, this is often a raw memory copy (Bit-casting), which is the fastest possible way to move data from CPU RAM to GPU VRAM.
+- Coordinate Translation: The `CoordSystem` transforms normalized data values into physical `(x, y)` coordinates within the Plot Panel.
+- Visual Mapping: The `VisualMapper` converts normalized ratios into concrete visual properties:
+    - `0.5` $\rightarrow$ `#ff0000` (Color)
+    - `0.8` $\rightarrow$ `PointShape::Diamond` (Shape)
+    - `0.2` $\rightarrow$ `4.0px` (Radius)
 
-### 5. Drawing (Hardware Acceleration)
+## Phase 5: Rendering (The Final Output)
+The final stage involves the RenderBackend. Charton iterates through the resolved geometric primitives (Circles, Paths, Rects) and translates them into the target format:
 
-Finally, the GPU executes specialized Shaders. Using the uploaded buffers, the graphics hardware parallelizes the rendering process, instantly drawing hundreds of thousands (or millions) of data points as triangles, lines, or points on the screen.
+- SVG/PDF: Generates vector instructions for high-fidelity documents.
+- PNG/Raster: Uses hardware-accelerated drawing for high-performance previews.
+- HTML/Canvas: Renders interactive frames for web environments.
+
+## Key Takeaway: The "Single-Pass" Advantage
+
+Because Charton resolves all scales and layouts before the drawing phase, the actual rendering is a "Single-Pass" operation. This predictable flow is what enables Charton to handle millions of points with near-zero latency, as the expensive logical "negotiations" are handled once per frame.
