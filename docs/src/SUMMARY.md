@@ -6,10 +6,10 @@
 - [Interactive Notebooks](getting_started/notebooks.md)
 
 # Concepts & Philosophy
-- [The Charton Mental Model](concepts/mental_model.md)     # 声明式绘图思维与所有权处理逻辑
-- [System Architecture](concepts/architecture.md)          # Input/Core/Render/Output 四层分层架构图
-- [From Data to Pixels](concepts/chart_life.md)            # 图表渲染的生命周期：从原始数据到几何图形
-- [Scale Arbitration](concepts/scale_arbitration.md)       # 缩放同步机制：多个 Layer 如何共用一个 Scale
+- [The Charton Mental Model](concepts/mental_model.md)
+- [System Architecture](concepts/architecture.md)
+- [From Data to Pixels](concepts/chart_life.md)
+- [Scale Arbitration](concepts/scale_arbitration.md)
 
 # The Core Engine: Dataset
 - [The Atomic Unit: ColumnVector](engine/column_vector.md)
@@ -20,10 +20,10 @@
 - [Validation & Integrity](engine/integrity.md)            # 数据质量：长度校验、空值 (NaN/Null) 处理策略
 
 # The Grammar of Graphics
-- [Encodings & Channels](grammar/encodings.md)             # 数据维度到视觉通道（x, y, color）的映射
-- [Scales & Domains](grammar/scales.md)                    # 定义域与值域：线性、对数、序数缩放
-- [Marks & Geometries](grammar/marks.md)                   # 几何标记：Point, Line, Bar, Area 等
-- [Coordinate Systems](grammar/coordinates.md)             # 笛卡尔坐标、极坐标与地理投影
+- [Encodings & Channels](grammar/encodings.md)
+- [Scales & Domains](grammar/scales.md)
+- [Marks & Geometries](grammar/marks.md)
+- [Coordinate Systems](grammar/coordinates.md)
 
 # Composition & Layout
 - [Layering Grammar](layout/layering.md)                   # 逻辑组合：在同一坐标系叠加多个图层
