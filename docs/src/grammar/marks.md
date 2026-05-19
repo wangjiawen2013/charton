@@ -1,325 +1,77 @@
-# Marks
-Marks are the fundamental building blocks of Charton. A *mark* is any visible graphical primitive—points, lines, bars, areas, rectangles, arcs, text, boxplots, rules, histograms, and more.
+# Marks & Geometries
 
-Every chart in Charton is created by:
-**1.** Constructing a base chart using `Chart::build()`.
-**2.** Selecting a mark type (e.g., `mark_point()`, `mark_line()`).
-**3.** Adding encodings that map data fields to visual properties.
+While Encodings and Scales define the mathematical relationship between data and space, the Mark is the physical manifestation of that relationship. A Mark is the geometric primitive used to represent a data point or a set of data points.
 
-Understanding marks is essential because **most visual expressiveness comes from combining marks with encodings.**
+## The Role of a Mark
 
-## What Is a Mark?
-In Charton, a mark is an object that implements the core trait:
-```rust
-pub trait Mark: Clone {
-    fn mark_type(&self) -> &'static str;
+In Charton, a Mark is not just a drawing instruction; it is a Template that knows how to interpret resolved aesthetic values (pixels, hex codes, shapes) into final geometry.
 
-    fn stroke(&self) -> Option<&SingleColor> { None }
-    fn shape(&self) -> PointShape { PointShape::Circle }
-    fn opacity(&self) -> f64 { 1.0 }
-}
-```
-**Key Properties**
-| **Property**| **Meaning**       | **Provided by Trait** |
-| ----------- | ----------------- | ----------------- |
-| `mark_type` | Unique identifier | required          |
-| `stroke`    | Outline color     | default: none     |
-| `shape`     | Point shape       | default: circle   |
-| `opacity`   | Transparency      | default: 1.0      |
+As defined in the `Mark` trait, every mark type in Charton:
 
-## How Marks Work in Charton
-A typical Charton chart:
-```rust
-Chart::build(&df)?
-    .mark_point()
-    .encode((
-        x("x"),
-        y("y")
-    ))?
-```
-**Flow of Rendering**
+1. Identifies itself: Each mark has a unique string identifier (e.g., `"point"`, `"bar"`).
+2. Provides Defaults: Marks define fallback values for properties like `stroke`, `opacity`, and `shape` if they are not explicitly mapped to data.
+3. Determines Rendering Logic: Different marks require different drawing strategies—a `Point` is a single coordinate, while an `Area` is a complex polygon.
 
-**1.** `mark_point()` creates a `MarkPoint` object.
+## Common Mark Types
+Charton provides a rich set of marks to cover various visualization needs:
 
-**2.** Encodings specify how data fields map to visual properties.
+### Point Mark (`mark_point`)
 
-**3.** Renderer merges:
-- mark defaults
-- overriding encoding mappings
-- automatic palettes
+The simplest mark, representing each data row as an individual geometric shape.
 
-**4.** The final SVG/PNG is generated.
+- Dimensions: Primarily uses `X` and `Y`.
+- Aesthetics: Heavily utilizes `Shape`, `Size`, and `Color`.
+- Use Case: Scatter plots and bubble charts.
 
-**Declarative Design Philosophy**
+### Line Mark (`mark_line`)
 
-Charton follows an Altair-style declarative model:
+Connects data points in a specific order (usually by the X-axis) to show trends.
 
-> **If an encoding exists → encoding overrides mark defaults.**
+- Connectivity: Unlike points, the Line mark treats a sequence of rows as a single continuous path.
+- Visuals: Focuses on `stroke_width` and `color`.
 
-> **If an encoding does not exist → use the mark’s own default appearance.**
+### Bar Mark (`mark_bar`)
 
-This gives you:
-- Short expressions for common charts
-- Fine-grained control when needed
+Represents data as rectangles extending from a baseline.
 
-## Point Mark
-MarkPoint draws scattered points.
+- Physicality: Bars have "width." Charton calculates this width based on the `CoordLayout` (Chapter 1.4) to ensure bars don't overlap unless intended.
+- Intervals: Uses `X`, `Y` (height), and sometimes `Y2` (for ranged bars).
 
-**Struct (simplified)**
-```rust
-pub struct MarkPoint {
-    pub color: Option<SingleColor>,
-    pub shape: PointShape,
-    pub size: f64,
-    pub opacity: f64,
-    pub stroke: Option<SingleColor>,
-    pub stroke_width: f64,
-}
-```
-**Use Cases**
-- Scatter plots
-- Bubble charts
-- Highlighting specific points
-- Overlaying markers on other marks
+### Area Mark (`mark_area`)
 
-**Correct Example**
-```rust
-Chart::build(&df)?
-    .mark_point()
-    .encode((
-        x("sepal_length"),
-        y("sepal_width"),
-        color("species"),
-        size("petal_length")
-    ))?
-```
-## Line Mark
-MarkLine draws connected lines.
+Similar to a line but filled between a baseline (Y2) and the data value (Y).
 
-**Highlights**
-- Supports LOESS smoothing
-- Supports interpolation
+- Topology: Highlighting the volume between two series or between a series and the zero-axis.
 
-**Struct**
-```rust
-pub struct MarkLine {
-    pub color: Option<SingleColor>,
-    pub stroke_width: f64,
-    pub opacity: f64,
-    pub use_loess: bool,
-    pub loess_bandwidth: f64,
-    pub interpolation: PathInterpolation,
-}
-```
-**Example**
-```rust
-Chart::build(&df)?
-    .mark_line().transform_loess(0.3)
-    .encode((
-        x("data"),
-        y("value"),
-        color("category")
-    ))?
-```
-## Bar Mark
-A bar mark visualizes categorical comparisons.
+### Specialized Marks
 
-**Struct**
-```rust
-pub struct MarkBar {
-    pub color: Option<SingleColor>,
-    pub opacity: f64,
-    pub stroke: Option<SingleColor>,
-    pub stroke_width: f64,
-    pub width: f64,
-    pub spacing: f64,
-    pub span: f64,
-}
-```
-**Use Cases**
-- Vertical bars
-- Grouped bars
-- Stacked bars
-- Horizontal bars
+- Rule & Tick: Used for annotations or error margins.
+- Rect: Drawing arbitrary rectangles based on coordinate pairs.
+- Text: Placing strings directly into the coordinate space.
 
-**Example**
-```rust
-Chart::build(&df)?
-    .mark_bar()
-    .encode((
-        x("type"),
-        y("value"),
-    ))?
-```
-## Area Mark
-Area marks fill the area under a line.
+## From Mark to Geometry: The Renderer
 
-**Example**
-```rust
-Chart::build(&df)?
-    .mark_area()
-    .encode((
-        x("time"),
-        y("value"),
-        color("group")
-    ))?
-```
-## Arc Mark (Pie/Donut)
-Arc marks draw circular segments.
+Behind every `Mark` lies a corresponding Renderer. When Charton enters the "Realization" phase (Chapter 3.4), it translates the mark's configuration into physical geometry:
 
-**Example (donut)**
-```rust
-Chart::build(&df)?
-    .mark_arc()  // Use arc mark for pie charts
-    .encode((
-        theta("value"),  // theta encoding for pie slices
-        color("category"),  // color encoding for different segments
-    ))?
-    .with_inner_radius_ratio(0.5) // Creates a donut chart
-```
-## Rect Mark (Heatmap)
-Used for heatmaps and 2D densities.
+- PointElement: A simple struct containing `x, y, shape, size`.
+- PathConfig: A collection of points and stroke properties used for Lines and Areas.
+- RectConfig: Defined by `x, y, width, height` for Bars and Histograms.
 
-**Example**
-```rust
-Chart::build(&df)?
-    .mark_rect()
-    .encode((
-        x("x"),
-        y("y"),
-        color("value"),
-    ))?
-```
-## Boxplot Mark
-Visualizes statistical distributions.
+## Marks and Categorical Stacking
 
-**Example**
-```rust
-Chart::build(&df_melted)?
-    .mark_boxplot()
-    .encode((
-        x("variable"),
-        y("value"),
-        color("species")
-    ))?
-```
-## ErrorBar Mark
-Represents uncertainty intervals.
+One of Charton's advanced features is how Marks handle Stacking and Grouping.
 
-**Example**
-```rust
-// Create error bar chart using transform_calculate to add min/max values
-Chart::build(&df)?
-    // Use transform_calculate to create ymin and ymax columns based on fixed std values
-    .transform_calculate(
-        (col("value") - col("value_std")).alias("value_min"),  // ymin = y - std
-        (col("value") + col("value_std")).alias("value_max")   // ymax = y + std
-    )?
-    .mark_errorbar()
-    .encode((
-        x("type"),
-        y("value_min"),
-        y2("value_max")
-    ))?
-```
-## Histogram Mark
-Internally used to draw histogram bins.
+As seen in the `MarkBar` implementation, when multiple series exist on the same X-coordinate:
 
-**Example**
-```rust
-Chart::build(&df)?
-    .mark_hist()
-    .encode((
-        x("value"),
-        y("count").with_normalize(true),
-        color("variable")
-    ))?
-```
-## Rule Mark
-Draws reference lines.
+- Stacked: The `Y` value of the second mark starts at the `Y` end-point of the first.
+- Grouped (Side-by-Side): The `X` position is offset by a fraction of the "Slot width," ensuring bars are placed next to each other without manual coordinate calculation.
 
-**Example**
-```rust
-Chart::build(&df)?
-    .mark_rule()
-    .encode((
-        x("x"),
-        y("y"),
-        y2("y2"),
-        color("color"),
-    ))?
-```
-## Text Mark
-Places textual annotations.
+## Visual Consistency (The Mark Trait)
 
-**Example**
-```rust
-Chart::build(&df)?
-    .mark_text().with_text_size(16.0)
-    .encode((
-        x("GDP"),
-        y("Population"),
-        text("Country"),
-        color("Continent"),
-    ))?
-```
+In `mark.rs`, the `Mark` trait ensures that all geometric primitives share a common interface. This allows the `LayeredChart` to treat a `PointChart` and a `LineChart` identically during the high-level orchestration phase, even though their low-level draw calls are completely different.
 
-## Advanced Mark Configuration (Mark Styling)
-While **Encodings** link data to visual properties, you often need to set **fixed** visual constants for a specific layer—for example, making all points red regardless of data, or adding a specific stroke to a line.
+## Key Takeaways
 
-Charton provides a **Closure-based Configuration** for every mark type. This is the highest level of styling precedence.
-
-**Why Closures?**
-
-1. **Type Safety**: You only see methods relevant to that specific mark (e.g., you can't set "stroke width" on a property that doesn't support it).
-2. **Fluent Chaining**: You can update multiple properties in a single, readable block.
-3. **Encapsulation**: Mark properties remain private to the rendering engine, accessible only through this controlled interface.
-4. **Namespace Hygience & API Scalability**
-
-Charton’s closure-based design solves two major architectural challenges:
-
-- **Namespace Isolation**: It prevents naming collisions between different mark types. For example, both `MarkPoint` and `MarkText` can expose a `.with_size()` method without ambiguity, as they exist only within their respective closures.
-- **Avoiding API Bloat**: It prevents the main `Chart` and `LayeredChart` structs from becoming "mega-structs" with hundreds of prefixed methods (like `.with_point_shape()` or `.with_bar_padding()`). This keeps the top-level API clean and ensures that the IDE's auto-completion remains helpful and intuitive.
-
-**The `configure_xxx` Pattern**
-Each mark has a corresponding configuration method (e.g., `configure_point`, `configure_bar`). These methods allow you to "reach inside" the mark and tweak its properties fluently.
-
-```rust
-Chart::build(&df)?
-    .mark_point()
-    // This closure provides direct access to the MarkPoint struct
-    .configure_point(|m| {
-        m.with_color("steelblue")
-         .with_size(10.0)
-         .with_stroke("white")
-         .with_stroke_width(1.5)
-         .with_opacity(0.8)
-    })
-    .encode((x("time"), y("value")))?
-```
-
-**Precedence: Style vs. Encoding**
-
-It is important to remember the **Override Rule**:
-1. **Mark Closures** (`configure_xxx`) take absolute priority.
-2. **Encodings** (`encode`) come second.
-3. **Theme Defaults** are the fallback.
-
-**Note**: If you set `m.with_color("red")` in a closure, any `color("column_name")` mapping in your encoding will be ignored for that specific property.
-
-**Common Configuration Methods**
-
-|Mark Type|Config Method|Key Properties to Tweak|
-|---------|-------------|-----------------------|
-|Point|`configure_point`|`shape`,`size`,`stroke`,`stroke_width`|
-|Line|`configure_line`|`stroke_width`,`interpolate`,`dash_array`|
-|Bar|`configure_bar`|`width`,`spacing`,`corner_radius`|
-|Text|`configure_text`|`font_size`,`angle`,`align`,`baseline`|
-
-## Summary
-* Each mark defines a visual primitive.
-* Marks are combined with *encodings* to bind data to graphics.
-* Charton uses a declarative approach:
-    * Encodings override mark defaults.
-    * Palette and scales are automatically applied.
-* By choosing the correct mark, you control how data is represented.
+- Marks are the "ink" on the page.
+- Mark choice changes the narrative of the data (e.g., a Line implies a trend, while a Bar implies a comparison).
+- Geometric resolution is the final step where abstract scales are converted into physical shapes (Circles, Rects, Paths).
