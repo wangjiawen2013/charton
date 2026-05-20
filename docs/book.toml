@@ -9,7 +9,5 @@ src = "src"
 
 [preprocessor.links]
 
-[
-preprocessor.katex
-]
+[preprocessor.katex]
 after = ["links"]
