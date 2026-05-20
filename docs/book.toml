@@ -8,3 +8,8 @@ src = "src"
 [output.html]
 
 [preprocessor.links]
+
+[
+preprocessor.katex
+]
+after = ["links"]
