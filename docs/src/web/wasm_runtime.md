@@ -2,7 +2,7 @@
 
 This chapter walks a complete beginner from zero to a real-time, color-gradient scatter plot running in the browser, powered by Rust and WebAssembly. The goal is to expose a `draw_wave()` function from Rust → returns an SVG string with a color gradient → JavaScript drives a smooth animation by replacing the SVG in the DOM at ~20–25 FPS.
 
-> "Every frame is a brand‑new SVG computed by Rust in WebAssembly."
+> Every frame is a brand‑new SVG computed by Rust in WebAssembly.
 
 ## 0) Prerequisites
 
@@ -23,7 +23,7 @@ This chapter walks a complete beginner from zero to a real-time, color-gradient 
 
 ## 1) Project Layout
 
-Create a new project (e.g., `cargo new wave`) and set up the following structure:
+Create a new project (e.g., `cargo new wave --lib`) and set up the following structure:
 
 ```text
 wave
