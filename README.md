@@ -138,13 +138,19 @@ let point = chart!(height, weight)?
 line.and(point).save("layered.svg")?;
 ```
 
+## WebAssembly and Frontend
+Charton supports WebAssembly and modern web frontend; please refer to [Charton Docs](https://wangjiawen2013.github.io/charton) for details.
+
+<p align="center">
+This example walks a complete beginner from zero to a real‑time, color‑gradient scatter plot running in the browser, powered by Rust and WebAssembly. It simulates a sensor sampling signal strength at regular intervals.
+<br><br>
+<img src="assets/wasm.gif" alt="Charton Wasm demo" width="90%">
+</p>
+
 ## Interactive Notebooks (Jupyter)
 Charton integrates with evcxr_jupyter for interactive data exploration. Replacing .save() with .show() renders SVGs directly within notebook cells:
 
 ![evcxr jupyter](assets/evcxr_jupyter.png)
-
-## WebAssembly and Frontend
-Charton supports WebAssembly and modern web frontend; please refer to [Charton Docs](https://wangjiawen2013.github.io/charton) for details.
 
 ## Leveraging External Plotting Power
 Charton bridges Rust with mature visualization ecosystems like **Altair** and **Matplotlib** via a high-speed IPC, enabling users to leverage diverse, professional-grade plotting tools within a unified workflow. please refer to [Charton Docs](https://wangjiawen2013.github.io/charton) for details.
