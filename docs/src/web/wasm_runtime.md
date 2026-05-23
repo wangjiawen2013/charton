@@ -1,328 +1,242 @@
-### Wasm-Driven Interactive Rendering Pipeline
-Charton can be compiled to **WebAssembly (WASM)**, bringing Rust's near-native performance to the browser. This enables a high-performance interaction model that handles large-scale datasets with lower latency than traditional JavaScript-based visualization libraries.
+# WASM Runtime Rendering
 
-When a user interacts with a Charton chart compiled to Wasm, the pipeline works as follows:
-- The browser captures a user event—e.g., a drag event for zooming or a brush gesture for selecting a range.
-- Using `wasm-bindgen`, the event details are passed into the Charton Rust core.
-- The Rust engine performs full or partial chart recomputation. These operations run at native-like speed inside Wasm.
-- Charton generates a new SVG string or structured DOM patch representing the new view.
-- The browser replaces the old SVG node with the new one.
+This chapter walks a complete beginner from zero to a real-time, color-gradient scatter plot running in the browser, powered by Rust and WebAssembly. The goal is to expose a `draw_wave()` function from Rust → returns an SVG string with a color gradient → JavaScript drives a smooth animation by replacing the SVG in the DOM at ~20–25 FPS.
 
-Charton’s Wasm-driven model has several performance advantages:
+> "Every frame is a brand‑new SVG computed by Rust in WebAssembly."
 
-**1. Polars performance inside Wasm**
-Traditional JS libraries rely on JavaScript arrays, D3 computations, or slower JS-based DataFrame libraries.
-Charton instead executes **Polars** in Wasm—offering:
-- zero-copy columnar data
-- vectorized operations
-- multi-threaded execution (where supported)
+## 0) Prerequisites
 
-**2. Rust efficiency**
-All chart logic—scales, encodings, transforms, layouts—is executed in **compiled Rust**, not interpreted JS.
+* Rust toolchain (stable) – [install via rustup](https://rustup.rs/)
+* wasm-pack – install with:
+`cargo install wasm-pack`
+* A static file server – choose one:
+    - Python: `python -m http.server 8080` (make sure Python has been installed)
+    - Node.js: `npx serve .`
+    - Or any other HTTP server (browsers require HTTP for WASM)
+* clang (may be required on some systems)
+    - Linux: `sudo apt install clang`
+    - Windows: Download LLVM from [releases.llvm.org](https://github.com/llvm/llvm-project/releases) and select *Add LLVM to the system PATH*
+    - macOS: usually pre‑installed with Xcode command line tools
 
-### Charton + Polars + wasm-bindgen — step-by-step example
-> Goal: expose a `draw_chart()` function from Rust → returns an SVG string → JavaScript inserts that SVG into the DOM.
+> Important compatibility note:
+> `charton` v0.5 depends on `getrandom`, which needs special configuration for `wasm32-unknown-unknown`. This tutorial includes all required settings.
 
-**0) Prerequisites**
-- Rust toolchain (stable), with `rustup`.
-- `wasm-pack` (recommended) OR `wasm-bindgen-cli` + `cargo build --target wasm32-unknown-unknown`.
-    - Install `wasm-pack` (recommended):
+## 1) Project Layout
 
-      `cargo install wasm-pack`
-- `clang` (required)
-    - **Linux**: `apt install clang`
-    - **Windows**: Download and run the **LLVM installer** from [LLVM Releases](https://github.com/llvm/llvm-project/releases). During installation, select **"Add LLVM to the system PATH"**.
-- A simple static file server (e.g. `basic-http-server` from cargo, `python -m http.server`, or `serve` via npm).
-- Node/ npm only if you want to integrate into an NPM workflow; not required for the simple demo.
+Create a new project (e.g., `cargo new wave`) and set up the following structure:
 
-> **Important compatibility note (read before you start):**
-
-Many crates (especially heavy ones like `polars` or visualization crates) may have limited or no support for `wasm32-unknown-unknown` out of the box. If Polars and Charton compile to wasm in your environment, the steps below will work. If they don't, read the **Caveats & alternatives** section at the end.
-
-**1) Project layout**
-
-Assume you created a project:
 ```text
-web
+wave
 ├── Cargo.toml
 ├── index.html
 ├── pkg
-│   ├── package.json
-│   ├── web_bg.wasm
-│   ├── web_bg.wasm.d.ts
-│   ├── web.d.ts
-│   └── web.js
 └── src
     └── lib.rs
 ```
-We will build a `cdylib` wasm package that `wasm-pack` will wrap into `pkg/`.
 
-**2)** `Cargo.toml`**(example)**
+We will build a `cdylib` wasm package that wasm-pack will wrap into `pkg/`.
 
-Put this into `web/Cargo.toml`.
+## 2) `Cargo.toml`
+
+Put this into `wave/Cargo.toml`:
+
 ```toml
 [package]
-name = "web"
+name = "wave"
 version = "0.1.0"
-edition = "2021" # Important: Stable standard for Wasm/Polars. Don't upgrade to 2024 yet to avoid toolchain conflicts.
+edition = "2024"
 
-# Produce a cdylib for wasm
 [lib]
-crate-type = ["cdylib"]
+crate-type = ["cdylib"]     # Produces a dynamic library for WASM
 
 [dependencies]
-wasm-bindgen = "0.2"
-polars = { version = "0.49", default-features = false }
-# Avoids transitive mio dependency to ensure Wasm compatibility.
-polars-io = { version = "0.49", default-features = false, features = ["parquet"] }
-charton = { version = "0.4" }
+wasm-bindgen = "0.2"        # JS ↔ Rust bridge
+charton = "0.5"             # Declarative plotting library
+
+# getrandom must be explicitly added with the "wasm_js" feature flag
+# for wasm32-unknown-unknown target support.
+getrandom = { version = "0.3", features = ["wasm_js"] }
 
 [profile.release]
-opt-level = "z"  # or "s" to speed up
-lto = true
-codegen-units = 1
-panic = "abort"
+opt-level = "s"             # Optimize for size
+lto = true                  # Link-time optimization
+codegen-units = 1           # Better optimization
+panic = "abort"             # Smaller panic handler
 ```
 
-**3)** `src/lib.rs`**-Rust (wasm entry points)**
+## 3) `src/lib.rs`- Rust (wasm entry points)
 
-Create `web/src/lib.rs`.
+Create a `lib.rs` file in the `src` directory and add the following code: 
+
 ```rust
+//! Charton WASM demo: real-time animated line chart with color gradient.
+//!
+//! This module exposes a single function, `draw_wave`, which takes three
+//! numeric arrays and returns an SVG string. The color channel is mapped
+//! directly to the y-value, producing a continuous color gradient along the line.
+
 use wasm_bindgen::prelude::*;
-use polars::prelude::*;
 use charton::prelude::*;
 
-// Build a small scatter plot and return the SVG string.
+/// Generate an SVG line chart with a color gradient.
+///
+/// # Arguments
+/// * `xs` - X-axis values (e.g., time steps)
+/// * `ys` - Y-axis values (e.g., amplitude)
+/// * `colors` - Values for the continuous color scale (can be the same as `ys`)
+///
+/// # Returns
+/// A `Result` containing the SVG string or a JavaScript error.
 #[wasm_bindgen]
-pub fn draw_chart() -> Result<String, JsValue> {
-    // Create a tiny DataFrame
-    let df = df![
-        "length" => [5.1, 4.9, 4.7, 4.6, 5.0, 5.4, 4.6, 5.0, 4.4, 4.9],
-        "width" => [3.5, 3.0, 3.2, 3.1, 3.6, 3.9, 3.4, 3.4, 2.9, 3.1]
-    ].map_err(|e| JsValue::from_str(&e.to_string()))?;
-
-    // Build a Charton Chart
-    let chart = Chart::build(&df)
+pub fn draw_wave(
+    xs: Vec<f64>,
+    ys: Vec<f64>,
+    colors: Vec<f64>,
+) -> Result<String, JsValue> {
+    // Build a Charton Dataset from the three columns
+    let ds = Dataset::new()
+        .with_column("x", xs)
         .map_err(|e| JsValue::from_str(&e.to_string()))?
-        .mark_point()?
-        .encode((x("length"), y("width")))
+        .with_column("y", ys)
+        .map_err(|e| JsValue::from_str(&e.to_string()))?
+        .with_column("color", colors)
         .map_err(|e| JsValue::from_str(&e.to_string()))?;
 
-    let svg = chart.to_svg()
-        .map_err(|e| JsValue::from_str(&e.to_string()))?; // Returns SVG string
+    // Build a chart using the declarative API
+    let chart = Chart::build(ds)
+        .map_err(|e| JsValue::from_str(&e.to_string()))?
+        .mark_point()                                       // Use a line mark
+        .map_err(|e| JsValue::from_str(&e.to_string()))?
+        .encode((                                           // Map columns to visual channels
+            alt::x("x"),
+            alt::y("y"),
+            alt::color("color"),                            // Continuous color scale
+        ))
+        .map_err(|e| JsValue::from_str(&e.to_string()))?
+        .with_size(800, 400)
+        .configure_theme(|t| t.with_left_margin(0.01).with_top_margin(0.12).with_bottom_margin(0.05));
+
+    // Render the chart to a static SVG string
+    let svg = chart
+        .to_svg()
+        .map_err(|e| JsValue::from_str(&e.to_string()))?;
 
     Ok(svg)
 }
 ```
-Key points:
 
-- `#[wasm_bindgen]` exposes functions to JS.
-- We return `Result<String, JsValue>` so JS receives errors as exceptions.
+## 4) Build with `wasm-pack`
 
-**4) Build with** `wasm-pack` **(recommended)**
+From the project root (`wave/`):
 
-From project root (`web/`):
 ```bash
 wasm-pack build --release --target web --out-dir pkg
 ```
+
 `wasm-pack` will:
-- compile to `wasm32-unknown-unknown`,
-- run `wasm-bindgen` to generate JS wrapper(s),
-- produce a `pkg/` folder containing:
 
-    - `web_bg.wasm`
-    - `web_bg.wasm.d.ts`
-    - `web.d.ts`
-    - `web.js` (ES module bootstrap)
-> 💡**Optimization Note: Binary Size**
+- Compile to `wasm32-unknown-unknown`
+- Run `wasm-bindgen` to generate JavaScript bindings
+- Output everything into `pkg/`:
+    - `wave_bg.wasm` – the compiled WebAssembly binary
+    - `wave.js` – ES module bootstrap
+    - `wave.d.ts` – TypeScript declarations (optional)
 
-> After building in `--release` mode, the resulting `web_bg.wasm` is approximately **4 MB**. However, for web production:
-> - **Gzip compression** reduces it to about **900 KB**.
-> - **Brotli compression** can shrink it even further.
-> This compact footprint makes it highly suitable for browser-side data processing without long loading times.
+> The .wasm file is roughly 300 kb in release mode. Gzip or Brotli compression can bring it down further, perfectly fine for web delivery.
 
-**5) Creating `index.html` (Client-Side Loader)**
+## 5) `index.html` – Animated Frontend
 
-The final step is to create a minimal HTML file (`web/index.html`) that loads the generated WASM module and renders the SVG chart into the page.
+Create `index.html` in the project root. The JavaScript:
+
+* Initialises the WASM module
+* Runs an animation loop with requestAnimationFrame
+* Pushes a new data point (sine wave + noise) every ~40 ms
+* Passes the arrays to draw_wave() and replaces the SVG in the DOM
+
 ```html
 <!DOCTYPE html>
 <html lang="en">
 <head>
     <meta charset="UTF-8">
-    <title>Charton WASM Demo</title>
-</head>
-<body>
-    <div id="chart-container"></div>
-
-    <script type="module">
-        import init, { draw_chart } from './pkg/web.js';
-
-        async function run() {
-            // Initialize and load the WebAssembly module
-            await init();
-
-            // Call the Rust function that returns an SVG string
-            const svg = draw_chart();
-
-            // Insert the SVG into the page
-            document.getElementById("chart-container").innerHTML = svg;
-        }
-
-        run();
-    </script>
-</body>
-</html>
-```
-This minimal version:
-- Loads the WASM module generated by `wasm-pack`
-- Calls the Rust function `draw_chart()` to generate the SVG string
-- Injects the SVG directly into the DOM
-- Contains no additional CSS, error handling, or panic hooks — keeping the example simple and focused
-
-This is the recommended simplest setup for demonstrating Charton rendering through WebAssembly.
-
-**6) Serve the folder**
-
-Browsers enforce CORS for WASM; open the page via HTTP server rather than `file://`.
-
-Minimal options:
-```bash
-cd web
-python -m http.server 8080
-```
-Then open http://localhost:8080/index.html and you'll see the chart in the browser:
-![wasm](../assets/wasm1.png)
-
-**7) Troubleshooting**
-
-Processing heavy libraries like Polars in WASM can strain your system. Here is how to handle common bottlenecks:
-- **Compilation Hangs/Freezes:** Building Polars for WASM is extremely CPU and RAM intensive. If your computer "freezes" during the `Optimizing with wasm-opt` stage, you can manually stop the process. The compiled `.wasm` file in `pkg/` is usually already functional; it will simply be larger in size without the final optimization. For a smooth experience, a machine with high-core counts and 16GB+ RAM is recommended.
-- **wasm-opt Errors:** If `wasm-pack` fails because it cannot install or run `wasm-opt`, you can simply ignore the error if the `pkg/` folder was already populated. The unoptimized WASM file will still run in the browser.
-- **Polars Version Incompatibility:** If your project requires a Polars version uncompatible with the one used by Charton, passing a DataFrame directly will cause a compilation error. In this case, you can use the Parquet Interoperability method described in Section 2.3.4.
-
-### Charton + Polars + wasm-bindgen — advanced example: dynamic CSV visualization
-**Goal:** Beyond a static demo, we now build a functional tool: users upload a local CSV file (e.g., `iris.csv`, which can be found and downloaded from the `datasets/` folder in this project) → JavaScript reads it as a string → Rust/Polars parses the data in-browser → Charton generates a multi-colored scatter plot → The resulting SVG is rendered instantly.
-
-**1) Updated** `Cargo.toml`
-**Update Note:** This file updates the dependencies from 9.2.2 by enabling the `csv` feature in polars-io (to handle user uploads) and switching to the `charton` crate for more advanced encoding.
-```toml
-[package]
-name = "web"
-version = "0.1.0"
-edition = "2021" # Important: Stable standard for Wasm/Polars. Don't upgrade to 2024 yet to avoid toolchain conflicts.
-
-# Produce a cdylib for wasm
-[lib]
-crate-type = ["cdylib"]
-
-[dependencies]
-wasm-bindgen = "0.2"
-polars = { version = "0.49", default-features = false }
-# Avoids transitive mio dependency to ensure Wasm compatibility.
-polars-io = { version = "0.49", default-features = false, features = ["parquet", "csv"] }
-charton = { version = 0.4 }
-
-[profile.release]
-opt-level = "z"  # or "s" to speed up
-lto = true
-codegen-units = 1
-panic = "abort"
-```
-**2) Updated** `src/lib.rs`
-**Update Note:** This replaces the hard-coded `draw_chart` from 9.2.2. The new `draw_chart_from_csv` function accepts a `String` from JavaScript and uses `std::io::Cursor` to treat that string as a readable file stream for Polars.
-```rust
-use wasm_bindgen::prelude::*;
-use polars::prelude::*;
-use charton::prelude::*;
-use std::io::Cursor;
-
-#[wasm_bindgen]
-pub fn draw_chart_from_csv(csv_content: String) -> Result<String, JsValue> {
-    /* * 1. Parse CSV data from String.
-     * We use a Cursor to treat the String as a readable stream for Polars.
-     */
-    let cursor = Cursor::new(csv_content);
-
-    /* * 2. Initialize the Polars DataFrame.
-     * CsvReader is highly optimized but runs in a single thread in standard WASM.
-     */
-    let df = CsvReader::new(cursor)
-        .finish()
-        .map_err(|e| JsValue::from_str(&format!("Polars Error: {}", e)))?;
-
-    /* * 3. Construct the Scatter Plot.
-     * Ensure that the columns "length" and "width" exist in your CSV file.
-     */
-    let chart = Chart::build(&df)
-        .map_err(|e| JsValue::from_str(&e.to_string()))?
-        .mark_point()
-        .encode((x("sepal_length"), y("sepal_width"), color("species")))
-        .map_err(|e| JsValue::from_str(&e.to_string()))?;
-
-    /* * 4. Generate SVG.
-     * The to_svg() method returns a raw XML string representing the vector graphic.
-     */
-    let svg = chart.to_svg()
-        .map_err(|e| JsValue::from_str(&e.to_string()))?;
-
-    Ok(svg)
-}
-```
-**3) Updated** `index.html`
-**Update Note:** This expands the simple loader from 9.2.2 by adding a File Input UI and a `FileReader` event loop. This allows the WASM module to process "live" data provided by the user.
-```html
-<!DOCTYPE html>
-<html lang="en">
-<head>
-    <meta charset="UTF-8">
-    <title>WASM CSV Visualizer</title>
+    <title>Charton WASM — Gradient Wave</title>
     <style>
-        #chart-container { margin-top: 20px; border: 1px solid #ccc; }
+        /* Dark background to make the gradient pop */
+        body {
+            font-family: system-ui, sans-serif;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            margin: 0;
+            padding-top: 2rem;
+            background: #0d1117;
+            color: #c9d1d9;
+        }
+        #chart {
+            width: 800px;
+            height: 400px;
+            border-radius: 12px;
+            background: #161b22;
+            border: 1px solid #30363d;
+            box-shadow: 0 4px 16px rgba(0,0,0,0.6);
+        }
+        .tag {
+            margin-top: 1rem;
+            font-size: 0.9rem;
+            color: #8b949e;
+        }
     </style>
 </head>
 <body>
-    <h2>Upload CSV to Generate Chart</h2>
-    <input type="file" id="csv-upload" accept=".csv" />
-    
-    <div id="chart-container"></div>
+    <h2>🌈 Charton + WASM — Gradient Wave</h2>
+    <div id="chart"></div>
+    <div class="tag">Every frame is a brand‑new SVG computed by Rust in WebAssembly</div>
 
     <script type="module">
-        import init, { draw_chart_from_csv } from './pkg/web.js';
+        // Import the generated JS glue and the Rust function
+        import init, { draw_wave } from './pkg/wave.js';
 
         async function run() {
-            // Initialize the WASM module
+            // Boot the WASM module
             await init();
 
-            const fileInput = document.getElementById("csv-upload");
-            const container = document.getElementById("chart-container");
+            const container = document.getElementById('chart');
+            const WINDOW_SIZE = 200;          // Show the latest 200 data points
+            const ADD_INTERVAL_MS = 40;       // Add a new point every 50ms
+            let xs = [];
+            let ys = [];
+            let t = 0;                        // Time counter
+            let lastAdd = 0;                  // Timestamp of the last data addition
 
-            // Event listener for file selection
-            fileInput.addEventListener("change", async (event) => {
-                const file = event.target.files[0];
-                if (!file) return;
+            // Animation loop driven by requestAnimationFrame
+            function loop(timestamp) {
+                // Only append a new point if enough time has elapsed
+                if (timestamp - lastAdd >= ADD_INTERVAL_MS) {
+                    // Sine wave with a little noise for a more organic look
+                    const y = Math.sin(t * 0.3) + (Math.random() - 0.5) * 0.2;
+                    xs.push(t);
+                    ys.push(y);
 
-                /* * Use FileReader to read the file content as text.
-                 * This text is then passed across the JS-WASM boundary.
-                 */
-                const reader = new FileReader();
-                reader.onload = (e) => {
-                    const csvContent = e.target.result;
+                    // Keep only the latest WINDOW_SIZE points
+                    if (xs.length > WINDOW_SIZE) {
+                        xs.shift();
+                        ys.shift();
+                    }
+                    t += 0.5;
+                    lastAdd = timestamp;
 
                     try {
-                        // Call the Rust function with the CSV string
-                        const svg = draw_chart_from_csv(csvContent);
-                        
-                        // Inject the returned SVG string directly into the DOM
+                        // The color column is just a copy of the y-values,
+                        // which gives a nice blue‑to‑orange gradient.
+                        const svg = draw_wave(xs, ys, [...ys]);
                         container.innerHTML = svg;
-                    } catch (err) {
-                        console.error("Computation Error:", err);
-                        alert("Error: Make sure CSV has 'length' and 'width' columns.");
+                    } catch (e) {
+                        console.error(e);
                     }
-                };
-                
-                // Trigger the file read
-                reader.readAsText(file);
-            });
+                }
+                requestAnimationFrame(loop);
+            }
+
+            requestAnimationFrame(loop);
         }
 
         run();
@@ -330,28 +244,28 @@ pub fn draw_chart_from_csv(csv_content: String) -> Result<String, JsValue> {
 </body>
 </html>
 ```
-**4) Build and Serve Update Note:** The build command remains the same as 9.2.3, but the compilation time may increase due to the added CSV and color encoding features.
-```bash
-# Build the package
-wasm-pack build --release --target web --out-dir pkg
 
-# Serve the files
+## 6) Serve and View
+
+Open a terminal in the project directory and start a local server:
+
+```bash
 python -m http.server 8080
 ```
-**Summary of Improvements over 9.2.3**
-- **Data Handling:** Shifted from static `df!` macros to dynamic `CsvReader` parsing.
-- **Complexity:** Added `color` encoding in Charton to demonstrate multi-dimensional data mapping.
-- **User Interaction:** Introduced the `FileReader` API to bridge the gap between the local file system and WASM linear memory.
 
-### Conclusion
-The combination of *static* SVG and *dynamic* Rust/Wasm computation forms a powerful model for interactive visualization:
-- SVG provides simple, portable output for embedding and styling.
-- Rust/Wasm enables high-performance chart recomputation.
-- Polars accelerates data transformations dramatically.
-- Browser handles final rendering efficiently.
+Then open http://localhost:8080 in your browser.
 
-**Charton does not attempt to patch SVGs with JavaScript like traditional libraries. Instead, it regenerates a complete static SVG—fast enough to support real-time interactivity.**
+You will see a dark-themed page with a flowing stream of coloured dots – the colour changes smoothly from cool (trough) to warm (peak), and the entire chart is re‑rendered from scratch by Rust on every frame.
 
-This architecture makes high-performance, browser-based interaction not only possible but highly efficient.
+## 7) Troubleshooting
+* Compilation freezes / high RAM usage – Building for WASM can be heavy. If the process hangs during wasm-opt, you can stop it manually; the unoptimised `.wasm` is already functional and will run in the browser.
+* `wasm-opt` errors – If `wasm-pack` fails to install or run `wasm-opt`, ignore the error as long as `pkg/` has been populated.
+* Port already in use – Try a different port: `python -m http.server 8000`.
+* Chart appears but no colour gradient – Make sure you are passing three vectors to `draw_wave` and that the third one is a numeric array (not all the same value). Check the browser console for any Rust panics.
+* Blank page or CORS errors – Always use an HTTP server, never open the HTML file directly with `file://`.
 
+## What's Next?
 
+* Adjust the animation speed by changing `t += 0.5` and `ADD_INTERVAL_MS` and `WINDOW_SIZE` in `index.html`.
+* Replace the sine wave with real‑time data fetched from an API.
+* Explore Polars integration to pre‑process large datasets in the browser before plotting.
