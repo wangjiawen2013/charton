@@ -139,6 +139,7 @@ wasm-pack build --release --target web --out-dir pkg
 - Run `wasm-bindgen` to generate JavaScript bindings
 - Output everything into `pkg/`:
     - `wave_bg.wasm` – the compiled WebAssembly binary
+    - `wave_bg.wasm.d.ts` – TypeScript declaration file describing the shape of the compiled .wasm module.
     - `wave.js` – ES module bootstrap
     - `wave.d.ts` – TypeScript declarations (optional)
 
