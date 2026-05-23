@@ -139,11 +139,9 @@ line.and(point).save("layered.svg")?;
 ```
 
 ## WebAssembly and Frontend
-Charton supports WebAssembly and modern web frontend; please refer to [Charton Docs](https://wangjiawen2013.github.io/charton) for details.
+Charton supports WebAssembly and modern web frontend. Below is a demo that uses Charton and WebAssembly to render a real‑time visualization in the browser, simulating a sensor sampling signal intensity at regular intervals.
 
 <p align="center">
-This example walks a complete beginner from zero to a real‑time, color‑gradient scatter plot running in the browser, powered by Rust and WebAssembly. It simulates a sensor sampling signal strength at regular intervals.
-<br><br>
 <img src="assets/wasm.gif" alt="Charton Wasm demo" width="90%">
 </p>
 
