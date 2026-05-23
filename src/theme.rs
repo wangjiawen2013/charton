@@ -151,7 +151,7 @@ impl Theme {
     }
 
     pub fn with_left_margin(mut self, margin: f64) -> Self {
-        self.top_margin = margin;
+        self.left_margin = margin;
         self
     }
 
