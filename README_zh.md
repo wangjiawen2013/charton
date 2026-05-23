@@ -138,13 +138,17 @@ let point = chart!(height, weight)?
 line.and(point).save("layered.svg")?;
 ```
 
+## WebAssembly 与前端
+Charton 支持 WebAssembly 及现代 Web 前端开发。下面这个示例，基于 Charton 和 WebAssembly 在浏览器中实现了实时可视化，模拟传感器定时采集信号强度数据。
+
+<p align="center">
+<img src="assets/wasm.gif" alt="Charton Wasm demo">
+</p>
+
 ## 交互式作图 (Jupyter)
 Charton 与 evcxr_jupyter 集成，支持交互式数据探索。将 `.save()` 替换为 `.show()` 即可直接在 jupyter notebook 单元格中显示 SVG：
 
 ![evcxr jupyter](assets/evcxr_jupyter.png)
-
-## WebAssembly 与前端
-Charton 支持 WebAssembly 和现代 Web 前端；详情请参考 [Charton Docs](https://wangjiawen2013.github.io/charton)。
 
 ## 利用第三方可视化生态
 Charton 通过高速 IPC 将 Rust 与成熟的可视化生态（如 **Altair** 和 **Matplotlib**）连接起来，使用户能够在统一的工作流中利用多样化、专业级的绘图工具。详情请参考 [Charton Docs](https://wangjiawen2013.github.io/charton)。
