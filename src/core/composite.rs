@@ -898,20 +898,16 @@ impl LayeredChart {
     ///
     /// chart.save("my_chart.svg")?; // Save as SVG file
     /// ```
+    ///
     pub fn save<P: AsRef<std::path::Path>>(&self, path: P) -> Result<(), ChartonError> {
-        // Convert to Path for file operations
         let path_obj = path.as_ref();
 
-        // Create parent directory if it doesn't exist
+        // Create parent directories if they do not exist
         if let Some(parent) = path_obj.parent().filter(|p| !p.exists()) {
-            std::fs::create_dir_all(parent).map_err(|e| {
-                ChartonError::Io(std::io::Error::other(format!(
-                    "Failed to create directory: {}",
-                    e
-                )))
-            })?;
+            std::fs::create_dir_all(parent).map_err(ChartonError::Io)?;
         }
 
+        // Extract and normalize the file extension
         let ext = path_obj
             .extension()
             .and_then(|e| e.to_str())
@@ -925,21 +921,15 @@ impl LayeredChart {
             Some("pdf") => {
                 #[cfg(feature = "pdf")]
                 {
-                    // Initialize default SVG parsing and rendering options.
                     let svg_content = self.to_svg()?;
                     let mut opts = svg2pdf::usvg::Options::default();
-
-                    // Assign the globally cached font database.
                     opts.fontdb = crate::core::utils::get_font_db();
 
-                    // 1. Parse the SVG string into a usvg Tree.
+                    // Parse the raw SVG string into a usvg render tree
                     let tree = svg2pdf::usvg::Tree::from_str(&svg_content, &opts)
                         .map_err(|e| ChartonError::Render(format!("SVG parsing error: {:?}", e)))?;
 
-                    // 2. Generate PDF bytes.
-                    // to_pdf is the preferred high-level API, allowing for specific
-                    // page and conversion settings. Default PageOptions will scale
-                    // the PDF page to match the SVG's viewBox/size.
+                    // Compile the tree into standard binary PDF bytes
                     let pdf_data = svg2pdf::to_pdf(
                         &tree,
                         svg2pdf::ConversionOptions::default(),
@@ -947,10 +937,8 @@ impl LayeredChart {
                     )
                     .map_err(|e| ChartonError::Render(format!("PDF generation error: {:?}", e)))?;
 
-                    // 3. Save the binary PDF data to the file system.
                     std::fs::write(path_obj, pdf_data).map_err(ChartonError::Io)?;
                 }
-
                 #[cfg(not(feature = "pdf"))]
                 {
                     return Err(ChartonError::Unimplemented(
@@ -959,19 +947,25 @@ impl LayeredChart {
                 }
             }
             Some("png") => {
-                #[cfg(feature = "png")]
+                // Branch 1: High-performance GPU-accelerated rendering via wgpu
+                #[cfg(feature = "wgpu")]
                 {
-                    // Directly render to PNG bytes using the high-performance RasterBackend.
-                    let png_data = self.to_png()?;
+                    // Block on the async GPU pipeline to execute synchronously within this thread context
+                    futures::executor::block_on(self.save_wgpu_png(path_obj))?;
+                }
 
-                    // Write the binary data directly to the file system.
+                // Branch 2: Standard CPU-bound fallback rendering via tiny-skia
+                #[cfg(all(feature = "png", not(feature = "wgpu")))]
+                {
+                    let png_data = self.to_png()?;
                     std::fs::write(path_obj, png_data).map_err(ChartonError::Io)?;
                 }
-                #[cfg(not(feature = "png"))]
+
+                // Branch 3: Guard rail triggered if no raster backends are active
+                #[cfg(not(any(feature = "png", feature = "wgpu")))]
                 {
                     return Err(ChartonError::Unimplemented(
-                        "PNG support is disabled. Please enable the 'png' feature in Cargo.toml"
-                            .to_string(),
+                        "PNG support is disabled. Please enable the 'png' or 'wgpu' feature in Cargo.toml".to_string(),
                     ));
                 }
             }
@@ -987,6 +981,294 @@ impl LayeredChart {
                 ));
             }
         }
+
+        Ok(())
+    }
+
+    /// Renders the chart using the lightweight wgpu backend and saves it as a PNG file.
+    ///
+    /// This method is designed for high-performance rendering of large datasets.
+    /// It automatically handles GPU initialization, off-screen rendering, and pixel readback.
+    #[cfg(feature = "wgpu")]
+    pub async fn save_wgpu_png<P: AsRef<std::path::Path>>(
+        &self,
+        path: P,
+    ) -> Result<(), ChartonError> {
+        use crate::render::backend::wgpu::{GpuPoint, WgpuBackend};
+        use wgpu::util::DeviceExt;
+
+        // 1. Initialize headless wgpu instance
+        let instance = wgpu::Instance::default();
+        let adapter = instance
+            .request_adapter(&wgpu::RequestAdapterOptions::default())
+            .await
+            .ok_or_else(|| ChartonError::Render("Failed to request wgpu adapter".to_string()))?;
+
+        let (device, queue) = adapter
+            .request_device(&wgpu::DeviceDescriptor::default(), None)
+            .await
+            .map_err(|e| ChartonError::Render(format!("wgpu device error: {}", e)))?;
+
+        // 2. Create an off-screen texture
+        let texture_size = wgpu::Extent3d {
+            width: self.width,
+            height: self.height,
+            depth_or_array_layers: 1,
+        };
+
+        let texture = device.create_texture(&wgpu::TextureDescriptor {
+            label: Some("Chart Texture"),
+            size: texture_size,
+            mip_level_count: 1,
+            sample_count: 1,
+            dimension: wgpu::TextureDimension::D2,
+            format: wgpu::TextureFormat::Rgba8Unorm,
+            usage: wgpu::TextureUsages::RENDER_ATTACHMENT | wgpu::TextureUsages::COPY_SRC,
+            view_formats: &[],
+        });
+
+        let view = texture.create_view(&wgpu::TextureViewDescriptor::default());
+
+        // 3. Initialize the backend and render
+        let mut chart_instance = self.clone();
+        let mut backend =
+            WgpuBackend::new(device.clone(), queue.clone(), self.width, self.height).await;
+
+        // Draw background
+        use crate::core::layer::RectConfig;
+        use crate::visual::Color;
+        backend.draw_rect(RectConfig {
+            x: 0.0,
+            y: 0.0,
+            width: self.width as f64,
+            height: self.height as f64,
+            fill: Color::from("#FFFFFF"),
+            stroke: "none".into(),
+            stroke_width: 0.0,
+            opacity: 1.0,
+        });
+
+        // Execute the unified rendering pipeline
+        chart_instance.render(&mut backend)?;
+        backend.flush_and_render(&view);
+
+        // 4. Calculate GPU Row Alignment padding (Must be multiple of 256 bytes)
+        let bytes_per_pixel = 4;
+        let unpadded_bytes_per_row = self.width * bytes_per_pixel;
+        let align = wgpu::COPY_BYTES_PER_ROW_ALIGNMENT;
+        let padding = (align - unpadded_bytes_per_row % align) % align;
+        let padded_bytes_per_row = unpadded_bytes_per_row + padding;
+
+        let buffer_size = padded_bytes_per_row * self.height;
+        let buffer = device.create_buffer(&wgpu::BufferDescriptor {
+            label: Some("Readback Buffer"),
+            size: buffer_size as u64,
+            usage: wgpu::BufferUsages::COPY_DST | wgpu::BufferUsages::MAP_READ,
+            mapped_at_creation: false,
+        });
+
+        let mut encoder = device.create_command_encoder(&wgpu::CommandEncoderDescriptor::default());
+        encoder.copy_texture_to_buffer(
+            wgpu::ImageCopyTexture {
+                aspect: wgpu::TextureAspect::All,
+                texture: &texture,
+                mip_level: 0,
+                origin: wgpu::Origin3d::ZERO,
+            },
+            wgpu::ImageCopyBuffer {
+                buffer: &buffer,
+                layout: wgpu::ImageDataLayout {
+                    offset: 0,
+                    bytes_per_row: Some(padded_bytes_per_row),
+                    rows_per_image: Some(self.height),
+                },
+            },
+            texture_size,
+        );
+        queue.submit(std::iter::once(encoder.finish()));
+
+        // 5. Map buffer from GPU to CPU memory
+        let buffer_slice = buffer.slice(..);
+        let (tx, rx) = std::sync::mpsc::channel();
+        buffer_slice.map_async(wgpu::MapMode::Read, move |result| {
+            tx.send(result).unwrap();
+        });
+        device.poll(wgpu::Maintain::Wait);
+        rx.recv()
+            .unwrap()
+            .map_err(|e| ChartonError::Render(format!("Buffer mapping failed: {:?}", e)))?;
+
+        // 6 & 7. Process data and encode PNG conditional on 'png' feature
+        // NOTE: Although the 'wgpu' feature automatically activates 'png' in Cargo.toml,
+        // this explicit cfg gate prevents compiler name-resolution errors during baseline
+        // compilation tests when no features are explicitly active, and decouples the
+        // deep dependency tree of tiny-skia from the wgpu pipeline structure.
+        #[cfg(feature = "png")]
+        {
+            let raw_padded_data = buffer_slice.get_mapped_range();
+            let mut skia_pixels = Vec::with_capacity((self.width * self.height * 4) as usize);
+
+            for row in 0..self.height {
+                let start = (row * padded_bytes_per_row) as usize;
+                for col in 0..self.width as usize {
+                    let pixel_offset = start + (col * 4);
+
+                    let r = raw_padded_data[pixel_offset];
+                    let g = raw_padded_data[pixel_offset + 1];
+                    let b = raw_padded_data[pixel_offset + 2];
+                    let a = raw_padded_data[pixel_offset + 3];
+
+                    // Channel re-mapping & alpha premultiplication to satisfy tiny-skia.
+                    let alpha_factor = a as f32 / 255.0;
+                    let premultiplied_b = (b as f32 * alpha_factor).round().clamp(0.0, 255.0) as u8;
+                    let premultiplied_g = (g as f32 * alpha_factor).round().clamp(0.0, 255.0) as u8;
+                    let premultiplied_r = (r as f32 * alpha_factor).round().clamp(0.0, 255.0) as u8;
+
+                    // FIX: Resolved variable name naming mismatch (pixels -> skia_pixels)
+                    skia_pixels.push(premultiplied_b);
+                    skia_pixels.push(premultiplied_g);
+                    skia_pixels.push(premultiplied_r);
+                    skia_pixels.push(a);
+                }
+            }
+
+            // Explicitly drop mapped range view before unmapping the buffer resource
+            drop(raw_padded_data);
+            buffer.unmap();
+
+            let pixmap = tiny_skia::Pixmap::from_vec(
+                skia_pixels,
+                tiny_skia::IntSize::from_wh(self.width, self.height).ok_or_else(|| {
+                    ChartonError::Render("Invalid dimensions for Pixmap".to_string())
+                })?,
+            )
+            .ok_or_else(|| {
+                ChartonError::Render("Failed to create Pixmap from GPU data".to_string())
+            })?;
+
+            let png_bytes = pixmap
+                .encode_png()
+                .map_err(|e| ChartonError::Render(format!("PNG encoding failed: {}", e)))?;
+            std::fs::write(path, png_bytes).map_err(ChartonError::Io)?;
+        }
+
+        Ok(())
+    }
+
+    /// Renders the chart directly to an HTML Canvas element in a WASM environment.
+    ///
+    /// This method is designed for high-performance, interactive rendering in web browsers.
+    /// It utilizes WebGPU/WebGL via wgpu to draw directly to the screen.
+    ///
+    /// # Note
+    /// To ensure sharp rendering on high-DPI (Retina) displays, the canvas's internal
+    /// render buffer will be automatically scaled based on the browser's device pixel ratio.
+    #[cfg(all(feature = "wgpu", target_arch = "wasm32"))]
+    pub async fn render_to_canvas(&self, canvas_id: &str) -> Result<(), ChartonError> {
+        use crate::render::backend::wgpu::WgpuBackend;
+        use wasm_bindgen::JsCast;
+
+        // 1. Acquire the HTML Canvas element from the DOM
+        let window = web_sys::window()
+            .ok_or_else(|| ChartonError::Render("No browser window found".into()))?;
+        let document = window
+            .document()
+            .ok_or_else(|| ChartonError::Render("No document found".into()))?;
+        let canvas = document
+            .get_element_by_id(canvas_id)
+            .ok_or_else(|| {
+                ChartonError::Render(format!("Canvas element '{}' not found", canvas_id))
+            })?
+            .dyn_into::<web_sys::HtmlCanvasElement>()
+            .map_err(|_| ChartonError::Render("Element is not a valid HTMLCanvasElement".into()))?;
+
+        // 2. Handle High-DPI / Retina Displays (Calculate physical pixel size)
+        let dpr = window.device_pixel_ratio();
+        let display_width = (self.width as f64 * dpr).round() as u32;
+        let display_height = (self.height as f64 * dpr).round() as u32;
+
+        // Adjust canvas internal resolution to match physical pixels
+        canvas.set_width(display_width);
+        canvas.set_height(display_height);
+
+        // 3. Initialize WGPU Instance and Surface targeting the Canvas
+        let instance = wgpu::Instance::default();
+        let surface = instance
+            .create_surface(&canvas)
+            .map_err(|e| ChartonError::Render(format!("Failed to create WGPU surface: {}", e)))?;
+
+        // 4. Request Adapter and Device (Asynchronous)
+        let adapter = instance
+            .request_adapter(&wgpu::RequestAdapterOptions {
+                compatible_surface: Some(&surface),
+                power_preference: wgpu::PowerPreference::HighPerformance,
+                force_fallback_adapter: false,
+            })
+            .await
+            .ok_or_else(|| ChartonError::Render("Failed to find a suitable GPU adapter".into()))?;
+
+        let (device, queue) = adapter
+            .request_device(&wgpu::DeviceDescriptor::default(), None)
+            .await
+            .map_err(|e| ChartonError::Render(format!("Failed to request WGPU device: {}", e)))?;
+
+        // 5. Configure the Surface with scaled physical dimensions
+        let caps = surface.get_capabilities(&adapter);
+        let format = caps
+            .formats
+            .iter()
+            .find(|f| f.is_srgb())
+            .copied()
+            .unwrap_or(caps.formats[0]);
+
+        let config = wgpu::SurfaceConfiguration {
+            usage: wgpu::TextureUsages::RENDER_ATTACHMENT,
+            format,
+            width: display_width,
+            height: display_height,
+            present_mode: wgpu::PresentMode::AutoVsync,
+            alpha_mode: caps.alpha_modes[0],
+            view_formats: vec![],
+            desired_maximum_frame_latency: 2,
+        };
+        surface.configure(&device, &config);
+
+        // 6. Execute Rendering Pipeline
+        let mut chart_instance = self.clone();
+
+        // Pass the physical dimensions to the backend so the projection matrix matches the canvas scale
+        let mut backend =
+            WgpuBackend::new(device.clone(), queue.clone(), display_width, display_height).await;
+
+        // Draw background
+        use crate::core::layer::RectConfig;
+        use crate::visual::Color;
+        backend.draw_rect(RectConfig {
+            x: 0.0,
+            y: 0.0,
+            width: display_width as f64,
+            height: display_height as f64,
+            fill: Color::from("#FFFFFF"),
+            stroke: "none".into(),
+            stroke_width: 0.0,
+            opacity: 1.0,
+        });
+
+        chart_instance.render(&mut backend)?;
+
+        // FIX: Acquire the surface texture ONLY ONCE to prevent multi-borrow panics/timeouts
+        let surface_texture = surface.get_current_texture().map_err(|e| {
+            ChartonError::Render(format!("Failed to acquire next surface texture: {}", e))
+        })?;
+
+        let view = surface_texture
+            .texture
+            .create_view(&wgpu::TextureViewDescriptor::default());
+
+        backend.flush_and_render(&view);
+
+        // 7. Present the frame safely to the browser
+        surface_texture.present();
 
         Ok(())
     }
