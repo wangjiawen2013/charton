@@ -13,7 +13,7 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
         .mark_point()?
         .encode((alt::x("x"), alt::y("y")))?
         .with_title(format!("Performance Test: {} Points", ds.height()))
-        .save("stress_test.svg")?;
+        .save("stress_test.png")?;
 
     let duration = start.elapsed();
 

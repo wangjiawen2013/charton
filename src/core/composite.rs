@@ -951,7 +951,7 @@ impl LayeredChart {
                 #[cfg(feature = "wgpu")]
                 {
                     // Block on the async GPU pipeline to execute synchronously within this thread context
-                    futures::executor::block_on(self.save_wgpu_png(path_obj))?;
+                    pollster::block_on(self.save_wgpu_png(path_obj))?;
                 }
 
                 // Branch 2: Standard CPU-bound fallback rendering via tiny-skia
@@ -994,18 +994,17 @@ impl LayeredChart {
         &self,
         path: P,
     ) -> Result<(), ChartonError> {
-        use crate::render::backend::wgpu::{GpuPoint, WgpuBackend};
-        use wgpu::util::DeviceExt;
+        use crate::render::backend::wgpu::WgpuBackend;
 
         // 1. Initialize headless wgpu instance
         let instance = wgpu::Instance::default();
         let adapter = instance
             .request_adapter(&wgpu::RequestAdapterOptions::default())
             .await
-            .ok_or_else(|| ChartonError::Render("Failed to request wgpu adapter".to_string()))?;
+            .map_err(|_| ChartonError::Render("Failed to request wgpu adapter".to_string()))?;
 
         let (device, queue) = adapter
-            .request_device(&wgpu::DeviceDescriptor::default(), None)
+            .request_device(&wgpu::DeviceDescriptor::default())
             .await
             .map_err(|e| ChartonError::Render(format!("wgpu device error: {}", e)))?;
 
@@ -1022,7 +1021,7 @@ impl LayeredChart {
             mip_level_count: 1,
             sample_count: 1,
             dimension: wgpu::TextureDimension::D2,
-            format: wgpu::TextureFormat::Rgba8Unorm,
+            format: wgpu::TextureFormat::Rgba8UnormSrgb,
             usage: wgpu::TextureUsages::RENDER_ATTACHMENT | wgpu::TextureUsages::COPY_SRC,
             view_formats: &[],
         });
@@ -1036,13 +1035,12 @@ impl LayeredChart {
 
         // Draw background
         use crate::core::layer::RectConfig;
-        use crate::visual::Color;
         backend.draw_rect(RectConfig {
             x: 0.0,
             y: 0.0,
-            width: self.width as f64,
-            height: self.height as f64,
-            fill: Color::from("#FFFFFF"),
+            width: self.width as f32,
+            height: self.height as f32,
+            fill: "#FFFFFF".into(),
             stroke: "none".into(),
             stroke_width: 0.0,
             opacity: 1.0,
@@ -1069,15 +1067,15 @@ impl LayeredChart {
 
         let mut encoder = device.create_command_encoder(&wgpu::CommandEncoderDescriptor::default());
         encoder.copy_texture_to_buffer(
-            wgpu::ImageCopyTexture {
+            wgpu::TexelCopyTextureInfo {
                 aspect: wgpu::TextureAspect::All,
                 texture: &texture,
                 mip_level: 0,
                 origin: wgpu::Origin3d::ZERO,
             },
-            wgpu::ImageCopyBuffer {
+            wgpu::TexelCopyBufferInfo {
                 buffer: &buffer,
-                layout: wgpu::ImageDataLayout {
+                layout: wgpu::TexelCopyBufferLayout {
                     offset: 0,
                     bytes_per_row: Some(padded_bytes_per_row),
                     rows_per_image: Some(self.height),
@@ -1093,7 +1091,11 @@ impl LayeredChart {
         buffer_slice.map_async(wgpu::MapMode::Read, move |result| {
             tx.send(result).unwrap();
         });
-        device.poll(wgpu::Maintain::Wait);
+        // Wait for GPU operations to complete
+        let _ = device.poll(wgpu::PollType::Wait {
+            submission_index: None,
+            timeout: None,
+        });
         rx.recv()
             .unwrap()
             .map_err(|e| ChartonError::Render(format!("Buffer mapping failed: {:?}", e)))?;
