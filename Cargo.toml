@@ -9,7 +9,7 @@ authors = ["Jiawen Wang <wangjiawen2013@163.com>"]
 
 [features]
 # Default features enabled for standard desktop builds.
-default = []
+default = ["wgpu"]
 
 # Enables multi-threaded data processing via Rayon for massive datasets.
 # NOTE: Disable this feature when targeting WebAssembly (Wasm) unless 
@@ -24,7 +24,7 @@ raster = ["dep:tiny-skia", "dep:ab_glyph", "dep:fontdb"]
 png = ["raster"] # png is an alias of raster
 
 # Enables lightweight GPU-accelerated rendering for large datasets via wgpu.
-wgpu = ["dep:wgpu", "dep:bytemuck", "png"]
+wgpu = ["dep:wgpu", "dep:bytemuck", "dep:pollster", "png"]
 
 # Enables universal columnar data ingestion via the Apache Arrow standard.
 arrow = ["dep:arrow"]
@@ -54,6 +54,7 @@ serde_json = { version = "1.0", optional = true }
 base64 = { version = "0.22", optional = true }
 wgpu = { version = "29", optional = true }
 bytemuck = { version = "1.25", features = ["derive"], optional = true }
+pollster = { version = "0.4", optional = true }
 
 # --- WASM32 Target Specific Dependencies ---
 # Leveraged only when targeting WebAssembly; provides full access to browser DOM and Canvas APIs without impacting desktop builds.
