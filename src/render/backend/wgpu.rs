@@ -58,8 +58,8 @@ impl From<RectConfig> for GpuPoint {
 struct Uniforms {
     screen_width: f32,
     screen_height: f32,
-    scale_factor: f32,  // HiDPI scaling factor for coordinate transformation
-    _padding: f32,      // Padding for 16-byte alignment (wgpu requirement)
+    scale_factor: f32, // HiDPI scaling factor for coordinate transformation
+    _padding: f32,     // Padding for 16-byte alignment (wgpu requirement)
 }
 
 pub struct WgpuBackend {
@@ -103,7 +103,13 @@ impl WgpuBackend {
         self.render(view);
     }
 
-    pub async fn new(device: wgpu::Device, queue: wgpu::Queue, width: u32, height: u32, scale_factor: f32) -> Self {
+    pub async fn new(
+        device: wgpu::Device,
+        queue: wgpu::Queue,
+        width: u32,
+        height: u32,
+        scale_factor: f32,
+    ) -> Self {
         let shader = device.create_shader_module(wgpu::ShaderModuleDescriptor {
             label: Some("Chart Shader"),
             source: wgpu::ShaderSource::Wgsl(include_str!("chart.wgsl").into()),

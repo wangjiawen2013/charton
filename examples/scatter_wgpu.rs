@@ -18,7 +18,7 @@ fn main() -> Result<(), Box<dyn Error>> {
         .coord_flip()
         .configure_theme(|t| t.with_x_tick_label_angle(-45.0))
         .with_title("Car Performance")
-        // The save() method automatically detects the 'wgpu' feature 
+        // The save() method automatically detects the 'wgpu' feature
         // and uses the high-performance GPU backend to generate this PNG.
         .save("scatter_gpu.png")?;
 
