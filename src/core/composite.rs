@@ -729,10 +729,7 @@ impl LayeredChart {
     /// This method is designed for hybrid rendering scenarios where data marks
     /// are rendered by GPU (wgpu) and decorations are rendered by CPU (tiny-skia).
     /// It avoids code duplication with the main `render()` method.
-    fn render_decorations<B: RenderBackend>(
-        &self,
-        backend: &mut B,
-    ) -> Result<(), ChartonError> {
+    fn render_decorations<B: RenderBackend>(&self, backend: &mut B) -> Result<(), ChartonError> {
         // Resolve scene to get layout and coordinate system
         let (coord, panel, aesthetics, guide_specs) = self.resolve_scene()?;
         let spec = ChartSpec {
@@ -1060,7 +1057,7 @@ impl LayeredChart {
         // 2. Create an off-screen texture with HiDPI scaling
         let scaled_width = (self.width as f32 * self.scale_factor) as u32;
         let scaled_height = (self.height as f32 * self.scale_factor) as u32;
-        
+
         let texture_size = wgpu::Extent3d {
             width: scaled_width,
             height: scaled_height,
@@ -1084,8 +1081,14 @@ impl LayeredChart {
         let mut chart_instance = self.clone();
         // Pass logical dimensions (not scaled) so GPU shader maps coordinates correctly.
         // The texture itself is scaled for HiDPI, but data coordinates are in logical space.
-        let mut backend =
-            WgpuBackend::new(device.clone(), queue.clone(), self.width, self.height, self.scale_factor).await;
+        let mut backend = WgpuBackend::new(
+            device.clone(),
+            queue.clone(),
+            self.width,
+            self.height,
+            self.scale_factor,
+        )
+        .await;
 
         // Draw background
         use crate::core::layer::RectConfig;
@@ -1304,8 +1307,14 @@ impl LayeredChart {
 
         // Pass the physical dimensions to the backend so the projection matrix matches the canvas scale
         // For WASM, coordinates are already in physical pixels, so scale_factor is 1.0
-        let mut backend =
-            WgpuBackend::new(device.clone(), queue.clone(), display_width, display_height, 1.0).await;
+        let mut backend = WgpuBackend::new(
+            device.clone(),
+            queue.clone(),
+            display_width,
+            display_height,
+            1.0,
+        )
+        .await;
 
         // Draw background
         use crate::core::layer::RectConfig;

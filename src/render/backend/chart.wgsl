@@ -120,10 +120,12 @@ fn fs_main(in: VertexOutput) -> @location(0) vec4<f32> {
     
     // Select the appropriate SDF specification manual
     if (p.shape_type < 0.5) {
-        dist = sd_circle(local_pos, p.radius);
+        // Scale radius to physical pixels for correct SDF calculation
+        dist = sd_circle(local_pos, p.radius * uniforms.scale_factor);
     } else {
         // Assume a square aspect ratio; corner radius set to 20% of the half-size
-        dist = sd_rounded_box(local_pos, vec2<f32>(p.radius), p.radius * 0.2);
+        let scaled_radius = p.radius * uniforms.scale_factor;
+        dist = sd_rounded_box(local_pos, vec2<f32>(scaled_radius), scaled_radius * 0.2);
     }
     
     // Hardware Anti-Aliasing:
