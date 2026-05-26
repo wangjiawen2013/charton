@@ -220,8 +220,11 @@ pub trait IntoLayered: Into<LayeredChart> + Clone {
     /// Sets the scale factor for rendering.
     ///
     /// # Note
-    /// This factor **only affects raster outputs** (e.g., PNG). It determines the
-    /// physical pixel density (High-DPI).
+    /// This factor affects **all raster outputs** (PNG via CPU or GPU).
+    /// It determines the physical pixel density (High-DPI/Retina support).
+    ///
+    /// - For `to_png()`: Controls tiny-skia Pixmap size and coordinate scaling
+    /// - For `save(".png")` with wgpu: Controls GPU texture size and shader scaling
     ///
     /// This field has **no effect on vector outputs** (e.g., SVG), as vector
     /// formats are resolution-independent by nature.
