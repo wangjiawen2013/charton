@@ -724,6 +724,55 @@ impl LayeredChart {
         Ok(())
     }
 
+    /// Renders chart decorations (title, axes, legends) without data marks.
+    ///
+    /// This method is designed for hybrid rendering scenarios where data marks
+    /// are rendered by GPU (wgpu) and decorations are rendered by CPU (tiny-skia).
+    /// It avoids code duplication with the main `render()` method.
+    fn render_decorations<B: RenderBackend>(
+        &self,
+        backend: &mut B,
+    ) -> Result<(), ChartonError> {
+        // Resolve scene to get layout and coordinate system
+        let (coord, panel, aesthetics, guide_specs) = self.resolve_scene()?;
+        let spec = ChartSpec {
+            aesthetics: &aesthetics,
+            theme: &self.theme,
+        };
+        let panel_ctx = PanelContext::new(&spec, coord.clone(), panel);
+
+        // Draw title
+        self.render_title(backend, &panel_ctx.panel)?;
+
+        // Draw axes if required
+        if self.theme.show_axes && self.layers.iter().any(|l| l.requires_axes()) {
+            let x_label = coord.get_x_label();
+            let y_label = coord.get_y_label();
+            let x_explicit = self.x_ticks.as_deref();
+            let y_explicit = self.y_ticks.as_deref();
+
+            coord.render_axes(
+                backend,
+                &self.theme,
+                &panel_ctx.panel,
+                x_label,
+                x_explicit,
+                y_label,
+                y_explicit,
+            )?;
+        }
+
+        // Draw legends
+        crate::render::legend_renderer::LegendRenderer::render_legend(
+            backend,
+            &guide_specs,
+            &self.theme,
+            &panel_ctx,
+        );
+
+        Ok(())
+    }
+
     /// Generates and returns the SVG representation of the chart.
     ///
     /// This method renders the entire chart as an SVG string. It creates a mutable
@@ -1138,7 +1187,7 @@ impl LayeredChart {
             drop(raw_padded_data);
             buffer.unmap();
 
-            let pixmap = tiny_skia::Pixmap::from_vec(
+            let mut pixmap = tiny_skia::Pixmap::from_vec(
                 skia_pixels,
                 tiny_skia::IntSize::from_wh(self.width, self.height).ok_or_else(|| {
                     ChartonError::Render("Invalid dimensions for Pixmap".to_string())
@@ -1147,6 +1196,16 @@ impl LayeredChart {
             .ok_or_else(|| {
                 ChartonError::Render("Failed to create Pixmap from GPU data".to_string())
             })?;
+
+            // Hybrid Rendering: Use tiny-skia to draw axes, text, and other elements
+            // that are not yet implemented in the wgpu backend.
+            {
+                let mut skia_backend = crate::render::backend::raster::RasterBackend::new(
+                    &mut pixmap,
+                    1.0, // No scaling needed: GPU already rendered at target resolution
+                );
+                self.render_decorations(&mut skia_backend)?;
+            }
 
             let png_bytes = pixmap
                 .encode_png()
