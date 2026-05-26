@@ -1057,10 +1057,13 @@ impl LayeredChart {
             .await
             .map_err(|e| ChartonError::Render(format!("wgpu device error: {}", e)))?;
 
-        // 2. Create an off-screen texture
+        // 2. Create an off-screen texture with HiDPI scaling
+        let scaled_width = (self.width as f32 * self.scale_factor) as u32;
+        let scaled_height = (self.height as f32 * self.scale_factor) as u32;
+        
         let texture_size = wgpu::Extent3d {
-            width: self.width,
-            height: self.height,
+            width: scaled_width,
+            height: scaled_height,
             depth_or_array_layers: 1,
         };
 
@@ -1079,16 +1082,18 @@ impl LayeredChart {
 
         // 3. Initialize the backend and render
         let mut chart_instance = self.clone();
+        // Pass logical dimensions (not scaled) so GPU shader maps coordinates correctly.
+        // The texture itself is scaled for HiDPI, but data coordinates are in logical space.
         let mut backend =
-            WgpuBackend::new(device.clone(), queue.clone(), self.width, self.height).await;
+            WgpuBackend::new(device.clone(), queue.clone(), self.width, self.height, self.scale_factor).await;
 
         // Draw background
         use crate::core::layer::RectConfig;
         backend.draw_rect(RectConfig {
             x: 0.0,
             y: 0.0,
-            width: self.width as f32,
-            height: self.height as f32,
+            width: scaled_width as f32,
+            height: scaled_height as f32,
             fill: "#FFFFFF".into(),
             stroke: "none".into(),
             stroke_width: 0.0,
@@ -1101,12 +1106,12 @@ impl LayeredChart {
 
         // 4. Calculate GPU Row Alignment padding (Must be multiple of 256 bytes)
         let bytes_per_pixel = 4;
-        let unpadded_bytes_per_row = self.width * bytes_per_pixel;
+        let unpadded_bytes_per_row = scaled_width * bytes_per_pixel;
         let align = wgpu::COPY_BYTES_PER_ROW_ALIGNMENT;
         let padding = (align - unpadded_bytes_per_row % align) % align;
         let padded_bytes_per_row = unpadded_bytes_per_row + padding;
 
-        let buffer_size = padded_bytes_per_row * self.height;
+        let buffer_size = padded_bytes_per_row * scaled_height;
         let buffer = device.create_buffer(&wgpu::BufferDescriptor {
             label: Some("Readback Buffer"),
             size: buffer_size as u64,
@@ -1127,7 +1132,7 @@ impl LayeredChart {
                 layout: wgpu::TexelCopyBufferLayout {
                     offset: 0,
                     bytes_per_row: Some(padded_bytes_per_row),
-                    rows_per_image: Some(self.height),
+                    rows_per_image: Some(scaled_height),
                 },
             },
             texture_size,
@@ -1157,11 +1162,11 @@ impl LayeredChart {
         #[cfg(feature = "png")]
         {
             let raw_padded_data = buffer_slice.get_mapped_range();
-            let mut skia_pixels = Vec::with_capacity((self.width * self.height * 4) as usize);
+            let mut skia_pixels = Vec::with_capacity((scaled_width * scaled_height * 4) as usize);
 
-            for row in 0..self.height {
+            for row in 0..scaled_height {
                 let start = (row * padded_bytes_per_row) as usize;
-                for col in 0..self.width as usize {
+                for col in 0..scaled_width as usize {
                     let pixel_offset = start + (col * 4);
 
                     let r = raw_padded_data[pixel_offset];
@@ -1189,7 +1194,7 @@ impl LayeredChart {
 
             let mut pixmap = tiny_skia::Pixmap::from_vec(
                 skia_pixels,
-                tiny_skia::IntSize::from_wh(self.width, self.height).ok_or_else(|| {
+                tiny_skia::IntSize::from_wh(scaled_width, scaled_height).ok_or_else(|| {
                     ChartonError::Render("Invalid dimensions for Pixmap".to_string())
                 })?,
             )
@@ -1202,7 +1207,7 @@ impl LayeredChart {
             {
                 let mut skia_backend = crate::render::backend::raster::RasterBackend::new(
                     &mut pixmap,
-                    1.0, // No scaling needed: GPU already rendered at target resolution
+                    self.scale_factor, // Apply scale factor for HiDPI consistency with to_png()
                 );
                 self.render_decorations(&mut skia_backend)?;
             }
@@ -1298,8 +1303,9 @@ impl LayeredChart {
         let mut chart_instance = self.clone();
 
         // Pass the physical dimensions to the backend so the projection matrix matches the canvas scale
+        // For WASM, coordinates are already in physical pixels, so scale_factor is 1.0
         let mut backend =
-            WgpuBackend::new(device.clone(), queue.clone(), display_width, display_height).await;
+            WgpuBackend::new(device.clone(), queue.clone(), display_width, display_height, 1.0).await;
 
         // Draw background
         use crate::core::layer::RectConfig;

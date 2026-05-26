@@ -24,6 +24,7 @@ var<storage, read> points: array<PointData>;
 struct Uniforms {
     screen_width: f32,
     screen_height: f32,
+    scale_factor: f32,  // HiDPI scaling factor
 }
 @group(0) @binding(1)
 var<uniform> uniforms: Uniforms;
@@ -35,6 +36,9 @@ struct VertexOutput {
     
     // Flat interpolation ensures the instance ID is not blended across the quad
     @location(0) @interpolate(flat) instance_idx: u32,
+    
+    // Pass screen-space position (in physical pixels) for SDF calculation
+    @location(1) screen_pos: vec2<f32>,
 };
 
 // ============================================================================
@@ -80,17 +84,23 @@ fn vs_main(
     }
 
     // Scale the quad local position by radius and translate it to screen (x, y)
-    let final_pos = vec2<f32>(p.x, p.y) + pos * (p.radius * box_scale);
+    // Apply scale_factor transformation (similar to RasterBackend's Transform::from_scale)
+    let scaled_pos = vec2<f32>(p.x, p.y) * uniforms.scale_factor;
+    let final_pos = scaled_pos + pos * (p.radius * box_scale * uniforms.scale_factor);
     
     // Transform screen pixel coordinates to WebGPU Normalized Device Coordinates [-1.0, 1.0]
     // Note: Reverses the Y-axis because screen space is top-left, WebGPU is bottom-left.
-    let x = (final_pos.x / uniforms.screen_width) * 2.0 - 1.0;
-    let y = (1.0 - final_pos.y / uniforms.screen_height) * 2.0 - 1.0;
+    // Use scaled dimensions for proper normalization (logical_size * scale_factor = physical_size)
+    let scaled_width = uniforms.screen_width * uniforms.scale_factor;
+    let scaled_height = uniforms.screen_height * uniforms.scale_factor;
+    let x = (final_pos.x / scaled_width) * 2.0 - 1.0;
+    let y = (1.0 - final_pos.y / scaled_height) * 2.0 - 1.0;
     
     // Pack data into the bridge structure and pass to the fragment stage
     var out: VertexOutput;
     out.clip_position = vec4<f32>(x, y, 0.0, 1.0);
     out.instance_idx = i_idx;
+    out.screen_pos = final_pos;  // Pass physical pixel coordinates
     return out;
 }
 
@@ -103,7 +113,8 @@ fn fs_main(in: VertexOutput) -> @location(0) vec4<f32> {
     let p = points[in.instance_idx];
     
     // Calculate the pixel's relative offset vector from the center of the point
-    let local_pos = in.clip_position.xy - vec2<f32>(p.x, p.y);
+    // Use screen-space coordinates (physical pixels) for correct SDF calculation
+    let local_pos = in.screen_pos - vec2<f32>(p.x * uniforms.scale_factor, p.y * uniforms.scale_factor);
     
     var dist: f32 = 0.0;
     

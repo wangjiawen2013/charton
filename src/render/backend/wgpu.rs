@@ -58,6 +58,8 @@ impl From<RectConfig> for GpuPoint {
 struct Uniforms {
     screen_width: f32,
     screen_height: f32,
+    scale_factor: f32,  // HiDPI scaling factor for coordinate transformation
+    _padding: f32,      // Padding for 16-byte alignment (wgpu requirement)
 }
 
 pub struct WgpuBackend {
@@ -72,11 +74,13 @@ pub struct WgpuBackend {
 
 impl RenderBackend for WgpuBackend {
     fn draw_circle(&mut self, config: CircleConfig) {
+        // Store logical coordinates; GPU shader will apply scale_factor via uniforms
         self.pending_points.push(GpuPoint::from(config));
     }
 
     fn draw_rect(&mut self, config: RectConfig) {
         // Now natively supported by Layer 2 SDF pipeline!
+        // Store logical coordinates; GPU shader will apply scale_factor via uniforms
         self.pending_points.push(GpuPoint::from(config));
     }
 
@@ -99,7 +103,7 @@ impl WgpuBackend {
         self.render(view);
     }
 
-    pub async fn new(device: wgpu::Device, queue: wgpu::Queue, width: u32, height: u32) -> Self {
+    pub async fn new(device: wgpu::Device, queue: wgpu::Queue, width: u32, height: u32, scale_factor: f32) -> Self {
         let shader = device.create_shader_module(wgpu::ShaderModuleDescriptor {
             label: Some("Chart Shader"),
             source: wgpu::ShaderSource::Wgsl(include_str!("chart.wgsl").into()),
@@ -110,6 +114,8 @@ impl WgpuBackend {
             contents: bytemuck::cast_slice(&[Uniforms {
                 screen_width: width as f32,
                 screen_height: height as f32,
+                scale_factor,
+                _padding: 0.0,
             }]),
             usage: wgpu::BufferUsages::UNIFORM | wgpu::BufferUsages::COPY_DST,
         });
@@ -130,7 +136,8 @@ impl WgpuBackend {
                 },
                 wgpu::BindGroupLayoutEntry {
                     binding: 1,
-                    visibility: wgpu::ShaderStages::VERTEX,
+                    // Fragment shader also needs scale_factor for SDF calculation
+                    visibility: wgpu::ShaderStages::VERTEX | wgpu::ShaderStages::FRAGMENT,
                     ty: wgpu::BindingType::Buffer {
                         ty: wgpu::BufferBindingType::Uniform,
                         has_dynamic_offset: false,
