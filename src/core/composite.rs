@@ -1070,7 +1070,9 @@ impl LayeredChart {
             mip_level_count: 1,
             sample_count: 1,
             dimension: wgpu::TextureDimension::D2,
-            format: wgpu::TextureFormat::Rgba8UnormSrgb,
+            // Use Rgba8Unorm (not Srgb) to match tiny-skia's color space
+            // Colors from SingleColor::rgba() are already in linear/premultiplied space
+            format: wgpu::TextureFormat::Rgba8Unorm,
             usage: wgpu::TextureUsages::RENDER_ATTACHMENT | wgpu::TextureUsages::COPY_SRC,
             view_formats: &[],
         });
