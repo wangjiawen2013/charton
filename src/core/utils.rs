@@ -24,8 +24,11 @@ pub(crate) fn estimate_text_width(text: &str, font_size: f64) -> f64 {
 }
 
 // =============================== Font Database Utilities =====================================
+#[cfg(any(feature = "png", feature = "pdf"))]
+use std::sync::OnceLock;
+
 #[cfg(feature = "pdf")]
-use std::sync::{Arc, OnceLock};
+use std::sync::Arc;
 
 /// Global cache for the font database to avoid expensive system scans on every render.
 /// We use Arc to allow thread-safe sharing across multiple chart generation tasks.
@@ -68,7 +71,7 @@ pub(crate) fn get_font_db() -> Arc<svg2pdf::usvg::fontdb::Database> {
 #[cfg(feature = "png")]
 use ab_glyph::FontArc;
 #[cfg(feature = "png")]
-use std::sync::{OnceLock, RwLock};
+use std::sync::RwLock;
 
 /// Global cache for raster fonts.
 /// Maps lowercase font family names to FontArc instances.
