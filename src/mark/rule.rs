@@ -35,13 +35,13 @@ impl MarkRule {
     /// Sets the opacity of the rule line.
     ///
     /// Value should be between 0.0 (transparent) and 1.0 (opaque).
-    pub fn with_opacity(mut self, opacity: f64) -> Self {
+    pub const fn with_opacity(mut self, opacity: f64) -> Self {
         self.opacity = opacity.clamp(0.0, 1.0);
         self
     }
 
     /// Sets the thickness of the rule line.
-    pub fn with_stroke_width(mut self, width: f64) -> Self {
+    pub const fn with_stroke_width(mut self, width: f64) -> Self {
         self.stroke_width = width;
         self
     }

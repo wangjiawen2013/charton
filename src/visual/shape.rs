@@ -18,7 +18,7 @@ pub enum PointShape {
 impl PointShape {
     /// Returns a unique integer ID for the shape.
     /// This is crucial for passing shape data to GPU shaders (wgpu).
-    pub fn gpu_id(&self) -> u32 {
+    pub const fn gpu_id(&self) -> u32 {
         *self as u32
     }
 

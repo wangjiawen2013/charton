@@ -108,7 +108,7 @@ impl Y {
     }
 
     /// Sets the desired scale type (e.g., `Scale::Linear`, `Scale::Log`).
-    pub fn with_scale(mut self, scale_type: Scale) -> Self {
+    pub const fn with_scale(mut self, scale_type: Scale) -> Self {
         self.scale_type = Some(scale_type);
         self
     }
@@ -122,13 +122,13 @@ impl Y {
     }
 
     /// Configures the expansion padding for the axis.
-    pub fn with_expansion(mut self, expansion: Expansion) -> Self {
+    pub const fn with_expansion(mut self, expansion: Expansion) -> Self {
         self.expansion = Some(expansion);
         self
     }
 
     /// Determines if the scale must include the zero value.
-    pub fn with_zero(mut self, zero: bool) -> Self {
+    pub const fn with_zero(mut self, zero: bool) -> Self {
         self.zero = Some(zero);
         self
     }
@@ -144,7 +144,7 @@ impl Y {
     ///
     /// # Returns
     /// Returns `Self` with the updated bin count
-    pub fn with_bins(mut self, bins: usize) -> Self {
+    pub const fn with_bins(mut self, bins: usize) -> Self {
         self.bins = Some(bins);
         self
     }
@@ -162,7 +162,7 @@ impl Y {
     ///
     /// # Returns
     /// Returns `Self` with the updated normalization setting
-    pub fn with_normalize(mut self, normalize: bool) -> Self {
+    pub const fn with_normalize(mut self, normalize: bool) -> Self {
         self.normalize = normalize;
         self
     }
