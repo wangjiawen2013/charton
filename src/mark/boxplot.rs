@@ -49,7 +49,7 @@ impl MarkBoxplot {
     /// Sets the opacity of the boxplot mark.
     ///
     /// Value should be between 0.0 (transparent) and 1.0 (opaque).
-    pub fn with_opacity(mut self, opacity: f64) -> Self {
+    pub const fn with_opacity(mut self, opacity: f64) -> Self {
         self.opacity = opacity.clamp(0.0, 1.0);
         self
     }
@@ -61,7 +61,7 @@ impl MarkBoxplot {
     }
 
     /// Sets the thickness of the boxplot's lines.
-    pub fn with_stroke_width(mut self, width: f64) -> Self {
+    pub const fn with_stroke_width(mut self, width: f64) -> Self {
         self.stroke_width = width;
         self
     }
@@ -73,19 +73,19 @@ impl MarkBoxplot {
     }
 
     /// Enables or disables the display of outlier points.
-    pub fn with_outliers(mut self, show: bool) -> Self {
+    pub const fn with_outliers(mut self, show: bool) -> Self {
         self.show_outliers = show;
         self
     }
 
     /// Sets the size of the outlier points.
-    pub fn with_outlier_size(mut self, size: f64) -> Self {
+    pub const fn with_outlier_size(mut self, size: f64) -> Self {
         self.outlier_size = size;
         self
     }
 
     /// Sets the maximal width of the boxes.
-    pub fn with_width(mut self, width: f64) -> Self {
+    pub const fn with_width(mut self, width: f64) -> Self {
         self.width = width;
         self
     }
@@ -93,7 +93,7 @@ impl MarkBoxplot {
     /// Sets the relative spacing between boxes in a group.
     ///
     /// Value is clamped between 0.0 and 1.0.
-    pub fn with_spacing(mut self, spacing: f64) -> Self {
+    pub const fn with_spacing(mut self, spacing: f64) -> Self {
         self.spacing = spacing.clamp(0.0, 1.0);
         self
     }
@@ -101,7 +101,7 @@ impl MarkBoxplot {
     /// Sets the total span allocated for a box group.
     ///
     /// Value is clamped between 0.0 and 1.0.
-    pub fn with_span(mut self, span: f64) -> Self {
+    pub const fn with_span(mut self, span: f64) -> Self {
         self.span = span.clamp(0.0, 1.0);
         self
     }

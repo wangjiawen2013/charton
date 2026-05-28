@@ -55,7 +55,7 @@ const TICK_LADDER: &[(Duration, &str)] = &[
 ];
 
 impl TemporalScale {
-    pub fn new(domain: (i64, i64), mapper: Option<VisualMapper>) -> Self {
+    pub const fn new(domain: (i64, i64), mapper: Option<VisualMapper>) -> Self {
         Self { domain, mapper }
     }
 
