@@ -41,12 +41,12 @@ impl VisualMapper {
     }
 
     /// Creates a default size mapper with a specified physical range.
-    pub fn new_size_default(min: f64, max: f64) -> Self {
+    pub const fn new_size_default(min: f64, max: f64) -> Self {
         VisualMapper::Size { range: (min, max) }
     }
 
     /// Creates a default shape mapper using the standard geometric shapes.
-    pub fn new_shape_default() -> Self {
+    pub const fn new_shape_default() -> Self {
         VisualMapper::Shape {
             custom_shapes: None,
         }

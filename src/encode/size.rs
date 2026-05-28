@@ -68,7 +68,7 @@ impl Size {
     }
 
     /// Configures the expansion padding for the size scale.
-    pub fn with_expansion(mut self, expansion: Expansion) -> Self {
+    pub const fn with_expansion(mut self, expansion: Expansion) -> Self {
         self.expansion = Some(expansion);
         self
     }

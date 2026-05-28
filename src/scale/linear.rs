@@ -25,7 +25,7 @@ impl LinearScale {
     /// # Arguments
     /// * `domain` - A tuple of (min, max) representing the expanded data range.
     /// * `mapper` - An optional `VisualMapper` for non-positional aesthetics.
-    pub fn new(domain: (f64, f64), mapper: Option<VisualMapper>) -> Self {
+    pub const fn new(domain: (f64, f64), mapper: Option<VisualMapper>) -> Self {
         Self { domain, mapper }
     }
 

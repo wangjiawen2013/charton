@@ -52,7 +52,7 @@ impl MarkBar {
     }
 
     /// Sets the opacity of the bar mark (0.0 to 1.0).
-    pub fn with_opacity(mut self, opacity: f64) -> Self {
+    pub const fn with_opacity(mut self, opacity: f64) -> Self {
         self.opacity = opacity.clamp(0.0, 1.0);
         self
     }
@@ -64,7 +64,7 @@ impl MarkBar {
     }
 
     /// Sets the thickness of the bar's outline in pixels.
-    pub fn with_stroke_width(mut self, width: f64) -> Self {
+    pub const fn with_stroke_width(mut self, width: f64) -> Self {
         self.stroke_width = Some(width);
         self
     }
@@ -72,19 +72,19 @@ impl MarkBar {
     /// Manually sets the width of a bar.
     ///
     /// Providing a value here will override the coordinate system's default suggestion.
-    pub fn with_width(mut self, width: f64) -> Self {
+    pub const fn with_width(mut self, width: f64) -> Self {
         self.width = Some(width.clamp(0.0, 1.0));
         self
     }
 
     /// Manually sets the relative spacing between bars within a group (0.0 to 1.0).
-    pub fn with_spacing(mut self, spacing: f64) -> Self {
+    pub const fn with_spacing(mut self, spacing: f64) -> Self {
         self.spacing = Some(spacing.clamp(0.0, 1.0));
         self
     }
 
     /// Manually sets the total span of a bar group within a category (0.0 to 1.0).
-    pub fn with_span(mut self, span: f64) -> Self {
+    pub const fn with_span(mut self, span: f64) -> Self {
         self.span = Some(span.clamp(0.0, 1.0));
         self
     }

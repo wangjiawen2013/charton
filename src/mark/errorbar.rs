@@ -46,43 +46,43 @@ impl MarkErrorBar {
     /// Sets the opacity of the error bar mark.
     ///
     /// Value should be between 0.0 (transparent) and 1.0 (opaque).
-    pub fn with_opacity(mut self, opacity: f64) -> Self {
+    pub const fn with_opacity(mut self, opacity: f64) -> Self {
         self.opacity = opacity.clamp(0.0, 1.0);
         self
     }
 
     /// Sets the thickness of the error bar lines.
-    pub fn with_stroke_width(mut self, width: f64) -> Self {
+    pub const fn with_stroke_width(mut self, width: f64) -> Self {
         self.stroke_width = width;
         self
     }
 
     /// Sets the length of the horizontal caps at the ends of the error bar.
-    pub fn with_cap_length(mut self, length: f64) -> Self {
+    pub const fn with_cap_length(mut self, length: f64) -> Self {
         self.cap_length = length;
         self
     }
 
     /// Determines whether to display a marker at the center (mean/median) of the error bar.
-    pub fn with_center(mut self, show: bool) -> Self {
+    pub const fn with_center(mut self, show: bool) -> Self {
         self.show_center = show;
         self
     }
 
     /// Sets the relative width of the marks.
-    pub fn with_width(mut self, width: f64) -> Self {
+    pub const fn with_width(mut self, width: f64) -> Self {
         self.width = width;
         self
     }
 
     /// Sets the spacing between marks in a grouped layout.
-    pub fn with_spacing(mut self, spacing: f64) -> Self {
+    pub const fn with_spacing(mut self, spacing: f64) -> Self {
         self.spacing = spacing.clamp(0.0, 1.0);
         self
     }
 
     /// Sets the total span of the group within a category.
-    pub fn with_span(mut self, span: f64) -> Self {
+    pub const fn with_span(mut self, span: f64) -> Self {
         self.span = span.clamp(0.0, 1.0);
         self
     }
