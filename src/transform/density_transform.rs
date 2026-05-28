@@ -23,7 +23,7 @@ pub enum KernelType {
 }
 
 impl KernelType {
-    fn as_str(&self) -> &'static str {
+    const fn as_str(&self) -> &'static str {
         match self {
             KernelType::Normal => "Normal",
             KernelType::Epanechnikov => "Epanechnikov",
@@ -57,7 +57,7 @@ pub enum BandwidthType {
 }
 
 impl BandwidthType {
-    fn as_str(&self) -> &'static str {
+    const fn as_str(&self) -> &'static str {
         match self {
             BandwidthType::Scott => "Scott",
             BandwidthType::Silverman => "Silverman",
@@ -160,7 +160,7 @@ impl DensityTransform {
     /// let transform = DensityTransform::new("data")
     ///     .with_bandwidth(BandwidthType::Silverman);
     /// ```
-    pub fn with_bandwidth(mut self, bandwidth: BandwidthType) -> Self {
+    pub const fn with_bandwidth(mut self, bandwidth: BandwidthType) -> Self {
         self.bandwidth = bandwidth;
         self
     }
@@ -178,7 +178,7 @@ impl DensityTransform {
     /// let transform = DensityTransform::new("data")
     ///     .with_counts(true); // Output smoothed counts instead of probabilities
     /// ```
-    pub fn with_counts(mut self, counts: bool) -> Self {
+    pub const fn with_counts(mut self, counts: bool) -> Self {
         self.counts = counts;
         self
     }
@@ -196,7 +196,7 @@ impl DensityTransform {
     /// let transform = DensityTransform::new("data")
     ///     .with_cumulative(true); // Output cumulative density instead of regular density
     /// ```
-    pub fn with_cumulative(mut self, cumulative: bool) -> Self {
+    pub const fn with_cumulative(mut self, cumulative: bool) -> Self {
         self.cumulative = cumulative;
         self
     }

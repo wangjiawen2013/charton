@@ -60,7 +60,7 @@ impl Encoding {
     ///
     /// This is used by the Chart state machine to determine if validation
     /// and data transformation should be triggered during a mark transition.
-    pub fn is_empty(&self) -> bool {
+    pub const fn is_empty(&self) -> bool {
         self.x.is_none()
             && self.y.is_none()
             && self.y2.is_none()

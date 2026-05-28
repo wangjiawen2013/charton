@@ -54,7 +54,7 @@ impl MarkTick {
     /// ```rust,ignore
     /// chart.mark_tick()?.configure_tick(|m| m.thickness(2.0))
     /// ```
-    pub fn with_thickness(mut self, thickness: f64) -> Self {
+    pub const fn with_thickness(mut self, thickness: f64) -> Self {
         self.thickness = thickness.max(0.0);
         self
     }
@@ -68,7 +68,7 @@ impl MarkTick {
     /// ```rust,ignore
     /// chart.mark_tick()?.configure_tick(|m| m.band_size(10.0))
     /// ```
-    pub fn with_band_size(mut self, band_size: f64) -> Self {
+    pub const fn with_band_size(mut self, band_size: f64) -> Self {
         self.band_size = band_size.max(0.0);
         self
     }
@@ -76,7 +76,7 @@ impl MarkTick {
     /// Sets the opacity of the tick mark.
     ///
     /// Value should be between 0.0 (transparent) and 1.0 (opaque).
-    pub fn with_opacity(mut self, opacity: f64) -> Self {
+    pub const fn with_opacity(mut self, opacity: f64) -> Self {
         self.opacity = opacity.clamp(0.0, 1.0);
         self
     }
