@@ -3,7 +3,7 @@
 // ============================================================================
 
 // 1. Data Structure Definitions
-// This structure must perfectly match the memory layout of the Rust struct.
+// This structure must perfectly match the memory layout of the Rust GpuPoint struct.
 struct PointData {
     x: f32,          // Center X position in screen pixels
     y: f32,          // Center Y position in screen pixels
@@ -142,4 +142,54 @@ fn fs_main(in: VertexOutput) -> @location(0) vec4<f32> {
     
     // Output final color mixed with the procedural anti-aliasing alpha mask
     return vec4<f32>(p.r, p.g, p.b, p.a * alpha);
+}
+
+// ============================================================================
+// Custom Arbitrary Polygon Rendering Pipeline (Stars, Triangles, Hexagons)
+// ============================================================================
+
+/// Structure 1: Defines the layout of per-vertex data sent from the CPU.
+/// This must align byte-for-byte with the `GpuVertex` struct in Rust.
+struct PolygonInput {
+    /// The logical 2D coordinate of the vertex.
+    @location(0) pos: vec2<f32>,
+    /// The RGBA color of the vertex with pre-multiplied opacity.
+    @location(1) color: vec4<f32>,
+};
+
+/// Structure 2: The pipeline interface bridging the Vertex and Fragment stages.
+struct PolygonVertexOutput {
+    /// Normalized Device Coordinates (NDC) consumed by the hardware rasterizer.
+    @builtin(position) clip_position: vec4<f32>,
+    /// Interpolated color passed down to the fragment shader.
+    @location(0) color: vec4<f32>,
+};
+
+/// Dedicated binding group for polygon rendering, sharing global viewport parameters.
+@group(0) @binding(0)
+var<uniform> poly_uniforms: Uniforms; 
+
+/// Vertex Shader: Transforms custom 2D shape vertices into standard GPU clip space.
+@vertex
+fn vs_polygon(model: PolygonInput) -> PolygonVertexOutput {
+    var out: PolygonVertexOutput;
+    
+    // Convert logical coordinates to physical device pixels using HiDPI scale factor
+    let physical_pos = model.pos * poly_uniforms.scale_factor;
+    
+    // Map screen-space pixel coordinates into WebGPU standard NDC space (-1.0 to 1.0).
+    // Note: Inverts the Y axis because screen space is top-to-bottom, while NDC is bottom-to-top.
+    let nx = (physical_pos.x / poly_uniforms.screen_width) * 2.0 - 1.0;
+    let ny = 1.0 - (physical_pos.y / poly_uniforms.screen_height) * 2.0;
+    
+    out.clip_position = vec4<f32>(nx, ny, 0.0, 1.0);
+    out.color = model.color;
+    return out;
+}
+
+/// Fragment Shader: Rasterizes the internal fragments of the tessellated polygon.
+@fragment
+fn fs_polygon(in: PolygonVertexOutput) -> @location(0) vec4<f32> {
+    // Fill the surface uniformly with the interpolated vertex color
+    return in.color;
 }
