@@ -85,12 +85,12 @@ impl<'a> PanelContext<'a> {
     }
 
     /// Provides direct access to the global theme.
-    pub fn theme(&self) -> &Theme {
+    pub const fn theme(&self) -> &Theme {
         self.spec.theme
     }
 
     /// Provides direct access to the global aesthetic scales.
-    pub fn aesthetics(&self) -> &GlobalAesthetics {
+    pub const fn aesthetics(&self) -> &GlobalAesthetics {
         self.spec.aesthetics
     }
 }

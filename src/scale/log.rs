@@ -57,7 +57,7 @@ impl LogScale {
     }
 
     /// Returns the logarithm base used by this scale.
-    pub fn base(&self) -> f64 {
+    pub const fn base(&self) -> f64 {
         self.base
     }
 }
