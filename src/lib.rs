@@ -7,6 +7,8 @@
 //! facilitates the creation of informative and aesthetically pleasing visualizations interactively,
 //! making it especially well-suited for exploratory data analysis.
 
+#![warn(clippy::missing_const_for_fn)]
+
 pub mod chart;
 pub mod coordinate;
 pub mod core;

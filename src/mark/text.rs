@@ -112,7 +112,7 @@ impl MarkText {
     }
 
     /// Sets the font size of the text.
-    pub fn with_size(mut self, size: f64) -> Self {
+    pub const fn with_size(mut self, size: f64) -> Self {
         self.font_size = size;
         self
     }
@@ -138,7 +138,7 @@ impl MarkText {
     /// Sets the opacity of the text mark.
     ///
     /// Value should be between 0.0 (transparent) and 1.0 (opaque).
-    pub fn with_opacity(mut self, opacity: f64) -> Self {
+    pub const fn with_opacity(mut self, opacity: f64) -> Self {
         self.opacity = opacity.clamp(0.0, 1.0);
         self
     }

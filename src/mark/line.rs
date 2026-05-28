@@ -40,7 +40,7 @@ impl MarkLine {
     }
 
     /// Sets the thickness of the line.
-    pub fn with_stroke_width(mut self, width: f64) -> Self {
+    pub const fn with_stroke_width(mut self, width: f64) -> Self {
         self.stroke_width = width;
         self
     }
@@ -63,7 +63,7 @@ impl MarkLine {
     /// Sets the opacity of the line mark.
     ///
     /// Value should be between 0.0 (transparent) and 1.0 (opaque).
-    pub fn with_opacity(mut self, opacity: f64) -> Self {
+    pub const fn with_opacity(mut self, opacity: f64) -> Self {
         self.opacity = opacity.clamp(0.0, 1.0);
         self
     }
@@ -77,7 +77,7 @@ impl MarkLine {
     }
 
     /// Enables or disables LOESS (Locally Estimated Scatterplot Smoothing).
-    pub fn with_loess(mut self, use_loess: bool) -> Self {
+    pub const fn with_loess(mut self, use_loess: bool) -> Self {
         self.loess = use_loess;
         self
     }
@@ -85,7 +85,7 @@ impl MarkLine {
     /// Sets the bandwidth parameter for LOESS smoothing.
     ///
     /// Controls the smoothness; value should be between 0.0 and 1.0.
-    pub fn with_loess_bandwidth(mut self, bandwidth: f64) -> Self {
+    pub const fn with_loess_bandwidth(mut self, bandwidth: f64) -> Self {
         self.loess_bandwidth = bandwidth.clamp(0.0, 1.0);
         self
     }

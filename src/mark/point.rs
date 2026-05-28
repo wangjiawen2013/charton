@@ -87,7 +87,7 @@ impl MarkPoint {
     }
 
     /// Sets the size (radius or scale factor) of the point.
-    pub fn with_size(mut self, size: f64) -> Self {
+    pub const fn with_size(mut self, size: f64) -> Self {
         self.size = size;
         self
     }
@@ -95,7 +95,7 @@ impl MarkPoint {
     /// Sets the opacity of the point mark.
     ///
     /// Value should be between 0.0 (transparent) and 1.0 (opaque).
-    pub fn with_opacity(mut self, opacity: f64) -> Self {
+    pub const fn with_opacity(mut self, opacity: f64) -> Self {
         self.opacity = opacity.clamp(0.0, 1.0);
         self
     }
@@ -107,7 +107,7 @@ impl MarkPoint {
     }
 
     /// Sets the thickness of the point's outline.
-    pub fn with_stroke_width(mut self, width: f64) -> Self {
+    pub const fn with_stroke_width(mut self, width: f64) -> Self {
         self.stroke_width = width;
         self
     }
@@ -121,19 +121,19 @@ impl MarkPoint {
     }
 
     /// Sets the relative width of the marks.
-    pub fn with_width(mut self, width: f64) -> Self {
+    pub const fn with_width(mut self, width: f64) -> Self {
         self.width = width;
         self
     }
 
     /// Sets the spacing between marks in a grouped layout.
-    pub fn with_spacing(mut self, spacing: f64) -> Self {
+    pub const fn with_spacing(mut self, spacing: f64) -> Self {
         self.spacing = spacing.clamp(0.0, 1.0);
         self
     }
 
     /// Sets the total span of the group within a category.
-    pub fn with_span(mut self, span: f64) -> Self {
+    pub const fn with_span(mut self, span: f64) -> Self {
         self.span = span.clamp(0.0, 1.0);
         self
     }
