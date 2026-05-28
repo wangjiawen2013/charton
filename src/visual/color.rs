@@ -736,13 +736,13 @@ impl SingleColor {
         }
     }
 
-    pub fn none() -> Self {
+    pub const fn none() -> Self {
         Self {
             rgba: [0.0, 0.0, 0.0, 0.0],
         }
     }
 
-    pub fn from_rgba(r: f64, g: f64, b: f64, a: f64) -> Self {
+    pub const fn from_rgba(r: f64, g: f64, b: f64, a: f64) -> Self {
         Self {
             rgba: [
                 r.clamp(0.0, 1.0) as Precision,
@@ -753,7 +753,7 @@ impl SingleColor {
         }
     }
 
-    pub fn rgba(&self) -> [Precision; 4] {
+    pub const fn rgba(&self) -> [Precision; 4] {
         self.rgba
     }
 

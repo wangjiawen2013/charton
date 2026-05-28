@@ -55,7 +55,7 @@ impl Color {
     }
 
     /// Explicitly sets the scale type for color mapping (e.g., Linear, Log).
-    pub fn with_scale(mut self, scale_type: Scale) -> Self {
+    pub const fn with_scale(mut self, scale_type: Scale) -> Self {
         self.scale_type = Some(scale_type);
         self
     }
@@ -67,7 +67,7 @@ impl Color {
     }
 
     /// Configures the expansion padding for the color scale.
-    pub fn with_expandsion(mut self, expansion: Expansion) -> Self {
+    pub const fn with_expandsion(mut self, expansion: Expansion) -> Self {
         self.expansion = Some(expansion);
         self
     }

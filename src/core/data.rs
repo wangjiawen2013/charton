@@ -142,7 +142,7 @@ impl ColumnVector {
     ///
     /// This is the preferred method for bridges (like Polars) where data is
     /// already physically separated into indices and values.
-    pub fn from_categorical(
+    pub const fn from_categorical(
         keys: Vec<u32>,
         values: Vec<String>,
         validity: Option<Vec<u8>>,
@@ -233,7 +233,7 @@ impl ColumnVector {
     ///
     /// This is a low-latency operation used to guide the selection of
     /// visual encoding strategies (e.g., choosing a TemporalScale for Datetime).
-    pub fn semantic_type(&self) -> SemanticType {
+    pub const fn semantic_type(&self) -> SemanticType {
         match self {
             // --- Continuous: Measurable numeric values ---
             ColumnVector::Float64 { .. }
@@ -263,7 +263,7 @@ impl ColumnVector {
     ///
     /// This is used primarily for diagnostic printing and debugging,
     /// allowing users to quickly identify the physical storage of a column.
-    pub fn dtype_name(&self) -> &'static str {
+    pub const fn dtype_name(&self) -> &'static str {
         match self {
             // --- Floats ---
             ColumnVector::Float64 { .. } => "f64",
@@ -298,7 +298,7 @@ impl ColumnVector {
     }
 
     /// Returns the number of rows in this column.
-    pub fn len(&self) -> usize {
+    pub const fn len(&self) -> usize {
         match self {
             // Standard numeric and boolean types
             ColumnVector::Boolean { data, .. } => data.len(),
@@ -331,7 +331,7 @@ impl ColumnVector {
     /// This is the preferred way to check for empty columns in Rust
     /// as it aligns with standard library collection APIs.
     #[inline]
-    pub fn is_empty(&self) -> bool {
+    pub const fn is_empty(&self) -> bool {
         self.len() == 0
     }
 
@@ -890,7 +890,7 @@ impl ColumnVector {
     ///
     /// The bitmask uses a packed `u8` format where each bit represents the
     /// validity of a row (1 for Valid, 0 for Null).
-    pub fn get_validity_mask(&self) -> &Option<Vec<u8>> {
+    pub const fn get_validity_mask(&self) -> &Option<Vec<u8>> {
         match self {
             ColumnVector::Float64 { validity, .. } => validity,
             ColumnVector::Float32 { validity, .. } => validity,
@@ -2256,7 +2256,7 @@ impl Dataset {
     }
 
     /// Returns true if the dataset has no rows.
-    pub fn is_empty(&self) -> bool {
+    pub const fn is_empty(&self) -> bool {
         self.row_count == 0
     }
 
@@ -2307,12 +2307,12 @@ impl Dataset {
     }
 
     /// Returns the number of rows in the dataset.
-    pub fn height(&self) -> usize {
+    pub const fn height(&self) -> usize {
         self.row_count
     }
 
     /// Returns the number of columns in the dataset.
-    pub fn width(&self) -> usize {
+    pub const fn width(&self) -> usize {
         self.columns.len()
     }
 
@@ -3048,7 +3048,7 @@ pub struct RowAccessor<'a> {
 
 impl<'a> RowAccessor<'a> {
     /// Creates a new RowAccessor for a specific row.
-    pub fn new(ds: &'a Dataset, row: usize) -> Self {
+    pub const fn new(ds: &'a Dataset, row: usize) -> Self {
         Self {
             ds,
             current_row: row,
@@ -3070,7 +3070,7 @@ impl<'a> RowAccessor<'a> {
     }
 
     /// Returns the current row index.
-    pub fn index(&self) -> usize {
+    pub const fn index(&self) -> usize {
         self.current_row
     }
 }

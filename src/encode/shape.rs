@@ -46,7 +46,7 @@ impl Shape {
     }
 
     /// Sets the desired scale type. Usually kept as Discrete for shapes.
-    pub fn with_scale(mut self, scale_type: Scale) -> Self {
+    pub const fn with_scale(mut self, scale_type: Scale) -> Self {
         self.scale_type = Some(scale_type);
         self
     }
@@ -60,7 +60,7 @@ impl Shape {
     }
 
     /// Configures the expansion padding (spacing) for the categorical axis.
-    pub fn with_expansion(mut self, expansion: Expansion) -> Self {
+    pub const fn with_expansion(mut self, expansion: Expansion) -> Self {
         self.expansion = Some(expansion);
         self
     }
