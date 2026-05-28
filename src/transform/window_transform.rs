@@ -38,7 +38,7 @@ pub enum WindowOnlyOp {
 }
 
 impl WindowOnlyOp {
-    fn as_str(&self) -> &'static str {
+    const fn as_str(&self) -> &'static str {
         match self {
             WindowOnlyOp::RowNumber => "row_number",
             WindowOnlyOp::Rank => "rank",
@@ -136,7 +136,7 @@ impl WindowTransform {
     /// let window_field = WindowFieldDef::new("value", WindowOnlyOp::Rank, "value_rank");
     /// let window_transform = WindowTransform::new(window_field);
     /// ```
-    pub fn new(window: WindowFieldDef) -> Self {
+    pub const fn new(window: WindowFieldDef) -> Self {
         Self {
             window,
             frame: [None, Some(0.0)], // Default value: [null, 0]
@@ -159,7 +159,7 @@ impl WindowTransform {
     /// ```rust,ignore
     /// let window_transform = window_transform.with_frame([Some(-5.0), Some(5.0)]); // Window includes 5 rows before and after
     /// ```
-    pub fn with_frame(mut self, frame: [Option<f64>; 2]) -> Self {
+    pub const fn with_frame(mut self, frame: [Option<f64>; 2]) -> Self {
         self.frame = frame;
         self
     }
@@ -193,7 +193,7 @@ impl WindowTransform {
     /// ```rust,ignore
     /// let window_transform = window_transform.with_ignore_peers(true);
     /// ```
-    pub fn with_ignore_peers(mut self, ignore_peers: bool) -> Self {
+    pub const fn with_ignore_peers(mut self, ignore_peers: bool) -> Self {
         self.ignore_peers = ignore_peers;
         self
     }
@@ -210,7 +210,7 @@ impl WindowTransform {
     /// ```rust,ignore
     /// let window_transform = window_transform.with_normalize(true);
     /// ```
-    pub fn with_normalize(mut self, normalize: bool) -> Self {
+    pub const fn with_normalize(mut self, normalize: bool) -> Self {
         self.normalize = normalize;
         self
     }

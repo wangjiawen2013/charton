@@ -135,34 +135,34 @@ impl Theme {
         self
     }
 
-    pub fn with_top_margin(mut self, margin: f64) -> Self {
+    pub const fn with_top_margin(mut self, margin: f64) -> Self {
         self.top_margin = margin;
         self
     }
 
-    pub fn with_right_margin(mut self, margin: f64) -> Self {
+    pub const fn with_right_margin(mut self, margin: f64) -> Self {
         self.right_margin = margin;
         self
     }
 
-    pub fn with_bottom_margin(mut self, margin: f64) -> Self {
+    pub const fn with_bottom_margin(mut self, margin: f64) -> Self {
         self.bottom_margin = margin;
         self
     }
 
-    pub fn with_left_margin(mut self, margin: f64) -> Self {
+    pub const fn with_left_margin(mut self, margin: f64) -> Self {
         self.left_margin = margin;
         self
     }
 
-    pub fn with_show_axes(mut self, show: bool) -> Self {
+    pub const fn with_show_axes(mut self, show: bool) -> Self {
         self.show_axes = show;
         self
     }
 
     // --- Title ---
 
-    pub fn with_title_size(mut self, size: f64) -> Self {
+    pub const fn with_title_size(mut self, size: f64) -> Self {
         self.title_size = size;
         self
     }
@@ -179,7 +179,7 @@ impl Theme {
 
     // --- Axis Label ---
 
-    pub fn with_label_size(mut self, size: f64) -> Self {
+    pub const fn with_label_size(mut self, size: f64) -> Self {
         self.label_size = size;
         self
     }
@@ -194,14 +194,14 @@ impl Theme {
         self
     }
 
-    pub fn with_label_padding(mut self, padding: f64) -> Self {
+    pub const fn with_label_padding(mut self, padding: f64) -> Self {
         self.label_padding = padding;
         self
     }
 
     // --- Tick Label ---
 
-    pub fn with_tick_label_size(mut self, size: f64) -> Self {
+    pub const fn with_tick_label_size(mut self, size: f64) -> Self {
         self.tick_label_size = size;
         self
     }
@@ -216,51 +216,51 @@ impl Theme {
         self
     }
 
-    pub fn with_tick_label_padding(mut self, padding: f64) -> Self {
+    pub const fn with_tick_label_padding(mut self, padding: f64) -> Self {
         self.tick_label_padding = padding;
         self
     }
 
-    pub fn with_x_tick_label_angle(mut self, angle: f64) -> Self {
+    pub const fn with_x_tick_label_angle(mut self, angle: f64) -> Self {
         self.x_tick_label_angle = angle;
         self
     }
 
-    pub fn with_y_tick_label_angle(mut self, angle: f64) -> Self {
+    pub const fn with_y_tick_label_angle(mut self, angle: f64) -> Self {
         self.y_tick_label_angle = angle;
         self
     }
 
     // --- Geometry Strokes ---
 
-    pub fn with_axis_width(mut self, width: f64) -> Self {
+    pub const fn with_axis_width(mut self, width: f64) -> Self {
         self.axis_width = width;
         self
     }
 
-    pub fn with_tick_width(mut self, width: f64) -> Self {
+    pub const fn with_tick_width(mut self, width: f64) -> Self {
         self.tick_width = width;
         self
     }
 
-    pub fn with_tick_length(mut self, length: f64) -> Self {
+    pub const fn with_tick_length(mut self, length: f64) -> Self {
         self.tick_length = length;
         self
     }
 
-    pub fn with_tick_min_spacing(mut self, spacing: f64) -> Self {
+    pub const fn with_tick_min_spacing(mut self, spacing: f64) -> Self {
         self.tick_min_spacing = spacing;
         self
     }
 
     // --- Legend Styling ---
 
-    pub fn with_legend_title_size(mut self, size: f64) -> Self {
+    pub const fn with_legend_title_size(mut self, size: f64) -> Self {
         self.legend_title_size = size;
         self
     }
 
-    pub fn with_legend_label_size(mut self, size: f64) -> Self {
+    pub const fn with_legend_label_size(mut self, size: f64) -> Self {
         self.legend_label_size = size;
         self
     }
@@ -275,63 +275,63 @@ impl Theme {
         self
     }
 
-    pub fn with_legend_block_gap(mut self, gap: f64) -> Self {
+    pub const fn with_legend_block_gap(mut self, gap: f64) -> Self {
         self.legend_block_gap = gap;
         self
     }
 
-    pub fn with_legend_item_v_gap(mut self, gap: f64) -> Self {
+    pub const fn with_legend_item_v_gap(mut self, gap: f64) -> Self {
         self.legend_item_v_gap = gap;
         self
     }
 
-    pub fn with_legend_col_h_gap(mut self, gap: f64) -> Self {
+    pub const fn with_legend_col_h_gap(mut self, gap: f64) -> Self {
         self.legend_col_h_gap = gap;
         self
     }
 
-    pub fn with_legend_title_gap(mut self, gap: f64) -> Self {
+    pub const fn with_legend_title_gap(mut self, gap: f64) -> Self {
         self.legend_title_gap = gap;
         self
     }
 
-    pub fn with_legend_marker_text_gap(mut self, gap: f64) -> Self {
+    pub const fn with_legend_marker_text_gap(mut self, gap: f64) -> Self {
         self.legend_marker_text_gap = gap;
         self
     }
 
     // --- Legend Logic ---
 
-    pub fn with_legend_position(mut self, position: LegendPosition) -> Self {
+    pub const fn with_legend_position(mut self, position: LegendPosition) -> Self {
         self.legend_position = position;
         self
     }
 
-    pub fn with_legend_margin(mut self, margin: f64) -> Self {
+    pub const fn with_legend_margin(mut self, margin: f64) -> Self {
         self.legend_margin = margin;
         self
     }
 
     // --- Layout Defense ---
 
-    pub fn with_min_panel_size(mut self, size: f64) -> Self {
+    pub const fn with_min_panel_size(mut self, size: f64) -> Self {
         self.min_panel_size = size;
         self
     }
 
-    pub fn with_panel_defense_ratio(mut self, ratio: f64) -> Self {
+    pub const fn with_panel_defense_ratio(mut self, ratio: f64) -> Self {
         self.panel_defense_ratio = ratio;
         self
     }
 
-    pub fn with_axis_reserve_buffer(mut self, buffer: f64) -> Self {
+    pub const fn with_axis_reserve_buffer(mut self, buffer: f64) -> Self {
         self.axis_reserve_buffer = buffer;
         self
     }
 
     // --- Color & Palette Defaults ---
 
-    pub fn with_color_map(mut self, map: ColorMap) -> Self {
+    pub const fn with_color_map(mut self, map: ColorMap) -> Self {
         self.color_map = map;
         self
     }
@@ -343,7 +343,7 @@ impl Theme {
 
     // --- Facet Styling ---
     /// The font size for the facet labels (the text in the strip).
-    pub fn with_facet_label_size(mut self, size: f64) -> Self {
+    pub const fn with_facet_label_size(mut self, size: f64) -> Self {
         self.facet_label_size = size;
         self
     }
@@ -361,12 +361,12 @@ impl Theme {
     }
 
     /// The spacing between individual facet panels (both horizontal and vertical).
-    pub fn with_facet_spacing(mut self, spacing: f64) -> Self {
+    pub const fn with_facet_spacing(mut self, spacing: f64) -> Self {
         self.facet_spacing = spacing;
         self
     }
     /// The padding inside the facet strip.
-    pub fn with_facet_strip_padding(mut self, padding: f64) -> Self {
+    pub const fn with_facet_strip_padding(mut self, padding: f64) -> Self {
         self.facet_strip_padding = padding;
         self
     }
@@ -383,7 +383,7 @@ impl Theme {
         self
     }
 
-    pub fn with_grid_width(mut self, width: f64) -> Self {
+    pub const fn with_grid_width(mut self, width: f64) -> Self {
         self.grid_width = width;
         self
     }

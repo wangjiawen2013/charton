@@ -35,7 +35,7 @@ impl GlobalAesthetics {
     ///
     /// This is typically invoked after the "Scale Training" phase, where
     /// data domains from all layers have been aggregated.
-    pub fn new(
+    pub const fn new(
         color: Option<AestheticMapping>,
         shape: Option<AestheticMapping>,
         size: Option<AestheticMapping>,

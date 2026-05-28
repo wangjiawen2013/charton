@@ -66,7 +66,7 @@ impl DiscreteScale {
     }
 
     /// Returns the total number of categories in the domain.
-    pub fn count(&self) -> usize {
+    pub const fn count(&self) -> usize {
         self.domain.len()
     }
 }
