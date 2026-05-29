@@ -1,195 +1,188 @@
 // ============================================================================
-// (WGPU + SDF + Instancing) Scatter Plot Shader
+// (WGPU + Full Advanced SDF + One-Shot Instancing) Unified Master Shader
 // ============================================================================
 
-// 1. Data Structure Definitions
-// This structure must perfectly match the memory layout of the Rust GpuPoint struct.
 struct PointData {
-    x: f32,          // Center X position in screen pixels
-    y: f32,          // Center Y position in screen pixels
-    r: f32,          // Color Red channel   (0.0 to 1.0)
-    g: f32,          // Color Green channel (0.0 to 1.0)
-    b: f32,          // Color Blue channel  (0.0 to 1.0)
-    a: f32,          // Color Alpha channel (0.0 to 1.0)
-    radius: f32,     // Radius of the point in pixels
-    shape_type: f32, // 0.0 for Circle, 1.0 for Rounded Rectangle
+    x: f32,          // Center X pixel coordinate positions
+    y: f32,          // Center Y pixel coordinate positions
+    r: f32,          // Normalized red color channel profile scale
+    g: f32,          // Normalized green color channel profile scale
+    b: f32,          // Normalized blue color channel profile scale
+    a: f32,          // Blended transparency opacity scalar factor
+    radius: f32,     // Calculated bounding half-extent size radius
+    shape_type: f32, // Floating matching index indicating assigned PointShape ID
 };
 
-// 2. Resource Bindings (GPU Memory Slots)
-// Group 0, Binding 0: High-performance Storage Buffer containing all scatter points.
 @group(0) @binding(0)
 var<storage, read> points: array<PointData>;
 
-// Group 0, Binding 1: Global Uniform Buffer providing current canvas dimensions.
 struct Uniforms {
     screen_width: f32,
     screen_height: f32,
-    scale_factor: f32,  // HiDPI scaling factor
+    scale_factor: f32,  // High-DPI hardware pixel scaling coefficient
 }
 @group(0) @binding(1)
 var<uniform> uniforms: Uniforms;
 
-// 3. Pipeline Interstage Bridge (Vertex to Fragment)
 struct VertexOutput {
-    // Required built-in output for the GPU rasterizer (clipspace coordinates)
     @builtin(position) clip_position: vec4<f32>,
-    
-    // Flat interpolation ensures the instance ID is not blended across the quad
     @location(0) @interpolate(flat) instance_idx: u32,
-    
-    // Pass screen-space position (in physical pixels) for SDF calculation
     @location(1) screen_pos: vec2<f32>,
 };
 
 // ============================================================================
-// Signed Distance Field (SDF) Mathematical Functions
+// Analytical Geometric Signed Distance Fields (SDF Pure Math Implementation)
 // ============================================================================
 
-// Evaluates the distance to a perfect circle.
-// Returns negative inside the circle, zero on the edge, positive outside.
-fn sd_circle(p: vec2<f32>, radius: f32) -> f32 {
-    return length(p) - radius;
+// 0.0 - Circle Signed Distance Field Equation Matrix
+fn sd_circle(p: vec2<f32>, r: f32) -> f32 {
+    return length(p) - r;
 }
 
-// Evaluates the distance to a rounded box.
-// 'size' represents the half-extents (half width, half height) of the box.
-fn sd_rounded_box(p: vec2<f32>, size: vec2<f32>, radius: f32) -> f32 {
+// 1.0 - Square Signed Distance Field Equation (with subtle rounded corner profile)
+fn sd_square(p: vec2<f32>, size: vec2<f32>, radius: f32) -> f32 {
     let d = abs(p) - size + radius;
     return length(max(d, vec2<f32>(0.0))) + min(max(d.x, d.y), 0.0) - radius;
 }
 
+// 2.0 - Equilateral Triangle Signed Distance Field (Tip oriented upwards)
+fn sd_triangle(p: vec2<f32>, r: f32) -> f32 {
+    let k = sqrt(3.0);
+    let p_rot = vec2<f32>(p.x, -p.y); // Flip vertical orientation vector upwards
+    var p_mod = vec2<f32>(abs(p_rot.x) - r, p_rot.y + r / k);
+    if (p_mod.x + k * p_mod.y > 0.0) {
+        p_mod = vec2<f32>(p_mod.x - k * p_mod.y, -k * p_mod.x - p_mod.y) / 2.0;
+    }
+    p_mod.x -= clamp(p_mod.x, -2.0 * r, 0.0);
+    return -length(p_mod) * sign(p_mod.y);
+}
+
+// 3.0 - Regular 5-Pointed Geometric Star Signed Distance Field
+fn sd_star(p: vec2<f32>, r: f32) -> f32 {
+    let k1 = vec2<f32>(0.80901699437, -0.58778525229); // cos(18), sin(18)
+    let k2 = vec2<f32>(-0.30901699437, 0.95105651629); // cos(108), sin(108)
+    var p_mod = vec2<f32>(abs(p.x), p.y);
+    p_mod -= 2.0 * max(dot(k1, p_mod), 0.0) * k1;
+    p_mod -= 2.0 * max(dot(k2, p_mod), 0.0) * k2;
+    p_mod.x = abs(p_mod.x);
+    p_mod -= vec2<f32>(clamp(p_mod.x, r * 0.38196601125, r), r * 0.38196601125);
+    return length(p_mod) * sign(p_mod.y);
+}
+
+// 4.0 - Diamond / Rhombus Geometric Signed Distance Field
+fn sd_diamond(p: vec2<f32>, r: f32) -> f32 {
+    let p_abs = abs(p);
+    let h = clamp((-2.0 * p_abs.x + p_abs.y) / 2.0, -r, r);
+    let d = length(p_abs - vec2<f32>(r, 0.0) + vec2<f32>(1.0, -1.0) * h);
+    return d * sign(p_abs.x + p_abs.y - r);
+}
+
+// 5.0 - Regular Pentagon Geometric Signed Distance Field
+fn sd_pentagon(p: vec2<f32>, r: f32) -> f32 {
+    let k = vec3<f32>(0.809016994, 0.587785252, 0.324919696); // Constant axis symmetry constraints
+    var p_mod = vec2<f32>(abs(p.x), p.y);
+    p_mod -= 2.0 * min(dot(vec2<f32>(-k.x, k.y), p_mod), 0.0) * vec2<f32>(-k.x, k.y);
+    p_mod -= 2.0 * min(dot(vec2<f32>(k.x, k.y), p_mod), 0.0) * vec2<f32>(k.x, k.y);
+    p_mod -= vec2<f32>(clamp(p_mod.x, -r * k.z, r * k.z), r);
+    return length(p_mod) * sign(p_mod.y);
+}
+
+// 6.0 - Regular Hexagon Geometric Signed Distance Field
+fn sd_hexagon(p: vec2<f32>, r: f32) -> f32 {
+    let k = vec3<f32>(-0.866025404, 0.5, 0.577350269); // Hexagonal coordinate layout configurations
+    var p_mod = abs(p);
+    p_mod -= 2.0 * min(dot(k.xy, p_mod), 0.0) * k.xy;
+    p_mod -= vec2<f32>(clamp(p_mod.x, -k.z * r, k.z * r), r);
+    return length(p_mod) * sign(p_mod.y);
+}
+
+// 7.0 - Regular Octagon Geometric Signed Distance Field
+fn sd_octagon(p: vec2<f32>, r: f32) -> f32 {
+    let k = vec3<f32>(-0.9238795325, 0.3826834323, 0.4142135623); // Octagonal reflection symmetry vectors
+    var p_mod = abs(p);
+    p_mod -= 2.0 * min(dot(vec2<f32>(k.x, k.y), p_mod), 0.0) * vec2<f32>(k.x, k.y);
+    p_mod -= 2.0 * min(dot(vec2<f32>(k.y, k.x), p_mod), 0.0) * vec2<f32>(k.y, k.x);
+    p_mod -= vec2<f32>(clamp(p_mod.x, -k.z * r, k.z * r), r);
+    return length(p_mod) * sign(p_mod.y);
+}
+
 // ============================================================================
-// Vertex Shader Stage: Generates a quad (billboard) per point instance
+// Pipeline Lifecycle Architectures (Vertex + Fragment Core Entry Points)
 // ============================================================================
+
 @vertex
 fn vs_main(
     @builtin(vertex_index) v_idx: u32,
     @builtin(instance_index) i_idx: u32
 ) -> VertexOutput {
-    // Fetch the data for the current scatter point instance
     let p = points[i_idx];
     
-    // Generate local quad coordinates [-1.0, 1.0] dynamically based on vertex index
+    // Generates a structural quad bounding box mesh canvas layout utilizing standard Triangle Strip indices
     var pos = vec2<f32>(0.0, 0.0);
-    if (v_idx == 0u) { pos = vec2<f32>(-1.0, -1.0); } // Bottom-Left
-    if (v_idx == 1u) { pos = vec2<f32>( 1.0, -1.0); } // Bottom-Right
-    if (v_idx == 2u) { pos = vec2<f32>(-1.0,  1.0); } // Top-Left
-    if (v_idx == 3u) { pos = vec2<f32>( 1.0,  1.0); } // Top-Right
+    if (v_idx == 0u) { pos = vec2<f32>(-1.0, -1.0); } 
+    if (v_idx == 1u) { pos = vec2<f32>( 1.0, -1.0); } 
+    if (v_idx == 2u) { pos = vec2<f32>(-1.0,  1.0); } 
+    if (v_idx == 3u) { pos = vec2<f32>( 1.0,  1.0); } 
 
-    // Fix: Expand the bounding box for rounded rectangles (sqrt(2) ~= 1.415)
-    // to prevent the sharp corners of the rectangle from being clipped by the quad boundaries.
+    // Scale up structural quad dimensions for multi-sided polygons to prevent mathematical edge clipping
     var box_scale = 1.0;
     if (p.shape_type > 0.5) {
-        box_scale = 1.415; 
+        box_scale = 1.45; 
     }
 
-    // Scale the quad local position by radius and translate it to screen (x, y)
-    // Apply scale_factor transformation (similar to RasterBackend's Transform::from_scale)
     let scaled_pos = vec2<f32>(p.x, p.y) * uniforms.scale_factor;
     let final_pos = scaled_pos + pos * (p.radius * box_scale * uniforms.scale_factor);
     
-    // Transform screen pixel coordinates to WebGPU Normalized Device Coordinates [-1.0, 1.0]
-    // Note: Reverses the Y-axis because screen space is top-left, WebGPU is bottom-left.
-    // Use scaled dimensions for proper normalization (logical_size * scale_factor = physical_size)
     let scaled_width = uniforms.screen_width * uniforms.scale_factor;
     let scaled_height = uniforms.screen_height * uniforms.scale_factor;
     let x = (final_pos.x / scaled_width) * 2.0 - 1.0;
     let y = (1.0 - final_pos.y / scaled_height) * 2.0 - 1.0;
     
-    // Pack data into the bridge structure and pass to the fragment stage
     var out: VertexOutput;
     out.clip_position = vec4<f32>(x, y, 0.0, 1.0);
     out.instance_idx = i_idx;
-    out.screen_pos = final_pos;  // Pass physical pixel coordinates
+    out.screen_pos = final_pos;  
     return out;
 }
 
-// ============================================================================
-// Fragment Shader Stage: Math-based geometric clipping and coloring
-// ============================================================================
 @fragment
 fn fs_main(in: VertexOutput) -> @location(0) vec4<f32> {
-    // Retrieve the point's properties using the safely passed instance ID
     let p = points[in.instance_idx];
-    
-    // Calculate the pixel's relative offset vector from the center of the point
-    // Use screen-space coordinates (physical pixels) for correct SDF calculation
     let local_pos = in.screen_pos - vec2<f32>(p.x * uniforms.scale_factor, p.y * uniforms.scale_factor);
+    let scaled_radius = p.radius * uniforms.scale_factor;
     
     var dist: f32 = 0.0;
     
-    // Select the appropriate SDF specification manual
+    // High-performance Fragment branch execution matrix selector mapping the PointShape Enum fields
     if (p.shape_type < 0.5) {
-        // Scale radius to physical pixels for correct SDF calculation
-        dist = sd_circle(local_pos, p.radius * uniforms.scale_factor);
+        dist = sd_circle(local_pos, scaled_radius);
+    } else if (p.shape_type < 1.5) {
+        dist = sd_square(local_pos, vec2<f32>(scaled_radius), scaled_radius * 0.1);
+    } else if (p.shape_type < 2.5) {
+        dist = sd_triangle(local_pos, scaled_radius);
+    } else if (p.shape_type < 3.5) {
+        dist = sd_star(local_pos, scaled_radius);
+    } else if (p.shape_type < 4.5) {
+        dist = sd_diamond(local_pos, scaled_radius);
+    } else if (p.shape_type < 5.5) {
+        dist = sd_pentagon(local_pos, scaled_radius);
+    } else if (p.shape_type < 6.5) {
+        dist = sd_hexagon(local_pos, scaled_radius);
     } else {
-        // Assume a square aspect ratio; corner radius set to 20% of the half-size
-        let scaled_radius = p.radius * uniforms.scale_factor;
-        dist = sd_rounded_box(local_pos, vec2<f32>(scaled_radius), scaled_radius * 0.2);
+        dist = sd_octagon(local_pos, scaled_radius);
     }
     
-    // Hardware Anti-Aliasing:
-    // fwidth(dist) dynamically calculates the change rate between adjacent pixels,
-    // ensuring a crisp 1-pixel anti-aliasing filter regardless of display DPI / Retina screens.
+    // Single unified hardware anti-aliasing kernel block
     let edge = fwidth(dist);
     let alpha = 1.0 - smoothstep(-edge, edge, dist);
     
-    // Geometric Clipping: 
-    // Discard the fragment entirely if it falls outside the shape boundary
+    // Terminate alpha execution flows instantly to maximize hardware raster fill-rate parameters
     if (alpha <= 0.0) {
         discard;
     }
     
-    // Output final color mixed with the procedural anti-aliasing alpha mask
-    return vec4<f32>(p.r, p.g, p.b, p.a * alpha);
-}
-
-// ============================================================================
-// Custom Arbitrary Polygon Rendering Pipeline (Stars, Triangles, Hexagons)
-// ============================================================================
-
-/// Structure 1: Defines the layout of per-vertex data sent from the CPU.
-/// This must align byte-for-byte with the `GpuVertex` struct in Rust.
-struct PolygonInput {
-    /// The logical 2D coordinate of the vertex.
-    @location(0) pos: vec2<f32>,
-    /// The RGBA color of the vertex with pre-multiplied opacity.
-    @location(1) color: vec4<f32>,
-};
-
-/// Structure 2: The pipeline interface bridging the Vertex and Fragment stages.
-struct PolygonVertexOutput {
-    /// Normalized Device Coordinates (NDC) consumed by the hardware rasterizer.
-    @builtin(position) clip_position: vec4<f32>,
-    /// Interpolated color passed down to the fragment shader.
-    @location(0) color: vec4<f32>,
-};
-
-/// Dedicated binding group for polygon rendering, sharing global viewport parameters.
-@group(0) @binding(0)
-var<uniform> poly_uniforms: Uniforms; 
-
-/// Vertex Shader: Transforms custom 2D shape vertices into standard GPU clip space.
-@vertex
-fn vs_polygon(model: PolygonInput) -> PolygonVertexOutput {
-    var out: PolygonVertexOutput;
-    
-    // Convert logical coordinates to physical device pixels using HiDPI scale factor
-    let physical_pos = model.pos * poly_uniforms.scale_factor;
-    
-    // Map screen-space pixel coordinates into WebGPU standard NDC space (-1.0 to 1.0).
-    // Note: Inverts the Y axis because screen space is top-to-bottom, while NDC is bottom-to-top.
-    let nx = (physical_pos.x / poly_uniforms.screen_width) * 2.0 - 1.0;
-    let ny = 1.0 - (physical_pos.y / poly_uniforms.screen_height) * 2.0;
-    
-    out.clip_position = vec4<f32>(nx, ny, 0.0, 1.0);
-    out.color = model.color;
-    return out;
-}
-
-/// Fragment Shader: Rasterizes the internal fragments of the tessellated polygon.
-@fragment
-fn fs_polygon(in: PolygonVertexOutput) -> @location(0) vec4<f32> {
-    // Fill the surface uniformly with the interpolated vertex color
-    return in.color;
+    // Swap Red (R) and Blue (B) channels to align with the underlying BGRA texture format.
+    // This prevents color inversion (e.g., standard Tab10 Blue rendering as brown/orange)
+    // caused by the mismatch between RGBA shader inputs and BGRA hardware output targets.
+    return vec4<f32>(p.b, p.g, p.r, p.a * alpha);
 }
