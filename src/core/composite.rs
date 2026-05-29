@@ -1265,7 +1265,7 @@ impl LayeredChart {
         // 3. Initialize WGPU Instance and Surface targeting the Canvas
         let instance = wgpu::Instance::default();
         let surface = instance
-            .create_surface(&canvas)
+            .create_surface(wgpu::SurfaceTarget::Canvas(canvas))
             .map_err(|e| ChartonError::Render(format!("Failed to create WGPU surface: {}", e)))?;
 
         // 4. Request Adapter and Device (Asynchronous)
@@ -1276,10 +1276,10 @@ impl LayeredChart {
                 force_fallback_adapter: false,
             })
             .await
-            .ok_or_else(|| ChartonError::Render("Failed to find a suitable GPU adapter".into()))?;
+            .map_err(|e| ChartonError::Render(format!("Failed to request a suitable GPU adapter: {}", e)))?;
 
         let (device, queue) = adapter
-            .request_device(&wgpu::DeviceDescriptor::default(), None)
+            .request_device(&wgpu::DeviceDescriptor::default())
             .await
             .map_err(|e| ChartonError::Render(format!("Failed to request WGPU device: {}", e)))?;
 
@@ -1320,13 +1320,12 @@ impl LayeredChart {
 
         // Draw background
         use crate::core::layer::RectConfig;
-        use crate::visual::Color;
         backend.draw_rect(RectConfig {
             x: 0.0,
             y: 0.0,
-            width: display_width as f64,
-            height: display_height as f64,
-            fill: Color::from("#FFFFFF"),
+            width: display_width as f32,
+            height: display_height as f32,
+            fill: "#FFFFFF".into(),
             stroke: "none".into(),
             stroke_width: 0.0,
             opacity: 1.0,
@@ -1335,9 +1334,16 @@ impl LayeredChart {
         chart_instance.render(&mut backend)?;
 
         // FIX: Acquire the surface texture ONLY ONCE to prevent multi-borrow panics/timeouts
-        let surface_texture = surface.get_current_texture().map_err(|e| {
-            ChartonError::Render(format!("Failed to acquire next surface texture: {}", e))
-        })?;
+        let surface_texture = match surface.get_current_texture() {
+            wgpu::CurrentSurfaceTexture::Success(texture)
+            | wgpu::CurrentSurfaceTexture::Suboptimal(texture) => texture,
+            other => {
+                return Err(ChartonError::Render(format!(
+                    "Failed to acquire next surface texture: {:?}",
+                    other
+                )))
+            }
+        };
 
         let view = surface_texture
             .texture
