@@ -17,6 +17,7 @@ struct PointData {
     b: f32,
     a: f32,
     radius: f32,
+    shape_type: f32,
 };
 
 /// Single line segment data (draw_line: axis, grid, ticks, whiskers)
@@ -53,7 +54,7 @@ struct RectData {
 };
 
 /// Polygon data (draw_polygon: symmetric markers - triangle, hexagon, diamond, star)
-/// Matches GpuPoint layout: uses shape_type instead of sides
+/// Matches GpuPolygon layout: uses shape_type instead of sides
 struct PolygonData {
     x: f32,
     y: f32,
@@ -62,9 +63,9 @@ struct PolygonData {
     b: f32,
     a: f32,
     radius: f32,
-    shape_type: f32,   // Maps 1:1 to Rust PointShape enum via vertex count
-                       // 0.0=Circle, 1.0=Square, 2.0=Triangle, 3.0=Star,
-                       // 4.0=Diamond, 5.0=Pentagon, 6.0=Hexagon, 7.0=Octagon
+    shape_type: f32,   // Maps 1:1 to Rust WgpuBackend.draw_polygon()
+                       // 0.0=Circle(fallback), 1.0=Triangle, 2.0=Star,
+                       // 3.0=Diamond, 4.0=Pentagon, 5.0=Hexagon, 6.0=Octagon
 };
 
 /// Gradient rectangle data (draw_gradient_rect: heatmaps, themed panels)
@@ -127,7 +128,8 @@ struct PathOutput {
 
 struct RectOutput {
     @builtin(position) clip_pos: vec4<f32>,
-    @location(0) @interpolate(flat) instance_idx: u32,
+    @location(0) screen_pos: vec2<f32>,
+    @location(1) @interpolate(flat) instance_idx: u32,
 };
 
 struct PolygonOutput {
@@ -142,85 +144,94 @@ struct GradientRectOutput {
     @location(1) @interpolate(flat) instance_idx: u32,
 };
 
-// ---------------------------
-// SDF Helper Functions (For Primitives)
-// ---------------------------
-/// Signed distance function for perfect circle
+// ============================================================================
+// Analytical Geometric Signed Distance Fields (SDF Pure Math Implementation)
+// ============================================================================
+
+// 0.0 - Circle Signed Distance Field Equation Matrix
 fn sd_circle(p: vec2<f32>, r: f32) -> f32 {
     return length(p) - r;
 }
 
-/// Signed distance function for square (axis-aligned)
-fn sd_square(p: vec2<f32>, r: f32) -> f32 {
-    let d = abs(p) - vec2(r, r);
-    // Fixed: use vec2(0.0) instead of scalar 0.0 for type consistency
-    return length(max(d, vec2(0.0, 0.0))) + min(max(d.x, d.y), 0.0);
+// 1.0 - Square Signed Distance Field Equation (optimized with corner radius support)
+fn sd_square(p: vec2<f32>, size: vec2<f32>, corner_radius: f32) -> f32 {
+    let d = abs(p) - size + corner_radius;
+    return length(max(d, vec2<f32>(0.0, 0.0))) + min(max(d.x, d.y), 0.0) - corner_radius;
 }
 
-/// Signed distance function for diamond (rotated square)
-fn sd_diamond(p: vec2<f32>, r: f32) -> f32 {
-    return abs(p.x) + abs(p.y) - r;
-}
-
-/// Signed distance function for equilateral triangle
+// 2.0 - Equilateral Triangle Signed Distance Field (corrected orientation and clipping)
 fn sd_triangle(p: vec2<f32>, r: f32) -> f32 {
-    let k = vec2(-0.8660254, 0.5);
-    var pt = abs(p);
-    pt -= 2.0 * min(dot(pt, k), 0.0) * k;
-    pt -= vec2(clamp(pt.x, -r * k.y, r * k.y), r);
-    return length(pt) * sign(pt.y);
+    const k: f32 = 1.73205080757; // sqrt(3.0)
+    // Flip Y axis vertically to ensure triangle points upward, matching visual expectations
+    var p_rot = vec2<f32>(p.x, -p.y);
+    var p_mod = vec2<f32>(abs(p_rot.x) - r, p_rot.y + r / k);
+    
+    if (p_mod.x + k * p_mod.y > 0.0) {
+        p_mod = vec2<f32>(p_mod.x - k * p_mod.y, -k * p_mod.x - p_mod.y) / 2.0;
+    }
+    // Corrected clamp range to prevent shape distortion
+    p_mod.x = clamp(p_mod.x, -2.0 * r, 0.0);
+    return -length(p_mod) * sign(p_mod.y);
 }
 
-/// Signed distance function for 5-pointed star (matches Rust calculate_star)
+// 3.0 - Regular 5-Pointed Geometric Star Signed Distance Field
 fn sd_star(p: vec2<f32>, r: f32) -> f32 {
-    let k1 = vec2(-0.9511, 0.3090);
-    let k2 = vec2(0.5878, 0.8090);
-    var pt = abs(p);
-    pt -= 2.0 * min(dot(pt, k1), 0.0) * k1;
-    pt -= 2.0 * min(dot(pt, k2), 0.0) * k2;
-    pt -= vec2(clamp(pt.x, -r * 0.4, r * 0.4), r * 0.85);
-    return length(pt) * sign(pt.y);
+    let k1 = vec2<f32>(0.80901699437, -0.58778525229); // cos(18°), sin(18°)
+    let k2 = vec2<f32>(-0.30901699437, 0.95105651629); // cos(108°), sin(108°)
+    var p_mod = vec2<f32>(abs(p.x), p.y);
+    p_mod -= 2.0 * max(dot(k1, p_mod), 0.0) * k1;
+    p_mod -= 2.0 * max(dot(k2, p_mod), 0.0) * k2;
+    p_mod.x = abs(p_mod.x);
+    p_mod -= vec2<f32>(clamp(p_mod.x, r * 0.38196601125, r), r * 0.38196601125);
+    return length(p_mod) * sign(p_mod.y);
 }
 
-/// Signed distance function for regular pentagon
+// 4.0 - Diamond / Rhombus Geometric Signed Distance Field
+fn sd_diamond(p: vec2<f32>, r: f32) -> f32 {
+    let p_abs = abs(p);
+    let h = clamp((-2.0 * p_abs.x + p_abs.y) / 2.0, -r, r);
+    let d = length(p_abs - vec2<f32>(r, 0.0) + vec2<f32>(1.0, -1.0) * h);
+    return d * sign(p_abs.x + p_abs.y - r);
+}
+
+// 5.0 - Regular Pentagon Geometric Signed Distance Field
 fn sd_pentagon(p: vec2<f32>, r: f32) -> f32 {
-    let k = vec2(-0.6882, 0.7265);
-    var pt = abs(p);
-    pt -= 2.0 * min(dot(pt, k), 0.0) * k;
-    pt -= vec2(clamp(pt.x, -r * k.y, r * k.y), r);
-    return length(pt) * sign(pt.y);
+    let k = vec3<f32>(0.809016994, 0.587785252, 0.324919696); // Constant axis symmetry constraints
+    var p_mod = vec2<f32>(abs(p.x), p.y);
+    p_mod -= 2.0 * min(dot(vec2<f32>(-k.x, k.y), p_mod), 0.0) * vec2<f32>(-k.x, k.y);
+    p_mod -= 2.0 * min(dot(vec2<f32>(k.x, k.y), p_mod), 0.0) * vec2<f32>(k.x, k.y);
+    p_mod -= vec2<f32>(clamp(p_mod.x, -r * k.z, r * k.z), r);
+    return length(p_mod) * sign(p_mod.y);
 }
 
-/// Signed distance function for regular hexagon
+// 6.0 - Regular Hexagon Geometric Signed Distance Field
 fn sd_hexagon(p: vec2<f32>, r: f32) -> f32 {
-    let k = vec2(-0.8660, 0.5);
-    let kk = vec2(0.8660, 0.5);
-    var pt = abs(p);
-    pt -= 2.0 * min(dot(pt, k), 0.0) * k;
-    pt -= 2.0 * min(dot(pt, kk), 0.0) * kk;
-    pt -= vec2(clamp(pt.x, -r * 0.5, r * 0.5), r);
-    return length(pt) * sign(pt.y);
+    let k = vec3<f32>(-0.866025404, 0.5, 0.577350269); // Hexagonal coordinate layout configurations
+    var p_mod = abs(p);
+    p_mod -= 2.0 * min(dot(k.xy, p_mod), 0.0) * k.xy;
+    p_mod -= vec2<f32>(clamp(p_mod.x, -k.z * r, k.z * r), r);
+    return length(p_mod) * sign(p_mod.y);
 }
 
-/// Signed distance function for regular octagon
+// 7.0 - Regular Octagon Geometric Signed Distance Field
 fn sd_octagon(p: vec2<f32>, r: f32) -> f32 {
-    let s = vec2(0.7071, 0.7071);
-    var pt = abs(p);
-    pt -= 2.0 * min(dot(pt, s), 0.0) * s;
-    pt -= vec2(clamp(pt.x, -r * 0.4142, r * 0.4142), r);
-    return length(pt) * sign(pt.y);
+    let k = vec3<f32>(-0.9238795325, 0.3826834323, 0.4142135623); // Octagonal reflection symmetry vectors
+    var p_mod = abs(p);
+    p_mod -= 2.0 * min(dot(vec2<f32>(k.x, k.y), p_mod), 0.0) * vec2<f32>(k.x, k.y);
+    p_mod -= 2.0 * min(dot(vec2<f32>(k.y, k.x), p_mod), 0.0) * vec2<f32>(k.y, k.x);
+    p_mod -= vec2<f32>(clamp(p_mod.x, -k.z * r, k.z * r), r);
+    return length(p_mod) * sign(p_mod.y);
 }
 
-/// Unified shape selector using shape_type (1:1 match with Rust GpuPoint)
+/// Unified shape selector using shape_type (1:1 match with Rust WgpuBackend)
 fn sd_shape(p: vec2<f32>, radius: f32, shape_type: f32) -> f32 {
     if (shape_type == 0.0) { return sd_circle(p, radius); }
-    if (shape_type == 1.0) { return sd_square(p, radius); }
-    if (shape_type == 2.0) { return sd_triangle(p, radius); }
-    if (shape_type == 3.0) { return sd_star(p, radius); }
-    if (shape_type == 4.0) { return sd_diamond(p, radius); }
-    if (shape_type == 5.0) { return sd_pentagon(p, radius); }
-    if (shape_type == 6.0) { return sd_hexagon(p, radius); }
-    if (shape_type == 7.0) { return sd_octagon(p, radius); }
+    if (shape_type == 1.0) { return sd_triangle(p, radius); }
+    if (shape_type == 2.0) { return sd_star(p, radius); }
+    if (shape_type == 3.0) { return sd_diamond(p, radius); }
+    if (shape_type == 4.0) { return sd_pentagon(p, radius); }
+    if (shape_type == 5.0) { return sd_hexagon(p, radius); }
+    if (shape_type == 6.0) { return sd_octagon(p, radius); }
     
     // Fallback to circle for unknown shape types
     return sd_circle(p, radius);
@@ -341,21 +352,25 @@ fn rect_vs(@builtin(vertex_index) vi: u32, @builtin(instance_index) ii: u32) -> 
     let r = rects[ii];
     var quad = vec2<f32>();
     switch vi {
-        case 0u: { quad = vec2(0.0, 0.0); }
-        case 1u: { quad = vec2(1.0, 0.0); }
-        case 2u: { quad = vec2(0.0, 1.0); }
+        case 0u: { quad = vec2(-1.0, -1.0); }
+        case 1u: { quad = vec2(1.0, -1.0); }
+        case 2u: { quad = vec2(-1.0, 1.0); }
         case 3u: { quad = vec2(1.0, 1.0); }
         default: { quad = vec2(0.0); }
     }
 
     let scale = uniforms.scale_factor;
-    let pos = vec2(r.x, r.y) * scale + quad * vec2(r.width, r.height) * scale;
+    let center = vec2(r.x + r.width/2.0, r.y + r.height/2.0) * scale;
+    let half_size = vec2(r.width/2.0, r.height/2.0) * scale;
+    let final_pos = center + quad * half_size * 1.5;
+    
     let sw = uniforms.screen_width * scale;
     let sh = uniforms.screen_height * scale;
-    let ndc = vec4((pos.x/sw)*2.0-1.0, 1.0-(pos.y/sh)*2.0, 0.0, 1.0);
+    let ndc = vec4((final_pos.x/sw)*2.0-1.0, 1.0-(final_pos.y/sh)*2.0, 0.0, 1.0);
 
     var out: RectOutput;
     out.clip_pos = ndc;
+    out.screen_pos = final_pos;
     out.instance_idx = ii;
     return out;
 }
@@ -363,7 +378,20 @@ fn rect_vs(@builtin(vertex_index) vi: u32, @builtin(instance_index) ii: u32) -> 
 @fragment
 fn rect_fs(in: RectOutput) -> @location(0) vec4<f32> {
     let r = rects[in.instance_idx];
-    return vec4(r.r, r.g, r.b, r.a);
+    let scale = uniforms.scale_factor;
+    let center = vec2(r.x + r.width/2.0, r.y + r.height/2.0) * scale;
+    let local = in.screen_pos - center;
+    let half_size = vec2(r.width/2.0, r.height/2.0) * scale;
+    let corner_radius = r.corner_radius * scale;
+
+    let dist = sd_square(local, half_size, corner_radius);
+    
+    // Smooth anti-aliasing
+    let aa = fwidth(dist);
+    let alpha = 1.0 - smoothstep(-aa, aa, dist);
+    if (alpha <= 0.01) { discard; }
+    
+    return vec4(r.r, r.g, r.b, r.a * alpha);
 }
 
 // ---------------------------
