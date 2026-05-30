@@ -21,7 +21,6 @@ pub struct GpuPoint {
     pub b: f32,
     pub a: f32,
     pub radius: f32,
-    pub shape_type: f32, // 0:圆 1:方 2:三角 3:星 4:菱形 5:五边形 6:六边形 7:八边形
 }
 
 /// 线图元的GPU数据（对应WGSL的LineData）
@@ -37,6 +36,35 @@ pub struct GpuLine {
     pub b: f32,
     pub a: f32,
     pub width: f32,
+}
+
+/// 矩形图元的GPU数据（对应WGSL的RectData）
+#[repr(C)]
+#[derive(Copy, Clone, Debug, Pod, Zeroable)]
+pub struct GpuRect {
+    pub x: f32,
+    pub y: f32,
+    pub width: f32,
+    pub height: f32,
+    pub r: f32,
+    pub g: f32,
+    pub b: f32,
+    pub a: f32,
+    pub corner_radius: f32,
+}
+
+/// 多边形图元的GPU数据（对应WGSL的PolygonData）
+#[repr(C)]
+#[derive(Copy, Clone, Debug, Pod, Zeroable)]
+pub struct GpuPolygon {
+    pub x: f32,
+    pub y: f32,
+    pub r: f32,
+    pub g: f32,
+    pub b: f32,
+    pub a: f32,
+    pub radius: f32,
+    pub sides: f32,
 }
 
 /// 渐变矩形的GPU数据（对应WGSL的GradientRectData）
@@ -150,11 +178,23 @@ pub struct WgpuBackend {
     main_bind_group: wgpu::BindGroup,
     main_bind_group_layout: wgpu::BindGroupLayout,
 
-    // SDF图元（圆/矩形/多边形）相关
+    // SDF图元（圆）相关
     sdf_pipeline: wgpu::RenderPipeline,
     sdf_buffer: wgpu::Buffer,
     pending_sdf_points: Vec<GpuPoint>,
     uploaded_sdf_count: u32,
+
+    // 矩形图元相关
+    rect_pipeline: wgpu::RenderPipeline,
+    rect_buffer: wgpu::Buffer,
+    pending_rects: Vec<GpuRect>,
+    uploaded_rect_count: u32,
+
+    // 多边形图元相关
+    polygon_pipeline: wgpu::RenderPipeline,
+    polygon_buffer: wgpu::Buffer,
+    pending_polygons: Vec<GpuPolygon>,
+    uploaded_polygon_count: u32,
 
     // 线图元相关
     line_pipeline: wgpu::RenderPipeline,
@@ -256,9 +296,9 @@ impl WgpuBackend {
 
         // 创建初始主绑定组（使用占位缓冲），随后在 flush 时会用真实缓冲替换
         let dummy_circles = Self::create_dummy_buffer::<GpuPoint>(&device);
+        let dummy_rects = Self::create_dummy_buffer::<GpuRect>(&device);
+        let dummy_polys = Self::create_dummy_buffer::<GpuPolygon>(&device);
         let dummy_lines = Self::create_dummy_buffer::<GpuLine>(&device);
-        let dummy_rects = Self::create_dummy_buffer::<GpuPoint>(&device);
-        let dummy_polys = Self::create_dummy_buffer::<GpuPoint>(&device);
         let dummy_grad_rects = Self::create_dummy_buffer::<GpuGradientRect>(&device);
 
         let main_bind_group = device.create_bind_group(&wgpu::BindGroupDescriptor {
@@ -277,12 +317,16 @@ impl WgpuBackend {
         // 创建所有渲染管线（使用 main_bind_group_layout 作为 group0 layout）
         let (_sdf_bg_layout, sdf_pipeline) = Self::create_sdf_pipeline(&device, &shader, &main_bind_group_layout);
         let (_line_bg_layout, line_pipeline) = Self::create_line_pipeline(&device, &shader, &main_bind_group_layout);
+        let rect_pipeline = Self::create_rect_pipeline(&device, &shader, &main_bind_group_layout);
+        let polygon_pipeline = Self::create_polygon_pipeline(&device, &shader, &main_bind_group_layout);
         let path_pipeline = Self::create_path_pipeline(&device, &shader, &main_bind_group_layout);
         let (_grad_bg_layout, gradient_rect_pipeline) = Self::create_gradient_rect_pipeline(&device, &shader, &main_bind_group_layout);
         let (_text_bg_layout, text_pipeline, text_atlas_texture, text_atlas_view, text_atlas_sampler) = Self::create_text_pipeline(&device, &shader, &main_bind_group_layout).await;
 
         // 创建占位缓冲区
         let sdf_buffer = Self::create_dummy_buffer::<GpuPoint>(&device);
+        let rect_buffer = Self::create_dummy_buffer::<GpuRect>(&device);
+        let polygon_buffer = Self::create_dummy_buffer::<GpuPolygon>(&device);
         let line_buffer = Self::create_dummy_buffer::<GpuLine>(&device);
         let path_vertex_buffer = Self::create_dummy_buffer::<PathVertex>(&device);
         let path_index_buffer = Self::create_dummy_buffer::<u16>(&device);
@@ -301,6 +345,16 @@ impl WgpuBackend {
             sdf_buffer,
             pending_sdf_points: Vec::with_capacity(30_000),
             uploaded_sdf_count: 0,
+
+            rect_pipeline,
+            rect_buffer,
+            pending_rects: Vec::with_capacity(10_000),
+            uploaded_rect_count: 0,
+
+            polygon_pipeline,
+            polygon_buffer,
+            pending_polygons: Vec::with_capacity(10_000),
+            uploaded_polygon_count: 0,
 
             line_pipeline,
             line_buffer,
@@ -482,6 +536,98 @@ impl WgpuBackend {
         });
 
         (line_bind_group_layout, pipeline)
+    }
+
+    fn create_rect_pipeline(
+        device: &wgpu::Device,
+        shader: &wgpu::ShaderModule,
+        main_layout: &wgpu::BindGroupLayout,
+    ) -> wgpu::RenderPipeline {
+        let pipeline_layout = device.create_pipeline_layout(&wgpu::PipelineLayoutDescriptor {
+            label: Some("Rect Pipeline Layout"),
+            bind_group_layouts: &[Some(main_layout)],
+            immediate_size: 0,
+        });
+
+        device.create_render_pipeline(&wgpu::RenderPipelineDescriptor {
+            label: Some("Rect Render Pipeline"),
+            layout: Some(&pipeline_layout),
+            vertex: wgpu::VertexState {
+                module: shader,
+                entry_point: Some("rect_vs"),
+                buffers: &[],
+                compilation_options: wgpu::PipelineCompilationOptions::default(),
+            },
+            fragment: Some(wgpu::FragmentState {
+                module: shader,
+                entry_point: Some("rect_fs"),
+                targets: &[Some(wgpu::ColorTargetState {
+                    format: wgpu::TextureFormat::Rgba8Unorm,
+                    blend: Some(wgpu::BlendState::ALPHA_BLENDING),
+                    write_mask: wgpu::ColorWrites::ALL,
+                })],
+                compilation_options: wgpu::PipelineCompilationOptions::default(),
+            }),
+            primitive: wgpu::PrimitiveState {
+                topology: wgpu::PrimitiveTopology::TriangleStrip,
+                strip_index_format: None,
+                front_face: wgpu::FrontFace::Ccw,
+                cull_mode: None,
+                unclipped_depth: false,
+                polygon_mode: wgpu::PolygonMode::Fill,
+                conservative: false,
+            },
+            depth_stencil: None,
+            multisample: wgpu::MultisampleState::default(),
+            multiview_mask: None,
+            cache: None,
+        })
+    }
+
+    fn create_polygon_pipeline(
+        device: &wgpu::Device,
+        shader: &wgpu::ShaderModule,
+        main_layout: &wgpu::BindGroupLayout,
+    ) -> wgpu::RenderPipeline {
+        let pipeline_layout = device.create_pipeline_layout(&wgpu::PipelineLayoutDescriptor {
+            label: Some("Polygon Pipeline Layout"),
+            bind_group_layouts: &[Some(main_layout)],
+            immediate_size: 0,
+        });
+
+        device.create_render_pipeline(&wgpu::RenderPipelineDescriptor {
+            label: Some("Polygon Render Pipeline"),
+            layout: Some(&pipeline_layout),
+            vertex: wgpu::VertexState {
+                module: shader,
+                entry_point: Some("polygon_vs"),
+                buffers: &[],
+                compilation_options: wgpu::PipelineCompilationOptions::default(),
+            },
+            fragment: Some(wgpu::FragmentState {
+                module: shader,
+                entry_point: Some("polygon_fs"),
+                targets: &[Some(wgpu::ColorTargetState {
+                    format: wgpu::TextureFormat::Rgba8Unorm,
+                    blend: Some(wgpu::BlendState::ALPHA_BLENDING),
+                    write_mask: wgpu::ColorWrites::ALL,
+                })],
+                compilation_options: wgpu::PipelineCompilationOptions::default(),
+            }),
+            primitive: wgpu::PrimitiveState {
+                topology: wgpu::PrimitiveTopology::TriangleStrip,
+                strip_index_format: None,
+                front_face: wgpu::FrontFace::Ccw,
+                cull_mode: None,
+                unclipped_depth: false,
+                polygon_mode: wgpu::PolygonMode::Fill,
+                conservative: false,
+            },
+            depth_stencil: None,
+            multisample: wgpu::MultisampleState::default(),
+            multiview_mask: None,
+            cache: None,
+        })
     }
 
     fn create_path_pipeline(
@@ -700,6 +846,20 @@ struct Out { @builtin(position) clip_pos: vec4<f32>, @location(0) color: vec4<f3
             self.uploaded_sdf_count = points.len() as u32;
         }
 
+        // 更新矩形缓冲区
+        if !self.pending_rects.is_empty() {
+            let rects = std::mem::take(&mut self.pending_rects);
+            self.rect_buffer = self.create_buffer(&rects);
+            self.uploaded_rect_count = rects.len() as u32;
+        }
+
+        // 更新多边形缓冲区
+        if !self.pending_polygons.is_empty() {
+            let polygons = std::mem::take(&mut self.pending_polygons);
+            self.polygon_buffer = self.create_buffer(&polygons);
+            self.uploaded_polygon_count = polygons.len() as u32;
+        }
+
         // 更新线缓冲区
         if !self.pending_lines.is_empty() {
             let lines = std::mem::take(&mut self.pending_lines);
@@ -733,8 +893,8 @@ struct Out { @builtin(position) clip_pos: vec4<f32>, @location(0) color: vec4<f3
             entries: &[
                 wgpu::BindGroupEntry { binding: 0, resource: wgpu::BindingResource::Buffer(self.sdf_buffer.as_entire_buffer_binding()) },
                 wgpu::BindGroupEntry { binding: 1, resource: wgpu::BindingResource::Buffer(self.line_buffer.as_entire_buffer_binding()) },
-                wgpu::BindGroupEntry { binding: 2, resource: wgpu::BindingResource::Buffer(self.sdf_buffer.as_entire_buffer_binding()) },
-                wgpu::BindGroupEntry { binding: 3, resource: wgpu::BindingResource::Buffer(self.sdf_buffer.as_entire_buffer_binding()) },
+                wgpu::BindGroupEntry { binding: 2, resource: wgpu::BindingResource::Buffer(self.rect_buffer.as_entire_buffer_binding()) },
+                wgpu::BindGroupEntry { binding: 3, resource: wgpu::BindingResource::Buffer(self.polygon_buffer.as_entire_buffer_binding()) },
                 wgpu::BindGroupEntry { binding: 4, resource: wgpu::BindingResource::Buffer(self.gradient_rect_buffer.as_entire_buffer_binding()) },
                 wgpu::BindGroupEntry { binding: 5, resource: wgpu::BindingResource::Buffer(self.uniform_buffer.as_entire_buffer_binding()) },
             ],
@@ -768,11 +928,25 @@ struct Out { @builtin(position) clip_pos: vec4<f32>, @location(0) color: vec4<f3
                 multiview_mask: None,
             });
 
-            // 渲染SDF图元
+            // 渲染SDF图元（圆）
             if self.uploaded_sdf_count > 0 {
                 rpass.set_pipeline(&self.sdf_pipeline);
                 rpass.set_bind_group(0, &self.main_bind_group, &[]);
                 rpass.draw(0..4, 0..self.uploaded_sdf_count);
+            }
+
+            // 渲染矩形图元
+            if self.uploaded_rect_count > 0 {
+                rpass.set_pipeline(&self.rect_pipeline);
+                rpass.set_bind_group(0, &self.main_bind_group, &[]);
+                rpass.draw(0..4, 0..self.uploaded_rect_count);
+            }
+
+            // 渲染多边形图元
+            if self.uploaded_polygon_count > 0 {
+                rpass.set_pipeline(&self.polygon_pipeline);
+                rpass.set_bind_group(0, &self.main_bind_group, &[]);
+                rpass.draw(0..4, 0..self.uploaded_polygon_count);
             }
 
             // 渲染线图元
@@ -833,21 +1007,21 @@ impl RenderBackend for WgpuBackend {
             b: rgba[2],
             a: rgba[3] * config.opacity as f32,
             radius: config.radius as f32,
-            shape_type: 0.0,
         });
     }
 
     fn draw_rect(&mut self, config: RectConfig) {
         let rgba = config.fill.rgba();
-        self.pending_sdf_points.push(GpuPoint {
-            x: (config.x + config.width / 2.0) as f32,
-            y: (config.y + config.height / 2.0) as f32,
+        self.pending_rects.push(GpuRect {
+            x: config.x as f32,
+            y: config.y as f32,
+            width: config.width as f32,
+            height: config.height as f32,
             r: rgba[0],
             g: rgba[1],
             b: rgba[2],
             a: rgba[3] * config.opacity as f32,
-            radius: (config.width / 2.0) as f32,
-            shape_type: 1.0,
+            corner_radius: 0.0,
         });
     }
 
@@ -879,16 +1053,16 @@ impl RenderBackend for WgpuBackend {
             }
         }
 
-        let shape_type = match vertex_count {
-            3 => 2.0,
-            4 => 1.0,
+        let sides = match vertex_count {
+            3 => 3.0,
+            4 => 4.0,
             5 => 5.0,
             6 => 6.0,
-            8 => 7.0,
-            _ => 0.0,
+            8 => 8.0,
+            _ => 4.0,
         };
 
-        self.pending_sdf_points.push(GpuPoint {
+        self.pending_polygons.push(GpuPolygon {
             x: cx,
             y: cy,
             r: fill_color[0],
@@ -896,7 +1070,7 @@ impl RenderBackend for WgpuBackend {
             b: fill_color[2],
             a: fill_color[3] * alpha,
             radius: max_r,
-            shape_type,
+            sides,
         });
     }
 
