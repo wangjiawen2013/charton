@@ -52,7 +52,8 @@ struct RectData {
     corner_radius: f32,
 };
 
-/// Polygon data (draw_polygon: symmetric markers - triangle, hexagon, diamond)
+/// Polygon data (draw_polygon: symmetric markers - triangle, hexagon, diamond, star)
+/// Matches GpuPoint layout: uses shape_type instead of sides
 struct PolygonData {
     x: f32,
     y: f32,
@@ -61,7 +62,9 @@ struct PolygonData {
     b: f32,
     a: f32,
     radius: f32,
-    sides: f32,        // 3=triangle, 4=square, 5=pentagon, 6=hexagon
+    shape_type: f32,   // Maps 1:1 to Rust PointShape enum via vertex count
+                       // 0.0=Circle, 1.0=Square, 2.0=Triangle, 3.0=Star,
+                       // 4.0=Diamond, 5.0=Pentagon, 6.0=Hexagon, 7.0=Octagon
 };
 
 /// Gradient rectangle data (draw_gradient_rect: heatmaps, themed panels)
@@ -142,17 +145,85 @@ struct GradientRectOutput {
 // ---------------------------
 // SDF Helper Functions (For Primitives)
 // ---------------------------
+/// Signed distance function for perfect circle
 fn sd_circle(p: vec2<f32>, r: f32) -> f32 {
     return length(p) - r;
 }
 
-fn sd_regular_polygon(p: vec2<f32>, r: f32, sides: f32) -> f32 {
-    let pi = 3.14159265359;
-    let angle = 2.0 * pi / sides;
-    let a = atan2(p.y, p.x) + pi;
-    let sector = floor(0.5 + a / angle) * angle - a;
-    let seg = vec2(cos(sector), sin(sector)) * length(p);
-    return length(seg - vec2(clamp(seg.x, -r, r), 0.0)) * sign(seg.y - r);
+/// Signed distance function for square (axis-aligned)
+fn sd_square(p: vec2<f32>, r: f32) -> f32 {
+    let d = abs(p) - vec2(r, r);
+    // Fixed: use vec2(0.0) instead of scalar 0.0 for type consistency
+    return length(max(d, vec2(0.0, 0.0))) + min(max(d.x, d.y), 0.0);
+}
+
+/// Signed distance function for diamond (rotated square)
+fn sd_diamond(p: vec2<f32>, r: f32) -> f32 {
+    return abs(p.x) + abs(p.y) - r;
+}
+
+/// Signed distance function for equilateral triangle
+fn sd_triangle(p: vec2<f32>, r: f32) -> f32 {
+    let k = vec2(-0.8660254, 0.5);
+    var pt = abs(p);
+    pt -= 2.0 * min(dot(pt, k), 0.0) * k;
+    pt -= vec2(clamp(pt.x, -r * k.y, r * k.y), r);
+    return length(pt) * sign(pt.y);
+}
+
+/// Signed distance function for 5-pointed star (matches Rust calculate_star)
+fn sd_star(p: vec2<f32>, r: f32) -> f32 {
+    let k1 = vec2(-0.9511, 0.3090);
+    let k2 = vec2(0.5878, 0.8090);
+    var pt = abs(p);
+    pt -= 2.0 * min(dot(pt, k1), 0.0) * k1;
+    pt -= 2.0 * min(dot(pt, k2), 0.0) * k2;
+    pt -= vec2(clamp(pt.x, -r * 0.4, r * 0.4), r * 0.85);
+    return length(pt) * sign(pt.y);
+}
+
+/// Signed distance function for regular pentagon
+fn sd_pentagon(p: vec2<f32>, r: f32) -> f32 {
+    let k = vec2(-0.6882, 0.7265);
+    var pt = abs(p);
+    pt -= 2.0 * min(dot(pt, k), 0.0) * k;
+    pt -= vec2(clamp(pt.x, -r * k.y, r * k.y), r);
+    return length(pt) * sign(pt.y);
+}
+
+/// Signed distance function for regular hexagon
+fn sd_hexagon(p: vec2<f32>, r: f32) -> f32 {
+    let k = vec2(-0.8660, 0.5);
+    let kk = vec2(0.8660, 0.5);
+    var pt = abs(p);
+    pt -= 2.0 * min(dot(pt, k), 0.0) * k;
+    pt -= 2.0 * min(dot(pt, kk), 0.0) * kk;
+    pt -= vec2(clamp(pt.x, -r * 0.5, r * 0.5), r);
+    return length(pt) * sign(pt.y);
+}
+
+/// Signed distance function for regular octagon
+fn sd_octagon(p: vec2<f32>, r: f32) -> f32 {
+    let s = vec2(0.7071, 0.7071);
+    var pt = abs(p);
+    pt -= 2.0 * min(dot(pt, s), 0.0) * s;
+    pt -= vec2(clamp(pt.x, -r * 0.4142, r * 0.4142), r);
+    return length(pt) * sign(pt.y);
+}
+
+/// Unified shape selector using shape_type (1:1 match with Rust GpuPoint)
+fn sd_shape(p: vec2<f32>, radius: f32, shape_type: f32) -> f32 {
+    if (shape_type == 0.0) { return sd_circle(p, radius); }
+    if (shape_type == 1.0) { return sd_square(p, radius); }
+    if (shape_type == 2.0) { return sd_triangle(p, radius); }
+    if (shape_type == 3.0) { return sd_star(p, radius); }
+    if (shape_type == 4.0) { return sd_diamond(p, radius); }
+    if (shape_type == 5.0) { return sd_pentagon(p, radius); }
+    if (shape_type == 6.0) { return sd_hexagon(p, radius); }
+    if (shape_type == 7.0) { return sd_octagon(p, radius); }
+    
+    // Fallback to circle for unknown shape types
+    return sd_circle(p, radius);
 }
 
 // ---------------------------
@@ -190,8 +261,11 @@ fn circle_fs(in: CircleOutput) -> @location(0) vec4<f32> {
     let r = circle.radius * uniforms.scale_factor;
     let dist = sd_circle(local, r);
     
-    let alpha = 1.0 - smoothstep(-fwidth(dist), fwidth(dist), dist);
-    if (alpha <= 0.0) { discard; }
+    // Smooth anti-aliasing
+    let aa = fwidth(dist);
+    let alpha = 1.0 - smoothstep(-aa, aa, dist);
+    if (alpha <= 0.01) { discard; }
+    
     return vec4(circle.r, circle.g, circle.b, circle.a * alpha);
 }
 
@@ -294,6 +368,8 @@ fn rect_fs(in: RectOutput) -> @location(0) vec4<f32> {
 
 // ---------------------------
 // 5. Polygon Pipeline (draw_polygon: Symmetric Markers)
+// COMPLETELY REVISED: uses shape_type instead of sides, supports Star/Diamond/Triangle
+// Matches 1:1 with Rust WgpuBackend.draw_polygon() implementation
 // ---------------------------
 @vertex
 fn polygon_vs(@builtin(vertex_index) vi: u32, @builtin(instance_index) ii: u32) -> PolygonOutput {
@@ -325,10 +401,16 @@ fn polygon_fs(in: PolygonOutput) -> @location(0) vec4<f32> {
     let poly = polygons[in.instance_idx];
     let local = in.screen_pos - vec2(poly.x, poly.y) * uniforms.scale_factor;
     let r = poly.radius * uniforms.scale_factor;
-    let dist = sd_regular_polygon(local, r, poly.sides);
-    
-    let alpha = 1.0 - smoothstep(-fwidth(dist), fwidth(dist), dist);
-    if (alpha <= 0.0) { discard; }
+
+    // Render symmetric marker using shape_type (no sides parameter)
+    // Fully compliant with Rust backend: Triangle, Star, Diamond, Pentagon, Hexagon, Octagon
+    let dist = sd_shape(local, r, poly.shape_type);
+
+    // Subpixel anti-aliasing for sharp, clean edges
+    let aa = fwidth(dist);
+    let alpha = 1.0 - smoothstep(-aa, aa, dist);
+    if (alpha <= 0.01) { discard; }
+
     return vec4(poly.r, poly.g, poly.b, poly.a * alpha);
 }
 
