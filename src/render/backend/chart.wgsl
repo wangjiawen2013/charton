@@ -19,6 +19,28 @@ struct PointData {
     radius: f32,
 };
 
+/// Polygon data (draw_polygon: symmetric markers - triangle, hexagon, diamond, star)
+/// ALL SHAPES EXCEPT CIRCLE & SQUARE use this pipeline (CPU-generated vertices uploaded directly to GPU)
+/// Matches Rust PointShape enum 1:1
+struct PolygonData {
+    x: f32,
+    y: f32,
+    r: f32,
+    g: f32,
+    b: f32,
+    a: f32,
+    radius: f32,
+    shape_type: f32,   // 1:1 mapping to Rust PointShape
+                       // 0.0 = Circle (UNUSED here, uses SDF pipeline)
+                       // 1.0 = Square (UNUSED here, uses SDF pipeline)
+                       // 2.0 = Triangle
+                       // 3.0 = Star
+                       // 4.0 = Diamond
+                       // 5.0 = Pentagon
+                       // 6.0 = Hexagon
+                       // 7.0 = Octagon
+};
+
 /// Single line segment data (draw_line: axis, grid, ticks, whiskers)
 struct LineData {
     x1: f32,
@@ -86,6 +108,7 @@ struct Uniforms {
 @group(0) @binding(0) var<storage, read> circles: array<PointData>;
 @group(0) @binding(1) var<storage, read> lines: array<LineData>;
 @group(0) @binding(2) var<storage, read> rects: array<RectData>;
+@group(0) @binding(3) var<storage, read> polygons: array<PolygonData>;
 @group(0) @binding(4) var<storage, read> gradient_rects: array<GradientRectData>;
 @group(0) @binding(5) var<uniform> uniforms: Uniforms;
 
@@ -110,6 +133,12 @@ struct PathOutput {
 };
 
 struct RectOutput {
+    @builtin(position) clip_pos: vec4<f32>,
+    @location(0) screen_pos: vec2<f32>,
+    @location(1) @interpolate(flat) instance_idx: u32,
+};
+
+struct PolygonOutput {
     @builtin(position) clip_pos: vec4<f32>,
     @location(0) screen_pos: vec2<f32>,
     @location(1) @interpolate(flat) instance_idx: u32,
@@ -298,7 +327,41 @@ fn rect_fs(in: RectOutput) -> @location(0) vec4<f32> {
 }
 
 // ---------------------------
-// 5. Gradient Rectangle Pipeline (draw_gradient_rect)
+// 5. Polygon Pipeline (draw_polygon: triangle/star/diamond/hexagon etc.)
+// ---------------------------
+@vertex
+fn polygon_vs(@builtin(vertex_index) vi: u32, @builtin(instance_index) ii: u32) -> PolygonOutput {
+    let poly = polygons[ii];
+    var quad = vec2<f32>();
+    switch vi {
+        case 0u: { quad = vec2(-1.0, -1.0); }
+        case 1u: { quad = vec2(1.0, -1.0); }
+        case 2u: { quad = vec2(-1.0, 1.0); }
+        case 3u: { quad = vec2(1.0, 1.0); }
+        default: { quad = vec2(0.0); }
+    }
+
+    let scale = uniforms.scale_factor;
+    let final_pos = vec2(poly.x, poly.y) * scale + quad * (poly.radius * 1.5 * scale);
+    let sw = uniforms.screen_width * scale;
+    let sh = uniforms.screen_height * scale;
+    let ndc = vec4((final_pos.x/sw)*2.0-1.0, 1.0-(final_pos.y/sh)*2.0, 0.0, 1.0);
+
+    var out: PolygonOutput;
+    out.clip_pos = ndc;
+    out.screen_pos = final_pos;
+    out.instance_idx = ii;
+    return out;
+}
+
+@fragment
+fn polygon_fs(in: PolygonOutput) -> @location(0) vec4<f32> {
+    let poly = polygons[in.instance_idx];
+    return vec4(poly.r, poly.g, poly.b, poly.a);
+}
+
+// ---------------------------
+// 6. Gradient Rectangle Pipeline (draw_gradient_rect)
 // ---------------------------
 @vertex
 fn grad_rect_vs(@builtin(vertex_index) vi: u32, @builtin(instance_index) ii: u32) -> GradientRectOutput {
