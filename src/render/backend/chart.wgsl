@@ -119,7 +119,7 @@ struct LineOutput {
 struct PathOutput {
     @builtin(position) clip_pos: vec4<f32>,
     @location(0) color: vec4<f32>,
-    @location(1) @interpolate(flat) is_fill: f32,
+    @location(2) @interpolate(flat) is_fill: f32,
 };
 
 struct RectOutput {

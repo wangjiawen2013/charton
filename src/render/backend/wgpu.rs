@@ -98,6 +98,7 @@ impl TextVertex {
 pub struct PathVertex {
     pub position: [f32; 2],
     pub color: [f32; 4],
+    pub is_fill: f32,
 }
 
 impl PathVertex {
@@ -114,6 +115,11 @@ impl PathVertex {
                 offset: std::mem::size_of::<[f32; 2]>() as wgpu::BufferAddress,
                 shader_location: 1,
                 format: wgpu::VertexFormat::Float32x4,
+            },
+            wgpu::VertexAttribute {
+                offset: (std::mem::size_of::<[f32; 2]>() + std::mem::size_of::<[f32; 4]>()) as wgpu::BufferAddress,
+                shader_location: 2,
+                format: wgpu::VertexFormat::Float32,
             },
         ],
     };
@@ -609,9 +615,14 @@ impl WgpuBackend {
         let text_wgsl = r#"
 struct Uniforms { screen_width: f32, screen_height: f32, scale_factor: f32, _padding: f32 };
 @group(0) @binding(5) var<uniform> uniforms: Uniforms;
-struct In { @location(0) position: vec2<f32>; @location(1) tex_coords: vec2<f32>; @location(2) color: vec4<f32>; };
-struct Out { @builtin(position) clip_pos: vec4<f32>; @location(0) color: vec4<f32>; };
-@vertex fn text_vs(in: In) -> Out { let sw = uniforms.screen_width * uniforms.scale_factor; let sh = uniforms.screen_height * uniforms.scale_factor; let ndc = vec4((in.position.x/sw)*2.0-1.0, 1.0-(in.position.y/sh)*2.0, 0.0, 1.0); var o: Out; o.clip_pos = ndc; o.color = in.color; return o; }
+struct In { @location(0) position: vec2<f32>, @location(1) tex_coords: vec2<f32>, @location(2) color: vec4<f32>, };
+struct Out { @builtin(position) clip_pos: vec4<f32>, @location(0) color: vec4<f32>, };
+@vertex fn text_vs(in: In) -> Out {
+    let sw = uniforms.screen_width * uniforms.scale_factor;
+    let sh = uniforms.screen_height * uniforms.scale_factor;
+    let ndc = vec4((in.position.x/sw)*2.0-1.0, 1.0-(in.position.y/sh)*2.0, 0.0, 1.0);
+    var o: Out; o.clip_pos = ndc; o.color = in.color; return o;
+}
 @fragment fn text_fs(in: Out) -> @location(0) vec4<f32> { return in.color; }
 "#;
 
