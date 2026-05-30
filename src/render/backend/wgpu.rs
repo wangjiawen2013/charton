@@ -1454,6 +1454,7 @@ impl RenderBackend for WgpuBackend {
         self.pending_rects.push(rect);
     }
 
+    // Draw all symmetric points except circles and rects
     fn draw_polygon(&mut self, config: PolygonConfig) {
         self.tessellate_polygon(config);
     }
