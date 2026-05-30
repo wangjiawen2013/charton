@@ -64,8 +64,8 @@ struct PolygonData {
     a: f32,
     radius: f32,
     shape_type: f32,   // Maps 1:1 to Rust WgpuBackend.draw_polygon()
-                       // 0.0=Circle(fallback), 1.0=Triangle, 2.0=Star,
-                       // 3.0=Diamond, 4.0=Pentagon, 5.0=Hexagon, 6.0=Octagon
+                       // 0.0=Circle(fallback), 1.0=Square, 2.0=Triangle,
+                       // 3.0=Star, 4.0=Diamond,5.0=Pentagon,6.0=Hexagon,7.0=Octagon
 };
 
 /// Gradient rectangle data (draw_gradient_rect: heatmaps, themed panels)
@@ -148,36 +148,34 @@ struct GradientRectOutput {
 // Analytical Geometric Signed Distance Fields (SDF Pure Math Implementation)
 // ============================================================================
 
-// 0.0 - Circle Signed Distance Field Equation Matrix
+// 0.0 - Circle Signed Distance Field
 fn sd_circle(p: vec2<f32>, r: f32) -> f32 {
     return length(p) - r;
 }
 
-// 1.0 - Square Signed Distance Field Equation (optimized with corner radius support)
+// 1.0 - Square / Rounded Rectangle SDF
 fn sd_square(p: vec2<f32>, size: vec2<f32>, corner_radius: f32) -> f32 {
     let d = abs(p) - size + corner_radius;
     return length(max(d, vec2<f32>(0.0, 0.0))) + min(max(d.x, d.y), 0.0) - corner_radius;
 }
 
-// 2.0 - Equilateral Triangle Signed Distance Field (corrected orientation and clipping)
+// 2.0 - Equilateral Triangle Signed Distance Field
 fn sd_triangle(p: vec2<f32>, r: f32) -> f32 {
     const k: f32 = 1.73205080757; // sqrt(3.0)
-    // Flip Y axis vertically to ensure triangle points upward, matching visual expectations
     var p_rot = vec2<f32>(p.x, -p.y);
     var p_mod = vec2<f32>(abs(p_rot.x) - r, p_rot.y + r / k);
     
     if (p_mod.x + k * p_mod.y > 0.0) {
         p_mod = vec2<f32>(p_mod.x - k * p_mod.y, -k * p_mod.x - p_mod.y) / 2.0;
     }
-    // Corrected clamp range to prevent shape distortion
     p_mod.x = clamp(p_mod.x, -2.0 * r, 0.0);
     return -length(p_mod) * sign(p_mod.y);
 }
 
-// 3.0 - Regular 5-Pointed Geometric Star Signed Distance Field
+// 3.0 - Regular 5-Pointed Star SDF
 fn sd_star(p: vec2<f32>, r: f32) -> f32 {
-    let k1 = vec2<f32>(0.80901699437, -0.58778525229); // cos(18°), sin(18°)
-    let k2 = vec2<f32>(-0.30901699437, 0.95105651629); // cos(108°), sin(108°)
+    let k1 = vec2<f32>(0.80901699437, -0.58778525229);
+    let k2 = vec2<f32>(-0.30901699437, 0.95105651629);
     var p_mod = vec2<f32>(abs(p.x), p.y);
     p_mod -= 2.0 * max(dot(k1, p_mod), 0.0) * k1;
     p_mod -= 2.0 * max(dot(k2, p_mod), 0.0) * k2;
@@ -186,7 +184,7 @@ fn sd_star(p: vec2<f32>, r: f32) -> f32 {
     return length(p_mod) * sign(p_mod.y);
 }
 
-// 4.0 - Diamond / Rhombus Geometric Signed Distance Field
+// 4.0 - Diamond / Rhombus SDF
 fn sd_diamond(p: vec2<f32>, r: f32) -> f32 {
     let p_abs = abs(p);
     let h = clamp((-2.0 * p_abs.x + p_abs.y) / 2.0, -r, r);
@@ -194,9 +192,9 @@ fn sd_diamond(p: vec2<f32>, r: f32) -> f32 {
     return d * sign(p_abs.x + p_abs.y - r);
 }
 
-// 5.0 - Regular Pentagon Geometric Signed Distance Field
+// 5.0 - Regular Pentagon SDF
 fn sd_pentagon(p: vec2<f32>, r: f32) -> f32 {
-    let k = vec3<f32>(0.809016994, 0.587785252, 0.324919696); // Constant axis symmetry constraints
+    let k = vec3<f32>(0.809016994, 0.587785252, 0.324919696);
     var p_mod = vec2<f32>(abs(p.x), p.y);
     p_mod -= 2.0 * min(dot(vec2<f32>(-k.x, k.y), p_mod), 0.0) * vec2<f32>(-k.x, k.y);
     p_mod -= 2.0 * min(dot(vec2<f32>(k.x, k.y), p_mod), 0.0) * vec2<f32>(k.x, k.y);
@@ -204,18 +202,18 @@ fn sd_pentagon(p: vec2<f32>, r: f32) -> f32 {
     return length(p_mod) * sign(p_mod.y);
 }
 
-// 6.0 - Regular Hexagon Geometric Signed Distance Field
+// 6.0 - Regular Hexagon SDF
 fn sd_hexagon(p: vec2<f32>, r: f32) -> f32 {
-    let k = vec3<f32>(-0.866025404, 0.5, 0.577350269); // Hexagonal coordinate layout configurations
+    let k = vec3<f32>(-0.866025404, 0.5, 0.577350269);
     var p_mod = abs(p);
     p_mod -= 2.0 * min(dot(k.xy, p_mod), 0.0) * k.xy;
     p_mod -= vec2<f32>(clamp(p_mod.x, -k.z * r, k.z * r), r);
     return length(p_mod) * sign(p_mod.y);
 }
 
-// 7.0 - Regular Octagon Geometric Signed Distance Field
+// 7.0 - Regular Octagon SDF
 fn sd_octagon(p: vec2<f32>, r: f32) -> f32 {
-    let k = vec3<f32>(-0.9238795325, 0.3826834323, 0.4142135623); // Octagonal reflection symmetry vectors
+    let k = vec3<f32>(-0.9238795325, 0.3826834323, 0.4142135623);
     var p_mod = abs(p);
     p_mod -= 2.0 * min(dot(vec2<f32>(k.x, k.y), p_mod), 0.0) * vec2<f32>(k.x, k.y);
     p_mod -= 2.0 * min(dot(vec2<f32>(k.y, k.x), p_mod), 0.0) * vec2<f32>(k.y, k.x);
@@ -223,15 +221,16 @@ fn sd_octagon(p: vec2<f32>, r: f32) -> f32 {
     return length(p_mod) * sign(p_mod.y);
 }
 
-/// Unified shape selector using shape_type (1:1 match with Rust WgpuBackend)
+/// Unified shape selector (1:1 match with Rust backend)
 fn sd_shape(p: vec2<f32>, radius: f32, shape_type: f32) -> f32 {
     if (shape_type == 0.0) { return sd_circle(p, radius); }
-    if (shape_type == 1.0) { return sd_triangle(p, radius); }
-    if (shape_type == 2.0) { return sd_star(p, radius); }
-    if (shape_type == 3.0) { return sd_diamond(p, radius); }
-    if (shape_type == 4.0) { return sd_pentagon(p, radius); }
-    if (shape_type == 5.0) { return sd_hexagon(p, radius); }
-    if (shape_type == 6.0) { return sd_octagon(p, radius); }
+    if (shape_type == 1.0) { return sd_square(p, vec2<f32>(radius), 0.0); }
+    if (shape_type == 2.0) { return sd_triangle(p, radius); }
+    if (shape_type == 3.0) { return sd_star(p, radius); }
+    if (shape_type == 4.0) { return sd_diamond(p, radius); }
+    if (shape_type == 5.0) { return sd_pentagon(p, radius); }
+    if (shape_type == 6.0) { return sd_hexagon(p, radius); }
+    if (shape_type == 7.0) { return sd_octagon(p, radius); }
     
     // Fallback to circle for unknown shape types
     return sd_circle(p, radius);
@@ -253,6 +252,7 @@ fn circle_vs(@builtin(vertex_index) vi: u32, @builtin(instance_index) ii: u32) -
 
     let scale = uniforms.scale_factor;
     let circle = circles[ii];
+    // Use a slightly larger quad than the circle itself to avoid clipping SDF anti-aliasing.
     let final_pos = vec2(circle.x, circle.y) * scale + quad * (circle.radius * 1.5 * scale);
     let sw = uniforms.screen_width * scale;
     let sh = uniforms.screen_height * scale;
@@ -345,7 +345,7 @@ fn path_fs(in: PathOutput) -> @location(0) vec4<f32> {
 }
 
 // ---------------------------
-// 4. Rectangle Pipeline (draw_rect: Bars/Boxes)
+// 4. Rectangle Pipeline (draw_rect: Bars/Boxes with rounded corners)
 // ---------------------------
 @vertex
 fn rect_vs(@builtin(vertex_index) vi: u32, @builtin(instance_index) ii: u32) -> RectOutput {
@@ -396,8 +396,6 @@ fn rect_fs(in: RectOutput) -> @location(0) vec4<f32> {
 
 // ---------------------------
 // 5. Polygon Pipeline (draw_polygon: Symmetric Markers)
-// COMPLETELY REVISED: uses shape_type instead of sides, supports Star/Diamond/Triangle
-// Matches 1:1 with Rust WgpuBackend.draw_polygon() implementation
 // ---------------------------
 @vertex
 fn polygon_vs(@builtin(vertex_index) vi: u32, @builtin(instance_index) ii: u32) -> PolygonOutput {
@@ -430,11 +428,9 @@ fn polygon_fs(in: PolygonOutput) -> @location(0) vec4<f32> {
     let local = in.screen_pos - vec2(poly.x, poly.y) * uniforms.scale_factor;
     let r = poly.radius * uniforms.scale_factor;
 
-    // Render symmetric marker using shape_type (no sides parameter)
-    // Fully compliant with Rust backend: Triangle, Star, Diamond, Pentagon, Hexagon, Octagon
     let dist = sd_shape(local, r, poly.shape_type);
 
-    // Subpixel anti-aliasing for sharp, clean edges
+    // Subpixel anti-aliasing
     let aa = fwidth(dist);
     let alpha = 1.0 - smoothstep(-aa, aa, dist);
     if (alpha <= 0.01) { discard; }
