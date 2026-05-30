@@ -139,21 +139,19 @@ pub struct WgpuBackend {
     queue: wgpu::Queue,
     uniform_buffer: wgpu::Buffer,
     uniforms: Uniforms,
-    uniform_bind_group: wgpu::BindGroup,
-    uniform_bind_group_layout: wgpu::BindGroupLayout,
+
+    // 主绑定组（与chart.wgsl中@group(0) bindings 对应）
+    main_bind_group: wgpu::BindGroup,
+    main_bind_group_layout: wgpu::BindGroupLayout,
 
     // SDF图元（圆/矩形/多边形）相关
     sdf_pipeline: wgpu::RenderPipeline,
-    sdf_bind_group: wgpu::BindGroup,
-    sdf_bind_group_layout: wgpu::BindGroupLayout,
     sdf_buffer: wgpu::Buffer,
     pending_sdf_points: Vec<GpuPoint>,
     uploaded_sdf_count: u32,
 
     // 线图元相关
     line_pipeline: wgpu::RenderPipeline,
-    line_bind_group: wgpu::BindGroup,
-    line_bind_group_layout: wgpu::BindGroupLayout,
     line_buffer: wgpu::Buffer,
     pending_lines: Vec<GpuLine>,
     uploaded_line_count: u32,
@@ -168,16 +166,12 @@ pub struct WgpuBackend {
 
     // 渐变矩形相关
     gradient_rect_pipeline: wgpu::RenderPipeline,
-    gradient_rect_bind_group: wgpu::BindGroup,
-    gradient_rect_bind_group_layout: wgpu::BindGroupLayout,
     gradient_rect_buffer: wgpu::Buffer,
     pending_gradient_rects: Vec<GpuGradientRect>,
     uploaded_gradient_rect_count: u32,
 
-    // 文本渲染相关
+    // 文本渲染相关（占位，后续实现）
     text_pipeline: wgpu::RenderPipeline,
-    text_bind_group: wgpu::BindGroup,
-    text_bind_group_layout: wgpu::BindGroupLayout,
     text_vertex_buffer: wgpu::Buffer,
     text_atlas_texture: wgpu::Texture,
     text_atlas_view: wgpu::TextureView,
@@ -210,36 +204,76 @@ impl WgpuBackend {
             usage: wgpu::BufferUsages::UNIFORM | wgpu::BufferUsages::COPY_DST,
         });
 
-        // 创建Uniform绑定组布局
-        let uniform_bind_group_layout = device.create_bind_group_layout(&wgpu::BindGroupLayoutDescriptor {
-            label: Some("Uniform Bind Group Layout"),
-            entries: &[wgpu::BindGroupLayoutEntry {
-                binding: 1,
-                visibility: wgpu::ShaderStages::VERTEX | wgpu::ShaderStages::FRAGMENT,
-                ty: wgpu::BindingType::Buffer {
-                    ty: wgpu::BufferBindingType::Uniform,
-                    has_dynamic_offset: false,
-                    min_binding_size: None,
+        // 创建主绑定组布局，匹配 chart.wgsl 中的 @group(0) bindings:
+        // 0: circles, 1: lines, 2: rects, 3: polygons, 4: gradient_rects, 5: uniforms
+        let main_bind_group_layout = device.create_bind_group_layout(&wgpu::BindGroupLayoutDescriptor {
+            label: Some("Main Bind Group Layout"),
+            entries: &[
+                wgpu::BindGroupLayoutEntry {
+                    binding: 0,
+                    visibility: wgpu::ShaderStages::VERTEX | wgpu::ShaderStages::FRAGMENT,
+                    ty: wgpu::BindingType::Buffer { ty: wgpu::BufferBindingType::Storage { read_only: true }, has_dynamic_offset: false, min_binding_size: None },
+                    count: None,
                 },
-                count: None,
-            }],
-        });
-        let uniform_bind_group = device.create_bind_group(&wgpu::BindGroupDescriptor {
-            label: Some("Uniform Bind Group"),
-            layout: &uniform_bind_group_layout,
-            entries: &[wgpu::BindGroupEntry {
-                binding: 1,
-                // 修复：BufferBinding 包装为 BindingResource
-                resource: wgpu::BindingResource::Buffer(uniform_buffer.as_entire_buffer_binding()),
-            }],
+                wgpu::BindGroupLayoutEntry {
+                    binding: 1,
+                    visibility: wgpu::ShaderStages::VERTEX | wgpu::ShaderStages::FRAGMENT,
+                    ty: wgpu::BindingType::Buffer { ty: wgpu::BufferBindingType::Storage { read_only: true }, has_dynamic_offset: false, min_binding_size: None },
+                    count: None,
+                },
+                wgpu::BindGroupLayoutEntry {
+                    binding: 2,
+                    visibility: wgpu::ShaderStages::VERTEX | wgpu::ShaderStages::FRAGMENT,
+                    ty: wgpu::BindingType::Buffer { ty: wgpu::BufferBindingType::Storage { read_only: true }, has_dynamic_offset: false, min_binding_size: None },
+                    count: None,
+                },
+                wgpu::BindGroupLayoutEntry {
+                    binding: 3,
+                    visibility: wgpu::ShaderStages::VERTEX | wgpu::ShaderStages::FRAGMENT,
+                    ty: wgpu::BindingType::Buffer { ty: wgpu::BufferBindingType::Storage { read_only: true }, has_dynamic_offset: false, min_binding_size: None },
+                    count: None,
+                },
+                wgpu::BindGroupLayoutEntry {
+                    binding: 4,
+                    visibility: wgpu::ShaderStages::VERTEX | wgpu::ShaderStages::FRAGMENT,
+                    ty: wgpu::BindingType::Buffer { ty: wgpu::BufferBindingType::Storage { read_only: true }, has_dynamic_offset: false, min_binding_size: None },
+                    count: None,
+                },
+                wgpu::BindGroupLayoutEntry {
+                    binding: 5,
+                    visibility: wgpu::ShaderStages::VERTEX | wgpu::ShaderStages::FRAGMENT,
+                    ty: wgpu::BindingType::Buffer { ty: wgpu::BufferBindingType::Uniform, has_dynamic_offset: false, min_binding_size: None },
+                    count: None,
+                },
+            ],
         });
 
-        // 创建所有渲染管线
-        let (sdf_bind_group_layout, sdf_pipeline) = Self::create_sdf_pipeline(&device, &shader, &uniform_bind_group_layout);
-        let (line_bind_group_layout, line_pipeline) = Self::create_line_pipeline(&device, &shader, &uniform_bind_group_layout);
-        let path_pipeline = Self::create_path_pipeline(&device, &shader, &uniform_bind_group_layout);
-        let (gradient_rect_bind_group_layout, gradient_rect_pipeline) = Self::create_gradient_rect_pipeline(&device, &shader, &uniform_bind_group_layout);
-        let (text_bind_group_layout, text_pipeline, text_atlas_texture, text_atlas_view, text_atlas_sampler) = Self::create_text_pipeline(&device, &shader, &uniform_bind_group_layout).await;
+        // 创建初始主绑定组（使用占位缓冲），随后在 flush 时会用真实缓冲替换
+        let dummy_circles = Self::create_dummy_buffer::<GpuPoint>(&device);
+        let dummy_lines = Self::create_dummy_buffer::<GpuLine>(&device);
+        let dummy_rects = Self::create_dummy_buffer::<GpuPoint>(&device);
+        let dummy_polys = Self::create_dummy_buffer::<GpuPoint>(&device);
+        let dummy_grad_rects = Self::create_dummy_buffer::<GpuGradientRect>(&device);
+
+        let main_bind_group = device.create_bind_group(&wgpu::BindGroupDescriptor {
+            label: Some("Main Bind Group"),
+            layout: &main_bind_group_layout,
+            entries: &[
+                wgpu::BindGroupEntry { binding: 0, resource: wgpu::BindingResource::Buffer(dummy_circles.as_entire_buffer_binding()) },
+                wgpu::BindGroupEntry { binding: 1, resource: wgpu::BindingResource::Buffer(dummy_lines.as_entire_buffer_binding()) },
+                wgpu::BindGroupEntry { binding: 2, resource: wgpu::BindingResource::Buffer(dummy_rects.as_entire_buffer_binding()) },
+                wgpu::BindGroupEntry { binding: 3, resource: wgpu::BindingResource::Buffer(dummy_polys.as_entire_buffer_binding()) },
+                wgpu::BindGroupEntry { binding: 4, resource: wgpu::BindingResource::Buffer(dummy_grad_rects.as_entire_buffer_binding()) },
+                wgpu::BindGroupEntry { binding: 5, resource: wgpu::BindingResource::Buffer(uniform_buffer.as_entire_buffer_binding()) },
+            ],
+        });
+
+        // 创建所有渲染管线（使用 main_bind_group_layout 作为 group0 layout）
+        let (_sdf_bg_layout, sdf_pipeline) = Self::create_sdf_pipeline(&device, &shader, &main_bind_group_layout);
+        let (_line_bg_layout, line_pipeline) = Self::create_line_pipeline(&device, &shader, &main_bind_group_layout);
+        let path_pipeline = Self::create_path_pipeline(&device, &shader, &main_bind_group_layout);
+        let (_grad_bg_layout, gradient_rect_pipeline) = Self::create_gradient_rect_pipeline(&device, &shader, &main_bind_group_layout);
+        let (_text_bg_layout, text_pipeline, text_atlas_texture, text_atlas_view, text_atlas_sampler) = Self::create_text_pipeline(&device, &shader, &main_bind_group_layout).await;
 
         // 创建占位缓冲区
         let sdf_buffer = Self::create_dummy_buffer::<GpuPoint>(&device);
@@ -249,30 +283,20 @@ impl WgpuBackend {
         let gradient_rect_buffer = Self::create_dummy_buffer::<GpuGradientRect>(&device);
         let text_vertex_buffer = Self::create_dummy_buffer::<TextVertex>(&device);
 
-        // 创建绑定组
-        let sdf_bind_group = Self::create_sdf_bind_group(&device, &sdf_bind_group_layout, &sdf_buffer, &uniform_buffer);
-        let line_bind_group = Self::create_line_bind_group(&device, &line_bind_group_layout, &line_buffer, &uniform_buffer);
-        let gradient_rect_bind_group = Self::create_gradient_rect_bind_group(&device, &gradient_rect_bind_group_layout, &gradient_rect_buffer, &uniform_buffer);
-        let text_bind_group = Self::create_text_bind_group(&device, &text_bind_group_layout, &uniform_buffer, &text_atlas_view, &text_atlas_sampler);
-
         Self {
             device,
             queue,
             uniform_buffer,
             uniforms,
-            uniform_bind_group,
-            uniform_bind_group_layout,
+            main_bind_group,
+            main_bind_group_layout,
 
             sdf_pipeline,
-            sdf_bind_group,
-            sdf_bind_group_layout,
             sdf_buffer,
             pending_sdf_points: Vec::with_capacity(30_000),
             uploaded_sdf_count: 0,
 
             line_pipeline,
-            line_bind_group,
-            line_bind_group_layout,
             line_buffer,
             pending_lines: Vec::with_capacity(10_000),
             uploaded_line_count: 0,
@@ -285,15 +309,11 @@ impl WgpuBackend {
             uploaded_path_index_count: 0,
 
             gradient_rect_pipeline,
-            gradient_rect_bind_group,
-            gradient_rect_bind_group_layout,
             gradient_rect_buffer,
             pending_gradient_rects: Vec::with_capacity(10_000),
             uploaded_gradient_rect_count: 0,
 
             text_pipeline,
-            text_bind_group,
-            text_bind_group_layout,
             text_vertex_buffer,
             text_atlas_texture,
             text_atlas_view,
@@ -309,7 +329,7 @@ impl WgpuBackend {
     fn create_sdf_pipeline(
         device: &wgpu::Device,
         shader: &wgpu::ShaderModule,
-        _uniform_layout: &wgpu::BindGroupLayout,
+        main_layout: &wgpu::BindGroupLayout,
     ) -> (wgpu::BindGroupLayout, wgpu::RenderPipeline) {
         let sdf_bind_group_layout = device.create_bind_group_layout(&wgpu::BindGroupLayoutDescriptor {
             label: Some("SDF Bind Group Layout"),
@@ -339,7 +359,7 @@ impl WgpuBackend {
 
         let pipeline_layout = device.create_pipeline_layout(&wgpu::PipelineLayoutDescriptor {
             label: Some("SDF Pipeline Layout"),
-            bind_group_layouts: &[Some(&sdf_bind_group_layout)],
+            bind_group_layouts: &[Some(main_layout)],
             immediate_size: 0,
         });
 
@@ -348,13 +368,13 @@ impl WgpuBackend {
             layout: Some(&pipeline_layout),
             vertex: wgpu::VertexState {
                 module: shader,
-                entry_point: Some("vs_main"),
+                entry_point: Some("circle_vs"),
                 buffers: &[],
                 compilation_options: wgpu::PipelineCompilationOptions::default(),
             },
             fragment: Some(wgpu::FragmentState {
                 module: shader,
-                entry_point: Some("fs_main"),
+                entry_point: Some("circle_fs"),
                 targets: &[Some(wgpu::ColorTargetState {
                     format: wgpu::TextureFormat::Rgba8Unorm,
                     blend: Some(wgpu::BlendState::ALPHA_BLENDING),
@@ -387,7 +407,7 @@ impl WgpuBackend {
     fn create_line_pipeline(
         device: &wgpu::Device,
         shader: &wgpu::ShaderModule,
-        _uniform_layout: &wgpu::BindGroupLayout,
+        main_layout: &wgpu::BindGroupLayout,
     ) -> (wgpu::BindGroupLayout, wgpu::RenderPipeline) {
         let line_bind_group_layout = device.create_bind_group_layout(&wgpu::BindGroupLayoutDescriptor {
             label: Some("Line Bind Group Layout"),
@@ -417,7 +437,7 @@ impl WgpuBackend {
 
         let pipeline_layout = device.create_pipeline_layout(&wgpu::PipelineLayoutDescriptor {
             label: Some("Line Pipeline Layout"),
-            bind_group_layouts: &[Some(&line_bind_group_layout)],
+            bind_group_layouts: &[Some(main_layout)],
             immediate_size: 0,
         });
 
@@ -426,13 +446,13 @@ impl WgpuBackend {
             layout: Some(&pipeline_layout),
             vertex: wgpu::VertexState {
                 module: shader,
-                entry_point: Some("line_vs_main"),
+                entry_point: Some("line_vs"),
                 buffers: &[],
                 compilation_options: wgpu::PipelineCompilationOptions::default(),
             },
             fragment: Some(wgpu::FragmentState {
                 module: shader,
-                entry_point: Some("line_fs_main"),
+                entry_point: Some("line_fs"),
                 targets: &[Some(wgpu::ColorTargetState {
                     format: wgpu::TextureFormat::Rgba8Unorm,
                     blend: Some(wgpu::BlendState::ALPHA_BLENDING),
@@ -461,11 +481,11 @@ impl WgpuBackend {
     fn create_path_pipeline(
         device: &wgpu::Device,
         shader: &wgpu::ShaderModule,
-        uniform_layout: &wgpu::BindGroupLayout,
+        main_layout: &wgpu::BindGroupLayout,
     ) -> wgpu::RenderPipeline {
         let pipeline_layout = device.create_pipeline_layout(&wgpu::PipelineLayoutDescriptor {
             label: Some("Path Pipeline Layout"),
-            bind_group_layouts: &[Some(uniform_layout)],
+            bind_group_layouts: &[Some(main_layout)],
             immediate_size: 0,
         });
 
@@ -474,13 +494,13 @@ impl WgpuBackend {
             layout: Some(&pipeline_layout),
             vertex: wgpu::VertexState {
                 module: shader,
-                entry_point: Some("path_vs_main"),
+                entry_point: Some("path_vs"),
                 buffers: &[PathVertex::DESC],
                 compilation_options: wgpu::PipelineCompilationOptions::default(),
             },
             fragment: Some(wgpu::FragmentState {
                 module: shader,
-                entry_point: Some("path_fs_main"),
+                entry_point: Some("path_fs"),
                 targets: &[Some(wgpu::ColorTargetState {
                     format: wgpu::TextureFormat::Rgba8Unorm,
                     blend: Some(wgpu::BlendState::ALPHA_BLENDING),
@@ -507,7 +527,7 @@ impl WgpuBackend {
     fn create_gradient_rect_pipeline(
         device: &wgpu::Device,
         shader: &wgpu::ShaderModule,
-        _uniform_layout: &wgpu::BindGroupLayout,
+        main_layout: &wgpu::BindGroupLayout,
     ) -> (wgpu::BindGroupLayout, wgpu::RenderPipeline) {
         let gradient_rect_bind_group_layout = device.create_bind_group_layout(&wgpu::BindGroupLayoutDescriptor {
             label: Some("Gradient Rect Bind Group Layout"),
@@ -515,21 +535,13 @@ impl WgpuBackend {
                 wgpu::BindGroupLayoutEntry {
                     binding: 0,
                     visibility: wgpu::ShaderStages::VERTEX | wgpu::ShaderStages::FRAGMENT,
-                    ty: wgpu::BindingType::Buffer {
-                        ty: wgpu::BufferBindingType::Storage { read_only: true },
-                        has_dynamic_offset: false,
-                        min_binding_size: None,
-                    },
+                    ty: wgpu::BindingType::Buffer { ty: wgpu::BufferBindingType::Storage { read_only: true }, has_dynamic_offset: false, min_binding_size: None },
                     count: None,
                 },
                 wgpu::BindGroupLayoutEntry {
                     binding: 1,
                     visibility: wgpu::ShaderStages::VERTEX | wgpu::ShaderStages::FRAGMENT,
-                    ty: wgpu::BindingType::Buffer {
-                        ty: wgpu::BufferBindingType::Uniform,
-                        has_dynamic_offset: false,
-                        min_binding_size: None,
-                    },
+                    ty: wgpu::BindingType::Buffer { ty: wgpu::BufferBindingType::Uniform, has_dynamic_offset: false, min_binding_size: None },
                     count: None,
                 },
             ],
@@ -537,7 +549,7 @@ impl WgpuBackend {
 
         let pipeline_layout = device.create_pipeline_layout(&wgpu::PipelineLayoutDescriptor {
             label: Some("Gradient Rect Pipeline Layout"),
-            bind_group_layouts: &[Some(&gradient_rect_bind_group_layout)],
+            bind_group_layouts: &[Some(main_layout)],
             immediate_size: 0,
         });
 
@@ -546,29 +558,17 @@ impl WgpuBackend {
             layout: Some(&pipeline_layout),
             vertex: wgpu::VertexState {
                 module: shader,
-                entry_point: Some("gradient_rect_vs_main"),
+                entry_point: Some("grad_rect_vs"),
                 buffers: &[],
                 compilation_options: wgpu::PipelineCompilationOptions::default(),
             },
             fragment: Some(wgpu::FragmentState {
                 module: shader,
-                entry_point: Some("gradient_rect_fs_main"),
-                targets: &[Some(wgpu::ColorTargetState {
-                    format: wgpu::TextureFormat::Rgba8Unorm,
-                    blend: Some(wgpu::BlendState::ALPHA_BLENDING),
-                    write_mask: wgpu::ColorWrites::ALL,
-                })],
+                entry_point: Some("grad_rect_fs"),
+                targets: &[Some(wgpu::ColorTargetState { format: wgpu::TextureFormat::Rgba8Unorm, blend: Some(wgpu::BlendState::ALPHA_BLENDING), write_mask: wgpu::ColorWrites::ALL })],
                 compilation_options: wgpu::PipelineCompilationOptions::default(),
             }),
-            primitive: wgpu::PrimitiveState {
-                topology: wgpu::PrimitiveTopology::TriangleStrip,
-                strip_index_format: None,
-                front_face: wgpu::FrontFace::Ccw,
-                cull_mode: None,
-                unclipped_depth: false,
-                polygon_mode: wgpu::PolygonMode::Fill,
-                conservative: false,
-            },
+            primitive: wgpu::PrimitiveState { topology: wgpu::PrimitiveTopology::TriangleStrip, strip_index_format: None, front_face: wgpu::FrontFace::Ccw, cull_mode: None, unclipped_depth: false, polygon_mode: wgpu::PolygonMode::Fill, conservative: false },
             depth_stencil: None,
             multisample: wgpu::MultisampleState::default(),
             multiview_mask: None,
@@ -581,7 +581,7 @@ impl WgpuBackend {
     async fn create_text_pipeline(
         device: &wgpu::Device,
         shader: &wgpu::ShaderModule,
-        _uniform_layout: &wgpu::BindGroupLayout,
+        _main_layout: &wgpu::BindGroupLayout,
     ) -> (
         wgpu::BindGroupLayout,
         wgpu::RenderPipeline,
@@ -589,14 +589,11 @@ impl WgpuBackend {
         wgpu::TextureView,
         wgpu::Sampler,
     ) {
+        // 简单占位实现：创建一个轻量 WGSL shader，为 text pipeline 提供可用的 entry points
         let atlas_size = (2048u32, 2048u32);
         let text_atlas_texture = device.create_texture(&wgpu::TextureDescriptor {
             label: Some("Text Atlas Texture"),
-            size: wgpu::Extent3d {
-                width: atlas_size.0,
-                height: atlas_size.1,
-                depth_or_array_layers: 1,
-            },
+            size: wgpu::Extent3d { width: atlas_size.0, height: atlas_size.1, depth_or_array_layers: 1 },
             mip_level_count: 1,
             sample_count: 1,
             dimension: wgpu::TextureDimension::D2,
@@ -606,206 +603,44 @@ impl WgpuBackend {
         });
         let text_atlas_view = text_atlas_texture.create_view(&wgpu::TextureViewDescriptor::default());
 
-        let text_atlas_sampler = device.create_sampler(&wgpu::SamplerDescriptor {
-            label: Some("Text Atlas Sampler"),
-            address_mode_u: wgpu::AddressMode::ClampToEdge,
-            address_mode_v: wgpu::AddressMode::ClampToEdge,
-            address_mode_w: wgpu::AddressMode::ClampToEdge,
-            mag_filter: wgpu::FilterMode::Linear,
-            min_filter: wgpu::FilterMode::Linear,
-            // 修复：mipmap_filter 类型修正
-            mipmap_filter: wgpu::MipmapFilterMode::Nearest,
-            ..Default::default()
-        });
+        let text_atlas_sampler = device.create_sampler(&wgpu::SamplerDescriptor::default());
 
-        let text_bind_group_layout = device.create_bind_group_layout(&wgpu::BindGroupLayoutDescriptor {
-            label: Some("Text Bind Group Layout"),
-            entries: &[
-                wgpu::BindGroupLayoutEntry {
-                    binding: 1,
-                    visibility: wgpu::ShaderStages::VERTEX | wgpu::ShaderStages::FRAGMENT,
-                    ty: wgpu::BindingType::Buffer {
-                        ty: wgpu::BufferBindingType::Uniform,
-                        has_dynamic_offset: false,
-                        min_binding_size: None,
-                    },
-                    count: None,
-                },
-                wgpu::BindGroupLayoutEntry {
-                    binding: 2,
-                    visibility: wgpu::ShaderStages::FRAGMENT,
-                    ty: wgpu::BindingType::Texture {
-                        sample_type: wgpu::TextureSampleType::Float { filterable: true },
-                        view_dimension: wgpu::TextureViewDimension::D2,
-                        multisampled: false,
-                    },
-                    count: None,
-                },
-                wgpu::BindGroupLayoutEntry {
-                    binding: 3,
-                    visibility: wgpu::ShaderStages::FRAGMENT,
-                    ty: wgpu::BindingType::Sampler(wgpu::SamplerBindingType::Filtering),
-                    count: None,
-                },
-            ],
-        });
+        // minimal WGSL for text pipeline
+        let text_wgsl = r#"
+struct Uniforms { screen_width: f32, screen_height: f32, scale_factor: f32, _padding: f32 };
+@group(0) @binding(5) var<uniform> uniforms: Uniforms;
+struct In { @location(0) position: vec2<f32>; @location(1) tex_coords: vec2<f32>; @location(2) color: vec4<f32>; };
+struct Out { @builtin(position) clip_pos: vec4<f32>; @location(0) color: vec4<f32>; };
+@vertex fn text_vs(in: In) -> Out { let sw = uniforms.screen_width * uniforms.scale_factor; let sh = uniforms.screen_height * uniforms.scale_factor; let ndc = vec4((in.position.x/sw)*2.0-1.0, 1.0-(in.position.y/sh)*2.0, 0.0, 1.0); var o: Out; o.clip_pos = ndc; o.color = in.color; return o; }
+@fragment fn text_fs(in: Out) -> @location(0) vec4<f32> { return in.color; }
+"#;
 
-        let pipeline_layout = device.create_pipeline_layout(&wgpu::PipelineLayoutDescriptor {
-            label: Some("Text Pipeline Layout"),
-            bind_group_layouts: &[Some(&text_bind_group_layout)],
-            immediate_size: 0,
-        });
+        let text_shader = device.create_shader_module(wgpu::ShaderModuleDescriptor { label: Some("text_wgsl"), source: wgpu::ShaderSource::Wgsl(std::borrow::Cow::Borrowed(text_wgsl)) });
+
+        let text_bind_group_layout = device.create_bind_group_layout(&wgpu::BindGroupLayoutDescriptor { label: Some("Text Bind Group Layout"), entries: &[wgpu::BindGroupLayoutEntry { binding: 5, visibility: wgpu::ShaderStages::VERTEX | wgpu::ShaderStages::FRAGMENT, ty: wgpu::BindingType::Buffer { ty: wgpu::BufferBindingType::Uniform, has_dynamic_offset: false, min_binding_size: None }, count: None }] });
+
+        let pipeline_layout = device.create_pipeline_layout(&wgpu::PipelineLayoutDescriptor { label: Some("Text Pipeline Layout"), bind_group_layouts: &[Some(&text_bind_group_layout)], immediate_size: 0 });
 
         let text_pipeline = device.create_render_pipeline(&wgpu::RenderPipelineDescriptor {
             label: Some("Text Render Pipeline"),
             layout: Some(&pipeline_layout),
-            vertex: wgpu::VertexState {
-                module: shader,
-                entry_point: Some("text_vs_main"),
-                buffers: &[TextVertex::DESC],
-                compilation_options: wgpu::PipelineCompilationOptions::default(),
-            },
-            fragment: Some(wgpu::FragmentState {
-                module: shader,
-                entry_point: Some("text_fs_main"),
-                targets: &[Some(wgpu::ColorTargetState {
-                    format: wgpu::TextureFormat::Rgba8Unorm,
-                    blend: Some(wgpu::BlendState {
-                        color: wgpu::BlendComponent {
-                            src_factor: wgpu::BlendFactor::SrcAlpha,
-                            dst_factor: wgpu::BlendFactor::OneMinusSrcAlpha,
-                            operation: wgpu::BlendOperation::Add,
-                        },
-                        alpha: wgpu::BlendComponent {
-                            src_factor: wgpu::BlendFactor::One,
-                            dst_factor: wgpu::BlendFactor::OneMinusSrcAlpha,
-                            operation: wgpu::BlendOperation::Add,
-                        },
-                    }),
-                    write_mask: wgpu::ColorWrites::ALL,
-                })],
-                compilation_options: wgpu::PipelineCompilationOptions::default(),
-            }),
-            primitive: wgpu::PrimitiveState {
-                topology: wgpu::PrimitiveTopology::TriangleList,
-                strip_index_format: None,
-                front_face: wgpu::FrontFace::Ccw,
-                cull_mode: None,
-                unclipped_depth: false,
-                polygon_mode: wgpu::PolygonMode::Fill,
-                conservative: false,
-            },
+            vertex: wgpu::VertexState { module: &text_shader, entry_point: Some("text_vs"), buffers: &[TextVertex::DESC], compilation_options: wgpu::PipelineCompilationOptions::default() },
+            fragment: Some(wgpu::FragmentState { module: &text_shader, entry_point: Some("text_fs"), targets: &[Some(wgpu::ColorTargetState { format: wgpu::TextureFormat::Rgba8Unorm, blend: Some(wgpu::BlendState::ALPHA_BLENDING), write_mask: wgpu::ColorWrites::ALL })], compilation_options: wgpu::PipelineCompilationOptions::default() }),
+            primitive: wgpu::PrimitiveState::default(),
             depth_stencil: None,
             multisample: wgpu::MultisampleState::default(),
             multiview_mask: None,
             cache: None,
         });
 
-        (
-            text_bind_group_layout,
-            text_pipeline,
-            text_atlas_texture,
-            text_atlas_view,
-            text_atlas_sampler,
-        )
+        (text_bind_group_layout, text_pipeline, text_atlas_texture, text_atlas_view, text_atlas_sampler)
     }
 
     // ============================================================================
     // Bind Group Creation Helpers
     // ============================================================================
 
-    fn create_sdf_bind_group(
-        device: &wgpu::Device,
-        layout: &wgpu::BindGroupLayout,
-        sdf_buffer: &wgpu::Buffer,
-        uniform_buffer: &wgpu::Buffer,
-    ) -> wgpu::BindGroup {
-        device.create_bind_group(&wgpu::BindGroupDescriptor {
-            label: Some("SDF Bind Group"),
-            layout,
-            entries: &[
-                wgpu::BindGroupEntry {
-                    binding: 0,
-                    resource: wgpu::BindingResource::Buffer(sdf_buffer.as_entire_buffer_binding()),
-                },
-                wgpu::BindGroupEntry {
-                    binding: 1,
-                    resource: wgpu::BindingResource::Buffer(uniform_buffer.as_entire_buffer_binding()),
-                },
-            ],
-        })
-    }
-
-    fn create_line_bind_group(
-        device: &wgpu::Device,
-        layout: &wgpu::BindGroupLayout,
-        line_buffer: &wgpu::Buffer,
-        uniform_buffer: &wgpu::Buffer,
-    ) -> wgpu::BindGroup {
-        device.create_bind_group(&wgpu::BindGroupDescriptor {
-            label: Some("Line Bind Group"),
-            layout,
-            entries: &[
-                wgpu::BindGroupEntry {
-                    binding: 0,
-                    resource: wgpu::BindingResource::Buffer(line_buffer.as_entire_buffer_binding()),
-                },
-                wgpu::BindGroupEntry {
-                    binding: 1,
-                    resource: wgpu::BindingResource::Buffer(uniform_buffer.as_entire_buffer_binding()),
-                },
-            ],
-        })
-    }
-
-    fn create_gradient_rect_bind_group(
-        device: &wgpu::Device,
-        layout: &wgpu::BindGroupLayout,
-        gradient_rect_buffer: &wgpu::Buffer,
-        uniform_buffer: &wgpu::Buffer,
-    ) -> wgpu::BindGroup {
-        device.create_bind_group(&wgpu::BindGroupDescriptor {
-            label: Some("Gradient Rect Bind Group"),
-            layout,
-            entries: &[
-                wgpu::BindGroupEntry {
-                    binding: 0,
-                    resource: wgpu::BindingResource::Buffer(gradient_rect_buffer.as_entire_buffer_binding()),
-                },
-                wgpu::BindGroupEntry {
-                    binding: 1,
-                    resource: wgpu::BindingResource::Buffer(uniform_buffer.as_entire_buffer_binding()),
-                },
-            ],
-        })
-    }
-
-    fn create_text_bind_group(
-        device: &wgpu::Device,
-        layout: &wgpu::BindGroupLayout,
-        uniform_buffer: &wgpu::Buffer,
-        atlas_view: &wgpu::TextureView,
-        atlas_sampler: &wgpu::Sampler,
-    ) -> wgpu::BindGroup {
-        device.create_bind_group(&wgpu::BindGroupDescriptor {
-            label: Some("Text Bind Group"),
-            layout,
-            entries: &[
-                wgpu::BindGroupEntry {
-                    binding: 1,
-                    resource: wgpu::BindingResource::Buffer(uniform_buffer.as_entire_buffer_binding()),
-                },
-                wgpu::BindGroupEntry {
-                    binding: 2,
-                    resource: wgpu::BindingResource::TextureView(atlas_view),
-                },
-                wgpu::BindGroupEntry {
-                    binding: 3,
-                    resource: wgpu::BindingResource::Sampler(atlas_sampler),
-                },
-            ],
-        })
-    }
+    
 
     // ============================================================================
     // Buffer Creation Helpers
@@ -846,16 +681,11 @@ impl WgpuBackend {
     // ============================================================================
 
     pub fn flush_and_render(&mut self, view: &wgpu::TextureView) {
+
         // 更新SDF缓冲区（修复可变借用冲突）
         if !self.pending_sdf_points.is_empty() {
             let points = std::mem::take(&mut self.pending_sdf_points);
             self.sdf_buffer = self.create_buffer(&points);
-            self.sdf_bind_group = Self::create_sdf_bind_group(
-                &self.device,
-                &self.sdf_bind_group_layout,
-                &self.sdf_buffer,
-                &self.uniform_buffer,
-            );
             self.uploaded_sdf_count = points.len() as u32;
         }
 
@@ -863,12 +693,6 @@ impl WgpuBackend {
         if !self.pending_lines.is_empty() {
             let lines = std::mem::take(&mut self.pending_lines);
             self.line_buffer = self.create_buffer(&lines);
-            self.line_bind_group = Self::create_line_bind_group(
-                &self.device,
-                &self.line_bind_group_layout,
-                &self.line_buffer,
-                &self.uniform_buffer,
-            );
             self.uploaded_line_count = lines.len() as u32;
         }
 
@@ -885,17 +709,25 @@ impl WgpuBackend {
         if !self.pending_gradient_rects.is_empty() {
             let rects = std::mem::take(&mut self.pending_gradient_rects);
             self.gradient_rect_buffer = self.create_buffer(&rects);
-            self.gradient_rect_bind_group = Self::create_gradient_rect_bind_group(
-                &self.device,
-                &self.gradient_rect_bind_group_layout,
-                &self.gradient_rect_buffer,
-                &self.uniform_buffer,
-            );
             self.uploaded_gradient_rect_count = rects.len() as u32;
         }
 
         // 处理文本
         self.process_text();
+
+        // 在所有缓冲区更新后，重建主绑定组以指向最新缓冲区
+        self.main_bind_group = self.device.create_bind_group(&wgpu::BindGroupDescriptor {
+            label: Some("Main Bind Group (updated)"),
+            layout: &self.main_bind_group_layout,
+            entries: &[
+                wgpu::BindGroupEntry { binding: 0, resource: wgpu::BindingResource::Buffer(self.sdf_buffer.as_entire_buffer_binding()) },
+                wgpu::BindGroupEntry { binding: 1, resource: wgpu::BindingResource::Buffer(self.line_buffer.as_entire_buffer_binding()) },
+                wgpu::BindGroupEntry { binding: 2, resource: wgpu::BindingResource::Buffer(self.sdf_buffer.as_entire_buffer_binding()) },
+                wgpu::BindGroupEntry { binding: 3, resource: wgpu::BindingResource::Buffer(self.sdf_buffer.as_entire_buffer_binding()) },
+                wgpu::BindGroupEntry { binding: 4, resource: wgpu::BindingResource::Buffer(self.gradient_rect_buffer.as_entire_buffer_binding()) },
+                wgpu::BindGroupEntry { binding: 5, resource: wgpu::BindingResource::Buffer(self.uniform_buffer.as_entire_buffer_binding()) },
+            ],
+        });
 
         // 执行渲染
         self.render(view);
@@ -928,21 +760,21 @@ impl WgpuBackend {
             // 渲染SDF图元
             if self.uploaded_sdf_count > 0 {
                 rpass.set_pipeline(&self.sdf_pipeline);
-                rpass.set_bind_group(0, &self.sdf_bind_group, &[]);
+                rpass.set_bind_group(0, &self.main_bind_group, &[]);
                 rpass.draw(0..4, 0..self.uploaded_sdf_count);
             }
 
             // 渲染线图元
             if self.uploaded_line_count > 0 {
                 rpass.set_pipeline(&self.line_pipeline);
-                rpass.set_bind_group(0, &self.line_bind_group, &[]);
+                rpass.set_bind_group(0, &self.main_bind_group, &[]);
                 rpass.draw(0..4, 0..self.uploaded_line_count);
             }
 
             // 渲染路径图元
             if self.uploaded_path_index_count > 0 {
                 rpass.set_pipeline(&self.path_pipeline);
-                rpass.set_bind_group(0, &self.uniform_bind_group, &[]);
+                rpass.set_bind_group(0, &self.main_bind_group, &[]);
                 rpass.set_vertex_buffer(0, self.path_vertex_buffer.slice(..));
                 rpass.set_index_buffer(self.path_index_buffer.slice(..), wgpu::IndexFormat::Uint16);
                 rpass.draw_indexed(0..self.uploaded_path_index_count, 0, 0..1);
@@ -951,14 +783,14 @@ impl WgpuBackend {
             // 渲染渐变矩形
             if self.uploaded_gradient_rect_count > 0 {
                 rpass.set_pipeline(&self.gradient_rect_pipeline);
-                rpass.set_bind_group(0, &self.gradient_rect_bind_group, &[]);
+                rpass.set_bind_group(0, &self.main_bind_group, &[]);
                 rpass.draw(0..4, 0..self.uploaded_gradient_rect_count);
             }
 
             // 渲染文本
             if self.uploaded_text_vertex_count > 0 {
                 rpass.set_pipeline(&self.text_pipeline);
-                rpass.set_bind_group(0, &self.text_bind_group, &[]);
+                rpass.set_bind_group(0, &self.main_bind_group, &[]);
                 rpass.set_vertex_buffer(0, self.text_vertex_buffer.slice(..));
                 rpass.draw(0..self.uploaded_text_vertex_count * 3, 0..1);
             }
