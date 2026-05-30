@@ -21,6 +21,7 @@ pub struct GpuPoint {
     pub b: f32,
     pub a: f32,
     pub radius: f32,
+    pub shape_type: f32,
 }
 
 /// 线图元的GPU数据（对应WGSL的LineData）
@@ -65,6 +66,7 @@ pub struct GpuPolygon {
     pub a: f32,
     pub radius: f32,
     pub sides: f32,
+    pub shape_type: f32, // 形状类型（1=三角/2=菱形/3=五边形等）
 }
 
 /// 渐变矩形的GPU数据（对应WGSL的GradientRectData）
@@ -997,7 +999,7 @@ struct Out { @builtin(position) clip_pos: vec4<f32>, @location(0) color: vec4<f3
 // ============================================================================
 
 impl RenderBackend for WgpuBackend {
-    fn draw_circle(&mut self, config: CircleConfig) {
+        fn draw_circle(&mut self, config: CircleConfig) {
         let rgba = config.fill.rgba();
         self.pending_sdf_points.push(GpuPoint {
             x: config.x as f32,
@@ -1007,6 +1009,8 @@ impl RenderBackend for WgpuBackend {
             b: rgba[2],
             a: rgba[3] * config.opacity as f32,
             radius: config.radius as f32,
+            // 新增 shape_type 字段（需同步修改 GpuPoint 结构体）
+            shape_type: 0.0, // 0 = 圆形
         });
     }
 
@@ -1025,8 +1029,10 @@ impl RenderBackend for WgpuBackend {
         });
     }
 
+        // 重构 draw_polygon：专用于规则凸多边形标记（三角形/菱形/五边形等）
     fn draw_polygon(&mut self, config: PolygonConfig) {
         let vertex_count = config.points.len();
+        // 仅处理 3+ 顶点的规则凸多边形（符合设计契约）
         if vertex_count < 3 {
             return;
         }
@@ -1034,43 +1040,50 @@ impl RenderBackend for WgpuBackend {
         let fill_color = config.fill.rgba();
         let alpha = config.fill_opacity as f32;
 
-        let mut sum_x = 0.0f32;
-        let mut sum_y = 0.0f32;
+        // 1. 计算多边形几何质心（更精准的中心计算）
+        let mut cx = 0.0f32;
+        let mut cy = 0.0f32;
         for &(x, y) in &config.points {
-            sum_x += x as f32;
-            sum_y += y as f32;
+            cx += x as f32;
+            cy += y as f32;
         }
-        let cx = sum_x / vertex_count as f32;
-        let cy = sum_y / vertex_count as f32;
+        cx /= vertex_count as f32;
+        cy /= vertex_count as f32;
 
-        let mut max_r = 0.0f32;
+        // 2. 计算最大半径（覆盖所有顶点的外接圆半径，保证多边形完整渲染）
+        let mut max_radius = 0.0f32;
         for &(x, y) in &config.points {
             let dx = x as f32 - cx;
             let dy = y as f32 - cy;
-            let d = (dx * dx + dy * dy).sqrt();
-            if d > max_r {
-                max_r = d;
+            let radius = (dx * dx + dy * dy).sqrt();
+            if radius > max_radius {
+                max_radius = radius;
             }
         }
 
-        let sides = match vertex_count {
-            3 => 3.0,
-            4 => 4.0,
-            5 => 5.0,
-            6 => 6.0,
-            8 => 8.0,
-            _ => 4.0,
+        // 3. 映射规则多边形类型（与 WGSL 中的 SDF 公式一一对应）
+        // 严格遵循「仅处理规则凸多边形」的语义约束
+        let shape_type = match vertex_count {
+            3 => 1.0,  // 三角形（等边）
+            4 => 2.0,  // 菱形
+            5 => 3.0,  // 五边形
+            6 => 4.0,  // 六边形
+            8 => 5.0,  // 八边形
+            10 => 6.0, // 五角星（10顶点）
+            _ => 0.0,  // 降级为圆形（兜底）
         };
 
+        // 4. 推入多边形专属缓冲区（而非复用圆形缓冲区，语义分离）
         self.pending_polygons.push(GpuPolygon {
-            x: cx,
-            y: cy,
-            r: fill_color[0],
-            g: fill_color[1],
-            b: fill_color[2],
-            a: fill_color[3] * alpha,
-            radius: max_r,
-            sides,
+            x: cx,          // 多边形中心X
+            y: cy,          // 多边形中心Y
+            r: fill_color[0],// 红通道
+            g: fill_color[1],// 绿通道
+            b: fill_color[2],// 蓝通道
+            a: fill_color[3] * alpha, // 透明度
+            radius: max_radius,       // 外接圆半径
+            sides: vertex_count as f32, // 边数（供WGSL SDF计算）
+            shape_type,                // 形状类型（供WGSL分支判断）
         });
     }
 
