@@ -108,7 +108,6 @@ struct Uniforms {
 @group(0) @binding(0) var<storage, read> circles: array<PointData>;
 @group(0) @binding(1) var<storage, read> lines: array<LineData>;
 @group(0) @binding(2) var<storage, read> rects: array<RectData>;
-@group(0) @binding(3) var<storage, read> polygons: array<PolygonData>;
 @group(0) @binding(4) var<storage, read> gradient_rects: array<GradientRectData>;
 @group(0) @binding(5) var<uniform> uniforms: Uniforms;
 
@@ -140,8 +139,7 @@ struct RectOutput {
 
 struct PolygonOutput {
     @builtin(position) clip_pos: vec4<f32>,
-    @location(0) screen_pos: vec2<f32>,
-    @location(1) @interpolate(flat) instance_idx: u32,
+    @location(0) color: vec4<f32>,
 };
 
 struct GradientRectOutput {
@@ -328,36 +326,29 @@ fn rect_fs(in: RectOutput) -> @location(0) vec4<f32> {
 
 // ---------------------------
 // 5. Polygon Pipeline (draw_polygon: triangle/star/diamond/hexagon etc.)
+// Receives CPU-precomputed vertices - NO GPU-side shape generation
 // ---------------------------
 @vertex
-fn polygon_vs(@builtin(vertex_index) vi: u32, @builtin(instance_index) ii: u32) -> PolygonOutput {
-    let poly = polygons[ii];
-    var quad = vec2<f32>();
-    switch vi {
-        case 0u: { quad = vec2(-1.0, -1.0); }
-        case 1u: { quad = vec2(1.0, -1.0); }
-        case 2u: { quad = vec2(-1.0, 1.0); }
-        case 3u: { quad = vec2(1.0, 1.0); }
-        default: { quad = vec2(0.0); }
-    }
-
+fn polygon_vs(
+    @location(0) position: vec2<f32>,
+    @location(1) color: vec4<f32>,
+    @location(2) is_fill: f32
+) -> PolygonOutput {
     let scale = uniforms.scale_factor;
-    let final_pos = vec2(poly.x, poly.y) * scale + quad * (poly.radius * 1.5 * scale);
+    let screen_pos = position * scale;
     let sw = uniforms.screen_width * scale;
     let sh = uniforms.screen_height * scale;
-    let ndc = vec4((final_pos.x/sw)*2.0-1.0, 1.0-(final_pos.y/sh)*2.0, 0.0, 1.0);
+    let ndc = vec4((screen_pos.x/sw)*2.0-1.0, 1.0-(screen_pos.y/sh)*2.0, 0.0, 1.0);
 
     var out: PolygonOutput;
     out.clip_pos = ndc;
-    out.screen_pos = final_pos;
-    out.instance_idx = ii;
+    out.color = color;
     return out;
 }
 
 @fragment
 fn polygon_fs(in: PolygonOutput) -> @location(0) vec4<f32> {
-    let poly = polygons[in.instance_idx];
-    return vec4(poly.r, poly.g, poly.b, poly.a);
+    return in.color;
 }
 
 // ---------------------------

@@ -8,9 +8,9 @@ use crate::core::layer::{
 use crate::visual::color::SingleColor;
 use bytemuck::{Pod, Zeroable};
 use lyon::math::point;
-use lyon::path::{builder::PathBuilder, Path};
+use lyon::path::Path;
 use lyon::tessellation::{
-    BuffersBuilder, FillOptions, FillTessellator, FillVertex, FillVertexConstructor,
+    BuffersBuilder, FillVertex, FillVertexConstructor,
     StrokeOptions, StrokeTessellator, StrokeVertex, StrokeVertexConstructor, VertexBuffers,
 };
 use wgpu::util::DeviceExt;
@@ -86,30 +86,6 @@ pub struct GpuRect {
     pub a: f32,
     /// Corner radius for rounded rectangles (pixels)
     pub corner_radius: f32,
-}
-
-/// GPU data structure for polygon primitives (matches PolygonData in WGSL)
-#[repr(C)]
-#[derive(Copy, Clone, Debug, Pod, Zeroable)]
-pub struct GpuPolygon {
-    /// Center X coordinate (screen space)
-    pub x: f32,
-    /// Center Y coordinate (screen space)
-    pub y: f32,
-    /// Red color channel (0.0 - 1.0)
-    pub r: f32,
-    /// Green color channel (0.0 - 1.0)
-    pub g: f32,
-    /// Blue color channel (0.0 - 1.0)
-    pub b: f32,
-    /// Alpha transparency channel (0.0 - 1.0)
-    pub a: f32,
-    /// Radius of the polygon (distance from center to vertices, pixels)
-    pub radius: f32,
-    /// Number of sides (3 = triangle, 4 = square, 5 = pentagon, etc.)
-    pub sides: f32,
-    /// Shape type identifier (1 = triangle, 2 = diamond, 3 = pentagon, etc.)
-    pub shape_type: f32,
 }
 
 /// GPU data structure for gradient-filled rectangles (matches GradientRectData in WGSL)
@@ -278,7 +254,6 @@ pub struct WgpuBackend {
     
     // Global uniform buffer (screen dimensions, scale factor)
     uniform_buffer: wgpu::Buffer,
-    uniforms: Uniforms,
 
     // Main bind group (matches @group(0) in chart.wgsl)
     main_bind_group: wgpu::BindGroup,
@@ -298,9 +273,11 @@ pub struct WgpuBackend {
 
     // Polygon primitive resources
     polygon_pipeline: wgpu::RenderPipeline,
-    polygon_buffer: wgpu::Buffer,
-    pending_polygons: Vec<GpuPolygon>,
-    uploaded_polygon_count: u32,
+    polygon_vertex_buffer: wgpu::Buffer,
+    polygon_index_buffer: wgpu::Buffer,
+    pending_polygon_vertices: Vec<PathVertex>,
+    pending_polygon_indices: Vec<u16>,
+    uploaded_polygon_index_count: u32,
 
     // Line primitive resources
     line_pipeline: wgpu::RenderPipeline,
@@ -325,9 +302,9 @@ pub struct WgpuBackend {
     // Text rendering resources (placeholder implementation)
     text_pipeline: wgpu::RenderPipeline,
     text_vertex_buffer: wgpu::Buffer,
-    text_atlas_texture: wgpu::Texture,
-    text_atlas_view: wgpu::TextureView,
-    text_atlas_sampler: wgpu::Sampler,
+    _text_atlas_texture: wgpu::Texture,
+    _text_atlas_view: wgpu::TextureView,
+    _text_atlas_sampler: wgpu::Sampler,
     uploaded_text_vertex_count: u32,
 }
 
@@ -371,7 +348,6 @@ impl WgpuBackend {
         // 0: SDF (circle) storage buffer
         // 1: Line storage buffer
         // 2: Rectangle storage buffer
-        // 3: Polygon storage buffer
         // 4: Gradient rectangle storage buffer
         // 5: Global uniform buffer
         let main_bind_group_layout = device.create_bind_group_layout(&wgpu::BindGroupLayoutDescriptor {
@@ -408,16 +384,6 @@ impl WgpuBackend {
                     count: None,
                 },
                 wgpu::BindGroupLayoutEntry {
-                    binding: 3,
-                    visibility: wgpu::ShaderStages::VERTEX | wgpu::ShaderStages::FRAGMENT,
-                    ty: wgpu::BindingType::Buffer { 
-                        ty: wgpu::BufferBindingType::Storage { read_only: true }, 
-                        has_dynamic_offset: false, 
-                        min_binding_size: None 
-                    },
-                    count: None,
-                },
-                wgpu::BindGroupLayoutEntry {
                     binding: 4,
                     visibility: wgpu::ShaderStages::VERTEX | wgpu::ShaderStages::FRAGMENT,
                     ty: wgpu::BindingType::Buffer { 
@@ -443,9 +409,10 @@ impl WgpuBackend {
         // Create initial bind group with dummy buffers (replaced in flush)
         let dummy_circles = Self::create_dummy_buffer::<GpuPoint>(&device);
         let dummy_rects = Self::create_dummy_buffer::<GpuRect>(&device);
-        let dummy_polys = Self::create_dummy_buffer::<GpuPolygon>(&device);
         let dummy_lines = Self::create_dummy_buffer::<GpuLine>(&device);
         let dummy_grad_rects = Self::create_dummy_buffer::<GpuGradientRect>(&device);
+        let dummy_polygon_vertices = Self::create_dummy_buffer::<PathVertex>(&device);
+        let dummy_polygon_indices = Self::create_dummy_buffer::<u16>(&device);
 
         let main_bind_group = device.create_bind_group(&wgpu::BindGroupDescriptor {
             label: Some("Main Bind Group"),
@@ -454,7 +421,6 @@ impl WgpuBackend {
                 wgpu::BindGroupEntry { binding: 0, resource: wgpu::BindingResource::Buffer(dummy_circles.as_entire_buffer_binding()) },
                 wgpu::BindGroupEntry { binding: 1, resource: wgpu::BindingResource::Buffer(dummy_lines.as_entire_buffer_binding()) },
                 wgpu::BindGroupEntry { binding: 2, resource: wgpu::BindingResource::Buffer(dummy_rects.as_entire_buffer_binding()) },
-                wgpu::BindGroupEntry { binding: 3, resource: wgpu::BindingResource::Buffer(dummy_polys.as_entire_buffer_binding()) },
                 wgpu::BindGroupEntry { binding: 4, resource: wgpu::BindingResource::Buffer(dummy_grad_rects.as_entire_buffer_binding()) },
                 wgpu::BindGroupEntry { binding: 5, resource: wgpu::BindingResource::Buffer(uniform_buffer.as_entire_buffer_binding()) },
             ],
@@ -472,7 +438,6 @@ impl WgpuBackend {
         // Create placeholder buffers (replaced with actual data in flush)
         let circle_buffer = Self::create_dummy_buffer::<GpuPoint>(&device);
         let rect_buffer = Self::create_dummy_buffer::<GpuRect>(&device);
-        let polygon_buffer = Self::create_dummy_buffer::<GpuPolygon>(&device);
         let line_buffer = Self::create_dummy_buffer::<GpuLine>(&device);
         let path_vertex_buffer = Self::create_dummy_buffer::<PathVertex>(&device);
         let path_index_buffer = Self::create_dummy_buffer::<u16>(&device);
@@ -483,7 +448,6 @@ impl WgpuBackend {
             device,
             queue,
             uniform_buffer,
-            uniforms,
             main_bind_group,
             main_bind_group_layout,
 
@@ -498,9 +462,11 @@ impl WgpuBackend {
             uploaded_rect_count: 0,
 
             polygon_pipeline,
-            polygon_buffer,
-            pending_polygons: Vec::with_capacity(10_000),
-            uploaded_polygon_count: 0,
+            polygon_vertex_buffer: dummy_polygon_vertices,
+            polygon_index_buffer: dummy_polygon_indices,
+            pending_polygon_vertices: Vec::with_capacity(50_000),
+            pending_polygon_indices: Vec::with_capacity(100_000),
+            uploaded_polygon_index_count: 0,
 
             line_pipeline,
             line_buffer,
@@ -521,9 +487,9 @@ impl WgpuBackend {
 
             text_pipeline,
             text_vertex_buffer,
-            text_atlas_texture,
-            text_atlas_view,
-            text_atlas_sampler,
+            _text_atlas_texture: text_atlas_texture,
+            _text_atlas_view: text_atlas_view,
+            _text_atlas_sampler: text_atlas_sampler,
             uploaded_text_vertex_count: 0,
         }
     }
@@ -725,7 +691,7 @@ impl WgpuBackend {
         })
     }
 
-    /// Creates the polygon render pipeline
+    /// Creates the polygon render pipeline (receives CPU-precomputed vertices)
     /// 
     /// # Arguments
     /// * `device` - WGPU device handle
@@ -751,7 +717,7 @@ impl WgpuBackend {
             vertex: wgpu::VertexState {
                 module: shader,
                 entry_point: Some("polygon_vs"),
-                buffers: &[],
+                buffers: &[PathVertex::DESC],
                 compilation_options: wgpu::PipelineCompilationOptions::default(),
             },
             fragment: Some(wgpu::FragmentState {
@@ -765,7 +731,7 @@ impl WgpuBackend {
                 compilation_options: wgpu::PipelineCompilationOptions::default(),
             }),
             primitive: wgpu::PrimitiveState {
-                topology: wgpu::PrimitiveTopology::TriangleStrip,
+                topology: wgpu::PrimitiveTopology::TriangleList,
                 strip_index_format: None,
                 front_face: wgpu::FrontFace::Ccw,
                 cull_mode: None,
@@ -929,7 +895,7 @@ impl WgpuBackend {
     /// Tuple of (bind group layout, pipeline, atlas texture, atlas view, sampler)
     async fn create_text_pipeline(
         device: &wgpu::Device,
-        shader: &wgpu::ShaderModule,
+        _shader: &wgpu::ShaderModule,
         _main_layout: &wgpu::BindGroupLayout,
     ) -> (
         wgpu::BindGroupLayout,
@@ -1161,10 +1127,12 @@ struct Out {
             self.uploaded_rect_count = rects.len() as u32;
         }
 
-        if !self.pending_polygons.is_empty() {
-            let polygons = std::mem::take(&mut self.pending_polygons);
-            self.polygon_buffer = self.create_buffer(&polygons);
-            self.uploaded_polygon_count = polygons.len() as u32;
+        if !self.pending_polygon_vertices.is_empty() || !self.pending_polygon_indices.is_empty() {
+            let vertices = std::mem::take(&mut self.pending_polygon_vertices);
+            let indices = std::mem::take(&mut self.pending_polygon_indices);
+            self.polygon_vertex_buffer = self.create_buffer(&vertices);
+            self.polygon_index_buffer = self.create_buffer(&indices);
+            self.uploaded_polygon_index_count = indices.len() as u32;
         }
 
         if !self.pending_lines.is_empty() {
@@ -1207,10 +1175,6 @@ struct Out {
                 wgpu::BindGroupEntry {
                     binding: 2,
                     resource: wgpu::BindingResource::Buffer(self.rect_buffer.as_entire_buffer_binding()),
-                },
-                wgpu::BindGroupEntry {
-                    binding: 3,
-                    resource: wgpu::BindingResource::Buffer(self.polygon_buffer.as_entire_buffer_binding()),
                 },
                 wgpu::BindGroupEntry {
                     binding: 4,
@@ -1263,9 +1227,11 @@ struct Out {
                 pass.draw(0..4, 0..self.uploaded_rect_count);
             }
 
-            if self.uploaded_polygon_count > 0 {
+            if self.uploaded_polygon_index_count > 0 {
                 pass.set_pipeline(&self.polygon_pipeline);
-                pass.draw(0..4, 0..self.uploaded_polygon_count);
+                pass.set_vertex_buffer(0, self.polygon_vertex_buffer.slice(..));
+                pass.set_index_buffer(self.polygon_index_buffer.slice(..), wgpu::IndexFormat::Uint16);
+                pass.draw_indexed(0..self.uploaded_polygon_index_count, 0, 0..1);
             }
 
             if self.uploaded_gradient_rect_count > 0 {
@@ -1288,16 +1254,6 @@ struct Out {
         }
 
         self.queue.submit(Some(encoder.finish()));
-    }
-
-    pub fn resize(&mut self, width: u32, height: u32, scale_factor: f32) {
-        self.uniforms.screen_width = width as f32;
-        self.uniforms.screen_height = height as f32;
-        self.uniforms.scale_factor = scale_factor;
-    }
-
-    pub fn finish_frame(&mut self, view: &wgpu::TextureView) {
-        self.flush_and_render(view);
     }
 }
 
@@ -1378,50 +1334,31 @@ impl RenderBackend for WgpuBackend {
             fill[3] * config.fill_opacity,
         ];
 
-        // Temporary buffers to assemble vertex/index data before GPU upload
-        let mut vertices = Vec::new();
-        let mut indices = Vec::new();
-
         // Triangle fan rendering: use the FIRST vertex as the common origin/fan center
         // Works perfectly for: convex polygons, regular polygons, and star shapes
-        let first_vertex = config.points[0];
+        let base_vertex = self.pending_polygon_vertices.len() as u16;
+        let point_count = config.points.len();
 
-        // Iterate through vertex pairs to build triangles
-        for i in 1..config.points.len() {
-            // Current vertex in sequence
-            let p1 = config.points[i];
-            // Next vertex (wrap around to first at end of loop)
-            let p2 = config.points[(i + 1) % config.points.len()];
-
-            // Push one full triangle (3 vertices) for the triangle fan
-            vertices.push(PathVertex {
-                position: [first_vertex.0 as f32, first_vertex.1 as f32],
-                color,
-                is_fill: 1.0, // 1.0 = fill, 0.0 = stroke
-            });
-            vertices.push(PathVertex {
-                position: [p1.0 as f32, p1.1 as f32],
-                color,
-                is_fill: 0.0,
-            });
-            vertices.push(PathVertex {
-                position: [p2.0 as f32, p2.1 as f32],
+        for &(x, y) in &config.points {
+            self.pending_polygon_vertices.push(PathVertex {
+                position: [x as f32, y as f32],
                 color,
                 is_fill: 1.0,
             });
+        }
 
-            // Generate indices for this triangle (sequential indexing)
-            let base_idx = indices.len() as u16;
+        // Generate triangle fan indices
+        let mut indices = Vec::new();
+        for i in 1..point_count - 1 {
             indices.extend([
-                base_idx,
-                base_idx + 1,
-                base_idx + 2
+                base_vertex,
+                base_vertex + i as u16,
+                base_vertex + (i + 1) as u16,
             ]);
         }
 
-        // Append finalized geometry to pending render batches
-        self.pending_path_vertices.extend(vertices);
-        self.pending_path_indices.extend(indices);
+        // Append finalized indices to pending render batches
+        self.pending_polygon_indices.extend(indices);
     }
 
     fn draw_gradient_rect(&mut self, config: GradientRectConfig) {
