@@ -38,8 +38,6 @@ pub struct GpuPoint {
     pub a: f32,
     /// Radius of the SDF primitive (pixels)
     pub radius: f32,
-    /// Type identifier for different SDF shapes (1 = circle, etc.)
-    pub shape_type: f32,
 }
 
 /// GPU data structure for line primitives (matches LineData in WGSL)
@@ -286,11 +284,11 @@ pub struct WgpuBackend {
     main_bind_group: wgpu::BindGroup,
     main_bind_group_layout: wgpu::BindGroupLayout,
 
-    // SDF primitive (circle) resources
-    sdf_pipeline: wgpu::RenderPipeline,
-    sdf_buffer: wgpu::Buffer,
-    pending_sdf_points: Vec<GpuPoint>,
-    uploaded_sdf_count: u32,
+    // Circle primitive resources
+    circle_pipeline: wgpu::RenderPipeline,
+    circle_buffer: wgpu::Buffer,
+    pending_circles: Vec<GpuPoint>,
+    uploaded_circle_count: u32,
 
     // Rectangle primitive resources
     rect_pipeline: wgpu::RenderPipeline,
@@ -463,7 +461,7 @@ impl WgpuBackend {
         });
 
         // Create all render pipelines
-        let (_sdf_bg_layout, sdf_pipeline) = Self::create_sdf_pipeline(&device, &shader, &main_bind_group_layout);
+        let circle_pipeline = Self::create_circle_pipeline(&device, &shader, &main_bind_group_layout);
         let (_line_bg_layout, line_pipeline) = Self::create_line_pipeline(&device, &shader, &main_bind_group_layout);
         let rect_pipeline = Self::create_rect_pipeline(&device, &shader, &main_bind_group_layout);
         let polygon_pipeline = Self::create_polygon_pipeline(&device, &shader, &main_bind_group_layout);
@@ -472,7 +470,7 @@ impl WgpuBackend {
         let (_text_bg_layout, text_pipeline, text_atlas_texture, text_atlas_view, text_atlas_sampler) = Self::create_text_pipeline(&device, &shader, &main_bind_group_layout).await;
 
         // Create placeholder buffers (replaced with actual data in flush)
-        let sdf_buffer = Self::create_dummy_buffer::<GpuPoint>(&device);
+        let circle_buffer = Self::create_dummy_buffer::<GpuPoint>(&device);
         let rect_buffer = Self::create_dummy_buffer::<GpuRect>(&device);
         let polygon_buffer = Self::create_dummy_buffer::<GpuPolygon>(&device);
         let line_buffer = Self::create_dummy_buffer::<GpuLine>(&device);
@@ -489,10 +487,10 @@ impl WgpuBackend {
             main_bind_group,
             main_bind_group_layout,
 
-            sdf_pipeline,
-            sdf_buffer,
-            pending_sdf_points: Vec::with_capacity(30_000),
-            uploaded_sdf_count: 0,
+            circle_pipeline,
+            circle_buffer,
+            pending_circles: Vec::with_capacity(30_000),
+            uploaded_circle_count: 0,
 
             rect_pipeline,
             rect_buffer,
@@ -534,7 +532,7 @@ impl WgpuBackend {
     // Pipeline Creation Helpers
     // ============================================================================
 
-    /// Creates the SDF (circle) render pipeline and bind group layout
+    /// Creates the circle render pipeline (uses SDF shader for perfect anti-aliasing)
     /// 
     /// # Arguments
     /// * `device` - WGPU device handle
@@ -542,46 +540,20 @@ impl WgpuBackend {
     /// * `main_layout` - Main bind group layout (@group(0))
     /// 
     /// # Returns
-    /// Tuple of (bind group layout, render pipeline)
-    fn create_sdf_pipeline(
+    /// Circle render pipeline
+    fn create_circle_pipeline(
         device: &wgpu::Device,
         shader: &wgpu::ShaderModule,
         main_layout: &wgpu::BindGroupLayout,
-    ) -> (wgpu::BindGroupLayout, wgpu::RenderPipeline) {
-        let sdf_bind_group_layout = device.create_bind_group_layout(&wgpu::BindGroupLayoutDescriptor {
-            label: Some("SDF Bind Group Layout"),
-            entries: &[
-                wgpu::BindGroupLayoutEntry {
-                    binding: 0,
-                    visibility: wgpu::ShaderStages::VERTEX | wgpu::ShaderStages::FRAGMENT,
-                    ty: wgpu::BindingType::Buffer {
-                        ty: wgpu::BufferBindingType::Storage { read_only: true },
-                        has_dynamic_offset: false,
-                        min_binding_size: None,
-                    },
-                    count: None,
-                },
-                wgpu::BindGroupLayoutEntry {
-                    binding: 1,
-                    visibility: wgpu::ShaderStages::VERTEX | wgpu::ShaderStages::FRAGMENT,
-                    ty: wgpu::BindingType::Buffer {
-                        ty: wgpu::BufferBindingType::Uniform,
-                        has_dynamic_offset: false,
-                        min_binding_size: None,
-                    },
-                    count: None,
-                },
-            ],
-        });
-
+    ) -> wgpu::RenderPipeline {
         let pipeline_layout = device.create_pipeline_layout(&wgpu::PipelineLayoutDescriptor {
-            label: Some("SDF Pipeline Layout"),
+            label: Some("Circle Pipeline Layout"),
             bind_group_layouts: &[Some(main_layout)],
             immediate_size: 0,
         });
 
-        let pipeline = device.create_render_pipeline(&wgpu::RenderPipelineDescriptor {
-            label: Some("SDF Render Pipeline"),
+        device.create_render_pipeline(&wgpu::RenderPipelineDescriptor {
+            label: Some("Circle Render Pipeline"),
             layout: Some(&pipeline_layout),
             vertex: wgpu::VertexState {
                 module: shader,
@@ -609,16 +581,10 @@ impl WgpuBackend {
                 conservative: false,
             },
             depth_stencil: None,
-            multisample: wgpu::MultisampleState {
-                count: 1,
-                mask: !0,
-                alpha_to_coverage_enabled: false,
-            },
+            multisample: wgpu::MultisampleState::default(),
             multiview_mask: None,
             cache: None,
-        });
-
-        (sdf_bind_group_layout, pipeline)
+        })
     }
 
     /// Creates the line render pipeline and bind group layout
@@ -1183,10 +1149,10 @@ struct Out {
     /// # Arguments
     /// * `view` - Target texture view to render to
     pub fn flush_and_render(&mut self, view: &wgpu::TextureView) {
-        if !self.pending_sdf_points.is_empty() {
-            let points = std::mem::take(&mut self.pending_sdf_points);
-            self.sdf_buffer = self.create_buffer(&points);
-            self.uploaded_sdf_count = points.len() as u32;
+        if !self.pending_circles.is_empty() {
+            let circles = std::mem::take(&mut self.pending_circles);
+            self.circle_buffer = self.create_buffer(&circles);
+            self.uploaded_circle_count = circles.len() as u32;
         }
 
         if !self.pending_rects.is_empty() {
@@ -1232,7 +1198,7 @@ struct Out {
             entries: &[
                 wgpu::BindGroupEntry {
                     binding: 0,
-                    resource: wgpu::BindingResource::Buffer(self.sdf_buffer.as_entire_buffer_binding()),
+                    resource: wgpu::BindingResource::Buffer(self.circle_buffer.as_entire_buffer_binding()),
                 },
                 wgpu::BindGroupEntry {
                     binding: 1,
@@ -1282,9 +1248,9 @@ struct Out {
             let mut pass = encoder.begin_render_pass(&render_pass_desc);
             pass.set_bind_group(0, &self.main_bind_group, &[]);
 
-            if self.uploaded_sdf_count > 0 {
-                pass.set_pipeline(&self.sdf_pipeline);
-                pass.draw(0..4, 0..self.uploaded_sdf_count);
+            if self.uploaded_circle_count > 0 {
+                pass.set_pipeline(&self.circle_pipeline);
+                pass.draw(0..4, 0..self.uploaded_circle_count);
             }
 
             if self.uploaded_line_count > 0 {
@@ -1350,9 +1316,8 @@ impl RenderBackend for WgpuBackend {
             b: fill[2],
             a: fill[3] * config.opacity,
             radius: config.radius,
-            shape_type: 0.0,
         };
-        self.pending_sdf_points.push(point);
+        self.pending_circles.push(point);
     }
 
     fn draw_line(&mut self, config: LineConfig) {
