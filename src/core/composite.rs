@@ -1276,7 +1276,9 @@ impl LayeredChart {
                 force_fallback_adapter: false,
             })
             .await
-            .map_err(|e| ChartonError::Render(format!("Failed to request a suitable GPU adapter: {}", e)))?;
+            .map_err(|e| {
+                ChartonError::Render(format!("Failed to request a suitable GPU adapter: {}", e))
+            })?;
 
         let (device, queue) = adapter
             .request_device(&wgpu::DeviceDescriptor::default())
@@ -1341,7 +1343,7 @@ impl LayeredChart {
                 return Err(ChartonError::Render(format!(
                     "Failed to acquire next surface texture: {:?}",
                     other
-                )))
+                )));
             }
         };
 

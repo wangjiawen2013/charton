@@ -201,7 +201,8 @@ fn circle_fs(in: CircleOutput) -> @location(0) vec4<f32> {
     let alpha = 1.0 - smoothstep(-aa, aa, dist);
     if (alpha <= 0.01) { discard; }
     
-    return vec4(circle.r, circle.g, circle.b, circle.a * alpha);
+    // Swap Red and Blue channels to match the Bgra8Unorm surface format.
+    return vec4(circle.b, circle.g, circle.r, circle.a * alpha);
 }
 
 // ---------------------------
@@ -238,7 +239,8 @@ fn line_vs(@builtin(vertex_index) vi: u32, @builtin(instance_index) ii: u32) -> 
 @fragment
 fn line_fs(in: LineOutput) -> @location(0) vec4<f32> {
     let line = lines[in.instance_idx];
-    return vec4(line.r, line.g, line.b, line.a);
+    // Swap Red and Blue channels to match the Bgra8Unorm surface format.
+    return vec4(line.b, line.g, line.r, line.a);
 }
 
 // ---------------------------
@@ -265,7 +267,8 @@ fn path_vs(
 
 @fragment
 fn path_fs(in: PathOutput) -> @location(0) vec4<f32> {
-    return in.color;
+    // Swap Red and Blue channels to match the Bgra8Unorm surface format.
+    return vec4(in.color.b, in.color.g, in.color.r, in.color.a);
 }
 
 // ---------------------------
@@ -321,7 +324,8 @@ fn rect_fs(in: RectOutput) -> @location(0) vec4<f32> {
         discard; // Remove invisible pixels
     }
 
-    return vec4(r.r, r.g, r.b, r.a);
+    // Swap Red and Blue channels to match the Bgra8Unorm surface format.
+    return vec4(r.b, r.g, r.r, r.a);
 }
 
 // ---------------------------
