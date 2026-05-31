@@ -241,6 +241,31 @@ pub struct Uniforms {
     pub _padding: f32,
 }
 
+#[derive(Debug, Clone, Copy)]
+/// Represents a single rendering batch command in the interleaved queue.
+/// This enum acts as the "Instruction Manual" for the renderer, defining 
+/// which pipeline to use and which data range to fetch from GPU buffers.
+pub enum DrawBatch {
+    /// Batch of circles to be rendered via instancing.
+    /// 'start' is the offset in the circle instance buffer.
+    /// 'count' is the number of circle instances to draw in this call.
+    Circle { start: u32, count: u32 },
+    Rect { start: u32, count: u32 },
+    Line { start: u32, count: u32 },
+    Polygon { index_start: u32, index_count: u32 },
+    GradientRect { start: u32, count: u32 },
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+/// Helper enum to categorize batch types for matching.
+pub enum BatchType {
+    Circle,
+    Rect,
+    Line,
+    Polygon,
+    GradientRect,
+}
+
 // ============================================================================
 // WGPU Backend Core Implementation
 // ============================================================================
@@ -306,6 +331,16 @@ pub struct WgpuBackend {
     _text_atlas_view: wgpu::TextureView,
     _text_atlas_sampler: wgpu::Sampler,
     uploaded_text_vertex_count: u32,
+
+    /// Interleaved batch queue to preserve rendering order
+    batches: Vec<DrawBatch>,
+    
+    /// Running instance count for rendering primitives (used as buffer offset)
+    current_circle_count: u32,
+    current_rect_count: u32,
+    current_line_count: u32,
+    current_polygon_index_count: u32,
+    current_grad_rect_count: u32,
 }
 
 impl WgpuBackend {
@@ -491,7 +526,91 @@ impl WgpuBackend {
             _text_atlas_view: text_atlas_view,
             _text_atlas_sampler: text_atlas_sampler,
             uploaded_text_vertex_count: 0,
+
+            batches: Vec::with_capacity(1024), // Pre-allocate space for batch queue
+            current_circle_count: 0,
+            current_rect_count: 0,
+            current_line_count: 0,
+            current_polygon_index_count: 0,
+            current_grad_rect_count: 0,
         }
+    }
+
+    fn push_batch(&mut self, batch_type: BatchType, count: u32) {
+        // Attempt to merge with the last batch if the type is the same
+        match (self.batches.last_mut(), batch_type) {
+            (Some(DrawBatch::Circle { count: c, .. }), BatchType::Circle) => *c += count,
+            (Some(DrawBatch::Rect { count: c, .. }), BatchType::Rect) => *c += count,
+            (Some(DrawBatch::Line { count: c, .. }), BatchType::Line) => *c += count,
+            (Some(DrawBatch::Polygon { index_count: c, .. }), BatchType::Polygon) => *c += count,
+            (Some(DrawBatch::GradientRect { count: c, .. }), BatchType::GradientRect) => *c += count,
+
+            // If types don't match or the queue is empty, create a new batch
+            _ => {
+                // Here, since BatchType implements Copy, we can safely use it again
+                self.batches.push(match batch_type {
+                    BatchType::Circle => DrawBatch::Circle {
+                        start: self.current_circle_count.saturating_sub(count),
+                        count,
+                    },
+                    BatchType::Rect => DrawBatch::Rect {
+                        start: self.current_rect_count.saturating_sub(count),
+                        count,
+                    },
+                    BatchType::Line => DrawBatch::Line {
+                        start: self.current_line_count.saturating_sub(count),
+                        count,
+                    },
+                    BatchType::Polygon => DrawBatch::Polygon {
+                        index_start: self.current_polygon_index_count.saturating_sub(count),
+                        index_count: count,
+                    },
+                    BatchType::GradientRect => DrawBatch::GradientRect {
+                        start: self.current_grad_rect_count.saturating_sub(count),
+                        count,
+                    },
+                });
+            }
+        }
+    }
+
+    /// Clears all state, batches, and buffers to prepare for the next frame.
+    /// This should be called at the end of each frame's rendering cycle.
+    pub fn reset(&mut self) {
+        // 1. Reset the batch queue for the new frame
+        self.batches.clear();
+
+        // 2. Reset counters used for generating batch start offsets
+        self.current_circle_count = 0;
+        self.current_rect_count = 0;
+        self.current_line_count = 0;
+        self.current_polygon_index_count = 0;
+        self.current_grad_rect_count = 0;
+
+        // 3. Clear all pending data buffers (CPU side)
+        // These are the buffers that accumulate data via draw_* calls
+        self.pending_circles.clear();
+        self.pending_rects.clear();
+        self.pending_lines.clear();
+        self.pending_polygon_vertices.clear();
+        self.pending_polygon_indices.clear();
+        self.pending_path_vertices.clear();
+        self.pending_path_indices.clear();
+        self.pending_gradient_rects.clear();
+        
+        // Assuming you have a corresponding pending buffer for text
+        // self.pending_text_vertices.clear(); 
+
+        // 4. Reset uploaded counters
+        // This is crucial! It tells the system that no data has been uploaded to GPU 
+        // for the new frame yet.
+        self.uploaded_circle_count = 0;
+        self.uploaded_rect_count = 0;
+        self.uploaded_line_count = 0;
+        self.uploaded_polygon_index_count = 0;
+        self.uploaded_path_index_count = 0;
+        self.uploaded_gradient_rect_count = 0;
+        self.uploaded_text_vertex_count = 0;
     }
 
     // ============================================================================
@@ -1109,12 +1228,17 @@ struct Out {
     // ============================================================================
     // Render & Flush
     // ============================================================================
-
     /// Flushes pending render data to GPU buffers and renders to the target texture view
     /// 
     /// # Arguments
     /// * `view` - Target texture view to render to
     pub fn flush_and_render(&mut self, view: &wgpu::TextureView) {
+        // --------------------------------------------------------------------
+        // PHASE 1: DATA UPLOAD
+        // Transfer all accumulated data from CPU vectors to GPU buffers.
+        // This part remains the same because the GPU needs all data in memory
+        // before we can execute our batch drawing commands.
+        // --------------------------------------------------------------------
         if !self.pending_circles.is_empty() {
             let circles = std::mem::take(&mut self.pending_circles);
             self.circle_buffer = self.create_buffer(&circles);
@@ -1160,6 +1284,9 @@ struct Out {
             self.process_text();
         }
 
+        // --------------------------------------------------------------------
+        // PHASE 2: BIND GROUP SETUP
+        // --------------------------------------------------------------------
         self.main_bind_group = self.device.create_bind_group(&wgpu::BindGroupDescriptor {
             label: Some("Main Bind Group (Updated)"),
             layout: &self.main_bind_group_layout,
@@ -1208,37 +1335,51 @@ struct Out {
             label: Some("Render Encoder"),
         });
 
+        // --------------------------------------------------------------------
+        // PHASE 3: ORCHESTRATED DRAWING (The Magic Happens Here)
+        // We now iterate through the `batches` queue. This guarantees that 
+        // the GPU draws elements in the EXACT order they were submitted by 
+        // the frontend (Painter's Algorithm), fixing all Z-Index/overlap issues.
+        // --------------------------------------------------------------------
         {
             let mut pass = encoder.begin_render_pass(&render_pass_desc);
             pass.set_bind_group(0, &self.main_bind_group, &[]);
 
-            if self.uploaded_circle_count > 0 {
-                pass.set_pipeline(&self.circle_pipeline);
-                pass.draw(0..4, 0..self.uploaded_circle_count);
+            for batch in &self.batches {
+                match batch {
+                    DrawBatch::Circle { start, count } => {
+                        pass.set_pipeline(&self.circle_pipeline);
+                        // Draw exactly this batch's slice (instances)
+                        pass.draw(0..4, *start..(*start + *count));
+                    }
+                    DrawBatch::Line { start, count } => {
+                        pass.set_pipeline(&self.line_pipeline);
+                        pass.draw(0..4, *start..(*start + *count));
+                    }
+                    DrawBatch::Rect { start, count } => {
+                        pass.set_pipeline(&self.rect_pipeline);
+                        pass.draw(0..4, *start..(*start + *count));
+                    }
+                    DrawBatch::GradientRect { start, count } => {
+                        pass.set_pipeline(&self.gradient_rect_pipeline);
+                        pass.draw(0..4, *start..(*start + *count));
+                    }
+                    DrawBatch::Polygon { index_start, index_count } => {
+                        pass.set_pipeline(&self.polygon_pipeline);
+                        pass.set_vertex_buffer(0, self.polygon_vertex_buffer.slice(..));
+                        pass.set_index_buffer(self.polygon_index_buffer.slice(..), wgpu::IndexFormat::Uint16);
+                        // Draw exactly this batch's index range
+                        pass.draw_indexed(*index_start..(*index_start + *index_count), 0, 0..1);
+                    }
+                }
             }
 
-            if self.uploaded_line_count > 0 {
-                pass.set_pipeline(&self.line_pipeline);
-                pass.draw(0..4, 0..self.uploaded_line_count);
-            }
-
-            if self.uploaded_rect_count > 0 {
-                pass.set_pipeline(&self.rect_pipeline);
-                pass.draw(0..4, 0..self.uploaded_rect_count);
-            }
-
-            if self.uploaded_polygon_index_count > 0 {
-                pass.set_pipeline(&self.polygon_pipeline);
-                pass.set_vertex_buffer(0, self.polygon_vertex_buffer.slice(..));
-                pass.set_index_buffer(self.polygon_index_buffer.slice(..), wgpu::IndexFormat::Uint16);
-                pass.draw_indexed(0..self.uploaded_polygon_index_count, 0, 0..1);
-            }
-
-            if self.uploaded_gradient_rect_count > 0 {
-                pass.set_pipeline(&self.gradient_rect_pipeline);
-                pass.draw(0..4, 0..self.uploaded_gradient_rect_count);
-            }
-
+            // ----------------------------------------------------------------
+            // FALLBACK FOR UN-BATCHED ELEMENTS
+            // Since Path and Text might not be integrated into DrawBatch yet,
+            // we render them at the very end to ensure they stay visible.
+            // (Consider adding them to DrawBatch in the future for full ordering).
+            // ----------------------------------------------------------------
             if self.uploaded_path_index_count > 0 {
                 pass.set_pipeline(&self.path_pipeline);
                 pass.set_vertex_buffer(0, self.path_vertex_buffer.slice(..));
@@ -1254,7 +1395,11 @@ struct Out {
         }
 
         self.queue.submit(Some(encoder.finish()));
+
+        // Clear state for the next frame to prevent data accumulation or rendering artifacts
+        self.reset();
     }
+
 }
 
 // ============================================================================
@@ -1273,7 +1418,15 @@ impl RenderBackend for WgpuBackend {
             a: fill[3] * config.opacity,
             radius: config.radius,
         };
+        
+        // 1. Store the circle data into the CPU-side pending buffer
         self.pending_circles.push(point);
+        
+        // 2. Increment the counter (used as a reference for calculating the start offset in batching)
+        self.current_circle_count += 1;
+        
+        // 3. Register the draw command in the batch queue (entry point for batching)
+        self.push_batch(BatchType::Circle, 1);
     }
 
     fn draw_line(&mut self, config: LineConfig) {
@@ -1289,7 +1442,15 @@ impl RenderBackend for WgpuBackend {
             a: color[3] * config.opacity,
             width: config.width,
         };
+        
+        // 1. Store the line data into the CPU-side pending buffer
         self.pending_lines.push(line);
+        
+        // 2. Increment the line counter (used as a reference for calculating the start offset)
+        self.current_line_count += 1;
+        
+        // 3. Register the draw command in the batch queue
+        self.push_batch(BatchType::Line, 1);
     }
 
     fn draw_rect(&mut self, config: RectConfig) {
@@ -1305,7 +1466,15 @@ impl RenderBackend for WgpuBackend {
             a: fill[3] * config.opacity,
             corner_radius: 0.0,
         };
+        
+        // 1. Store the rect data into the CPU-side pending buffer
         self.pending_rects.push(rect);
+        
+        // 2. Increment the rect counter (used as a reference for calculating the start offset)
+        self.current_rect_count += 1;
+        
+        // 3. Register the draw command in the batch queue
+        self.push_batch(BatchType::Rect, 1);
     }
 
     // ------------------------------
@@ -1335,7 +1504,6 @@ impl RenderBackend for WgpuBackend {
         ];
 
         // Triangle fan rendering: use the FIRST vertex as the common origin/fan center
-        // Works perfectly for: convex polygons, regular polygons, and star shapes
         let base_vertex = self.pending_polygon_vertices.len() as u16;
         let point_count = config.points.len();
 
@@ -1357,8 +1525,15 @@ impl RenderBackend for WgpuBackend {
             ]);
         }
 
-        // Append finalized indices to pending render batches
+        // 1. Append finalized indices to pending render buffers
+        let index_count = indices.len() as u32;
         self.pending_polygon_indices.extend(indices);
+
+        // 2. Update the counter (track total indices uploaded)
+        self.current_polygon_index_count += index_count;
+
+        // 3. Register the polygon batch
+        self.push_batch(BatchType::Polygon, index_count);
     }
 
     fn draw_gradient_rect(&mut self, config: GradientRectConfig) {
@@ -1389,7 +1564,15 @@ impl RenderBackend for WgpuBackend {
             angle: if config.is_vertical { std::f32::consts::FRAC_PI_2 } else { 0.0 },
             opacity: 1.0,
         };
+        
+        // 1. Store the gradient rect data into the CPU-side pending buffer
         self.pending_gradient_rects.push(grad_rect);
+        
+        // 2. Increment the gradient rect counter
+        self.current_grad_rect_count += 1;
+        
+        // 3. Register the draw command in the batch queue
+        self.push_batch(BatchType::GradientRect, 1);
     }
 
     fn draw_path(&mut self, config: PathConfig) {
