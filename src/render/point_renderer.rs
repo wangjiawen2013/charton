@@ -82,7 +82,7 @@ impl MarkRenderer for Chart<MarkPoint> {
         });
 
         // --- STEP 3: LAYOUT EXECUTION ---
-        // Note: We now return a tuple of (row_index, PointElementConfig) to retain 
+        // Note: We now return a tuple of (row_index, PointElementConfig) to retain
         // the mapping between the calculated geometry and its original row in the dataset.
         let render_configs: Vec<(usize, PointElementConfig)> = match mark_config.layout {
             PointLayout::Beeswarm => {
@@ -169,7 +169,7 @@ impl MarkRenderer for Chart<MarkPoint> {
 
         // --- STEP 4: GROUPING & EMISSION ---
         // Determine the field to group by for deterministic Z-indexing and WGPU batching.
-        // We prioritize Color, then Shape. If neither is mapped, group_by(None) will 
+        // We prioritize Color, then Shape. If neither is mapped, group_by(None) will
         // put all points in a single, massive continuous batch.
         let group_field = context
             .spec
@@ -223,7 +223,8 @@ impl Chart<MarkPoint> {
         unit_step_norm: f64,
         context: &PanelContext,
         mark_config: &MarkPoint,
-    ) -> Vec<(usize, PointElementConfig)> { // Signature updated to return the row index
+    ) -> Vec<(usize, PointElementConfig)> {
+        // Signature updated to return the row index
         let mut configs = Vec::with_capacity(row_count);
         let mut occupancy: std::collections::HashMap<(usize, usize), Vec<(f64, f64, f64)>> =
             std::collections::HashMap::new();
@@ -342,7 +343,7 @@ impl Chart<MarkPoint> {
             };
 
             siblings.push((final_px, final_py, size));
-            
+
             // Push the config wrapped in a tuple with its row index 'i'
             configs.push((
                 i,
