@@ -401,14 +401,15 @@ impl WgpuBackend {
         // Create main bind group layout (matches @group(0) bindings in chart.wgsl)
         // Bindings:
         // 0: SDF (circle) storage buffer
-        // 1: Line storage buffer
-        // 2: Rectangle storage buffer
+        // 1: Rectangle storage buffer
+        // 2: Line storage buffer
         // 4: Gradient rectangle storage buffer
         // 5: Global uniform buffer
         let main_bind_group_layout =
             device.create_bind_group_layout(&wgpu::BindGroupLayoutDescriptor {
                 label: Some("Main Bind Group Layout"),
                 entries: &[
+                    // @binding(0) -> circles
                     wgpu::BindGroupLayoutEntry {
                         binding: 0,
                         visibility: wgpu::ShaderStages::VERTEX | wgpu::ShaderStages::FRAGMENT,
@@ -419,6 +420,7 @@ impl WgpuBackend {
                         },
                         count: None,
                     },
+                    // @binding(1) -> rects
                     wgpu::BindGroupLayoutEntry {
                         binding: 1,
                         visibility: wgpu::ShaderStages::VERTEX | wgpu::ShaderStages::FRAGMENT,
@@ -429,6 +431,7 @@ impl WgpuBackend {
                         },
                         count: None,
                     },
+                    // @binding(2) -> lines
                     wgpu::BindGroupLayoutEntry {
                         binding: 2,
                         visibility: wgpu::ShaderStages::VERTEX | wgpu::ShaderStages::FRAGMENT,
@@ -439,6 +442,7 @@ impl WgpuBackend {
                         },
                         count: None,
                     },
+                    // @binding(4) -> gradient_rects (Skipping 3)
                     wgpu::BindGroupLayoutEntry {
                         binding: 4,
                         visibility: wgpu::ShaderStages::VERTEX | wgpu::ShaderStages::FRAGMENT,
@@ -449,6 +453,7 @@ impl WgpuBackend {
                         },
                         count: None,
                     },
+                    // @binding(5) -> uniforms
                     wgpu::BindGroupLayoutEntry {
                         binding: 5,
                         visibility: wgpu::ShaderStages::VERTEX | wgpu::ShaderStages::FRAGMENT,
@@ -474,26 +479,31 @@ impl WgpuBackend {
             label: Some("Main Bind Group"),
             layout: &main_bind_group_layout,
             entries: &[
+                // binding 0 -> circle buffer
                 wgpu::BindGroupEntry {
                     binding: 0,
                     resource: wgpu::BindingResource::Buffer(
                         dummy_circles.as_entire_buffer_binding(),
                     ),
                 },
+                // binding 1 -> rect buffer (Fixed: Swapped from dummy_lines)
                 wgpu::BindGroupEntry {
                     binding: 1,
-                    resource: wgpu::BindingResource::Buffer(dummy_lines.as_entire_buffer_binding()),
-                },
-                wgpu::BindGroupEntry {
-                    binding: 2,
                     resource: wgpu::BindingResource::Buffer(dummy_rects.as_entire_buffer_binding()),
                 },
+                // binding 2 -> line buffer (Fixed: Swapped from dummy_rects)
+                wgpu::BindGroupEntry {
+                    binding: 2,
+                    resource: wgpu::BindingResource::Buffer(dummy_lines.as_entire_buffer_binding()),
+                },
+                // binding 4 -> gradient rect buffer
                 wgpu::BindGroupEntry {
                     binding: 4,
                     resource: wgpu::BindingResource::Buffer(
                         dummy_grad_rects.as_entire_buffer_binding(),
                     ),
                 },
+                // binding 5 -> global uniform buffer
                 wgpu::BindGroupEntry {
                     binding: 5,
                     resource: wgpu::BindingResource::Buffer(
@@ -1307,8 +1317,6 @@ struct Out {
         // --------------------------------------------------------------------
         // PHASE 1: DATA UPLOAD
         // Transfer all accumulated data from CPU vectors to GPU buffers.
-        // This part remains the same because the GPU needs all data in memory
-        // before we can execute our batch drawing commands.
         // --------------------------------------------------------------------
         if !self.pending_circles.is_empty() {
             let circles = std::mem::take(&mut self.pending_circles);
@@ -1322,24 +1330,18 @@ struct Out {
             self.uploaded_rect_count = rects.len() as u32;
         }
 
-        if !self.pending_polygon_vertices.is_empty() || !self.pending_polygon_indices.is_empty() {
-            let vertices = std::mem::take(&mut self.pending_polygon_vertices);
-            let indices = std::mem::take(&mut self.pending_polygon_indices);
-            self.polygon_vertex_buffer = self.create_buffer(&vertices);
-            self.polygon_index_buffer = self.create_buffer(&indices);
-            self.uploaded_polygon_index_count = indices.len() as u32;
-        }
-
         if !self.pending_lines.is_empty() {
             let lines = std::mem::take(&mut self.pending_lines);
             self.line_buffer = self.create_buffer(&lines);
             self.uploaded_line_count = lines.len() as u32;
         }
 
-        if !self.pending_gradient_rects.is_empty() {
-            let grad_rects = std::mem::take(&mut self.pending_gradient_rects);
-            self.gradient_rect_buffer = self.create_buffer(&grad_rects);
-            self.uploaded_gradient_rect_count = grad_rects.len() as u32;
+        if !self.pending_polygon_vertices.is_empty() || !self.pending_polygon_indices.is_empty() {
+            let vertices = std::mem::take(&mut self.pending_polygon_vertices);
+            let indices = std::mem::take(&mut self.pending_polygon_indices);
+            self.polygon_vertex_buffer = self.create_buffer(&vertices);
+            self.polygon_index_buffer = self.create_buffer(&indices);
+            self.uploaded_polygon_index_count = indices.len() as u32;
         }
 
         if !self.pending_path_vertices.is_empty() || !self.pending_path_indices.is_empty() {
@@ -1351,41 +1353,52 @@ struct Out {
             self.uploaded_path_index_count = indices.len() as u32;
         }
 
+        if !self.pending_gradient_rects.is_empty() {
+            let grad_rects = std::mem::take(&mut self.pending_gradient_rects);
+            self.gradient_rect_buffer = self.create_buffer(&grad_rects);
+            self.uploaded_gradient_rect_count = grad_rects.len() as u32;
+        }
+
         if self.uploaded_text_vertex_count > 0 {
             self.process_text();
         }
 
         // --------------------------------------------------------------------
-        // PHASE 2: BIND GROUP SETUP
+        // PHASE 2: BIND GROUP SETUP (Aligned 1:1 with Layout & WGSL)
         // --------------------------------------------------------------------
         self.main_bind_group = self.device.create_bind_group(&wgpu::BindGroupDescriptor {
             label: Some("Main Bind Group (Updated)"),
             layout: &self.main_bind_group_layout,
             entries: &[
+                // binding 0 -> circle buffer
                 wgpu::BindGroupEntry {
                     binding: 0,
                     resource: wgpu::BindingResource::Buffer(
                         self.circle_buffer.as_entire_buffer_binding(),
                     ),
                 },
+                // binding 1 -> rect buffer (Fixed: Corrected buffer assignment)
                 wgpu::BindGroupEntry {
                     binding: 1,
-                    resource: wgpu::BindingResource::Buffer(
-                        self.line_buffer.as_entire_buffer_binding(),
-                    ),
-                },
-                wgpu::BindGroupEntry {
-                    binding: 2,
                     resource: wgpu::BindingResource::Buffer(
                         self.rect_buffer.as_entire_buffer_binding(),
                     ),
                 },
+                // binding 2 -> line buffer (Fixed: Corrected buffer assignment)
+                wgpu::BindGroupEntry {
+                    binding: 2,
+                    resource: wgpu::BindingResource::Buffer(
+                        self.line_buffer.as_entire_buffer_binding(),
+                    ),
+                },
+                // binding 4 -> gradient rect buffer
                 wgpu::BindGroupEntry {
                     binding: 4,
                     resource: wgpu::BindingResource::Buffer(
                         self.gradient_rect_buffer.as_entire_buffer_binding(),
                     ),
                 },
+                // binding 5 -> global uniform buffer
                 wgpu::BindGroupEntry {
                     binding: 5,
                     resource: wgpu::BindingResource::Buffer(
@@ -1419,10 +1432,8 @@ struct Out {
             });
 
         // --------------------------------------------------------------------
-        // PHASE 3: ORCHESTRATED DRAWING (The Magic Happens Here)
-        // We now iterate through the `batches` queue. This guarantees that
-        // the GPU draws elements in the EXACT order they were submitted by
-        // the frontend (Painter's Algorithm), fixing all Z-Index/overlap issues.
+        // PHASE 3: ORCHESTRATED DRAWING
+        // Execute draw calls sequentially via the batch queue to preserve layout orders
         // --------------------------------------------------------------------
         {
             let mut pass = encoder.begin_render_pass(&render_pass_desc);
@@ -1432,19 +1443,14 @@ struct Out {
                 match batch {
                     DrawBatch::Circle { start, count } => {
                         pass.set_pipeline(&self.circle_pipeline);
-                        // Draw exactly this batch's slice (instances)
-                        pass.draw(0..4, *start..(*start + *count));
-                    }
-                    DrawBatch::Line { start, count } => {
-                        pass.set_pipeline(&self.line_pipeline);
                         pass.draw(0..4, *start..(*start + *count));
                     }
                     DrawBatch::Rect { start, count } => {
                         pass.set_pipeline(&self.rect_pipeline);
                         pass.draw(0..4, *start..(*start + *count));
                     }
-                    DrawBatch::GradientRect { start, count } => {
-                        pass.set_pipeline(&self.gradient_rect_pipeline);
+                    DrawBatch::Line { start, count } => {
+                        pass.set_pipeline(&self.line_pipeline);
                         pass.draw(0..4, *start..(*start + *count));
                     }
                     DrawBatch::Polygon {
@@ -1457,18 +1463,16 @@ struct Out {
                             self.polygon_index_buffer.slice(..),
                             wgpu::IndexFormat::Uint16,
                         );
-                        // Draw exactly this batch's index range
                         pass.draw_indexed(*index_start..(*index_start + *index_count), 0, 0..1);
+                    }
+                    DrawBatch::GradientRect { start, count } => {
+                        pass.set_pipeline(&self.gradient_rect_pipeline);
+                        pass.draw(0..4, *start..(*start + *count));
                     }
                 }
             }
 
-            // ----------------------------------------------------------------
-            // FALLBACK FOR UN-BATCHED ELEMENTS
-            // Since Path and Text might not be integrated into DrawBatch yet,
-            // we render them at the very end to ensure they stay visible.
-            // (Consider adding them to DrawBatch in the future for full ordering).
-            // ----------------------------------------------------------------
+            // Fallback sequential rendering for un-batched primitive paths and texts
             if self.uploaded_path_index_count > 0 {
                 pass.set_pipeline(&self.path_pipeline);
                 pass.set_vertex_buffer(0, self.path_vertex_buffer.slice(..));
@@ -1485,7 +1489,7 @@ struct Out {
 
         self.queue.submit(Some(encoder.finish()));
 
-        // Clear state for the next frame to prevent data accumulation or rendering artifacts
+        // Clear local frame data to refresh state for the next render loop cycle
         self.reset();
     }
 }
@@ -1517,6 +1521,30 @@ impl RenderBackend for WgpuBackend {
         self.push_batch(BatchType::Circle, 1);
     }
 
+    fn draw_rect(&mut self, config: RectConfig) {
+        let fill = config.fill.rgba();
+        let rect = GpuRect {
+            x: config.x,
+            y: config.y,
+            width: config.width,
+            height: config.height,
+            r: fill[0],
+            g: fill[1],
+            b: fill[2],
+            a: fill[3] * config.opacity,
+            corner_radius: 0.0,
+        };
+
+        // 1. Store the rect data into the CPU-side pending buffer
+        self.pending_rects.push(rect);
+
+        // 2. Increment the rect counter (used as a reference for calculating the start offset)
+        self.current_rect_count += 1;
+
+        // 3. Register the draw command in the batch queue
+        self.push_batch(BatchType::Rect, 1);
+    }
+
     fn draw_line(&mut self, config: LineConfig) {
         let color = config.color.rgba();
         let line = GpuLine {
@@ -1542,30 +1570,6 @@ impl RenderBackend for WgpuBackend {
 
         // 3. Register the draw command in the batch queue
         self.push_batch(BatchType::Line, 1);
-    }
-
-    fn draw_rect(&mut self, config: RectConfig) {
-        let fill = config.fill.rgba();
-        let rect = GpuRect {
-            x: config.x,
-            y: config.y,
-            width: config.width,
-            height: config.height,
-            r: fill[0],
-            g: fill[1],
-            b: fill[2],
-            a: fill[3] * config.opacity,
-            corner_radius: 0.0,
-        };
-
-        // 1. Store the rect data into the CPU-side pending buffer
-        self.pending_rects.push(rect);
-
-        // 2. Increment the rect counter (used as a reference for calculating the start offset)
-        self.current_rect_count += 1;
-
-        // 3. Register the draw command in the batch queue
-        self.push_batch(BatchType::Rect, 1);
     }
 
     // ------------------------------

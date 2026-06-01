@@ -19,6 +19,35 @@ struct PointData {
     radius: f32,
 };
 
+/// Rectangle data (draw_rect: bars, boxes, axis backgrounds)
+struct RectData {
+    x: f32,
+    y: f32,
+    width: f32,
+    height: f32,
+    r: f32,
+    g: f32,
+    b: f32,
+    a: f32,
+    corner_radius: f32,
+};
+
+/// Single line segment data (draw_line: axis, grid, ticks, whiskers)
+struct LineData {
+    x1: f32,
+    y1: f32,
+    x2: f32,
+    y2: f32,
+    r: f32,
+    g: f32,
+    b: f32,
+    a: f32,
+    width: f32,
+    pad1: f32,
+    pad2: f32,
+    pad3: f32,
+};
+
 /// Polygon data (draw_polygon: symmetric markers - triangle, hexagon, diamond, star)
 /// ALL SHAPES EXCEPT CIRCLE & SQUARE use this pipeline (CPU-generated vertices uploaded directly to GPU)
 /// Matches Rust PointShape enum 1:1
@@ -41,40 +70,11 @@ struct PolygonData {
                        // 7.0 = Octagon
 };
 
-/// Single line segment data (draw_line: axis, grid, ticks, whiskers)
-struct LineData {
-    x1: f32,
-    y1: f32,
-    x2: f32,
-    y2: f32,
-    r: f32,
-    g: f32,
-    b: f32,
-    a: f32,
-    width: f32,
-    pad1: f32,
-    pad2: f32,
-    pad3: f32,
-};
-
 /// Path vertex data (draw_path: LineMark, AreaMark, continuous geometry)
 struct PathVertex {
     pos: vec2<f32>,
     color: vec4<f32>,
     is_fill: f32,      // 0.0 = stroke vertex, 1.0 = area fill vertex
-};
-
-/// Rectangle data (draw_rect: bars, boxes, axis backgrounds)
-struct RectData {
-    x: f32,
-    y: f32,
-    width: f32,
-    height: f32,
-    r: f32,
-    g: f32,
-    b: f32,
-    a: f32,
-    corner_radius: f32,
 };
 
 /// Gradient rectangle data (draw_gradient_rect: heatmaps, themed panels)
@@ -109,8 +109,8 @@ struct Uniforms {
 // Bind Group Layout
 // ---------------------------
 @group(0) @binding(0) var<storage, read> circles: array<PointData>;
-@group(0) @binding(1) var<storage, read> lines: array<LineData>;
-@group(0) @binding(2) var<storage, read> rects: array<RectData>;
+@group(0) @binding(1) var<storage, read> rects: array<RectData>;
+@group(0) @binding(2) var<storage, read> lines: array<LineData>;
 @group(0) @binding(4) var<storage, read> gradient_rects: array<GradientRectData>;
 @group(0) @binding(5) var<uniform> uniforms: Uniforms;
 
@@ -123,26 +123,26 @@ struct CircleOutput {
     @location(1) @interpolate(flat) instance_idx: u32,
 };
 
-struct LineOutput {
-    @builtin(position) clip_pos: vec4<f32>,
-    @location(0) @interpolate(flat) instance_idx: u32,
-};
-
-struct PathOutput {
-    @builtin(position) clip_pos: vec4<f32>,
-    @location(0) color: vec4<f32>,
-    @location(2) @interpolate(flat) is_fill: f32,
-};
-
 struct RectOutput {
     @builtin(position) clip_pos: vec4<f32>,
     @location(0) screen_pos: vec2<f32>,
     @location(1) @interpolate(flat) instance_idx: u32,
 };
 
+struct LineOutput {
+    @builtin(position) clip_pos: vec4<f32>,
+    @location(0) @interpolate(flat) instance_idx: u32,
+};
+
 struct PolygonOutput {
     @builtin(position) clip_pos: vec4<f32>,
     @location(0) color: vec4<f32>,
+};
+
+struct PathOutput {
+    @builtin(position) clip_pos: vec4<f32>,
+    @location(0) color: vec4<f32>,
+    @location(2) @interpolate(flat) is_fill: f32,
 };
 
 struct GradientRectOutput {
@@ -209,7 +209,46 @@ fn circle_fs(in: CircleOutput) -> @location(0) vec4<f32> {
 }
 
 // ---------------------------
-// 2. Line Segment Pipeline (draw_line: Axis/Grid/Ticks)
+// 2. Rectangle Pipeline (draw_rect: Pure Filled Bars/Boxes/Backgrounds)
+// ---------------------------
+@vertex
+fn rect_vs(@builtin(vertex_index) vi: u32, @builtin(instance_index) ii: u32) -> RectOutput {
+    let r = rects[ii];
+    var pos = vec2<f32>();
+    
+    // Strictly align with the actual rectangle bounds without any inflation for perfect hardware rasterization.
+    switch vi {
+        case 0u: { pos = vec2(r.x, r.y); }
+        case 1u: { pos = vec2(r.x + r.width, r.y); }
+        case 2u: { pos = vec2(r.x, r.y + r.height); }
+        case 3u: { pos = vec2(r.x + r.width, r.y + r.height); }
+        default: { pos = vec2(r.x, r.y); }
+    }
+
+    let scale = uniforms.scale_factor;
+    let screen_pos = pos * scale;
+    let sw = uniforms.screen_width * scale;
+    let sh = uniforms.screen_height * scale;
+    let ndc = vec4((screen_pos.x / sw) * 2.0 - 1.0, 1.0 - (screen_pos.y / sh) * 2.0, 0.0, 1.0);
+
+    var out: RectOutput;
+    out.clip_pos = ndc;
+    out.screen_pos = screen_pos;
+    out.instance_idx = ii;
+    return out;
+}
+
+@fragment
+fn rect_fs(in: RectOutput) -> @location(0) vec4<f32> {
+    let r = rects[in.instance_idx];
+    
+    // Removed all bounds checks and discards to maximize GPU fill-rate performance.
+    // Swap Red and Blue channels to match the Bgra8Unorm surface format.
+    return vec4(r.b, r.g, r.r, r.a);
+}
+
+// ---------------------------
+// 3. Line Segment Pipeline (draw_line: Axis/Grid/Ticks)
 // ---------------------------
 @vertex
 fn line_vs(
@@ -263,7 +302,34 @@ fn line_fs(in: LineOutput) -> @location(0) vec4<f32> {
 }
 
 // ---------------------------
-// 3. Path Pipeline (draw_path: LineMark / AreaMark)
+// 4. Polygon Pipeline (draw_polygon: triangle/star/diamond/hexagon etc.)
+// Receives CPU-precomputed vertices - NO GPU-side shape generation
+// ---------------------------
+@vertex
+fn polygon_vs(
+    @location(0) position: vec2<f32>,
+    @location(1) color: vec4<f32>,
+    @location(2) is_fill: f32
+) -> PolygonOutput {
+    let scale = uniforms.scale_factor;
+    let screen_pos = position * scale;
+    let sw = uniforms.screen_width * scale;
+    let sh = uniforms.screen_height * scale;
+    let ndc = vec4((screen_pos.x/sw)*2.0-1.0, 1.0-(screen_pos.y/sh)*2.0, 0.0, 1.0);
+
+    var out: PolygonOutput;
+    out.clip_pos = ndc;
+    out.color = color;
+    return out;
+}
+
+@fragment
+fn polygon_fs(in: PolygonOutput) -> @location(0) vec4<f32> {
+    return in.color;
+}
+
+// ---------------------------
+// 5. Path Pipeline (draw_path: LineMark / AreaMark)
 // ---------------------------
 @vertex
 fn path_vs(
@@ -288,90 +354,6 @@ fn path_vs(
 fn path_fs(in: PathOutput) -> @location(0) vec4<f32> {
     // Swap Red and Blue channels to match the Bgra8Unorm surface format.
     return vec4(in.color.b, in.color.g, in.color.r, in.color.a);
-}
-
-// ---------------------------
-// 4. Rectangle Pipeline (draw_rect: Bars/Boxes with rounded corners)
-// ---------------------------
-@vertex
-fn rect_vs(@builtin(vertex_index) vi: u32, @builtin(instance_index) ii: u32) -> RectOutput {
-    let r = rects[ii];
-    var quad = vec2<f32>();
-    switch vi {
-        case 0u: { quad = vec2(-1.0, -1.0); }
-        case 1u: { quad = vec2(1.0, -1.0); }
-        case 2u: { quad = vec2(-1.0, 1.0); }
-        case 3u: { quad = vec2(1.0, 1.0); }
-        default: { quad = vec2(0.0); }
-    }
-
-    let scale = uniforms.scale_factor;
-    let center = vec2(r.x + r.width/2.0, r.y + r.height/2.0) * scale;
-    let half_size = vec2(r.width/2.0, r.height/2.0) * scale;
-    let final_pos = center + quad * half_size * 1.5;
-    
-    let sw = uniforms.screen_width * scale;
-    let sh = uniforms.screen_height * scale;
-    let ndc = vec4((final_pos.x/sw)*2.0-1.0, 1.0-(final_pos.y/sh)*2.0, 0.0, 1.0);
-
-    var out: RectOutput;
-    out.clip_pos = ndc;
-    out.screen_pos = final_pos;
-    out.instance_idx = ii;
-    return out;
-}
-
-@fragment
-fn rect_fs(in: RectOutput) -> @location(0) vec4<f32> {
-    let r = rects[in.instance_idx];
-    let scale = uniforms.scale_factor;
-
-    // Calculate rectangle center in screen space
-    let center = vec2(r.x + r.width * 0.5, r.y + r.height * 0.5) * scale;
-    // Local position relative to rectangle center
-    let local = in.screen_pos - center;
-
-    // Half width and height (scaled)
-    let half_w = r.width * 0.5 * scale;
-    let half_h = r.height * 0.5 * scale;
-
-    // Check if current pixel is inside rectangle
-    let inside_x = abs(local.x) <= half_w;
-    let inside_y = abs(local.y) <= half_h;
-
-    if (!inside_x || !inside_y) {
-        discard; // Remove invisible pixels
-    }
-
-    // Swap Red and Blue channels to match the Bgra8Unorm surface format.
-    return vec4(r.b, r.g, r.r, r.a);
-}
-
-// ---------------------------
-// 5. Polygon Pipeline (draw_polygon: triangle/star/diamond/hexagon etc.)
-// Receives CPU-precomputed vertices - NO GPU-side shape generation
-// ---------------------------
-@vertex
-fn polygon_vs(
-    @location(0) position: vec2<f32>,
-    @location(1) color: vec4<f32>,
-    @location(2) is_fill: f32
-) -> PolygonOutput {
-    let scale = uniforms.scale_factor;
-    let screen_pos = position * scale;
-    let sw = uniforms.screen_width * scale;
-    let sh = uniforms.screen_height * scale;
-    let ndc = vec4((screen_pos.x/sw)*2.0-1.0, 1.0-(screen_pos.y/sh)*2.0, 0.0, 1.0);
-
-    var out: PolygonOutput;
-    out.clip_pos = ndc;
-    out.color = color;
-    return out;
-}
-
-@fragment
-fn polygon_fs(in: PolygonOutput) -> @location(0) vec4<f32> {
-    return in.color;
 }
 
 // ---------------------------
