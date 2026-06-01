@@ -11,6 +11,7 @@
 - [From Data to Pixels](concepts/chart_life.md)
 - [Scale Arbitration](concepts/scale_arbitration.md)
 - [Rendering Backends](concepts/rendering.md)
+- [Gpu Architecture](concepts/gpu.md)
 
 # The Core Engine: Dataset
 - [The Atomic Unit: ColumnVector](engine/column_vector.md)
