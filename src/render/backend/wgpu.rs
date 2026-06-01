@@ -62,6 +62,10 @@ pub struct GpuLine {
     pub a: f32,
     /// Line width (pixels)
     pub width: f32,
+    /// Manual padding to ensure memory alignment
+    pub _pad1: f32,
+    pub _pad2: f32,
+    pub _pad3: f32,
 }
 
 /// GPU data structure for rectangle primitives (matches RectData in WGSL)
@@ -1525,6 +1529,9 @@ impl RenderBackend for WgpuBackend {
             b: color[2],
             a: color[3] * config.opacity,
             width: config.width,
+            _pad1: 0.0,
+            _pad2: 0.0,
+            _pad3: 0.0,
         };
 
         // 1. Store the line data into the CPU-side pending buffer
