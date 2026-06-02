@@ -7,12 +7,6 @@ use crate::core::layer::{
 };
 use crate::visual::color::SingleColor;
 use bytemuck::{Pod, Zeroable};
-use lyon::math::point;
-use lyon::path::Path;
-use lyon::tessellation::{
-    BuffersBuilder, FillVertex, FillVertexConstructor, StrokeOptions, StrokeTessellator,
-    StrokeVertex, StrokeVertexConstructor, VertexBuffers,
-};
 use wgpu::util::DeviceExt;
 
 // ============================================================================
@@ -126,6 +120,40 @@ pub struct GpuGradientRect {
     pub opacity: f32,
 }
 
+// ----------------------------------------------------------------------------
+// Pure GPU Polyline Extrusion Layouts (Group 1 Spec)
+// ----------------------------------------------------------------------------
+
+#[repr(C)]
+#[derive(Copy, Clone, Debug, bytemuck::Pod, bytemuck::Zeroable)]
+pub struct GpuPathPoint {
+    pub x: f32,
+    pub y: f32,
+}
+
+#[repr(C)]
+#[derive(Copy, Clone, Debug, bytemuck::Pod, bytemuck::Zeroable)]
+pub struct GpuPathStyle {
+    pub r: f32,
+    pub g: f32,
+    pub b: f32,
+    pub a: f32,
+    pub thickness: f32,
+    pub _pad0: f32, // Structural alignment padding (16-byte boundary)
+    pub _pad1: f32,
+    pub _pad2: f32,
+}
+
+/// Meta arguments guiding the Vertex Shader where to look up data
+#[repr(C)]
+#[derive(Copy, Clone, Debug, bytemuck::Pod, bytemuck::Zeroable)]
+pub struct GpuPathArgs {
+    pub start_point_idx: u32,
+    pub style_idx: u32,
+    pub _pad0: u32, // Structural alignment padding
+    pub _pad1: u32,
+}
+
 /// Vertex data for text rendering (used with glyph atlas)
 /// Contains position, texture coordinates, and color for each text vertex
 #[repr(C)]
@@ -205,32 +233,6 @@ impl PathVertex {
     };
 }
 
-#[derive(Copy, Clone)]
-struct PathVertexCtor {
-    color: [f32; 4],
-    is_fill: f32,
-}
-
-impl FillVertexConstructor<PathVertex> for PathVertexCtor {
-    fn new_vertex(&mut self, vertex: FillVertex) -> PathVertex {
-        PathVertex {
-            position: vertex.position().to_array(),
-            color: self.color,
-            is_fill: self.is_fill,
-        }
-    }
-}
-
-impl StrokeVertexConstructor<PathVertex> for PathVertexCtor {
-    fn new_vertex(&mut self, vertex: StrokeVertex) -> PathVertex {
-        PathVertex {
-            position: vertex.position().to_array(),
-            color: self.color,
-            is_fill: self.is_fill,
-        }
-    }
-}
-
 /// Global uniform data for all shaders (strict std140 alignment)
 /// Contains screen dimensions and scaling factors for coordinate normalization
 #[repr(C)]
@@ -274,6 +276,13 @@ pub enum DrawBatch {
         start: u32,
         count: u32,
     },
+    /// Monolithic GPU indexed simple path batch token
+    PathSimple {
+        /// Lookup offset index into the global GpuPathArgs array
+        path_idx: u32,
+        /// Number of raw points contained within this single polyline
+        point_count: u32,
+    },
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
@@ -316,6 +325,12 @@ pub struct WgpuBackend {
     pending_rects: Vec<GpuRect>,
     uploaded_rect_count: u32,
 
+    // Line primitive resources
+    line_pipeline: wgpu::RenderPipeline,
+    line_buffer: wgpu::Buffer,
+    pending_lines: Vec<GpuLine>,
+    uploaded_line_count: u32,
+
     // Polygon primitive resources
     polygon_pipeline: wgpu::RenderPipeline,
     polygon_vertex_buffer: wgpu::Buffer,
@@ -324,25 +339,18 @@ pub struct WgpuBackend {
     pending_polygon_indices: Vec<u16>,
     uploaded_polygon_index_count: u32,
 
-    // Line primitive resources
-    line_pipeline: wgpu::RenderPipeline,
-    line_buffer: wgpu::Buffer,
-    pending_lines: Vec<GpuLine>,
-    uploaded_line_count: u32,
-
-    // Path primitive resources
-    path_pipeline: wgpu::RenderPipeline,
-    path_vertex_buffer: wgpu::Buffer,
-    path_index_buffer: wgpu::Buffer,
-    pending_path_vertices: Vec<PathVertex>,
-    pending_path_indices: Vec<u16>,
-    uploaded_path_index_count: u32,
-
     // Gradient rectangle resources
     gradient_rect_pipeline: wgpu::RenderPipeline,
     gradient_rect_buffer: wgpu::Buffer,
     pending_gradient_rects: Vec<GpuGradientRect>,
     uploaded_gradient_rect_count: u32,
+
+    // Path primitive resources
+    path_simple_pipeline: wgpu::RenderPipeline,
+    path_bind_group_layout: wgpu::BindGroupLayout,
+    pending_path_points: Vec<GpuPathPoint>,
+    pending_path_styles: Vec<GpuPathStyle>,
+    pending_path_args: Vec<GpuPathArgs>,
 
     // Text rendering resources (placeholder implementation)
     text_pipeline: wgpu::RenderPipeline,
@@ -364,17 +372,12 @@ pub struct WgpuBackend {
 }
 
 impl WgpuBackend {
-    /// Creates a new WGPU rendering backend
+    /// Creates a new WGPU rendering backend with multi-group high-throughput pipelines.
     ///
-    /// # Arguments
-    /// * `device` - WGPU device handle
-    /// * `queue` - WGPU command queue
-    /// * `screen_width` - Current screen width in pixels
-    /// * `screen_height` - Current screen height in pixels
-    /// * `scale_factor` - UI scale factor for high-DPI displays
-    ///
-    /// # Returns
-    /// Initialized WgpuBackend instance
+    /// # Resource Binding Architecture:
+    /// - `@group(0)`: Global Batched Primitives (Circles, Rectangles, Standard Lines, Uniforms)
+    /// - `@group(1)`: Dedicated High-Throughput Stream (Pure GPU Path Extrusion via Raw Coordinates)
+    /// - `@group(2)`: Dedicated Text & Glyph Atlas Stream (Reserved for future SDF/Atlas rendering)
     pub async fn new(
         device: wgpu::Device,
         queue: wgpu::Queue,
@@ -385,7 +388,7 @@ impl WgpuBackend {
         // Load WGSL shader module (chart.wgsl contains all primitive shaders)
         let shader = device.create_shader_module(wgpu::include_wgsl!("chart.wgsl"));
 
-        // Initialize global uniform buffer with screen dimensions
+        // Initialize global uniform buffer with screen dimensions and DPI scaling factor
         let uniforms = Uniforms {
             screen_width: screen_width as f32,
             screen_height: screen_height as f32,
@@ -393,23 +396,21 @@ impl WgpuBackend {
             _padding: 0.0,
         };
         let uniform_buffer = device.create_buffer_init(&wgpu::util::BufferInitDescriptor {
-            label: Some("Uniform Buffer"),
+            label: Some("Uniform Buffer - Group 0 Binding 5"),
             contents: bytemuck::cast_slice(&[uniforms]),
             usage: wgpu::BufferUsages::UNIFORM | wgpu::BufferUsages::COPY_DST,
         });
 
+        // ====================================================================
+        // RESOURCE BIND GROUP LAYOUT DECLARATIONS (Hardware Contracts)
+        // ====================================================================
+
         // Create main bind group layout (matches @group(0) bindings in chart.wgsl)
-        // Bindings:
-        // 0: SDF (circle) storage buffer
-        // 1: Rectangle storage buffer
-        // 2: Line storage buffer
-        // 4: Gradient rectangle storage buffer
-        // 5: Global uniform buffer
         let main_bind_group_layout =
             device.create_bind_group_layout(&wgpu::BindGroupLayoutDescriptor {
-                label: Some("Main Bind Group Layout"),
+                label: Some("Main Primitive Bind Group Layout 0"),
                 entries: &[
-                    // @binding(0) -> circles
+                    // @binding(0) -> circles storage array
                     wgpu::BindGroupLayoutEntry {
                         binding: 0,
                         visibility: wgpu::ShaderStages::VERTEX | wgpu::ShaderStages::FRAGMENT,
@@ -420,7 +421,7 @@ impl WgpuBackend {
                         },
                         count: None,
                     },
-                    // @binding(1) -> rects
+                    // @binding(1) -> rects storage array
                     wgpu::BindGroupLayoutEntry {
                         binding: 1,
                         visibility: wgpu::ShaderStages::VERTEX | wgpu::ShaderStages::FRAGMENT,
@@ -431,7 +432,7 @@ impl WgpuBackend {
                         },
                         count: None,
                     },
-                    // @binding(2) -> lines
+                    // @binding(2) -> single lines storage array
                     wgpu::BindGroupLayoutEntry {
                         binding: 2,
                         visibility: wgpu::ShaderStages::VERTEX | wgpu::ShaderStages::FRAGMENT,
@@ -442,7 +443,7 @@ impl WgpuBackend {
                         },
                         count: None,
                     },
-                    // @binding(4) -> gradient_rects (Skipping 3)
+                    // @binding(4) -> gradient_rects storage array (Binding 3 is skipped to match Vertex Buffer Polygon Input)
                     wgpu::BindGroupLayoutEntry {
                         binding: 4,
                         visibility: wgpu::ShaderStages::VERTEX | wgpu::ShaderStages::FRAGMENT,
@@ -453,7 +454,7 @@ impl WgpuBackend {
                         },
                         count: None,
                     },
-                    // @binding(5) -> uniforms
+                    // @binding(5) -> global state uniform block
                     wgpu::BindGroupLayoutEntry {
                         binding: 5,
                         visibility: wgpu::ShaderStages::VERTEX | wgpu::ShaderStages::FRAGMENT,
@@ -467,7 +468,76 @@ impl WgpuBackend {
                 ],
             });
 
-        // Create initial bind group with dummy buffers (replaced in flush)
+        // Create high-throughput path stream bind group layout (matches @group(1) bindings in chart.wgsl)
+        let path_bind_group_layout =
+            device.create_bind_group_layout(&wgpu::BindGroupLayoutDescriptor {
+                label: Some("Path Global Storage Bind Group Layout 1"),
+                entries: &[
+                    // @binding(0) -> global monolithic continuous path points pool (Storage Buffer)
+                    wgpu::BindGroupLayoutEntry {
+                        binding: 0,
+                        visibility: wgpu::ShaderStages::VERTEX,
+                        ty: wgpu::BindingType::Buffer {
+                            ty: wgpu::BufferBindingType::Storage { read_only: true },
+                            has_dynamic_offset: false, // Disabled to eliminate hardware 256-byte alignment validation traps
+                            min_binding_size: None,
+                        },
+                        count: None,
+                    },
+                    // @binding(1) -> global path line layout styling configurations (Storage Buffer)
+                    wgpu::BindGroupLayoutEntry {
+                        binding: 1,
+                        visibility: wgpu::ShaderStages::VERTEX,
+                        ty: wgpu::BindingType::Buffer {
+                            ty: wgpu::BufferBindingType::Storage { read_only: true },
+                            has_dynamic_offset: false,
+                            min_binding_size: None,
+                        },
+                        count: None,
+                    },
+                    // @binding(2) -> global structural draw arguments routing tables (Storage Buffer)
+                    wgpu::BindGroupLayoutEntry {
+                        binding: 2,
+                        visibility: wgpu::ShaderStages::VERTEX,
+                        ty: wgpu::BindingType::Buffer {
+                            ty: wgpu::BufferBindingType::Storage { read_only: true },
+                            has_dynamic_offset: false,
+                            min_binding_size: None,
+                        },
+                        count: None,
+                    },
+                ],
+            });
+
+        // PRE-INIT REFERENCE: Fetch the layout handle from your text pipeline sub-system initialization.
+        // Replace this mock with your actual text layout extractor when activating Text Rendering.
+        let text_bind_group_layout =
+            device.create_bind_group_layout(&wgpu::BindGroupLayoutDescriptor {
+                label: Some("Text Glyph Atlas Bind Group Layout 2 Placeholder"),
+                entries: &[], // Add texture, sampler, and instance metrics bindings here later
+            });
+
+        // ====================================================================
+        // GLOBAL PIPELINE LAYOUT ARCHITECTURE (Multi-Group Mapping)
+        // ====================================================================
+        // Registers all available bind group slots. Any pipeline using this layout can seamlessly
+        // read uniforms from Group 0 while drawing path coordinates from Group 1 or text from Group 2.
+        let bind_group_layouts_ref: &[Option<&wgpu::BindGroupLayout>] = &[
+            Some(&main_bind_group_layout), // Layout slot 0 (@group(0))
+            Some(&path_bind_group_layout), // Layout slot 1 (@group(1))
+            Some(&text_bind_group_layout), // Layout slot 2 (@group(2))
+        ];
+
+        let render_pipeline_layout =
+            device.create_pipeline_layout(&wgpu::PipelineLayoutDescriptor {
+                label: Some("Global Unified Multi-Group Pipeline Layout"),
+                bind_group_layouts: bind_group_layouts_ref,
+                immediate_size: 0,
+            });
+
+        // ====================================================================
+        // BIND GROUP INSTANTIATIONS (With Initial Safe Dummy Placeholders)
+        // ====================================================================
         let dummy_circles = Self::create_dummy_buffer::<GpuPoint>(&device);
         let dummy_rects = Self::create_dummy_buffer::<GpuRect>(&device);
         let dummy_lines = Self::create_dummy_buffer::<GpuLine>(&device);
@@ -476,34 +546,29 @@ impl WgpuBackend {
         let dummy_polygon_indices = Self::create_dummy_buffer::<u16>(&device);
 
         let main_bind_group = device.create_bind_group(&wgpu::BindGroupDescriptor {
-            label: Some("Main Bind Group"),
+            label: Some("Main Primitive Bind Group 0"),
             layout: &main_bind_group_layout,
             entries: &[
-                // binding 0 -> circle buffer
                 wgpu::BindGroupEntry {
                     binding: 0,
                     resource: wgpu::BindingResource::Buffer(
                         dummy_circles.as_entire_buffer_binding(),
                     ),
                 },
-                // binding 1 -> rect buffer (Fixed: Swapped from dummy_lines)
                 wgpu::BindGroupEntry {
                     binding: 1,
                     resource: wgpu::BindingResource::Buffer(dummy_rects.as_entire_buffer_binding()),
                 },
-                // binding 2 -> line buffer (Fixed: Swapped from dummy_rects)
                 wgpu::BindGroupEntry {
                     binding: 2,
                     resource: wgpu::BindingResource::Buffer(dummy_lines.as_entire_buffer_binding()),
                 },
-                // binding 4 -> gradient rect buffer
                 wgpu::BindGroupEntry {
                     binding: 4,
                     resource: wgpu::BindingResource::Buffer(
                         dummy_grad_rects.as_entire_buffer_binding(),
                     ),
                 },
-                // binding 5 -> global uniform buffer
                 wgpu::BindGroupEntry {
                     binding: 5,
                     resource: wgpu::BindingResource::Buffer(
@@ -513,7 +578,9 @@ impl WgpuBackend {
             ],
         });
 
-        // Create all render pipelines
+        // ====================================================================
+        // RENDER PIPELINES COMPILATION
+        // ====================================================================
         let circle_pipeline =
             Self::create_circle_pipeline(&device, &shader, &main_bind_group_layout);
         let (_line_bg_layout, line_pipeline) =
@@ -521,26 +588,66 @@ impl WgpuBackend {
         let rect_pipeline = Self::create_rect_pipeline(&device, &shader, &main_bind_group_layout);
         let polygon_pipeline =
             Self::create_polygon_pipeline(&device, &shader, &main_bind_group_layout);
-        let path_pipeline = Self::create_path_pipeline(&device, &shader, &main_bind_group_layout);
         let (_grad_bg_layout, gradient_rect_pipeline) =
             Self::create_gradient_rect_pipeline(&device, &shader, &main_bind_group_layout);
+
         let (
-            _text_bg_layout,
+            _text_bg_layout_real,
             text_pipeline,
             text_atlas_texture,
             text_atlas_view,
             text_atlas_sampler,
         ) = Self::create_text_pipeline(&device, &shader, &main_bind_group_layout).await;
 
-        // Create placeholder buffers (replaced with actual data in flush)
+        // Compile the pure on-chip vertex generation line extrusion pipeline (Simple Path Pipeline)
+        // Shift format alignment to Rgba8Unorm to strictly match the offscreen PNG output targets
+        let texture_format = wgpu::TextureFormat::Rgba8Unorm; 
+        let path_simple_pipeline = device.create_render_pipeline(&wgpu::RenderPipelineDescriptor {
+            label: Some("Path Simple Hardware Extrusion Pipeline"),
+            layout: Some(&render_pipeline_layout),
+            vertex: wgpu::VertexState {
+                module: &shader,
+                entry_point: Some("path_simple_vs"),
+                buffers: &[], 
+                compilation_options: Default::default(),
+            },
+            fragment: Some(wgpu::FragmentState {
+                module: &shader,
+                entry_point: Some("path_simple_fs"),
+                targets: &[Some(wgpu::ColorTargetState {
+                    format: texture_format, // 🌟 Will now perfectly match Rgba8Unorm
+                    blend: Some(wgpu::BlendState::ALPHA_BLENDING), 
+                    write_mask: wgpu::ColorWrites::ALL,
+                })],
+                compilation_options: Default::default(),
+            }),
+            primitive: wgpu::PrimitiveState {
+                topology: wgpu::PrimitiveTopology::TriangleList,
+                strip_index_format: None,
+                front_face: wgpu::FrontFace::Ccw,
+                cull_mode: None, 
+                unclipped_depth: false,
+                polygon_mode: wgpu::PolygonMode::Fill,
+                conservative: false,
+            },
+            depth_stencil: None,
+            multisample: wgpu::MultisampleState::default(),
+            multiview_mask: None, 
+            cache: None,
+        });
+
+        // ====================================================================
+        // DEVICE STORAGE VRAM BACKING BUFFERS INITIAL ALLOCATIONS
+        // ====================================================================
         let circle_buffer = Self::create_dummy_buffer::<GpuPoint>(&device);
         let rect_buffer = Self::create_dummy_buffer::<GpuRect>(&device);
         let line_buffer = Self::create_dummy_buffer::<GpuLine>(&device);
-        let path_vertex_buffer = Self::create_dummy_buffer::<PathVertex>(&device);
-        let path_index_buffer = Self::create_dummy_buffer::<u16>(&device);
         let gradient_rect_buffer = Self::create_dummy_buffer::<GpuGradientRect>(&device);
         let text_vertex_buffer = Self::create_dummy_buffer::<TextVertex>(&device);
 
+        // ====================================================================
+        // BACKEND STRUCTURE ASSEMBLY
+        // ====================================================================
         Self {
             device,
             queue,
@@ -570,17 +677,17 @@ impl WgpuBackend {
             pending_lines: Vec::with_capacity(10_000),
             uploaded_line_count: 0,
 
-            path_pipeline,
-            path_vertex_buffer,
-            path_index_buffer,
-            pending_path_vertices: Vec::with_capacity(50_000),
-            pending_path_indices: Vec::with_capacity(100_000),
-            uploaded_path_index_count: 0,
-
             gradient_rect_pipeline,
             gradient_rect_buffer,
             pending_gradient_rects: Vec::with_capacity(10_000),
             uploaded_gradient_rect_count: 0,
+
+            // Pure GPU high-throughput path extrusion system components
+            path_simple_pipeline,
+            path_bind_group_layout,
+            pending_path_points: Vec::with_capacity(100_000), // Pre-allocate raw points buffer
+            pending_path_styles: Vec::with_capacity(1024),    // Pre-allocate style configs buffer
+            pending_path_args: Vec::with_capacity(1024),
 
             text_pipeline,
             text_vertex_buffer,
@@ -589,7 +696,7 @@ impl WgpuBackend {
             _text_atlas_sampler: text_atlas_sampler,
             uploaded_text_vertex_count: 0,
 
-            batches: Vec::with_capacity(1024), // Pre-allocate space for batch queue
+            batches: Vec::with_capacity(1024),
             current_circle_count: 0,
             current_rect_count: 0,
             current_line_count: 0,
@@ -658,9 +765,6 @@ impl WgpuBackend {
         self.pending_lines.clear();
         self.pending_polygon_vertices.clear();
         self.pending_polygon_indices.clear();
-        self.pending_path_vertices.clear();
-        self.pending_path_indices.clear();
-        self.pending_gradient_rects.clear();
 
         // Assuming you have a corresponding pending buffer for text
         // self.pending_text_vertices.clear();
@@ -672,8 +776,13 @@ impl WgpuBackend {
         self.uploaded_rect_count = 0;
         self.uploaded_line_count = 0;
         self.uploaded_polygon_index_count = 0;
-        self.uploaded_path_index_count = 0;
         self.uploaded_gradient_rect_count = 0;
+        
+        // Clear our pure GPU path dynamic streaming queues:
+        self.pending_path_points.clear();
+        self.pending_path_styles.clear();
+        self.pending_path_args.clear();
+        
         self.uploaded_text_vertex_count = 0;
     }
 
@@ -907,61 +1016,6 @@ impl WgpuBackend {
             fragment: Some(wgpu::FragmentState {
                 module: shader,
                 entry_point: Some("polygon_fs"),
-                targets: &[Some(wgpu::ColorTargetState {
-                    format: wgpu::TextureFormat::Rgba8Unorm,
-                    blend: Some(wgpu::BlendState::ALPHA_BLENDING),
-                    write_mask: wgpu::ColorWrites::ALL,
-                })],
-                compilation_options: wgpu::PipelineCompilationOptions::default(),
-            }),
-            primitive: wgpu::PrimitiveState {
-                topology: wgpu::PrimitiveTopology::TriangleList,
-                strip_index_format: None,
-                front_face: wgpu::FrontFace::Ccw,
-                cull_mode: None,
-                unclipped_depth: false,
-                polygon_mode: wgpu::PolygonMode::Fill,
-                conservative: false,
-            },
-            depth_stencil: None,
-            multisample: wgpu::MultisampleState::default(),
-            multiview_mask: None,
-            cache: None,
-        })
-    }
-
-    /// Creates the path render pipeline
-    ///
-    /// # Arguments
-    /// * `device` - WGPU device handle
-    /// * `shader` - Compiled WGSL shader module
-    /// * `main_layout` - Main bind group layout (@group(0))
-    ///
-    /// # Returns
-    /// Path render pipeline
-    fn create_path_pipeline(
-        device: &wgpu::Device,
-        shader: &wgpu::ShaderModule,
-        main_layout: &wgpu::BindGroupLayout,
-    ) -> wgpu::RenderPipeline {
-        let pipeline_layout = device.create_pipeline_layout(&wgpu::PipelineLayoutDescriptor {
-            label: Some("Path Pipeline Layout"),
-            bind_group_layouts: &[Some(main_layout)],
-            immediate_size: 0,
-        });
-
-        device.create_render_pipeline(&wgpu::RenderPipelineDescriptor {
-            label: Some("Path Render Pipeline"),
-            layout: Some(&pipeline_layout),
-            vertex: wgpu::VertexState {
-                module: shader,
-                entry_point: Some("path_vs"),
-                buffers: &[PathVertex::DESC],
-                compilation_options: wgpu::PipelineCompilationOptions::default(),
-            },
-            fragment: Some(wgpu::FragmentState {
-                module: shader,
-                entry_point: Some("path_fs"),
                 targets: &[Some(wgpu::ColorTargetState {
                     format: wgpu::TextureFormat::Rgba8Unorm,
                     blend: Some(wgpu::BlendState::ALPHA_BLENDING),
@@ -1248,53 +1302,52 @@ struct Out {
             })
     }
 
-    fn append_path_vertices(&mut self, buffers: VertexBuffers<PathVertex, u16>) {
-        let base_index = self.pending_path_vertices.len() as u16;
-        self.pending_path_vertices.extend(buffers.vertices);
-        self.pending_path_indices
-            .extend(buffers.indices.into_iter().map(|index| index + base_index));
-    }
-
-    fn tessellate_path(&mut self, config: PathConfig) {
+    /// Injects a raw continuous path into the high-throughput GPU streaming queues.
+    /// This removes the legacy CPU-bound Lyon tessellator entirely and schedules a
+    /// vertex-buffer-less hardware line expansion on the GPU.
+    pub fn tessellate_path(&mut self, config: PathConfig) {
+        // A valid polyline segment requires at least a starting point and a destination
         if config.points.len() < 2 {
             return;
         }
 
-        let mut path_builder = Path::builder();
-        let mut tokens = config.points.into_iter();
-        if let Some((x0, y0)) = tokens.next() {
-            path_builder.begin(point(x0, y0));
-            for (x, y) in tokens {
-                path_builder.line_to(point(x, y));
-            }
-            path_builder.end(false);
+        // Record lookup offsets inside the global contiguous arrays
+        let start_point_idx = self.pending_path_points.len() as u32;
+        let point_count = config.points.len() as u32;
+        let style_idx = self.pending_path_styles.len() as u32;
+        let path_idx = self.pending_path_args.len() as u32;
+
+        // 1. Stream raw (x, y) coordinates into the global points pool
+        for &(x, y) in &config.points {
+            self.pending_path_points.push(GpuPathPoint { x, y });
         }
 
-        let path = path_builder.build();
+        // 2. Format and push the styling configurations with opacity multiplier
         let stroke_color = config.stroke.rgba();
-        let color = [
-            stroke_color[0],
-            stroke_color[1],
-            stroke_color[2],
-            stroke_color[3] * config.opacity,
-        ];
+        self.pending_path_styles.push(GpuPathStyle {
+            r: stroke_color[0],
+            g: stroke_color[1],
+            b: stroke_color[2],
+            a: stroke_color[3] * config.opacity,
+            thickness: config.stroke_width,
+            _pad0: 0.0, // Satisfy 16-byte layout alignment boundaries explicitly
+            _pad1: 0.0,
+            _pad2: 0.0,
+        });
 
-        let mut buffers = VertexBuffers::<PathVertex, u16>::new();
-        let mut tessellator = StrokeTessellator::new();
-        let stroke_options = StrokeOptions::default().with_line_width(config.stroke_width);
-        let _ = tessellator.tessellate_path(
-            &path,
-            &stroke_options,
-            &mut BuffersBuilder::new(
-                &mut buffers,
-                PathVertexCtor {
-                    color,
-                    is_fill: 0.0,
-                },
-            ),
-        );
+        // 3. Compress layout parameters into the global routing lookup map
+        self.pending_path_args.push(GpuPathArgs {
+            start_point_idx,
+            style_idx,
+            _pad0: 0, // Satisfy structural padding constraints
+            _pad1: 0,
+        });
 
-        self.append_path_vertices(buffers);
+        // 4. Commit a zero-alignment-overhead batch token into the deferred render queue
+        self.batches.push(DrawBatch::PathSimple {
+            path_idx,
+            point_count,
+        });
     }
 
     // ============================================================================
@@ -1344,14 +1397,52 @@ struct Out {
             self.uploaded_polygon_index_count = indices.len() as u32;
         }
 
-        if !self.pending_path_vertices.is_empty() || !self.pending_path_indices.is_empty() {
-            let vertices = std::mem::take(&mut self.pending_path_vertices);
-            let indices = std::mem::take(&mut self.pending_path_indices);
+        // 🌟 Monolithic Global Path Buffers Staging (Scheme A Architecture)
+        let has_paths = !self.pending_path_points.is_empty();
+        let path_bind_group = if has_paths {
+            use wgpu::util::DeviceExt;
 
-            self.path_vertex_buffer = self.create_buffer(&vertices);
-            self.path_index_buffer = self.create_buffer(&indices);
-            self.uploaded_path_index_count = indices.len() as u32;
-        }
+            // Upload all high-throughput path primitives into monolithic storage streams
+            let points_buf = self.device.create_buffer_init(&wgpu::util::BufferInitDescriptor {
+                label: Some("Path Points Global Storage Buffer"),
+                contents: bytemuck::cast_slice(&self.pending_path_points),
+                usage: wgpu::BufferUsages::STORAGE | wgpu::BufferUsages::COPY_DST,
+            });
+
+            let styles_buf = self.device.create_buffer_init(&wgpu::util::BufferInitDescriptor {
+                label: Some("Path Styles Global Storage Buffer"),
+                contents: bytemuck::cast_slice(&self.pending_path_styles),
+                usage: wgpu::BufferUsages::STORAGE | wgpu::BufferUsages::COPY_DST,
+            });
+
+            let args_buf = self.device.create_buffer_init(&wgpu::util::BufferInitDescriptor {
+                label: Some("Path Routing Args Global Storage Buffer"),
+                contents: bytemuck::cast_slice(&self.pending_path_args),
+                usage: wgpu::BufferUsages::STORAGE | wgpu::BufferUsages::COPY_DST,
+            });
+
+            // Bake the single global bind group for this frame ahead of the render pass
+            Some(self.device.create_bind_group(&wgpu::BindGroupDescriptor {
+                label: Some("Global Monolithic Path Bind Group 1"),
+                layout: &self.path_bind_group_layout,
+                entries: &[
+                    wgpu::BindGroupEntry {
+                        binding: 0,
+                        resource: wgpu::BindingResource::Buffer(points_buf.as_entire_buffer_binding()),
+                    },
+                    wgpu::BindGroupEntry {
+                        binding: 1,
+                        resource: wgpu::BindingResource::Buffer(styles_buf.as_entire_buffer_binding()),
+                    },
+                    wgpu::BindGroupEntry {
+                        binding: 2,
+                        resource: wgpu::BindingResource::Buffer(args_buf.as_entire_buffer_binding()),
+                    },
+                ],
+            }))
+        } else {
+            None
+        };
 
         if !self.pending_gradient_rects.is_empty() {
             let grad_rects = std::mem::take(&mut self.pending_gradient_rects);
@@ -1370,35 +1461,30 @@ struct Out {
             label: Some("Main Bind Group (Updated)"),
             layout: &self.main_bind_group_layout,
             entries: &[
-                // binding 0 -> circle buffer
                 wgpu::BindGroupEntry {
                     binding: 0,
                     resource: wgpu::BindingResource::Buffer(
                         self.circle_buffer.as_entire_buffer_binding(),
                     ),
                 },
-                // binding 1 -> rect buffer (Fixed: Corrected buffer assignment)
                 wgpu::BindGroupEntry {
                     binding: 1,
                     resource: wgpu::BindingResource::Buffer(
                         self.rect_buffer.as_entire_buffer_binding(),
                     ),
                 },
-                // binding 2 -> line buffer (Fixed: Corrected buffer assignment)
                 wgpu::BindGroupEntry {
                     binding: 2,
                     resource: wgpu::BindingResource::Buffer(
                         self.line_buffer.as_entire_buffer_binding(),
                     ),
                 },
-                // binding 4 -> gradient rect buffer
                 wgpu::BindGroupEntry {
                     binding: 4,
                     resource: wgpu::BindingResource::Buffer(
                         self.gradient_rect_buffer.as_entire_buffer_binding(),
                     ),
                 },
-                // binding 5 -> global uniform buffer
                 wgpu::BindGroupEntry {
                     binding: 5,
                     resource: wgpu::BindingResource::Buffer(
@@ -1469,17 +1555,24 @@ struct Out {
                         pass.set_pipeline(&self.gradient_rect_pipeline);
                         pass.draw(0..4, *start..(*start + *count));
                     }
+                    // 🌟 Refactored Pure GPU Line Extrusion Batch with Zero-Alignment Overhead
+                    DrawBatch::PathSimple {
+                        path_idx,
+                        point_count,
+                    } => {
+                        if let Some(global_path_bg) = &path_bind_group {
+                            pass.set_pipeline(&self.path_simple_pipeline);
+                            pass.set_bind_group(1, global_path_bg, &[]);
+                            
+                            // Forward path_idx seamlessly into the shader via instance index boundaries
+                            let virtual_vertex_count = (*point_count - 1) * 6;
+                            pass.draw(0..virtual_vertex_count, *path_idx..(*path_idx + 1));
+                        }
+                    }
                 }
             }
 
-            // Fallback sequential rendering for un-batched primitive paths and texts
-            if self.uploaded_path_index_count > 0 {
-                pass.set_pipeline(&self.path_pipeline);
-                pass.set_vertex_buffer(0, self.path_vertex_buffer.slice(..));
-                pass.set_index_buffer(self.path_index_buffer.slice(..), wgpu::IndexFormat::Uint16);
-                pass.draw_indexed(0..self.uploaded_path_index_count, 0, 0..1);
-            }
-
+            // Fallback sequential rendering for text primitives
             if self.uploaded_text_vertex_count > 0 {
                 pass.set_pipeline(&self.text_pipeline);
                 pass.set_vertex_buffer(0, self.text_vertex_buffer.slice(..));
