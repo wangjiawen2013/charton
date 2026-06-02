@@ -1,6 +1,6 @@
 use crate::Precision;
 use crate::coordinate::{CoordinateTrait, Rect, polar::Polar};
-use crate::core::layer::{PathTopology, CircleConfig, PathConfig, RenderBackend, TextConfig};
+use crate::core::layer::{CircleConfig, PathConfig, PathTopology, RenderBackend, TextConfig};
 use crate::error::ChartonError;
 use crate::scale::ExplicitTick;
 use crate::theme::Theme;

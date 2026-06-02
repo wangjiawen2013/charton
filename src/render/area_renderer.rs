@@ -2,7 +2,7 @@ use crate::Precision;
 use crate::TEMP_SUFFIX;
 use crate::chart::Chart;
 use crate::core::context::PanelContext;
-use crate::core::layer::{MarkRenderer, PathTopology, PathConfig, PolygonConfig, RenderBackend};
+use crate::core::layer::{MarkRenderer, PathConfig, PathTopology, PolygonConfig, RenderBackend};
 use crate::core::utils::Parallelizable;
 use crate::encode::y::StackMode;
 use crate::error::ChartonError;

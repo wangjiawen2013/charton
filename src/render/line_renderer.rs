@@ -1,7 +1,7 @@
 use crate::Precision;
 use crate::chart::Chart;
 use crate::core::context::PanelContext;
-use crate::core::layer::{PathTopology, MarkRenderer, PathConfig, RenderBackend};
+use crate::core::layer::{MarkRenderer, PathConfig, PathTopology, RenderBackend};
 use crate::core::utils::Parallelizable;
 use crate::error::ChartonError;
 use crate::mark::line::MarkLine;

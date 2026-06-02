@@ -1,13 +1,13 @@
 // ============================================================================
-// Charton WGPU Shader
-// Unified Rendering Primitives - Strictly Compliant with RenderBackend Contract
-// Primitives: Circle, Line, Path(Polyline/Area), Rect, Polygon, GradientRect
-// NO TEXT IMPLEMENTATION | NO REDUNDANCY | SEMANTIC SEPARATION
+// Charton WGPU Shader: Unified Rendering Primitives
+// Primitives: Circle, Rect, Line, Polygon, GradientRect, Path(Polyline/Area)
+// Strictly Compliant with RenderBackend Contract
 // ============================================================================
 
-// ---------------------------
+// ----------------------------------------------------------------------------
 // Storage Buffer Data Structures (Semantically Separated)
-// ---------------------------
+// ----------------------------------------------------------------------------
+
 /// Circle data (draw_circle: exclusive for circular markers/points)
 struct PointData {
     x: f32,
@@ -49,8 +49,7 @@ struct LineData {
 };
 
 /// Polygon data (draw_polygon: symmetric markers - triangle, hexagon, diamond, star)
-/// ALL SHAPES EXCEPT CIRCLE & SQUARE use this pipeline (CPU-generated vertices uploaded directly to GPU)
-/// Matches Rust PointShape enum 1:1
+/// Fed directly via traditional Vertex Buffer stream (no dedicated storage slot needed)
 struct PolygonData {
     x: f32,
     y: f32,
@@ -59,22 +58,7 @@ struct PolygonData {
     b: f32,
     a: f32,
     radius: f32,
-    shape_type: f32,   // 1:1 mapping to Rust PointShape
-                       // 0.0 = Circle (UNUSED here, uses SDF pipeline)
-                       // 1.0 = Square (UNUSED here, uses SDF pipeline)
-                       // 2.0 = Triangle
-                       // 3.0 = Star
-                       // 4.0 = Diamond
-                       // 5.0 = Pentagon
-                       // 6.0 = Hexagon
-                       // 7.0 = Octagon
-};
-
-/// Path vertex data (draw_path: LineMark, AreaMark, continuous geometry)
-struct PathVertex {
-    pos: vec2<f32>,
-    color: vec4<f32>,
-    is_fill: f32,      // 0.0 = stroke vertex, 1.0 = area fill vertex
+    shape_type: f32,
 };
 
 /// Gradient rectangle data (draw_gradient_rect: heatmaps, themed panels)
@@ -95,9 +79,9 @@ struct GradientRectData {
     opacity: f32,
 };
 
-// ---------------------------
+// ----------------------------------------------------------------------------
 // Uniform Buffer (Global Render State)
-// ---------------------------
+// ----------------------------------------------------------------------------
 struct Uniforms {
     screen_width: f32,
     screen_height: f32,
@@ -105,14 +89,54 @@ struct Uniforms {
     _padding: f32,
 };
 
-// ---------------------------
-// Bind Group Layout
-// ---------------------------
+// ============================================================================
+// Resource Bind Group Layouts
+// ============================================================================
+
+// ----------------------------------------------------------------------------
+// Group 0: Global Instanced & Batched Primitives (Kept intact to preserve indices)
+// ----------------------------------------------------------------------------
 @group(0) @binding(0) var<storage, read> circles: array<PointData>;
 @group(0) @binding(1) var<storage, read> rects: array<RectData>;
 @group(0) @binding(2) var<storage, read> lines: array<LineData>;
+// Note: binding(3) is skipped intentionally to match the traditional Vertex Buffer Polygon input
 @group(0) @binding(4) var<storage, read> gradient_rects: array<GradientRectData>;
 @group(0) @binding(5) var<uniform> uniforms: Uniforms;
+
+// ----------------------------------------------------------------------------
+// Group 1: Dedicated High-Throughput Stream (Exclusive for Pure GPU Line Extrusion)
+// ----------------------------------------------------------------------------
+
+/// Represents a raw coordinate vertex along the dynamic polyline path
+struct PathPointData {
+    x: f32,
+    y: f32,
+};
+
+/// Global rendering aesthetics for the paths (Shifted to Storage-compliant layout)
+struct PathStyle {
+    r: f32,
+    g: f32,
+    b: f32,
+    a: f32,
+    thickness: f32,
+    _pad0: f32, // Padding fields to guarantee 16-byte structural boundaries
+    _pad1: f32,
+    _pad2: f32,
+};
+
+/// Structural draw arguments routing layout for monolithic global lookup
+struct PathArgs {
+    start_point_idx: u32,
+    style_idx: u32,
+    _pad0: u32, // Structural padding fields
+    _pad1: u32,
+};
+
+// Monolithic Global Storage Bindings (Matches Scheme A Host Layout Contract)
+@group(1) @binding(0) var<storage, read> path_points: array<PathPointData>;
+@group(1) @binding(1) var<storage, read> path_styles: array<PathStyle>;
+@group(1) @binding(2) var<storage, read> path_args: array<PathArgs>;
 
 // ---------------------------
 // Vertex Output Structures
@@ -139,16 +163,16 @@ struct PolygonOutput {
     @location(0) color: vec4<f32>,
 };
 
-struct PathOutput {
-    @builtin(position) clip_pos: vec4<f32>,
-    @location(0) color: vec4<f32>,
-    @location(2) @interpolate(flat) is_fill: f32,
-};
-
 struct GradientRectOutput {
     @builtin(position) clip_pos: vec4<f32>,
     @location(0) uv: vec2<f32>,
     @location(1) @interpolate(flat) instance_idx: u32,
+};
+
+/// Output structure passed from the vertex shader through rasterization into the fragment shader
+struct PathOutput {
+    @builtin(position) clip_pos: vec4<f32>,
+    @location(0) color: vec4<f32>,
 };
 
 // ============================================================================
@@ -325,39 +349,11 @@ fn polygon_vs(
 
 @fragment
 fn polygon_fs(in: PolygonOutput) -> @location(0) vec4<f32> {
-    return in.color;
-}
-
-// ---------------------------
-// 5. Path Pipeline (draw_path: LineMark / AreaMark)
-// ---------------------------
-@vertex
-fn path_vs(
-    @location(0) pos: vec2<f32>,
-    @location(1) color: vec4<f32>,
-    @location(2) is_fill: f32
-) -> PathOutput {
-    let scale = uniforms.scale_factor;
-    let screen_pos = pos * scale;
-    let sw = uniforms.screen_width * scale;
-    let sh = uniforms.screen_height * scale;
-    let ndc = vec4((screen_pos.x/sw)*2.0-1.0, 1.0-(screen_pos.y/sh)*2.0, 0.0, 1.0);
-
-    var out: PathOutput;
-    out.clip_pos = ndc;
-    out.color = color;
-    out.is_fill = is_fill;
-    return out;
-}
-
-@fragment
-fn path_fs(in: PathOutput) -> @location(0) vec4<f32> {
-    // Swap Red and Blue channels to match the Bgra8Unorm surface format.
     return vec4(in.color.b, in.color.g, in.color.r, in.color.a);
 }
 
 // ---------------------------
-// 6. Gradient Rectangle Pipeline (draw_gradient_rect)
+// 5. Gradient Rectangle Pipeline (draw_gradient_rect)
 // ---------------------------
 @vertex
 fn grad_rect_vs(@builtin(vertex_index) vi: u32, @builtin(instance_index) ii: u32) -> GradientRectOutput {
@@ -395,4 +391,86 @@ fn grad_rect_fs(in: GradientRectOutput) -> @location(0) vec4<f32> {
         mix(r.start_b, r.end_b, mix_val),
         mix(r.start_a, r.end_a, mix_val) * r.opacity
     );
+}
+
+// ============================================================================
+// 6. Pure GPU Polyline Extrusion Pipeline (draw_path - Simple Branch)
+// ============================================================================
+@vertex
+fn path_simple_vs(
+    @builtin(vertex_index) vi: u32,
+    @builtin(instance_index) ii: u32 // 🌟 Forwarded path_idx from pass.draw boundaries
+) -> PathOutput {
+    // 1. Resolve monolithic absolute addresses via the routing table
+    let args = path_args[ii];
+    let path_style = path_styles[args.style_idx];
+
+    // Each line segment (quad) is constructed via 6 virtual vertices (2 triangles)
+    let segment_idx = vi / 6u;
+    let local_vertex_idx = vi % 6u;
+
+    // Fetch p0 and p1 using calculated global offsets from the streaming queues
+    let p0_idx = args.start_point_idx + segment_idx;
+    let p1_idx = p0_idx + 1u;
+
+    let p0 = path_points[p0_idx];
+    let p1 = path_points[p1_idx];
+
+    // Data defense: if any coordinate is NaN, collapse the triangle to eliminate rendering artifacts
+    if (p0.x != p0.x || p0.y != p0.y || p1.x != p1.x || p1.y != p1.y) {
+        var out: PathOutput;
+        out.clip_pos = vec4<f32>(0.0, 0.0, 0.0, 0.0);
+        return out;
+    }
+
+    // Calculate the direction vector of the current segment
+    let delta = vec2<f32>(p1.x - p0.x, p1.y - p0.y);
+    var current_dir = normalize(delta);
+    
+    // Prevent division-by-zero if the two points overlap perfectly
+    if (length(delta) == 0.0) {
+        current_dir = vec2<f32>(1.0, 0.0);
+    }
+    
+    // Calculate the right-hand orthogonal normal vector
+    let normal = vec2<f32>(-current_dir.y, current_dir.x);
+
+    var raw_pos = vec2<f32>(0.0, 0.0);
+    var extrusion_side = 0.0; // 1.0 extends along the normal, -1.0 extends opposite to the normal
+
+    // Finite state machine: Map the 6 virtual vertices to a structured Triangle List Quad
+    switch local_vertex_idx {
+        case 0u: { raw_pos = vec2(p0.x, p0.y); extrusion_side = 1.0; }  // p0 Left
+        case 1u: { raw_pos = vec2(p0.x, p0.y); extrusion_side = -1.0; } // p0 Right
+        case 2u: { raw_pos = vec2(p1.x, p1.y); extrusion_side = 1.0; }  // p1 Left
+        
+        case 3u: { raw_pos = vec2(p1.x, p1.y); extrusion_side = 1.0; }  // p1 Left
+        case 4u: { raw_pos = vec2(p0.x, p0.y); extrusion_side = -1.0; } // p0 Right
+        case 5u: { raw_pos = vec2(p1.x, p1.y); extrusion_side = -1.0; } // p1 Right
+        default: {}
+    }
+
+    // Extrude outward by half of the thickness in physical pixel space
+    let ext_pos = raw_pos + normal * (path_style.thickness * 0.5 * extrusion_side);
+
+    // Coordinate transformation into global uniform space
+    let scale = uniforms.scale_factor;
+    let screen_pos = ext_pos * scale;
+    let sw = uniforms.screen_width * scale;
+    let sh = uniforms.screen_height * scale;
+
+    // Standard Normalized Device Coordinate (NDC) conversion with Y-axis inversion
+    let ndc_x = (screen_pos.x / sw) * 2.0 - 1.0;
+    let ndc_y = 1.0 - (screen_pos.y / sh) * 2.0;
+
+    var out: PathOutput;
+    out.clip_pos = vec4<f32>(ndc_x, ndc_y, 0.0, 1.0);
+    out.color = vec4<f32>(path_style.r, path_style.g, path_style.b, path_style.a);
+    return out;
+}
+
+@fragment
+fn path_simple_fs(in: PathOutput) -> @location(0) vec4<f32> {
+    // Strictly adheres to semantic separation contract
+    return in.color;
 }
