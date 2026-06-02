@@ -24,7 +24,7 @@ raster = ["dep:tiny-skia", "dep:ab_glyph", "dep:fontdb"]
 png = ["raster"] # png is an alias of raster
 
 # Enables lightweight GPU-accelerated rendering for large datasets via wgpu.
-wgpu = ["dep:wgpu", "dep:bytemuck", "dep:pollster", "dep:lyon", "dep:ab_glyph", "dep:glyph_brush", "png"]
+wgpu = ["dep:wgpu", "dep:bytemuck", "dep:pollster", "dep:ab_glyph", "dep:glyph_brush", "png"]
 
 # Enables universal columnar data ingestion via the Apache Arrow standard.
 arrow = ["dep:arrow"]
@@ -56,7 +56,6 @@ base64 = { version = "0.22", optional = true }
 wgpu = { version = "29", optional = true }
 bytemuck = { version = "1.25", features = ["derive"], optional = true }
 pollster = { version = "0.4", optional = true }
-lyon = { version="1", optional = true }
 
 # --- WASM32 Target Specific Dependencies ---
 # Leveraged only when targeting WebAssembly; provides full access to browser DOM and Canvas APIs without impacting desktop builds.
