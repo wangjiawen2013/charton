@@ -465,7 +465,7 @@ fn path_simple_vs(
 
     var out: PathOutput;
     out.clip_pos = vec4<f32>(ndc_x, ndc_y, 0.0, 1.0);
-    out.color = vec4<f32>(path_style.r, path_style.g, path_style.b, path_style.a);
+    out.color = vec4<f32>(path_style.b, path_style.g, path_style.r, path_style.a);
     return out;
 }
 
