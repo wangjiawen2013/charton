@@ -1,6 +1,6 @@
 use crate::Precision;
 use crate::coordinate::{CoordinateTrait, Rect, cartesian::Cartesian2D};
-use crate::core::layer::{PathConfig, RenderBackend, TextConfig};
+use crate::core::layer::{PathTopology, PathConfig, RenderBackend, TextConfig};
 use crate::error::ChartonError;
 use crate::scale::ExplicitTick;
 use crate::theme::Theme;
@@ -83,6 +83,7 @@ fn draw_axis_line(
         stroke_width: theme.axis_width as Precision,
         opacity: 1.0,
         dash: vec![], // Solid line
+        topology: PathTopology::Simple,
     });
 
     Ok(())
@@ -161,6 +162,7 @@ fn draw_ticks_and_labels(
             stroke_width: theme.tick_width as Precision,
             opacity: 1.0,
             dash: vec![],
+            topology: PathTopology::Simple,
         });
 
         // --- DRAW TICK LABEL ---
