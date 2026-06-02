@@ -16,7 +16,7 @@ pub enum PathTopology {
     /// WGPU backend will process this via hardware streaming and dynamic WGSL shader extrusion.
     #[default]
     Simple,
-    
+
     /// Complex geometry containing holes, islands, or overlapping paths (e.g., GIS maps).
     /// WGPU backend will process this via Ahead-Of-Time (AOT) tessellation and index caching.
     Complex,
