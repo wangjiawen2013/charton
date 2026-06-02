@@ -1,6 +1,6 @@
 use crate::Precision;
 use crate::coordinate::{CoordinateTrait, Rect, polar::Polar};
-use crate::core::layer::{CircleConfig, PathConfig, RenderBackend, TextConfig};
+use crate::core::layer::{PathTopology, CircleConfig, PathConfig, RenderBackend, TextConfig};
 use crate::error::ChartonError;
 use crate::scale::ExplicitTick;
 use crate::theme::Theme;
@@ -120,6 +120,7 @@ pub fn render_polar_axes(
             stroke_width: theme.grid_width as Precision,
             opacity: 0.5,
             dash: vec![], // Solid line
+            topology: PathTopology::Simple,
         });
 
         // Calculate label coordinates with padding

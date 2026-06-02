@@ -9,6 +9,19 @@ use crate::visual::color::SingleColor;
 use crate::visual::shape::PointShape;
 use std::sync::Arc;
 
+/// Topology classification to guide the WGPU backend in selecting the optimal rendering pipeline.
+#[derive(Copy, Clone, Debug, PartialEq, Default)]
+pub enum PathTopology {
+    /// Simple point sequence without nested holes or complex self-intersections.
+    /// WGPU backend will process this via hardware streaming and dynamic WGSL shader extrusion.
+    #[default]
+    Simple,
+    
+    /// Complex geometry containing holes, islands, or overlapping paths (e.g., GIS maps).
+    /// WGPU backend will process this via Ahead-Of-Time (AOT) tessellation and index caching.
+    Complex,
+}
+
 /// PointElementConfig is a high-level representation of a point-based mark.
 /// It acts as a bridge between the Layer logic and the specific geometric
 /// draw calls of the RenderBackend.
@@ -51,6 +64,9 @@ pub struct PathConfig {
     pub stroke_width: Precision,
     pub opacity: Precision,
     pub dash: Vec<Precision>,
+
+    /// Lightweight structural hint to steer backend optimization path.
+    pub topology: PathTopology,
 }
 
 pub struct PolygonConfig {
