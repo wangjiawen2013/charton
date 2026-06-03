@@ -57,3 +57,6 @@
 
 # The IPC Bridge
 - [Seamless Python Interop](ipc/python_interop.md)
+
+# Appendix
+- [Wgpu Text](appendix/wgpu_text.md)
