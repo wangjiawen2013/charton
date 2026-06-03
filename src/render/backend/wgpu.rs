@@ -154,45 +154,6 @@ pub struct GpuPathArgs {
     pub _pad1: u32,
 }
 
-/// Vertex data for text rendering (used with glyph atlas)
-/// Contains position, texture coordinates, and color for each text vertex
-#[repr(C)]
-#[derive(Copy, Clone, Debug, Pod, Zeroable)]
-pub struct TextVertex {
-    /// Screen position (x, y) in pixels
-    pub position: [f32; 2],
-    /// Texture coordinates (u, v) for glyph atlas sampling
-    pub tex_coords: [f32; 2],
-    /// Text color (rgba, 0.0 - 1.0)
-    pub color: [f32; 4],
-}
-
-impl TextVertex {
-    /// Vertex buffer layout descriptor for text rendering pipelines
-    /// Matches shader input locations (0 = position, 1 = tex_coords, 2 = color)
-    pub const DESC: wgpu::VertexBufferLayout<'static> = wgpu::VertexBufferLayout {
-        array_stride: std::mem::size_of::<Self>() as wgpu::BufferAddress,
-        step_mode: wgpu::VertexStepMode::Vertex,
-        attributes: &[
-            wgpu::VertexAttribute {
-                offset: 0,
-                shader_location: 0,
-                format: wgpu::VertexFormat::Float32x2,
-            },
-            wgpu::VertexAttribute {
-                offset: std::mem::size_of::<[f32; 2]>() as wgpu::BufferAddress,
-                shader_location: 1,
-                format: wgpu::VertexFormat::Float32x2,
-            },
-            wgpu::VertexAttribute {
-                offset: (std::mem::size_of::<[f32; 2]>() * 2) as wgpu::BufferAddress,
-                shader_location: 2,
-                format: wgpu::VertexFormat::Float32x4,
-            },
-        ],
-    };
-}
-
 /// Vertex data for path primitives (custom vector paths)
 /// Contains position, color, and fill state for each path vertex
 #[repr(C)]
@@ -352,13 +313,8 @@ pub struct WgpuBackend {
     pending_path_styles: Vec<GpuPathStyle>,
     pending_path_args: Vec<GpuPathArgs>,
 
-    // Text rendering resources (placeholder implementation)
-    text_pipeline: wgpu::RenderPipeline,
-    text_vertex_buffer: wgpu::Buffer,
-    _text_atlas_texture: wgpu::Texture,
-    _text_atlas_view: wgpu::TextureView,
-    _text_atlas_sampler: wgpu::Sampler,
-    uploaded_text_vertex_count: u32,
+    /// Ledger collecting text configurations for deferred external rendering.
+    pub collected_texts: Vec<TextConfig>,
 
     /// Interleaved batch queue to preserve rendering order
     batches: Vec<DrawBatch>,
@@ -509,23 +465,14 @@ impl WgpuBackend {
                 ],
             });
 
-        // PRE-INIT REFERENCE: Fetch the layout handle from your text pipeline sub-system initialization.
-        // Replace this mock with your actual text layout extractor when activating Text Rendering.
-        let text_bind_group_layout =
-            device.create_bind_group_layout(&wgpu::BindGroupLayoutDescriptor {
-                label: Some("Text Glyph Atlas Bind Group Layout 2 Placeholder"),
-                entries: &[], // Add texture, sampler, and instance metrics bindings here later
-            });
-
         // ====================================================================
         // GLOBAL PIPELINE LAYOUT ARCHITECTURE (Multi-Group Mapping)
         // ====================================================================
         // Registers all available bind group slots. Any pipeline using this layout can seamlessly
-        // read uniforms from Group 0 while drawing path coordinates from Group 1 or text from Group 2.
+        // read uniforms from Group 0 while drawing path coordinates from Group 1.
         let bind_group_layouts_ref: &[Option<&wgpu::BindGroupLayout>] = &[
             Some(&main_bind_group_layout), // Layout slot 0 (@group(0))
             Some(&path_bind_group_layout), // Layout slot 1 (@group(1))
-            Some(&text_bind_group_layout), // Layout slot 2 (@group(2))
         ];
 
         let render_pipeline_layout =
@@ -591,24 +538,16 @@ impl WgpuBackend {
         let (_grad_bg_layout, gradient_rect_pipeline) =
             Self::create_gradient_rect_pipeline(&device, &shader, &main_bind_group_layout);
 
-        let (
-            _text_bg_layout_real,
-            text_pipeline,
-            text_atlas_texture,
-            text_atlas_view,
-            text_atlas_sampler,
-        ) = Self::create_text_pipeline(&device, &shader, &main_bind_group_layout).await;
-
         // Compile the pure on-chip vertex generation line extrusion pipeline (Simple Path Pipeline)
         // Shift format alignment to Rgba8Unorm to strictly match the offscreen PNG output targets
-        let texture_format = wgpu::TextureFormat::Rgba8Unorm; 
+        let texture_format = wgpu::TextureFormat::Rgba8Unorm;
         let path_simple_pipeline = device.create_render_pipeline(&wgpu::RenderPipelineDescriptor {
             label: Some("Path Simple Hardware Extrusion Pipeline"),
             layout: Some(&render_pipeline_layout),
             vertex: wgpu::VertexState {
                 module: &shader,
                 entry_point: Some("path_simple_vs"),
-                buffers: &[], 
+                buffers: &[],
                 compilation_options: Default::default(),
             },
             fragment: Some(wgpu::FragmentState {
@@ -616,7 +555,7 @@ impl WgpuBackend {
                 entry_point: Some("path_simple_fs"),
                 targets: &[Some(wgpu::ColorTargetState {
                     format: texture_format, // 🌟 Will now perfectly match Rgba8Unorm
-                    blend: Some(wgpu::BlendState::ALPHA_BLENDING), 
+                    blend: Some(wgpu::BlendState::ALPHA_BLENDING),
                     write_mask: wgpu::ColorWrites::ALL,
                 })],
                 compilation_options: Default::default(),
@@ -625,14 +564,14 @@ impl WgpuBackend {
                 topology: wgpu::PrimitiveTopology::TriangleList,
                 strip_index_format: None,
                 front_face: wgpu::FrontFace::Ccw,
-                cull_mode: None, 
+                cull_mode: None,
                 unclipped_depth: false,
                 polygon_mode: wgpu::PolygonMode::Fill,
                 conservative: false,
             },
             depth_stencil: None,
             multisample: wgpu::MultisampleState::default(),
-            multiview_mask: None, 
+            multiview_mask: None,
             cache: None,
         });
 
@@ -643,7 +582,6 @@ impl WgpuBackend {
         let rect_buffer = Self::create_dummy_buffer::<GpuRect>(&device);
         let line_buffer = Self::create_dummy_buffer::<GpuLine>(&device);
         let gradient_rect_buffer = Self::create_dummy_buffer::<GpuGradientRect>(&device);
-        let text_vertex_buffer = Self::create_dummy_buffer::<TextVertex>(&device);
 
         // ====================================================================
         // BACKEND STRUCTURE ASSEMBLY
@@ -665,17 +603,17 @@ impl WgpuBackend {
             pending_rects: Vec::with_capacity(10_000),
             uploaded_rect_count: 0,
 
+            line_pipeline,
+            line_buffer,
+            pending_lines: Vec::with_capacity(10_000),
+            uploaded_line_count: 0,
+
             polygon_pipeline,
             polygon_vertex_buffer: dummy_polygon_vertices,
             polygon_index_buffer: dummy_polygon_indices,
             pending_polygon_vertices: Vec::with_capacity(50_000),
             pending_polygon_indices: Vec::with_capacity(100_000),
             uploaded_polygon_index_count: 0,
-
-            line_pipeline,
-            line_buffer,
-            pending_lines: Vec::with_capacity(10_000),
-            uploaded_line_count: 0,
 
             gradient_rect_pipeline,
             gradient_rect_buffer,
@@ -689,12 +627,7 @@ impl WgpuBackend {
             pending_path_styles: Vec::with_capacity(1024),    // Pre-allocate style configs buffer
             pending_path_args: Vec::with_capacity(1024),
 
-            text_pipeline,
-            text_vertex_buffer,
-            _text_atlas_texture: text_atlas_texture,
-            _text_atlas_view: text_atlas_view,
-            _text_atlas_sampler: text_atlas_sampler,
-            uploaded_text_vertex_count: 0,
+            collected_texts: Vec::new(),
 
             batches: Vec::with_capacity(1024),
             current_circle_count: 0,
@@ -766,9 +699,6 @@ impl WgpuBackend {
         self.pending_polygon_vertices.clear();
         self.pending_polygon_indices.clear();
 
-        // Assuming you have a corresponding pending buffer for text
-        // self.pending_text_vertices.clear();
-
         // 4. Reset uploaded counters
         // This is crucial! It tells the system that no data has been uploaded to GPU
         // for the new frame yet.
@@ -777,13 +707,14 @@ impl WgpuBackend {
         self.uploaded_line_count = 0;
         self.uploaded_polygon_index_count = 0;
         self.uploaded_gradient_rect_count = 0;
-        
+
         // Clear our pure GPU path dynamic streaming queues:
         self.pending_path_points.clear();
         self.pending_path_styles.clear();
         self.pending_path_args.clear();
-        
-        self.uploaded_text_vertex_count = 0;
+
+        // 5. Clear collected texts to prepare for the next frame
+        self.collected_texts.clear();
     }
 
     // ============================================================================
@@ -1123,144 +1054,6 @@ impl WgpuBackend {
         (gradient_rect_bind_group_layout, pipeline)
     }
 
-    /// Creates the text render pipeline and associated resources (placeholder)
-    ///
-    /// # Arguments
-    /// * `device` - WGPU device handle
-    /// * `shader` - Compiled WGSL shader module
-    /// * `_main_layout` - Main bind group layout (@group(0))
-    ///
-    /// # Returns
-    /// Tuple of (bind group layout, pipeline, atlas texture, atlas view, sampler)
-    async fn create_text_pipeline(
-        device: &wgpu::Device,
-        _shader: &wgpu::ShaderModule,
-        _main_layout: &wgpu::BindGroupLayout,
-    ) -> (
-        wgpu::BindGroupLayout,
-        wgpu::RenderPipeline,
-        wgpu::Texture,
-        wgpu::TextureView,
-        wgpu::Sampler,
-    ) {
-        // Create 2048x2048 glyph atlas texture (RGBA8 format)
-        let atlas_size = (2048u32, 2048u32);
-        let text_atlas_texture = device.create_texture(&wgpu::TextureDescriptor {
-            label: Some("Text Atlas Texture"),
-            size: wgpu::Extent3d {
-                width: atlas_size.0,
-                height: atlas_size.1,
-                depth_or_array_layers: 1,
-            },
-            mip_level_count: 1,
-            sample_count: 1,
-            dimension: wgpu::TextureDimension::D2,
-            format: wgpu::TextureFormat::Rgba8Unorm,
-            usage: wgpu::TextureUsages::TEXTURE_BINDING | wgpu::TextureUsages::COPY_DST,
-            view_formats: &[],
-        });
-        let text_atlas_view =
-            text_atlas_texture.create_view(&wgpu::TextureViewDescriptor::default());
-
-        // Default sampler for glyph atlas sampling
-        let text_atlas_sampler = device.create_sampler(&wgpu::SamplerDescriptor::default());
-
-        // Minimal WGSL shader for text rendering (placeholder implementation)
-        let text_wgsl = r#"
-struct Uniforms { screen_width: f32, screen_height: f32, scale_factor: f32, _padding: f32 };
-@group(0) @binding(5) var<uniform> uniforms: Uniforms;
-struct In { 
-    @location(0) position: vec2<f32>, 
-    @location(1) tex_coords: vec2<f32>, 
-    @location(2) color: vec4<f32>, 
-};
-struct Out { 
-    @builtin(position) clip_pos: vec4<f32>, 
-    @location(0) color: vec4<f32>, 
-};
-
-@vertex fn text_vs(in: In) -> Out {
-    // Convert screen space to NDC (Normalized Device Coordinates)
-    let sw = uniforms.screen_width * uniforms.scale_factor;
-    let sh = uniforms.screen_height * uniforms.scale_factor;
-    let ndc = vec4((in.position.x/sw)*2.0-1.0, 1.0-(in.position.y/sh)*2.0, 0.0, 1.0);
-    
-    var o: Out;
-    o.clip_pos = ndc;
-    o.color = in.color;
-    return o;
-}
-
-@fragment fn text_fs(in: Out) -> @location(0) vec4<f32> {
-    return in.color;
-}
-"#;
-
-        // Compile text shader module
-        let text_shader = device.create_shader_module(wgpu::ShaderModuleDescriptor {
-            label: Some("text_wgsl"),
-            source: wgpu::ShaderSource::Wgsl(std::borrow::Cow::Borrowed(text_wgsl)),
-        });
-
-        // Create text bind group layout (only uniform buffer binding)
-        let text_bind_group_layout =
-            device.create_bind_group_layout(&wgpu::BindGroupLayoutDescriptor {
-                label: Some("Text Bind Group Layout"),
-                entries: &[wgpu::BindGroupLayoutEntry {
-                    binding: 5,
-                    visibility: wgpu::ShaderStages::VERTEX | wgpu::ShaderStages::FRAGMENT,
-                    ty: wgpu::BindingType::Buffer {
-                        ty: wgpu::BufferBindingType::Uniform,
-                        has_dynamic_offset: false,
-                        min_binding_size: None,
-                    },
-                    count: None,
-                }],
-            });
-
-        // Create text pipeline layout
-        let pipeline_layout = device.create_pipeline_layout(&wgpu::PipelineLayoutDescriptor {
-            label: Some("Text Pipeline Layout"),
-            bind_group_layouts: &[Some(&text_bind_group_layout)],
-            immediate_size: 0,
-        });
-
-        // Create text render pipeline
-        let text_pipeline = device.create_render_pipeline(&wgpu::RenderPipelineDescriptor {
-            label: Some("Text Render Pipeline"),
-            layout: Some(&pipeline_layout),
-            vertex: wgpu::VertexState {
-                module: &text_shader,
-                entry_point: Some("text_vs"),
-                buffers: &[TextVertex::DESC],
-                compilation_options: wgpu::PipelineCompilationOptions::default(),
-            },
-            fragment: Some(wgpu::FragmentState {
-                module: &text_shader,
-                entry_point: Some("text_fs"),
-                targets: &[Some(wgpu::ColorTargetState {
-                    format: wgpu::TextureFormat::Rgba8Unorm,
-                    blend: Some(wgpu::BlendState::ALPHA_BLENDING),
-                    write_mask: wgpu::ColorWrites::ALL,
-                })],
-                compilation_options: wgpu::PipelineCompilationOptions::default(),
-            }),
-            primitive: wgpu::PrimitiveState::default(),
-            depth_stencil: None,
-            multisample: wgpu::MultisampleState::default(),
-            multiview_mask: None,
-            cache: None,
-        });
-
-        (
-            text_bind_group_layout,
-            text_pipeline,
-            text_atlas_texture,
-            text_atlas_view,
-            text_atlas_sampler,
-        )
-    }
-
     // ============================================================================
     // Buffer Creation Helpers
     // ============================================================================
@@ -1351,15 +1144,6 @@ struct Out {
     }
 
     // ============================================================================
-    // Path & Text Helpers
-    // ============================================================================
-
-    /// Processes text config into vertex data (placeholder implementation)
-    fn process_text(&mut self) {
-        // Empty implementation (to be filled with text layout/rasterization logic)
-    }
-
-    // ============================================================================
     // Render & Flush
     // ============================================================================
     /// Flushes pending render data to GPU buffers and renders to the target texture view
@@ -1397,29 +1181,35 @@ struct Out {
             self.uploaded_polygon_index_count = indices.len() as u32;
         }
 
-        // 🌟 Monolithic Global Path Buffers Staging (Scheme A Architecture)
+        // Monolithic Global Path Buffers Staging (Scheme A Architecture)
         let has_paths = !self.pending_path_points.is_empty();
         let path_bind_group = if has_paths {
             use wgpu::util::DeviceExt;
 
             // Upload all high-throughput path primitives into monolithic storage streams
-            let points_buf = self.device.create_buffer_init(&wgpu::util::BufferInitDescriptor {
-                label: Some("Path Points Global Storage Buffer"),
-                contents: bytemuck::cast_slice(&self.pending_path_points),
-                usage: wgpu::BufferUsages::STORAGE | wgpu::BufferUsages::COPY_DST,
-            });
+            let points_buf = self
+                .device
+                .create_buffer_init(&wgpu::util::BufferInitDescriptor {
+                    label: Some("Path Points Global Storage Buffer"),
+                    contents: bytemuck::cast_slice(&self.pending_path_points),
+                    usage: wgpu::BufferUsages::STORAGE | wgpu::BufferUsages::COPY_DST,
+                });
 
-            let styles_buf = self.device.create_buffer_init(&wgpu::util::BufferInitDescriptor {
-                label: Some("Path Styles Global Storage Buffer"),
-                contents: bytemuck::cast_slice(&self.pending_path_styles),
-                usage: wgpu::BufferUsages::STORAGE | wgpu::BufferUsages::COPY_DST,
-            });
+            let styles_buf = self
+                .device
+                .create_buffer_init(&wgpu::util::BufferInitDescriptor {
+                    label: Some("Path Styles Global Storage Buffer"),
+                    contents: bytemuck::cast_slice(&self.pending_path_styles),
+                    usage: wgpu::BufferUsages::STORAGE | wgpu::BufferUsages::COPY_DST,
+                });
 
-            let args_buf = self.device.create_buffer_init(&wgpu::util::BufferInitDescriptor {
-                label: Some("Path Routing Args Global Storage Buffer"),
-                contents: bytemuck::cast_slice(&self.pending_path_args),
-                usage: wgpu::BufferUsages::STORAGE | wgpu::BufferUsages::COPY_DST,
-            });
+            let args_buf = self
+                .device
+                .create_buffer_init(&wgpu::util::BufferInitDescriptor {
+                    label: Some("Path Routing Args Global Storage Buffer"),
+                    contents: bytemuck::cast_slice(&self.pending_path_args),
+                    usage: wgpu::BufferUsages::STORAGE | wgpu::BufferUsages::COPY_DST,
+                });
 
             // Bake the single global bind group for this frame ahead of the render pass
             Some(self.device.create_bind_group(&wgpu::BindGroupDescriptor {
@@ -1428,15 +1218,21 @@ struct Out {
                 entries: &[
                     wgpu::BindGroupEntry {
                         binding: 0,
-                        resource: wgpu::BindingResource::Buffer(points_buf.as_entire_buffer_binding()),
+                        resource: wgpu::BindingResource::Buffer(
+                            points_buf.as_entire_buffer_binding(),
+                        ),
                     },
                     wgpu::BindGroupEntry {
                         binding: 1,
-                        resource: wgpu::BindingResource::Buffer(styles_buf.as_entire_buffer_binding()),
+                        resource: wgpu::BindingResource::Buffer(
+                            styles_buf.as_entire_buffer_binding(),
+                        ),
                     },
                     wgpu::BindGroupEntry {
                         binding: 2,
-                        resource: wgpu::BindingResource::Buffer(args_buf.as_entire_buffer_binding()),
+                        resource: wgpu::BindingResource::Buffer(
+                            args_buf.as_entire_buffer_binding(),
+                        ),
                     },
                 ],
             }))
@@ -1448,10 +1244,6 @@ struct Out {
             let grad_rects = std::mem::take(&mut self.pending_gradient_rects);
             self.gradient_rect_buffer = self.create_buffer(&grad_rects);
             self.uploaded_gradient_rect_count = grad_rects.len() as u32;
-        }
-
-        if self.uploaded_text_vertex_count > 0 {
-            self.process_text();
         }
 
         // --------------------------------------------------------------------
@@ -1555,7 +1347,7 @@ struct Out {
                         pass.set_pipeline(&self.gradient_rect_pipeline);
                         pass.draw(0..4, *start..(*start + *count));
                     }
-                    // 🌟 Refactored Pure GPU Line Extrusion Batch with Zero-Alignment Overhead
+                    // Refactored Pure GPU Line Extrusion Batch with Zero-Alignment Overhead
                     DrawBatch::PathSimple {
                         path_idx,
                         point_count,
@@ -1563,20 +1355,13 @@ struct Out {
                         if let Some(global_path_bg) = &path_bind_group {
                             pass.set_pipeline(&self.path_simple_pipeline);
                             pass.set_bind_group(1, global_path_bg, &[]);
-                            
+
                             // Forward path_idx seamlessly into the shader via instance index boundaries
                             let virtual_vertex_count = (*point_count - 1) * 6;
                             pass.draw(0..virtual_vertex_count, *path_idx..(*path_idx + 1));
                         }
                     }
                 }
-            }
-
-            // Fallback sequential rendering for text primitives
-            if self.uploaded_text_vertex_count > 0 {
-                pass.set_pipeline(&self.text_pipeline);
-                pass.set_vertex_buffer(0, self.text_vertex_buffer.slice(..));
-                pass.draw(0..self.uploaded_text_vertex_count, 0..1);
             }
         }
 
@@ -1766,7 +1551,8 @@ impl RenderBackend for WgpuBackend {
         self.tessellate_path(config);
     }
 
-    fn draw_text(&mut self, _config: TextConfig) {
-        // Text rendering is not fully implemented in WGPU yet.
+    /// Defers text rendering by storing the configuration into the ledger without GPU allocations.
+    fn draw_text(&mut self, config: TextConfig) {
+        self.collected_texts.push(config);
     }
 }
