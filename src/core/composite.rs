@@ -1272,6 +1272,8 @@ impl LayeredChart {
         use wasm_bindgen::JsCast;
         use web_sys::{CanvasRenderingContext2d, HtmlCanvasElement, OffscreenCanvas};
 
+        use crate::render::backend::wgpu::WgpuBackend;
+
         let window =
             web_sys::window().ok_or_else(|| ChartonError::Render("No window found".into()))?;
         let document = window
@@ -1292,7 +1294,7 @@ impl LayeredChart {
         host_canvas.set_width(display_width);
         host_canvas.set_height(display_height);
 
-        // Architecture Fix: Instantiate an OffscreenCanvas dedicated entirely to the WGPU GPU context
+        // Create an OffscreenCanvas for WGPU rendering context
         let offscreen_canvas = OffscreenCanvas::new(display_width, display_height)
             .map_err(|_| ChartonError::Render("Failed to create OffscreenCanvas".into()))?;
 
@@ -1303,6 +1305,7 @@ impl LayeredChart {
             ))
             .map_err(|e| ChartonError::Render(format!("Failed to create surface: {}", e)))?;
 
+        // 🌟 Fix 1: request_adapter returns a Result, map error directly
         let adapter = instance
             .request_adapter(&wgpu::RequestAdapterOptions {
                 compatible_surface: Some(&surface),
@@ -1310,8 +1313,9 @@ impl LayeredChart {
                 force_fallback_adapter: false,
             })
             .await
-            .ok_or_else(|| ChartonError::Render("Failed to get GPU adapter".into()))?;
+            .map_err(|e| ChartonError::Render(format!("Failed to get GPU adapter: {:?}", e)))?;
 
+        // 🌟 Fix 2: request_device takes only 1 argument in newer wgpu versions
         let (device, queue) = adapter
             .request_device(&wgpu::DeviceDescriptor::default())
             .await
@@ -1365,7 +1369,7 @@ impl LayeredChart {
         let text_ledger = self.render_primitive_only(&mut backend, &view).await?;
         surface_texture.present();
 
-        // Safe target orchestration: Acquire Canvas2D context from host DOM canvas (no conflict occurred)
+        // Acquire Canvas2D context from host DOM canvas
         let ctx = host_canvas
             .get_context("2d")
             .map_err(|e| ChartonError::Render(format!("Could not get 2D context: {:?}", e)))?
@@ -1384,12 +1388,13 @@ impl LayeredChart {
             let font = format!("{}px {}", config.font_size, config.font_family);
             ctx.set_font(&font);
 
+            // 🌟 Fix 3: Access color fields via named fields (.r, .g, .b, .a) of SingleColor
             let color = format!(
                 "rgba({},{},{},{})",
-                config.color[0],
-                config.color[1],
-                config.color[2],
-                (config.color[3] as f64) / 255.0
+                config.color.r,
+                config.color.g,
+                config.color.b,
+                (config.color.a as f64) / 255.0
             );
             ctx.set_fill_style(&color.into());
 
