@@ -26,7 +26,8 @@ wave
     └── lib.rs
 ```
 
-2) `Cargo.toml`
+## 2) `Cargo.toml`
+
 We need to enable the `wgpu` feature flag for `charton` and include the mandatory browser dependencies (`web-sys` and `wasm-bindgen-futures` for handling async GPU device requests).
 
 Update your `wave/Cargo.toml` to match the following configuration:
@@ -63,7 +64,8 @@ codegen-units = 1
 panic = "abort"
 ```
 
-3) `src/lib.rs` - The GPU Hardware Architecture
+## 3) `src/lib.rs` - The GPU Hardware Architecture
+
 In this module, we expose an asynchronous `render_chart_gpu` function.
 
 Instead of generating and serializing heavy string data back to JavaScript, the Rust engine directly acquires a handle to your browser's canvas, spawns an isolated OffscreenCanvas for the WGPU render pipeline, flushes pure geometric primitives directly into VRAM, and hands a lightweight text ledger back to the browser's native typography engine.
@@ -131,14 +133,16 @@ pub async fn render_chart_gpu(
 }
 ```
 
-4) Build with `wasm-pack`
+## 4) Build with `wasm-pack`
+
 Recompile the project to re-generate your WebAssembly target and JavaScript glue bindings:
 
 ```bash
 wasm-pack build --release --target web --out-dir pkg
 ```
 
-5) `index.html` - The Million-Point Stress Test
+## 5) `index.html` - The Million-Point Stress Test
+
 Now let's construct the interactive frontend wrapper. To demonstrate the crushing performance advantage of the GPU, we will configure the simulation loop to initialize and render 100,000 points simultaneously right from the start, update a sliding window at 60 frames per second, and benchmark the frame timing.
 
 Create or update `index.html` in your project root:
@@ -269,7 +273,8 @@ Create or update `index.html` in your project root:
 </html>
 ```
 
-6) Run and Compare
+## 6) Run and Compare
+
 Start your local static HTTP server:
 
 ```bash
@@ -282,7 +287,8 @@ python -m http.server 8080
 - Look at the performance metrics indicator. Despite rendering 500 times more data than the SVG example in Part 1, the framerate remains pinned at a rock-solid, buttery-smooth 60 FPS.
 - Look at the chart labels and axes tick marks. Thanks to the Deferred Ledger Design, text anti-aliasing remains flawlessly sharp, crisp, and beautifully proportioned regardless of your monitor's DPI scaling, without embedding a massive 5MB `.ttf` font compiler inside your WASM package.
 
-7) Conclusion: The Power of Hybrid Architecture
+## 7) Conclusion: The Power of Hybrid Architecture
+
 By splitting the rendering pipeline into a Pure GPU Instancing Layer for Primitives and a Deferred Subsystem for Typography, `charton` delivers the best of both worlds.
 
 You have just successfully designed and executed an industrial-grade visualization engine structure engineered to effortlessly handle real-time Big Data visualizations directly inside native web architectures.
