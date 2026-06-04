@@ -1149,7 +1149,12 @@ impl WgpuBackend {
     ///
     /// # Arguments
     /// * `view` - Target texture view to render to
-    pub fn flush_and_render(&mut self, view: &wgpu::TextureView) {
+    /// * `output_ledger` - Vector to collect text rendering configurations
+    pub fn flush_and_render(
+        &mut self,
+        view: &wgpu::TextureView,
+        output_ledger: &mut Vec<TextConfig>,
+    ) {
         // --------------------------------------------------------------------
         // PHASE 1: DATA UPLOAD
         // Transfer all accumulated data from CPU vectors to GPU buffers.
@@ -1366,7 +1371,12 @@ impl WgpuBackend {
 
         self.queue.submit(Some(encoder.finish()));
 
-        // Clear local frame data to refresh state for the next render loop cycle
+        // HIGH-PERFORMANCE SWAP: Clear the caller's reuse buffer and drain local items into it.
+        // This preserves the underlying memory capacity of both vectors without any reallocations.
+        output_ledger.clear();
+        output_ledger.append(&mut self.collected_texts);
+
+        // Reset local graphic primitive counts and batch queues
         self.reset();
     }
 }
