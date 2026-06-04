@@ -994,7 +994,7 @@ impl LayeredChart {
             }
             Some("png") => {
                 // Branch 1: High-performance GPU-accelerated rendering via wgpu
-                #[cfg(feature = "wgpu")]
+                #[cfg(all(feature = "wgpu", feature="png"))]
                 {
                     // Block on the async GPU pipeline to execute synchronously within this thread context
                     pollster::block_on(self.save_wgpu_png(path_obj))?;
@@ -1008,10 +1008,11 @@ impl LayeredChart {
                 }
 
                 // Branch 3: Guard rail triggered if no raster backends are active
-                #[cfg(not(any(feature = "png", feature = "wgpu")))]
+                #[cfg(not(feature = "png"))]
                 {
                     return Err(ChartonError::Unimplemented(
-                        "PNG support is disabled. Please enable the 'png' or 'wgpu' feature in Cargo.toml".to_string(),
+                        "To save PNG images onto the local file system, you must also enable the 'png' feature."
+                        .to_string()
                     ));
                 }
             }
