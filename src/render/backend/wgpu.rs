@@ -333,7 +333,6 @@ impl WgpuBackend {
     /// # Resource Binding Architecture:
     /// - `@group(0)`: Global Batched Primitives (Circles, Rectangles, Standard Lines, Uniforms)
     /// - `@group(1)`: Dedicated High-Throughput Stream (Pure GPU Path Extrusion via Raw Coordinates)
-    /// - `@group(2)`: Dedicated Text & Glyph Atlas Stream (Reserved for future SDF/Atlas rendering)
     pub async fn new(
         device: wgpu::Device,
         queue: wgpu::Queue,
