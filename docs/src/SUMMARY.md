@@ -52,8 +52,9 @@
 - [Finance & Economics](case_studies/finance.md)           # 金融领域：K 线图、波动率与收益率分析
 
 # WebAssembly & Vega-Lite JSON
-- [WASM Runtime Rendering](web/wasm_runtime.md)            # Rust 前端渲染：在浏览器中高效绘图
 - [Vega-Lite Schema Export](web/vegalite_json.md)          # 导出标准 JSON 以支持 Web 框架集成
+- [WASM CPU-Driven SVG Animation](web/wasm_cpu_svg.md)
+- [WASM WGPU Blazing-Fast Rendering](web/wasm_gpu_wgpu.md)
 
 # The IPC Bridge
 - [Seamless Python Interop](ipc/python_interop.md)
