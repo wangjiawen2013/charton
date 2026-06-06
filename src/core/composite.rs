@@ -1278,6 +1278,7 @@ impl LayeredChart {
             use web_sys::{CanvasRenderingContext2d, HtmlCanvasElement};
 
             thread_local! {
+                /// Global thread-local cache to persist WebGPU contexts and prevent expensive re-initialization overhead on hot-reloads
                 static RENDER_CACHE: RefCell<HashMap<String, Rc<RenderState>>> = RefCell::new(HashMap::new());
             }
 
@@ -1285,9 +1286,13 @@ impl LayeredChart {
                 surface: wgpu::Surface<'static>,
                 adapter: wgpu::Adapter,
                 device: wgpu::Device,
+                /// Allow dead_code warning. The queue reference must be explicitly held by the struct
+                /// to preserve its lifespan and prevent premature dropping of the WebGPU command queue.
+                #[allow(dead_code)]
                 queue: wgpu::Queue,
                 text_canvas: HtmlCanvasElement,
-                backend: RefCell<WgpuBackend>, // 🌟 修复 1：将 Backend 彻底存入缓存，实现热重载
+                /// Persistent rendering backend pipeline cache to handle dynamic hot-reloads seamlessly
+                backend: RefCell<WgpuBackend>,
             }
 
             let window =
@@ -1306,6 +1311,7 @@ impl LayeredChart {
             let display_width = (self.width as f64 * dpr).round() as u32;
             let display_height = (self.height as f64 * dpr).round() as u32;
 
+            // Enforce synchronized matching dimensions between HTML canvas bounds and underlying WebGPU buffer
             host_canvas.set_width(display_width);
             host_canvas.set_height(display_height);
 
@@ -1314,6 +1320,7 @@ impl LayeredChart {
             {
                 cached
             } else {
+                // Initialize text overlay canvas if a cache miss occurs
                 let text_canvas = document
                     .create_element("canvas")
                     .map_err(|_| ChartonError::Render("Failed to create text canvas".into()))?
@@ -1326,6 +1333,7 @@ impl LayeredChart {
                     .dyn_ref::<web_sys::HtmlElement>()
                     .ok_or_else(|| ChartonError::Render("Failed to cast to HtmlElement".into()))?;
 
+                // Style configurations for matching overlay alignment and blending
                 html_element
                     .style()
                     .set_property("position", "absolute")
@@ -1367,8 +1375,8 @@ impl LayeredChart {
                     .await
                     .map_err(|e| ChartonError::Render(format!("Device err: {}", e)))?;
 
-                // 🌟 修复 2：DPI 映射修正
-                // 必须向 shader 传入逻辑宽高 (self.width) 和真实的 dpr，否则着色器矩阵会把点挤压到左上角
+                // DPI Mapping Alignment: Explicitly supply both logical dimensions (self.width) and the
+                // device_pixel_ratio to avoid projection matrices compressing geometry into the top-left corner.
                 let backend = WgpuBackend::new(
                     device.clone(),
                     queue.clone(),
@@ -1395,12 +1403,12 @@ impl LayeredChart {
 
             let caps = state.surface.get_capabilities(&state.adapter);
 
-            // 🌟 修复 3：绝对锁死颜色管线格式
-            // 绝不能用 caps.formats 去适配浏览器。因为你的 wgpu.rs 中的 pipelines 全部是基于 Rgba8Unorm 编译的！
-            // 必须强制 Surface 使用 Rgba8Unorm，才能与 Shader 100% 咬合。
+            // Strict Pipeline Target Lock: Enforce a hardcoded Rgba8Unorm format constraint.
+            // Do not use the dynamic browser format fallback (caps.formats[0]) because the core
+            // wgpu.rs pipelines are heavily optimized and pre-compiled against Rgba8Unorm.
             let config = wgpu::SurfaceConfiguration {
                 usage: wgpu::TextureUsages::RENDER_ATTACHMENT,
-                format: wgpu::TextureFormat::Rgba8Unorm, // 锁定为 Rgba8Unorm
+                format: wgpu::TextureFormat::Rgba8Unorm,
                 width: display_width,
                 height: display_height,
                 present_mode: wgpu::PresentMode::AutoVsync,
@@ -1425,10 +1433,10 @@ impl LayeredChart {
                 .texture
                 .create_view(&wgpu::TextureViewDescriptor::default());
 
-            // 直接从缓存中借出预热好的 Backend 管线
+            // Borrow the fully warm and cached pipeline backend instance
             let mut backend = state.backend.borrow_mut();
 
-            // WGPU 将几何图形绘制到底层画布
+            // Render primitive geometry directly to the GPU core buffer
             let text_ledger = self.render_primitive_only(&mut backend, &view).await?;
             surface_texture.present();
 
@@ -1444,6 +1452,7 @@ impl LayeredChart {
             ctx.save();
             let _ = ctx.scale(dpr, dpr);
 
+            // Execute the native high-performance Canvas2D HTML text rendering pass
             for config in text_ledger {
                 let font = format!(
                     "{} {}px {}",
