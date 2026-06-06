@@ -228,8 +228,8 @@ fn circle_fs(in: CircleOutput) -> @location(0) vec4<f32> {
     let alpha = 1.0 - smoothstep(-aa, aa, dist);
     if (alpha <= 0.01) { discard; }
     
-    // Swap Red and Blue channels to match the Bgra8Unorm surface format.
-    return vec4(circle.b, circle.g, circle.r, circle.a * alpha);
+    // Color channels matching the Bgra8Unorm surface format
+    return vec4(circle.r, circle.g, circle.b, circle.a * alpha);
 }
 
 // ---------------------------
@@ -265,10 +265,7 @@ fn rect_vs(@builtin(vertex_index) vi: u32, @builtin(instance_index) ii: u32) -> 
 @fragment
 fn rect_fs(in: RectOutput) -> @location(0) vec4<f32> {
     let r = rects[in.instance_idx];
-    
-    // Removed all bounds checks and discards to maximize GPU fill-rate performance.
-    // Swap Red and Blue channels to match the Bgra8Unorm surface format.
-    return vec4(r.b, r.g, r.r, r.a);
+    return vec4(r.r, r.g, r.b, r.a);
 }
 
 // ---------------------------
@@ -321,8 +318,7 @@ fn line_vs(
 @fragment
 fn line_fs(in: LineOutput) -> @location(0) vec4<f32> {
     let line = lines[in.instance_idx];
-    // Swap Red and Blue channels to match the Bgra8Unorm surface format.
-    return vec4(line.b, line.g, line.r, line.a);
+    return vec4(line.r, line.g, line.b, line.a);
 }
 
 // ---------------------------
@@ -349,7 +345,7 @@ fn polygon_vs(
 
 @fragment
 fn polygon_fs(in: PolygonOutput) -> @location(0) vec4<f32> {
-    return vec4(in.color.b, in.color.g, in.color.r, in.color.a);
+    return vec4(in.color.r, in.color.g, in.color.b, in.color.a);
 }
 
 // ---------------------------
@@ -399,7 +395,7 @@ fn grad_rect_fs(in: GradientRectOutput) -> @location(0) vec4<f32> {
 @vertex
 fn path_simple_vs(
     @builtin(vertex_index) vi: u32,
-    @builtin(instance_index) ii: u32 // 🌟 Forwarded path_idx from pass.draw boundaries
+    @builtin(instance_index) ii: u32 // Forwarded path_idx from pass.draw boundaries
 ) -> PathOutput {
     // 1. Resolve monolithic absolute addresses via the routing table
     let args = path_args[ii];
@@ -465,7 +461,7 @@ fn path_simple_vs(
 
     var out: PathOutput;
     out.clip_pos = vec4<f32>(ndc_x, ndc_y, 0.0, 1.0);
-    out.color = vec4<f32>(path_style.b, path_style.g, path_style.r, path_style.a);
+    out.color = vec4<f32>(path_style.r, path_style.g, path_style.b, path_style.a);
     return out;
 }
 
