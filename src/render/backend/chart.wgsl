@@ -348,19 +348,24 @@ fn polygon_fs(in: PolygonOutput) -> @location(0) vec4<f32> {
     return vec4(in.color.r, in.color.g, in.color.b, in.color.a);
 }
 
-// ---------------------------
+// ----------------------------------------------------------------------------
 // 5. Gradient Rectangle Pipeline (draw_gradient_rect)
-// ---------------------------
+// ----------------------------------------------------------------------------
+
 @vertex
 fn grad_rect_vs(@builtin(vertex_index) vi: u32, @builtin(instance_index) ii: u32) -> GradientRectOutput {
     let r = gradient_rects[ii];
     var quad = vec2<f32>();
     var uv = vec2<f32>();
+    
+    // Physical geometry alignment with SVG specifications:
+    // Top-Left / Top-Right vertices correspond to uv.y = 0.0
+    // Bottom-Left / Bottom-Right vertices correspond to uv.y = 1.0
     switch vi {
-        case 0u: { quad = vec2(r.x, r.y); uv = vec2(0.0, 0.0); }
-        case 1u: { quad = vec2(r.x + r.width, r.y); uv = vec2(1.0, 0.0); }
-        case 2u: { quad = vec2(r.x, r.y + r.height); uv = vec2(0.0, 1.0); }
-        case 3u: { quad = vec2(r.x + r.width, r.y + r.height); uv = vec2(1.0, 1.0); }
+        case 0u: { quad = vec2(r.x, r.y);            uv = vec2(0.0, 0.0); } // Top-Left
+        case 1u: { quad = vec2(r.x + r.width, r.y);    uv = vec2(1.0, 0.0); } // Top-Right
+        case 2u: { quad = vec2(r.x, r.y + r.height);   uv = vec2(0.0, 1.0); } // Bottom-Left
+        case 3u: { quad = vec2(r.x + r.width, r.y + r.height); uv = vec2(1.0, 1.0); } // Bottom-Right
         default: { quad = vec2(r.x, r.y); }
     }
 
@@ -368,7 +373,9 @@ fn grad_rect_vs(@builtin(vertex_index) vi: u32, @builtin(instance_index) ii: u32
     let screen_pos = quad * scale;
     let sw = uniforms.screen_width * scale;
     let sh = uniforms.screen_height * scale;
-    let ndc = vec4((screen_pos.x/sw)*2.0-1.0, 1.0-(screen_pos.y/sh)*2.0, 0.0, 1.0);
+    
+    // Coordinate transformation into global Normalized Device Coordinates (NDC) space
+    let ndc = vec4((screen_pos.x / sw) * 2.0 - 1.0, 1.0 - (screen_pos.y / sh) * 2.0, 0.0, 1.0);
 
     var out: GradientRectOutput;
     out.clip_pos = ndc;
@@ -381,22 +388,23 @@ fn grad_rect_vs(@builtin(vertex_index) vi: u32, @builtin(instance_index) ii: u32
 fn grad_rect_fs(in: GradientRectOutput) -> @location(0) vec4<f32> {
     let r = gradient_rects[in.instance_idx];
     
-    // 🌟 修复 1：动态方向识别
-    // 如果高度大于宽度，说明这是 Colorbar (150 > 15)，必须沿 Y 轴插值！
-    // 否则，沿 X 轴插值。这完美解决了“颜色不对”和“右侧阴影”的致命 BUG。
+    // Rely exclusively on the explicit 'angle' parameter passed from the Rust CPU side.
+    // If angle > 0.0 (e.g., FRAC_PI_2 for vertical bars), interpolate along the Y-axis (uv.y).
+    // Otherwise, interpolate along the X-axis (uv.x).
     var mix_val = in.uv.x;
-    if (r.height > r.width) {
+    if (r.angle > 0.0) {
         mix_val = in.uv.y;
     }
 
+    // Direct linear color interpolation to prevent mid-tone gamma color distortion
     let src_r = mix(r.start_r, r.end_r, mix_val);
     let src_g = mix(r.start_g, r.end_g, mix_val);
     let src_b = mix(r.start_b, r.end_b, mix_val);
     let src_a = mix(r.start_a, r.end_a, mix_val) * r.opacity;
 
-    // 🌟 修复 2：Alpha 预乘
-    // 满足 Web Canvas 的合成器铁律，防止半透明边缘产生黑色锯齿
-    return vec4<f32>(src_b, src_g, src_r, src_a);
+    // Alpha Premultiplication: Multiplies RGB components by Alpha 
+    // to comply with Web Canvas alpha blending guidelines and prevent dark fringing artifacts.
+    return vec4<f32>(src_r * src_a, src_g * src_a, src_b * src_a, src_a);
 }
 
 // ============================================================================
