@@ -416,37 +416,43 @@ impl<'a> RenderBackend for RasterBackend<'a> {
             let skia_stops: Vec<tiny_skia::GradientStop> = stops
                 .into_iter()
                 .filter_map(|(offset, color)| {
-                    // reuse our to_skia_color helper (opacity 1.0 for gradients usually)
+                    // Reuse the to_skia_color helper (opacity 1.0 for gradients usually)
                     self.to_skia_color(&color, 1.0)
                         .map(|c| tiny_skia::GradientStop::new(offset as f32, c))
                 })
                 .collect();
 
+            // 2. Early return if no valid stops are available
             if skia_stops.is_empty() {
                 return;
             }
 
-            // 2. Define Gradient Points (Absolute coordinates)
-            // SVG (0%,0%) to (x2,y2%) mapping:
+            // 3. Define Gradient Points (Absolute canvas coordinates)
             let start = tiny_skia::Point::from_xy(x, y);
-            let end = if is_vertical {
+            let end = if skia_stops.len() == 1 {
+                // If there is only 1 stop, set the end point identical to start.
+                start
+            } else if is_vertical {
                 tiny_skia::Point::from_xy(x, y + height) // Vertical: Top to Bottom
             } else {
                 tiny_skia::Point::from_xy(x + width, y) // Horizontal: Left to Right
             };
 
-            // 3. Set Shader
+            // 4. Set Shader with Identity Transform
+            // Pass tiny_skia::Transform::default() here instead of self.transform.
+            // The canvas global transform will already be applied in fill_rect below.
             if let Some(shader) = tiny_skia::LinearGradient::new(
                 start,
                 end,
                 skia_stops,
-                tiny_skia::SpreadMode::Pad, // Matches SVG default
-                self.transform,             // Apply current global transform
+                tiny_skia::SpreadMode::Pad, // Matches SVG default behavior
+                tiny_skia::Transform::default(),
             ) {
                 paint.shader = shader;
             }
 
-            // 4. Draw
+            // 5. Render to Pixmap
+            // The self.transform matrix correctly scales both the rect geometry and the shader once.
             self.pixmap.fill_rect(rect, &paint, self.transform, None);
         }
     }
