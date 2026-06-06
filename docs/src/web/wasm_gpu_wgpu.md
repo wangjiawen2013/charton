@@ -212,8 +212,8 @@ Create or update `index.html` in your project root:
             const fpsCounterElement = document.getElementById('fps-counter');
 
             // --- STRESS TEST CONFIGURATION ---
-            // Try increasing this value to 500,000 or 1,000,000 to see your GPU sweat!
-            const TOTAL_POINTS = 100000; 
+            // Try increasing this value to 50,000 or 100,000 to see your GPU sweat!
+            const TOTAL_POINTS = 50_000; 
             
             let xs = new Float64Array(TOTAL_POINTS);
             let ys = new Float64Array(TOTAL_POINTS);
