@@ -5,7 +5,6 @@ use crate::core::layer::{
     CircleConfig, GradientRectConfig, LineConfig, PathConfig, PolygonConfig, RectConfig,
     RenderBackend, TextConfig,
 };
-use crate::visual::color::SingleColor;
 use bytemuck::{Pod, Zeroable};
 use wgpu::util::DeviceExt;
 
@@ -1514,46 +1513,98 @@ impl RenderBackend for WgpuBackend {
     }
 
     fn draw_gradient_rect(&mut self, config: GradientRectConfig) {
-        let (start_color, end_color) = match config.stops.as_slice() {
-            [] => (SingleColor::none(), SingleColor::none()),
-            [(_, color)] => (color.clone(), color.clone()),
-            _ => (
-                config.stops.first().unwrap().1.clone(),
-                config.stops.last().unwrap().1.clone(),
-            ),
-        };
+        // 1. Guard against empty stops to prevent unexpected rendering artifacts
+        if config.stops.is_empty() {
+            return;
+        }
 
-        let start_rgba = start_color.rgba();
-        let end_rgba = end_color.rgba();
-        let grad_rect = GpuGradientRect {
-            x: config.x,
-            y: config.y,
-            width: config.width,
-            height: config.height,
-            start_r: start_rgba[0],
-            start_g: start_rgba[1],
-            start_b: start_rgba[2],
-            start_a: start_rgba[3],
-            end_r: end_rgba[0],
-            end_g: end_rgba[1],
-            end_b: end_rgba[2],
-            end_a: end_rgba[3],
-            angle: if config.is_vertical {
-                std::f32::consts::FRAC_PI_2
+        // 2. Fallback strategy for a single-color stop.
+        if config.stops.len() == 1 {
+            let start_rgba = config.stops[0].1.rgba();
+            let grad_rect = GpuGradientRect {
+                x: config.x as f32,
+                y: config.y as f32,
+                width: config.width as f32,
+                height: config.height as f32,
+                start_r: start_rgba[0],
+                start_g: start_rgba[1],
+                start_b: start_rgba[2],
+                start_a: start_rgba[3],
+                end_r: start_rgba[0], // End color is identical to start color for uniform solid fill
+                end_g: start_rgba[1],
+                end_b: start_rgba[2],
+                end_a: start_rgba[3],
+                angle: 0.0, // Orientation is irrelevant for solid color fills
+                opacity: 1.0,
+            };
+            self.pending_gradient_rects.push(grad_rect);
+            self.current_grad_rect_count += 1;
+            self.push_batch(BatchType::GradientRect, 1);
+            return;
+        }
+
+        // 3. Core Slicing Logic:
+        // Subdivide a single multi-stop macro-rectangle (e.g., Viridis colormap with 15 stops)
+        // into N-1 adjacent dual-color micro-rectangles. This perfectly aligns with SVG's linearGradient
+        // layout while bypassing complex and GPU-unfriendly dynamic array structures inside WGSL.
+        let mut count = 0;
+        for window in config.stops.windows(2) {
+            let (offset1, color1) = &window[0];
+            let (offset2, color2) = &window[1];
+
+            // Calculate the physical bounding box (x, y, width, height) for each sub-rectangle
+            let (sub_x, sub_y, sub_width, sub_height) = if config.is_vertical {
+                (
+                    config.x,
+                    config.y + offset1 * config.height,
+                    config.width,
+                    (offset2 - offset1) * config.height,
+                )
             } else {
-                0.0
-            },
-            opacity: 1.0,
-        };
+                (
+                    config.x + offset1 * config.width,
+                    config.y,
+                    (offset2 - offset1) * config.width,
+                    config.height,
+                )
+            };
 
-        // 1. Store the gradient rect data into the CPU-side pending buffer
-        self.pending_gradient_rects.push(grad_rect);
+            let start_rgba = color1.rgba();
+            let end_rgba = color2.rgba();
 
-        // 2. Increment the gradient rect counter
-        self.current_grad_rect_count += 1;
+            // Populate the standard layout struct required by the WebGPU storage buffer
+            let grad_rect = GpuGradientRect {
+                x: sub_x as f32,
+                y: sub_y as f32,
+                width: sub_width as f32,
+                height: sub_height as f32,
+                start_r: start_rgba[0],
+                start_g: start_rgba[1],
+                start_b: start_rgba[2],
+                start_a: start_rgba[3],
+                end_r: end_rgba[0],
+                end_g: end_rgba[1],
+                end_b: end_rgba[2],
+                end_a: end_rgba[3],
+                // Explicitly pass the direction orientation via the 'angle' field.
+                // Since sub-rectangles can have any arbitrary aspect ratio (e.g., extremely wide
+                // but short), the GPU cannot deduce the gradient direction using 'height > width'.
+                angle: if config.is_vertical {
+                    std::f32::consts::FRAC_PI_2 // Vertical orientation flag
+                } else {
+                    0.0 // Horizontal orientation flag
+                },
+                opacity: 1.0,
+            };
 
-        // 3. Register the draw command in the batch queue
-        self.push_batch(BatchType::GradientRect, 1);
+            // Stage into the CPU-side staging buffer
+            self.pending_gradient_rects.push(grad_rect);
+            count += 1;
+        }
+
+        // 4. Register the slice cluster into the instanced batch command queue
+        self.current_grad_rect_count += count;
+        self.push_batch(BatchType::GradientRect, count);
     }
 
     fn draw_path(&mut self, config: PathConfig) {
