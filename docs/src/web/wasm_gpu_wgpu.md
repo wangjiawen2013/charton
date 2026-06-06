@@ -109,6 +109,7 @@ pub async fn render_chart_gpu(
         .map_err(|e| JsValue::from_str(&e.to_string()))?
         .mark_point() // Leverages pure GPU Instancing under the hood
         .map_err(|e| JsValue::from_str(&e.to_string()))?
+        .configure_point(|p| p.with_size(1.0))
         .encode((
             alt::x("x"),
             alt::y("y"),
