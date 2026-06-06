@@ -1211,22 +1211,22 @@ impl LayeredChart {
 
                     // Performance Fast-Path: Bypass floating-point arithmetic for fully opaque pixels
                     if a == 255 {
-                        skia_pixels.push(b);
-                        skia_pixels.push(g);
                         skia_pixels.push(r);
+                        skia_pixels.push(g);
+                        skia_pixels.push(b);
                         skia_pixels.push(255);
                     } else {
                         let alpha_factor = a as f32 / 255.0;
-                        let premultiplied_b =
-                            (b as f32 * alpha_factor).round().clamp(0.0, 255.0) as u8;
-                        let premultiplied_g =
-                            (g as f32 * alpha_factor).round().clamp(0.0, 255.0) as u8;
                         let premultiplied_r =
                             (r as f32 * alpha_factor).round().clamp(0.0, 255.0) as u8;
+                        let premultiplied_g =
+                            (g as f32 * alpha_factor).round().clamp(0.0, 255.0) as u8;
+                        let premultiplied_b =
+                            (b as f32 * alpha_factor).round().clamp(0.0, 255.0) as u8;
 
-                        skia_pixels.push(premultiplied_b);
-                        skia_pixels.push(premultiplied_g);
                         skia_pixels.push(premultiplied_r);
+                        skia_pixels.push(premultiplied_g);
+                        skia_pixels.push(premultiplied_b);
                         skia_pixels.push(a);
                     }
                 }
@@ -1270,12 +1270,12 @@ impl LayeredChart {
     pub async fn render_to_canvas(&self, canvas_id: &str) -> Result<(), ChartonError> {
         #[cfg(target_arch = "wasm32")]
         {
+            use crate::render::backend::wgpu::WgpuBackend;
             use std::cell::RefCell;
             use std::collections::HashMap;
             use std::rc::Rc;
             use wasm_bindgen::JsCast;
             use web_sys::{CanvasRenderingContext2d, HtmlCanvasElement};
-            use crate::render::backend::wgpu::WgpuBackend;
 
             thread_local! {
                 static RENDER_CACHE: RefCell<HashMap<String, Rc<RenderState>>> = RefCell::new(HashMap::new());
@@ -1290,8 +1290,11 @@ impl LayeredChart {
                 backend: RefCell<WgpuBackend>, // 🌟 修复 1：将 Backend 彻底存入缓存，实现热重载
             }
 
-            let window = web_sys::window().ok_or_else(|| ChartonError::Render("No window found".into()))?;
-            let document = window.document().ok_or_else(|| ChartonError::Render("No document found".into()))?;
+            let window =
+                web_sys::window().ok_or_else(|| ChartonError::Render("No window found".into()))?;
+            let document = window
+                .document()
+                .ok_or_else(|| ChartonError::Render("No document found".into()))?;
 
             let host_canvas = document
                 .get_element_by_id(canvas_id)
@@ -1306,7 +1309,9 @@ impl LayeredChart {
             host_canvas.set_width(display_width);
             host_canvas.set_height(display_height);
 
-            let state = if let Some(cached) = RENDER_CACHE.with(|c| c.borrow().get(canvas_id).cloned()) {
+            let state = if let Some(cached) =
+                RENDER_CACHE.with(|c| c.borrow().get(canvas_id).cloned())
+            {
                 cached
             } else {
                 let text_canvas = document
@@ -1314,19 +1319,29 @@ impl LayeredChart {
                     .map_err(|_| ChartonError::Render("Failed to create text canvas".into()))?
                     .dyn_into::<HtmlCanvasElement>()
                     .map_err(|_| ChartonError::Render("Text element is not a canvas".into()))?;
-                
+
                 text_canvas.set_id(&format!("{}_text_layer", canvas_id));
-                
-                let html_element = text_canvas.dyn_ref::<web_sys::HtmlElement>()
+
+                let html_element = text_canvas
+                    .dyn_ref::<web_sys::HtmlElement>()
                     .ok_or_else(|| ChartonError::Render("Failed to cast to HtmlElement".into()))?;
 
-                html_element.style().set_property("position", "absolute").unwrap();
+                html_element
+                    .style()
+                    .set_property("position", "absolute")
+                    .unwrap();
                 html_element.style().set_property("top", "0").unwrap();
                 html_element.style().set_property("left", "0").unwrap();
                 html_element.style().set_property("width", "100%").unwrap();
                 html_element.style().set_property("height", "100%").unwrap();
-                html_element.style().set_property("pointer-events", "none").unwrap();
-                html_element.style().set_property("background", "transparent").unwrap();
+                html_element
+                    .style()
+                    .set_property("pointer-events", "none")
+                    .unwrap();
+                html_element
+                    .style()
+                    .set_property("background", "transparent")
+                    .unwrap();
 
                 if let Some(parent) = host_canvas.parent_node() {
                     parent.append_child(&text_canvas).unwrap();
@@ -1334,9 +1349,9 @@ impl LayeredChart {
 
                 let instance = wgpu::Instance::default();
                 let surface_target = wgpu::SurfaceTarget::Canvas(host_canvas.clone());
-                let surface = instance
-                    .create_surface(surface_target)
-                    .map_err(|e| ChartonError::Render(format!("Failed to create Web surface: {}", e)))?;
+                let surface = instance.create_surface(surface_target).map_err(|e| {
+                    ChartonError::Render(format!("Failed to create Web surface: {}", e))
+                })?;
 
                 let adapter = instance
                     .request_adapter(&wgpu::RequestAdapterOptions {
@@ -1355,20 +1370,21 @@ impl LayeredChart {
                 // 🌟 修复 2：DPI 映射修正
                 // 必须向 shader 传入逻辑宽高 (self.width) 和真实的 dpr，否则着色器矩阵会把点挤压到左上角
                 let backend = WgpuBackend::new(
-                    device.clone(), 
-                    queue.clone(), 
-                    self.width,       
-                    self.height,      
-                    dpr as f32        
-                ).await;
+                    device.clone(),
+                    queue.clone(),
+                    self.width,
+                    self.height,
+                    dpr as f32,
+                )
+                .await;
 
-                let s = Rc::new(RenderState { 
-                    surface, 
-                    adapter, 
-                    device, 
-                    queue, 
+                let s = Rc::new(RenderState {
+                    surface,
+                    adapter,
+                    device,
+                    queue,
                     text_canvas,
-                    backend: RefCell::new(backend)
+                    backend: RefCell::new(backend),
                 });
                 RENDER_CACHE.with(|c| c.borrow_mut().insert(canvas_id.to_string(), s.clone()));
                 s
@@ -1395,20 +1411,29 @@ impl LayeredChart {
             state.surface.configure(&state.device, &config);
 
             let surface_texture = match state.surface.get_current_texture() {
-                wgpu::CurrentSurfaceTexture::Success(tex) | wgpu::CurrentSurfaceTexture::Suboptimal(tex) => tex,
-                other => return Err(ChartonError::Render(format!("Surface texture error: {:?}", other))),
+                wgpu::CurrentSurfaceTexture::Success(tex)
+                | wgpu::CurrentSurfaceTexture::Suboptimal(tex) => tex,
+                other => {
+                    return Err(ChartonError::Render(format!(
+                        "Surface texture error: {:?}",
+                        other
+                    )));
+                }
             };
 
-            let view = surface_texture.texture.create_view(&wgpu::TextureViewDescriptor::default());
-            
+            let view = surface_texture
+                .texture
+                .create_view(&wgpu::TextureViewDescriptor::default());
+
             // 直接从缓存中借出预热好的 Backend 管线
             let mut backend = state.backend.borrow_mut();
-            
+
             // WGPU 将几何图形绘制到底层画布
             let text_ledger = self.render_primitive_only(&mut backend, &view).await?;
             surface_texture.present();
 
-            let ctx = state.text_canvas
+            let ctx = state
+                .text_canvas
                 .get_context("2d")
                 .map_err(|e| ChartonError::Render(format!("Could not get 2D context: {:?}", e)))?
                 .ok_or_else(|| ChartonError::Render("2D context unavailable".into()))?
@@ -1420,11 +1445,14 @@ impl LayeredChart {
             let _ = ctx.scale(dpr, dpr);
 
             for config in text_ledger {
-                let font = format!("{} {}px {}", config.font_weight, config.font_size, config.font_family);
+                let font = format!(
+                    "{} {}px {}",
+                    config.font_weight, config.font_size, config.font_family
+                );
                 ctx.set_font(&font);
 
                 let color_str = config.color.to_css_string();
-                #[allow(deprecated)] 
+                #[allow(deprecated)]
                 ctx.set_fill_style(&color_str.into());
 
                 match config.text_anchor.as_str() {
@@ -1442,7 +1470,7 @@ impl LayeredChart {
                 ctx.fill_text(&config.text, config.x as f64, config.y as f64)
                     .map_err(|e| ChartonError::Render(format!("fill_text failed: {:?}", e)))?;
             }
-            
+
             ctx.restore();
 
             Ok(())
@@ -1450,8 +1478,10 @@ impl LayeredChart {
 
         #[cfg(not(target_arch = "wasm32"))]
         {
-            let _ = canvas_id; 
-            Err(ChartonError::Render("render_to_canvas is only supported on WebAssembly platforms".into()))
+            let _ = canvas_id;
+            Err(ChartonError::Render(
+                "render_to_canvas is only supported on WebAssembly platforms".into(),
+            ))
         }
     }
 }
