@@ -380,13 +380,23 @@ fn grad_rect_vs(@builtin(vertex_index) vi: u32, @builtin(instance_index) ii: u32
 @fragment
 fn grad_rect_fs(in: GradientRectOutput) -> @location(0) vec4<f32> {
     let r = gradient_rects[in.instance_idx];
-    let mix_val = in.uv.x;
-    return vec4(
-        mix(r.start_r, r.end_r, mix_val),
-        mix(r.start_g, r.end_g, mix_val),
-        mix(r.start_b, r.end_b, mix_val),
-        mix(r.start_a, r.end_a, mix_val) * r.opacity
-    );
+    
+    // 🌟 修复 1：动态方向识别
+    // 如果高度大于宽度，说明这是 Colorbar (150 > 15)，必须沿 Y 轴插值！
+    // 否则，沿 X 轴插值。这完美解决了“颜色不对”和“右侧阴影”的致命 BUG。
+    var mix_val = in.uv.x;
+    if (r.height > r.width) {
+        mix_val = in.uv.y;
+    }
+
+    let src_r = mix(r.start_r, r.end_r, mix_val);
+    let src_g = mix(r.start_g, r.end_g, mix_val);
+    let src_b = mix(r.start_b, r.end_b, mix_val);
+    let src_a = mix(r.start_a, r.end_a, mix_val) * r.opacity;
+
+    // 🌟 修复 2：Alpha 预乘
+    // 满足 Web Canvas 的合成器铁律，防止半透明边缘产生黑色锯齿
+    return vec4<f32>(src_b, src_g, src_r, src_a);
 }
 
 // ============================================================================
