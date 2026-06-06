@@ -729,6 +729,7 @@ impl LayeredChart {
     /// This method is designed for hybrid rendering scenarios where data marks
     /// are rendered by GPU (wgpu) and decorations are rendered by CPU (tiny-skia).
     /// It avoids code duplication with the main `render()` method.
+    #[allow(dead_code)]
     fn render_decorations<B: RenderBackend>(&self, backend: &mut B) -> Result<(), ChartonError> {
         // Resolve scene to get layout and coordinate system
         let (coord, panel, aesthetics, guide_specs) = self.resolve_scene()?;
@@ -1264,156 +1265,193 @@ impl LayeredChart {
         Ok(())
     }
 
-    /// WASM/Web: Render to HTML Canvas using WGPU via OffscreenCanvas + native Canvas2D text compositing.
-    /// Resolves context isolation bugs by executing WGPU on an offscreen target, painting the
-    /// rasterized geometry back to the host Canvas before compositing standard web typography on top.
-    #[cfg(all(feature = "wgpu", target_arch = "wasm32"))]
+    /// WASM/Web: Render to HTML Canvas using WGPU via cached virtual surface + native Canvas2D text compositing.
+    #[cfg(feature = "wgpu")]
     pub async fn render_to_canvas(&self, canvas_id: &str) -> Result<(), ChartonError> {
-        use wasm_bindgen::JsCast;
-        use web_sys::{CanvasRenderingContext2d, HtmlCanvasElement, OffscreenCanvas};
+        #[cfg(target_arch = "wasm32")]
+        {
+            use std::cell::RefCell;
+            use std::collections::HashMap;
+            use std::rc::Rc;
+            use wasm_bindgen::JsCast;
+            use web_sys::{CanvasRenderingContext2d, HtmlCanvasElement};
+            use crate::render::backend::wgpu::WgpuBackend;
 
-        use crate::render::backend::wgpu::WgpuBackend;
-
-        let window =
-            web_sys::window().ok_or_else(|| ChartonError::Render("No window found".into()))?;
-        let document = window
-            .document()
-            .ok_or_else(|| ChartonError::Render("No document found".into()))?;
-
-        // Target host canvas exposed in DOM
-        let host_canvas = document
-            .get_element_by_id(canvas_id)
-            .ok_or_else(|| ChartonError::Render(format!("Canvas {} not found", canvas_id)))?
-            .dyn_into::<HtmlCanvasElement>()
-            .map_err(|_| ChartonError::Render("Element is not a canvas".into()))?;
-
-        let dpr = window.device_pixel_ratio();
-        let display_width = (self.width as f64 * dpr).round() as u32;
-        let display_height = (self.height as f64 * dpr).round() as u32;
-
-        host_canvas.set_width(display_width);
-        host_canvas.set_height(display_height);
-
-        // Create an OffscreenCanvas for WGPU rendering context
-        let offscreen_canvas = OffscreenCanvas::new(display_width, display_height)
-            .map_err(|_| ChartonError::Render("Failed to create OffscreenCanvas".into()))?;
-
-        let instance = wgpu::Instance::default();
-        let surface = instance
-            .create_surface(wgpu::SurfaceTarget::OffscreenCanvas(
-                offscreen_canvas.clone(),
-            ))
-            .map_err(|e| ChartonError::Render(format!("Failed to create surface: {}", e)))?;
-
-        // 🌟 Fix 1: request_adapter returns a Result, map error directly
-        let adapter = instance
-            .request_adapter(&wgpu::RequestAdapterOptions {
-                compatible_surface: Some(&surface),
-                power_preference: wgpu::PowerPreference::HighPerformance,
-                force_fallback_adapter: false,
-            })
-            .await
-            .map_err(|e| ChartonError::Render(format!("Failed to get GPU adapter: {:?}", e)))?;
-
-        // 🌟 Fix 2: request_device takes only 1 argument in newer wgpu versions
-        let (device, queue) = adapter
-            .request_device(&wgpu::DeviceDescriptor::default())
-            .await
-            .map_err(|e| ChartonError::Render(format!("Device error: {}", e)))?;
-
-        let caps = surface.get_capabilities(&adapter);
-        let format = caps
-            .formats
-            .iter()
-            .find(|f| f.is_srgb())
-            .copied()
-            .unwrap_or(caps.formats[0]);
-
-        let config = wgpu::SurfaceConfiguration {
-            usage: wgpu::TextureUsages::RENDER_ATTACHMENT,
-            format,
-            width: display_width,
-            height: display_height,
-            present_mode: wgpu::PresentMode::AutoVsync,
-            alpha_mode: caps.alpha_modes[0],
-            view_formats: vec![],
-            desired_maximum_frame_latency: 2,
-        };
-        surface.configure(&device, &config);
-
-        let mut backend = WgpuBackend::new(
-            device.clone(),
-            queue.clone(),
-            display_width,
-            display_height,
-            1.0,
-        )
-        .await;
-
-        let surface_texture = match surface.get_current_texture() {
-            wgpu::CurrentSurfaceTexture::Success(tex)
-            | wgpu::CurrentSurfaceTexture::Suboptimal(tex) => tex,
-            other => {
-                return Err(ChartonError::Render(format!(
-                    "Surface texture error: {:?}",
-                    other
-                )));
-            }
-        };
-
-        let view = surface_texture
-            .texture
-            .create_view(&wgpu::TextureViewDescriptor::default());
-
-        // Process pure vector graphics onto the offscreen target texture
-        let text_ledger = self.render_primitive_only(&mut backend, &view).await?;
-        surface_texture.present();
-
-        // Acquire Canvas2D context from host DOM canvas
-        let ctx = host_canvas
-            .get_context("2d")
-            .map_err(|e| ChartonError::Render(format!("Could not get 2D context: {:?}", e)))?
-            .ok_or_else(|| ChartonError::Render("2D context unavailable".into()))?
-            .dyn_into::<CanvasRenderingContext2d>()
-            .map_err(|_| ChartonError::Render("Failed to cast 2D context".into()))?;
-
-        // Render pass 1: Transfer GPU rasterized geometry from Offscreen Canvas onto host surface
-        ctx.draw_image_with_offscreen_canvas(&offscreen_canvas, 0.0, 0.0)
-            .map_err(|e| ChartonError::Render(format!("Failed to blit GPU surface: {:?}", e)))?;
-
-        // Render pass 2: Composition step using Browser Typography Subsystem
-        ctx.scale(dpr, dpr).unwrap();
-
-        for config in text_ledger {
-            let font = format!("{}px {}", config.font_size, config.font_family);
-            ctx.set_font(&font);
-
-            // 🌟 Fix 3: Access color fields via named fields (.r, .g, .b, .a) of SingleColor
-            let color = format!(
-                "rgba({},{},{},{})",
-                config.color.r,
-                config.color.g,
-                config.color.b,
-                (config.color.a as f64) / 255.0
-            );
-            ctx.set_fill_style(&color.into());
-
-            match config.align {
-                crate::core::layer::TextAlign::Left => ctx.set_text_align("left"),
-                crate::core::layer::TextAlign::Center => ctx.set_text_align("center"),
-                crate::core::layer::TextAlign::Right => ctx.set_text_align("right"),
+            thread_local! {
+                static RENDER_CACHE: RefCell<HashMap<String, Rc<RenderState>>> = RefCell::new(HashMap::new());
             }
 
-            match config.baseline {
-                crate::core::layer::TextBaseline::Top => ctx.set_text_baseline("top"),
-                crate::core::layer::TextBaseline::Middle => ctx.set_text_baseline("middle"),
-                crate::core::layer::TextBaseline::Bottom => ctx.set_text_baseline("bottom"),
+            struct RenderState {
+                surface: wgpu::Surface<'static>,
+                adapter: wgpu::Adapter,
+                device: wgpu::Device,
+                queue: wgpu::Queue,
+                text_canvas: HtmlCanvasElement,
+                backend: RefCell<WgpuBackend>, // 🌟 修复 1：将 Backend 彻底存入缓存，实现热重载
             }
 
-            ctx.fill_text(&config.text, config.x as f64, config.y as f64)
-                .map_err(|e| ChartonError::Render(format!("fill_text failed: {:?}", e)))?;
+            let window = web_sys::window().ok_or_else(|| ChartonError::Render("No window found".into()))?;
+            let document = window.document().ok_or_else(|| ChartonError::Render("No document found".into()))?;
+
+            let host_canvas = document
+                .get_element_by_id(canvas_id)
+                .ok_or_else(|| ChartonError::Render(format!("Canvas {} not found", canvas_id)))?
+                .dyn_into::<HtmlCanvasElement>()
+                .map_err(|_| ChartonError::Render("Element is not a canvas".into()))?;
+
+            let dpr = window.device_pixel_ratio();
+            let display_width = (self.width as f64 * dpr).round() as u32;
+            let display_height = (self.height as f64 * dpr).round() as u32;
+
+            host_canvas.set_width(display_width);
+            host_canvas.set_height(display_height);
+
+            let state = if let Some(cached) = RENDER_CACHE.with(|c| c.borrow().get(canvas_id).cloned()) {
+                cached
+            } else {
+                let text_canvas = document
+                    .create_element("canvas")
+                    .map_err(|_| ChartonError::Render("Failed to create text canvas".into()))?
+                    .dyn_into::<HtmlCanvasElement>()
+                    .map_err(|_| ChartonError::Render("Text element is not a canvas".into()))?;
+                
+                text_canvas.set_id(&format!("{}_text_layer", canvas_id));
+                
+                let html_element = text_canvas.dyn_ref::<web_sys::HtmlElement>()
+                    .ok_or_else(|| ChartonError::Render("Failed to cast to HtmlElement".into()))?;
+
+                html_element.style().set_property("position", "absolute").unwrap();
+                html_element.style().set_property("top", "0").unwrap();
+                html_element.style().set_property("left", "0").unwrap();
+                html_element.style().set_property("width", "100%").unwrap();
+                html_element.style().set_property("height", "100%").unwrap();
+                html_element.style().set_property("pointer-events", "none").unwrap();
+                html_element.style().set_property("background", "transparent").unwrap();
+
+                if let Some(parent) = host_canvas.parent_node() {
+                    parent.append_child(&text_canvas).unwrap();
+                }
+
+                let instance = wgpu::Instance::default();
+                let surface_target = wgpu::SurfaceTarget::Canvas(host_canvas.clone());
+                let surface = instance
+                    .create_surface(surface_target)
+                    .map_err(|e| ChartonError::Render(format!("Failed to create Web surface: {}", e)))?;
+
+                let adapter = instance
+                    .request_adapter(&wgpu::RequestAdapterOptions {
+                        compatible_surface: Some(&surface),
+                        power_preference: wgpu::PowerPreference::HighPerformance,
+                        force_fallback_adapter: false,
+                    })
+                    .await
+                    .map_err(|e| ChartonError::Render(format!("GPU adapter err: {:?}", e)))?;
+
+                let (device, queue) = adapter
+                    .request_device(&wgpu::DeviceDescriptor::default())
+                    .await
+                    .map_err(|e| ChartonError::Render(format!("Device err: {}", e)))?;
+
+                // 🌟 修复 2：DPI 映射修正
+                // 必须向 shader 传入逻辑宽高 (self.width) 和真实的 dpr，否则着色器矩阵会把点挤压到左上角
+                let backend = WgpuBackend::new(
+                    device.clone(), 
+                    queue.clone(), 
+                    self.width,       
+                    self.height,      
+                    dpr as f32        
+                ).await;
+
+                let s = Rc::new(RenderState { 
+                    surface, 
+                    adapter, 
+                    device, 
+                    queue, 
+                    text_canvas,
+                    backend: RefCell::new(backend)
+                });
+                RENDER_CACHE.with(|c| c.borrow_mut().insert(canvas_id.to_string(), s.clone()));
+                s
+            };
+
+            state.text_canvas.set_width(display_width);
+            state.text_canvas.set_height(display_height);
+
+            let caps = state.surface.get_capabilities(&state.adapter);
+
+            // 🌟 修复 3：绝对锁死颜色管线格式
+            // 绝不能用 caps.formats 去适配浏览器。因为你的 wgpu.rs 中的 pipelines 全部是基于 Rgba8Unorm 编译的！
+            // 必须强制 Surface 使用 Rgba8Unorm，才能与 Shader 100% 咬合。
+            let config = wgpu::SurfaceConfiguration {
+                usage: wgpu::TextureUsages::RENDER_ATTACHMENT,
+                format: wgpu::TextureFormat::Rgba8Unorm, // 锁定为 Rgba8Unorm
+                width: display_width,
+                height: display_height,
+                present_mode: wgpu::PresentMode::AutoVsync,
+                alpha_mode: caps.alpha_modes[0],
+                view_formats: vec![],
+                desired_maximum_frame_latency: 2,
+            };
+            state.surface.configure(&state.device, &config);
+
+            let surface_texture = match state.surface.get_current_texture() {
+                wgpu::CurrentSurfaceTexture::Success(tex) | wgpu::CurrentSurfaceTexture::Suboptimal(tex) => tex,
+                other => return Err(ChartonError::Render(format!("Surface texture error: {:?}", other))),
+            };
+
+            let view = surface_texture.texture.create_view(&wgpu::TextureViewDescriptor::default());
+            
+            // 直接从缓存中借出预热好的 Backend 管线
+            let mut backend = state.backend.borrow_mut();
+            
+            // WGPU 将几何图形绘制到底层画布
+            let text_ledger = self.render_primitive_only(&mut backend, &view).await?;
+            surface_texture.present();
+
+            let ctx = state.text_canvas
+                .get_context("2d")
+                .map_err(|e| ChartonError::Render(format!("Could not get 2D context: {:?}", e)))?
+                .ok_or_else(|| ChartonError::Render("2D context unavailable".into()))?
+                .dyn_into::<CanvasRenderingContext2d>()
+                .map_err(|_| ChartonError::Render("Failed to cast 2D context".into()))?;
+
+            ctx.clear_rect(0.0, 0.0, display_width as f64, display_height as f64);
+            ctx.save();
+            let _ = ctx.scale(dpr, dpr);
+
+            for config in text_ledger {
+                let font = format!("{} {}px {}", config.font_weight, config.font_size, config.font_family);
+                ctx.set_font(&font);
+
+                let color_str = config.color.to_css_string();
+                #[allow(deprecated)] 
+                ctx.set_fill_style(&color_str.into());
+
+                match config.text_anchor.as_str() {
+                    "start" | "left" => ctx.set_text_align("left"),
+                    "end" | "right" => ctx.set_text_align("right"),
+                    _ => ctx.set_text_align("center"),
+                }
+
+                match config.dominant_baseline.as_str() {
+                    "hanging" | "top" => ctx.set_text_baseline("top"),
+                    "alphabetic" | "bottom" => ctx.set_text_baseline("bottom"),
+                    _ => ctx.set_text_baseline("middle"),
+                }
+
+                ctx.fill_text(&config.text, config.x as f64, config.y as f64)
+                    .map_err(|e| ChartonError::Render(format!("fill_text failed: {:?}", e)))?;
+            }
+            
+            ctx.restore();
+
+            Ok(())
         }
 
-        Ok(())
+        #[cfg(not(target_arch = "wasm32"))]
+        {
+            let _ = canvas_id; 
+            Err(ChartonError::Render("render_to_canvas is only supported on WebAssembly platforms".into()))
+        }
     }
 }
