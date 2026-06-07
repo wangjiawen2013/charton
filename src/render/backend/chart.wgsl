@@ -12,11 +12,16 @@
 struct PointData {
     x: f32,
     y: f32,
-    r: f32,
-    g: f32,
-    b: f32,
-    a: f32,
+    fill_r: f32,
+    fill_g: f32,
+    fill_b: f32,
+    fill_a: f32,
+    stroke_r: f32,
+    stroke_g: f32,
+    stroke_b: f32,
+    stroke_a: f32,
     radius: f32,
+    stroke_width: f32,
 };
 
 /// Rectangle data (draw_rect: bars, boxes, axis backgrounds)
@@ -221,15 +226,44 @@ fn circle_fs(in: CircleOutput) -> @location(0) vec4<f32> {
     let circle = circles[in.instance_idx];
     let local = in.screen_pos - vec2(circle.x, circle.y) * uniforms.scale_factor;
     let r = circle.radius * uniforms.scale_factor;
-    let dist = sd_circle(local, r);
     
-    // Smooth anti-aliasing
+    // Base SDF: Distance to the circle boundary (inside < 0, boundary = 0, outside > 0)
+    let dist = length(local) - r;
+    
+    // Filter width for hardware-based anti-aliasing (AA)
     let aa = fwidth(dist);
-    let alpha = 1.0 - smoothstep(-aa, aa, dist);
-    if (alpha <= 0.01) { discard; }
     
-    // Color channels matching the Bgra8Unorm surface format
-    return vec4(circle.r, circle.g, circle.b, circle.a * alpha);
+    // ========================================================================
+    // 1. Calculate Fill Layer
+    // ========================================================================
+    let fill_alpha = 1.0 - smoothstep(-aa, aa, dist);
+    let fill_color = vec4(circle.fill_r, circle.fill_g, circle.fill_b, circle.fill_a * fill_alpha);
+    
+    // ========================================================================
+    // 2. Calculate Stroke Layer (Centered Alignment)
+    // ========================================================================
+    let half_stroke = (circle.stroke_width * uniforms.scale_factor) * 0.5;
+    // abs(dist) gives the distance to the boundary shell. 
+    // Subtracting half_stroke yields the SDF for a hollow ring/annulus.
+    let stroke_dist = abs(dist) - half_stroke;
+    let stroke_alpha = 1.0 - smoothstep(-aa, aa, stroke_dist);
+    let stroke_color = vec4(circle.stroke_r, circle.stroke_g, circle.stroke_b, circle.stroke_a * stroke_alpha);
+    
+    // ========================================================================
+    // 3. Alpha Compositing (Stroke Over Fill)
+    // ========================================================================
+    // Standard Porter-Duff Over formula: out_a = src_a + dst_a * (1.0 - src_a)
+    let out_a = stroke_color.a + fill_color.a * (1.0 - stroke_color.a);
+    
+    // Early discard for fully transparent fragments to optimize depth/blend performance
+    if (out_a <= 0.01) {
+        discard;
+    }
+    
+    // Combine RGB colors using premultiplied alpha math, then normalize by out_a
+    let out_rgb = (stroke_color.rgb * stroke_color.a + fill_color.rgb * fill_color.a * (1.0 - stroke_color.a)) / out_a;
+    
+    return vec4(out_rgb, out_a);
 }
 
 // ---------------------------

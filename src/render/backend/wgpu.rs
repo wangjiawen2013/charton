@@ -21,16 +21,19 @@ pub struct GpuPoint {
     pub x: f32,
     /// Y coordinate of the primitive center (screen space)
     pub y: f32,
-    /// Red color channel (0.0 - 1.0)
-    pub r: f32,
-    /// Green color channel (0.0 - 1.0)
-    pub g: f32,
-    /// Blue color channel (0.0 - 1.0)
-    pub b: f32,
-    /// Alpha transparency channel (0.0 - 1.0)
-    pub a: f32,
+    /// fill color channel (0.0 - 1.0)
+    pub fill_r: f32,
+    pub fill_g: f32,
+    pub fill_b: f32,
+    pub fill_a: f32,
+    /// stroke color channel (0.0 - 1.0)
+    pub stroke_r: f32,
+    pub stroke_g: f32,
+    pub stroke_b: f32,
+    pub stroke_a: f32,
     /// Radius of the SDF primitive (pixels)
     pub radius: f32,
+    pub stroke_width: f32,
 }
 
 /// GPU data structure for line primitives (matches LineData in WGSL)
@@ -1387,14 +1390,21 @@ impl WgpuBackend {
 impl RenderBackend for WgpuBackend {
     fn draw_circle(&mut self, config: CircleConfig) {
         let fill = config.fill.rgba();
+        let stroke = config.stroke.rgba();
+
         let point = GpuPoint {
             x: config.x,
             y: config.y,
-            r: fill[0],
-            g: fill[1],
-            b: fill[2],
-            a: fill[3] * config.opacity,
+            fill_r: fill[0],
+            fill_g: fill[1],
+            fill_b: fill[2],
+            fill_a: fill[3] * config.opacity,
+            stroke_r: stroke[0],
+            stroke_g: stroke[1],
+            stroke_b: stroke[2],
+            stroke_a: stroke[3],
             radius: config.radius,
+            stroke_width: config.stroke_width,
         };
 
         // 1. Store the circle data into the CPU-side pending buffer
