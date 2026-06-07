@@ -724,53 +724,6 @@ impl LayeredChart {
         Ok(())
     }
 
-    /// Renders chart decorations (title, axes, legends) without data marks.
-    ///
-    /// This method is designed for hybrid rendering scenarios where data marks
-    /// are rendered by GPU (wgpu) and decorations are rendered by CPU (tiny-skia).
-    /// It avoids code duplication with the main `render()` method.
-    #[allow(dead_code)]
-    fn render_decorations<B: RenderBackend>(&self, backend: &mut B) -> Result<(), ChartonError> {
-        // Resolve scene to get layout and coordinate system
-        let (coord, panel, aesthetics, guide_specs) = self.resolve_scene()?;
-        let spec = ChartSpec {
-            aesthetics: &aesthetics,
-            theme: &self.theme,
-        };
-        let panel_ctx = PanelContext::new(&spec, coord.clone(), panel);
-
-        // Draw title
-        self.render_title(backend, &panel_ctx.panel)?;
-
-        // Draw axes if required
-        if self.theme.show_axes && self.layers.iter().any(|l| l.requires_axes()) {
-            let x_label = coord.get_x_label();
-            let y_label = coord.get_y_label();
-            let x_explicit = self.x_ticks.as_deref();
-            let y_explicit = self.y_ticks.as_deref();
-
-            coord.render_axes(
-                backend,
-                &self.theme,
-                &panel_ctx.panel,
-                x_label,
-                x_explicit,
-                y_label,
-                y_explicit,
-            )?;
-        }
-
-        // Draw legends
-        crate::render::legend_renderer::LegendRenderer::render_legend(
-            backend,
-            &guide_specs,
-            &self.theme,
-            &panel_ctx,
-        );
-
-        Ok(())
-    }
-
     /// Generates and returns the SVG representation of the chart.
     ///
     /// This method renders the entire chart as an SVG string. It creates a mutable
@@ -1246,9 +1199,6 @@ impl LayeredChart {
         {
             let mut skia_backend =
                 crate::render::backend::raster::RasterBackend::new(&mut pixmap, self.scale_factor);
-
-            // Draw vector decorations (axes, lines, ticks) handled on CPU fallback
-            //self.render_decorations(&mut skia_backend)?;
 
             // Render text collected from the deferred ledger
             for text_config in saved_texts {
