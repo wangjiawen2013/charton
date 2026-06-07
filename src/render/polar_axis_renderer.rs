@@ -1,6 +1,6 @@
 use crate::Precision;
 use crate::coordinate::{CoordinateTrait, Rect, polar::Polar};
-use crate::core::layer::{CircleConfig, PathConfig, PathTopology, RenderBackend, TextConfig};
+use crate::core::layer::{CircleConfig, LineConfig, RenderBackend, TextConfig};
 use crate::error::ChartonError;
 use crate::scale::ExplicitTick;
 use crate::theme::Theme;
@@ -111,16 +111,15 @@ pub fn render_polar_axes(
         let y2 = center_y + max_r * theta.sin();
 
         // Draw radial grid lines (spokes) separating different categories/sectors
-        backend.draw_path(PathConfig {
-            points: vec![
-                (x1 as Precision, y1 as Precision),
-                (x2 as Precision, y2 as Precision),
-            ],
-            stroke: theme.grid_color,
-            stroke_width: theme.grid_width as Precision,
+        backend.draw_line(LineConfig {
+            x1: x1 as Precision,
+            y1: y1 as Precision,
+            x2: x2 as Precision,
+            y2: y2 as Precision,
+            color: theme.grid_color,
+            width: theme.grid_width as Precision,
             opacity: 0.5,
             dash: vec![], // Solid line
-            topology: PathTopology::Simple,
         });
 
         // Calculate label coordinates with padding
