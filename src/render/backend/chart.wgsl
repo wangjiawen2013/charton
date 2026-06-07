@@ -30,10 +30,15 @@ struct RectData {
     y: f32,
     width: f32,
     height: f32,
-    r: f32,
-    g: f32,
-    b: f32,
-    a: f32,
+    fill_r: f32,
+    fill_g: f32,
+    fill_b: f32,
+    fill_a: f32,
+    stroke_r: f32,
+    stroke_g: f32,
+    stroke_b: f32,
+    stroke_a: f32,
+    stroke_width: f32,
     corner_radius: f32,
 };
 
@@ -269,22 +274,35 @@ fn circle_fs(in: CircleOutput) -> @location(0) vec4<f32> {
 // ---------------------------
 // 2. Rectangle Pipeline (draw_rect: Pure Filled Bars/Boxes/Backgrounds)
 // ---------------------------
+/// Signed Distance Field for a rectangle with optional rounded corners.
+/// p: Local fragment position relative to the rectangle center.
+/// b: Half-extents of the rectangle (width/2, height/2).
+/// r: Corner radius.
+fn sd_rounded_rect(p: vec2<f32>, b: vec2<f32>, r: f32) -> f32 {
+    let d = abs(p) - b + vec2(r);
+    return min(max(d.x, d.y), 0.0) + length(max(d, vec2(0.0))) - r;
+}
+
 @vertex
 fn rect_vs(@builtin(vertex_index) vi: u32, @builtin(instance_index) ii: u32) -> RectOutput {
     let r = rects[ii];
-    var pos = vec2<f32>();
+    let scale = uniforms.scale_factor;
     
-    // Strictly align with the actual rectangle bounds without any inflation for perfect hardware rasterization.
+    // Inflate the quad slightly beyond physical bounds to prevent stroke clipping and enable smooth AA.
+    let padding = (r.stroke_width + 2.0) * scale;
+    
+    var local_pos = vec2<f32>();
     switch vi {
-        case 0u: { pos = vec2(r.x, r.y); }
-        case 1u: { pos = vec2(r.x + r.width, r.y); }
-        case 2u: { pos = vec2(r.x, r.y + r.height); }
-        case 3u: { pos = vec2(r.x + r.width, r.y + r.height); }
-        default: { pos = vec2(r.x, r.y); }
+        case 0u: { local_pos = vec2(-padding, -padding); }
+        case 1u: { local_pos = vec2(r.width * scale + padding, -padding); }
+        case 2u: { local_pos = vec2(-padding, r.height * scale + padding); }
+        case 3u: { local_pos = vec2(r.width * scale + padding, r.height * scale + padding); }
+        default: { local_pos = vec2(0.0); }
     }
 
-    let scale = uniforms.scale_factor;
-    let screen_pos = pos * scale;
+    let base_pos = vec2(r.x, r.y) * scale;
+    let screen_pos = base_pos + local_pos;
+    
     let sw = uniforms.screen_width * scale;
     let sh = uniforms.screen_height * scale;
     let ndc = vec4((screen_pos.x / sw) * 2.0 - 1.0, 1.0 - (screen_pos.y / sh) * 2.0, 0.0, 1.0);
@@ -299,7 +317,49 @@ fn rect_vs(@builtin(vertex_index) vi: u32, @builtin(instance_index) ii: u32) -> 
 @fragment
 fn rect_fs(in: RectOutput) -> @location(0) vec4<f32> {
     let r = rects[in.instance_idx];
-    return vec4(r.r, r.g, r.b, r.a);
+    let scale = uniforms.scale_factor;
+    
+    // Calculate the geometric center and half-extents of the rectangle
+    let center = vec2(r.x + r.width * 0.5, r.y + r.height * 0.5) * scale;
+    let half_extents = vec2(r.width * 0.5, r.height * 0.5) * scale;
+    
+    // Local fragment coordinates transformed relative to the rect center
+    let local = in.screen_pos - center;
+    
+    // Compute the base SDF for the rectangle (handles corner radius automatically)
+    let dist = sd_rounded_rect(local, half_extents, r.corner_radius * scale);
+    
+    // Filter width for hardware-based anti-aliasing (AA)
+    let aa = fwidth(dist);
+
+    // ========================================================================
+    // 1. Calculate Fill Layer
+    // ========================================================================
+    let fill_alpha = 1.0 - smoothstep(-aa, aa, dist);
+    let fill_color = vec4(r.fill_r, r.fill_g, r.fill_b, r.fill_a * fill_alpha);
+
+    // ========================================================================
+    // 2. Calculate Stroke Layer (Centered Alignment)
+    // ========================================================================
+    let half_stroke = (r.stroke_width * scale) * 0.5;
+    // Absolutizing the distance field creates an interior/exterior bounding corridor for the frame
+    let stroke_dist = abs(dist) - half_stroke;
+    let stroke_alpha = 1.0 - smoothstep(-aa, aa, stroke_dist);
+    let stroke_color = vec4(r.stroke_r, r.stroke_g, r.stroke_b, r.stroke_a * stroke_alpha);
+
+    // ========================================================================
+    // 3. Alpha Compositing (Stroke Over Fill)
+    // ========================================================================
+    let out_a = stroke_color.a + fill_color.a * (1.0 - stroke_color.a);
+    
+    if (out_a <= 0.01) {
+        discard;
+    }
+
+    // Blend RGB channels based on premultiplied alpha math
+    let out_rgb = (stroke_color.rgb * stroke_color.a + fill_color.rgb * fill_color.a * (1.0 - stroke_color.a)) / out_a;
+
+    return vec4(out_rgb, out_a);
 }
 
 // ---------------------------
