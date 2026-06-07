@@ -166,6 +166,8 @@ struct RectOutput {
 struct LineOutput {
     @builtin(position) clip_pos: vec4<f32>,
     @location(0) @interpolate(flat) instance_idx: u32,
+    @location(1) v_offset: f32, // Signed distance from line center axis
+    @location(2) half_width: f32, // Scaled half-width for easy comparison in the fragment shader
 };
 
 struct PolygonOutput {
@@ -367,52 +369,69 @@ fn rect_fs(in: RectOutput) -> @location(0) vec4<f32> {
 // ---------------------------
 @vertex
 fn line_vs(
-    @builtin(vertex_index) vi: u32,       // Current vertex index within the primitive (0 to 3 for a quad)
-    @builtin(instance_index) ii: u32      // Index of the current line segment in the Storage Buffer
+    @builtin(vertex_index) vi: u32, // Current vertex index within the primitive (0 to 3 for a quad)
+    @builtin(instance_index) ii: u32 // Index of the current line segment in the Storage Buffer
 ) -> LineOutput {
-    // 1. Fetch data and apply High-DPI / Retargeting scaling factor
     let line = lines[ii];
     let scale = uniforms.scale_factor;
     let p1 = vec2(line.x1, line.y1) * scale;
     let p2 = vec2(line.x2, line.y2) * scale;
     
-    // 2. Compute direction vector with a safety guard against zero-length segments (prevents NaN)
     var dir = p2 - p1;
     if (length(dir) < 0.0001) {
-        dir = vec2<f32>(1.0, 0.0); // Fallback direction to prevent division by zero
+        dir = vec2<f32>(1.0, 0.0);
     }
     dir = normalize(dir);
     
-    // 3. Calculate perpendicular normal vector, scaled by half-width to project outward
-    let perp = vec2(-dir.y, dir.x) * (line.width * 0.5 * scale);
+    // 1. Inflate the geometry by an extra 1.5 pixels on each side for AA feathering context
+    let aa_padding = 1.5; 
+    let h_width = line.width * 0.5 * scale;
+    let total_extruding = h_width + aa_padding;
+    
+    let perp = vec2(-dir.y, dir.x) * total_extruding;
 
-    // 4. Extrude vertices dynamically on-chip using TriangleStrip topology
+    // 2. Extrude quad and inject the signed offset value
     var pos = vec2<f32>();
+    var offset = 0.0;
     switch vi {
-        case 0u: { pos = p1 + perp; } // Start point: left expansion
-        case 1u: { pos = p1 - perp; } // Start point: right expansion
-        case 2u: { pos = p2 + perp; } // End point: left expansion
-        case 3u: { pos = p2 - perp; } // End point: right expansion
+        case 0u: { pos = p1 + perp; offset =  total_extruding; }
+        case 1u: { pos = p1 - perp; offset = -total_extruding; }
+        case 2u: { pos = p2 + perp; offset =  total_extruding; }
+        case 3u: { pos = p2 - perp; offset = -total_extruding; }
         default: { pos = p1; }
     }
 
-    // 5. Convert screen-space pixel coordinates to Normalized Device Coordinates (NDC)
     let sw = uniforms.screen_width * scale;
     let sh = uniforms.screen_height * scale;
-    // Map X to [-1, 1], and invert Y axis to match WebGPU specifications
     let ndc = vec4((pos.x / sw) * 2.0 - 1.0, 1.0 - (pos.y / sh) * 2.0, 0.0, 1.0);
 
-    // 6. Assemble output payload for the rasterizer
     var out: LineOutput;
     out.clip_pos = ndc;
-    out.instance_idx = ii; // Forward instance ID so the Fragment Shader can resolve colors
+    out.instance_idx = ii;
+    out.v_offset = offset;   // Pass interpolation to fragment shader
+    out.half_width = h_width; // Pass target thickness boundary
     return out;
 }
 
 @fragment
 fn line_fs(in: LineOutput) -> @location(0) vec4<f32> {
     let line = lines[in.instance_idx];
-    return vec4(line.r, line.g, line.b, line.a);
+    
+    // Base Line SDF: Distance from fragment to the logical edge of the line width
+    let dist = abs(in.v_offset) - in.half_width;
+    
+    // Filter width for sub-pixel hardware anti-aliasing (AA)
+    let aa = fwidth(dist);
+    
+    // Compute alpha coverage based on the distance field
+    let alpha = 1.0 - smoothstep(-aa, aa, dist);
+    
+    // Early discard to skip invisible pixels and avoid depth/blending overhead
+    if (alpha <= 0.01) {
+        discard;
+    }
+    
+    return vec4(line.r, line.g, line.b, line.a * alpha);
 }
 
 // ---------------------------
