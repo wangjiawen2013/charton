@@ -1248,7 +1248,7 @@ impl LayeredChart {
                 crate::render::backend::raster::RasterBackend::new(&mut pixmap, self.scale_factor);
 
             // Draw vector decorations (axes, lines, ticks) handled on CPU fallback
-            self.render_decorations(&mut skia_backend)?;
+            //self.render_decorations(&mut skia_backend)?;
 
             // Render text collected from the deferred ledger
             for text_config in saved_texts {
