@@ -12,7 +12,7 @@ authors = ["Jiawen Wang <wangjiawen2013@163.com>"]
 default = ["wgpu", "png"]
 
 # Enables multi-threaded data processing via Rayon for massive datasets.
-# NOTE: Disable this feature when targeting WebAssembly (Wasm) unless 
+# NOTE: Disable this feature when targeting WebAssembly (Wasm) unless
 # using a specialized thread-pool adapter like wasm-bindgen-rayon.
 parallel = ["dep:rayon"]
 
