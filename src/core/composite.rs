@@ -811,7 +811,7 @@ impl LayeredChart {
                 y: 0.0,
                 width: self.width as Precision,
                 height: self.height as Precision,
-                fill: self.theme.background_color.clone(),
+                fill: self.theme.background_color,
                 stroke: "none".into(),
                 stroke_width: 0.0,
                 opacity: 1.0,
