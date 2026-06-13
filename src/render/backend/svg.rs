@@ -1,7 +1,7 @@
 use crate::coordinate::Rect;
 use crate::core::layer::{
     CircleConfig, GradientRectConfig, LineConfig, PathConfig, PolygonConfig, RectConfig,
-    RenderBackend, TextConfig,
+    PathTopology, RenderBackend, TextConfig,
 };
 use crate::visual::color::SingleColor;
 use std::fmt::Write;
@@ -142,13 +142,14 @@ impl<'a> RenderBackend for SvgBackend<'a> {
             stroke_width,
             opacity,
             dash,
-            topology: _,
+            topology,
         } = config;
+
         if points.is_empty() || (fill.is_none() && stroke.is_none()) {
             return;
         }
 
-        // Write path data (d attribute) by iterating through points
+        // 1. Write path data (d attribute)
         let _ = self.buffer.write_str(r#"<path d=""#);
         for (i, (px, py)) in points.iter().enumerate() {
             if i == 0 {
@@ -158,18 +159,40 @@ impl<'a> RenderBackend for SvgBackend<'a> {
             }
         }
 
-        let _ = write!(self.buffer, r#"" stroke=""#);
-        self.write_color(&stroke);
-        let _ = write!(
-            self.buffer,
-            r#"" stroke-width="{:.3}" stroke-opacity="{:.3}" fill="none" stroke-linejoin="round" stroke-linecap="round""#,
-            stroke_width, opacity
-        );
+        // Close the path automatically for area fills (Complex topology)
+        if matches!(topology, PathTopology::Complex) || !fill.is_none() {
+            let _ = self.buffer.write_str(" Z");
+        }
+        let _ = self.buffer.write_str(r#"""#);
 
+        // 2. Write Fill attributes
+        let _ = self.buffer.write_str(r#" fill=""#);
+        if fill.is_none() {
+            let _ = self.buffer.write_str("none\"");
+        } else {
+            self.write_color(&fill);
+            let _ = write!(self.buffer, r#"" fill-opacity="{:.3}""#, opacity);
+        }
+
+        // 3. Write Stroke attributes
+        let _ = self.buffer.write_str(r#" stroke=""#);
+        if stroke.is_none() {
+            let _ = self.buffer.write_str("none\"");
+        } else {
+            self.write_color(&stroke);
+            let _ = write!(
+                self.buffer,
+                r#"" stroke-width="{:.3}" stroke-opacity="{:.3}" stroke-linejoin="round" stroke-linecap="round""#,
+                stroke_width, opacity
+            );
+        }
+
+        // 4. Dash array and clipping
         if !dash.is_empty() {
             let dash_str: Vec<String> = dash.iter().map(|d| d.to_string()).collect();
             let _ = write!(self.buffer, r#" stroke-dasharray="{}""#, dash_str.join(","));
         }
+        
         self.write_clip_attr();
         let _ = self.buffer.write_str(" />\n");
     }
