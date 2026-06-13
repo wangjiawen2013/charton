@@ -1,7 +1,7 @@
 use crate::coordinate::Rect;
 use crate::core::layer::{
-    CircleConfig, GradientRectConfig, LineConfig, PathConfig, PolygonConfig, RectConfig,
-    PathTopology, RenderBackend, TextConfig,
+    CircleConfig, GradientRectConfig, LineConfig, PathConfig, PathTopology, PolygonConfig,
+    RectConfig, RenderBackend, TextConfig,
 };
 use crate::visual::color::SingleColor;
 use std::fmt::Write;
@@ -192,7 +192,7 @@ impl<'a> RenderBackend for SvgBackend<'a> {
             let dash_str: Vec<String> = dash.iter().map(|d| d.to_string()).collect();
             let _ = write!(self.buffer, r#" stroke-dasharray="{}""#, dash_str.join(","));
         }
-        
+
         self.write_clip_attr();
         let _ = self.buffer.write_str(" />\n");
     }
