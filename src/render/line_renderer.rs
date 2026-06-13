@@ -1,7 +1,7 @@
 use crate::Precision;
 use crate::chart::Chart;
 use crate::core::context::PanelContext;
-use crate::core::layer::{MarkRenderer, PathConfig, RenderBackend};
+use crate::core::layer::{MarkRenderer, PathConfig, PathTopology, RenderBackend};
 use crate::core::utils::Parallelizable;
 use crate::error::ChartonError;
 use crate::mark::line::MarkLine;
@@ -184,6 +184,7 @@ impl MarkRenderer for Chart<MarkLine> {
                 stroke_width: mark_config.stroke_width as Precision,
                 opacity: mark_config.opacity as Precision,
                 dash: mark_config.dash.iter().map(|&d| d as Precision).collect(),
+                topology: PathTopology::Simple,
             });
         }
 
