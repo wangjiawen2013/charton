@@ -177,6 +177,8 @@ pub enum DrawBatch {
     Polygon { index_start: u32, index_count: u32 },
     GradientRect { start: u32, count: u32 },
     PathSimple { path_idx: u32, point_count: u32 },
+    PathComplexStencil { index_start: u32, index_count: u32 },
+    PathComplexCover { index_start: u32, index_count: u32 },
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
@@ -186,6 +188,8 @@ pub enum BatchType {
     Line,
     Polygon,
     GradientRect,
+    PathComplexStencil,
+    PathComplexCover,
 }
 
 // ============================================================================
@@ -199,7 +203,7 @@ pub struct WgpuBackend {
     // Global uniform buffer
     uniform_buffer: wgpu::Buffer,
 
-    // 🌟 Two-Tier Architecture Bind Group Definitions
+    // Two-Tier Architecture Bind Group Definitions
     global_bind_group: wgpu::BindGroup,
     global_bind_group_layout: wgpu::BindGroupLayout,
     instance_bind_group_layout: wgpu::BindGroupLayout,
@@ -224,6 +228,8 @@ pub struct WgpuBackend {
 
     // Polygon primitive resources
     polygon_pipeline: wgpu::RenderPipeline,
+    complex_stencil_pipeline: wgpu::RenderPipeline, // For irregular polygons using stencil buffering
+    complex_cover_pipeline: wgpu::RenderPipeline, // For irregular polygons using cover pass after stencil masking
     polygon_vertex_buffer: wgpu::Buffer,
     polygon_index_buffer: wgpu::Buffer,
     pending_polygon_vertices: Vec<PathVertex>,
@@ -251,6 +257,9 @@ pub struct WgpuBackend {
     current_line_count: u32,
     current_polygon_index_count: u32,
     current_grad_rect_count: u32,
+
+    // Invisible mask canvas used by the GPU to calculate complex polygon fills.
+    depth_stencil_view: wgpu::TextureView,
 }
 
 impl WgpuBackend {
@@ -279,7 +288,7 @@ impl WgpuBackend {
         // RESOURCE BIND GROUP LAYOUT DECLARATIONS (Scientific Architecture)
         // ====================================================================
 
-        // 🌟 Group 0: Global Environment (Uniforms)
+        // Group 0: Global Environment (Uniforms)
         let global_bind_group_layout =
             device.create_bind_group_layout(&wgpu::BindGroupLayoutDescriptor {
                 label: Some("Global Environment Bind Group Layout 0"),
@@ -295,7 +304,7 @@ impl WgpuBackend {
                 }],
             });
 
-        // 🌟 Group 1: Universal Instance Data (Circles, Rects, Lines, Gradients)
+        // Group 1: Universal Instance Data (Circles, Rects, Lines, Gradients)
         let instance_bind_group_layout =
             device.create_bind_group_layout(&wgpu::BindGroupLayoutDescriptor {
                 label: Some("Universal Instance Bind Group Layout 1"),
@@ -430,11 +439,142 @@ impl WgpuBackend {
                 polygon_mode: wgpu::PolygonMode::Fill,
                 conservative: false,
             },
-            depth_stencil: None,
+            // Match pass format for compatibility, but bypass actual testing for non-polygon pipelines
+            depth_stencil: Some(wgpu::DepthStencilState {
+                format: wgpu::TextureFormat::Depth24PlusStencil8,
+                depth_write_enabled: Some(false),
+                depth_compare: Some(wgpu::CompareFunction::Always),
+                stencil: wgpu::StencilState {
+                    front: wgpu::StencilFaceState::IGNORE,
+                    back: wgpu::StencilFaceState::IGNORE,
+                    read_mask: 0,
+                    write_mask: 0,
+                },
+                bias: wgpu::DepthBiasState::default(),
+            }),
             multisample: wgpu::MultisampleState::default(),
             multiview_mask: None,
             cache: None,
         });
+
+        // Complex Path Pipeline
+        // Shared pipeline layout utilizing only global environment uniforms
+        let complex_path_pipeline_layout =
+            device.create_pipeline_layout(&wgpu::PipelineLayoutDescriptor {
+                label: Some("Complex Path Pipeline Layout"),
+                bind_group_layouts: &[Some(&global_bind_group_layout)],
+                immediate_size: 0,
+            });
+
+        // PASS 1: STENCIL PIPELINE - Generates the polygon mask via odd-even inversion (Color write disabled)
+        let complex_stencil_pipeline =
+            device.create_render_pipeline(&wgpu::RenderPipelineDescriptor {
+                label: Some("Complex Path - Stencil Pass Pipeline"),
+                layout: Some(&complex_path_pipeline_layout),
+                vertex: wgpu::VertexState {
+                    module: &shader,
+                    entry_point: Some("polygon_vs"),
+                    buffers: &[PathVertex::DESC],
+                    compilation_options: Default::default(),
+                },
+                fragment: Some(wgpu::FragmentState {
+                    module: &shader,
+                    entry_point: Some("polygon_fs"),
+                    targets: &[Some(wgpu::ColorTargetState {
+                        format: wgpu::TextureFormat::Rgba8Unorm,
+                        blend: None,
+                        write_mask: wgpu::ColorWrites::empty(), // No color writes completely for the stencil pass
+                    })],
+                    compilation_options: Default::default(),
+                }),
+                primitive: wgpu::PrimitiveState {
+                    topology: wgpu::PrimitiveTopology::TriangleList,
+                    front_face: wgpu::FrontFace::Ccw,
+                    cull_mode: None,
+                    ..Default::default()
+                },
+                depth_stencil: Some(wgpu::DepthStencilState {
+                    format: wgpu::TextureFormat::Depth24PlusStencil8,
+                    depth_write_enabled: Some(false),
+                    depth_compare: Some(wgpu::CompareFunction::Always),
+                    stencil: wgpu::StencilState {
+                        // Invert bits on pass to natively resolve self-intersections and concavity
+                        front: wgpu::StencilFaceState {
+                            compare: wgpu::CompareFunction::Always,
+                            fail_op: wgpu::StencilOperation::Keep,
+                            depth_fail_op: wgpu::StencilOperation::Keep,
+                            pass_op: wgpu::StencilOperation::Invert,
+                        },
+                        back: wgpu::StencilFaceState {
+                            compare: wgpu::CompareFunction::Always,
+                            fail_op: wgpu::StencilOperation::Keep,
+                            depth_fail_op: wgpu::StencilOperation::Keep,
+                            pass_op: wgpu::StencilOperation::Invert,
+                        },
+                        read_mask: 0xFF,
+                        write_mask: 0xFF,
+                    },
+                    bias: wgpu::DepthBiasState::default(),
+                }),
+                multisample: wgpu::MultisampleState::default(),
+                multiview_mask: None,
+                cache: None,
+            });
+
+        // PASS 2: COVER PIPELINE - Rasterizes the bounding color quad, filling and auto-clearing the masked region
+        let complex_cover_pipeline =
+            device.create_render_pipeline(&wgpu::RenderPipelineDescriptor {
+                label: Some("Complex Path - Cover Pass Pipeline"),
+                layout: Some(&complex_path_pipeline_layout),
+                vertex: wgpu::VertexState {
+                    module: &shader,
+                    entry_point: Some("polygon_vs"),
+                    buffers: &[PathVertex::DESC],
+                    compilation_options: Default::default(),
+                },
+                fragment: Some(wgpu::FragmentState {
+                    module: &shader,
+                    entry_point: Some("polygon_fs"),
+                    targets: &[Some(wgpu::ColorTargetState {
+                        format: wgpu::TextureFormat::Rgba8Unorm,
+                        blend: Some(wgpu::BlendState::ALPHA_BLENDING),
+                        write_mask: wgpu::ColorWrites::ALL, // Restore color channel writing
+                    })],
+                    compilation_options: Default::default(),
+                }),
+                primitive: wgpu::PrimitiveState {
+                    topology: wgpu::PrimitiveTopology::TriangleList,
+                    front_face: wgpu::FrontFace::Ccw,
+                    cull_mode: None,
+                    ..Default::default()
+                },
+                depth_stencil: Some(wgpu::DepthStencilState {
+                    format: wgpu::TextureFormat::Depth24PlusStencil8,
+                    depth_write_enabled: Some(false),
+                    depth_compare: Some(wgpu::CompareFunction::Always),
+                    stencil: wgpu::StencilState {
+                        // Render color where stencil is non-zero, resetting it to zero simultaneously
+                        front: wgpu::StencilFaceState {
+                            compare: wgpu::CompareFunction::NotEqual,
+                            fail_op: wgpu::StencilOperation::Keep,
+                            depth_fail_op: wgpu::StencilOperation::Keep,
+                            pass_op: wgpu::StencilOperation::Zero,
+                        },
+                        back: wgpu::StencilFaceState {
+                            compare: wgpu::CompareFunction::NotEqual,
+                            fail_op: wgpu::StencilOperation::Keep,
+                            depth_fail_op: wgpu::StencilOperation::Keep,
+                            pass_op: wgpu::StencilOperation::Zero,
+                        },
+                        read_mask: 0xFF,
+                        write_mask: 0xFF,
+                    },
+                    bias: wgpu::DepthBiasState::default(),
+                }),
+                multisample: wgpu::MultisampleState::default(),
+                multiview_mask: None,
+                cache: None,
+            });
 
         // Dummy buffers for initialization
         let circle_buffer = Self::create_dummy_buffer::<GpuPoint>(&device);
@@ -443,6 +583,27 @@ impl WgpuBackend {
         let gradient_rect_buffer = Self::create_dummy_buffer::<GpuGradientRect>(&device);
         let dummy_polygon_vertices = Self::create_dummy_buffer::<PathVertex>(&device);
         let dummy_polygon_indices = Self::create_dummy_buffer::<u16>(&device);
+
+        // STENCIL MASK BUFFER FOR HETEROGENEOUS VECTOR FILLS
+        let physical_width = (screen_width as f32 * scale_factor).round() as u32;
+        let physical_height = (screen_height as f32 * scale_factor).round() as u32;
+        let depth_texture = device.create_texture(&wgpu::TextureDescriptor {
+            label: Some("2D Vector Stencil Texture"),
+            size: wgpu::Extent3d {
+                width: physical_width,
+                height: physical_height,
+                depth_or_array_layers: 1,
+            },
+            mip_level_count: 1,
+            sample_count: 1,
+            dimension: wgpu::TextureDimension::D2,
+            format: wgpu::TextureFormat::Depth24PlusStencil8,
+            usage: wgpu::TextureUsages::RENDER_ATTACHMENT,
+            view_formats: &[],
+        });
+
+        // Invisible mask canvas used by the GPU to calculate complex polygon fills.
+        let depth_stencil_view = depth_texture.create_view(&wgpu::TextureViewDescriptor::default());
 
         Self {
             device,
@@ -468,6 +629,8 @@ impl WgpuBackend {
             uploaded_line_count: 0,
 
             polygon_pipeline,
+            complex_stencil_pipeline,
+            complex_cover_pipeline,
             polygon_vertex_buffer: dummy_polygon_vertices,
             polygon_index_buffer: dummy_polygon_indices,
             pending_polygon_vertices: Vec::with_capacity(50_000),
@@ -493,11 +656,15 @@ impl WgpuBackend {
             current_line_count: 0,
             current_polygon_index_count: 0,
             current_grad_rect_count: 0,
+
+            depth_stencil_view,
         }
     }
 
+    /// Pushes a new draw command or merges it into the active batch to optimize GPU draw calls.
     fn push_batch(&mut self, batch_type: BatchType, count: u32) {
         match (self.batches.last_mut(), batch_type) {
+            // BATCH MERGING: Combine identical primitive types to reduce draw calls
             (Some(DrawBatch::Circle { count: c, .. }), BatchType::Circle) => *c += count,
             (Some(DrawBatch::Rect { count: c, .. }), BatchType::Rect) => *c += count,
             (Some(DrawBatch::Line { count: c, .. }), BatchType::Line) => *c += count,
@@ -505,6 +672,10 @@ impl WgpuBackend {
             (Some(DrawBatch::GradientRect { count: c, .. }), BatchType::GradientRect) => {
                 *c += count
             }
+            // FALLBACK / ISOLATION: Create a new draw batch.
+            // Note: PathComplexStencil and PathComplexCover intentionally bypass
+            // the merging rules above. Each complex path must maintain a strict,
+            // isolated Stencil -> Cover execution order to prevent mask corruption.
             _ => {
                 self.batches.push(match batch_type {
                     BatchType::Circle => DrawBatch::Circle {
@@ -526,6 +697,15 @@ impl WgpuBackend {
                     BatchType::GradientRect => DrawBatch::GradientRect {
                         start: self.current_grad_rect_count.saturating_sub(count),
                         count,
+                    },
+                    // Route complex path passes to the shared polygon index buffer
+                    BatchType::PathComplexStencil => DrawBatch::PathComplexStencil {
+                        index_start: self.current_polygon_index_count.saturating_sub(count),
+                        index_count: count,
+                    },
+                    BatchType::PathComplexCover => DrawBatch::PathComplexCover {
+                        index_start: self.current_polygon_index_count.saturating_sub(count),
+                        index_count: count,
                     },
                 });
             }
@@ -603,7 +783,18 @@ impl WgpuBackend {
                 polygon_mode: wgpu::PolygonMode::Fill,
                 conservative: false,
             },
-            depth_stencil: None,
+            depth_stencil: Some(wgpu::DepthStencilState {
+                format: wgpu::TextureFormat::Depth24PlusStencil8,
+                depth_write_enabled: Some(false),
+                depth_compare: Some(wgpu::CompareFunction::Always),
+                stencil: wgpu::StencilState {
+                    front: wgpu::StencilFaceState::IGNORE,
+                    back: wgpu::StencilFaceState::IGNORE,
+                    read_mask: 0,
+                    write_mask: 0,
+                },
+                bias: wgpu::DepthBiasState::default(),
+            }),
             multisample: wgpu::MultisampleState::default(),
             multiview_mask: None,
             cache: None,
@@ -650,7 +841,18 @@ impl WgpuBackend {
                 polygon_mode: wgpu::PolygonMode::Fill,
                 conservative: false,
             },
-            depth_stencil: None,
+            depth_stencil: Some(wgpu::DepthStencilState {
+                format: wgpu::TextureFormat::Depth24PlusStencil8,
+                depth_write_enabled: Some(false),
+                depth_compare: Some(wgpu::CompareFunction::Always),
+                stencil: wgpu::StencilState {
+                    front: wgpu::StencilFaceState::IGNORE,
+                    back: wgpu::StencilFaceState::IGNORE,
+                    read_mask: 0,
+                    write_mask: 0,
+                },
+                bias: wgpu::DepthBiasState::default(),
+            }),
             multisample: wgpu::MultisampleState::default(),
             multiview_mask: None,
             cache: None,
@@ -697,7 +899,18 @@ impl WgpuBackend {
                 polygon_mode: wgpu::PolygonMode::Fill,
                 conservative: false,
             },
-            depth_stencil: None,
+            depth_stencil: Some(wgpu::DepthStencilState {
+                format: wgpu::TextureFormat::Depth24PlusStencil8,
+                depth_write_enabled: Some(false),
+                depth_compare: Some(wgpu::CompareFunction::Always),
+                stencil: wgpu::StencilState {
+                    front: wgpu::StencilFaceState::IGNORE,
+                    back: wgpu::StencilFaceState::IGNORE,
+                    read_mask: 0,
+                    write_mask: 0,
+                },
+                bias: wgpu::DepthBiasState::default(),
+            }),
             multisample: wgpu::MultisampleState::default(),
             multiview_mask: None,
             cache: None,
@@ -743,7 +956,18 @@ impl WgpuBackend {
                 polygon_mode: wgpu::PolygonMode::Fill,
                 conservative: false,
             },
-            depth_stencil: None,
+            depth_stencil: Some(wgpu::DepthStencilState {
+                format: wgpu::TextureFormat::Depth24PlusStencil8,
+                depth_write_enabled: Some(false),
+                depth_compare: Some(wgpu::CompareFunction::Always),
+                stencil: wgpu::StencilState {
+                    front: wgpu::StencilFaceState::IGNORE,
+                    back: wgpu::StencilFaceState::IGNORE,
+                    read_mask: 0,
+                    write_mask: 0,
+                },
+                bias: wgpu::DepthBiasState::default(),
+            }),
             multisample: wgpu::MultisampleState::default(),
             multiview_mask: None,
             cache: None,
@@ -790,7 +1014,18 @@ impl WgpuBackend {
                 polygon_mode: wgpu::PolygonMode::Fill,
                 conservative: false,
             },
-            depth_stencil: None,
+            depth_stencil: Some(wgpu::DepthStencilState {
+                format: wgpu::TextureFormat::Depth24PlusStencil8,
+                depth_write_enabled: Some(false),
+                depth_compare: Some(wgpu::CompareFunction::Always),
+                stencil: wgpu::StencilState {
+                    front: wgpu::StencilFaceState::IGNORE,
+                    back: wgpu::StencilFaceState::IGNORE,
+                    read_mask: 0,
+                    write_mask: 0,
+                },
+                bias: wgpu::DepthBiasState::default(),
+            }),
             multisample: wgpu::MultisampleState::default(),
             multiview_mask: None,
             cache: None,
@@ -820,7 +1055,7 @@ impl WgpuBackend {
             })
     }
 
-    pub fn tessellate_path(&mut self, config: PathConfig) {
+    fn stroke_path(&mut self, config: PathConfig) {
         if config.points.len() < 2 {
             return;
         }
@@ -859,16 +1094,117 @@ impl WgpuBackend {
         });
     }
 
+    /// Complex Path (Stencil-then-Cover universal concave polygon filler)
+    fn fill_path_complex(&mut self, config: PathConfig) {
+        if config.points.len() < 3 {
+            return;
+        }
+
+        let point_count = config.points.len();
+        let base_vertex = self.pending_polygon_vertices.len() as u16;
+
+        // ====================================================================
+        // PASS 1: STENCIL (Triangle Fan with Odd-Even Winding)
+        // ====================================================================
+        // Push all vertices of the complex polygon. Color is irrelevant as
+        // this pass disables color writes.
+        for &(x, y) in &config.points {
+            self.pending_polygon_vertices.push(PathVertex {
+                position: [x as f32, y as f32],
+                color: [0.0, 0.0, 0.0, 0.0],
+                is_fill: 1.0,
+            });
+        }
+
+        // Generate indices using a Triangle Fan topology (anchor at the first vertex)
+        let mut stencil_indices = Vec::new();
+        for i in 1..point_count - 1 {
+            stencil_indices.extend([
+                base_vertex, // The first vertex, index 0
+                base_vertex + i as u16,
+                base_vertex + (i + 1) as u16,
+            ]);
+        }
+
+        let stencil_index_count = stencil_indices.len() as u32;
+        self.pending_polygon_indices.extend(stencil_indices);
+        self.current_polygon_index_count += stencil_index_count;
+
+        // Dispatch to the dedicated Stencil pipeline batch
+        self.push_batch(BatchType::PathComplexStencil, stencil_index_count);
+
+        // ====================================================================
+        // PASS 2: COVER (Bounding Box Fill)
+        // ====================================================================
+        // Calculate the bounding box to minimize the GPU pixel fill area
+        let mut min_x = f32::MAX;
+        let mut max_x = f32::MIN;
+        let mut min_y = f32::MAX;
+        let mut max_y = f32::MIN;
+        for &(x, y) in &config.points {
+            let x_f = x as f32;
+            let y_f = y as f32;
+            if x_f < min_x {
+                min_x = x_f;
+            }
+            if x_f > max_x {
+                max_x = x_f;
+            }
+            if y_f < min_y {
+                min_y = y_f;
+            }
+            if y_f > max_y {
+                max_y = y_f;
+            }
+        }
+
+        let fill = config.fill.rgba();
+        let fill_color = [fill[0], fill[1], fill[2], fill[3] * config.opacity];
+        let cover_base = self.pending_polygon_vertices.len() as u16;
+
+        // Generate a quad covering the bounding box
+        let bb_points = [
+            (min_x, min_y),
+            (max_x, min_y),
+            (max_x, max_y),
+            (min_x, max_y),
+        ];
+
+        for &(x, y) in &bb_points {
+            self.pending_polygon_vertices.push(PathVertex {
+                position: [x, y],
+                color: fill_color,
+                is_fill: 1.0,
+            });
+        }
+
+        let cover_indices = vec![
+            cover_base,
+            cover_base + 1,
+            cover_base + 2,
+            cover_base,
+            cover_base + 2,
+            cover_base + 3,
+        ];
+
+        let cover_index_count = cover_indices.len() as u32;
+        self.pending_polygon_indices.extend(cover_indices);
+        self.current_polygon_index_count += cover_index_count;
+
+        // Dispatch to the dedicated Cover pipeline batch (renders where stencil != 0)
+        self.push_batch(BatchType::PathComplexCover, cover_index_count);
+    }
+
     // ============================================================================
     // Render & Flush
     // ============================================================================
     pub fn flush_and_render(
         &mut self,
-        view: &wgpu::TextureView,
+        view: &wgpu::TextureView, // Required to bind the hardware stencil attachment
         output_ledger: &mut Vec<TextConfig>,
     ) {
         // --------------------------------------------------------------------
-        // PHASE 1: DATA UPLOAD
+        // PHASE 1: GPU DATA UPLOAD (Host-to-Device Memory Transfer)
         // --------------------------------------------------------------------
         if !self.pending_circles.is_empty() {
             let circles = std::mem::take(&mut self.pending_circles);
@@ -888,6 +1224,7 @@ impl WgpuBackend {
             self.uploaded_line_count = lines.len() as u32;
         }
 
+        // Shared buffer allocation for both standard polygons and complex path geometry
         if !self.pending_polygon_vertices.is_empty() || !self.pending_polygon_indices.is_empty() {
             let vertices = std::mem::take(&mut self.pending_polygon_vertices);
             let indices = std::mem::take(&mut self.pending_polygon_indices);
@@ -902,6 +1239,7 @@ impl WgpuBackend {
             self.uploaded_gradient_rect_count = grad_rects.len() as u32;
         }
 
+        // Generate the structural bind group for uniform-based vector paths if data exists
         let path_bind_group = if !self.pending_path_points.is_empty() {
             let points_buf = self.create_buffer(&self.pending_path_points);
             let styles_buf = self.create_buffer(&self.pending_path_styles);
@@ -936,7 +1274,7 @@ impl WgpuBackend {
         };
 
         // --------------------------------------------------------------------
-        // PHASE 2: BIND GROUP SETUP (Dynamic Instance Bindings)
+        // PHASE 2: BIND GROUP SETUP (Global and Isntanced Storage)
         // --------------------------------------------------------------------
 
         self.global_bind_group = self.device.create_bind_group(&wgpu::BindGroupDescriptor {
@@ -994,6 +1332,7 @@ impl WgpuBackend {
             }],
         });
 
+        // Main descriptor incorporating the mandatory stencil target attachment
         let render_pass_desc = wgpu::RenderPassDescriptor {
             label: Some("Main Render Pass"),
             color_attachments: &[Some(wgpu::RenderPassColorAttachment {
@@ -1005,7 +1344,15 @@ impl WgpuBackend {
                 },
                 depth_slice: None,
             })],
-            depth_stencil_attachment: None,
+            // Binds depth_stencil and clears the stencil buffer to 0 at the start of the frame
+            depth_stencil_attachment: Some(wgpu::RenderPassDepthStencilAttachment {
+                view: &self.depth_stencil_view,
+                depth_ops: None,
+                stencil_ops: Some(wgpu::Operations {
+                    load: wgpu::LoadOp::Clear(0),
+                    store: wgpu::StoreOp::Store,
+                }),
+            }),
             occlusion_query_set: None,
             timestamp_writes: None,
             multiview_mask: None,
@@ -1073,15 +1420,46 @@ impl WgpuBackend {
                             pass.draw(0..virtual_vertex_count, *path_idx..(*path_idx + 1));
                         }
                     }
+                    // COMPONENT 1: Stencil Pass - Carves the winding topology into the stencil target
+                    DrawBatch::PathComplexStencil {
+                        index_start,
+                        index_count,
+                    } => {
+                        pass.set_pipeline(&self.complex_stencil_pipeline);
+                        pass.set_vertex_buffer(0, self.polygon_vertex_buffer.slice(..));
+                        pass.set_index_buffer(
+                            self.polygon_index_buffer.slice(..),
+                            wgpu::IndexFormat::Uint16,
+                        );
+                        pass.set_stencil_reference(0); // Sets baseline comparison reference
+                        pass.draw_indexed(*index_start..(*index_start + *index_count), 0, 0..1);
+                    }
+                    // COMPONENT 2: Cover Pass - Fills pixels matching the mask, resetting the stencil to 0 inline
+                    DrawBatch::PathComplexCover {
+                        index_start,
+                        index_count,
+                    } => {
+                        pass.set_pipeline(&self.complex_cover_pipeline);
+                        pass.set_vertex_buffer(0, self.polygon_vertex_buffer.slice(..));
+                        pass.set_index_buffer(
+                            self.polygon_index_buffer.slice(..),
+                            wgpu::IndexFormat::Uint16,
+                        );
+                        pass.set_stencil_reference(0);
+                        pass.draw_indexed(*index_start..(*index_start + *index_count), 0, 0..1);
+                    }
                 }
             }
         }
 
+        // Submit operational command buffer stream to the GPU graphics queue
         self.queue.submit(Some(encoder.finish()));
 
+        // Offload UI text configurations for external composition passes
         output_ledger.clear();
         output_ledger.append(&mut self.collected_texts);
 
+        // Reset temporary buffers and batch lists for the next rendering cycle
         self.reset();
     }
 }
@@ -1169,7 +1547,7 @@ impl RenderBackend for WgpuBackend {
         }
 
         let fill = config.fill.rgba();
-        let color = [fill[0], fill[1], fill[2], fill[3] * config.fill_opacity];
+        let color = [fill[0], fill[1], fill[2], fill[3] * config.opacity];
 
         let base_vertex = self.pending_polygon_vertices.len() as u16;
         let point_count = config.points.len();
@@ -1279,8 +1657,20 @@ impl RenderBackend for WgpuBackend {
         self.push_batch(BatchType::GradientRect, count);
     }
 
+    /// Routes the incoming vector path configuration by decomposing it into
+    /// two highly optimized, complementary GPU execution phases.
     fn draw_path(&mut self, config: PathConfig) {
-        self.tessellate_path(config);
+        // PHASE 1: Interior Geometry Rasterization (No Edges)
+        let has_fill = config.fill.rgba()[3] > 0.0 && config.opacity > 0.0;
+        if has_fill {
+            self.fill_path_complex(config.clone());
+        }
+
+        // PHASE 2: Boundary Wireframe Mesh Generation (No Fills)
+        let has_stroke = config.stroke_width > 0.0 && config.stroke.rgba()[3] > 0.0;
+        if has_stroke {
+            self.stroke_path(config);
+        }
     }
 
     fn draw_text(&mut self, config: TextConfig) {
