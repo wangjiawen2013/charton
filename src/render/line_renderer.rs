@@ -180,6 +180,7 @@ impl MarkRenderer for Chart<MarkLine> {
                     .into_iter()
                     .map(|(px, py)| (px as Precision, py as Precision))
                     .collect(),
+                fill: "none".into(),
                 stroke: color,
                 stroke_width: mark_config.stroke_width as Precision,
                 opacity: mark_config.opacity as Precision,

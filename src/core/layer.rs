@@ -12,13 +12,13 @@ use std::sync::Arc;
 /// Topology classification to guide the WGPU backend in selecting the optimal rendering pipeline.
 #[derive(Copy, Clone, Debug, PartialEq, Default)]
 pub enum PathTopology {
-    /// Simple point sequence without nested holes or complex self-intersections.
-    /// WGPU backend will process this via hardware streaming and dynamic WGSL shader extrusion.
+    /// Simple point sequence (lines, curves) without fills or complex self-intersections.
+    /// WGPU backend will process this via pure GPU normal extrusion (Stroke only).
     #[default]
     Simple,
 
-    /// Complex geometry containing holes, islands, or overlapping paths (e.g., GIS maps).
-    /// WGPU backend will process this via Ahead-Of-Time (AOT) tessellation and index caching.
+    /// Complex closed geometry containing concave shapes, holes, islands, or overlapping paths (e.g., GIS maps).
+    /// WGPU backend will process this via Stencil-Then-Cover (STC) dual-pass hardware filling.
     Complex,
 }
 
@@ -58,15 +58,15 @@ pub struct RectConfig {
     pub opacity: Precision,
 }
 
-pub struct PathConfig {
-    pub points: Vec<(Precision, Precision)>,
-    pub stroke: SingleColor,
-    pub stroke_width: Precision,
+pub struct LineConfig {
+    pub x1: Precision,
+    pub y1: Precision,
+    pub x2: Precision,
+    pub y2: Precision,
+    pub color: SingleColor,
+    pub width: Precision,
     pub opacity: Precision,
     pub dash: Vec<Precision>,
-
-    /// Lightweight structural hint to steer backend optimization path.
-    pub topology: PathTopology,
 }
 
 pub struct PolygonConfig {
@@ -74,8 +74,19 @@ pub struct PolygonConfig {
     pub fill: SingleColor,
     pub stroke: SingleColor,
     pub stroke_width: Precision,
-    pub fill_opacity: Precision,
-    pub stroke_opacity: Precision,
+    pub opacity: Precision,
+}
+
+pub struct PathConfig {
+    pub points: Vec<(Precision, Precision)>,
+    pub fill: SingleColor, // For simple topology, it's useless
+    pub stroke: SingleColor,
+    pub stroke_width: Precision,
+    pub opacity: Precision, // For simple topology, it's useless
+    pub dash: Vec<Precision>,
+
+    /// Lightweight structural hint to steer backend optimization path.
+    pub topology: PathTopology,
 }
 
 pub struct TextConfig {
@@ -90,17 +101,6 @@ pub struct TextConfig {
     pub font_weight: String,       // "normal", "bold", or numeric "400"
     pub opacity: Precision,
     pub angle: Precision, // Rotation angle in degrees
-}
-
-pub struct LineConfig {
-    pub x1: Precision,
-    pub y1: Precision,
-    pub x2: Precision,
-    pub y2: Precision,
-    pub color: SingleColor,
-    pub width: Precision,
-    pub opacity: Precision,
-    pub dash: Vec<Precision>,
 }
 
 ///

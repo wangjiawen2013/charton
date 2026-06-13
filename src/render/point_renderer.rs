@@ -525,8 +525,7 @@ impl Chart<MarkPoint> {
                     fill,
                     stroke,
                     stroke_width: stroke_width as Precision,
-                    fill_opacity: opacity as Precision,
-                    stroke_opacity: 1.0,
+                    opacity: opacity as Precision,
                 });
             }
         }

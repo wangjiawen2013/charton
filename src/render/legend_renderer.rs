@@ -481,8 +481,7 @@ impl LegendRenderer {
                         fill: *color,
                         stroke: SingleColor::new("none"),
                         stroke_width: 0.0,
-                        fill_opacity: 1.0,
-                        stroke_opacity: 1.0,
+                        opacity: 1.0,
                     });
                 } else {
                     // Final fallback to Circle if shape is undefined

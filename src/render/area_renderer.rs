@@ -181,8 +181,7 @@ impl MarkRenderer for Chart<MarkArea> {
                 fill: group_color,
                 stroke: SingleColor::none(),
                 stroke_width: 0.0,
-                fill_opacity: mark_config.opacity as Precision,
-                stroke_opacity: 0.0,
+                opacity: mark_config.opacity as Precision,
             });
 
             // Layer 2: Top Boundary Path (Stroke)
@@ -190,6 +189,7 @@ impl MarkRenderer for Chart<MarkArea> {
             if matches!(y_enc.stack, StackMode::None) {
                 backend.draw_path(PathConfig {
                     points: stroke_pts,
+                    fill: SingleColor::none(),
                     stroke: group_color,
                     stroke_width: mark_config.stroke_width as Precision,
                     opacity: 1.0,
@@ -229,6 +229,7 @@ impl Chart<MarkArea> {
                     (px1 as Precision, py1 as Precision),
                     (px2 as Precision, py2 as Precision),
                 ],
+                fill: SingleColor::none(),
                 stroke: SingleColor::from("#888888"),
                 stroke_width: 1.0,
                 opacity: 0.5,
