@@ -1,7 +1,7 @@
 use crate::Precision;
 use crate::core::layer::{
-    CircleConfig, GradientRectConfig, LineConfig, PathConfig, PolygonConfig, RectConfig,
-    RenderBackend, TextConfig,
+    CircleConfig, GradientRectConfig, LineConfig, PathConfig, PathTopology, PolygonConfig,
+    RectConfig, RenderBackend, TextConfig,
 };
 use crate::visual::color::SingleColor;
 use ab_glyph::{Font, FontArc, PxScale, ScaleFont};
@@ -179,12 +179,12 @@ impl<'a> RenderBackend for RasterBackend<'a> {
     }
 
     fn draw_path(&mut self, config: PathConfig) {
-        // 1. Early exit: Matches SVG backend logic
-        if config.points.is_empty() || config.stroke.is_none() {
+        // 1. Universal Early Exit: Abort only if there are no points or BOTH fill and stroke are missing.
+        if config.points.is_empty() || (config.fill.is_none() && config.stroke.is_none()) {
             return;
         }
 
-        // 2. Build Path
+        // 2. Build Path Geometry
         let mut pb = PathBuilder::new();
         for (i, (px, py)) in config.points.iter().enumerate() {
             if i == 0 {
@@ -194,28 +194,56 @@ impl<'a> RenderBackend for RasterBackend<'a> {
             }
         }
 
+        // ====================================================================
+        // OPTIMIZATION 1: Auto Path Closure for Areas
+        // ====================================================================
+        // If the topology is Complex (e.g., an area chart) or it has a fill color,
+        // explicitly close the path in tiny-skia to ensure perfect fill rendering.
+        if matches!(config.topology, PathTopology::Complex) || !config.fill.is_none() {
+            pb.close();
+        }
+
         if let Some(path) = pb.finish() {
-            // 3. Render Stroke (fill is "none" in SVG, so we only stroke)
-            if let Some(c) = self.to_skia_color(&config.stroke, config.opacity) {
-                let mut paint = Paint::default();
-                paint.set_color(c);
-                paint.anti_alias = true;
+            // ====================================================================
+            // OPTIMIZATION 2: Render Fill (Layer 1 equivalent)
+            // ====================================================================
+            if !config.fill.is_none() {
+                if let Some(c) = self.to_skia_color(&config.fill, config.opacity) {
+                    let mut paint = Paint::default();
+                    paint.set_color(c);
+                    paint.anti_alias = true; // Crucial for eliminating hairline seams
 
-                let mut stroke = Stroke {
-                    width: config.stroke_width,
-                    // IMPORTANT: Align with SVG's stroke-linejoin="round" and stroke-linecap="round"
-                    line_join: LineJoin::Round,
-                    line_cap: LineCap::Round,
-                    ..Default::default()
-                };
-
-                // 4. Handle Dash Array
-                if !config.dash.is_empty() {
-                    stroke.dash = tiny_skia::StrokeDash::new(config.dash, 0.0);
+                    // FillRule::Winding is the standard non-zero algorithm used by SVG
+                    self.pixmap
+                        .fill_path(&path, &paint, FillRule::Winding, self.transform, None);
                 }
+            }
 
-                self.pixmap
-                    .stroke_path(&path, &paint, &stroke, self.transform, None);
+            // ====================================================================
+            // OPTIMIZATION 3: Render Stroke (Layer 2 equivalent)
+            // ====================================================================
+            if !config.stroke.is_none() && config.stroke_width > 0.0 {
+                if let Some(c) = self.to_skia_color(&config.stroke, config.opacity) {
+                    let mut paint = Paint::default();
+                    paint.set_color(c);
+                    paint.anti_alias = true;
+
+                    let mut stroke = Stroke {
+                        width: config.stroke_width,
+                        // IMPORTANT: Align with SVG's stroke-linejoin="round" and stroke-linecap="round"
+                        line_join: LineJoin::Round,
+                        line_cap: LineCap::Round,
+                        ..Default::default()
+                    };
+
+                    // Handle Dash Array
+                    if !config.dash.is_empty() {
+                        stroke.dash = tiny_skia::StrokeDash::new(config.dash, 0.0);
+                    }
+
+                    self.pixmap
+                        .stroke_path(&path, &paint, &stroke, self.transform, None);
+                }
             }
         }
     }
