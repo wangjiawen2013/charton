@@ -1,8 +1,10 @@
-# WASM Runtime Rendering
+# Part 1: WASM CPU-Driven SVG Animation
 
-This chapter walks a complete beginner from zero to a real-time, color-gradient scatter plot running in the browser, powered by Rust and WebAssembly. The goal is to expose a `draw_wave()` function from Rust → returns an SVG string with a color gradient → JavaScript drives a smooth animation by replacing the SVG in the DOM at ~20–25 FPS.
+This chapter walks a complete beginner from zero to a real-time, animated scatter plot running in the browser, powered by Rust and WebAssembly.
 
-> Every frame is a brand‑new SVG computed by Rust in WebAssembly.
+The goal of this foundational stage is to understand the core Rust-to-WASM compilation pipeline. Here, we expose a `draw_wave()` function from Rust that utilizes the CPU to procedurally compute data points and serialize them into a standard SVG text string. JavaScript then drives the animation loop by continuously replacing the SVG markup inside the browser's DOM at an introductory ~20–25 FPS.
+
+> Architectural Note: Every single frame in this implementation is a brand‑new, heavy XML text string computed entirely on the CPU within the WebAssembly sandbox. While perfect for lightweight or static charting, this text-swapping approach serves as our baseline benchmark. It sets the stage for the true power of GPU hardware acceleration explored in Part 2.
 
 ## 0) Prerequisites
 

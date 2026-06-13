@@ -898,20 +898,16 @@ impl LayeredChart {
     ///
     /// chart.save("my_chart.svg")?; // Save as SVG file
     /// ```
+    ///
     pub fn save<P: AsRef<std::path::Path>>(&self, path: P) -> Result<(), ChartonError> {
-        // Convert to Path for file operations
         let path_obj = path.as_ref();
 
-        // Create parent directory if it doesn't exist
+        // Create parent directories if they do not exist
         if let Some(parent) = path_obj.parent().filter(|p| !p.exists()) {
-            std::fs::create_dir_all(parent).map_err(|e| {
-                ChartonError::Io(std::io::Error::other(format!(
-                    "Failed to create directory: {}",
-                    e
-                )))
-            })?;
+            std::fs::create_dir_all(parent).map_err(ChartonError::Io)?;
         }
 
+        // Extract and normalize the file extension
         let ext = path_obj
             .extension()
             .and_then(|e| e.to_str())
@@ -925,21 +921,15 @@ impl LayeredChart {
             Some("pdf") => {
                 #[cfg(feature = "pdf")]
                 {
-                    // Initialize default SVG parsing and rendering options.
                     let svg_content = self.to_svg()?;
                     let mut opts = svg2pdf::usvg::Options::default();
-
-                    // Assign the globally cached font database.
                     opts.fontdb = crate::core::utils::get_font_db();
 
-                    // 1. Parse the SVG string into a usvg Tree.
+                    // Parse the raw SVG string into a usvg render tree
                     let tree = svg2pdf::usvg::Tree::from_str(&svg_content, &opts)
                         .map_err(|e| ChartonError::Render(format!("SVG parsing error: {:?}", e)))?;
 
-                    // 2. Generate PDF bytes.
-                    // to_pdf is the preferred high-level API, allowing for specific
-                    // page and conversion settings. Default PageOptions will scale
-                    // the PDF page to match the SVG's viewBox/size.
+                    // Compile the tree into standard binary PDF bytes
                     let pdf_data = svg2pdf::to_pdf(
                         &tree,
                         svg2pdf::ConversionOptions::default(),
@@ -947,10 +937,8 @@ impl LayeredChart {
                     )
                     .map_err(|e| ChartonError::Render(format!("PDF generation error: {:?}", e)))?;
 
-                    // 3. Save the binary PDF data to the file system.
                     std::fs::write(path_obj, pdf_data).map_err(ChartonError::Io)?;
                 }
-
                 #[cfg(not(feature = "pdf"))]
                 {
                     return Err(ChartonError::Unimplemented(
@@ -959,19 +947,26 @@ impl LayeredChart {
                 }
             }
             Some("png") => {
-                #[cfg(feature = "png")]
+                // Branch 1: High-performance GPU-accelerated rendering via wgpu
+                #[cfg(all(feature = "wgpu", feature = "png"))]
                 {
-                    // Directly render to PNG bytes using the high-performance RasterBackend.
-                    let png_data = self.to_png()?;
+                    // Block on the async GPU pipeline to execute synchronously within this thread context
+                    pollster::block_on(self.save_wgpu_png(path_obj))?;
+                }
 
-                    // Write the binary data directly to the file system.
+                // Branch 2: Standard CPU-bound fallback rendering via tiny-skia
+                #[cfg(all(feature = "png", not(feature = "wgpu")))]
+                {
+                    let png_data = self.to_png()?;
                     std::fs::write(path_obj, png_data).map_err(ChartonError::Io)?;
                 }
+
+                // Branch 3: Guard rail triggered if no raster backends are active
                 #[cfg(not(feature = "png"))]
                 {
                     return Err(ChartonError::Unimplemented(
-                        "PNG support is disabled. Please enable the 'png' feature in Cargo.toml"
-                            .to_string(),
+                        "To save PNG images onto the local file system, you must also enable the 'png' feature."
+                        .to_string()
                     ));
                 }
             }
@@ -989,5 +984,463 @@ impl LayeredChart {
         }
 
         Ok(())
+    }
+
+    /// Shared core rendering path: render only GPU primitives, return text ledger for external compositing.
+    /// Architecture: WGPU = geometry only, text = deferred to caller
+    #[cfg(feature = "wgpu")]
+    async fn render_primitive_only(
+        &self,
+        backend: &mut crate::render::backend::wgpu::WgpuBackend,
+        target_view: &wgpu::TextureView,
+    ) -> Result<Vec<TextConfig>, ChartonError> {
+        // Reset backend state for a clean frame pass
+        backend.reset();
+        backend.collected_texts.clear();
+
+        let scaled_width = self.width as f32 * self.scale_factor;
+        let scaled_height = self.height as f32 * self.scale_factor;
+
+        // Base layer: Draw solid white background
+        backend.draw_rect(RectConfig {
+            x: 0.0,
+            y: 0.0,
+            width: scaled_width,
+            height: scaled_height,
+            fill: "#FFFFFF".into(),
+            stroke: "none".into(),
+            stroke_width: 0.0,
+            opacity: 1.0,
+        });
+
+        // Render all chart geometry (text marks are intercepted and deferred to backend.collected_texts)
+        let mut chart_clone = self.clone();
+        chart_clone.render(backend)?;
+
+        // Create or maintain a container.
+        // In highly interactive loops, you would pass this frame_ledger from the outer app context.
+        let mut frame_ledger = Vec::with_capacity(backend.collected_texts.len());
+
+        // Flush and populate the reusable frame_ledger
+        backend.flush_and_render(target_view, &mut frame_ledger);
+
+        Ok(frame_ledger)
+    }
+
+    /// Future-proof entry: render chart into an external WGPU texture view.
+    /// Expects an active backend instance passed from the host application (e.g., Bevy/egui system).
+    #[cfg(feature = "wgpu")]
+    pub async fn render_to_surface(
+        &self,
+        backend: &mut crate::render::backend::wgpu::WgpuBackend,
+        target_view: &wgpu::TextureView,
+    ) -> Result<Vec<TextConfig>, ChartonError> {
+        // Re-use external backend to avoid resource reallocation overhead in interactive loops
+        self.render_primitive_only(backend, target_view).await
+    }
+
+    /// Desktop/Headless: Render via WGPU and save to PNG with tiny-skia text compositing.
+    #[cfg(all(feature = "wgpu", feature = "png"))]
+    pub async fn save_wgpu_png<P: AsRef<std::path::Path>>(
+        &self,
+        path: P,
+    ) -> Result<(), ChartonError> {
+        use crate::render::backend::wgpu::WgpuBackend;
+
+        // 1. Initialize headless wgpu instance
+        let instance = wgpu::Instance::default();
+        let adapter = instance
+            .request_adapter(&wgpu::RequestAdapterOptions::default())
+            .await
+            .map_err(|_| ChartonError::Render("Failed to request wgpu adapter".to_string()))?;
+
+        let (device, queue) = adapter
+            .request_device(&wgpu::DeviceDescriptor::default())
+            .await
+            .map_err(|e| ChartonError::Render(format!("wgpu device error: {}", e)))?;
+
+        // 2. Create an off-screen texture with HiDPI scaling
+        let scaled_width = (self.width as f32 * self.scale_factor) as u32;
+        let scaled_height = (self.height as f32 * self.scale_factor) as u32;
+
+        let texture_size = wgpu::Extent3d {
+            width: scaled_width,
+            height: scaled_height,
+            depth_or_array_layers: 1,
+        };
+
+        let texture = device.create_texture(&wgpu::TextureDescriptor {
+            label: Some("Chart Texture"),
+            size: texture_size,
+            mip_level_count: 1,
+            sample_count: 1,
+            dimension: wgpu::TextureDimension::D2,
+            format: wgpu::TextureFormat::Rgba8Unorm,
+            usage: wgpu::TextureUsages::RENDER_ATTACHMENT | wgpu::TextureUsages::COPY_SRC,
+            view_formats: &[],
+        });
+
+        let view = texture.create_view(&wgpu::TextureViewDescriptor::default());
+
+        // 3. Initialize backend & render core primitives
+        let mut backend = WgpuBackend::new(
+            device.clone(),
+            queue.clone(),
+            self.width,
+            self.height,
+            self.scale_factor,
+        )
+        .await;
+
+        // Single pass generation: yields geometry on GPU and text ledger on CPU
+        let saved_texts = self.render_primitive_only(&mut backend, &view).await?;
+
+        // 4. Readback buffer setup
+        let bytes_per_pixel = 4;
+        let unpadded_bytes_per_row = scaled_width * bytes_per_pixel;
+        let align = wgpu::COPY_BYTES_PER_ROW_ALIGNMENT;
+        let padding = (align - unpadded_bytes_per_row % align) % align;
+        let padded_bytes_per_row = unpadded_bytes_per_row + padding;
+        let buffer_size = padded_bytes_per_row * scaled_height;
+
+        let buffer = device.create_buffer(&wgpu::BufferDescriptor {
+            label: Some("Readback Buffer"),
+            size: buffer_size as u64,
+            usage: wgpu::BufferUsages::COPY_DST | wgpu::BufferUsages::MAP_READ,
+            mapped_at_creation: false,
+        });
+
+        let mut encoder = device.create_command_encoder(&wgpu::CommandEncoderDescriptor::default());
+        encoder.copy_texture_to_buffer(
+            wgpu::TexelCopyTextureInfo {
+                aspect: wgpu::TextureAspect::All,
+                texture: &texture,
+                mip_level: 0,
+                origin: wgpu::Origin3d::ZERO,
+            },
+            wgpu::TexelCopyBufferInfo {
+                buffer: &buffer,
+                layout: wgpu::TexelCopyBufferLayout {
+                    offset: 0,
+                    bytes_per_row: Some(padded_bytes_per_row),
+                    rows_per_image: Some(scaled_height),
+                },
+            },
+            texture_size,
+        );
+        queue.submit(std::iter::once(encoder.finish()));
+
+        // 5. Map GPU buffer asynchronously and await synchronization fence
+        let buffer_slice = buffer.slice(..);
+        let (tx, rx) = std::sync::mpsc::channel();
+        buffer_slice.map_async(wgpu::MapMode::Read, move |result| {
+            let _ = tx.send(result);
+        });
+
+        // Block host thread until GPU fence execution guarantees data availability
+        let _ = device.poll(wgpu::PollType::Wait {
+            submission_index: None,
+            timeout: None,
+        });
+
+        rx.recv()
+            .unwrap()
+            .map_err(|e| ChartonError::Render(format!("Buffer mapping failed: {:?}", e)))?;
+
+        // 6. Convert raw texture pixels to tiny_skia compatible layout (BGRA Premultiplied)
+        let mut skia_pixels = Vec::with_capacity((scaled_width * scaled_height * 4) as usize);
+
+        {
+            // Explicit scope restricts raw pointer lifetime before unmapping the buffer
+            let raw_padded_data = buffer_slice.get_mapped_range();
+            for row in 0..scaled_height {
+                let start = (row * padded_bytes_per_row) as usize;
+                for col in 0..scaled_width as usize {
+                    let pixel_offset = start + (col * 4);
+                    let r = raw_padded_data[pixel_offset];
+                    let g = raw_padded_data[pixel_offset + 1];
+                    let b = raw_padded_data[pixel_offset + 2];
+                    let a = raw_padded_data[pixel_offset + 3];
+
+                    // Performance Fast-Path: Bypass floating-point arithmetic for fully opaque pixels
+                    if a == 255 {
+                        skia_pixels.push(r);
+                        skia_pixels.push(g);
+                        skia_pixels.push(b);
+                        skia_pixels.push(255);
+                    } else {
+                        let alpha_factor = a as f32 / 255.0;
+                        let premultiplied_r =
+                            (r as f32 * alpha_factor).round().clamp(0.0, 255.0) as u8;
+                        let premultiplied_g =
+                            (g as f32 * alpha_factor).round().clamp(0.0, 255.0) as u8;
+                        let premultiplied_b =
+                            (b as f32 * alpha_factor).round().clamp(0.0, 255.0) as u8;
+
+                        skia_pixels.push(premultiplied_r);
+                        skia_pixels.push(premultiplied_g);
+                        skia_pixels.push(premultiplied_b);
+                        skia_pixels.push(a);
+                    }
+                }
+            }
+        }
+        buffer.unmap();
+
+        // 7. Initialize tiny_skia CPU canvas wrapped over the WGPU raw pixel payload
+        let mut pixmap = tiny_skia::Pixmap::from_vec(
+            skia_pixels,
+            tiny_skia::IntSize::from_wh(scaled_width, scaled_height)
+                .ok_or_else(|| ChartonError::Render("Invalid dimensions for Pixmap".to_string()))?,
+        )
+        .ok_or_else(|| ChartonError::Render("Failed to create Pixmap from GPU data".to_string()))?;
+
+        // 8. Compositing layer: Draw ALL DEFERRED TEXT with tiny-skia (CPU)
+        {
+            let mut skia_backend =
+                crate::render::backend::raster::RasterBackend::new(&mut pixmap, self.scale_factor);
+
+            // Render text collected from the deferred ledger
+            for text_config in saved_texts {
+                skia_backend.draw_text(text_config);
+            }
+        }
+
+        // 9. Encode image and serialize to filesystem target
+        let png_bytes = pixmap
+            .encode_png()
+            .map_err(|e| ChartonError::Render(format!("PNG encoding failed: {}", e)))?;
+        std::fs::write(path, png_bytes).map_err(ChartonError::Io)?;
+
+        Ok(())
+    }
+
+    /// WASM/Web: Render to HTML Canvas using WGPU via cached virtual surface + native Canvas2D text compositing.
+    #[cfg(feature = "wgpu")]
+    pub async fn render_to_canvas(&self, canvas_id: &str) -> Result<(), ChartonError> {
+        #[cfg(target_arch = "wasm32")]
+        {
+            use crate::render::backend::wgpu::WgpuBackend;
+            use std::cell::RefCell;
+            use std::collections::HashMap;
+            use std::rc::Rc;
+            use wasm_bindgen::JsCast;
+            use web_sys::{CanvasRenderingContext2d, HtmlCanvasElement};
+
+            thread_local! {
+                /// Global thread-local cache to persist WebGPU contexts and prevent expensive re-initialization overhead on hot-reloads
+                static RENDER_CACHE: RefCell<HashMap<String, Rc<RenderState>>> = RefCell::new(HashMap::new());
+            }
+
+            struct RenderState {
+                surface: wgpu::Surface<'static>,
+                adapter: wgpu::Adapter,
+                device: wgpu::Device,
+                /// Allow dead_code warning. The queue reference must be explicitly held by the struct
+                /// to preserve its lifespan and prevent premature dropping of the WebGPU command queue.
+                #[allow(dead_code)]
+                queue: wgpu::Queue,
+                text_canvas: HtmlCanvasElement,
+                /// Persistent rendering backend pipeline cache to handle dynamic hot-reloads seamlessly
+                backend: RefCell<WgpuBackend>,
+            }
+
+            let window =
+                web_sys::window().ok_or_else(|| ChartonError::Render("No window found".into()))?;
+            let document = window
+                .document()
+                .ok_or_else(|| ChartonError::Render("No document found".into()))?;
+
+            let host_canvas = document
+                .get_element_by_id(canvas_id)
+                .ok_or_else(|| ChartonError::Render(format!("Canvas {} not found", canvas_id)))?
+                .dyn_into::<HtmlCanvasElement>()
+                .map_err(|_| ChartonError::Render("Element is not a canvas".into()))?;
+
+            let dpr = window.device_pixel_ratio();
+            let display_width = (self.width as f64 * dpr).round() as u32;
+            let display_height = (self.height as f64 * dpr).round() as u32;
+
+            // Enforce synchronized matching dimensions between HTML canvas bounds and underlying WebGPU buffer
+            host_canvas.set_width(display_width);
+            host_canvas.set_height(display_height);
+
+            let state = if let Some(cached) =
+                RENDER_CACHE.with(|c| c.borrow().get(canvas_id).cloned())
+            {
+                cached
+            } else {
+                // Initialize text overlay canvas if a cache miss occurs
+                let text_canvas = document
+                    .create_element("canvas")
+                    .map_err(|_| ChartonError::Render("Failed to create text canvas".into()))?
+                    .dyn_into::<HtmlCanvasElement>()
+                    .map_err(|_| ChartonError::Render("Text element is not a canvas".into()))?;
+
+                text_canvas.set_id(&format!("{}_text_layer", canvas_id));
+
+                let html_element = text_canvas
+                    .dyn_ref::<web_sys::HtmlElement>()
+                    .ok_or_else(|| ChartonError::Render("Failed to cast to HtmlElement".into()))?;
+
+                // Style configurations for matching overlay alignment and blending
+                html_element
+                    .style()
+                    .set_property("position", "absolute")
+                    .unwrap();
+                html_element.style().set_property("top", "0").unwrap();
+                html_element.style().set_property("left", "0").unwrap();
+                html_element.style().set_property("width", "100%").unwrap();
+                html_element.style().set_property("height", "100%").unwrap();
+                html_element
+                    .style()
+                    .set_property("pointer-events", "none")
+                    .unwrap();
+                html_element
+                    .style()
+                    .set_property("background", "transparent")
+                    .unwrap();
+
+                if let Some(parent) = host_canvas.parent_node() {
+                    parent.append_child(&text_canvas).unwrap();
+                }
+
+                let instance = wgpu::Instance::default();
+                let surface_target = wgpu::SurfaceTarget::Canvas(host_canvas.clone());
+                let surface = instance.create_surface(surface_target).map_err(|e| {
+                    ChartonError::Render(format!("Failed to create Web surface: {}", e))
+                })?;
+
+                let adapter = instance
+                    .request_adapter(&wgpu::RequestAdapterOptions {
+                        compatible_surface: Some(&surface),
+                        power_preference: wgpu::PowerPreference::HighPerformance,
+                        force_fallback_adapter: false,
+                    })
+                    .await
+                    .map_err(|e| ChartonError::Render(format!("GPU adapter err: {:?}", e)))?;
+
+                let (device, queue) = adapter
+                    .request_device(&wgpu::DeviceDescriptor::default())
+                    .await
+                    .map_err(|e| ChartonError::Render(format!("Device err: {}", e)))?;
+
+                // DPI Mapping Alignment: Explicitly supply both logical dimensions (self.width) and the
+                // device_pixel_ratio to avoid projection matrices compressing geometry into the top-left corner.
+                let backend = WgpuBackend::new(
+                    device.clone(),
+                    queue.clone(),
+                    self.width,
+                    self.height,
+                    dpr as f32,
+                )
+                .await;
+
+                let s = Rc::new(RenderState {
+                    surface,
+                    adapter,
+                    device,
+                    queue,
+                    text_canvas,
+                    backend: RefCell::new(backend),
+                });
+                RENDER_CACHE.with(|c| c.borrow_mut().insert(canvas_id.to_string(), s.clone()));
+                s
+            };
+
+            state.text_canvas.set_width(display_width);
+            state.text_canvas.set_height(display_height);
+
+            let caps = state.surface.get_capabilities(&state.adapter);
+
+            // Strict Pipeline Target Lock: Enforce a hardcoded Rgba8Unorm format constraint.
+            // Do not use the dynamic browser format fallback (caps.formats[0]) because the core
+            // wgpu.rs pipelines are heavily optimized and pre-compiled against Rgba8Unorm.
+            let config = wgpu::SurfaceConfiguration {
+                usage: wgpu::TextureUsages::RENDER_ATTACHMENT,
+                format: wgpu::TextureFormat::Rgba8Unorm,
+                width: display_width,
+                height: display_height,
+                present_mode: wgpu::PresentMode::AutoVsync,
+                alpha_mode: caps.alpha_modes[0],
+                view_formats: vec![],
+                desired_maximum_frame_latency: 2,
+            };
+            state.surface.configure(&state.device, &config);
+
+            let surface_texture = match state.surface.get_current_texture() {
+                wgpu::CurrentSurfaceTexture::Success(tex)
+                | wgpu::CurrentSurfaceTexture::Suboptimal(tex) => tex,
+                other => {
+                    return Err(ChartonError::Render(format!(
+                        "Surface texture error: {:?}",
+                        other
+                    )));
+                }
+            };
+
+            let view = surface_texture
+                .texture
+                .create_view(&wgpu::TextureViewDescriptor::default());
+
+            // Borrow the fully warm and cached pipeline backend instance
+            let mut backend = state.backend.borrow_mut();
+
+            // Render primitive geometry directly to the GPU core buffer
+            let text_ledger = self.render_primitive_only(&mut backend, &view).await?;
+            surface_texture.present();
+
+            let ctx = state
+                .text_canvas
+                .get_context("2d")
+                .map_err(|e| ChartonError::Render(format!("Could not get 2D context: {:?}", e)))?
+                .ok_or_else(|| ChartonError::Render("2D context unavailable".into()))?
+                .dyn_into::<CanvasRenderingContext2d>()
+                .map_err(|_| ChartonError::Render("Failed to cast 2D context".into()))?;
+
+            ctx.clear_rect(0.0, 0.0, display_width as f64, display_height as f64);
+            ctx.save();
+            let _ = ctx.scale(dpr, dpr);
+
+            // Execute the native high-performance Canvas2D HTML text rendering pass
+            for config in text_ledger {
+                let font = format!(
+                    "{} {}px {}",
+                    config.font_weight, config.font_size, config.font_family
+                );
+                ctx.set_font(&font);
+
+                let color_str = config.color.to_css_string();
+                #[allow(deprecated)]
+                ctx.set_fill_style(&color_str.into());
+
+                match config.text_anchor.as_str() {
+                    "start" | "left" => ctx.set_text_align("left"),
+                    "end" | "right" => ctx.set_text_align("right"),
+                    _ => ctx.set_text_align("center"),
+                }
+
+                match config.dominant_baseline.as_str() {
+                    "hanging" | "top" => ctx.set_text_baseline("top"),
+                    "alphabetic" | "bottom" => ctx.set_text_baseline("bottom"),
+                    _ => ctx.set_text_baseline("middle"),
+                }
+
+                ctx.fill_text(&config.text, config.x as f64, config.y as f64)
+                    .map_err(|e| ChartonError::Render(format!("fill_text failed: {:?}", e)))?;
+            }
+
+            ctx.restore();
+
+            Ok(())
+        }
+
+        #[cfg(not(target_arch = "wasm32"))]
+        {
+            let _ = canvas_id;
+            Err(ChartonError::Render(
+                "render_to_canvas is only supported on WebAssembly platforms".into(),
+            ))
+        }
     }
 }

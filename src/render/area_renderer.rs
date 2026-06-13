@@ -2,7 +2,7 @@ use crate::Precision;
 use crate::TEMP_SUFFIX;
 use crate::chart::Chart;
 use crate::core::context::PanelContext;
-use crate::core::layer::{MarkRenderer, PathConfig, PolygonConfig, RenderBackend};
+use crate::core::layer::{MarkRenderer, PathConfig, PathTopology, PolygonConfig, RenderBackend};
 use crate::core::utils::Parallelizable;
 use crate::encode::y::StackMode;
 use crate::error::ChartonError;
@@ -194,6 +194,9 @@ impl MarkRenderer for Chart<MarkArea> {
                     stroke_width: mark_config.stroke_width as Precision,
                     opacity: 1.0,
                     dash: mark_config.dash.iter().map(|&d| d as Precision).collect(),
+                    // Explicitly define it as Simple topology for pure GPU line extrusion.
+                    // This tells the WGPU backend to bypass any complex CPU tessellation libraries.
+                    topology: PathTopology::Simple,
                 });
             }
         }
@@ -230,6 +233,7 @@ impl Chart<MarkArea> {
                 stroke_width: 1.0,
                 opacity: 0.5,
                 dash: vec![4.0, 4.0],
+                topology: PathTopology::Simple,
             });
         }
     }
