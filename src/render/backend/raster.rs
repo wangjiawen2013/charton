@@ -240,7 +240,7 @@ impl<'a> RenderBackend for RasterBackend<'a> {
 
         if let Some(path) = pb.finish() {
             // 3. Render Fill: Use fill_opacity
-            if let Some(c) = self.to_skia_color(&config.fill, config.fill_opacity) {
+            if let Some(c) = self.to_skia_color(&config.fill, config.opacity) {
                 let mut paint = Paint::default();
                 paint.set_color(c);
                 paint.anti_alias = true;
@@ -248,8 +248,8 @@ impl<'a> RenderBackend for RasterBackend<'a> {
                     .fill_path(&path, &paint, FillRule::Winding, self.transform, None);
             }
 
-            // 4. Render Stroke: Use stroke_opacity
-            if let Some(c) = self.to_skia_color(&config.stroke, config.stroke_opacity) {
+            // 4. Render Stroke: stroke-opacity is intentionally 1.0 to match SVG behavior
+            if let Some(c) = self.to_skia_color(&config.stroke, 1.0) {
                 let mut paint = Paint::default();
                 paint.set_color(c);
                 paint.anti_alias = true;

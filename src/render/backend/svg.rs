@@ -137,13 +137,14 @@ impl<'a> RenderBackend for SvgBackend<'a> {
     fn draw_path(&mut self, config: PathConfig) {
         let PathConfig {
             points,
+            fill,
             stroke,
             stroke_width,
             opacity,
             dash,
             topology: _,
         } = config;
-        if points.is_empty() || stroke.is_none() {
+        if points.is_empty() || (fill.is_none() && stroke.is_none()) {
             return;
         }
 
@@ -179,8 +180,7 @@ impl<'a> RenderBackend for SvgBackend<'a> {
             fill,
             stroke,
             stroke_width,
-            fill_opacity,
-            stroke_opacity,
+            opacity,
         } = config;
         if points.is_empty() {
             return;
@@ -203,8 +203,8 @@ impl<'a> RenderBackend for SvgBackend<'a> {
         self.write_color(&stroke);
         let _ = write!(
             self.buffer,
-            r#"" stroke-width="{:.3}" fill-opacity="{:.3}" stroke-opacity="{:.3}""#,
-            stroke_width, fill_opacity, stroke_opacity
+            r#"" stroke-width="{:.3}" fill-opacity="{:.3}""#,
+            stroke_width, opacity
         );
         self.write_clip_attr();
         let _ = self.buffer.write_str(" />\n");

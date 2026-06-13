@@ -192,8 +192,7 @@ impl MarkRenderer for Chart<MarkBar> {
                     .stroke_width
                     .unwrap_or(hints.default_bar_stroke_width)
                     as Precision,
-                fill_opacity: mark_config.opacity as Precision,
-                stroke_opacity: mark_config.opacity as Precision,
+                opacity: mark_config.opacity as Precision,
             });
 
             // E: Labels for Pie
