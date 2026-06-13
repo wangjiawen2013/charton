@@ -117,27 +117,27 @@ impl<'a> RenderBackend for RasterBackend<'a> {
         pb.move_to(config.x1, config.y1);
         pb.line_to(config.x2, config.y2);
 
-        if let Some(path) = pb.finish() {
-            if let Some(c) = self.to_skia_color(&config.color, config.opacity) {
-                let mut paint = Paint::default();
-                paint.set_color(c);
-                paint.anti_alias = true;
+        if let Some(path) = pb.finish()
+            && let Some(c) = self.to_skia_color(&config.color, config.opacity)
+        {
+            let mut paint = Paint::default();
+            paint.set_color(c);
+            paint.anti_alias = true;
 
-                let mut stroke = Stroke {
-                    width: config.width,
-                    line_cap: LineCap::Butt, // Aligns with SVG default
-                    ..Default::default()
-                };
+            let mut stroke = Stroke {
+                width: config.width,
+                line_cap: LineCap::Butt, // Aligns with SVG default
+                ..Default::default()
+            };
 
-                // 2. Handle dash array for dashed lines (e.g., grid lines)
-                if !config.dash.is_empty() {
-                    // Use the existing dash Vec directly
-                    stroke.dash = tiny_skia::StrokeDash::new(config.dash, 0.0);
-                }
-
-                self.pixmap
-                    .stroke_path(&path, &paint, &stroke, self.transform, None);
+            // 2. Handle dash array for dashed lines (e.g., grid lines)
+            if !config.dash.is_empty() {
+                // Use the existing dash Vec directly
+                stroke.dash = tiny_skia::StrokeDash::new(config.dash, 0.0);
             }
+
+            self.pixmap
+                .stroke_path(&path, &paint, &stroke, self.transform, None);
         }
     }
 
@@ -276,8 +276,8 @@ impl<'a> RenderBackend for RasterBackend<'a> {
         let scale = PxScale::from(config.font_size);
         let scaled_font = font.as_scaled(scale);
 
-        let anchor_x = config.x as f32;
-        let anchor_y = config.y as f32;
+        let anchor_x = config.x;
+        let anchor_y = config.y;
 
         // 1. Strictly calculate horizontal width (used for text-anchor)
         let width = self.get_precise_width(&config.text, scale, &font);
@@ -318,7 +318,7 @@ impl<'a> RenderBackend for RasterBackend<'a> {
         if config.angle != 0.0 {
             global_transform = global_transform
                 .pre_translate(anchor_x, anchor_y)
-                .pre_rotate(config.angle as f32)
+                .pre_rotate(config.angle)
                 .pre_translate(-anchor_x, -anchor_y);
         }
 
@@ -330,8 +330,8 @@ impl<'a> RenderBackend for RasterBackend<'a> {
         paint.set_color(base_color);
         paint.anti_alias = true;
 
-        let units_per_em = font.units_per_em().unwrap_or(1000.0) as f32;
-        let font_to_px = (config.font_size as f32) / units_per_em;
+        let units_per_em = font.units_per_em().unwrap_or(1000.0);
+        let font_to_px = config.font_size / units_per_em;
 
         let mut last_glyph_id = None;
 
@@ -409,8 +409,10 @@ impl<'a> RenderBackend for RasterBackend<'a> {
         } = config;
 
         if let Some(rect) = SkiaRect::from_xywh(x, y, width, height) {
-            let mut paint = Paint::default();
-            paint.anti_alias = true;
+            let mut paint = Paint {
+                anti_alias: true,
+                ..Default::default()
+            };
 
             // 1. Prepare Gradient Stops
             let skia_stops: Vec<tiny_skia::GradientStop> = stops
@@ -418,7 +420,7 @@ impl<'a> RenderBackend for RasterBackend<'a> {
                 .filter_map(|(offset, color)| {
                     // Reuse the to_skia_color helper (opacity 1.0 for gradients usually)
                     self.to_skia_color(&color, 1.0)
-                        .map(|c| tiny_skia::GradientStop::new(offset as f32, c))
+                        .map(|c| tiny_skia::GradientStop::new(offset, c))
                 })
                 .collect();
 

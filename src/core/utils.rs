@@ -157,23 +157,19 @@ pub(crate) fn get_raster_font(family: &str) -> FontArc {
         style: fontdb::Style::Normal,
     };
 
-    if let Some(id) = sys_db.query(&query) {
-        if let Some(face_info) = sys_db.face(id) {
-            // Check if the font source is a file and read it
-            if let fontdb::Source::File(ref path) = face_info.source {
-                if let Ok(font_data) = std::fs::read(path) {
-                    // Parse the font data into an AbGlyph FontArc
-                    if let Ok(font) = FontArc::try_from_vec(font_data) {
-                        // Cache it for future requests
-                        map.insert(family.to_lowercase(), font.clone());
-                        return font;
-                    }
-                }
-            }
-        }
+    // Try to find the font in the system database and load it
+    if let Some(id) = sys_db.query(&query)
+        && let Some(face_info) = sys_db.face(id)
+        && let fontdb::Source::File(ref path) = face_info.source
+        && let Ok(font_data) = std::fs::read(path)
+        && let Ok(font) = FontArc::try_from_vec(font_data)
+    {
+        // Cache it for future requests
+        map.insert(family.to_lowercase(), font.clone());
+        return font;
     }
 
-    // 3. Fallback: If system font not found or failed to load, use sans-serif (Inter)
+    // Fallback: If system font not found or failed to load, use sans-serif (Inter)
     if let Some(font) = map.get("sans-serif") {
         return font.clone();
     }

@@ -571,7 +571,7 @@ impl WgpuBackend {
     ) -> wgpu::RenderPipeline {
         let pipeline_layout = device.create_pipeline_layout(&wgpu::PipelineLayoutDescriptor {
             label: Some("Circle Pipeline Layout"),
-            bind_group_layouts: &[Some(&global_layout), Some(&instance_layout)],
+            bind_group_layouts: &[Some(global_layout), Some(instance_layout)],
             immediate_size: 0,
         });
 
@@ -618,7 +618,7 @@ impl WgpuBackend {
     ) -> wgpu::RenderPipeline {
         let pipeline_layout = device.create_pipeline_layout(&wgpu::PipelineLayoutDescriptor {
             label: Some("Line Pipeline Layout"),
-            bind_group_layouts: &[Some(&global_layout), Some(&instance_layout)],
+            bind_group_layouts: &[Some(global_layout), Some(instance_layout)],
             immediate_size: 0,
         });
 
@@ -665,7 +665,7 @@ impl WgpuBackend {
     ) -> wgpu::RenderPipeline {
         let pipeline_layout = device.create_pipeline_layout(&wgpu::PipelineLayoutDescriptor {
             label: Some("Rect Pipeline Layout"),
-            bind_group_layouts: &[Some(&global_layout), Some(&instance_layout)],
+            bind_group_layouts: &[Some(global_layout), Some(instance_layout)],
             immediate_size: 0,
         });
 
@@ -711,7 +711,7 @@ impl WgpuBackend {
     ) -> wgpu::RenderPipeline {
         let pipeline_layout = device.create_pipeline_layout(&wgpu::PipelineLayoutDescriptor {
             label: Some("Polygon Pipeline Layout"),
-            bind_group_layouts: &[Some(&global_layout)],
+            bind_group_layouts: &[Some(global_layout)],
             immediate_size: 0,
         });
 
@@ -758,7 +758,7 @@ impl WgpuBackend {
     ) -> wgpu::RenderPipeline {
         let pipeline_layout = device.create_pipeline_layout(&wgpu::PipelineLayoutDescriptor {
             label: Some("Gradient Rect Pipeline Layout"),
-            bind_group_layouts: &[Some(&global_layout), Some(&instance_layout)],
+            bind_group_layouts: &[Some(global_layout), Some(instance_layout)],
             immediate_size: 0,
         });
 
@@ -1176,7 +1176,7 @@ impl RenderBackend for WgpuBackend {
 
         for &(x, y) in &config.points {
             self.pending_polygon_vertices.push(PathVertex {
-                position: [x as f32, y as f32],
+                position: [x, y],
                 color,
                 is_fill: 1.0,
             });
@@ -1205,10 +1205,10 @@ impl RenderBackend for WgpuBackend {
         if config.stops.len() == 1 {
             let start_rgba = config.stops[0].1.rgba();
             let grad_rect = GpuGradientRect {
-                x: config.x as f32,
-                y: config.y as f32,
-                width: config.width as f32,
-                height: config.height as f32,
+                x: config.x,
+                y: config.y,
+                width: config.width,
+                height: config.height,
                 start_r: start_rgba[0],
                 start_g: start_rgba[1],
                 start_b: start_rgba[2],
@@ -1251,10 +1251,10 @@ impl RenderBackend for WgpuBackend {
             let end_rgba = color2.rgba();
 
             let grad_rect = GpuGradientRect {
-                x: sub_x as f32,
-                y: sub_y as f32,
-                width: sub_width as f32,
-                height: sub_height as f32,
+                x: sub_x,
+                y: sub_y,
+                width: sub_width,
+                height: sub_height,
                 start_r: start_rgba[0],
                 start_g: start_rgba[1],
                 start_b: start_rgba[2],
