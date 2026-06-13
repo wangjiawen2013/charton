@@ -77,6 +77,7 @@ pub struct PolygonConfig {
     pub opacity: Precision,
 }
 
+#[derive(Clone, Debug)]
 pub struct PathConfig {
     pub points: Vec<(Precision, Precision)>,
     pub fill: SingleColor, // For simple topology, it's useless
