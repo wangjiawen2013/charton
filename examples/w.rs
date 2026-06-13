@@ -13,7 +13,7 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
         .mark_point()?
         .encode((alt::x("x"), alt::y("y")))?
         .with_title(format!("Performance Test: {} Points", ds.height()))
-        .save("stress_test.svg")?;
+        .save("stress_test.png")?;
 
     let duration = start.elapsed();
 
@@ -27,7 +27,7 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
 
 /// 构建一万个点的压力测试数据集
 pub fn get_10k_dataset() -> Result<Dataset, ChartonError> {
-    let count = 1000;
+    let count = 2_000_000;
 
     // 1. 使用迭代器生成 X 轴数据 (0.0, 0.01, 0.02 ... 99.99)
     let x: Vec<f64> = (0..count).map(|i| i as f64 * 0.01).collect();

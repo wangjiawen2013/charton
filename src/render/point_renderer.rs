@@ -82,7 +82,9 @@ impl MarkRenderer for Chart<MarkPoint> {
         });
 
         // --- STEP 3: LAYOUT EXECUTION ---
-        let render_configs: Vec<PointElementConfig> = match mark_config.layout {
+        // Note: We now return a tuple of (row_index, PointElementConfig) to retain
+        // the mapping between the calculated geometry and its original row in the dataset.
+        let render_configs: Vec<(usize, PointElementConfig)> = match mark_config.layout {
             PointLayout::Beeswarm => {
                 // BEESWARM: Stateful collision resolution
                 self.resolve_beeswarm_layout(
@@ -146,24 +148,59 @@ impl MarkRenderer for Chart<MarkPoint> {
                             }
                         }
 
-                        Some(self.build_element_config(
+                        // Return the original row index 'i' alongside the config
+                        Some((
                             i,
-                            px,
-                            py,
-                            &color_norms,
-                            &size_norms,
-                            &shape_norms,
-                            context,
-                            mark_config,
+                            self.build_element_config(
+                                i,
+                                px,
+                                py,
+                                &color_norms,
+                                &size_norms,
+                                &shape_norms,
+                                context,
+                                mark_config,
+                            ),
                         ))
                     })
                     .collect()
             }
         };
 
-        // --- STEP 4: EMIT ---
-        for config in render_configs {
-            self.emit_draw_call(backend, config);
+        // --- STEP 4: GROUPING & EMISSION ---
+        // Determine the field to group by for deterministic Z-indexing and WGPU batching.
+        // We prioritize Color, then Shape. If neither is mapped, group_by(None) will
+        // put all points in a single, massive continuous batch.
+        let group_field = context
+            .spec
+            .aesthetics
+            .color
+            .as_ref()
+            .map(|c| &c.field)
+            .or_else(|| context.spec.aesthetics.shape.as_ref().map(|s| &s.field));
+
+        // group_by guarantees "First Appearance" order.
+        let grouped_indices = df_source.group_by(group_field.map(|s| s.as_str()));
+
+        // Create a fast lookup table to map row indices to their computed rendering configs.
+        // We use repeat_with to avoid requiring the Clone trait on PointElementConfig.
+        let mut config_lookup: Vec<Option<PointElementConfig>> =
+            std::iter::repeat_with(|| None).take(row_count).collect();
+
+        for (i, config) in render_configs {
+            config_lookup[i] = Some(config);
+        }
+
+        // Emit draw calls sequentially by group.
+        // This ensures identical shapes/colors are drawn contiguously, massively reducing
+        // pipeline state changes (Draw Calls) in the WGPU backend via interleaved batching.
+        for (_group_key, row_indices) in grouped_indices.groups {
+            for &idx in &row_indices {
+                // take() moves the value out, leaving None, which is perfectly safe and fast.
+                if let Some(config) = config_lookup[idx].take() {
+                    self.emit_draw_call(backend, config);
+                }
+            }
         }
 
         Ok(())
@@ -186,7 +223,8 @@ impl Chart<MarkPoint> {
         unit_step_norm: f64,
         context: &PanelContext,
         mark_config: &MarkPoint,
-    ) -> Vec<PointElementConfig> {
+    ) -> Vec<(usize, PointElementConfig)> {
+        // Signature updated to return the row index
         let mut configs = Vec::with_capacity(row_count);
         let mut occupancy: std::collections::HashMap<(usize, usize), Vec<(f64, f64, f64)>> =
             std::collections::HashMap::new();
@@ -305,15 +343,20 @@ impl Chart<MarkPoint> {
             };
 
             siblings.push((final_px, final_py, size));
-            configs.push(self.build_element_config(
+
+            // Push the config wrapped in a tuple with its row index 'i'
+            configs.push((
                 i,
-                final_px,
-                final_py,
-                color_norms,
-                size_norms,
-                shape_norms,
-                context,
-                mark_config,
+                self.build_element_config(
+                    i,
+                    final_px,
+                    final_py,
+                    color_norms,
+                    size_norms,
+                    shape_norms,
+                    context,
+                    mark_config,
+                ),
             ));
         }
         configs
