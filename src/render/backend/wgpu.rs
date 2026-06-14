@@ -7,7 +7,7 @@
 
 use crate::core::layer::{
     CircleConfig, GradientRectConfig, LineConfig, PathConfig, PolygonConfig, RectConfig,
-    RenderBackend, TextConfig,
+    PathTopology, TextConfig, RenderBackend,
 };
 use bytemuck::{Pod, Zeroable};
 use wgpu::util::DeviceExt;
@@ -1542,37 +1542,76 @@ impl RenderBackend for WgpuBackend {
     }
 
     fn draw_polygon(&mut self, config: PolygonConfig) {
+        // A valid polygon requires at least 3 vertices to form an enclosed area
         if config.points.len() < 3 {
             return;
         }
 
-        let fill = config.fill.rgba();
-        let color = [fill[0], fill[1], fill[2], fill[3] * config.opacity];
+        // ====================================================================
+        // LAYER 1: Fill Phase - Tessellation via Triangle Fan
+        // ====================================================================
+        // Only process fill geometry if the alpha channel is greater than zero
+        if config.fill.rgba()[3] > 0.0 {
+            let fill = config.fill.rgba();
+            // Premultiply the layer's global opacity with the fill color's alpha channel
+            let color = [fill[0], fill[1], fill[2], fill[3] * config.opacity];
 
-        let base_vertex = self.pending_polygon_vertices.len() as u16;
-        let point_count = config.points.len();
+            // Record the starting index in the vertex buffer to calculate local index offsets
+            let base_vertex = self.pending_polygon_vertices.len() as u16;
+            let point_count = config.points.len();
 
-        for &(x, y) in &config.points {
-            self.pending_polygon_vertices.push(PathVertex {
-                position: [x, y],
-                color,
-                is_fill: 1.0,
+            // Push polygon coordinates into the vertex buffer
+            for &(x, y) in &config.points {
+                self.pending_polygon_vertices.push(PathVertex {
+                    position: [x, y],
+                    color,
+                    is_fill: 1.0, // Flag indicating this vertex belongs to a fill mesh
+                });
+            }
+
+            // Generate Index Buffer using a Triangle Fan topology (suitable for convex polygons)
+            let mut indices = Vec::new();
+            for i in 1..point_count - 1 {
+                indices.extend([
+                    base_vertex,
+                    base_vertex + i as u16,
+                    base_vertex + (i + 1) as u16,
+                ]);
+            }
+
+            let index_count = indices.len() as u32;
+            self.pending_polygon_indices.extend(indices);
+            self.current_polygon_index_count += index_count;
+            
+            // Dispatch a draw batch for the fill geometry
+            self.push_batch(BatchType::Polygon, index_count);
+        }
+
+        // ====================================================================
+        // LAYER 2: Stroke Phase - Reusing the GPU-Driven Vector Extrusion Pipeline
+        // ====================================================================
+        // Only render the stroke if both the width and alpha channel are valid
+        if config.stroke_width > 0.0 && config.stroke.rgba()[3] > 0.0 {
+            let mut closed_points = config.points.clone();
+            
+            // CRITICAL DETAILS: The linear path extrusion pipeline treats inputs as open polylines.
+            // To properly close the polygon, we must duplicate and append the first vertex to the 
+            // end of the array, forcing the final segment to connect back to the start.
+            if let Some(&first_pt) = config.points.first() {
+                closed_points.push(first_pt);
+            }
+
+            // Route the closed boundary path directly to the robust stroke pipeline
+            self.stroke_path(PathConfig {
+                points: closed_points,
+                fill: "none".into(), // Clear fill to avoid redundant rendering
+                stroke: config.stroke,
+                stroke_width: config.stroke_width,
+                opacity: config.opacity,
+                dash: vec![], // Polygons typically use a solid stroke pattern
+                topology: PathTopology::Simple,
             });
         }
-
-        let mut indices = Vec::new();
-        for i in 1..point_count - 1 {
-            indices.extend([
-                base_vertex,
-                base_vertex + i as u16,
-                base_vertex + (i + 1) as u16,
-            ]);
-        }
-
-        let index_count = indices.len() as u32;
-        self.pending_polygon_indices.extend(indices);
-        self.current_polygon_index_count += index_count;
-        self.push_batch(BatchType::Polygon, index_count);
     }
 
     fn draw_gradient_rect(&mut self, config: GradientRectConfig) {
