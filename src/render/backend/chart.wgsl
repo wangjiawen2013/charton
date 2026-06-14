@@ -173,6 +173,8 @@ struct GradientRectOutput {
 struct PathOutput {
     @builtin(position) clip_pos: vec4<f32>,
     @location(0) color: vec4<f32>,
+    @location(1) v_offset: f32,
+    @location(2) half_width: f32,
 };
 
 
@@ -472,7 +474,6 @@ fn path_simple_vs(
     let p0 = path_points[p0_idx];
     let p1 = path_points[p1_idx];
 
-    // Data verification: collapse broken triangles safely
     if (p0.x != p0.x || p0.y != p0.y || p1.x != p1.x || p1.y != p1.y) {
         var out: PathOutput;
         out.clip_pos = vec4<f32>(0.0, 0.0, 0.0, 0.0);
@@ -481,7 +482,6 @@ fn path_simple_vs(
 
     let delta = vec2<f32>(p1.x - p0.x, p1.y - p0.y);
     var current_dir = normalize(delta);
-    
     if (length(delta) == 0.0) {
         current_dir = vec2<f32>(1.0, 0.0);
     }
@@ -494,29 +494,49 @@ fn path_simple_vs(
         case 0u: { raw_pos = vec2(p0.x, p0.y); extrusion_side =  1.0; }  
         case 1u: { raw_pos = vec2(p0.x, p0.y); extrusion_side = -1.0; } 
         case 2u: { raw_pos = vec2(p1.x, p1.y); extrusion_side =  1.0; }  
-        
         case 3u: { raw_pos = vec2(p1.x, p1.y); extrusion_side =  1.0; }  
         case 4u: { raw_pos = vec2(p0.x, p0.y); extrusion_side = -1.0; } 
         case 5u: { raw_pos = vec2(p1.x, p1.y); extrusion_side = -1.0; } 
         default: {}
     }
 
-    let ext_pos = raw_pos + normal * (path_style.thickness * 0.5 * extrusion_side);
     let scale = uniforms.scale_factor;
-    let screen_pos = ext_pos * scale;
+    
+    // Screen-space over-extrusion for anti-aliasing
+    let actual_half_width = path_style.thickness * 0.5 * scale;
+    let aa_padding = 1.5; // Extra 1.5 pixels extrusion as fade buffer for anti-aliasing
+    let total_extruding = actual_half_width + aa_padding;
+
+    // Separate base coordinate and extrusion vector to ensure accurate line thickness in screen pixel space
+    let screen_pos_base = raw_pos * scale;
+    let screen_offset = normal * (total_extruding * extrusion_side);
+    let screen_pos = screen_pos_base + screen_offset;
+
     let sw = uniforms.screen_width * scale;
     let sh = uniforms.screen_height * scale;
-
     let ndc_x = (screen_pos.x / sw) * 2.0 - 1.0;
     let ndc_y = 1.0 - (screen_pos.y / sh) * 2.0;
 
     var out: PathOutput;
     out.clip_pos = vec4<f32>(ndc_x, ndc_y, 0.0, 1.0);
     out.color = vec4<f32>(path_style.r, path_style.g, path_style.b, path_style.a);
+    // Pass offset and actual target width to fragment shader for SDF clipping
+    out.v_offset = total_extruding * extrusion_side; 
+    out.half_width = actual_half_width;
     return out;
 }
 
 @fragment
 fn path_simple_fs(in: PathOutput) -> @location(0) vec4<f32> {
-    return in.color;
+    // Calculate distance from current pixel to the logical edge of the line segment
+    let dist = abs(in.v_offset) - in.half_width;
+    
+    // Create a precise 0.5 pixel physical anti-aliasing fade
+    let aa = fwidth(dist) * 0.5; 
+    let alpha = 1.0 - smoothstep(-aa, aa, dist);
+    
+    // Discard fully transparent redundant pixels
+    if (alpha <= 0.01) { discard; }
+    
+    return vec4<f32>(in.color.r, in.color.g, in.color.b, in.color.a * alpha);
 }
