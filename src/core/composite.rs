@@ -682,11 +682,19 @@ impl LayeredChart {
         // 4a. Initialize the Primary Panel Context.
         let primary_panel_ctx = PanelContext::new(&spec, coord.clone(), panel);
 
-        // 4b. Render Chart Title.
+        // 4b. Render grid lines
+
+        // 4c. Render Chart Title.
         // Title is typically global to the entire chart canvas.
         self.render_title(backend, &primary_panel_ctx.panel)?;
 
-        // 4c. Render Axes (X and Y).
+        // 4d. Render Marks (Data Geometries).
+        for layer in &self.layers {
+            // Each layer renders its marks within the provided PanelContext.
+            layer.render_marks(backend, &primary_panel_ctx)?;
+        }
+
+        // 4e. Render Axes (X and Y).
         // Only render axes if the theme allows and at least one layer requires them.
         if self.theme.show_axes && self.layers.iter().any(|l| l.requires_axes()) {
             let x_label = coord.get_x_label();
@@ -706,13 +714,7 @@ impl LayeredChart {
             )?;
         }
 
-        // 4d. Render Marks (Data Geometries).
-        for layer in &self.layers {
-            // Each layer renders its marks within the provided PanelContext.
-            layer.render_marks(backend, &primary_panel_ctx)?;
-        }
-
-        // 4e. Render Unified Legends & Guides.
+        // 4f. Render Unified Legends & Guides.
         // Legends are rendered globally, using the ChartSpec for visual rules.
         crate::render::legend_renderer::LegendRenderer::render_legend(
             backend,
