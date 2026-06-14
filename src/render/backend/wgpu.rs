@@ -6,7 +6,7 @@
 //! - @group(1): Isolated Instance Data (Exclusive storage buffers per pipeline)
 
 use crate::core::layer::{
-    CircleConfig, GradientRectConfig, LineConfig, PathConfig, PathTopology, PolygonConfig,
+    CircleConfig, GradientRectConfig, LineConfig, PathConfig, PolygonConfig,
     RectConfig, RenderBackend, TextConfig,
 };
 use bytemuck::{Pod, Zeroable};
@@ -1541,6 +1541,7 @@ impl RenderBackend for WgpuBackend {
         self.push_batch(BatchType::Line, 1);
     }
 
+    /// Draws a fully enclosed polygon primitive by sequentially generating its interior fill mesh and boundary stroke.
     fn draw_polygon(&mut self, config: PolygonConfig) {
         // A valid polygon requires at least 3 vertices to form an enclosed area
         if config.points.len() < 3 {
@@ -1588,29 +1589,54 @@ impl RenderBackend for WgpuBackend {
         }
 
         // ====================================================================
-        // LAYER 2: Stroke Phase - Reusing the GPU-Driven Vector Extrusion Pipeline
+        // LAYER 2: Stroke Phase & Auto-AA Fringe Generation
         // ====================================================================
-        // Only render the stroke if both the width and alpha channel are valid
-        if config.stroke_width > 0.0 && config.stroke.rgba()[3] > 0.0 {
+        // Evaluate geometric rendering requirements based on style attributes
+        let has_stroke = config.stroke_width > 0.0 && config.stroke.rgba()[3] > 0.0;
+        let has_fill = config.fill.rgba()[3] > 0.0;
+
+        // An edge pass is required if a custom stroke is defined, or if a fill
+        // exists and needs an anti-aliasing perimeter to prevent stencil aliasing (jagged edges).
+        if has_stroke || has_fill {
             let mut closed_points = config.points.clone();
 
-            // CRITICAL DETAILS: The linear path extrusion pipeline treats inputs as open polylines.
-            // To properly close the polygon, we must duplicate and append the first vertex to the
-            // end of the array, forcing the final segment to connect back to the start.
+            // The underlying path extrusion pipeline processes inputs as open
+            // polylines. To render a proper closed polygon loop, we duplicate and append the
+            // first vertex to the end of the collection, forcing the final segment to tie back to the start.
             if let Some(&first_pt) = config.points.first() {
                 closed_points.push(first_pt);
             }
 
-            // Route the closed boundary path directly to the robust stroke pipeline
-            self.stroke_path(PathConfig {
-                points: closed_points,
-                fill: "none".into(), // Clear fill to avoid redundant rendering
-                stroke: config.stroke,
-                stroke_width: config.stroke_width,
-                opacity: config.opacity,
-                dash: vec![], // Polygons typically use a solid stroke pattern
-                topology: PathTopology::Simple,
-            });
+            if has_stroke {
+                // Scenario A: Standard User-Defined Stroke
+                // Dispatches a dedicated wireframe mesh generation pass using the assigned stroke configuration.
+                self.stroke_path(PathConfig {
+                    points: closed_points,
+                    fill: crate::visual::color::SingleColor::none(), // Prevent redundant stencil operations
+                    stroke: config.stroke,
+                    stroke_width: config.stroke_width,
+                    opacity: config.opacity,
+                    dash: vec![], // Polygons implicitly utilize solid stroke patterns
+                    topology: crate::core::layer::PathTopology::Simple,
+                });
+            } else {
+                // Scenario B: Auto-AA Fringe (Automatic Edge Feathering)
+                // When a polygon has a solid fill but no outline, the standard binary stencil-then-cover
+                // rasterization leaves hard, jagged pixels.
+                //
+                // THE TRICK: We injected a ghost stroke with a physical width of 0.0, matching the fill color.
+                // Guided by the shader's internal 1.5px screen-space padding and SDF-driven alpha-stepping,
+                // this generates a sub-pixel anti-aliasing gradient that perfectly smooths out the raw mesh boundaries.
+                self.stroke_path(PathConfig {
+                    points: closed_points,
+                    fill: crate::visual::color::SingleColor::none(),
+                    stroke: config.fill, // Fallback to fill color for seamless edge integration
+                    stroke_width: 0.0, // Zero physical width; relies entirely on the shader's AA padding
+                    opacity: config.opacity,
+                    dash: vec![],
+                    topology: crate::core::layer::PathTopology::Simple,
+                });
+            }
         }
     }
 
@@ -1709,6 +1735,12 @@ impl RenderBackend for WgpuBackend {
         let has_stroke = config.stroke_width > 0.0 && config.stroke.rgba()[3] > 0.0;
         if has_stroke {
             self.stroke_path(config);
+        } else if has_fill {
+            // Auto anti-aliasing fring
+            let mut aa_config = config.clone();
+            aa_config.stroke = config.fill;
+            aa_config.stroke_width = 0.0;
+            self.stroke_path(aa_config);
         }
     }
 
