@@ -6,8 +6,8 @@
 //! - @group(1): Isolated Instance Data (Exclusive storage buffers per pipeline)
 
 use crate::core::layer::{
-    CircleConfig, GradientRectConfig, LineConfig, PathConfig, PolygonConfig, RectConfig,
-    PathTopology, TextConfig, RenderBackend,
+    CircleConfig, GradientRectConfig, LineConfig, PathConfig, PathTopology, PolygonConfig,
+    RectConfig, RenderBackend, TextConfig,
 };
 use bytemuck::{Pod, Zeroable};
 use wgpu::util::DeviceExt;
@@ -1582,7 +1582,7 @@ impl RenderBackend for WgpuBackend {
             let index_count = indices.len() as u32;
             self.pending_polygon_indices.extend(indices);
             self.current_polygon_index_count += index_count;
-            
+
             // Dispatch a draw batch for the fill geometry
             self.push_batch(BatchType::Polygon, index_count);
         }
@@ -1593,9 +1593,9 @@ impl RenderBackend for WgpuBackend {
         // Only render the stroke if both the width and alpha channel are valid
         if config.stroke_width > 0.0 && config.stroke.rgba()[3] > 0.0 {
             let mut closed_points = config.points.clone();
-            
+
             // CRITICAL DETAILS: The linear path extrusion pipeline treats inputs as open polylines.
-            // To properly close the polygon, we must duplicate and append the first vertex to the 
+            // To properly close the polygon, we must duplicate and append the first vertex to the
             // end of the array, forcing the final segment to connect back to the start.
             if let Some(&first_pt) = config.points.first() {
                 closed_points.push(first_pt);
