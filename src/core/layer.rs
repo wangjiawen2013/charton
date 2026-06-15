@@ -1,6 +1,6 @@
 use super::aesthetics::GlobalAesthetics;
 use crate::Precision;
-use crate::coordinate::CoordinateTrait;
+use crate::coordinate::{CoordinateTrait, Rect};
 use crate::core::context::PanelContext;
 use crate::encode::Channel;
 use crate::error::ChartonError;
@@ -144,6 +144,16 @@ pub trait RenderBackend {
 
     /// Draws a rectangle filled with a linear gradient.
     fn draw_gradient_rect(&mut self, config: GradientRectConfig);
+
+    /// State Machine Scopes: activates a local clipping region bounded by the specified rectangle.
+    fn begin_clip_scope(&mut self, _rect: &Rect) {
+        // Default no-op for backends that do not require or support hardware/markup clipping.
+    }
+
+    /// State Machine Scopes: terminates the current clipping region and restores the global drawing canvas.
+    fn end_clip_scope(&mut self) {
+        // Default no-op.
+    }
 }
 
 /// `MarkRenderer` defines the contract for drawing geometric primitives.

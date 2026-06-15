@@ -6,8 +6,8 @@
 //! - @group(1): Isolated Instance Data (Exclusive storage buffers per pipeline)
 
 use crate::core::layer::{
-    CircleConfig, GradientRectConfig, LineConfig, PathConfig, PolygonConfig,
-    RectConfig, RenderBackend, TextConfig,
+    CircleConfig, GradientRectConfig, LineConfig, PathConfig, PolygonConfig, RectConfig,
+    RenderBackend, TextConfig,
 };
 use bytemuck::{Pod, Zeroable};
 use wgpu::util::DeviceExt;

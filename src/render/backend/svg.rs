@@ -17,29 +17,15 @@ use std::fmt::Write;
 pub struct SvgBackend<'a> {
     /// Target buffer where SVG XML content is appended.
     pub buffer: &'a mut String,
-
-    /// An optional identifier for a clipping area, usually defined in the `<defs>` section.
-    clip_id: Option<String>,
 }
 
 impl<'a> SvgBackend<'a> {
-    /// Creates a new `SvgBackend`.
+    /// Creates a new `SvgBackend` wrapped around an external string stream.
     ///
-    /// If a `panel` (Rect) is provided, it automatically generates a `<clipPath>`
-    /// definition within a `<defs>` block to restrict drawing to the plot area.
-    pub fn new(buffer: &'a mut String, panel: Option<&Rect>) -> Self {
-        let mut clip_id = None;
-        if let Some(p) = panel {
-            let id = "plot-clip-area".to_string();
-            // Define the clipping rectangle in the SVG header
-            let _ = writeln!(
-                buffer,
-                r#"<defs><clipPath id="{}"><rect x="{:.3}" y="{:.3}" width="{:.3}" height="{:.3}" /></clipPath></defs>"#,
-                id, p.x, p.y, p.width, p.height
-            );
-            clip_id = Some(id);
-        }
-        Self { buffer, clip_id }
+    /// The unused `panel` parameter is preserved with a wildcard fallback to maintain
+    /// signature compatibility with downstream caller allocations during your transition phase.
+    pub fn new(buffer: &'a mut String, _panel: Option<&Rect>) -> Self {
+        Self { buffer }
     }
 
     /// Directly formats a `SingleColor` into the SVG buffer as an `rgba()` string.
@@ -61,16 +47,34 @@ impl<'a> SvgBackend<'a> {
             );
         }
     }
-
-    /// Writes the `clip-path` attribute to the buffer if a clipping ID is present.
-    fn write_clip_attr(&mut self) {
-        if let Some(id) = &self.clip_id {
-            let _ = write!(self.buffer, r#" clip-path="url(#{})""#, id);
-        }
-    }
 }
 
 impl<'a> RenderBackend for SvgBackend<'a> {
+    // =========================================================================
+    // 🪐 STATE MACHINE SCOPE IMPLEMENTATION
+    // =========================================================================
+
+    fn begin_clip_scope(&mut self, rect: &Rect) {
+        let id = "plot-clip-area";
+        // Define the clipPath inside a structural defs block
+        let _ = writeln!(
+            self.buffer,
+            r#"<defs><clipPath id="{}"><rect x="{:.3}" y="{:.3}" width="{:.3}" height="{:.3}" /></clipPath></defs>"#,
+            id, rect.x, rect.y, rect.width, rect.height
+        );
+        // Open a grouping isolation element targeting the clipPath definition
+        let _ = writeln!(self.buffer, r#"<g clip-path="url(#{})">"#, id);
+    }
+
+    fn end_clip_scope(&mut self) {
+        // Terminate the isolated grouping context
+        let _ = self.buffer.write_str("</g>\n");
+    }
+
+    // =========================================================================
+    // 🎨 SHAPE DRAWING METHODS
+    // =========================================================================
+
     fn draw_circle(&mut self, config: CircleConfig) {
         let CircleConfig {
             x,
@@ -95,11 +99,10 @@ impl<'a> RenderBackend for SvgBackend<'a> {
         self.write_color(&stroke);
         let _ = write!(
             self.buffer,
-            r#"" stroke-width="{:.3}" fill-opacity="{:.3}" stroke-opacity="{:.3}""#,
+            r#"" stroke-width="{:.3}" fill-opacity="{:.3}" stroke-opacity="{:.3}" />"#,
             stroke_width, opacity, opacity
         );
-        self.write_clip_attr();
-        let _ = self.buffer.write_str(" />\n");
+        let _ = self.buffer.write_str("\n");
     }
 
     fn draw_rect(&mut self, config: RectConfig) {
@@ -127,11 +130,10 @@ impl<'a> RenderBackend for SvgBackend<'a> {
         self.write_color(&stroke);
         let _ = write!(
             self.buffer,
-            r#"" stroke-width="{:.3}" fill-opacity="{:.3}" stroke-opacity="{:.3}""#,
+            r#"" stroke-width="{:.3}" fill-opacity="{:.3}" stroke-opacity="{:.3}" />"#,
             stroke_width, opacity, 1.0
         );
-        self.write_clip_attr();
-        let _ = self.buffer.write_str(" />\n");
+        let _ = self.buffer.write_str("\n");
     }
 
     fn draw_path(&mut self, config: PathConfig) {
@@ -187,14 +189,14 @@ impl<'a> RenderBackend for SvgBackend<'a> {
             );
         }
 
-        // 4. Dash array and clipping
+        // 4. Dash array attributes
         if !dash.is_empty() {
             let dash_str: Vec<String> = dash.iter().map(|d| d.to_string()).collect();
             let _ = write!(self.buffer, r#" stroke-dasharray="{}""#, dash_str.join(","));
         }
 
-        self.write_clip_attr();
-        let _ = self.buffer.write_str(" />\n");
+        let _ = self.buffer.write_str(r#" />"#);
+        let _ = self.buffer.write_str("\n");
     }
 
     fn draw_polygon(&mut self, config: PolygonConfig) {
@@ -226,11 +228,10 @@ impl<'a> RenderBackend for SvgBackend<'a> {
         self.write_color(&stroke);
         let _ = write!(
             self.buffer,
-            r#"" stroke-width="{:.3}" fill-opacity="{:.3}""#,
+            r#"" stroke-width="{:.3}" fill-opacity="{:.3}" />"#,
             stroke_width, opacity
         );
-        self.write_clip_attr();
-        let _ = self.buffer.write_str(" />\n");
+        let _ = self.buffer.write_str("\n");
     }
 
     fn draw_text(&mut self, config: TextConfig) {
@@ -264,8 +265,6 @@ impl<'a> RenderBackend for SvgBackend<'a> {
             r#" transform="rotate({} {:.3} {:.3})""#,
             angle, x, y
         );
-        // Don't use clip_attr for text
-        // self.write_clip_attr();
         let _ = self.buffer.write_str(">");
 
         // Character escaping for XML safety
@@ -337,10 +336,13 @@ impl<'a> RenderBackend for SvgBackend<'a> {
             self.write_color(&color);
             let _ = self.buffer.write_str(r#"" />"#);
         }
+
+        // Fixed: standard syntax url(#id) without single quotes for cross-backend safety
         let _ = write!(
             self.buffer,
-            r#"</linearGradient></defs><rect x="{:.3}" y="{:.3}" width="{:.3}" height="{:.3}" fill="url('#grad_{}')" />"#,
+            r#"</linearGradient></defs><rect x="{:.3}" y="{:.3}" width="{:.3}" height="{:.3}" fill="url(#grad_{})" />"#,
             x, y, width, height, id_suffix
         );
+        let _ = self.buffer.write_str("\n");
     }
 }

@@ -688,11 +688,18 @@ impl LayeredChart {
         // Title is typically global to the entire chart canvas.
         self.render_title(backend, &primary_panel_ctx.panel)?;
 
-        // 4d. Render Marks (Data Geometries).
+        // 4d. Render Marks (Data Geometries) wrapped in a State Machine Scope.
+        // We activate clipping using the resolved physical panel bounds to lock
+        // chart marks inside the data viewport across all supported backends.
+        backend.begin_clip_scope(&primary_panel_ctx.panel);
+
         for layer in &self.layers {
-            // Each layer renders its marks within the provided PanelContext.
+            // Each layer renders its marks within the isolated PanelContext.
             layer.render_marks(backend, &primary_panel_ctx)?;
         }
+
+        // Deactivate the clipping scope to restore the global drawing canvas.
+        backend.end_clip_scope();
 
         // 4e. Render Axes (X and Y).
         // Only render axes if the theme allows and at least one layer requires them.

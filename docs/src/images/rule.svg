@@ -1,10 +1,13 @@
 <svg width="500" height="400" viewBox="0 0 500 400" xmlns="http://www.w3.org/2000/svg"><rect x="0.000" y="0.000" width="500.000" height="400.000" fill="rgba(255,255,255,1.000)" stroke="none" stroke-width="0.000" fill-opacity="1.000" stroke-opacity="1.000" />
 <text x="250.000" y="13.333" font-size="18.0" font-family="Inter, -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, 'PingFang SC', 'Microsoft YaHei', Ubuntu, Cantarell, 'Noto Sans', sans-serif" fill="rgba(51,51,51,1.000)" fill-opacity="1.000" text-anchor="middle" font-weight="bold" dominant-baseline="middle" transform="rotate(0 250.000 13.333)">Rule Chart with Y and Y2</text>
+<defs><clipPath id="plot-clip-area"><rect x="81.150" y="40.000" width="355.050" height="271.000" /></clipPath></defs>
+<g clip-path="url(#plot-clip-area)">
 <line x1="97.289" y1="249.409" x2="97.289" y2="150.864" stroke="rgba(31,119,180,1.000)" stroke-width="1.000" stroke-opacity="1.000" />
 <line x1="177.982" y1="200.136" x2="177.982" y2="101.591" stroke="rgba(255,127,14,1.000)" stroke-width="1.000" stroke-opacity="1.000" />
 <line x1="258.675" y1="298.682" x2="258.675" y2="200.136" stroke="rgba(31,119,180,1.000)" stroke-width="1.000" stroke-opacity="1.000" />
 <line x1="339.368" y1="150.864" x2="339.368" y2="52.318" stroke="rgba(255,127,14,1.000)" stroke-width="1.000" stroke-opacity="1.000" />
 <line x1="420.061" y1="249.409" x2="420.061" y2="150.864" stroke="rgba(31,119,180,1.000)" stroke-width="1.000" stroke-opacity="1.000" />
+</g>
 <path d="M 81.150 311.000 L 436.200 311.000" fill="none" stroke="rgba(51,51,51,1.000)" stroke-width="1.000" stroke-opacity="1.000" stroke-linejoin="round" stroke-linecap="round" />
 <path d="M 97.289 311.000 L 97.289 317.000" fill="none" stroke="rgba(51,51,51,1.000)" stroke-width="1.000" stroke-opacity="1.000" stroke-linejoin="round" stroke-linecap="round" />
 <text x="97.289" y="320.000" font-size="13.0" font-family="Inter, -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, 'PingFang SC', 'Microsoft YaHei', Ubuntu, Cantarell, 'Noto Sans', sans-serif" fill="rgba(51,51,51,1.000)" fill-opacity="1.000" text-anchor="middle" font-weight="normal" dominant-baseline="hanging" transform="rotate(0 97.289 320.000)">1.0</text>
