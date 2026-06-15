@@ -1,4 +1,6 @@
 <svg width="1000" height="400" viewBox="0 0 1000 400" xmlns="http://www.w3.org/2000/svg"><rect x="0.000" y="0.000" width="1000.000" height="400.000" fill="rgba(255,255,255,1.000)" stroke="none" stroke-width="0.000" fill-opacity="1.000" stroke-opacity="1.000" />
+<defs><clipPath id="plot-clip-area"><rect x="78.950" y="8.000" width="841.050" height="323.000" /></clipPath></defs>
+<g clip-path="url(#plot-clip-area)">
 <polygon points="78.950,6.008 83.713,14.258 74.187,14.258" fill="rgba(129,130,132,1.000)" stroke="none" stroke-width="0.000" fill-opacity="1.000" />
 <polygon points="126.889,25.120 131.653,33.370 122.126,33.370" fill="rgba(129,130,132,1.000)" stroke="none" stroke-width="0.000" fill-opacity="1.000" />
 <polygon points="174.829,35.622 179.592,43.872 170.066,43.872" fill="rgba(129,130,132,1.000)" stroke="none" stroke-width="0.000" fill-opacity="1.000" />
@@ -100,6 +102,7 @@
 <line x1="889.921" y1="284.584" x2="897.921" y2="284.584" stroke="rgba(91,136,195,1.000)" stroke-width="1.500" stroke-opacity="1.000" />
 <line x1="889.921" y1="275.631" x2="897.921" y2="275.631" stroke="rgba(91,136,195,1.000)" stroke-width="1.500" stroke-opacity="1.000" />
 <text x="903.509" y="284.584" font-size="14.0" font-family="Inter, -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, 'PingFang SC', 'Microsoft YaHei', Ubuntu, Cantarell, 'Noto Sans', sans-serif" fill="rgba(0,0,0,1.000)" fill-opacity="1.000" text-anchor="start" font-weight="normal" dominant-baseline="middle" transform="rotate(0 903.509 284.584)">Semaglutide</text>
+</g>
 <path d="M 78.950 331.000 L 920.000 331.000" fill="none" stroke="rgba(51,51,51,1.000)" stroke-width="1.000" stroke-opacity="1.000" stroke-linejoin="round" stroke-linecap="round" />
 <path d="M 78.950 331.000 L 78.950 337.000" fill="none" stroke="rgba(51,51,51,1.000)" stroke-width="1.000" stroke-opacity="1.000" stroke-linejoin="round" stroke-linecap="round" />
 <text x="78.950" y="340.000" font-size="13.0" font-family="Inter, -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, 'PingFang SC', 'Microsoft YaHei', Ubuntu, Cantarell, 'Noto Sans', sans-serif" fill="rgba(51,51,51,1.000)" fill-opacity="1.000" text-anchor="middle" font-weight="normal" dominant-baseline="hanging" transform="rotate(0 78.950 340.000)">0</text>
