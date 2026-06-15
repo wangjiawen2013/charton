@@ -21,7 +21,7 @@ fn main() -> Result<(), Box<dyn Error>> {
         .with_title("Car Performance")
         // The save() method automatically detects the 'wgpu' feature
         // and uses the high-performance GPU backend to generate this PNG.
-        .save("scatter_gpu.svg")?;
+        .save("scatter_gpu.png")?;
 
     println!("Success! Scatter plot saved as 'scatter_gpu.png' using wgpu.");
     Ok(())

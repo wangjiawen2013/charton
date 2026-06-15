@@ -1,4 +1,3 @@
-use crate::coordinate::Rect;
 use crate::core::layer::{
     CircleConfig, GradientRectConfig, LineConfig, PathConfig, PathTopology, PolygonConfig,
     RectConfig, RenderBackend, TextConfig,
@@ -21,10 +20,7 @@ pub struct SvgBackend<'a> {
 
 impl<'a> SvgBackend<'a> {
     /// Creates a new `SvgBackend` wrapped around an external string stream.
-    ///
-    /// The unused `panel` parameter is preserved with a wildcard fallback to maintain
-    /// signature compatibility with downstream caller allocations during your transition phase.
-    pub fn new(buffer: &'a mut String, _panel: Option<&Rect>) -> Self {
+    pub fn new(buffer: &'a mut String) -> Self {
         Self { buffer }
     }
 
@@ -54,7 +50,7 @@ impl<'a> RenderBackend for SvgBackend<'a> {
     // 🪐 STATE MACHINE SCOPE IMPLEMENTATION
     // =========================================================================
 
-    fn begin_clip_scope(&mut self, rect: &Rect) {
+    fn begin_clip_scope(&mut self, rect: &crate::coordinate::Rect) {
         let id = "plot-clip-area";
         // Define the clipPath inside a structural defs block
         let _ = writeln!(

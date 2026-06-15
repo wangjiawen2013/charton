@@ -6,7 +6,7 @@ use crate::core::layer::{
 use crate::visual::color::SingleColor;
 use ab_glyph::{Font, FontArc, PxScale, ScaleFont};
 use tiny_skia::{
-    Color, FillRule, LineCap, LineJoin, Paint, PathBuilder, Pixmap, Rect as SkiaRect, Stroke,
+    Color, FillRule, LineCap, LineJoin, Mask, Paint, PathBuilder, Pixmap, Rect as SkiaRect, Stroke,
     Transform,
 };
 
@@ -20,6 +20,8 @@ pub struct RasterBackend<'a> {
     pub pixmap: &'a mut Pixmap,
     /// Global transformation matrix, typically used for DPI scaling.
     pub transform: Transform,
+    /// Active clipping mask to constrain drawing within the panel viewport.
+    pub clip_mask: Option<Mask>,
 }
 
 impl<'a> RasterBackend<'a> {
@@ -32,6 +34,7 @@ impl<'a> RasterBackend<'a> {
         Self {
             pixmap,
             transform: Transform::from_scale(scale, scale),
+            clip_mask: None, // Initialize with no active clipping mask
         }
     }
 
@@ -66,6 +69,52 @@ impl<'a> RasterBackend<'a> {
 }
 
 impl<'a> RenderBackend for RasterBackend<'a> {
+    // =========================================================================
+    // STATE MACHINE SCOPE IMPLEMENTATION
+    // =========================================================================
+
+    fn begin_clip_scope(&mut self, rect: &crate::coordinate::Rect) {
+        // Create an uninitialized mask matching the size of the canvas pixmap
+        let width = self.pixmap.width();
+        let height = self.pixmap.height();
+
+        if let Some(mut mask) = Mask::new(width, height) {
+            let mut pb = PathBuilder::new();
+
+            // Apply the DPI scale transform to the clipping rectangle bounds
+            let scale_x = self.transform.sx;
+            let scale_y = self.transform.sy;
+
+            if let Some(skia_rect) = SkiaRect::from_xywh(
+                (rect.x as f32) * scale_x,
+                (rect.y as f32) * scale_y,
+                (rect.width as f32) * scale_x,
+                (rect.height as f32) * scale_y,
+            ) {
+                pb.push_rect(skia_rect);
+                if let Some(path) = pb.finish() {
+                    // Fill the mask path with a winding rule to define the clip area
+                    mask.fill_path(
+                        &path,
+                        FillRule::Winding,
+                        true,                  // Anti-aliasing
+                        Transform::identity(), // Bounds are already pre-scaled
+                    );
+                    self.clip_mask = Some(mask);
+                }
+            }
+        }
+    }
+
+    fn end_clip_scope(&mut self) {
+        // Drop the clipping mask to restore full canvas drawing
+        self.clip_mask = None;
+    }
+
+    // =========================================================================
+    // SHAPE DRAWING METHODS
+    // =========================================================================
+
     fn draw_circle(&mut self, config: CircleConfig) {
         // 1. Early exit if nothing to draw, matching SVG backend logic
         if config.fill.is_none() && config.stroke.is_none() {
@@ -82,10 +131,13 @@ impl<'a> RenderBackend for RasterBackend<'a> {
                 paint.set_color(c);
                 paint.anti_alias = true;
 
-                // Note: The last parameter is the clip mask.
-                // If you implement clipping later, this 'None' should be updated.
-                self.pixmap
-                    .fill_path(&path, &paint, FillRule::Winding, self.transform, None);
+                self.pixmap.fill_path(
+                    &path,
+                    &paint,
+                    FillRule::Winding,
+                    self.transform,
+                    self.clip_mask.as_ref(),
+                );
             }
 
             // 3. Render Stroke
@@ -101,8 +153,13 @@ impl<'a> RenderBackend for RasterBackend<'a> {
                     ..Default::default()
                 };
 
-                self.pixmap
-                    .stroke_path(&path, &paint, &stroke, self.transform, None);
+                self.pixmap.stroke_path(
+                    &path,
+                    &paint,
+                    &stroke,
+                    self.transform,
+                    self.clip_mask.as_ref(),
+                );
             }
         }
     }
@@ -136,8 +193,13 @@ impl<'a> RenderBackend for RasterBackend<'a> {
                 stroke.dash = tiny_skia::StrokeDash::new(config.dash, 0.0);
             }
 
-            self.pixmap
-                .stroke_path(&path, &paint, &stroke, self.transform, None);
+            self.pixmap.stroke_path(
+                &path,
+                &paint,
+                &stroke,
+                self.transform,
+                self.clip_mask.as_ref(),
+            );
         }
     }
 
@@ -155,7 +217,8 @@ impl<'a> RenderBackend for RasterBackend<'a> {
                 paint.set_color(c);
                 paint.anti_alias = true;
                 // Optimized direct rect filling
-                self.pixmap.fill_rect(rect, &paint, self.transform, None);
+                self.pixmap
+                    .fill_rect(rect, &paint, self.transform, self.clip_mask.as_ref());
             }
 
             // 3. Render Stroke: stroke-opacity is intentionally 1.0
@@ -172,8 +235,13 @@ impl<'a> RenderBackend for RasterBackend<'a> {
 
                 // Stroke requires converting the rect to a path
                 let path = PathBuilder::from_rect(rect);
-                self.pixmap
-                    .stroke_path(&path, &paint, &stroke, self.transform, None);
+                self.pixmap.stroke_path(
+                    &path,
+                    &paint,
+                    &stroke,
+                    self.transform,
+                    self.clip_mask.as_ref(),
+                );
             }
         }
     }
@@ -214,8 +282,13 @@ impl<'a> RenderBackend for RasterBackend<'a> {
                     paint.anti_alias = true; // Crucial for eliminating hairline seams
 
                     // FillRule::Winding is the standard non-zero algorithm used by SVG
-                    self.pixmap
-                        .fill_path(&path, &paint, FillRule::Winding, self.transform, None);
+                    self.pixmap.fill_path(
+                        &path,
+                        &paint,
+                        FillRule::Winding,
+                        self.transform,
+                        self.clip_mask.as_ref(),
+                    );
                 }
             }
 
@@ -241,8 +314,13 @@ impl<'a> RenderBackend for RasterBackend<'a> {
                         stroke.dash = tiny_skia::StrokeDash::new(config.dash, 0.0);
                     }
 
-                    self.pixmap
-                        .stroke_path(&path, &paint, &stroke, self.transform, None);
+                    self.pixmap.stroke_path(
+                        &path,
+                        &paint,
+                        &stroke,
+                        self.transform,
+                        self.clip_mask.as_ref(),
+                    );
                 }
             }
         }
@@ -272,8 +350,13 @@ impl<'a> RenderBackend for RasterBackend<'a> {
                 let mut paint = Paint::default();
                 paint.set_color(c);
                 paint.anti_alias = true;
-                self.pixmap
-                    .fill_path(&path, &paint, FillRule::Winding, self.transform, None);
+                self.pixmap.fill_path(
+                    &path,
+                    &paint,
+                    FillRule::Winding,
+                    self.transform,
+                    self.clip_mask.as_ref(),
+                );
             }
 
             // 4. Render Stroke: stroke-opacity is intentionally 1.0 to match SVG behavior
@@ -289,8 +372,13 @@ impl<'a> RenderBackend for RasterBackend<'a> {
                     ..Default::default()
                 };
 
-                self.pixmap
-                    .stroke_path(&path, &paint, &stroke, self.transform, None);
+                self.pixmap.stroke_path(
+                    &path,
+                    &paint,
+                    &stroke,
+                    self.transform,
+                    self.clip_mask.as_ref(),
+                );
             }
         }
     }
@@ -415,7 +503,7 @@ impl<'a> RenderBackend for RasterBackend<'a> {
                         &paint,
                         tiny_skia::FillRule::Winding,
                         glyph_transform,
-                        None,
+                        self.clip_mask.as_ref(),
                     );
                 }
             }
@@ -483,7 +571,8 @@ impl<'a> RenderBackend for RasterBackend<'a> {
 
             // 5. Render to Pixmap
             // The self.transform matrix correctly scales both the rect geometry and the shader once.
-            self.pixmap.fill_rect(rect, &paint, self.transform, None);
+            self.pixmap
+                .fill_rect(rect, &paint, self.transform, self.clip_mask.as_ref());
         }
     }
 }
