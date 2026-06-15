@@ -1,4 +1,6 @@
 <svg width="500" height="400" viewBox="0 0 500 400" xmlns="http://www.w3.org/2000/svg"><rect x="0.000" y="0.000" width="500.000" height="400.000" fill="rgba(255,255,255,1.000)" stroke="none" stroke-width="0.000" fill-opacity="1.000" stroke-opacity="1.000" />
+<defs><clipPath id="plot-clip-area"><rect x="92.200" y="40.000" width="392.800" height="271.000" /></clipPath></defs>
+<g clip-path="url(#plot-clip-area)">
 <line x1="110.055" y1="298.682" x2="110.055" y2="250.611" stroke="rgba(0,0,0,1.000)" stroke-width="1.000" stroke-opacity="1.000" />
 <line x1="107.055" y1="298.682" x2="113.055" y2="298.682" stroke="rgba(0,0,0,1.000)" stroke-width="1.000" stroke-opacity="1.000" />
 <line x1="107.055" y1="250.611" x2="113.055" y2="250.611" stroke="rgba(0,0,0,1.000)" stroke-width="1.000" stroke-opacity="1.000" />
@@ -12,6 +14,7 @@
 <line x1="464.145" y1="112.407" x2="470.145" y2="112.407" stroke="rgba(0,0,0,1.000)" stroke-width="1.000" stroke-opacity="1.000" />
 <line x1="464.145" y1="52.318" x2="470.145" y2="52.318" stroke="rgba(0,0,0,1.000)" stroke-width="1.000" stroke-opacity="1.000" />
 <path d="M 110.055 274.646 L 233.189 226.575 L 331.697 202.540 L 467.145 82.363" fill="none" stroke="rgba(0,0,0,1.000)" stroke-width="1.000" stroke-opacity="1.000" stroke-linejoin="round" stroke-linecap="round" />
+</g>
 <path d="M 92.200 311.000 L 485.000 311.000" fill="none" stroke="rgba(51,51,51,1.000)" stroke-width="1.000" stroke-opacity="1.000" stroke-linejoin="round" stroke-linecap="round" />
 <path d="M 146.995 311.000 L 146.995 317.000" fill="none" stroke="rgba(51,51,51,1.000)" stroke-width="1.000" stroke-opacity="1.000" stroke-linejoin="round" stroke-linecap="round" />
 <text x="146.995" y="320.000" font-size="13.0" font-family="Inter, -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, 'PingFang SC', 'Microsoft YaHei', Ubuntu, Cantarell, 'Noto Sans', sans-serif" fill="rgba(51,51,51,1.000)" fill-opacity="1.000" text-anchor="middle" font-weight="normal" dominant-baseline="hanging" transform="rotate(0 146.995 320.000)">1.5</text>
