@@ -756,7 +756,7 @@ impl LayeredChart {
         // We initialize the SvgBackend. The background is rendered through the
         // backend interface to ensure consistency across different output formats.
         {
-            let mut backend = crate::render::backend::svg::SvgBackend::new(&mut svg_content, None);
+            let mut backend = crate::render::backend::svg::SvgBackend::new(&mut svg_content);
 
             // Render Background
             backend.draw_rect(RectConfig {
