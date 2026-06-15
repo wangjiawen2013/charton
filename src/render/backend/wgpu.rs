@@ -6,8 +6,8 @@
 //! - @group(1): Isolated Instance Data (Exclusive storage buffers per pipeline)
 
 use crate::core::layer::{
-    CircleConfig, GradientRectConfig, LineConfig, PathConfig, PolygonConfig, RectConfig,
-    RenderBackend, TextConfig,
+    CircleConfig, GradientRectConfig, LineConfig, PathConfig, PathTopology, PolygonConfig,
+    RectConfig, RenderBackend, TextConfig,
 };
 use bytemuck::{Pod, Zeroable};
 use wgpu::util::DeviceExt;
@@ -250,7 +250,17 @@ pub struct WgpuBackend {
     pending_path_args: Vec<GpuPathArgs>,
 
     pub collected_texts: Vec<TextConfig>,
-    batches: Vec<DrawBatch>,
+    // A tuple containing the batch and its associated scissor state.
+    batches: Vec<(DrawBatch, Option<(u32, u32, u32, u32)>)>,
+    // Add state tracking for physical dimensions and current clipping rect.
+    current_scissor: Option<(u32, u32, u32, u32)>,
+    // Physical width of the rendering surface in device pixels (logical_width * scale_factor).
+    // Used for scissor rect clamping and full-screen restore operations.
+    physical_width: u32,
+    // Physical height of the rendering surface in device pixels (logical_height * scale_factor).
+    // Used for scissor rect clamping and full-screen restore operations.
+    physical_height: u32,
+    scale_factor: f32,
 
     current_circle_count: u32,
     current_rect_count: u32,
@@ -650,6 +660,10 @@ impl WgpuBackend {
 
             collected_texts: Vec::new(),
             batches: Vec::with_capacity(1024),
+            current_scissor: None,
+            physical_width,
+            physical_height,
+            scale_factor,
 
             current_circle_count: 0,
             current_rect_count: 0,
@@ -663,53 +677,87 @@ impl WgpuBackend {
 
     /// Pushes a new draw command or merges it into the active batch to optimize GPU draw calls.
     fn push_batch(&mut self, batch_type: BatchType, count: u32) {
-        match (self.batches.last_mut(), batch_type) {
-            // BATCH MERGING: Combine identical primitive types to reduce draw calls
-            (Some(DrawBatch::Circle { count: c, .. }), BatchType::Circle) => *c += count,
-            (Some(DrawBatch::Rect { count: c, .. }), BatchType::Rect) => *c += count,
-            (Some(DrawBatch::Line { count: c, .. }), BatchType::Line) => *c += count,
-            (Some(DrawBatch::Polygon { index_count: c, .. }), BatchType::Polygon) => *c += count,
-            (Some(DrawBatch::GradientRect { count: c, .. }), BatchType::GradientRect) => {
-                *c += count
-            }
-            // FALLBACK / ISOLATION: Create a new draw batch.
-            // Note: PathComplexStencil and PathComplexCover intentionally bypass
-            // the merging rules above. Each complex path must maintain a strict,
-            // isolated Stencil -> Cover execution order to prevent mask corruption.
-            _ => {
-                self.batches.push(match batch_type {
-                    BatchType::Circle => DrawBatch::Circle {
-                        start: self.current_circle_count.saturating_sub(count),
-                        count,
-                    },
-                    BatchType::Rect => DrawBatch::Rect {
-                        start: self.current_rect_count.saturating_sub(count),
-                        count,
-                    },
-                    BatchType::Line => DrawBatch::Line {
-                        start: self.current_line_count.saturating_sub(count),
-                        count,
-                    },
-                    BatchType::Polygon => DrawBatch::Polygon {
-                        index_start: self.current_polygon_index_count.saturating_sub(count),
-                        index_count: count,
-                    },
-                    BatchType::GradientRect => DrawBatch::GradientRect {
-                        start: self.current_grad_rect_count.saturating_sub(count),
-                        count,
-                    },
-                    // Route complex path passes to the shared polygon index buffer
-                    BatchType::PathComplexStencil => DrawBatch::PathComplexStencil {
-                        index_start: self.current_polygon_index_count.saturating_sub(count),
-                        index_count: count,
-                    },
-                    BatchType::PathComplexCover => DrawBatch::PathComplexCover {
-                        index_start: self.current_polygon_index_count.saturating_sub(count),
-                        index_count: count,
-                    },
-                });
+        // BATCH MERGING: Only merge if the primitive type AND the scissor clipping state are identical.
+        let can_merge = self
+            .batches
+            .last()
+            .map_or(false, |(_, scissor)| *scissor == self.current_scissor);
+
+        if can_merge {
+            if let Some((last_batch, _)) = self.batches.last_mut() {
+                match (last_batch, batch_type) {
+                    (DrawBatch::Circle { count: c, .. }, BatchType::Circle) => {
+                        *c += count;
+                        return;
+                    }
+                    (DrawBatch::Rect { count: c, .. }, BatchType::Rect) => {
+                        *c += count;
+                        return;
+                    }
+                    (DrawBatch::Line { count: c, .. }, BatchType::Line) => {
+                        *c += count;
+                        return;
+                    }
+                    (DrawBatch::Polygon { index_count: c, .. }, BatchType::Polygon) => {
+                        *c += count;
+                        return;
+                    }
+                    (DrawBatch::GradientRect { count: c, .. }, BatchType::GradientRect) => {
+                        *c += count;
+                        return;
+                    }
+                    (
+                        DrawBatch::PathComplexStencil { index_count: c, .. },
+                        BatchType::PathComplexStencil,
+                    ) => {
+                        *c += count;
+                        return;
+                    }
+                    (
+                        DrawBatch::PathComplexCover { index_count: c, .. },
+                        BatchType::PathComplexCover,
+                    ) => {
+                        *c += count;
+                        return;
+                    }
+                    _ => {} // PathSimple and other types fall through to isolation
+                }
             }
         }
+
+        // FALLBACK / ISOLATION: Create a new draw batch paired with the current active scissor state.
+        let new_batch = match batch_type {
+            BatchType::Circle => DrawBatch::Circle {
+                start: self.current_circle_count.saturating_sub(count),
+                count,
+            },
+            BatchType::Rect => DrawBatch::Rect {
+                start: self.current_rect_count.saturating_sub(count),
+                count,
+            },
+            BatchType::Line => DrawBatch::Line {
+                start: self.current_line_count.saturating_sub(count),
+                count,
+            },
+            BatchType::Polygon => DrawBatch::Polygon {
+                index_start: self.current_polygon_index_count.saturating_sub(count),
+                index_count: count,
+            },
+            BatchType::GradientRect => DrawBatch::GradientRect {
+                start: self.current_grad_rect_count.saturating_sub(count),
+                count,
+            },
+            BatchType::PathComplexStencil => DrawBatch::PathComplexStencil {
+                index_start: self.current_polygon_index_count.saturating_sub(count),
+                index_count: count,
+            },
+            BatchType::PathComplexCover => DrawBatch::PathComplexCover {
+                index_start: self.current_polygon_index_count.saturating_sub(count),
+                index_count: count,
+            },
+        };
+
+        self.batches.push((new_batch, self.current_scissor));
     }
 
     pub fn reset(&mut self) {
@@ -1055,6 +1103,7 @@ impl WgpuBackend {
             })
     }
 
+    /// Renders a stroked path using GPU extrusion (simple open/closed polylines).
     fn stroke_path(&mut self, config: PathConfig) {
         if config.points.len() < 2 {
             return;
@@ -1088,10 +1137,13 @@ impl WgpuBackend {
             _pad1: 0,
         });
 
-        self.batches.push(DrawBatch::PathSimple {
-            path_idx,
-            point_count,
-        });
+        self.batches.push((
+            DrawBatch::PathSimple {
+                path_idx,
+                point_count,
+            },
+            self.current_scissor,
+        ));
     }
 
     /// Complex Path (Stencil-then-Cover universal concave polygon filler)
@@ -1274,7 +1326,7 @@ impl WgpuBackend {
         };
 
         // --------------------------------------------------------------------
-        // PHASE 2: BIND GROUP SETUP (Global and Isntanced Storage)
+        // PHASE 2: BIND GROUP SETUP (Global and Instanced Storage)
         // --------------------------------------------------------------------
 
         self.global_bind_group = self.device.create_bind_group(&wgpu::BindGroupDescriptor {
@@ -1373,7 +1425,21 @@ impl WgpuBackend {
             // Bind global environment once for the entire pass
             pass.set_bind_group(0, &self.global_bind_group, &[]);
 
-            for batch in &self.batches {
+            // Tracks the current scissor state on the GPU to minimize redundant commands
+            let mut active_scissor: Option<(u32, u32, u32, u32)> = None;
+
+            for (batch, scissor) in &self.batches {
+                // Dynamically update GPU hardware scissor rect if the domain changed
+                if *scissor != active_scissor {
+                    if let Some((x, y, w, h)) = scissor {
+                        pass.set_scissor_rect(*x, *y, *w, *h);
+                    } else {
+                        // Restore to full-screen viewport when no clipping is active
+                        pass.set_scissor_rect(0, 0, self.physical_width, self.physical_height);
+                    }
+                    active_scissor = *scissor;
+                }
+
                 match batch {
                     DrawBatch::Circle { start, count } => {
                         pass.set_pipeline(&self.circle_pipeline);
@@ -1469,6 +1535,29 @@ impl WgpuBackend {
 // ============================================================================
 
 impl RenderBackend for WgpuBackend {
+    fn begin_clip_scope(&mut self, rect: &crate::coordinate::Rect) {
+        // Convert virtual logical coordinates into physical pixels
+        let physical_x = ((rect.x as f32) * self.scale_factor).max(0.0) as u32;
+        let physical_y = ((rect.y as f32) * self.scale_factor).max(0.0) as u32;
+        let physical_w = ((rect.width as f32) * self.scale_factor).max(1.0) as u32;
+        let physical_h = ((rect.height as f32) * self.scale_factor).max(1.0) as u32;
+
+        // Clamp tightly to the safe physical boundaries to prevent WGPU panic/crashes
+        let x = physical_x.min(self.physical_width);
+        let y = physical_y.min(self.physical_height);
+        let w = physical_w.min(self.physical_width.saturating_sub(x)).max(1);
+        let h = physical_h
+            .min(self.physical_height.saturating_sub(y))
+            .max(1);
+
+        self.current_scissor = Some((x, y, w, h));
+    }
+
+    fn end_clip_scope(&mut self) {
+        // Reset the state to full viewport rendering
+        self.current_scissor = None;
+    }
+
     fn draw_circle(&mut self, config: CircleConfig) {
         let fill = config.fill.rgba();
         let stroke = config.stroke.rgba();
@@ -1617,7 +1706,7 @@ impl RenderBackend for WgpuBackend {
                     stroke_width: config.stroke_width,
                     opacity: config.opacity,
                     dash: vec![], // Polygons implicitly utilize solid stroke patterns
-                    topology: crate::core::layer::PathTopology::Simple,
+                    topology: PathTopology::Simple,
                 });
             } else {
                 // Scenario B: Auto-AA Fringe (Automatic Edge Feathering)
@@ -1634,7 +1723,7 @@ impl RenderBackend for WgpuBackend {
                     stroke_width: 0.0, // Zero physical width; relies entirely on the shader's AA padding
                     opacity: config.opacity,
                     dash: vec![],
-                    topology: crate::core::layer::PathTopology::Simple,
+                    topology: PathTopology::Simple,
                 });
             }
         }
@@ -1736,7 +1825,7 @@ impl RenderBackend for WgpuBackend {
         if has_stroke {
             self.stroke_path(config);
         } else if has_fill {
-            // Auto anti-aliasing fring
+            // Auto anti-aliasing fringe
             let mut aa_config = config.clone();
             aa_config.stroke = config.fill;
             aa_config.stroke_width = 0.0;
