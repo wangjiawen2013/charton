@@ -58,6 +58,20 @@ impl CoordinateTrait for Cartesian2D {
         )
     }
 
+    /// Renders the coordinate system's background grid.
+    fn render_grid_lines(
+        &self,
+        backend: &mut dyn RenderBackend,
+        theme: &Theme,
+        panel: &Rect,
+        x_explicit: Option<&[ExplicitTick]>,
+        y_explicit: Option<&[ExplicitTick]>,
+    ) -> Result<(), ChartonError> {
+        crate::render::cartesian2d_axis_renderer::render_cartesian_grid(
+            backend, theme, panel, self, x_explicit, y_explicit,
+        )
+    }
+
     /// Transforms logical data coordinates [0, 1] into physical screen pixels.
     /// Use this for rendering Mark geometries; for Axis rendering, calculate positions
     /// directly from the panel boundaries to ensure the visual frame remains fixed.

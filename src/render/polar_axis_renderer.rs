@@ -104,24 +104,6 @@ pub fn render_polar_axes(
         let x_n = x_scale.normalize(tick.value);
         let theta = coord.start_angle + x_n * (coord.end_angle - coord.start_angle);
 
-        // Project radial line coordinates from inner_radius to max_radius
-        let x1 = center_x + (coord.inner_radius * max_r) * theta.cos();
-        let y1 = center_y + (coord.inner_radius * max_r) * theta.sin();
-        let x2 = center_x + max_r * theta.cos();
-        let y2 = center_y + max_r * theta.sin();
-
-        // Draw radial grid lines (spokes) separating different categories/sectors
-        backend.draw_line(LineConfig {
-            x1: x1 as Precision,
-            y1: y1 as Precision,
-            x2: x2 as Precision,
-            y2: y2 as Precision,
-            color: theme.grid_color,
-            width: theme.grid_width as Precision,
-            opacity: 0.5,
-            dash: vec![], // Solid line
-        });
-
         // Calculate label coordinates with padding
         let label_r = max_r + theme.tick_label_padding + 2.0;
         let lx = center_x + label_r * theta.cos();
@@ -164,6 +146,62 @@ pub fn render_polar_axes(
 
     // Silence unused parameter warnings for future label implementations
     let _ = (x_label, y_label);
+
+    Ok(())
+}
+
+/// Renders the underlying grid system for polar coordinates, including
+/// concentric circular boundaries and angular spokes.
+pub fn render_polar_grid(
+    backend: &mut dyn RenderBackend,
+    theme: &Theme,
+    panel: &Rect,
+    coord: &Polar,
+    x_explicit: Option<&[ExplicitTick]>,
+    y_explicit: Option<&[ExplicitTick]>,
+) -> Result<(), ChartonError> {
+    let center_x = panel.x + panel.width / 2.0;
+    let center_y = panel.y + panel.height / 2.0;
+    let max_r = panel.width.min(panel.height) / 2.0;
+    let _ = x_explicit;
+    let _ = y_explicit;
+
+    // 1. Draw the concentric background circles (text labels removed)
+    backend.draw_circle(CircleConfig {
+        x: center_x as Precision,
+        y: center_y as Precision,
+        radius: max_r as Precision,
+        fill: "none".into(),
+        stroke: theme.grid_color,
+        stroke_width: theme.grid_width as Precision,
+        opacity: 0.5,
+    });
+
+    // 2. Draw the angular grid lines / spokes (text labels removed)
+    let x_scale = coord.get_x_scale();
+    let x_ticks =
+        x_scale.suggest_ticks(theme.suggest_tick_count(2.0 * std::f64::consts::PI * max_r));
+
+    for tick in x_ticks {
+        let x_n = x_scale.normalize(tick.value);
+        let theta = coord.start_angle + x_n * (coord.end_angle - coord.start_angle);
+
+        let x1 = center_x + (coord.inner_radius * max_r) * theta.cos();
+        let y1 = center_y + (coord.inner_radius * max_r) * theta.sin();
+        let x2 = center_x + max_r * theta.cos();
+        let y2 = center_y + max_r * theta.sin();
+
+        backend.draw_line(LineConfig {
+            x1: x1 as Precision,
+            y1: y1 as Precision,
+            x2: x2 as Precision,
+            y2: y2 as Precision,
+            color: theme.grid_color,
+            width: theme.grid_width as Precision,
+            opacity: 0.3, // Grid lines can be slightly fainter than axis lines
+            dash: vec![],
+        });
+    }
 
     Ok(())
 }
