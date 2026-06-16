@@ -13,6 +13,7 @@ fn main() -> Result<(), Box<dyn Error>> {
             alt::color("Cause"),
         ))?
         .with_title("Nightingale wind rose")
+        .with_grid(true)
         .with_coord(CoordSystem::Polar)
         .save("nightingale_gpu.png")?;
 
