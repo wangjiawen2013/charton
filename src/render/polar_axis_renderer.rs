@@ -19,18 +19,15 @@ pub fn render_polar_axes(
     coord: &Polar,
     x_label: &str,
     _x_explicit: Option<&[ExplicitTick]>,
-    y_label: &str,
+    _y_label: &str,
     _y_explicit: Option<&[ExplicitTick]>,
 ) -> Result<(), ChartonError> {
     let x_scale = coord.get_x_scale();
-    let y_scale = coord.get_y_scale();
 
     // Calculate geometric center and maximum radius of the polar chart
     let center_x = panel.x + panel.width / 2.0;
     let center_y = panel.y + panel.height / 2.0;
     let max_r = panel.width.min(panel.height) / 2.0;
-
-    // --- SECTION 1: RADIAL AXIS (Y-Axis / Circles) ---
 
     // Draw the outermost boundary circle
     backend.draw_circle(CircleConfig {
@@ -43,62 +40,15 @@ pub fn render_polar_axes(
         opacity: 0.5,
     });
 
-    // Determine the maximum value for the radial label
-    let y_domain = y_scale.domain();
-    let max_val = y_domain.1;
-
-    // Skip redundant labels if it's a Pie chart (indicated by empty x_label)
-    let is_pie = x_label.is_empty();
-    let y_ticks = crate::scale::format_ticks(&[max_val]);
-    let max_label = y_ticks.first().map(|t| t.label.as_str()).unwrap_or("");
-
-    if !is_pie && !max_label.is_empty() {
-        // Place the label slightly outside the max radius using theme padding
-        let label_r = max_r + theme.tick_label_padding + 2.0;
-        let theta_start = coord.start_angle;
-
-        let tx = center_x + label_r * theta_start.cos();
-        let ty = center_y + label_r * theta_start.sin();
-
-        // Quadrant-aware logic: determines alignment based on the label's angle
-        let cos_s = theta_start.cos();
-        let sin_s = theta_start.sin();
-
-        let anchor = if cos_s > 0.1 {
-            "start"
-        } else if cos_s < -0.1 {
-            "end"
-        } else {
-            "middle"
-        };
-        let baseline = if sin_s > 0.5 {
-            "hanging"
-        } else if sin_s < -0.5 {
-            "auto"
-        } else {
-            "middle"
-        };
-
-        backend.draw_text(TextConfig {
-            x: tx as Precision,
-            y: ty as Precision,
-            text: max_label.to_string(),
-            font_size: (theme.tick_label_size - 1.0) as Precision,
-            font_family: theme.tick_label_family.clone(),
-            color: theme.tick_label_color,
-            text_anchor: anchor.to_string(),
-            dominant_baseline: baseline.to_string(),
-            font_weight: "normal".to_string(),
-            opacity: 0.9,
-            angle: 0.0, // Keep text horizontal for readability
-        });
-    }
-
-    // --- SECTION 2: ANGULAR AXIS (X-Axis / Spokes) ---
-
-    // Generate ticks for the circumference based on the total perimeter
-    let x_ticks =
-        x_scale.suggest_ticks(theme.suggest_tick_count(2.0 * std::f64::consts::PI * max_r));
+    // Check if the chart is a Pie or Donut chart (implied by an empty x_label).
+    // For Nightingale Rose charts, we generate ticks along the circumference based on the total perimeter.
+    // For Pie and Donut charts, we skip tick generation to avoid cluttering the visual display.
+    let is_pie_or_donut = x_label.is_empty();
+    let x_ticks = if !is_pie_or_donut {
+        x_scale.suggest_ticks(theme.suggest_tick_count(2.0 * std::f64::consts::PI * max_r))
+    } else {
+        vec![]
+    };
 
     for tick in x_ticks {
         let x_n = x_scale.normalize(tick.value);
@@ -143,9 +93,6 @@ pub fn render_polar_axes(
             angle: 0.0,
         });
     }
-
-    // Silence unused parameter warnings for future label implementations
-    let _ = (x_label, y_label);
 
     Ok(())
 }
