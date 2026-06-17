@@ -21,6 +21,7 @@ fn main() -> Result<(), Box<dyn Error>> {
         .with_y_label("Intensity")
         // CoordSystem::Polar transforms the rectangular bar chart into a Rose Chart
         .with_coord(CoordSystem::Polar)
+        .with_grid(true)
         .save("docs/src/images/rose.svg")?;
 
     Ok(())
