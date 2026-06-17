@@ -1,18 +1,18 @@
 <svg width="1000" height="400" viewBox="0 0 1000 400" xmlns="http://www.w3.org/2000/svg"><rect x="0.000" y="0.000" width="1000.000" height="400.000" fill="rgba(255,255,255,1.000)" stroke="none" stroke-width="0.000" fill-opacity="1.000" stroke-opacity="1.000" />
 <defs><clipPath id="plot-clip-area"><rect x="78.950" y="8.000" width="841.050" height="323.000" /></clipPath></defs>
 <g clip-path="url(#plot-clip-area)">
-<polygon points="78.950,6.008 83.713,14.258 74.187,14.258" fill="rgba(129,130,132,1.000)" stroke="none" stroke-width="0.000" fill-opacity="1.000" />
-<polygon points="126.889,25.120 131.653,33.370 122.126,33.370" fill="rgba(129,130,132,1.000)" stroke="none" stroke-width="0.000" fill-opacity="1.000" />
-<polygon points="174.829,35.622 179.592,43.872 170.066,43.872" fill="rgba(129,130,132,1.000)" stroke="none" stroke-width="0.000" fill-opacity="1.000" />
-<polygon points="222.768,43.543 227.532,51.793 218.005,51.793" fill="rgba(129,130,132,1.000)" stroke="none" stroke-width="0.000" fill-opacity="1.000" />
-<polygon points="270.708,49.741 275.471,57.991 265.945,57.991" fill="rgba(129,130,132,1.000)" stroke="none" stroke-width="0.000" fill-opacity="1.000" />
-<polygon points="318.647,54.734 323.410,62.984 313.884,62.984" fill="rgba(129,130,132,1.000)" stroke="none" stroke-width="0.000" fill-opacity="1.000" />
-<polygon points="414.526,54.562 419.289,62.812 409.763,62.812" fill="rgba(129,130,132,1.000)" stroke="none" stroke-width="0.000" fill-opacity="1.000" />
-<polygon points="510.405,57.317 515.168,65.567 505.642,65.567" fill="rgba(129,130,132,1.000)" stroke="none" stroke-width="0.000" fill-opacity="1.000" />
-<polygon points="606.284,61.794 611.047,70.044 601.521,70.044" fill="rgba(129,130,132,1.000)" stroke="none" stroke-width="0.000" fill-opacity="1.000" />
-<polygon points="702.163,62.999 706.926,71.249 697.400,71.249" fill="rgba(129,130,132,1.000)" stroke="none" stroke-width="0.000" fill-opacity="1.000" />
-<polygon points="798.042,61.449 802.805,69.699 793.279,69.699" fill="rgba(129,130,132,1.000)" stroke="none" stroke-width="0.000" fill-opacity="1.000" />
-<polygon points="893.921,53.529 898.684,61.779 889.158,61.779" fill="rgba(129,130,132,1.000)" stroke="none" stroke-width="0.000" fill-opacity="1.000" />
+<polygon points="78.950,3.733 85.683,15.395 72.217,15.395" fill="rgba(129,130,132,1.000)" stroke="none" stroke-width="0.000" fill-opacity="1.000" />
+<polygon points="126.889,22.845 133.623,34.507 120.156,34.507" fill="rgba(129,130,132,1.000)" stroke="none" stroke-width="0.000" fill-opacity="1.000" />
+<polygon points="174.829,33.347 181.562,45.010 168.096,45.010" fill="rgba(129,130,132,1.000)" stroke="none" stroke-width="0.000" fill-opacity="1.000" />
+<polygon points="222.768,41.268 229.502,52.930 216.035,52.930" fill="rgba(129,130,132,1.000)" stroke="none" stroke-width="0.000" fill-opacity="1.000" />
+<polygon points="270.708,47.466 277.441,59.129 263.975,59.129" fill="rgba(129,130,132,1.000)" stroke="none" stroke-width="0.000" fill-opacity="1.000" />
+<polygon points="318.647,52.459 325.381,64.122 311.914,64.122" fill="rgba(129,130,132,1.000)" stroke="none" stroke-width="0.000" fill-opacity="1.000" />
+<polygon points="414.526,52.287 421.260,63.950 407.793,63.950" fill="rgba(129,130,132,1.000)" stroke="none" stroke-width="0.000" fill-opacity="1.000" />
+<polygon points="510.405,55.042 517.139,66.705 503.672,66.705" fill="rgba(129,130,132,1.000)" stroke="none" stroke-width="0.000" fill-opacity="1.000" />
+<polygon points="606.284,59.519 613.017,71.181 599.551,71.181" fill="rgba(129,130,132,1.000)" stroke="none" stroke-width="0.000" fill-opacity="1.000" />
+<polygon points="702.163,60.724 708.896,72.386 695.430,72.386" fill="rgba(129,130,132,1.000)" stroke="none" stroke-width="0.000" fill-opacity="1.000" />
+<polygon points="798.042,59.174 804.775,70.837 791.309,70.837" fill="rgba(129,130,132,1.000)" stroke="none" stroke-width="0.000" fill-opacity="1.000" />
+<polygon points="893.921,51.254 900.654,62.917 887.188,62.917" fill="rgba(129,130,132,1.000)" stroke="none" stroke-width="0.000" fill-opacity="1.000" />
 <path d="M 78.950 11.508 L 893.921 11.508" fill="none" stroke="rgba(0,0,0,1.000)" stroke-width="1.000" stroke-opacity="1.000" stroke-linejoin="round" stroke-linecap="round" stroke-dasharray="6,6" />
 <path d="M 78.950 11.508 L 126.889 30.620 L 174.829 41.122 L 222.768 49.043 L 270.708 55.241 L 318.647 60.234 L 414.526 60.062 L 510.405 62.817 L 606.284 67.294 L 702.163 68.499 L 798.042 66.949 L 893.921 59.029" fill="none" stroke="rgba(129,130,132,1.000)" stroke-width="1.000" stroke-opacity="1.000" stroke-linejoin="round" stroke-linecap="round" />
 <line x1="78.950" y1="12.231" x2="78.950" y2="10.784" stroke="rgba(129,130,132,1.000)" stroke-width="1.500" stroke-opacity="1.000" />
@@ -52,18 +52,18 @@
 <line x1="889.921" y1="63.678" x2="897.921" y2="63.678" stroke="rgba(129,130,132,1.000)" stroke-width="1.500" stroke-opacity="1.000" />
 <line x1="889.921" y1="54.380" x2="897.921" y2="54.380" stroke="rgba(129,130,132,1.000)" stroke-width="1.500" stroke-opacity="1.000" />
 <text x="903.509" y="64.022" font-size="14.0" font-family="Inter, -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, 'PingFang SC', 'Microsoft YaHei', Ubuntu, Cantarell, 'Noto Sans', sans-serif" fill="rgba(0,0,0,1.000)" fill-opacity="1.000" text-anchor="start" font-weight="normal" dominant-baseline="middle" transform="rotate(0 903.509 64.022)">Placebo</text>
-<rect x="75.950" y="8.508" width="6.000" height="6.000" fill="rgba(91,136,195,1.000)" stroke="none" stroke-width="0.000" fill-opacity="1.000" stroke-opacity="1.000" />
-<rect x="123.889" y="47.592" width="6.000" height="6.000" fill="rgba(91,136,195,1.000)" stroke="none" stroke-width="0.000" fill-opacity="1.000" stroke-opacity="1.000" />
-<rect x="171.829" y="77.552" width="6.000" height="6.000" fill="rgba(91,136,195,1.000)" stroke="none" stroke-width="0.000" fill-opacity="1.000" stroke-opacity="1.000" />
-<rect x="219.768" y="110.093" width="6.000" height="6.000" fill="rgba(91,136,195,1.000)" stroke="none" stroke-width="0.000" fill-opacity="1.000" stroke-opacity="1.000" />
-<rect x="267.708" y="140.397" width="6.000" height="6.000" fill="rgba(91,136,195,1.000)" stroke="none" stroke-width="0.000" fill-opacity="1.000" stroke-opacity="1.000" />
-<rect x="315.647" y="171.389" width="6.000" height="6.000" fill="rgba(91,136,195,1.000)" stroke="none" stroke-width="0.000" fill-opacity="1.000" stroke-opacity="1.000" />
-<rect x="411.526" y="209.613" width="6.000" height="6.000" fill="rgba(91,136,195,1.000)" stroke="none" stroke-width="0.000" fill-opacity="1.000" stroke-opacity="1.000" />
-<rect x="507.405" y="238.023" width="6.000" height="6.000" fill="rgba(91,136,195,1.000)" stroke="none" stroke-width="0.000" fill-opacity="1.000" stroke-opacity="1.000" />
-<rect x="603.284" y="260.234" width="6.000" height="6.000" fill="rgba(91,136,195,1.000)" stroke="none" stroke-width="0.000" fill-opacity="1.000" stroke-opacity="1.000" />
-<rect x="699.163" y="274.869" width="6.000" height="6.000" fill="rgba(91,136,195,1.000)" stroke="none" stroke-width="0.000" fill-opacity="1.000" stroke-opacity="1.000" />
-<rect x="795.042" y="281.584" width="6.000" height="6.000" fill="rgba(91,136,195,1.000)" stroke="none" stroke-width="0.000" fill-opacity="1.000" stroke-opacity="1.000" />
-<rect x="890.921" y="277.107" width="6.000" height="6.000" fill="rgba(91,136,195,1.000)" stroke="none" stroke-width="0.000" fill-opacity="1.000" stroke-opacity="1.000" />
+<rect x="76.291" y="8.849" width="5.317" height="5.317" fill="rgba(91,136,195,1.000)" stroke="none" stroke-width="0.000" fill-opacity="1.000" stroke-opacity="1.000" />
+<rect x="124.231" y="47.934" width="5.317" height="5.317" fill="rgba(91,136,195,1.000)" stroke="none" stroke-width="0.000" fill-opacity="1.000" stroke-opacity="1.000" />
+<rect x="172.170" y="77.893" width="5.317" height="5.317" fill="rgba(91,136,195,1.000)" stroke="none" stroke-width="0.000" fill-opacity="1.000" stroke-opacity="1.000" />
+<rect x="220.110" y="110.435" width="5.317" height="5.317" fill="rgba(91,136,195,1.000)" stroke="none" stroke-width="0.000" fill-opacity="1.000" stroke-opacity="1.000" />
+<rect x="268.049" y="140.738" width="5.317" height="5.317" fill="rgba(91,136,195,1.000)" stroke="none" stroke-width="0.000" fill-opacity="1.000" stroke-opacity="1.000" />
+<rect x="315.989" y="171.731" width="5.317" height="5.317" fill="rgba(91,136,195,1.000)" stroke="none" stroke-width="0.000" fill-opacity="1.000" stroke-opacity="1.000" />
+<rect x="411.868" y="209.954" width="5.317" height="5.317" fill="rgba(91,136,195,1.000)" stroke="none" stroke-width="0.000" fill-opacity="1.000" stroke-opacity="1.000" />
+<rect x="507.747" y="238.364" width="5.317" height="5.317" fill="rgba(91,136,195,1.000)" stroke="none" stroke-width="0.000" fill-opacity="1.000" stroke-opacity="1.000" />
+<rect x="603.625" y="260.575" width="5.317" height="5.317" fill="rgba(91,136,195,1.000)" stroke="none" stroke-width="0.000" fill-opacity="1.000" stroke-opacity="1.000" />
+<rect x="699.504" y="275.210" width="5.317" height="5.317" fill="rgba(91,136,195,1.000)" stroke="none" stroke-width="0.000" fill-opacity="1.000" stroke-opacity="1.000" />
+<rect x="795.383" y="281.925" width="5.317" height="5.317" fill="rgba(91,136,195,1.000)" stroke="none" stroke-width="0.000" fill-opacity="1.000" stroke-opacity="1.000" />
+<rect x="891.262" y="277.449" width="5.317" height="5.317" fill="rgba(91,136,195,1.000)" stroke="none" stroke-width="0.000" fill-opacity="1.000" stroke-opacity="1.000" />
 <path d="M 78.950 11.508 L 126.889 50.592 L 174.829 80.552 L 222.768 113.093 L 270.708 143.397 L 318.647 174.389 L 414.526 212.613 L 510.405 241.023 L 606.284 263.234 L 702.163 277.869 L 798.042 284.584 L 893.921 280.107" fill="none" stroke="rgba(91,136,195,1.000)" stroke-width="1.000" stroke-opacity="1.000" stroke-linejoin="round" stroke-linecap="round" />
 <line x1="78.950" y1="12.214" x2="78.950" y2="10.802" stroke="rgba(91,136,195,1.000)" stroke-width="1.500" stroke-opacity="1.000" />
 <line x1="74.950" y1="12.214" x2="82.950" y2="12.214" stroke="rgba(91,136,195,1.000)" stroke-width="1.500" stroke-opacity="1.000" />

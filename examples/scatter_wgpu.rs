@@ -19,8 +19,7 @@ fn main() -> Result<(), Box<dyn Error>> {
         .coord_flip()
         .configure_theme(|t| t.with_x_tick_label_angle(-45.0))
         .with_title("Car Performance")
-        // The save() method automatically detects the 'wgpu' feature
-        // and uses the high-performance GPU backend to generate this PNG.
+        .with_grid(true)
         .save("scatter_gpu.png")?;
 
     println!("Success! Scatter plot saved as 'scatter_gpu.png' using wgpu.");
