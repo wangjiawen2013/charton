@@ -1,6 +1,6 @@
 use crate::Precision;
 use crate::coordinate::{CoordinateTrait, Rect, cartesian::Cartesian2D};
-use crate::core::layer::{PathConfig, PathTopology, RenderBackend, TextConfig};
+use crate::core::layer::{LineConfig, PathConfig, PathTopology, RenderBackend, TextConfig};
 use crate::error::ChartonError;
 use crate::scale::ExplicitTick;
 use crate::theme::Theme;
@@ -79,6 +79,7 @@ fn draw_axis_line(
             (x1 as Precision, y1 as Precision),
             (x2 as Precision, y2 as Precision),
         ],
+        fill: "none".into(),
         stroke: theme.label_color,
         stroke_width: theme.axis_width as Precision,
         opacity: 1.0,
@@ -158,6 +159,7 @@ fn draw_ticks_and_labels(
                 (px as Precision, py as Precision),
                 (x2 as Precision, y2 as Precision),
             ],
+            fill: "none".into(),
             stroke: theme.label_color,
             stroke_width: theme.tick_width as Precision,
             opacity: 1.0,
@@ -298,6 +300,88 @@ fn draw_axis_title(
             font_weight: "bold".to_string(),
             opacity: 1.0,
             angle: -90.0, // Rotate Counter-Clockwise(CCW) for vertical alignment
+        });
+    }
+
+    Ok(())
+}
+
+/// Renders the underlying grid lines for a 2D Cartesian coordinate system.
+///
+/// This must be called before `layer.render_marks` to keep grid lines in the background.
+#[allow(clippy::too_many_arguments)]
+pub fn render_cartesian_grid(
+    backend: &mut dyn RenderBackend,
+    theme: &Theme,
+    panel: &Rect,
+    coord: &Cartesian2D,
+    x_explicit: Option<&[ExplicitTick]>,
+    y_explicit: Option<&[ExplicitTick]>,
+) -> Result<(), ChartonError> {
+    let is_flipped = coord.is_flipped();
+
+    // ------------------------------------------------------------------------
+    // 1. Render vertical grid lines (Bottom axis ticks)
+    // ------------------------------------------------------------------------
+    let bottom_scale = if is_flipped {
+        coord.get_y_scale()
+    } else {
+        coord.get_x_scale()
+    };
+    let bottom_explicit = if is_flipped { y_explicit } else { x_explicit };
+
+    let x_ticks = match bottom_explicit {
+        Some(explicit) => bottom_scale.create_explicit_ticks(explicit),
+        None => bottom_scale.suggest_ticks(theme.suggest_tick_count(panel.width)),
+    };
+
+    for tick in x_ticks {
+        let norm_pos = bottom_scale.normalize(tick.value);
+        let canvas_x = panel.x + norm_pos * panel.width;
+
+        // Vertical line: spans from the top edge to the bottom edge of the panel
+        // Stack-allocated LineConfig avoids iterative heap allocations
+        backend.draw_line(LineConfig {
+            x1: canvas_x as Precision,
+            y1: panel.y as Precision,
+            x2: canvas_x as Precision,
+            y2: (panel.y + panel.height) as Precision,
+            color: theme.grid_color,
+            width: theme.grid_width as Precision,
+            opacity: 0.4,
+            dash: vec![], // Can be replaced with theme.grid_dash.clone() if customized
+        });
+    }
+
+    // ------------------------------------------------------------------------
+    // 2. Render horizontal grid lines (Left axis ticks)
+    // ------------------------------------------------------------------------
+    let left_scale = if is_flipped {
+        coord.get_x_scale()
+    } else {
+        coord.get_y_scale()
+    };
+    let left_explicit = if is_flipped { x_explicit } else { y_explicit };
+
+    let y_ticks = match left_explicit {
+        Some(explicit) => left_scale.create_explicit_ticks(explicit),
+        None => left_scale.suggest_ticks(theme.suggest_tick_count(panel.height)),
+    };
+
+    for tick in y_ticks {
+        let norm_pos = left_scale.normalize(tick.value);
+        let canvas_y = panel.y + (1.0 - norm_pos) * panel.height; // Invert Y for screen space
+
+        // Horizontal line: spans from the left edge to the right edge of the panel
+        backend.draw_line(LineConfig {
+            x1: panel.x as Precision,
+            y1: canvas_y as Precision,
+            x2: (panel.x + panel.width) as Precision,
+            y2: canvas_y as Precision,
+            color: theme.grid_color,
+            width: theme.grid_width as Precision,
+            opacity: 0.4,
+            dash: vec![],
         });
     }
 

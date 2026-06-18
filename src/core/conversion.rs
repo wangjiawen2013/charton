@@ -87,6 +87,12 @@ pub trait IntoLayered: Into<LayeredChart> + Clone {
         lc
     }
 
+    fn with_grid(self, show: bool) -> LayeredChart {
+        let mut lc: LayeredChart = self.into();
+        lc.show_grid = Some(show);
+        lc
+    }
+
     // --- Aesthetic Styling ---
 
     fn with_theme(self, theme: Theme) -> LayeredChart {

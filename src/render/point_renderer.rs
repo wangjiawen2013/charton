@@ -489,12 +489,13 @@ impl Chart<MarkPoint> {
                 });
             }
             PointShape::Square => {
-                let side = size * 2.0;
+                // Scale factor = sqrt(pi / 4) ≈ 0.886 to equalize square area with baseline circle
+                let adj_size = size * 0.88623;
                 backend.draw_rect(RectConfig {
-                    x: (x - size) as Precision,
-                    y: (y - size) as Precision,
-                    width: side as Precision,
-                    height: side as Precision,
+                    x: (x - adj_size) as Precision,
+                    y: (y - adj_size) as Precision,
+                    width: (adj_size * 2.0) as Precision,
+                    height: (adj_size * 2.0) as Precision,
                     fill,
                     stroke,
                     stroke_width: stroke_width as Precision,
@@ -502,17 +503,36 @@ impl Chart<MarkPoint> {
                 });
             }
             _ => {
+                // scale_adj is calculated to equalize the physical pixel area of each shape
+                // against a baseline Circle of the same size (radius).
                 let (sides, rotation, scale_adj) = match shape {
-                    PointShape::Diamond => (4, 0.0, 1.2),
-                    PointShape::Triangle => (3, -std::f64::consts::FRAC_PI_2, 1.1),
-                    PointShape::Pentagon => (5, -std::f64::consts::FRAC_PI_2, 1.0),
-                    PointShape::Hexagon => (6, 0.0, 1.0),
-                    PointShape::Octagon => (8, std::f64::consts::FRAC_PI_8, 1.0),
+                    // Diamond (Square rotated 45 deg): Area = 2 * r^2. Circle Area = pi * r^2.
+                    // Scale factor = sqrt(pi / 2) ≈ 1.253
+                    PointShape::Diamond => (4, 0.0, 1.253),
+
+                    // Equilateral Triangle: Area = (3 * sqrt(3) / 4) * r^2 ≈ 1.299 * r^2.
+                    // Scale factor = sqrt(pi / 1.299) ≈ 1.555
+                    PointShape::Triangle => (3, -std::f64::consts::FRAC_PI_2, 1.555),
+
+                    // Regular Pentagon: Area ≈ 2.377 * r^2.
+                    // Scale factor = sqrt(pi / 2.377) ≈ 1.150
+                    PointShape::Pentagon => (5, -std::f64::consts::FRAC_PI_2, 1.150),
+
+                    // Regular Hexagon: Area = (3 * sqrt(3) / 2) * r^2 ≈ 2.598 * r^2.
+                    // Scale factor = sqrt(pi / 2.598) ≈ 1.099
+                    PointShape::Hexagon => (6, 0.0, 1.099),
+
+                    // Regular Octagon: Area = 2 * sqrt(2) * r^2 ≈ 2.828 * r^2.
+                    // Scale factor = sqrt(pi / 2.828) ≈ 1.054
+                    PointShape::Octagon => (8, std::f64::consts::FRAC_PI_8, 1.054),
+
                     _ => (0, 0.0, 0.0),
                 };
 
                 let points = if shape == PointShape::Star {
-                    self.calculate_star(x, y, size * 1.2, size * 0.5, 5)
+                    // For Star, we adjust the outer radius to roughly match circle area
+                    // A 5-point star with inner_r = 0.382 * outer_r needs ~1.6 scale to match circle area
+                    self.calculate_star(x, y, size * 1.6, size * 0.6, 5)
                 } else {
                     self.calculate_polygon(x, y, size * scale_adj, sides, rotation)
                 };
@@ -525,8 +545,7 @@ impl Chart<MarkPoint> {
                     fill,
                     stroke,
                     stroke_width: stroke_width as Precision,
-                    fill_opacity: opacity as Precision,
-                    stroke_opacity: 1.0,
+                    opacity: opacity as Precision,
                 });
             }
         }

@@ -49,6 +49,10 @@ pub struct LayeredChart {
     /// The logical coordinate system (e.g., Cartesian, Polar).
     pub(crate) coord_system: CoordSystem,
 
+    /// User-defined override to show/hide grid lines.
+    /// If `None`, `theme.show_grid_lines` takes precedence.
+    pub(crate) show_grid: Option<bool>,
+
     // --- Layout Overrides (The "Override" Pattern) ---
     /// Manual override for chart margins [top, right, bottom, left].
     /// If `None`, `theme.default_margins` will be used during layout resolution.
@@ -122,6 +126,8 @@ impl LayeredChart {
 
             layers: Vec::new(),
             coord_system: CoordSystem::default(),
+
+            show_grid: None,
 
             top_margin: None,
             right_margin: None,
@@ -644,7 +650,7 @@ impl LayeredChart {
         Ok(())
     }
 
-    /// Renders the entire layered chart to the provided SVG string.
+    /// Renders the entire layered chart to the provided backend.
     ///
     /// This implementation coordinates the final rendering pipeline with a clear separation
     /// between global specifications (ChartSpec) and local drawing environments (PanelContext).
@@ -655,46 +661,64 @@ impl LayeredChart {
         }
 
         // --- STEP 1: SCENE RESOLUTION ---
-        // Resolve scale training, unified aesthetic mapping, and physical layout measurement.
-        // Returns the final unified coordinate system, the plotting rect,
-        // global aesthetics, and the calculated legend specifications.
         let (coord, panel, aesthetics, guide_specs) = self.resolve_scene()?;
 
         // --- STEP 2: GLOBAL SPECIFICATION SETUP ---
-        // We initialize the ChartSpec, which serves as the "Global Source of Truth".
-        // This spec is immutable and shared across all potential panels (facets).
         let spec = ChartSpec {
             aesthetics: &aesthetics,
             theme: &self.theme,
         };
 
         // --- STEP 3: LAYER SYNCHRONIZATION (The "Back-fill") ---
-        // Inject the resolved global state into each layer. This allows layers to
-        // prepare for rendering (e.g., pre-calculating aesthetic mappings).
         for layer in self.layers.iter() {
             layer.inject_resolved_scales(coord.clone(), &aesthetics);
         }
 
         // --- STEP 4: ORCHESTRATED DRAWING ---
-        // NOTE: In the future, for Faceted plots, this section will wrap in a loop
-        // that iterates over multiple PanelContexts created by a 'FacetEngine'.
-
         // 4a. Initialize the Primary Panel Context.
         let primary_panel_ctx = PanelContext::new(&spec, coord.clone(), panel);
 
-        // 4b. Render Chart Title.
-        // Title is typically global to the entire chart canvas.
-        self.render_title(backend, &primary_panel_ctx.panel)?;
-
-        // 4c. Render Axes (X and Y).
-        // Only render axes if the theme allows and at least one layer requires them.
-        if self.theme.show_axes && self.layers.iter().any(|l| l.requires_axes()) {
-            let x_label = coord.get_x_label();
-            let y_label = coord.get_y_label();
-
+        // 4b. Render Grid Lines (BOTTOM LAYER)
+        // Check user override first, fallback to theme default.
+        let should_show_grid = self.show_grid.unwrap_or(self.theme.show_grid);
+        if should_show_grid {
             let x_explicit = self.x_ticks.as_deref();
             let y_explicit = self.y_ticks.as_deref();
 
+            // Polymorphic dispatch: The specific coordinate system handles its own grid drawing.
+            primary_panel_ctx.coord.render_grid_lines(
+                backend,
+                &self.theme,
+                &primary_panel_ctx.panel,
+                x_explicit,
+                y_explicit,
+            )?;
+        }
+
+        // 4c. Render Chart Title.
+        self.render_title(backend, &primary_panel_ctx.panel)?;
+
+        // 4d. Render Marks (MIDDLE LAYER - Data Geometries)
+        // We activate clipping to lock chart marks strictly inside the data viewport.
+        // Since grid lines are drawn before this, they safely sit underneath the data.
+        backend.begin_clip_scope(&primary_panel_ctx.panel);
+
+        for layer in &self.layers {
+            layer.render_marks(backend, &primary_panel_ctx)?;
+        }
+
+        backend.end_clip_scope();
+
+        // 4e. Render Axes (TOP LAYER)
+        // Drawn after the marks and outside the clipping scope to ensure labels aren't clipped
+        // and axis spines sit crisply on top of data lines that touch the edges.
+        if self.theme.show_axes && self.layers.iter().any(|l| l.requires_axes()) {
+            let x_label = coord.get_x_label();
+            let y_label = coord.get_y_label();
+            let x_explicit = self.x_ticks.as_deref();
+            let y_explicit = self.y_ticks.as_deref();
+
+            // Polymorphic dispatch for axes
             primary_panel_ctx.coord.render_axes(
                 backend,
                 &self.theme,
@@ -706,14 +730,7 @@ impl LayeredChart {
             )?;
         }
 
-        // 4d. Render Marks (Data Geometries).
-        for layer in &self.layers {
-            // Each layer renders its marks within the provided PanelContext.
-            layer.render_marks(backend, &primary_panel_ctx)?;
-        }
-
-        // 4e. Render Unified Legends & Guides.
-        // Legends are rendered globally, using the ChartSpec for visual rules.
+        // 4f. Render Unified Legends & Guides (FOREGROUND LAYER)
         crate::render::legend_renderer::LegendRenderer::render_legend(
             backend,
             &guide_specs,
@@ -747,7 +764,7 @@ impl LayeredChart {
         // We initialize the SvgBackend. The background is rendered through the
         // backend interface to ensure consistency across different output formats.
         {
-            let mut backend = crate::render::backend::svg::SvgBackend::new(&mut svg_content, None);
+            let mut backend = crate::render::backend::svg::SvgBackend::new(&mut svg_content);
 
             // Render Background
             backend.draw_rect(RectConfig {
