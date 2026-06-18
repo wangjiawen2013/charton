@@ -9,7 +9,7 @@ authors = ["Jiawen Wang <wangjiawen2013@163.com>"]
 
 [features]
 # Default features enabled for standard desktop builds.
-default = ["png"]
+default = []
 
 # Enables multi-threaded data processing via Rayon for massive datasets.
 # NOTE: Disable this feature when targeting WebAssembly (Wasm) unless
