@@ -251,6 +251,7 @@ pub struct WgpuBackend {
 
     pub collected_texts: Vec<TextConfig>,
     // A tuple containing the batch and its associated scissor state.
+    #[allow(clippy::type_complexity)]
     batches: Vec<(DrawBatch, Option<(u32, u32, u32, u32)>)>,
     // Add state tracking for physical dimensions and current clipping rect.
     current_scissor: Option<(u32, u32, u32, u32)>,
@@ -681,10 +682,10 @@ impl WgpuBackend {
         let can_merge = self
             .batches
             .last()
-            .map_or(false, |(_, scissor)| *scissor == self.current_scissor);
+            .is_some_and(|(_, scissor)| *scissor == self.current_scissor);
 
-        if can_merge {
-            if let Some((last_batch, _)) = self.batches.last_mut() {
+        if can_merge
+            && let Some((last_batch, _)) = self.batches.last_mut() {
                 match (last_batch, batch_type) {
                     (DrawBatch::Circle { count: c, .. }, BatchType::Circle) => {
                         *c += count;
@@ -722,7 +723,6 @@ impl WgpuBackend {
                     }
                     _ => {} // PathSimple and other types fall through to isolation
                 }
-            }
         }
 
         // FALLBACK / ISOLATION: Create a new draw batch paired with the current active scissor state.
@@ -1162,7 +1162,7 @@ impl WgpuBackend {
         // this pass disables color writes.
         for &(x, y) in &config.points {
             self.pending_polygon_vertices.push(PathVertex {
-                position: [x as f32, y as f32],
+                position: [x, y],
                 color: [0.0, 0.0, 0.0, 0.0],
                 is_fill: 1.0,
             });
@@ -1194,19 +1194,17 @@ impl WgpuBackend {
         let mut min_y = f32::MAX;
         let mut max_y = f32::MIN;
         for &(x, y) in &config.points {
-            let x_f = x as f32;
-            let y_f = y as f32;
-            if x_f < min_x {
-                min_x = x_f;
+            if x < min_x {
+                min_x = x;
             }
-            if x_f > max_x {
-                max_x = x_f;
+            if x > max_x {
+                max_x = x;
             }
-            if y_f < min_y {
-                min_y = y_f;
+            if y < min_y {
+                min_y = y;
             }
-            if y_f > max_y {
-                max_y = y_f;
+            if y > max_y {
+                max_y = y;
             }
         }
 

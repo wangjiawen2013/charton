@@ -158,7 +158,7 @@ impl Theme {
         self
     }
 
-    pub fn with_grid(mut self, show: bool) -> Self {
+    pub const fn with_grid(mut self, show: bool) -> Self {
         self.show_grid = show;
         self
     }

@@ -275,8 +275,8 @@ impl<'a> RenderBackend for RasterBackend<'a> {
             // ====================================================================
             // OPTIMIZATION 2: Render Fill (Layer 1 equivalent)
             // ====================================================================
-            if !config.fill.is_none() {
-                if let Some(c) = self.to_skia_color(&config.fill, config.opacity) {
+            if !config.fill.is_none()
+                && let Some(c) = self.to_skia_color(&config.fill, config.opacity) {
                     let mut paint = Paint::default();
                     paint.set_color(c);
                     paint.anti_alias = true; // Crucial for eliminating hairline seams
@@ -289,14 +289,13 @@ impl<'a> RenderBackend for RasterBackend<'a> {
                         self.transform,
                         self.clip_mask.as_ref(),
                     );
-                }
             }
 
             // ====================================================================
             // OPTIMIZATION 3: Render Stroke (Layer 2 equivalent)
             // ====================================================================
-            if !config.stroke.is_none() && config.stroke_width > 0.0 {
-                if let Some(c) = self.to_skia_color(&config.stroke, config.opacity) {
+            if !config.stroke.is_none() && config.stroke_width > 0.0
+                && let Some(c) = self.to_skia_color(&config.stroke, config.opacity) {
                     let mut paint = Paint::default();
                     paint.set_color(c);
                     paint.anti_alias = true;
@@ -321,7 +320,6 @@ impl<'a> RenderBackend for RasterBackend<'a> {
                         self.transform,
                         self.clip_mask.as_ref(),
                     );
-                }
             }
         }
     }

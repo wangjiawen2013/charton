@@ -81,7 +81,7 @@ fn main() -> Result<(), Box<dyn Error>> {
 
     // Reference line (y = 0 → no weight change)
     let ds_reference = vec![
-        ("x", [0.0, 68.0].into_column()),
+        ("x", [0.0, 76.0].into_column()),
         ("y", [0.0, 0.0].into_column()),
     ]
     .to_dataset()?;
@@ -123,7 +123,7 @@ fn main() -> Result<(), Box<dyn Error>> {
         ))?;
 
     // Layer 4: Placebo text label
-    let placebo_text = Chart::build(&ds_text.head(1))?
+    let placebo_text = Chart::build(ds_text.head(1))?
         .mark_text()?
         .configure_text(|t| t.with_anchor("left").with_size(14.0))
         .encode((alt::x("x"), alt::y("y"), alt::text("group")))?;
@@ -161,7 +161,7 @@ fn main() -> Result<(), Box<dyn Error>> {
         ))?;
 
     // Layer 8: Semaglutide text label
-    let semaglutide_text = Chart::build(&ds_text.tail(1))?
+    let semaglutide_text = Chart::build(ds_text.tail(1))?
         .mark_text()?
         .configure_text(|t| t.with_anchor("left").with_size(14.0))
         .encode((alt::x("x"), alt::y("y"), alt::text("group")))?;
@@ -183,7 +183,7 @@ fn main() -> Result<(), Box<dyn Error>> {
         .and(semaglutide_errorbar)
         .and(semaglutide_text)
         .with_x_expand(Expansion {
-            mult: (0.00, 0.02),
+            mult: (0.00, 0.0),
             add: (0.0, 0.0),
         })
         .with_y_expand(Expansion {
