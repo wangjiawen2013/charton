@@ -276,50 +276,53 @@ impl<'a> RenderBackend for RasterBackend<'a> {
             // OPTIMIZATION 2: Render Fill (Layer 1 equivalent)
             // ====================================================================
             if !config.fill.is_none()
-                && let Some(c) = self.to_skia_color(&config.fill, config.opacity) {
-                    let mut paint = Paint::default();
-                    paint.set_color(c);
-                    paint.anti_alias = true; // Crucial for eliminating hairline seams
+                && let Some(c) = self.to_skia_color(&config.fill, config.opacity)
+            {
+                let mut paint = Paint::default();
+                paint.set_color(c);
+                paint.anti_alias = true; // Crucial for eliminating hairline seams
 
-                    // FillRule::Winding is the standard non-zero algorithm used by SVG
-                    self.pixmap.fill_path(
-                        &path,
-                        &paint,
-                        FillRule::Winding,
-                        self.transform,
-                        self.clip_mask.as_ref(),
-                    );
+                // FillRule::Winding is the standard non-zero algorithm used by SVG
+                self.pixmap.fill_path(
+                    &path,
+                    &paint,
+                    FillRule::Winding,
+                    self.transform,
+                    self.clip_mask.as_ref(),
+                );
             }
 
             // ====================================================================
             // OPTIMIZATION 3: Render Stroke (Layer 2 equivalent)
             // ====================================================================
-            if !config.stroke.is_none() && config.stroke_width > 0.0
-                && let Some(c) = self.to_skia_color(&config.stroke, config.opacity) {
-                    let mut paint = Paint::default();
-                    paint.set_color(c);
-                    paint.anti_alias = true;
+            if !config.stroke.is_none()
+                && config.stroke_width > 0.0
+                && let Some(c) = self.to_skia_color(&config.stroke, config.opacity)
+            {
+                let mut paint = Paint::default();
+                paint.set_color(c);
+                paint.anti_alias = true;
 
-                    let mut stroke = Stroke {
-                        width: config.stroke_width,
-                        // IMPORTANT: Align with SVG's stroke-linejoin="round" and stroke-linecap="round"
-                        line_join: LineJoin::Round,
-                        line_cap: LineCap::Round,
-                        ..Default::default()
-                    };
+                let mut stroke = Stroke {
+                    width: config.stroke_width,
+                    // IMPORTANT: Align with SVG's stroke-linejoin="round" and stroke-linecap="round"
+                    line_join: LineJoin::Round,
+                    line_cap: LineCap::Round,
+                    ..Default::default()
+                };
 
-                    // Handle Dash Array
-                    if !config.dash.is_empty() {
-                        stroke.dash = tiny_skia::StrokeDash::new(config.dash, 0.0);
-                    }
+                // Handle Dash Array
+                if !config.dash.is_empty() {
+                    stroke.dash = tiny_skia::StrokeDash::new(config.dash, 0.0);
+                }
 
-                    self.pixmap.stroke_path(
-                        &path,
-                        &paint,
-                        &stroke,
-                        self.transform,
-                        self.clip_mask.as_ref(),
-                    );
+                self.pixmap.stroke_path(
+                    &path,
+                    &paint,
+                    &stroke,
+                    self.transform,
+                    self.clip_mask.as_ref(),
+                );
             }
         }
     }
