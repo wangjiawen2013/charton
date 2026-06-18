@@ -13,7 +13,10 @@ fn main() -> Result<(), Box<dyn Error>> {
     value.extend_from_slice(&raw_sw[0..50]);
 
     let mut variable = Vec::with_capacity(raw_sl.len() + 50);
-    variable.extend(std::iter::repeat_n("sepal_length".to_string(), raw_sl.len()));
+    variable.extend(std::iter::repeat_n(
+        "sepal_length".to_string(),
+        raw_sl.len(),
+    ));
     variable.extend(std::iter::repeat_n("sepal_width".to_string(), 50));
 
     // Create a histogram chart

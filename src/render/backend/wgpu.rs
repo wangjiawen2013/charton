@@ -684,45 +684,44 @@ impl WgpuBackend {
             .last()
             .is_some_and(|(_, scissor)| *scissor == self.current_scissor);
 
-        if can_merge
-            && let Some((last_batch, _)) = self.batches.last_mut() {
-                match (last_batch, batch_type) {
-                    (DrawBatch::Circle { count: c, .. }, BatchType::Circle) => {
-                        *c += count;
-                        return;
-                    }
-                    (DrawBatch::Rect { count: c, .. }, BatchType::Rect) => {
-                        *c += count;
-                        return;
-                    }
-                    (DrawBatch::Line { count: c, .. }, BatchType::Line) => {
-                        *c += count;
-                        return;
-                    }
-                    (DrawBatch::Polygon { index_count: c, .. }, BatchType::Polygon) => {
-                        *c += count;
-                        return;
-                    }
-                    (DrawBatch::GradientRect { count: c, .. }, BatchType::GradientRect) => {
-                        *c += count;
-                        return;
-                    }
-                    (
-                        DrawBatch::PathComplexStencil { index_count: c, .. },
-                        BatchType::PathComplexStencil,
-                    ) => {
-                        *c += count;
-                        return;
-                    }
-                    (
-                        DrawBatch::PathComplexCover { index_count: c, .. },
-                        BatchType::PathComplexCover,
-                    ) => {
-                        *c += count;
-                        return;
-                    }
-                    _ => {} // PathSimple and other types fall through to isolation
+        if can_merge && let Some((last_batch, _)) = self.batches.last_mut() {
+            match (last_batch, batch_type) {
+                (DrawBatch::Circle { count: c, .. }, BatchType::Circle) => {
+                    *c += count;
+                    return;
                 }
+                (DrawBatch::Rect { count: c, .. }, BatchType::Rect) => {
+                    *c += count;
+                    return;
+                }
+                (DrawBatch::Line { count: c, .. }, BatchType::Line) => {
+                    *c += count;
+                    return;
+                }
+                (DrawBatch::Polygon { index_count: c, .. }, BatchType::Polygon) => {
+                    *c += count;
+                    return;
+                }
+                (DrawBatch::GradientRect { count: c, .. }, BatchType::GradientRect) => {
+                    *c += count;
+                    return;
+                }
+                (
+                    DrawBatch::PathComplexStencil { index_count: c, .. },
+                    BatchType::PathComplexStencil,
+                ) => {
+                    *c += count;
+                    return;
+                }
+                (
+                    DrawBatch::PathComplexCover { index_count: c, .. },
+                    BatchType::PathComplexCover,
+                ) => {
+                    *c += count;
+                    return;
+                }
+                _ => {} // PathSimple and other types fall through to isolation
+            }
         }
 
         // FALLBACK / ISOLATION: Create a new draw batch paired with the current active scissor state.
