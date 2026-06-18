@@ -19,6 +19,7 @@ fn main() -> Result<(), Box<dyn Error>> {
             alt::color("type1"), // Distinct colors for each "petal"
         ))?
         .with_y_label("Intensity")
+        .with_grid(true)
         // CoordSystem::Polar transforms the rectangular bar chart into a Rose Chart
         .with_coord(CoordSystem::Polar)
         .save("rose_gpu.png")?;

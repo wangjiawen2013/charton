@@ -14,6 +14,7 @@ fn main() -> Result<(), Box<dyn Error>> {
         ))?
         .with_title("Nightingale wind rose")
         .with_coord(CoordSystem::Polar)
+        .with_grid(true)
         .save("docs/src/images/nightingale.svg")?;
 
     Ok(())

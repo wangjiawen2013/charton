@@ -2,7 +2,7 @@ use crate::Precision;
 use crate::TEMP_SUFFIX;
 use crate::chart::Chart;
 use crate::core::context::PanelContext;
-use crate::core::layer::{MarkRenderer, PathConfig, PathTopology, PolygonConfig, RenderBackend};
+use crate::core::layer::{MarkRenderer, PathConfig, PathTopology, RenderBackend};
 use crate::core::utils::Parallelizable;
 use crate::encode::y::StackMode;
 use crate::error::ChartonError;
@@ -175,27 +175,36 @@ impl MarkRenderer for Chart<MarkArea> {
 
         // --- STEP 5: Final Dispatch to Backend ---
         for (fill_pts, stroke_pts, group_color) in area_render_data {
-            // Layer 1: Area Fill (Polygon)
-            backend.draw_polygon(PolygonConfig {
+            // Layer 1: Area Fill (Unified concave polygon fill)
+            // Completely replaces the deprecated `draw_polygon` approach for areas.
+            // Using `draw_path` with `PathTopology::Complex` instructs the WGPU backend
+            // to automatically route this to the Stencil-Then-Cover pipeline.
+            // Meanwhile, SVG/PNG backends will render this as a standard closed
+            // vector path with perfect anti-aliasing.
+            backend.draw_path(PathConfig {
                 points: fill_pts,
                 fill: group_color,
                 stroke: SingleColor::none(),
                 stroke_width: 0.0,
-                fill_opacity: mark_config.opacity as Precision,
-                stroke_opacity: 0.0,
+                opacity: mark_config.opacity as Precision,
+                dash: vec![],
+                topology: PathTopology::Complex,
             });
 
-            // Layer 2: Top Boundary Path (Stroke)
+            // Layer 2: Top Boundary Path (Independent top stroke/polyline)
             // Note: Stacked modes usually omit strokes to prevent edge artifacts in streamgraphs
             if matches!(y_enc.stack, StackMode::None) {
                 backend.draw_path(PathConfig {
                     points: stroke_pts,
+                    fill: SingleColor::none(),
                     stroke: group_color,
                     stroke_width: mark_config.stroke_width as Precision,
+                    // Stroke opacity is usually kept at 1.0 to highlight the boundary,
+                    // or explicitly defined by external styles.
                     opacity: 1.0,
                     dash: mark_config.dash.iter().map(|&d| d as Precision).collect(),
-                    // Explicitly define it as Simple topology for pure GPU line extrusion.
-                    // This tells the WGPU backend to bypass any complex CPU tessellation libraries.
+                    // Explicitly providing the Simple topology ensures this routes
+                    // to the high-performance normal extrusion pipeline.
                     topology: PathTopology::Simple,
                 });
             }
@@ -229,6 +238,7 @@ impl Chart<MarkArea> {
                     (px1 as Precision, py1 as Precision),
                     (px2 as Precision, py2 as Precision),
                 ],
+                fill: SingleColor::none(),
                 stroke: SingleColor::from("#888888"),
                 stroke_width: 1.0,
                 opacity: 0.5,

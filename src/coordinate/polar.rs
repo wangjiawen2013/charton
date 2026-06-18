@@ -71,6 +71,20 @@ impl CoordinateTrait for Polar {
         )
     }
 
+    /// Renders the coordinate system's background grid.
+    fn render_grid_lines(
+        &self,
+        backend: &mut dyn RenderBackend,
+        theme: &Theme,
+        panel: &Rect,
+        x_explicit: Option<&[ExplicitTick]>,
+        y_explicit: Option<&[ExplicitTick]>,
+    ) -> Result<(), ChartonError> {
+        crate::render::polar_axis_renderer::render_polar_grid(
+            backend, theme, panel, self, x_explicit, y_explicit,
+        )
+    }
+
     /// Transforms a single normalized point to pixel space.
     fn transform(&self, x_norm: f64, y_norm: f64, panel: &Rect) -> (f64, f64) {
         let (theta, r_norm) = self.map_to_polar(x_norm, y_norm);

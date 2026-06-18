@@ -453,11 +453,13 @@ impl LegendRenderer {
                 });
             }
             PointShape::Square => {
+                // Scale factor = sqrt(pi / 4) ≈ 0.886 to equalize area with a circle of radius r
+                let adj_r = r * 0.88623;
                 backend.draw_rect(RectConfig {
-                    x: (cx - r) as Precision,
-                    y: (cy - r) as Precision,
-                    width: (r * 2.0) as Precision,
-                    height: (r * 2.0) as Precision,
+                    x: (cx - adj_r) as Precision,
+                    y: (cy - adj_r) as Precision,
+                    width: (adj_r * 2.0) as Precision,
+                    height: (adj_r * 2.0) as Precision,
                     fill: *color,
                     stroke: SingleColor::new("none"),
                     stroke_width: 0.0,
@@ -466,12 +468,24 @@ impl LegendRenderer {
             }
             // For all other geometric shapes, we calculate vertices and use draw_polygon
             _ => {
+                // Apply the same area-equalizing scale adjustments as in the data marks
+                let scale_adj = match shape {
+                    PointShape::Diamond => 1.253,
+                    PointShape::Triangle => 1.555,
+                    PointShape::Pentagon => 1.150,
+                    PointShape::Hexagon => 1.099,
+                    PointShape::Octagon => 1.054,
+                    _ => 1.0,
+                };
+
                 let points = match shape {
-                    PointShape::Triangle => Self::gen_regular_poly(cx, cy, r, 3, -90.0),
-                    PointShape::Diamond => Self::gen_regular_poly(cx, cy, r, 4, 0.0),
-                    PointShape::Pentagon => Self::gen_regular_poly(cx, cy, r, 5, -90.0),
-                    PointShape::Hexagon => Self::gen_regular_poly(cx, cy, r, 6, 0.0),
-                    PointShape::Star => Self::gen_star(cx, cy, r, r * 0.45, 5),
+                    PointShape::Triangle => Self::gen_regular_poly(cx, cy, r * scale_adj, 3, -90.0),
+                    PointShape::Diamond => Self::gen_regular_poly(cx, cy, r * scale_adj, 4, 0.0),
+                    PointShape::Pentagon => Self::gen_regular_poly(cx, cy, r * scale_adj, 5, -90.0),
+                    PointShape::Hexagon => Self::gen_regular_poly(cx, cy, r * scale_adj, 6, 0.0),
+                    PointShape::Octagon => Self::gen_regular_poly(cx, cy, r * scale_adj, 8, 22.5),
+                    // For Star, roughly 1.6 outer and 0.6 inner matches the circle area
+                    PointShape::Star => Self::gen_star(cx, cy, r * 1.6, r * 0.6, 5),
                     _ => Vec::new(),
                 };
 
@@ -481,8 +495,7 @@ impl LegendRenderer {
                         fill: *color,
                         stroke: SingleColor::new("none"),
                         stroke_width: 0.0,
-                        fill_opacity: 1.0,
-                        stroke_opacity: 1.0,
+                        opacity: 1.0,
                     });
                 } else {
                     // Final fallback to Circle if shape is undefined

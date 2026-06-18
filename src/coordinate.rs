@@ -80,6 +80,16 @@ pub trait CoordinateTrait: Send + Sync {
         y_explicit: Option<&[ExplicitTick]>,
     ) -> Result<(), ChartonError>;
 
+    /// Renders the coordinate system's background grid.
+    fn render_grid_lines(
+        &self,
+        backend: &mut dyn RenderBackend,
+        theme: &Theme,
+        panel: &Rect,
+        x_explicit: Option<&[ExplicitTick]>,
+        y_explicit: Option<&[ExplicitTick]>,
+    ) -> Result<(), ChartonError>;
+
     /// Transforms normalized data values into absolute pixel coordinates.
     ///
     /// # Arguments

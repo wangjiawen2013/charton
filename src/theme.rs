@@ -19,6 +19,10 @@ pub struct Theme {
     pub(crate) left_margin: f64,
     /// Whether to render axes by default.
     pub(crate) show_axes: bool,
+    /// Whether to render grid lines
+    pub(crate) show_grid: bool,
+    pub(crate) grid_color: SingleColor,
+    pub(crate) grid_width: f64,
 
     // --- Main Title Styling ---
     /// Font size for the main chart title.
@@ -119,12 +123,6 @@ pub struct Theme {
     pub(crate) polar_end_angle: f64,
     /// Default inner radius ratio (e.g., 0.5 for a donut chart).
     pub(crate) polar_inner_radius: f64,
-
-    /// Color for the grid lines.
-    /// Typically a faint gray like #BDBDBD or a semi-transparent version of label_color.
-    pub(crate) grid_color: SingleColor,
-    /// Width of the grid lines (usually thinner than axis_width).
-    pub(crate) grid_width: f64,
 }
 
 impl Theme {
@@ -157,6 +155,21 @@ impl Theme {
 
     pub const fn with_show_axes(mut self, show: bool) -> Self {
         self.show_axes = show;
+        self
+    }
+
+    pub const fn with_grid(mut self, show: bool) -> Self {
+        self.show_grid = show;
+        self
+    }
+
+    pub fn with_grid_color(mut self, color: impl Into<SingleColor>) -> Self {
+        self.grid_color = color.into();
+        self
+    }
+
+    pub const fn with_grid_width(mut self, width: f64) -> Self {
+        self.grid_width = width;
         self
     }
 
@@ -377,16 +390,6 @@ impl Theme {
         // We ensure at least 2 ticks (start and end) are always present.
         ((available_pixels / self.tick_min_spacing).floor() as usize).max(2)
     }
-
-    pub fn with_grid_color(mut self, color: impl Into<SingleColor>) -> Self {
-        self.grid_color = color.into();
-        self
-    }
-
-    pub const fn with_grid_width(mut self, width: f64) -> Self {
-        self.grid_width = width;
-        self
-    }
 }
 
 impl Default for Theme {
@@ -400,6 +403,10 @@ impl Default for Theme {
             bottom_margin: 0.08,
             left_margin: 0.06,
             show_axes: true,
+
+            show_grid: false,
+            grid_color: " #BDBDBD".into(),
+            grid_width: 1.0,
 
             title_size: 18.0,
             title_family: font_stack.clone(),
@@ -452,9 +459,6 @@ impl Default for Theme {
             polar_start_angle: -std::f64::consts::FRAC_PI_2,
             polar_end_angle: 3.0 * std::f64::consts::FRAC_PI_2, // start + 2*PI
             polar_inner_radius: 0.0,
-
-            grid_color: " #BDBDBD".into(),
-            grid_width: 1.0,
         }
     }
 }
