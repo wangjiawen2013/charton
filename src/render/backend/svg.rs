@@ -20,7 +20,7 @@ pub struct SvgBackend<'a> {
 
 impl<'a> SvgBackend<'a> {
     /// Creates a new `SvgBackend` wrapped around an external string stream.
-    pub fn new(buffer: &'a mut String) -> Self {
+    pub const fn new(buffer: &'a mut String) -> Self {
         Self { buffer }
     }
 
@@ -47,7 +47,7 @@ impl<'a> SvgBackend<'a> {
 
 impl<'a> RenderBackend for SvgBackend<'a> {
     // =========================================================================
-    // 🪐 STATE MACHINE SCOPE IMPLEMENTATION
+    // STATE MACHINE SCOPE IMPLEMENTATION
     // =========================================================================
 
     fn begin_clip_scope(&mut self, rect: &crate::coordinate::Rect) {
