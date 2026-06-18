@@ -20,12 +20,12 @@
 <line x1="452.427" y1="115.218" x2="452.427" y2="90.149" stroke="rgba(0,0,0,1.000)" stroke-width="1.000" stroke-opacity="1.000" />
 <line x1="449.427" y1="115.218" x2="455.427" y2="115.218" stroke="rgba(0,0,0,1.000)" stroke-width="1.000" stroke-opacity="1.000" />
 <line x1="449.427" y1="90.149" x2="455.427" y2="90.149" stroke="rgba(0,0,0,1.000)" stroke-width="1.000" stroke-opacity="1.000" />
-<polygon points="127.880,311.000 127.880,131.006 172.867,131.006 172.867,311.000" fill="rgba(31,119,180,1.000)" stroke="rgba(0,0,0,1.000)" stroke-width="1.000" fill-opacity="1.000" />
-<polygon points="172.867,311.000 172.867,161.038 217.853,161.038 217.853,311.000" fill="rgba(255,127,14,1.000)" stroke="rgba(0,0,0,1.000)" stroke-width="1.000" fill-opacity="1.000" />
-<polygon points="256.413,311.000 256.413,135.658 301.400,135.658 301.400,311.000" fill="rgba(31,119,180,1.000)" stroke="rgba(0,0,0,1.000)" stroke-width="1.000" fill-opacity="1.000" />
-<polygon points="301.400,311.000 301.400,153.988 346.387,153.988 346.387,311.000" fill="rgba(255,127,14,1.000)" stroke="rgba(0,0,0,1.000)" stroke-width="1.000" fill-opacity="1.000" />
-<polygon points="384.947,311.000 384.947,66.845 429.933,66.845 429.933,311.000" fill="rgba(31,119,180,1.000)" stroke="rgba(0,0,0,1.000)" stroke-width="1.000" fill-opacity="1.000" />
-<polygon points="429.933,311.000 429.933,102.683 474.920,102.683 474.920,311.000" fill="rgba(255,127,14,1.000)" stroke="rgba(0,0,0,1.000)" stroke-width="1.000" fill-opacity="1.000" />
+<path d="M 127.880 311.000 L 127.880 131.006 L 172.867 131.006 L 172.867 311.000 Z" fill="rgba(31,119,180,1.000)" fill-opacity="1.000" stroke="rgba(0,0,0,1.000)" stroke-width="1.000" stroke-opacity="1.000" stroke-linejoin="round" stroke-linecap="round" />
+<path d="M 172.867 311.000 L 172.867 161.038 L 217.853 161.038 L 217.853 311.000 Z" fill="rgba(255,127,14,1.000)" fill-opacity="1.000" stroke="rgba(0,0,0,1.000)" stroke-width="1.000" stroke-opacity="1.000" stroke-linejoin="round" stroke-linecap="round" />
+<path d="M 256.413 311.000 L 256.413 135.658 L 301.400 135.658 L 301.400 311.000 Z" fill="rgba(31,119,180,1.000)" fill-opacity="1.000" stroke="rgba(0,0,0,1.000)" stroke-width="1.000" stroke-opacity="1.000" stroke-linejoin="round" stroke-linecap="round" />
+<path d="M 301.400 311.000 L 301.400 153.988 L 346.387 153.988 L 346.387 311.000 Z" fill="rgba(255,127,14,1.000)" fill-opacity="1.000" stroke="rgba(0,0,0,1.000)" stroke-width="1.000" stroke-opacity="1.000" stroke-linejoin="round" stroke-linecap="round" />
+<path d="M 384.947 311.000 L 384.947 66.845 L 429.933 66.845 L 429.933 311.000 Z" fill="rgba(31,119,180,1.000)" fill-opacity="1.000" stroke="rgba(0,0,0,1.000)" stroke-width="1.000" stroke-opacity="1.000" stroke-linejoin="round" stroke-linecap="round" />
+<path d="M 429.933 311.000 L 429.933 102.683 L 474.920 102.683 L 474.920 311.000 Z" fill="rgba(255,127,14,1.000)" fill-opacity="1.000" stroke="rgba(0,0,0,1.000)" stroke-width="1.000" stroke-opacity="1.000" stroke-linejoin="round" stroke-linecap="round" />
 </g>
 <path d="M 108.600 311.000 L 494.200 311.000" fill="none" stroke="rgba(51,51,51,1.000)" stroke-width="1.000" stroke-opacity="1.000" stroke-linejoin="round" stroke-linecap="round" />
 <path d="M 172.867 311.000 L 172.867 317.000" fill="none" stroke="rgba(51,51,51,1.000)" stroke-width="1.000" stroke-opacity="1.000" stroke-linejoin="round" stroke-linecap="round" />
