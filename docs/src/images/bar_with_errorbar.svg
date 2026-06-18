@@ -13,10 +13,10 @@
 <line x1="434.519" y1="68.313" x2="434.519" y2="52.905" stroke="rgba(0,0,0,1.000)" stroke-width="1.000" stroke-opacity="1.000" />
 <line x1="431.519" y1="68.313" x2="437.519" y2="68.313" stroke="rgba(0,0,0,1.000)" stroke-width="1.000" stroke-opacity="1.000" />
 <line x1="431.519" y1="52.905" x2="437.519" y2="52.905" stroke="rgba(0,0,0,1.000)" stroke-width="1.000" stroke-opacity="1.000" />
-<polygon points="106.391,311.000 106.391,122.244 156.872,122.244 156.872,311.000" fill="rgba(70,130,180,1.000)" stroke="rgba(0,0,0,1.000)" stroke-width="1.000" fill-opacity="1.000" />
-<polygon points="207.353,311.000 207.353,106.835 257.834,106.835 257.834,311.000" fill="rgba(70,130,180,1.000)" stroke="rgba(0,0,0,1.000)" stroke-width="1.000" fill-opacity="1.000" />
-<polygon points="308.316,311.000 308.316,99.131 358.797,99.131 358.797,311.000" fill="rgba(70,130,180,1.000)" stroke="rgba(0,0,0,1.000)" stroke-width="1.000" fill-opacity="1.000" />
-<polygon points="409.278,311.000 409.278,60.609 459.759,60.609 459.759,311.000" fill="rgba(70,130,180,1.000)" stroke="rgba(0,0,0,1.000)" stroke-width="1.000" fill-opacity="1.000" />
+<path d="M 106.391 311.000 L 106.391 122.244 L 156.872 122.244 L 156.872 311.000 Z" fill="rgba(70,130,180,1.000)" fill-opacity="1.000" stroke="rgba(0,0,0,1.000)" stroke-width="1.000" stroke-opacity="1.000" stroke-linejoin="round" stroke-linecap="round" />
+<path d="M 207.353 311.000 L 207.353 106.835 L 257.834 106.835 L 257.834 311.000 Z" fill="rgba(70,130,180,1.000)" fill-opacity="1.000" stroke="rgba(0,0,0,1.000)" stroke-width="1.000" stroke-opacity="1.000" stroke-linejoin="round" stroke-linecap="round" />
+<path d="M 308.316 311.000 L 308.316 99.131 L 358.797 99.131 L 358.797 311.000 Z" fill="rgba(70,130,180,1.000)" fill-opacity="1.000" stroke="rgba(0,0,0,1.000)" stroke-width="1.000" stroke-opacity="1.000" stroke-linejoin="round" stroke-linecap="round" />
+<path d="M 409.278 311.000 L 409.278 60.609 L 459.759 60.609 L 459.759 311.000 Z" fill="rgba(70,130,180,1.000)" fill-opacity="1.000" stroke="rgba(0,0,0,1.000)" stroke-width="1.000" stroke-opacity="1.000" stroke-linejoin="round" stroke-linecap="round" />
 </g>
 <path d="M 81.150 311.000 L 485.000 311.000" fill="none" stroke="rgba(51,51,51,1.000)" stroke-width="1.000" stroke-opacity="1.000" stroke-linejoin="round" stroke-linecap="round" />
 <path d="M 131.631 311.000 L 131.631 317.000" fill="none" stroke="rgba(51,51,51,1.000)" stroke-width="1.000" stroke-opacity="1.000" stroke-linejoin="round" stroke-linecap="round" />

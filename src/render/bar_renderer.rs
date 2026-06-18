@@ -2,7 +2,7 @@ use crate::Precision;
 use crate::TEMP_SUFFIX;
 use crate::chart::Chart;
 use crate::core::context::PanelContext;
-use crate::core::layer::{MarkRenderer, PolygonConfig, RenderBackend, TextConfig};
+use crate::core::layer::{MarkRenderer, PathConfig, PathTopology, RenderBackend, TextConfig};
 use crate::encode::y::StackMode;
 use crate::error::ChartonError;
 use crate::mark::bar::MarkBar;
@@ -184,7 +184,7 @@ impl MarkRenderer for Chart<MarkBar> {
             let color_val = color_norms.as_ref().and_then(|cn| cn[idx]);
             let final_color = self.resolve_color_from_value(color_val, context, &mark_config.color);
 
-            backend.draw_polygon(PolygonConfig {
+            backend.draw_path(PathConfig {
                 points: pixel_points,
                 fill: final_color,
                 stroke: mark_config.stroke.unwrap_or(hints.default_bar_stroke),
@@ -193,6 +193,8 @@ impl MarkRenderer for Chart<MarkBar> {
                     .unwrap_or(hints.default_bar_stroke_width)
                     as Precision,
                 opacity: mark_config.opacity as Precision,
+                dash: vec![],                    // Sold line by default
+                topology: PathTopology::Complex, // Use Stencil-and-cover algorithm when using WGPU
             });
 
             // E: Labels for Pie
