@@ -1828,7 +1828,7 @@ impl RenderBackend for WgpuBackend {
             // Auto anti-aliasing fringe
             let mut aa_config = config.clone();
             aa_config.stroke = config.fill;
-            aa_config.stroke_width = 0.0;
+            aa_config.stroke_width = 0.0; // Make the edge smooth while keeping the fill color
             self.stroke_path(aa_config);
         }
     }
