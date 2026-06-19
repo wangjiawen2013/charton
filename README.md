@@ -54,11 +54,11 @@ Add to `Cargo.toml`:
 ```toml
 [dependencies]
 charton = "0.5"                                            # Standard (Single-threaded + SVG export)
-charton = { version = "0.5", features = ["wgpu"] }         # Web Browsers (WebAssembly/Wasm target)
-charton = { version = "0.5", features = ["wgpu", "png"] }  # Local Desktop with GPU acceleration + PNG export
 charton = { version = "0.5", features = ["png"] }          # Pure Headless Raster Renderer (CPU only)
-charton = { version = "0.5", features = ["parallel"] }     # Multi-threaded data processing (Rayon)
 charton = { version = "0.5", features = ["pdf"] }          # Export charts to PDF format
+charton = { version = "0.5", features = ["wgpu", "png"] }  # Local Desktop with GPU acceleration + PNG export
+charton = { version = "0.5", features = ["wgpu"] }         # Web Browsers (WebAssembly/Wasm target)
+charton = { version = "0.5", features = ["parallel"] }     # Multi-threaded data processing (Rayon)
 charton = { version = "0.5", features = ["bridge"] }       # With Altair/Matplotlib/Polars interop
 ```
 
