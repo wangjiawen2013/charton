@@ -54,11 +54,11 @@ Charton 是一款高性能 Rust 绘图库，其声明式 API 灵感源自 [Altai
 ```toml
 [dependencies]
 charton = "0.5"                                            # 标准版 (单线程 + SVG 导出)
-charton = { version = "0.5", features = ["wgpu"] }         # 网页浏览器（WebAssembly/Wasm 目标平台）
-charton = { version = "0.5", features = ["wgpu", "png"] }  # 本地桌面端（GPU 加速 + PNG 导出）
 charton = { version = "0.5", features = ["png"] }          # 纯后端光栅化渲染（仅 CPU 模式）
-charton = { version = "0.5", features = ["parallel"] }     # 多线程数据处理（基于 Rayon）
 charton = { version = "0.5", features = ["pdf"] }          # PDF 格式图表导出
+charton = { version = "0.5", features = ["wgpu", "png"] }  # 本地桌面端（GPU 加速 + PNG 导出）
+charton = { version = "0.5", features = ["wgpu"] }         # 网页浏览器（WebAssembly/Wasm 目标平台）
+charton = { version = "0.5", features = ["parallel"] }     # 多线程数据处理（基于 Rayon）
 charton = { version = "0.5", features = ["bridge"] }       # 生态互操作性支持（兼容 Altair/Matplotlib/Polars）
 ```
 
