@@ -61,3 +61,8 @@ pollster = { version = "0.4", optional = true }
 [target.'cfg(target_arch = "wasm32")'.dependencies]
 wasm-bindgen = "0.2"
 web-sys = { version = "0.3", features = ["CssStyleDeclaration", "HtmlCanvasElement", "CanvasRenderingContext2d"] }
+
+# Exclude heavy files when uploading to crates.io
+exclude = [
+    "assets/wasm.gif"
+]
