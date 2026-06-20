@@ -148,7 +148,7 @@ Charton supports WebAssembly and modern web frontend. Below is a demo that uses 
 </p>
 
 ## Interactive Notebooks (Jupyter)
-Charton integrates with evcxr_jupyter for interactive data exploration. Replacing .save() with .show() renders SVGs directly within notebook cells:
+Charton integrates with evcxr_jupyter for interactive data exploration. Replacing `.save()` with `.show()` renders SVGs directly within notebook cells:
 
 ![evcxr jupyter](assets/evcxr_jupyter.png)
 
