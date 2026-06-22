@@ -855,7 +855,7 @@ where
                         let mut stacks: AHashMap<String, f64> = AHashMap::new();
                         for i in 0..x_series.len() {
                             if let (Some(x_val), Some(y_val)) =
-                                (x_series.get_str(i), y_series.get_f64(i))
+                                (x_series.get(i).to_string(), y_series.get(i).to_f64())
                             {
                                 let entry = stacks.entry(x_val).or_insert(0.0);
                                 *entry += y_val;

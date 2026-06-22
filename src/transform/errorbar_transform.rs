@@ -36,9 +36,17 @@ impl<T: Mark> Chart<T> {
 
         let row_count = self.data.height();
         for i in 0..row_count {
-            let x_val = x_col.get_str_or(i, "null");
+            let x_val = x_col
+                .get(i)
+                .to_string()
+                .unwrap_or_else(|| "null".to_string());
             let c_val = if group_by_color {
-                color_field.map(|cf| self.data.get_str_or(cf, i, "null"))
+                color_field.map(|cf| {
+                    self.data
+                        .get(cf, i)
+                        .to_string()
+                        .unwrap_or_else(|| "null".to_string())
+                })
             } else {
                 None
             };
@@ -56,7 +64,7 @@ impl<T: Mark> Chart<T> {
                 let mut vals = Vec::with_capacity(indices.len());
 
                 for idx in indices {
-                    if let Some(v) = y_col.get_f64(idx) {
+                    if let Some(v) = y_col.get(idx).to_f64() {
                         sum += v;
                         vals.push(v);
                         valid_count += 1;

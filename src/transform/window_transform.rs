@@ -238,7 +238,10 @@ impl<T: Mark> Chart<T> {
         if let Some(ref group_field) = params.groupby {
             let group_col = self.data.column(group_field)?;
             for i in 0..n {
-                groups.entry(group_col.get_str(i)).or_default().push(i);
+                groups
+                    .entry(group_col.get(i).to_string())
+                    .or_default()
+                    .push(i);
             }
         } else {
             // If no groupby is specified, treat the entire dataset as a single group
@@ -272,8 +275,8 @@ impl<T: Mark> Chart<T> {
                     if let Some(mut indices) = groups.remove(&key) {
                         // Sort within group: Nulls Last
                         indices.sort_by(|&a, &b| {
-                            let va = target_col.get_f64(a);
-                            let vb = target_col.get_f64(b);
+                            let va = target_col.get(a).to_f64();
+                            let vb = target_col.get(b).to_f64();
                             match (va, vb) {
                                 (Some(x), Some(y)) => {
                                     x.partial_cmp(&y).unwrap_or(std::cmp::Ordering::Equal)
@@ -289,7 +292,7 @@ impl<T: Mark> Chart<T> {
                         let mut valid_count = 0;
 
                         for &idx in &indices {
-                            let val = target_col.get_f64(idx);
+                            let val = target_col.get(idx).to_f64();
 
                             // Only calculate for non-null values
                             if val.is_none() {
@@ -353,7 +356,7 @@ impl<T: Mark> Chart<T> {
         let mut found_any = false;
 
         for i in 0..self.data.height() {
-            if let Some(v) = target_col.get_f64(i) {
+            if let Some(v) = target_col.get(i).to_f64() {
                 if v < global_min {
                     global_min = v;
                 }
@@ -377,7 +380,7 @@ impl<T: Mark> Chart<T> {
             if let Some(indices) = groups.remove(&key) {
                 let mut valid_indices: Vec<usize> = indices
                     .into_iter()
-                    .filter(|&idx| target_col.get_f64(idx).is_some())
+                    .filter(|&idx| target_col.get(idx).to_f64().is_some())
                     .collect();
 
                 if valid_indices.is_empty() {
@@ -386,8 +389,9 @@ impl<T: Mark> Chart<T> {
 
                 valid_indices.sort_by(|&a, &b| {
                     target_col
-                        .get_f64(a)
-                        .partial_cmp(&target_col.get_f64(b))
+                        .get(a)
+                        .to_f64()
+                        .partial_cmp(&target_col.get(b).to_f64())
                         .unwrap()
                 });
 
@@ -403,7 +407,7 @@ impl<T: Mark> Chart<T> {
 
                 // B. Actual Cumulative Points
                 for (i, &idx) in valid_indices.iter().enumerate() {
-                    let x_val = target_col.get_f64(idx).unwrap();
+                    let x_val = target_col.get(idx).to_f64().unwrap();
                     let count = (i + 1) as f64;
                     let y_val = if params.normalize {
                         count / group_size

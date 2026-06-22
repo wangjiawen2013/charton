@@ -90,7 +90,10 @@ impl MarkRenderer for Chart<MarkBar> {
         // No more group_by! We process rows as a flat stream.
         for idx in 0..row_count {
             let y_val = y_values[idx];
-            let x_str = ds.get_str_or(&x_enc.field, idx, "null");
+            let x_str = ds
+                .get(&x_enc.field, idx)
+                .to_string()
+                .unwrap_or_else(|| "null".to_string());
             let sub_idx = sub_indices[idx];
             let n_groups = group_counts[idx];
 
