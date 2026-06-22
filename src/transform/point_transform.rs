@@ -76,8 +76,14 @@ impl<T: Mark> Chart<T> {
 
         // --- STEP 4: Iterative Metadata Generation ---
         for i in 0..row_count {
-            let x_val = x_col.get_str_or(i, "null");
-            let c_val = color_col.get_str_or(i, "null");
+            let x_val = x_col
+                .get(i)
+                .to_string()
+                .unwrap_or_else(|| "null".to_string());
+            let c_val = color_col
+                .get(i)
+                .to_string()
+                .unwrap_or_else(|| "null".to_string());
 
             // A. sub_idx: Maps the point to its specific dodge-lane.
             let c_idx = *color_map.get(&c_val).unwrap_or(&0);

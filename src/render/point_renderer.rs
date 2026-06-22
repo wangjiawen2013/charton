@@ -114,8 +114,8 @@ impl MarkRenderer for Chart<MarkPoint> {
 
                         // Apply BoxPlot-style Dodge Logic to calculate categorical center
                         if let (Some(sub_col), Some(cnt_col)) = (sub_idx_col, groups_count_col) {
-                            let total_groups = cnt_col.get_f64(i).unwrap_or(1.0);
-                            let sub_idx = sub_col.get_f64(i).unwrap_or(0.0);
+                            let total_groups = cnt_col.get(i).to_f64().unwrap_or(1.0);
+                            let sub_idx = sub_col.get(i).to_f64().unwrap_or(0.0);
 
                             let box_width_data = mark_config.width.min(
                                 mark_config.span
@@ -252,8 +252,8 @@ impl Chart<MarkPoint> {
             };
 
             if let (Some(sub_col), Some(cnt_col)) = (sub_idx_col, groups_count_col) {
-                let total_groups = cnt_col.get_f64(i).unwrap_or(1.0);
-                let sub_idx = sub_col.get_f64(i).unwrap_or(0.0);
+                let total_groups = cnt_col.get(i).to_f64().unwrap_or(1.0);
+                let sub_idx = sub_col.get(i).to_f64().unwrap_or(0.0);
                 lane_id = sub_idx as usize;
 
                 let box_width_data = mark_config.width.min(

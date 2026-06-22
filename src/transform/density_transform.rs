@@ -295,9 +295,8 @@ impl<T: Mark> Chart<T> {
         if let Some(ref g_field) = params.groupby {
             let group_col = self.data.column(g_field)?;
             for i in 0..row_count {
-                // get_f64 automatically handles nulls based on the column's validity mask
-                if let Some(val) = density_col.get_f64(i) {
-                    let key = group_col.get_str(i);
+                if let Some(val) = density_col.get(i).to_f64() {
+                    let key = group_col.get(i).to_string();
                     groups.entry(key).or_default().push(val as f32);
                 }
             }
@@ -305,7 +304,7 @@ impl<T: Mark> Chart<T> {
             // Optimized path for global density calculation.
             let mut all_obs = Vec::with_capacity(row_count);
             for i in 0..row_count {
-                if let Some(val) = density_col.get_f64(i) {
+                if let Some(val) = density_col.get(i).to_f64() {
                     all_obs.push(val as f32);
                 }
             }

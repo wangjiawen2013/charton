@@ -70,21 +70,27 @@ impl<T: Mark> Chart<T> {
             // Resolve X coordinate identifier
             let x_key = match x_bin_params {
                 Some((min, n, width)) => {
-                    let v = x_col.get_f64(i).unwrap_or(min);
+                    let v = x_col.get(i).to_f64().unwrap_or(min);
                     let bin_idx = (((v - min) / width).floor() as usize).min(n - 1);
                     (min + (bin_idx as f64 + 0.5) * width).to_string()
                 }
-                None => x_col.get_str_or(i, "null"),
+                None => x_col
+                    .get(i)
+                    .to_string()
+                    .unwrap_or_else(|| "null".to_string()),
             };
 
             // Resolve Y coordinate identifier
             let y_key = match y_bin_params {
                 Some((min, n, width)) => {
-                    let v = y_col.get_f64(i).unwrap_or(min);
+                    let v = y_col.get(i).to_f64().unwrap_or(min);
                     let bin_idx = (((v - min) / width).floor() as usize).min(n - 1);
                     (min + (bin_idx as f64 + 0.5) * width).to_string()
                 }
-                None => y_col.get_str_or(i, "null"),
+                None => y_col
+                    .get(i)
+                    .to_string()
+                    .unwrap_or_else(|| "null".to_string()),
             };
 
             let coord = (x_key, y_key);

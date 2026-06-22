@@ -82,7 +82,7 @@ impl MarkRenderer for Chart<MarkBoxplot> {
             .maybe_into_par_iter()
             .filter_map(|i| {
                 // 1. Ghost/Boundary Check
-                let x_val = x_col.get_str(i)?;
+                let x_val = x_col.get(i).to_string()?;
                 if x_val == boundary_tag {
                     return None;
                 }
@@ -95,8 +95,8 @@ impl MarkRenderer for Chart<MarkBoxplot> {
                 let min_val = min_n[i]?;
                 let max_val = max_n[i]?;
 
-                let total_groups = groups_count_col.get_f64(i).unwrap_or(1.0);
-                let sub_idx = sub_idx_col.get_f64(i).unwrap_or(0.0);
+                let total_groups = groups_count_col.get(i).to_f64().unwrap_or(1.0);
+                let sub_idx = sub_idx_col.get(i).to_f64().unwrap_or(0.0);
 
                 // --- DODGE LOGIC ---
                 let box_width_data = mark_config.width.min(
@@ -152,7 +152,7 @@ impl MarkRenderer for Chart<MarkBoxplot> {
                 // --- OUTLIER PARSING ---
                 let mut outlier_circles = Vec::new();
                 if mark_config.show_outliers
-                    && let Some(raw_outliers) = outliers_col.get_str(i)
+                    && let Some(raw_outliers) = outliers_col.get(i).to_string()
                 {
                     let clean = raw_outliers.trim_matches(|c| c == '[' || c == ']');
                     for val_str in clean.split(',').filter(|s| !s.trim().is_empty()) {

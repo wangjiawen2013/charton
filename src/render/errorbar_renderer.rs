@@ -97,8 +97,8 @@ impl MarkRenderer for Chart<MarkErrorBar> {
             // Path A: Optimized linear rendering (Auto-statistical mode)
             for (idx, xn_opt) in x_norms.iter().enumerate().take(ds.row_count) {
                 let Some(xn) = *xn_opt else { continue };
-                let sub_idx = sub_col.get_f64(idx).unwrap_or(0.0);
-                let n_groups = cnt_col.get_f64(idx).unwrap_or(1.0);
+                let sub_idx = sub_col.get(idx).to_f64().unwrap_or(0.0);
+                let n_groups = cnt_col.get(idx).to_f64().unwrap_or(1.0);
                 self.render_errorbar_item(
                     idx,
                     xn,

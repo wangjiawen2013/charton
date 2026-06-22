@@ -59,10 +59,18 @@ impl<T: Mark> Chart<T> {
             let x_val = if is_pie {
                 "all".to_string()
             } else {
-                self.data.get_str_or(&x_field, i, "null")
+                self.data
+                    .get(&x_field, i)
+                    .to_string()
+                    .unwrap_or_else(|| "null".to_string())
             };
             let c_val = if has_grouping_color {
-                color_field.map(|cf| self.data.get_str_or(cf, i, "null"))
+                color_field.map(|cf| {
+                    self.data
+                        .get(cf, i)
+                        .to_string()
+                        .unwrap_or_else(|| "null".to_string())
+                })
             } else {
                 None
             };

@@ -137,6 +137,97 @@ pub enum SemanticType {
     Temporal,
 }
 
+/// Represents a dynamically-typed scalar value borrowed safely from a ColumnVector.
+/// This acts as the single unified interface for extracting row-level data.
+#[derive(Debug, Clone, PartialEq)]
+pub enum AnyValue<'a> {
+    Null,
+    Boolean(bool),
+    Int8(i8),
+    Int16(i16),
+    Int32(i32),
+    Int64(i64),
+    UInt32(u32),
+    UInt64(u64),
+    Float32(f32),
+    Float64(f64),
+    String(&'a str),
+    Date(i32),
+    Datetime(i64, Option<&'a str>),
+    Duration(i64),
+    Time(i64),
+}
+
+impl<'a> AnyValue<'a> {
+    /// Safely casts any numeric or temporal type to f64.
+    /// Handles NaN filtering and boolean mapping automatically.
+    #[inline]
+    pub const fn to_f64(&self) -> Option<f64> {
+        match self {
+            AnyValue::Null => None,
+            AnyValue::Boolean(v) => Some(if *v { 1.0 } else { 0.0 }),
+            AnyValue::Int8(v) => Some(*v as f64),
+            AnyValue::Int16(v) => Some(*v as f64),
+            AnyValue::Int32(v) => Some(*v as f64),
+            AnyValue::Int64(v) => Some(*v as f64),
+            AnyValue::UInt32(v) => Some(*v as f64),
+            AnyValue::UInt64(v) => Some(*v as f64),
+            AnyValue::Float32(v) => {
+                if v.is_nan() {
+                    None
+                } else {
+                    Some(*v as f64)
+                }
+            }
+            AnyValue::Float64(v) => {
+                if v.is_nan() {
+                    None
+                } else {
+                    Some(*v)
+                }
+            }
+            AnyValue::Date(v) => Some(*v as f64),
+            AnyValue::Datetime(v, _) => Some(*v as f64),
+            AnyValue::Duration(v) => Some(*v as f64),
+            AnyValue::Time(v) => Some(*v as f64),
+            AnyValue::String(_) => None,
+        }
+    }
+
+    /// Formats the scalar value into an owned String for display/tooltips.
+    pub fn to_string(&self) -> Option<String> {
+        match self {
+            AnyValue::Null => None,
+            AnyValue::Boolean(v) => Some(v.to_string()),
+            AnyValue::Int8(v) => Some(v.to_string()),
+            AnyValue::Int16(v) => Some(v.to_string()),
+            AnyValue::Int32(v) => Some(v.to_string()),
+            AnyValue::Int64(v) => Some(v.to_string()),
+            AnyValue::UInt32(v) => Some(v.to_string()),
+            AnyValue::UInt64(v) => Some(v.to_string()),
+            AnyValue::Float32(v) => {
+                if v.is_nan() {
+                    None
+                } else {
+                    Some(v.to_string())
+                }
+            }
+            AnyValue::Float64(v) => {
+                if v.is_nan() {
+                    None
+                } else {
+                    Some(v.to_string())
+                }
+            }
+            AnyValue::String(s) => Some(s.to_string()),
+            AnyValue::Date(v) => Some(v.to_string()),
+            AnyValue::Datetime(v, _) => Some(v.to_string()),
+            AnyValue::Duration(v) => Some(v.to_string()),
+            AnyValue::Time(v) => Some(v.to_string()),
+        }
+    }
+}
+
 impl ColumnVector {
     /// Creates a Categorical column from pre-encoded keys and a dictionary.
     ///
@@ -356,138 +447,49 @@ impl ColumnVector {
         }
     }
 
-    /// Safely retrieves a value as f64 for numerical calculations.
-    ///
-    /// This method handles:
-    /// 1. Type casting from all numeric, temporal, and boolean variants to f64.
-    /// 2. Null-checking by inspecting the validity bitmask for each variant.
-    /// 3. NaN-checking for floating-point types.
-    pub fn get_f64(&self, row: usize) -> Option<f64> {
+    /// Single source of truth for retrieving cell data.
+    pub fn get(&self, row: usize) -> AnyValue<'_> {
+        if row >= self.len() || self.is_null(row) {
+            return AnyValue::Null;
+        }
+
         match self {
-            // --- Floating Point Types ---
-            // We check the bitmask first, then ensure the value is not NaN.
-            ColumnVector::Float64 { data, validity } => {
-                if Self::is_valid_in_mask(validity, row) {
-                    let v = data[row];
-                    if v.is_nan() { None } else { Some(v) }
-                } else {
-                    None
-                }
+            ColumnVector::Boolean { data, .. } => AnyValue::Boolean(data[row]),
+            ColumnVector::Int8 { data, .. } => AnyValue::Int8(data[row]),
+            ColumnVector::Int16 { data, .. } => AnyValue::Int16(data[row]),
+            ColumnVector::Int32 { data, .. } => AnyValue::Int32(data[row]),
+            ColumnVector::Int64 { data, .. } => AnyValue::Int64(data[row]),
+            ColumnVector::UInt32 { data, .. } => AnyValue::UInt32(data[row]),
+            ColumnVector::UInt64 { data, .. } => AnyValue::UInt64(data[row]),
+            ColumnVector::Float32 { data, .. } => AnyValue::Float32(data[row]),
+            ColumnVector::Float64 { data, .. } => AnyValue::Float64(data[row]),
+            ColumnVector::String { data, .. } => AnyValue::String(&data[row]),
+            ColumnVector::Categorical { keys, values, .. } => {
+                let key = keys[row] as usize;
+                AnyValue::String(&values[key])
             }
-            ColumnVector::Float32 { data, validity } => {
-                if Self::is_valid_in_mask(validity, row) {
-                    let v = data[row];
-                    if v.is_nan() { None } else { Some(v as f64) }
-                } else {
-                    None
-                }
+            ColumnVector::Date { data, .. } => AnyValue::Date(data[row]),
+            ColumnVector::Datetime { data, timezone, .. } => {
+                AnyValue::Datetime(data[row], timezone.as_deref())
             }
-
-            // --- Integer Types ---
-            // All integers are cast to f64 after passing the validity check.
-            ColumnVector::Int8 { data, validity } => {
-                if Self::is_valid_in_mask(validity, row) {
-                    Some(data[row] as f64)
-                } else {
-                    None
-                }
-            }
-            ColumnVector::Int16 { data, validity } => {
-                if Self::is_valid_in_mask(validity, row) {
-                    Some(data[row] as f64)
-                } else {
-                    None
-                }
-            }
-            ColumnVector::Int32 { data, validity } => {
-                if Self::is_valid_in_mask(validity, row) {
-                    Some(data[row] as f64)
-                } else {
-                    None
-                }
-            }
-            ColumnVector::Int64 { data, validity } => {
-                if Self::is_valid_in_mask(validity, row) {
-                    Some(data[row] as f64)
-                } else {
-                    None
-                }
-            }
-            ColumnVector::UInt32 { data, validity } => {
-                if Self::is_valid_in_mask(validity, row) {
-                    Some(data[row] as f64)
-                } else {
-                    None
-                }
-            }
-            ColumnVector::UInt64 { data, validity } => {
-                if Self::is_valid_in_mask(validity, row) {
-                    Some(data[row] as f64)
-                } else {
-                    None
-                }
-            }
-
-            // --- Boolean Type ---
-            // Maps true to 1.0 and false to 0.0.
-            ColumnVector::Boolean { data, validity } => {
-                if Self::is_valid_in_mask(validity, row) {
-                    Some(if data[row] { 1.0 } else { 0.0 })
-                } else {
-                    None
-                }
-            }
-
-            // --- Temporal Types ---
-            // Uses the underlying physical integer value (timestamp or days) for calculations.
-            ColumnVector::Date { data, validity } => {
-                if Self::is_valid_in_mask(validity, row) {
-                    Some(data[row] as f64)
-                } else {
-                    None
-                }
-            }
-            ColumnVector::Datetime { data, validity, .. } => {
-                if Self::is_valid_in_mask(validity, row) {
-                    Some(data[row] as f64)
-                } else {
-                    None
-                }
-            }
-            ColumnVector::Duration { data, validity, .. } => {
-                if Self::is_valid_in_mask(validity, row) {
-                    Some(data[row] as f64)
-                } else {
-                    None
-                }
-            }
-            ColumnVector::Time { data, validity, .. } => {
-                if Self::is_valid_in_mask(validity, row) {
-                    Some(data[row] as f64)
-                } else {
-                    None
-                }
-            }
-
-            // --- Categorical & String ---
-            // These types do not have a direct continuous numerical representation.
-            ColumnVector::String { .. } | ColumnVector::Categorical { .. } => None,
+            ColumnVector::Duration { data, .. } => AnyValue::Duration(data[row]),
+            ColumnVector::Time { data, .. } => AnyValue::Time(data[row]),
         }
     }
 
-    /// CONVENIENCE: Numerical retrieval with a fallback value.
-    ///
-    /// # Parameters
-    /// * `default` - The value returned when the underlying data is unavailable.
-    ///   This acts as a fallback in three specific scenarios:
-    ///   1. The row index is out of bounds.
-    ///   2. The value is explicitly marked as "Null" in the validity bitmask.
-    ///   3. The value is a floating-point `NaN` (Not-a-Number).
-    ///
-    /// By providing a `default`, you ensure the calculation continues without
-    /// having to handle `Option` or potential errors manually.
-    pub fn get_f64_or(&self, row: usize, default: f64) -> f64 {
-        self.get_f64(row).unwrap_or(default)
+    /// [WASM PREPARATION]: High-performance in-place capacity reuse.
+    /// Clears the existing f64 vector and copies new data without reallocating heap memory.
+    pub fn update_f64_data(&mut self, new_data: &[f64]) -> Result<(), ChartonError> {
+        match self {
+            ColumnVector::Float64 { data, .. } => {
+                data.clear();
+                data.extend_from_slice(new_data); // Extremely fast memcpy under the hood
+                Ok(())
+            }
+            _ => Err(ChartonError::Data(
+                "Cannot perform in-place f64 update on non-Float64 column".to_string(),
+            )),
+        }
     }
 
     /// Projects the entire column into a contiguous `f64` vector.
@@ -617,137 +619,7 @@ impl ColumnVector {
     /// null/validity states. Useful for statistical calculations where nulls
     /// should not be coerced to 0.0.
     pub fn to_f64_options(&self) -> Vec<Option<f64>> {
-        (0..self.len()).map(|i| self.get_f64(i)).collect()
-    }
-
-    /// Retrieves a value as a String for grouping, labeling, or tooltips.
-    ///
-    /// For temporal types, this returns the raw integer string representation.
-    /// Note: High-level formatting (e.g., "2026-05-14") is typically handled
-    /// by the Scale's formatter, but this provides the underlying data access.
-    pub fn get_str(&self, row: usize) -> Option<String> {
-        match self {
-            // --- String: Direct retrieval with clone ---
-            ColumnVector::String { data, validity } => {
-                if Self::is_valid_in_mask(validity, row) {
-                    Some(data[row].clone())
-                } else {
-                    None
-                }
-            }
-
-            // --- Categorical: Map index to dictionary value ---
-            ColumnVector::Categorical {
-                keys,
-                values,
-                validity,
-            } => {
-                if Self::is_valid_in_mask(validity, row) {
-                    let key = keys[row] as usize;
-                    values.get(key).cloned()
-                } else {
-                    None
-                }
-            }
-
-            // --- Boolean: Standardized lowercase labels ---
-            ColumnVector::Boolean { data, validity } => {
-                if Self::is_valid_in_mask(validity, row) {
-                    Some(if data[row] {
-                        "true".to_string()
-                    } else {
-                        "false".to_string()
-                    })
-                } else {
-                    None
-                }
-            }
-
-            // --- Floating Point: Standard numeric formatting ---
-            ColumnVector::Float64 { data, validity } => {
-                if Self::is_valid_in_mask(validity, row) && !data[row].is_nan() {
-                    Some(data[row].to_string())
-                } else {
-                    None
-                }
-            }
-            ColumnVector::Float32 { data, validity } => {
-                if Self::is_valid_in_mask(validity, row) && !data[row].is_nan() {
-                    Some(data[row].to_string())
-                } else {
-                    None
-                }
-            }
-
-            // --- Integers & Temporal Types ---
-            // We handle these variants explicitly to ensure coverage and
-            // accommodate the new struct-based temporal fields (unit, timezone).
-            ColumnVector::Int64 { data, validity }
-            | ColumnVector::Datetime { data, validity, .. }
-            | ColumnVector::Duration { data, validity, .. }
-            | ColumnVector::Time { data, validity, .. } => {
-                if Self::is_valid_in_mask(validity, row) {
-                    Some(data[row].to_string())
-                } else {
-                    None
-                }
-            }
-
-            ColumnVector::Int32 { data, validity } | ColumnVector::Date { data, validity } => {
-                if Self::is_valid_in_mask(validity, row) {
-                    Some(data[row].to_string())
-                } else {
-                    None
-                }
-            }
-
-            ColumnVector::UInt32 { data, validity } => {
-                if Self::is_valid_in_mask(validity, row) {
-                    Some(data[row].to_string())
-                } else {
-                    None
-                }
-            }
-
-            ColumnVector::UInt64 { data, validity } => {
-                if Self::is_valid_in_mask(validity, row) {
-                    Some(data[row].to_string())
-                } else {
-                    None
-                }
-            }
-
-            ColumnVector::Int16 { data, validity } => {
-                if Self::is_valid_in_mask(validity, row) {
-                    Some(data[row].to_string())
-                } else {
-                    None
-                }
-            }
-
-            ColumnVector::Int8 { data, validity } => {
-                if Self::is_valid_in_mask(validity, row) {
-                    Some(data[row].to_string())
-                } else {
-                    None
-                }
-            }
-        }
-    }
-
-    /// CONVENIENCE: String retrieval with a fallback value.
-    ///
-    /// # Parameters
-    /// * `default` - The string slice used as a fallback.
-    ///   If the data at the specified row is missing or invalid, this slice
-    ///   will be cloned into a new `String`.
-    ///
-    /// This is particularly useful for categorical data, such as:
-    /// - Providing a label like "Unknown" for missing categories.
-    /// - Ensuring grouping keys are never empty.
-    /// - Handling non-string columns (e.g., Numbers/Dates) that fail to format.
-    pub fn get_str_or(&self, row: usize, default: &str) -> String {
-        self.get_str(row).unwrap_or_else(|| default.to_string())
+        (0..self.len()).map(|i| self.get(i).to_f64()).collect()
     }
 
     /// Creates a new ColumnVector containing only the specified rows based on the provided indices.
@@ -2357,54 +2229,38 @@ impl Dataset {
         })
     }
 
-    /// SAFELY RETRIEVE f64: Handles column lookup and type casting.
-    ///
-    /// This is a "quiet" version of data access. It returns `None` if the column
-    /// doesn't exist, rather than returning a `Result::Err`.
-    ///
-    /// It automatically handles:
-    /// 1. Column presence check.
-    /// 2. Type casting (I32, I64, U32, F32 -> F64).
-    /// 3. Null/NaN checks via the underlying ColumnVector logic.
-    pub fn get_f64(&self, name: &str, row: usize) -> Option<f64> {
-        // We use .ok() to transform the Result from self.column() into an Option,
-        // allowing for graceful chaining without explicit error handling.
-        self.column(name).ok().and_then(|col| col.get_f64(row))
+    /// Unified high-level entry point to retrieve a dynamic scalar cell.
+    pub fn get(&self, name: &str, row: usize) -> AnyValue<'_> {
+        self.column(name)
+            .map(|col| col.get(row))
+            .unwrap_or(AnyValue::Null)
     }
 
-    /// CONVENIENT f64: Numerical retrieval with a fallback value.
-    ///
-    /// # Parameters
-    /// * `name` - Column name.
-    /// * `row` - Row index.
-    /// * `default` - The value to return if the column is missing OR the data is Null/NaN.
-    ///
-    /// Usage: `let val = ds.get_f64_or("price", i, 0.0);`
-    pub fn get_f64_or(&self, name: &str, row: usize, default: f64) -> f64 {
-        self.get_f64(name, row).unwrap_or(default)
-    }
+    /// [WASM PREPARATION]: Zero-Allocation Data Streaming.
+    /// Modifies a Float64 column in place, bypassing the standard Arc clone
+    /// penalty by utilizing `Arc::get_mut` during single-threaded WASM loops.
+    pub fn update_column_f64(&mut self, name: &str, new_data: &[f64]) -> Result<(), ChartonError> {
+        self.validate_len(name, new_data.len())?;
 
-    // --- STRING HELPERS ---
-
-    /// SAFELY RETRIEVE String: Handles column lookup and string formatting.
-    ///
-    /// Returns `None` if the column is missing or the value is Null.
-    /// Note: This involves heap allocation (String) for non-string types.
-    pub fn get_str(&self, name: &str, row: usize) -> Option<String> {
-        self.column(name).ok().and_then(|col| col.get_str(row))
-    }
-
-    /// CONVENIENT String: String retrieval with a fallback value.
-    ///
-    /// # Parameters
-    /// * `name` - Column name.
-    /// * `row` - Row index.
-    /// * `default` - The fallback slice (e.g., "unknown") used if the data is unavailable.
-    ///
-    /// Usage: `let label = ds.get_str_or("category", i, "N/A");`
-    pub fn get_str_or(&self, name: &str, row: usize, default: &str) -> String {
-        self.get_str(name, row)
-            .unwrap_or_else(|| default.to_string())
+        if let Some(&index) = self.schema.get(name) {
+            // Attempt to acquire mutable reference (succeeds if Arc strong count is 1)
+            if let Some(col) = Arc::get_mut(&mut self.columns[index]) {
+                col.update_f64_data(new_data)?;
+            } else {
+                // Fallback: If the column is deeply shared (e.g., heavily borrowed in multi-threading),
+                // we gracefully degrade to a fresh allocation.
+                self.columns[index] = Arc::new(ColumnVector::Float64 {
+                    data: new_data.to_vec(),
+                    validity: None,
+                });
+            }
+            Ok(())
+        } else {
+            Err(ChartonError::Data(format!(
+                "Column '{}' not found for update",
+                name
+            )))
+        }
     }
 
     /// Checks if a value at a specific row is null.
@@ -3059,14 +2915,14 @@ impl<'a> RowAccessor<'a> {
     /// Returns None if the column doesn't exist or the value is Null.
     #[inline]
     pub fn val(&self, field: &str) -> Option<f64> {
-        self.ds.get_f64(field, self.current_row)
+        self.ds.get(field, self.current_row).to_f64()
     }
 
     /// Fetches a string value from the specified field.
     /// Returns None if the column doesn't exist or the value is Null.
     #[inline]
     pub fn str(&self, field: &str) -> Option<String> {
-        self.ds.get_str(field, self.current_row)
+        self.ds.get(field, self.current_row).to_string()
     }
 
     /// Returns the current row index.
@@ -3128,7 +2984,7 @@ impl AggregateOp {
                 let mut sum = 0.0;
                 let mut has_valid = false;
                 for &i in indices {
-                    if let Some(v) = col.get_f64(i) {
+                    if let Some(v) = col.get(i).to_f64() {
                         sum += v;
                         has_valid = true;
                     }
@@ -3140,7 +2996,7 @@ impl AggregateOp {
                 let mut sum = 0.0;
                 let mut count = 0;
                 for &i in indices {
-                    if let Some(v) = col.get_f64(i) {
+                    if let Some(v) = col.get(i).to_f64() {
                         sum += v;
                         count += 1;
                     }
@@ -3154,7 +3010,7 @@ impl AggregateOp {
 
             AggregateOp::Min => indices
                 .iter()
-                .filter_map(|&i| col.get_f64(i))
+                .filter_map(|&i| col.get(i).to_f64())
                 .fold(None, |acc: Option<f64>, v| {
                     Some(acc.map_or(v, |m| m.min(v)))
                 })
@@ -3162,7 +3018,7 @@ impl AggregateOp {
 
             AggregateOp::Max => indices
                 .iter()
-                .filter_map(|&i| col.get_f64(i))
+                .filter_map(|&i| col.get(i).to_f64())
                 .fold(None, |acc: Option<f64>, v| {
                     Some(acc.map_or(v, |m| m.max(v)))
                 })
@@ -3179,7 +3035,7 @@ impl AggregateOp {
         // Filter out NaNs and Nulls to ensure sort stability
         let mut vals: Vec<f64> = indices
             .iter()
-            .filter_map(|&i| col.get_f64(i))
+            .filter_map(|&i| col.get(i).to_f64())
             .filter(|v| !v.is_nan())
             .collect();
 
@@ -3244,7 +3100,7 @@ mod tests {
             .expect("Should convert from tuples successfully");
 
         assert_eq!(ds_from_tuples.row_count, 2);
-        assert_eq!(ds_from_tuples.get_str("name", 0).unwrap(), "A");
+        assert_eq!(ds_from_tuples.get("name", 0).to_string().unwrap(), "A");
 
         // --- Method 3: Complex Mixed-Type Construction ---
         // Verifies that diverse types (DateTime, f32, Strings) coexist within the same Dataset
@@ -3324,7 +3180,7 @@ mod tests {
         ds.add_column("id", ids).unwrap();
 
         // Check row 0 (Valid)
-        assert_eq!(ds.get_f64("id", 0).unwrap(), 100.0);
+        assert_eq!(ds.get("id", 0).to_f64().unwrap(), 100.0);
         assert!(!ds.is_null("id", 0));
 
         // Check row 1 (Null)
@@ -3333,7 +3189,7 @@ mod tests {
         assert!(ds.is_null("id", 1));
 
         // Check row 2 (Valid)
-        assert_eq!(ds.get_f64("id", 2).unwrap(), 300.0);
+        assert_eq!(ds.get("id", 2).to_f64().unwrap(), 300.0);
 
         // Check out-of-bounds column
         assert!(ds.is_null("non_existent", 0));

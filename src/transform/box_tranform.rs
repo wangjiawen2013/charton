@@ -26,7 +26,7 @@ impl<T: Mark> Chart<T> {
         let mut global_min = f64::INFINITY;
         let mut global_max = f64::NEG_INFINITY;
         for i in 0..row_count {
-            if let Some(v) = y_col.get_f64(i) {
+            if let Some(v) = y_col.get(i).to_f64() {
                 if v < global_min {
                     global_min = v;
                 }
@@ -58,10 +58,16 @@ impl<T: Mark> Chart<T> {
         // --- STEP 3: Grouping phase ---
         let mut group_map: AHashMap<(String, Option<String>), Vec<usize>> = AHashMap::new();
         for i in 0..row_count {
-            let x_val = x_col.get_str_or(i, "null");
-            let c_val = color_field_name
-                .as_ref()
-                .map(|f| self.data.get_str_or(f, i, "null"));
+            let x_val = x_col
+                .get(i)
+                .to_string()
+                .unwrap_or_else(|| "null".to_string());
+            let c_val = color_field_name.as_ref().map(|f| {
+                self.data
+                    .get(f, i)
+                    .to_string()
+                    .unwrap_or_else(|| "null".to_string())
+            });
             group_map.entry((x_val, c_val)).or_default().push(i);
         }
 
@@ -98,8 +104,10 @@ impl<T: Mark> Chart<T> {
                 f_sub_idx.push(c_idx);
 
                 if let Some(indices) = group_map.get(&(x_val.clone(), c_val)) {
-                    let mut vals: Vec<f64> =
-                        indices.iter().filter_map(|&i| y_col.get_f64(i)).collect();
+                    let mut vals: Vec<f64> = indices
+                        .iter()
+                        .filter_map(|&i| y_col.get(i).to_f64())
+                        .collect();
                     vals.sort_unstable_by(|a, b| {
                         a.partial_cmp(b).unwrap_or(std::cmp::Ordering::Equal)
                     });

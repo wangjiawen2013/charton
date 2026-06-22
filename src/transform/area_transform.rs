@@ -70,13 +70,16 @@ impl<T: Mark> Chart<T> {
         for i in 0..row_count {
             let x_key = if is_continuous {
                 // get_f64 automatically maps all numeric/temporal types to a double precision float
-                let v = x_col.get_f64(i).unwrap_or(0.0);
+                let v = x_col.get(i).to_f64().unwrap_or(0.0);
                 if x_set.insert(v.to_bits()) {
                     x_ticks_num.push(v);
                 }
                 v.to_bits()
             } else {
-                let s = x_col.get_str_or(i, "null");
+                let s = x_col
+                    .get(i)
+                    .to_string()
+                    .unwrap_or_else(|| "null".to_string());
                 let mut hasher = ahash::AHasher::default();
                 s.hash(&mut hasher);
                 hasher.finish()
@@ -85,11 +88,13 @@ impl<T: Mark> Chart<T> {
             let c_val = color_field
                 .map(|cf| {
                     self.data
-                        .get_str_or(cf, i, &format!("{}_default", TEMP_SUFFIX))
+                        .get(cf, i)
+                        .to_string()
+                        .unwrap_or_else(|| format!("{}_default", TEMP_SUFFIX))
                 })
                 .unwrap_or_else(|| format!("{}_default", TEMP_SUFFIX));
 
-            let y_val = y_col.get_f64(i).unwrap_or(0.0);
+            let y_val = y_col.get(i).to_f64().unwrap_or(0.0);
             grid.entry(x_key).or_default().insert(c_val, y_val);
         }
 

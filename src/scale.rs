@@ -157,15 +157,18 @@ impl Scale {
             .map(|i| {
                 match self {
                     // Discrete scale: Force everything to string and normalize.
-                    Scale::Discrete => column.get_str(i).map(|s| scale_trait.normalize_string(&s)),
+                    Scale::Discrete => column
+                        .get(i)
+                        .to_string()
+                        .map(|s| scale_trait.normalize_string(&s)),
 
                     // Continuous scales (Linear/Log): Use the numerical interface.
                     Scale::Linear | Scale::Log => {
-                        column.get_f64(i).map(|v| scale_trait.normalize(v))
+                        column.get(i).to_f64().map(|v| scale_trait.normalize(v))
                     }
 
                     // Temporal scale: Also uses get_f64 (which returns nanoseconds).
-                    Scale::Temporal => column.get_f64(i).map(|v| scale_trait.normalize(v)),
+                    Scale::Temporal => column.get(i).to_f64().map(|v| scale_trait.normalize(v)),
                 }
             })
             .collect()

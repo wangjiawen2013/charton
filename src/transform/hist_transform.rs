@@ -53,11 +53,14 @@ impl<T: Mark> Chart<T> {
         let row_count = self.data.height();
 
         for i in 0..row_count {
-            let val = x_col.get_f64(i).unwrap_or(min_val);
+            let val = x_col.get(i).to_f64().unwrap_or(min_val);
             let bin_idx = (((val - min_val) / bin_width).floor() as usize).min(n_bins - 1);
 
             let color_label = if let Some(c_enc) = color_enc {
-                self.data.get_str_or(&c_enc.field, i, "null")
+                self.data
+                    .get(&c_enc.field, i)
+                    .to_string()
+                    .unwrap_or_else(|| "null".to_string())
             } else {
                 format!("{}_default", TEMP_SUFFIX)
             };
