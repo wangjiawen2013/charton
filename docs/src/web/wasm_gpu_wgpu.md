@@ -293,3 +293,5 @@ python -m http.server 8080
 By splitting the rendering pipeline into a Pure GPU Instancing Layer for Primitives and a Deferred Subsystem for Typography, `charton` delivers the best of both worlds.
 
 You have just successfully designed and executed an industrial-grade visualization engine structure engineered to effortlessly handle real-time Big Data visualizations directly inside native web architectures.
+
+> *This example serves as a fundamental demonstration of Charton’s core usage within WebAssembly; advanced high-performance patterns are covered in the Case Studies chapter.*
