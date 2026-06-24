@@ -4,7 +4,7 @@ Building directly upon the foundations laid in Part 1 (where we created an anima
 
 When dealing with massive datasets—such as real-time financial tickers, high-frequency bioinformatic sequences, or dense sensor streams—the CPU-driven SVG approach hits an immediate bottleneck. Every frame requires generating megabytes of XML text strings, causing the browser DOM to choke at just a few hundred points.
 
-To break through this wall, we will rewrite our application to leverage **WGPU** (WebGPU/WebGL2) inside WebAssembly. We will push our dataset from a modest 200 points to **100,000+ points**, rendering them smoothly at a locked **60 FPS**. Furthermore, we will implement your engine's signature feature: the **Zero-Allocation Deferred Ledger Architecture**, which offloads text rendering back to the browser's native Canvas 2D subsystem for perfect subpixel anti-aliasing.
+To break through this wall, we will rewrite our application to leverage **WGPU** (WebGPU/WebGL2) inside WebAssembly. We will push our dataset from a modest 200 points to **50,000+ points**, rendering them smoothly at a locked **60 FPS**. Furthermore, we will implement your engine's signature feature: the **Zero-Allocation Deferred Ledger Architecture**, which offloads text rendering back to the browser's native Canvas 2D subsystem for perfect subpixel anti-aliasing.
 
 > Every frame is fully rendered via hardware acceleration directly on your graphics card.
 
@@ -144,7 +144,7 @@ wasm-pack build --release --target web --out-dir pkg
 
 ## 5) `index.html` - The Million-Point Stress Test
 
-Now let's construct the interactive frontend wrapper. To demonstrate the crushing performance advantage of the GPU, we will configure the simulation loop to initialize and render 100,000 points simultaneously right from the start, update a sliding window at 60 frames per second, and benchmark the frame timing.
+Now let's construct the interactive frontend wrapper. To demonstrate the crushing performance advantage of the GPU, we will configure the simulation loop to initialize and render 50,000 points simultaneously right from the start, update a sliding window at 60 frames per second, and benchmark the frame timing.
 
 Create or update `index.html` in your project root:
 
@@ -213,7 +213,6 @@ Create or update `index.html` in your project root:
             const fpsCounterElement = document.getElementById('fps-counter');
 
             // --- STRESS TEST CONFIGURATION ---
-            // Try increasing this value to 50,000 or 100,000 to see your GPU sweat!
             const TOTAL_POINTS = 50_000; 
             
             let xs = new Float64Array(TOTAL_POINTS);
@@ -284,7 +283,7 @@ python -m http.server 8080
 
 **What you are witnessing:**
 
-- Look closely at the data points and lines. You will notice 100,000 independent data points floating and flowing simultaneously across the screen.
+- Look closely at the data points and lines. You will notice 50,000 independent data points floating and flowing simultaneously across the screen.
 - Look at the performance metrics indicator. Despite rendering 500 times more data than the SVG example in Part 1, the framerate remains pinned at a rock-solid, buttery-smooth 60 FPS.
 - Look at the chart labels and axes tick marks. Thanks to the Deferred Ledger Design, text anti-aliasing remains flawlessly sharp, crisp, and beautifully proportioned regardless of your monitor's DPI scaling, without embedding a massive 5MB `.ttf` font compiler inside your WASM package.
 
