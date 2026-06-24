@@ -731,12 +731,14 @@ impl LayeredChart {
         }
 
         // 4f. Render Unified Legends & Guides (FOREGROUND LAYER)
-        crate::render::legend_renderer::LegendRenderer::render_legend(
-            backend,
-            &guide_specs,
-            &self.theme,
-            &primary_panel_ctx,
-        );
+        if self.theme.show_legend {
+            crate::render::legend_renderer::LegendRenderer::render_legend(
+                backend,
+                &guide_specs,
+                &self.theme,
+                &primary_panel_ctx,
+            );
+        }
 
         Ok(())
     }
