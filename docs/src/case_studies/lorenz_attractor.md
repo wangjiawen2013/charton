@@ -3,7 +3,7 @@ While the previous chapter demonstrated how to hook up charton to WGPU, our impl
 
 To truly push WebAssembly and your graphics card to their absolute limits, we need to talk about Chaos Theory, glowing butterflies, and Stateful Memory Management.
 
-In this case study, we will render a Lorenz Attractor—a complex, non-repeating 3D mathematical trajectory. We will simulate and project 100,000 dynamic particles rotating in 3D space, pushing the results to WGPU at a locked 60 FPS.
+In this case study, we will render a Lorenz Attractor—a complex, non-repeating 3D mathematical trajectory. We will simulate and project 50,000 dynamic particles rotating in 3D space, pushing the results to WGPU at a locked 60 FPS.
 
 More importantly, we will refactor our WASM boundary to achieve Zero-Allocation (Zero Malloc) during the render loop.
 
