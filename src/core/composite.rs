@@ -1285,13 +1285,21 @@ impl LayeredChart {
             host_canvas.set_height(display_height);
 
             // Set the background color
-            let host_html_element = host_canvas
-                .dyn_ref::<web_sys::HtmlElement>()
-                .ok_or_else(|| ChartonError::Render("Failed to cast host canvas to HtmlElement".into()))?;
+            let host_html_element =
+                host_canvas
+                    .dyn_ref::<web_sys::HtmlElement>()
+                    .ok_or_else(|| {
+                        ChartonError::Render("Failed to cast host canvas to HtmlElement".into())
+                    })?;
             host_html_element
                 .style()
-                .set_property("background_color", &self.theme.background_color.to_css_string())
-                .map_err(|_| ChartonError::Render("Failed to set CSS background property".into()))?;
+                .set_property(
+                    "background_color",
+                    &self.theme.background_color.to_css_string(),
+                )
+                .map_err(|_| {
+                    ChartonError::Render("Failed to set CSS background property".into())
+                })?;
 
             let state = if let Some(cached) =
                 RENDER_CACHE.with(|c| c.borrow().get(canvas_id).cloned())
@@ -1382,12 +1390,18 @@ impl LayeredChart {
             let caps = state.surface.get_capabilities(&state.adapter);
 
             // Dynamically select an alpha_mode that supports transparent blending.
-            let alpha_mode = if caps.alpha_modes.contains(&wgpu::CompositeAlphaMode::PreMultiplied) {
+            let alpha_mode = if caps
+                .alpha_modes
+                .contains(&wgpu::CompositeAlphaMode::PreMultiplied)
+            {
                 wgpu::CompositeAlphaMode::PreMultiplied
-            } else if caps.alpha_modes.contains(&wgpu::CompositeAlphaMode::PostMultiplied) {
+            } else if caps
+                .alpha_modes
+                .contains(&wgpu::CompositeAlphaMode::PostMultiplied)
+            {
                 wgpu::CompositeAlphaMode::PostMultiplied
             } else {
-                caps.alpha_modes[0]  // fallback to default
+                caps.alpha_modes[0] // fallback to default
             };
 
             // Strict Pipeline Target Lock: Enforce a hardcoded Rgba8Unorm format constraint.
