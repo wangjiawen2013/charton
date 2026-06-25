@@ -88,6 +88,7 @@ impl LiveChartApp {
             // 由前端 canvas 样式完全掌控响应式高宽
             .configure_theme(|t| {
                 t.with_background_color("#090d16")
+                    .with_color_map(ColorMap::Plasma)
                     .with_show_axes(false)
                     .with_show_legend(false)
                     .with_top_margin(0.10)
