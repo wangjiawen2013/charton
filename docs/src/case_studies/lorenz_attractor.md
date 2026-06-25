@@ -1,16 +1,12 @@
 # The 50k-Point Lorenz Attractor (WGPU & Zero-Allocation WASM)
-While the previous chapter demonstrated how to hook up charton to WGPU, our implementation was essentially a "naive" port. We were still rebuilding the Dataset and re-allocating memory on the heap every single frame.
 
-To truly push WebAssembly and your graphics card to their absolute limits, we need to talk about Chaos Theory, glowing butterflies, and Stateful Memory Management.
+The previous chapter's WGPU implementation (*Chapter WebAssembly & Vega-Lite JSON, Part 2*) was a "naive" port that re-allocated heap memory every frame. To push WebAssembly and your GPU to their limits, we will render a Lorenz Attractor—a complex, non-repeating 3D trajectory—simulating 50,000 dynamic particles at a locked 60 FPS.
 
-In this case study, we will render a Lorenz Attractor—a complex, non-repeating 3D mathematical trajectory. We will simulate and project 50,000 dynamic particles rotating in 3D space, pushing the results to WGPU at a locked 60 FPS.
-
-More importantly, we will refactor our WASM boundary to achieve Zero-Allocation (Zero Malloc) during the render loop.
+Crucially, we will refactor our WASM boundary to achieve Zero-Allocation (Zero Malloc) during the render loop.
 
 ## The Bottleneck: Why "Naive" WASM Stutters
-If you tried to push the code from Part 2 to 50,000 points, you might have noticed occasional micro-stutters. The culprit isn't the GPU; it's the CPU struggling with memory allocation.
 
-In our previous `render_chart_gpu` function, we executed this every frame:
+Pushing Part 2's code to 50,000 points causes micro-stutters. The CPU, not the GPU, struggles with memory allocation. Our previous `render_chart_gpu` function ran this every frame:
 
 ```rust
 let ds = Dataset::new()
@@ -18,18 +14,16 @@ let ds = Dataset::new()
     // ...
 ```
 
-At 60 FPS with 50k points, `to_vec()` forces the WASM memory allocator to find, reserve, copy, and free megabytes of memory hundreds of times a second. The Garbage Collector/Allocator chokes, and the GPU is left starving for data.
-
-To solve this, we must shift from a Stateless API (calling a function every frame) to a Stateful Architecture (instantiating a persistent Rust struct that reuses memory capacity).
+Calling `to_vec()` 60 times a second on 50k points forces constant memory allocation and deallocation, choking the CPU and starving the GPU. The fix is shifting from a Stateless API to a Stateful Architecture using a persistent Rust struct to reuse memory.
 
 ## Rust: The Stateful LiveChartApp
-We will create a long-lived Rust object that pre-allocates the memory for our 100,000 points once during startup. During the 60 FPS animation loop, we will use Charton's high-performance update_column_f64 method to perform an in-place memcpy, completely bypassing heap allocation.
 
-Update your src/lib.rs with the following advanced pattern:
+We will create a persistent Rust object that pre-allocates memory for our points at startup. During the animation loop, Charton's `update_column_f64` performs an in-place memory copy, bypassing heap allocations entirely.
+
+Update your `src/lib.rs`:
 
 ```rust
 use charton::prelude::*;
-use charton::scale::ScaleDomain;
 use wasm_bindgen::prelude::*;
 
 #[wasm_bindgen]
@@ -61,7 +55,7 @@ impl LiveChartApp {
         ys: &[f64],
         colors: &[f64],
     ) -> Result<(), JsValue> {
-        // 零分配内存覆写
+        // Zero-allocation memory overwrite
         self.dataset
             .update_column_f64("x", xs)
             .map_err(|e| e.to_string())?;
@@ -72,20 +66,20 @@ impl LiveChartApp {
             .update_column_f64("intensity", colors)
             .map_err(|e| e.to_string())?;
 
-        // 构建轻量级声明图表并刷新至 WGPU Canvas
+        // Build lightweight declarative chart and flush to WGPU Canvas
         Chart::build(self.dataset.clone())
             .map_err(|e| e.to_string())?
             .mark_point()
             .map_err(|e| e.to_string())?
             .configure_point(|p| p.with_size(1.0).with_opacity(0.4))
             .encode((
-                // 锁定域以避免全量扫描，根据 Lorenz 常规范围进行自适应适配
-                alt::x("x").with_domain(ScaleDomain::Continuous(-50.0, 50.0)),
-                alt::y("y").with_domain(ScaleDomain::Continuous(-10.0, 60.0)),
-                alt::color("intensity").with_domain(ScaleDomain::Continuous(0.0, 60.0)),
+                // Lock domain to avoid full scan, adaptively fit based on standard Lorenz range
+                alt::x("x"),
+                alt::y("y"),
+                alt::color("intensity"),
             ))
             .map_err(|e| e.to_string())?
-            // 由前端 canvas 样式完全掌控响应式高宽
+            // Responsive dimensions fully controlled by frontend canvas styles
             .configure_theme(|t| {
                 t.with_background_color("#090d16")
                     .with_color_map(ColorMap::Plasma)
@@ -106,9 +100,10 @@ impl LiveChartApp {
 ```
 
 ## JavaScript: Chaos Math & 3D Projection
-In `index.html`, we will calculate the Lorenz equations. To create the "rotating glowing butterfly" effect, we will compute the 3D coordinates statically once, and then apply a dynamic 3D-to-2D rotation matrix every frame before streaming the data into our WASM app.
 
-Replace your script tag in `index.html` with this high-performance orchestrator:
+In `index.html`, we calculate the Lorenz equations. To create a rotating 3D effect, we compute coordinates once, then apply a dynamic 3D-to-2D rotation matrix each frame before streaming data to WASM.
+
+Replace `index.html` with this:
 
 ```html
 <!DOCTYPE html>
@@ -141,7 +136,7 @@ Replace your script tag in `index.html` with this high-performance orchestrator:
             overflow: hidden;
         }
 
-        /* 整体大容器：最大宽度限制为 1080px */
+        /* Main container: max width limited to 1080px */
         #app-container {
             display: flex;
             width: 90vw;
@@ -155,7 +150,7 @@ Replace your script tag in `index.html` with this high-performance orchestrator:
             overflow: hidden;
         }
 
-        /* 左侧面板：极致紧凑排版 */
+        /* Left panel: ultra-compact layout */
         #control-panel {
             width: 260px;
             background: var(--panel-bg);
@@ -167,7 +162,7 @@ Replace your script tag in `index.html` with this high-performance orchestrator:
             box-sizing: border-box;
             backdrop-filter: blur(12px);
             height: 100%;
-            overflow: hidden; /* 强制锁定视野，绝不出现滚动条 */
+            overflow: hidden; /* Lock viewport, prevent scrollbars */
         }
 
         h2 {
@@ -231,7 +226,7 @@ Replace your script tag in `index.html` with this high-performance orchestrator:
             font-family: monospace;
         }
 
-        /* 极细滑块样式设计 */
+        /* Ultra-thin slider style design */
         input[type="range"] {
             -webkit-appearance: none;
             -moz-appearance: none;
@@ -270,7 +265,7 @@ Replace your script tag in `index.html` with this high-performance orchestrator:
             transition: transform 0.1s;
         }
 
-        /* 右侧画布区域 */
+        /* Right canvas area */
         #stage {
             flex: 1;
             height: 100%;
@@ -431,17 +426,15 @@ Replace your script tag in `index.html` with this high-performance orchestrator:
 ```
 
 ## The Result: High-Density Chaos
-When you run this code, you will see something mesmerizing: 100,000 points swirling in a perfectly fluid, anti-aliased 3D rotation. Because the points are small (1.2) and semi-transparent (0.6), they visually accumulate where the math dictates higher density, causing the "wings" of the butterfly to physically glow.
 
-Because we eliminated the heap allocations, your CPU utilization will drop significantly, allowing the requestAnimationFrame loop to run completely unhindered, feeding WGPU exactly as fast as your monitor can refresh.
+Running this reveals 50,000 points swirling fluidly in 3D. The small, semi-transparent points visually accumulate in dense areas, making the "butterfly wings" physically glow. By eliminating heap allocations, CPU usage drops drastically, allowing the `requestAnimationFrame` loop to feed WGPU at your monitor's maximum refresh rate.
 
 ## Summary: Rules for High-Performance WASM
-If you are building data-intensive applications (like live sensor dashboards or complex animations) that cross the JavaScript/WASM boundary, keep these golden rules in mind:
 
-1. State is King: Never use functional, stateless APIs for high-frequency loops. Instantiate a Rust struct (#[wasm_bindgen] pub struct...) to hold onto heap-allocated memory (like Vec<T>).
+Keep these golden rules in mind for data-intensive JS/WASM applications:
 
-2. In-Place Mutation: Instead of .to_vec() (which triggers a malloc), use methods like clear() and extend_from_slice() on existing vectors. This reuses the capacity of the vector, turning a heavy memory operation into a lightning-fast memcpy.
+1. State is King: Avoid stateless APIs for high-frequency loops. Use a persistent Rust struct (`#[wasm_bindgen] pub struct...`) to hold heap-allocated memory.
 
-3. Lock Your Scales: In declarative visualization engines, the engine has to scan your entire dataset to find the Min/Max values to draw the axes. If your data is relatively bounded (like our Lorenz projection), use scale_domain() to hardcode the boundaries. This saves the engine from traversing 100,000 points purely for math scaling every frame.
+2. In-Place Mutation: Avoid `.to_vec()` (which triggers a malloc). Mutate vectors in place to reuse capacity, turning heavy memory operations into lightning-fast memcopies.
 
-4. Leverage Instancing: Let the GPU do what it's good at. By passing flat arrays of floats (Float64Array) from JS to Rust, Charton can pipe that raw geometry straight into WGPU Vertex Buffers, executing massively parallel rendering operations without CPU bottlenecking.
+3. Leverage Instancing: Pass flat float arrays (`Float64Array`) from JS to Rust. Charton pipes this raw geometry directly into WGPU Vertex Buffers, enabling parallel GPU rendering without CPU bottlenecks.
