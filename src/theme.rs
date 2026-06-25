@@ -67,6 +67,7 @@ pub struct Theme {
     pub(crate) tick_min_spacing: f64,
 
     // --- Legend Styling ---
+    pub(crate) show_legend: bool,
     /// Font size for the legend's title.
     pub(crate) legend_title_size: f64,
     /// Font size for legend item labels.
@@ -268,6 +269,11 @@ impl Theme {
 
     // --- Legend Styling ---
 
+    pub const fn with_show_legend(mut self, show: bool) -> Self {
+        self.show_legend = show;
+        self
+    }
+
     pub const fn with_legend_title_size(mut self, size: f64) -> Self {
         self.legend_title_size = size;
         self
@@ -430,6 +436,7 @@ impl Default for Theme {
             tick_length: 6.0,
             tick_min_spacing: 50.0,
 
+            show_legend: true,
             legend_title_size: 14.0,
             legend_label_size: 12.0,
             legend_label_family: font_stack,

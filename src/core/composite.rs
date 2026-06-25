@@ -731,12 +731,14 @@ impl LayeredChart {
         }
 
         // 4f. Render Unified Legends & Guides (FOREGROUND LAYER)
-        crate::render::legend_renderer::LegendRenderer::render_legend(
-            backend,
-            &guide_specs,
-            &self.theme,
-            &primary_panel_ctx,
-        );
+        if self.theme.show_legend {
+            crate::render::legend_renderer::LegendRenderer::render_legend(
+                backend,
+                &guide_specs,
+                &self.theme,
+                &primary_panel_ctx,
+            );
+        }
 
         Ok(())
     }
@@ -1024,7 +1026,7 @@ impl LayeredChart {
             y: 0.0,
             width: scaled_width,
             height: scaled_height,
-            fill: "#FFFFFF".into(),
+            fill: self.theme.background_color,
             stroke: "none".into(),
             stroke_width: 0.0,
             opacity: 1.0,
@@ -1282,6 +1284,23 @@ impl LayeredChart {
             host_canvas.set_width(display_width);
             host_canvas.set_height(display_height);
 
+            // Set the background color
+            let host_html_element =
+                host_canvas
+                    .dyn_ref::<web_sys::HtmlElement>()
+                    .ok_or_else(|| {
+                        ChartonError::Render("Failed to cast host canvas to HtmlElement".into())
+                    })?;
+            host_html_element
+                .style()
+                .set_property(
+                    "background_color",
+                    &self.theme.background_color.to_css_string(),
+                )
+                .map_err(|_| {
+                    ChartonError::Render("Failed to set CSS background property".into())
+                })?;
+
             let state = if let Some(cached) =
                 RENDER_CACHE.with(|c| c.borrow().get(canvas_id).cloned())
             {
@@ -1370,6 +1389,21 @@ impl LayeredChart {
 
             let caps = state.surface.get_capabilities(&state.adapter);
 
+            // Dynamically select an alpha_mode that supports transparent blending.
+            let alpha_mode = if caps
+                .alpha_modes
+                .contains(&wgpu::CompositeAlphaMode::PreMultiplied)
+            {
+                wgpu::CompositeAlphaMode::PreMultiplied
+            } else if caps
+                .alpha_modes
+                .contains(&wgpu::CompositeAlphaMode::PostMultiplied)
+            {
+                wgpu::CompositeAlphaMode::PostMultiplied
+            } else {
+                caps.alpha_modes[0] // fallback to default
+            };
+
             // Strict Pipeline Target Lock: Enforce a hardcoded Rgba8Unorm format constraint.
             // Do not use the dynamic browser format fallback (caps.formats[0]) because the core
             // wgpu.rs pipelines are heavily optimized and pre-compiled against Rgba8Unorm.
@@ -1379,7 +1413,7 @@ impl LayeredChart {
                 width: display_width,
                 height: display_height,
                 present_mode: wgpu::PresentMode::AutoVsync,
-                alpha_mode: caps.alpha_modes[0],
+                alpha_mode,
                 view_formats: vec![],
                 desired_maximum_frame_latency: 2,
             };

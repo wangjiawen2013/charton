@@ -121,7 +121,7 @@ pub fn render_polar_grid(
         fill: "none".into(),
         stroke: theme.grid_color,
         stroke_width: theme.grid_width as Precision,
-        opacity: 0.5,
+        opacity: 0.7,
     });
 
     // 2. Draw the angular grid lines / spokes (text labels removed)
@@ -145,7 +145,7 @@ pub fn render_polar_grid(
             y2: y2 as Precision,
             color: theme.grid_color,
             width: theme.grid_width as Precision,
-            opacity: 0.3, // Grid lines can be slightly fainter than axis lines
+            opacity: 0.5, // Grid lines can be slightly fainter than axis lines
             dash: vec![],
         });
     }
