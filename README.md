@@ -141,10 +141,10 @@ line.and(point).save("layered.svg")?;
 ```
 
 ## WebAssembly and Frontend
-Charton supports WebAssembly and modern web frontend. Below is a demo that uses Charton and WebAssembly to render a real‑time visualization in the browser, simulating a sensor sampling signal intensity at regular intervals (see the 60 fps one in `assets/wave.zip`).
+Charton supports WebAssembly and modern web frontend. Below is an interactive demo simulates a 50,000-point Lorenz Attractor at a locked 60 FPS, demonstrating how WebAssembly enables high-performance, real-time data visualization in the browser.
 
 <p align="center">
-<img src="assets/wasm.gif" alt="Charton Wasm demo">
+<img src="assets/lorenz.gif" alt="Charton Wasm demo">
 </p>
 
 ## Interactive Notebooks (Jupyter)
