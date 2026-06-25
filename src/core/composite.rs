@@ -1026,7 +1026,7 @@ impl LayeredChart {
             y: 0.0,
             width: scaled_width,
             height: scaled_height,
-            fill: "#FFFFFF".into(),
+            fill: self.theme.background_color,
             stroke: "none".into(),
             stroke_width: 0.0,
             opacity: 1.0,

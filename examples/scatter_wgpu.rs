@@ -17,7 +17,10 @@ fn main() -> Result<(), Box<dyn Error>> {
             //alt::size("mpg"),
         ))?
         .coord_flip()
-        .configure_theme(|t| t.with_x_tick_label_angle(-45.0).with_background_color("black"))
+        .configure_theme(|t| {
+            t.with_x_tick_label_angle(-45.0)
+                .with_background_color("black")
+        })
         .with_title("Car Performance")
         .with_grid(true)
         .save("scatter_gpu.png")?;
