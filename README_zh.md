@@ -141,7 +141,7 @@ line.and(point).save("layered.svg")?;
 ```
 
 ## WebAssembly 与前端
-Charton 支持 WebAssembly 及现代 Web 前端开发。下面这个示例展示了一个支持实时交互的 50,000 点 Lorenz 吸引子 3D 动力学系统，利用 WASM 技术在浏览器中稳定实现 60 FPS 的超流畅渲染。
+Charton 支持 WebAssembly 及现代 Web 前端开发。下面这个示例展示了一个支持实时交互的 50,000 点 Lorenz 吸引子 3D 动力学系统，利用 WASM 技术在浏览器中实现 60 FPS 的超流畅渲染。
 
 <p align="center">
 <img src="assets/lorenz.gif" alt="Charton Wasm demo">

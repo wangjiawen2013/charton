@@ -141,7 +141,7 @@ line.and(point).save("layered.svg")?;
 ```
 
 ## WebAssembly and Frontend
-Charton supports WebAssembly and modern web frontend. Below is an interactive demo simulates a 50,000-point Lorenz Attractor at a locked 60 FPS, demonstrating how WebAssembly enables high-performance, real-time data visualization in the browser.
+Charton supports WebAssembly and modern web frontend. Below is an interactive demo simulates a 50,000-point Lorenz Attractor at 60 FPS, demonstrating how WebAssembly enables high-performance, real-time data visualization in the browser.
 
 <p align="center">
 <img src="assets/lorenz.gif" alt="Charton Wasm demo">
