@@ -348,7 +348,7 @@ pub fn render_cartesian_grid(
             y2: (panel.y + panel.height) as Precision,
             color: theme.grid_color,
             width: theme.grid_width as Precision,
-            opacity: 0.4,
+            opacity: 0.5,
             dash: vec![], // Can be replaced with theme.grid_dash.clone() if customized
         });
     }
@@ -380,7 +380,7 @@ pub fn render_cartesian_grid(
             y2: canvas_y as Precision,
             color: theme.grid_color,
             width: theme.grid_width as Precision,
-            opacity: 0.4,
+            opacity: 0.5,
             dash: vec![],
         });
     }
