@@ -258,6 +258,7 @@ impl LayeredChart {
             ),
             Channel::Shape => (self.shape_domain.clone(), None, self.shape_expand),
             Channel::Size => (self.size_domain.clone(), None, self.size_expand),
+            Channel::Text | Channel::PathGroup => (None, None, None),
         };
 
         // --- Step 3: Final Reconciliation ---
@@ -525,6 +526,12 @@ impl LayeredChart {
 
                 Arc::new(polar)
             }
+            CoordSystem::Geo => Arc::new(crate::coordinate::geo::Geo::new(
+                x_scale,
+                y_scale,
+                x_spec.field.clone(),
+                y_spec.field.clone(),
+            )),
         };
 
         // --- STEP 3: GUIDE GENERATION ---

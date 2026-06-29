@@ -69,10 +69,10 @@ impl MarkRenderer for Chart<MarkRule> {
         });
 
         // Pre-normalize color aesthetics for data-driven mapping
-        let color_norms = context.spec.aesthetics.color.as_ref().map(|m| {
+        let color_norms = context.spec.aesthetics.color.as_ref().and_then(|m| {
             let s = m.scale_impl.as_ref();
-            s.scale_type()
-                .normalize_column(s, df_source.column(&m.field).unwrap())
+            let col = df_source.column(&m.field).ok()?;
+            Some(s.scale_type().normalize_column(s, col))
         });
 
         let is_flipped = context.coord.is_flipped();

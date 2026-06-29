@@ -4,6 +4,8 @@ pub(crate) mod bar_renderer;
 pub(crate) mod box_renderer;
 pub(crate) mod cartesian2d_axis_renderer;
 pub(crate) mod errorbar_renderer;
+pub(crate) mod geo_axis_renderer;
+pub(crate) mod geo_renderer;
 pub(crate) mod hist_renderer;
 pub(crate) mod legend_renderer;
 pub(crate) mod line_renderer;
