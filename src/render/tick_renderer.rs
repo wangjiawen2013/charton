@@ -58,10 +58,10 @@ impl MarkRenderer for Chart<MarkTick> {
             .normalize_column(y_scale, df_source.column(&y_enc.field)?);
 
         // Pre-normalize color aesthetics if mapping exists
-        let color_norms = context.spec.aesthetics.color.as_ref().map(|m| {
+        let color_norms = context.spec.aesthetics.color.as_ref().and_then(|m| {
             let s = m.scale_impl.as_ref();
-            s.scale_type()
-                .normalize_column(s, df_source.column(&m.field).unwrap())
+            let col = df_source.column(&m.field).ok()?;
+            Some(s.scale_type().normalize_column(s, col))
         });
 
         let is_flipped = context.coord.is_flipped();

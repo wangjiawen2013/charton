@@ -64,10 +64,10 @@ impl MarkRenderer for Chart<MarkRect> {
             .normalize_column(y_scale, df_source.column(&y_enc.field)?);
 
         // Pre-normalize color aesthetics (Essential for continuous Heatmap gradients)
-        let color_norms = context.spec.aesthetics.color.as_ref().map(|m| {
+        let color_norms = context.spec.aesthetics.color.as_ref().and_then(|m| {
             let s = m.scale_impl.as_ref();
-            s.scale_type()
-                .normalize_column(s, df_source.column(&m.field).unwrap())
+            let col = df_source.column(&m.field).ok()?;
+            Some(s.scale_type().normalize_column(s, col))
         });
 
         // --- STEP 3: SIZE CALCULATION ---

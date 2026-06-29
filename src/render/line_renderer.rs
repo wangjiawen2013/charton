@@ -97,10 +97,10 @@ impl MarkRenderer for Chart<MarkLine> {
             .normalize_column(y_scale, ds.column(&y_enc.field)?);
 
         // Pre-normalize color column if a mapping exists (handles both Discrete and Continuous)
-        let color_norms = context.spec.aesthetics.color.as_ref().map(|m| {
+        let color_norms = context.spec.aesthetics.color.as_ref().and_then(|m| {
             let s = m.scale_impl.as_ref();
-            s.scale_type()
-                .normalize_column(s, ds.column(&m.field).unwrap())
+            let col = ds.column(&m.field).ok()?;
+            Some(s.scale_type().normalize_column(s, col))
         });
 
         // --- STEP 2: GROUPING (Determining Path Separation) ---

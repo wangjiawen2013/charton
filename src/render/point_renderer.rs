@@ -65,20 +65,20 @@ impl MarkRenderer for Chart<MarkPoint> {
             .column(&format!("{}_groups_count", TEMP_SUFFIX))
             .ok();
 
-        let color_norms = context.spec.aesthetics.color.as_ref().map(|m| {
-            m.scale_impl
-                .scale_type()
-                .normalize_column(m.scale_impl.as_ref(), df_source.column(&m.field).unwrap())
+        let color_norms = context.spec.aesthetics.color.as_ref().and_then(|m| {
+            let s = m.scale_impl.as_ref();
+            let col = df_source.column(&m.field).ok()?;
+            Some(s.scale_type().normalize_column(s, col))
         });
-        let size_norms = context.spec.aesthetics.size.as_ref().map(|m| {
-            m.scale_impl
-                .scale_type()
-                .normalize_column(m.scale_impl.as_ref(), df_source.column(&m.field).unwrap())
+        let size_norms = context.spec.aesthetics.size.as_ref().and_then(|m| {
+            let s = m.scale_impl.as_ref();
+            let col = df_source.column(&m.field).ok()?;
+            Some(s.scale_type().normalize_column(s, col))
         });
-        let shape_norms = context.spec.aesthetics.shape.as_ref().map(|m| {
-            m.scale_impl
-                .scale_type()
-                .normalize_column(m.scale_impl.as_ref(), df_source.column(&m.field).unwrap())
+        let shape_norms = context.spec.aesthetics.shape.as_ref().and_then(|m| {
+            let s = m.scale_impl.as_ref();
+            let col = df_source.column(&m.field).ok()?;
+            Some(s.scale_type().normalize_column(s, col))
         });
 
         // --- STEP 3: LAYOUT EXECUTION ---
