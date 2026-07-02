@@ -14,6 +14,9 @@ pub(crate) mod rule_renderer;
 pub(crate) mod text_renderer;
 pub(crate) mod tick_renderer;
 
-// Re-export the wgpubackend so `render_to_surface` can be used from extern
+// Re-export the wgpubackend and rasterbackend so `render_to_surface` can be used from extern
 #[cfg(feature = "wgpu")]
 pub use backend::wgpu::WgpuBackend;
+
+#[cfg(feature = "png")]
+pub use backend::raster::RasterBackend;
