@@ -249,7 +249,7 @@ pub struct WgpuBackend {
     pending_path_styles: Vec<GpuPathStyle>,
     pending_path_args: Vec<GpuPathArgs>,
 
-    pub collected_texts: Vec<TextConfig>,
+    pub(crate) collected_texts: Vec<TextConfig>,
     // A tuple containing the batch and its associated scissor state.
     #[allow(clippy::type_complexity)]
     batches: Vec<(DrawBatch, Option<(u32, u32, u32, u32)>)>,
