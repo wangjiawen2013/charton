@@ -251,7 +251,7 @@ impl CoordinateTrait for Geo {
         let (proj_bounds, panel_bounds) = self.compute_projection_bounds(panel);
 
         let lon = invert_norm(self.x_scale.as_ref(), x_norm);
-        let lat = invert_norm(self.y_scale.as_ref(), 1.0 - y_norm);
+        let lat = invert_norm(self.y_scale.as_ref(), y_norm);
 
         let (proj_x, proj_y) = self.project_point(lon.to_radians(), lat.to_radians());
 
@@ -415,7 +415,7 @@ impl Geo {
 
         for (xn, yn) in &samples {
             let lon = invert_norm(self.x_scale.as_ref(), *xn);
-            let lat = invert_norm(self.y_scale.as_ref(), 1.0 - *yn);
+            let lat = invert_norm(self.y_scale.as_ref(), *yn);
 
             let (px, py) = self.project_point(lon.to_radians(), lat.to_radians());
             min_x = min_x.min(px);

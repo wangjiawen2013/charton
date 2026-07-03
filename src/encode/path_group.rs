@@ -19,7 +19,7 @@ use crate::scale::{Expansion, ResolvedScale, Scale, ScaleDomain};
 ///     .with_column("region", vec!["Beijing"; 4])?;
 ///
 /// Chart::build(ds)?
-///     .mark_geo_path()?
+///     .mark_geoshape()?
 ///     .encode((
 ///         alt::x("lon"),
 ///         alt::y("lat"),
@@ -43,6 +43,7 @@ pub struct PathGroup {
 
     // --- System Resolution (Result/Outputs) ---
     /// Stores the resolved scale instance.
+    #[allow(dead_code)]
     pub(crate) resolved_scale: ResolvedScale,
 }
 
