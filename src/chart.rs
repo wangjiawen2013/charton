@@ -229,7 +229,7 @@ impl Chart<NoMark> {
     }
 
     /// Transitions the base chart into a Geographic Path chart.
-    pub fn mark_geo_path(self) -> Result<Chart<MarkGeoPath>, ChartonError> {
+    pub fn mark_geoshape(self) -> Result<Chart<MarkGeoPath>, ChartonError> {
         let chart = Chart::<MarkGeoPath> {
             data: self.data,
             encoding: self.encoding,

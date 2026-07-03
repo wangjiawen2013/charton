@@ -27,6 +27,8 @@ pub(crate) fn render_geo_axes(
     let label_size = theme.label_size;
     let label_color = theme.label_color;
     let label_family = theme.label_family.clone();
+    let tick_len = 6.0;
+    let title_gap = 5.0;
 
     // --- X-axis (Longitude) ---
     let x_ticks = generate_ticks(geo, true, x_explicit);
@@ -51,7 +53,7 @@ pub(crate) fn render_geo_axes(
             x1: tx as Precision,
             y1: y_bottom as Precision,
             x2: tx as Precision,
-            y2: (y_bottom + 5.0) as Precision,
+            y2: (y_bottom + tick_len) as Precision,
             color: axis_color,
             width: axis_width as Precision,
             opacity: 1.0,
@@ -60,7 +62,7 @@ pub(crate) fn render_geo_axes(
 
         backend.draw_text(TextConfig {
             x: tx as Precision,
-            y: (y_bottom + 5.0 + font_size) as Precision,
+            y: (y_bottom + tick_len + theme.tick_label_padding) as Precision,
             text: tick.1.clone(),
             font_size: font_size as Precision,
             font_family: font_family.clone(),
@@ -75,8 +77,17 @@ pub(crate) fn render_geo_axes(
 
     // X-axis label
     if !x_label.is_empty() {
+        let max_tick_height = x_ticks
+            .iter()
+            .map(|t| {
+                let w = crate::core::utils::estimate_text_width(&t.1, font_size);
+                let h = font_size;
+                w * 0.0 + h
+            })
+            .fold(0.0, f64::max);
+
         let label_x = panel.x + panel.width / 2.0;
-        let label_y = y_bottom + 5.0 + font_size * 2.5;
+        let label_y = y_bottom + tick_len + max_tick_height + theme.label_padding + title_gap;
         backend.draw_text(TextConfig {
             x: label_x as Precision,
             y: label_y as Precision,
@@ -114,7 +125,7 @@ pub(crate) fn render_geo_axes(
         backend.draw_line(LineConfig {
             x1: x_left as Precision,
             y1: ty as Precision,
-            x2: (x_left - 5.0) as Precision,
+            x2: (x_left - tick_len) as Precision,
             y2: ty as Precision,
             color: axis_color,
             width: axis_width as Precision,
@@ -123,7 +134,7 @@ pub(crate) fn render_geo_axes(
         });
 
         backend.draw_text(TextConfig {
-            x: (x_left - 8.0) as Precision,
+            x: (x_left - tick_len - theme.tick_label_padding) as Precision,
             y: ty as Precision,
             text: tick.1.clone(),
             font_size: font_size as Precision,
@@ -139,8 +150,14 @@ pub(crate) fn render_geo_axes(
 
     // Y-axis label
     if !y_label.is_empty() {
-        let label_x = x_left - 8.0 - label_size * 1.5;
+        let max_tick_width = y_ticks
+            .iter()
+            .map(|t| crate::core::utils::estimate_text_width(&t.1, font_size))
+            .fold(0.0, f64::max);
+
+        let label_x = x_left - tick_len - max_tick_width - theme.label_padding - title_gap - (label_size / 2.0) - 3.0;
         let label_y = panel.y + panel.height / 2.0;
+
         backend.draw_text(TextConfig {
             x: label_x as Precision,
             y: label_y as Precision,
@@ -149,7 +166,7 @@ pub(crate) fn render_geo_axes(
             font_family: label_family.clone(),
             color: label_color,
             text_anchor: "middle".to_string(),
-            dominant_baseline: "central".to_string(),
+            dominant_baseline: "middle".to_string(),
             font_weight: "normal".to_string(),
             opacity: 1.0,
             angle: -90.0,
