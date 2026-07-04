@@ -63,6 +63,7 @@ charton = { version = "0.5", features = ["pdf"] }          # Export charts to PD
 charton = { version = "0.5", features = ["wgpu", "png"] }  # Local Desktop with GPU acceleration + PNG export
 charton = { version = "0.5", features = ["wgpu"] }         # Web Browsers (WebAssembly/Wasm target)
 charton = { version = "0.5", features = ["parallel"] }     # Multi-threaded data processing (Rayon)
+charton = { version = "0.5", features = ["geo"] }          # Enable geospatial coordinate support
 charton = { version = "0.5", features = ["bridge"] }       # With Altair/Matplotlib/Polars interop
 ```
 

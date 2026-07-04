@@ -63,6 +63,7 @@ charton = { version = "0.5", features = ["pdf"] }          # PDF 格式图表导
 charton = { version = "0.5", features = ["wgpu", "png"] }  # 本地桌面端（GPU 加速 + PNG 导出）
 charton = { version = "0.5", features = ["wgpu"] }         # 网页浏览器（WebAssembly/Wasm 目标平台）
 charton = { version = "0.5", features = ["parallel"] }     # 多线程数据处理（基于 Rayon）
+charton = { version = "0.5", features = ["geo"] }          # 地理坐标支持
 charton = { version = "0.5", features = ["bridge"] }       # 生态互操作性支持（兼容 Altair/Matplotlib/Polars）
 ```
 
