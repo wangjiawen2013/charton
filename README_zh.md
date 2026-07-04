@@ -46,6 +46,10 @@ Charton 是一款高性能 Rust 绘图库，其声明式 API 灵感源自 [Altai
         <td><img src="docs/src/images/beeswarm.svg" alt="Beeswarm" /><p align="center">Beeswarm</p></td>
         <td><img src="docs/src/images/strip.svg" alt="Strip" /><p align="center">Strip</p></td>
     </tr>
+    <tr>
+        <td><img src="docs/src/images/grid_line.svg" alt="Grid Lines" /><p align="center">Grid Lines</p></td>
+        <td><img src="docs/src/images/world_map.svg" alt="World map" /><p align="center">Geo Chart</p></td>
+    </tr>
 </table>
 
 ## 安装
@@ -59,6 +63,7 @@ charton = { version = "0.5", features = ["pdf"] }          # PDF 格式图表导
 charton = { version = "0.5", features = ["wgpu", "png"] }  # 本地桌面端（GPU 加速 + PNG 导出）
 charton = { version = "0.5", features = ["wgpu"] }         # 网页浏览器（WebAssembly/Wasm 目标平台）
 charton = { version = "0.5", features = ["parallel"] }     # 多线程数据处理（基于 Rayon）
+charton = { version = "0.5", features = ["geo"] }          # 地理坐标支持
 charton = { version = "0.5", features = ["bridge"] }       # 生态互操作性支持（兼容 Altair/Matplotlib/Polars）
 ```
 

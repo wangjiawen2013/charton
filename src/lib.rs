@@ -39,6 +39,7 @@ pub mod macros;
 
 pub mod alt {
     pub use crate::encode::color::color;
+    pub use crate::encode::path_group::path_group;
     pub use crate::encode::shape::shape;
     pub use crate::encode::size::size;
     pub use crate::encode::text::text;
@@ -51,13 +52,15 @@ pub mod prelude {
     pub use crate::alt;
     pub use crate::chart::Chart;
     pub use crate::coordinate::CoordSystem;
+    pub use crate::coordinate::geo::GeoProjection;
     pub use crate::core::composite::LayeredChart;
     pub use crate::core::conversion::IntoLayered;
     pub use crate::core::data::{ColumnVector, Dataset, IntoColumn, ToDataset};
     pub use crate::datasets::load_dataset;
     pub use crate::mark::{
-        area::MarkArea, bar::MarkBar, boxplot::MarkBoxplot, errorbar::MarkErrorBar, line::MarkLine,
-        point::MarkPoint, rect::MarkRect, rule::MarkRule, text::MarkText, tick::MarkTick,
+        area::MarkArea, bar::MarkBar, boxplot::MarkBoxplot, errorbar::MarkErrorBar,
+        geo_path::MarkGeoPath, line::MarkLine, point::MarkPoint, rect::MarkRect, rule::MarkRule,
+        text::MarkText, tick::MarkTick,
     };
     pub use crate::render::line_renderer::PathInterpolation;
     pub use crate::scale::{Expansion, Scale};
@@ -73,6 +76,8 @@ pub mod prelude {
 
     #[cfg(all(feature = "bridge", not(target_arch = "wasm32")))]
     pub use crate::bridge::base::{Altair, Matplotlib, Plot, Visualization};
+    #[cfg(feature = "geo")]
+    pub use crate::core::utils::geojson_to_dataset;
     #[cfg(all(feature = "bridge", not(target_arch = "wasm32")))]
     pub use crate::data; // Macro data!
 }

@@ -60,10 +60,10 @@ impl MarkRenderer for Chart<MarkBoxplot> {
             .normalize_column(y_scale, df_source.column(&format!("{}_max", TEMP_SUFFIX))?);
 
         // Normalize color aesthetic if a mapping exists
-        let color_norms = context.spec.aesthetics.color.as_ref().map(|m| {
+        let color_norms = context.spec.aesthetics.color.as_ref().and_then(|m| {
             let s = m.scale_impl.as_ref();
-            s.scale_type()
-                .normalize_column(s, df_source.column(&m.field).unwrap())
+            let col = df_source.column(&m.field).ok()?;
+            Some(s.scale_type().normalize_column(s, col))
         });
 
         // Retrieve helper columns for positioning and outliers

@@ -46,6 +46,10 @@ Charton is a high-performance Rust plotting library featuring a declarative API 
         <td><img src="docs/src/images/beeswarm.svg" alt="Beeswarm" /><p align="center">Beeswarm</p></td>
         <td><img src="docs/src/images/strip.svg" alt="Strip" /><p align="center">Strip</p></td>
     </tr>
+    <tr>
+        <td><img src="docs/src/images/grid_line.svg" alt="Grid Lines" /><p align="center">Grid Lines</p></td>
+        <td><img src="docs/src/images/world_map.svg" alt="World map" /><p align="center">Geo Chart</p></td>
+    </tr>
 </table>
 
 ## Installation
@@ -59,6 +63,7 @@ charton = { version = "0.5", features = ["pdf"] }          # Export charts to PD
 charton = { version = "0.5", features = ["wgpu", "png"] }  # Local Desktop with GPU acceleration + PNG export
 charton = { version = "0.5", features = ["wgpu"] }         # Web Browsers (WebAssembly/Wasm target)
 charton = { version = "0.5", features = ["parallel"] }     # Multi-threaded data processing (Rayon)
+charton = { version = "0.5", features = ["geo"] }          # Enable geospatial coordinate support
 charton = { version = "0.5", features = ["bridge"] }       # With Altair/Matplotlib/Polars interop
 ```
 

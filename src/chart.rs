@@ -2,6 +2,7 @@ pub mod area_chart;
 pub mod bar_chart;
 pub mod box_chart;
 pub mod errorbar_chart;
+pub mod geo_chart;
 pub mod hist_chart;
 pub mod line_chart;
 pub mod point_chart;
@@ -19,8 +20,8 @@ use crate::encode::{Channel, Encoding, IntoEncoding, y::StackMode};
 use crate::error::ChartonError;
 use crate::mark::{
     Mark, area::MarkArea, bar::MarkBar, boxplot::MarkBoxplot, errorbar::MarkErrorBar,
-    histogram::MarkHist, line::MarkLine, no_mark::NoMark, point::MarkPoint, rect::MarkRect,
-    rule::MarkRule, text::MarkText, tick::MarkTick,
+    geo_path::MarkGeoPath, histogram::MarkHist, line::MarkLine, no_mark::NoMark, point::MarkPoint,
+    rect::MarkRect, rule::MarkRule, text::MarkText, tick::MarkTick,
 };
 use crate::scale::{Expansion, Scale, ScaleDomain};
 use ahash::AHashMap;
@@ -227,6 +228,21 @@ impl Chart<NoMark> {
         Ok(chart)
     }
 
+    /// Transitions the base chart into a Geographic Path chart.
+    pub fn mark_geoshape(self) -> Result<Chart<MarkGeoPath>, ChartonError> {
+        let chart = Chart::<MarkGeoPath> {
+            data: self.data,
+            encoding: self.encoding,
+            mark: Some(MarkGeoPath::default()),
+        };
+
+        if !chart.encoding.is_empty() {
+            return chart.validate_and_transform();
+        }
+
+        Ok(chart)
+    }
+
     /// Transitions the base chart into a Tick chart.
     pub fn mark_tick(self) -> Result<Chart<MarkTick>, ChartonError> {
         let chart = Chart::<MarkTick> {
@@ -378,7 +394,7 @@ impl<T: Mark> Chart<T> {
     fn validate_mandatory_encodings(&self, mark_type: &str) -> Result<(), ChartonError> {
         match mark_type {
             "errorbar" | "bar" | "hist" | "line" | "point" | "area" | "boxplot" | "text"
-            | "rule" | "tick" => {
+            | "rule" | "tick" | "geo_path" => {
                 if self.encoding.x.is_none() || self.encoding.y.is_none() {
                     return Err(ChartonError::Encoding(format!(
                         "{} chart requires both x and y encodings",
@@ -484,6 +500,10 @@ impl<T: Mark> Chart<T> {
             shape.scale_type = resolve_channel_scale(&shape.field, shape.scale_type)?;
         }
 
+        if let Some(ref mut pg) = self.encoding.path_group {
+            pg.scale_type = resolve_channel_scale(&pg.field, pg.scale_type)?;
+        }
+
         Ok(())
     }
 
@@ -521,6 +541,9 @@ impl<T: Mark> Chart<T> {
             Channel::Size,
             vec![Scale::Linear, Scale::Log, Scale::Temporal],
         );
+
+        // PathGroup encoding is always categorical (it identifies polygon membership).
+        expected.insert(Channel::PathGroup, vec![Scale::Discrete]);
 
         // --- MARK-SPECIFIC AXIS CONSTRAINTS ---
         match mark_type {
@@ -566,6 +589,16 @@ impl<T: Mark> Chart<T> {
                 expected.insert(
                     Channel::Y,
                     vec![Scale::Linear, Scale::Discrete, Scale::Temporal],
+                );
+            }
+            "geo_path" => {
+                // Geo paths: X and Y should be continuous (longitude/latitude).
+                expected.insert(Channel::X, vec![Scale::Linear, Scale::Temporal]);
+                expected.insert(Channel::Y, vec![Scale::Linear, Scale::Temporal]);
+                // Color is typically a continuous magnitude for choropleth.
+                expected.insert(
+                    Channel::Color,
+                    vec![Scale::Linear, Scale::Log, Scale::Discrete],
                 );
             }
             _ => {}

@@ -31,6 +31,9 @@ png = ["raster"] # png is an alias of raster
 # Enables lightweight GPU-accelerated rendering for large datasets via wgpu.
 wgpu = ["dep:wgpu", "dep:bytemuck", "dep:pollster"]
 
+# Enable support for geographic data parsing (GeoJSON)
+geo = ["dep:geojson", "dep:serde", "dep:serde_json"]
+
 # Enables universal columnar data ingestion via the Apache Arrow standard.
 arrow = ["dep:arrow"]
 
@@ -54,6 +57,7 @@ ab_glyph = { version = "0.2", optional = true }
 fontdb = { version = "0.23", optional = true }
 arrow = { version = "58.1", default-features = false, optional = true }
 polars = { version = "0.53", default-features = false, features = ["lazy", "parquet", "ipc"], optional = true }
+geojson = { version = "1.0.0", optional = true }
 serde = { version = "1.0", features = ["derive"], optional = true }
 serde_json = { version = "1.0", optional = true }
 base64 = { version = "0.22", optional = true }

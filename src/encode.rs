@@ -1,4 +1,5 @@
 pub mod color;
+pub mod path_group;
 pub mod shape;
 pub mod size;
 pub mod text;
@@ -6,7 +7,9 @@ pub mod x;
 pub mod y;
 pub mod y2;
 
-use self::{color::Color, shape::Shape, size::Size, text::Text, x::X, y::Y, y2::Y2};
+use self::{
+    color::Color, path_group::PathGroup, shape::Shape, size::Size, text::Text, x::X, y::Y, y2::Y2,
+};
 use crate::scale::{Expansion, Scale};
 
 /// Represents the various visual aesthetics that can be mapped to data.
@@ -21,6 +24,8 @@ pub enum Channel {
     Color,
     Shape,
     Size,
+    Text,
+    PathGroup,
 }
 
 /// Unified application interface for encoding specifications.
@@ -49,6 +54,7 @@ pub struct Encoding {
     pub(crate) shape: Option<Shape>,
     pub(crate) size: Option<Size>,
     pub(crate) text: Option<Text>,
+    pub(crate) path_group: Option<PathGroup>,
 }
 
 impl Encoding {
@@ -68,6 +74,7 @@ impl Encoding {
             && self.shape.is_none()
             && self.size.is_none()
             && self.text.is_none()
+            && self.path_group.is_none()
     }
 
     /// Returns the data field name associated with a specific visual channel.
@@ -81,6 +88,8 @@ impl Encoding {
             Channel::Color => self.color.as_ref().map(|v| v.field.as_str()),
             Channel::Shape => self.shape.as_ref().map(|v| v.field.as_str()),
             Channel::Size => self.size.as_ref().map(|v| v.field.as_str()),
+            Channel::Text => self.text.as_ref().map(|v| v.field.as_str()),
+            Channel::PathGroup => self.path_group.as_ref().map(|v| v.field.as_str()),
         }
     }
 
@@ -92,6 +101,8 @@ impl Encoding {
             Channel::Color => self.color.as_ref().and_then(|v| v.scale_type),
             Channel::Shape => self.shape.as_ref().and_then(|v| v.scale_type),
             Channel::Size => self.size.as_ref().and_then(|v| v.scale_type),
+            Channel::Text => None,
+            Channel::PathGroup => self.path_group.as_ref().and_then(|v| v.scale_type),
         }
     }
 
@@ -103,6 +114,8 @@ impl Encoding {
             Channel::Color => self.color.as_ref().and_then(|v| v.expansion),
             Channel::Shape => self.shape.as_ref().and_then(|v| v.expansion),
             Channel::Size => self.size.as_ref().and_then(|v| v.expansion),
+            Channel::Text => None,
+            Channel::PathGroup => self.path_group.as_ref().and_then(|v| v.expansion),
         }
     }
 
@@ -158,6 +171,12 @@ impl IntoEncoding for Size {
 impl IntoEncoding for Text {
     fn apply(self, enc: &mut Encoding) {
         enc.text = Some(self);
+    }
+}
+
+impl IntoEncoding for PathGroup {
+    fn apply(self, enc: &mut Encoding) {
+        enc.path_group = Some(self);
     }
 }
 
