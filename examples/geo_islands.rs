@@ -59,14 +59,14 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
 
     // Layer 1: Geographic polygons (choropleth by population)
     let geo_layer = Chart::build(ds)?
-        .mark_geo_path()?
+        .mark_geoshape()?
         .encode((
             alt::x("lon"),
             alt::y("lat"),
             alt::path_group("region"),
             alt::color("population"),
         ))?
-        .configure_geo_path(|m| m.with_stroke("#333333").with_stroke_width(0.5));
+        .configure_geoshape(|m| m.with_stroke("#333333").with_stroke_width(0.5));
 
     // Layer 2: Capital cities as black dots
     let point_layer = Chart::build(capitals.clone())?

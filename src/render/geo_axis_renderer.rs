@@ -9,6 +9,7 @@ use crate::theme::Theme;
 /// Renders geographic axes (longitude/latitude grid lines) for the Geo coordinate system.
 ///
 /// Renders straight grid lines at the panel edges with tick labels.
+#[allow(clippy::too_many_arguments)]
 pub(crate) fn render_geo_axes(
     backend: &mut dyn RenderBackend,
     theme: &Theme,
@@ -155,7 +156,13 @@ pub(crate) fn render_geo_axes(
             .map(|t| crate::core::utils::estimate_text_width(&t.1, font_size))
             .fold(0.0, f64::max);
 
-        let label_x = x_left - tick_len - max_tick_width - theme.label_padding - title_gap - (label_size / 2.0) - 3.0;
+        let label_x = x_left
+            - tick_len
+            - max_tick_width
+            - theme.label_padding
+            - title_gap
+            - (label_size / 2.0)
+            - 3.0;
         let label_y = panel.y + panel.height / 2.0;
 
         backend.draw_text(TextConfig {

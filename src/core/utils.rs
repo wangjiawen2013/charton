@@ -425,7 +425,11 @@ pub fn geojson_to_dataset(geojson_str: &str) -> Result<Dataset, ChartonError> {
 
     let features = match geojson {
         GeoJson::FeatureCollection(fc) => fc.features,
-        _ => return Err(ChartonError::Data("Only FeatureCollection is supported".into())),
+        _ => {
+            return Err(ChartonError::Data(
+                "Only FeatureCollection is supported".into(),
+            ));
+        }
     };
 
     let mut all_column_names: Vec<String> = Vec::new();
@@ -493,11 +497,17 @@ pub fn geojson_to_dataset(geojson_str: &str) -> Result<Dataset, ChartonError> {
     ds.add_column("_geometry_type", geometry_type_data)?;
     ds.add_column(
         "_part_id",
-        part_id_data.into_iter().map(|v| v as i64).collect::<Vec<_>>(),
+        part_id_data
+            .into_iter()
+            .map(|v| v as i64)
+            .collect::<Vec<_>>(),
     )?;
     ds.add_column(
         "_vertex_order",
-        vertex_order_data.into_iter().map(|v| v as i64).collect::<Vec<_>>(),
+        vertex_order_data
+            .into_iter()
+            .map(|v| v as i64)
+            .collect::<Vec<_>>(),
     )?;
     ds.add_column("_path_id", path_id_data)?;
 
@@ -534,8 +544,12 @@ fn infer_and_build_column(raw_col: Vec<Value>) -> ColumnVector {
         inferred_type = match (inferred_type, value_type) {
             (None, next) => Some(next),
             (Some(InferredColumnType::String), _) => Some(InferredColumnType::String),
-            (Some(InferredColumnType::Boolean), InferredColumnType::Boolean) => Some(InferredColumnType::Boolean),
-            (Some(InferredColumnType::Float64), InferredColumnType::Float64) => Some(InferredColumnType::Float64),
+            (Some(InferredColumnType::Boolean), InferredColumnType::Boolean) => {
+                Some(InferredColumnType::Boolean)
+            }
+            (Some(InferredColumnType::Float64), InferredColumnType::Float64) => {
+                Some(InferredColumnType::Float64)
+            }
             _ => Some(InferredColumnType::String),
         };
 
@@ -655,7 +669,9 @@ fn extract_vertices_with_meta(
                 }
             }
         }
-        GeometryValue::MultiPolygon { coordinates: polygons } => {
+        GeometryValue::MultiPolygon {
+            coordinates: polygons,
+        } => {
             for (part_id, polygon) in polygons.iter().enumerate() {
                 if let Some(outer) = polygon.first() {
                     for (order, point) in outer.iter().enumerate() {
@@ -693,7 +709,9 @@ fn extract_vertices_with_meta(
                 0,
             );
         }
-        GeometryValue::MultiPoint { coordinates: points } => {
+        GeometryValue::MultiPoint {
+            coordinates: points,
+        } => {
             for (i, point) in points.iter().enumerate() {
                 push_vertex(
                     feature_tag,
