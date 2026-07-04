@@ -2,6 +2,7 @@ pub(crate) mod area;
 pub(crate) mod bar;
 pub(crate) mod boxplot;
 pub(crate) mod errorbar;
+pub(crate) mod geo_path;
 pub(crate) mod histogram;
 pub(crate) mod line;
 pub(crate) mod no_mark;

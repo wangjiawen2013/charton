@@ -2203,6 +2203,33 @@ impl Dataset {
         names
     }
 
+    /// Creates a lightweight subset of the dataset containing only the requested columns.
+    ///
+    /// This is useful for quick inspection or debugging, for example:
+    /// `println!("{:?}", ds.select(&["a", "b"])?);`
+    pub fn select<S>(&self, names: &[S]) -> Result<Self, ChartonError>
+    where
+        S: AsRef<str>,
+    {
+        let mut subset = Self::new();
+        subset.row_count = self.row_count;
+
+        for name in names {
+            let key = name.as_ref();
+            let &index = self
+                .schema
+                .get(key)
+                .ok_or_else(|| ChartonError::Data(format!("Column '{}' not found", key)))?;
+
+            subset.columns.push(self.columns[index].clone());
+            subset
+                .schema
+                .insert(key.to_string(), subset.columns.len() - 1);
+        }
+
+        Ok(subset)
+    }
+
     /// Returns a reference to the [ColumnVector] wrapper.
     /// Use this when you need to inspect metadata like TimeUnit or Validity masks.
     pub fn column(&self, name: &str) -> Result<&ColumnVector, ChartonError> {

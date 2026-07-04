@@ -1,4 +1,5 @@
 pub mod cartesian;
+pub mod geo;
 pub mod polar;
 
 use crate::core::layer::RenderBackend;
@@ -169,4 +170,6 @@ pub enum CoordSystem {
     Cartesian2D,
     /// Polar coordinates (Radius and Angle).
     Polar,
+    /// Geographic coordinates (Longitude and Latitude) with map projections.
+    Geo,
 }
