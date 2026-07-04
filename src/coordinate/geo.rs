@@ -5,6 +5,7 @@ use crate::scale::{ExplicitTick, ScaleTrait};
 use crate::theme::Theme;
 use crate::visual::color::SingleColor;
 use std::f64::consts::PI;
+use std::f64::consts::SQRT_2;
 use std::sync::Arc;
 
 // ============================================================================
@@ -103,13 +104,13 @@ impl Geo {
     }
 
     /// Sets the central meridian in degrees (builder pattern).
-    pub fn with_center_lon(mut self, degrees: f64) -> Self {
+    pub const fn with_center_lon(mut self, degrees: f64) -> Self {
         self.center_lon = degrees.to_radians();
         self
     }
 
     /// Sets the central parallel in degrees (builder pattern).
-    pub fn with_center_lat(mut self, degrees: f64) -> Self {
+    pub const fn with_center_lat(mut self, degrees: f64) -> Self {
         self.center_lat = degrees.to_radians();
         self
     }
@@ -134,7 +135,7 @@ impl Geo {
 // ============================================================================
 
 /// Simple linear projection. No area or angle preservation.
-fn project_equirectangular(lon_rad: f64, lat_rad: f64) -> (f64, f64) {
+const fn project_equirectangular(lon_rad: f64, lat_rad: f64) -> (f64, f64) {
     (lon_rad, lat_rad)
 }
 
@@ -171,10 +172,6 @@ fn project_equal_earth(lon_rad: f64, lat_rad: f64) -> (f64, f64) {
     (x * 1.1, y * 1.3)
 }
 
-// --- Mollweide ---
-
-const SQRT2: f64 = 1.414_213_562_373_095_1;
-
 /// Mollweide — classic equal-area pseudocylindrical projection (1805).
 fn project_mollweide(lon_rad: f64, lat_rad: f64) -> (f64, f64) {
     if lat_rad.abs() >= PI / 2.0 {
@@ -194,8 +191,8 @@ fn project_mollweide(lon_rad: f64, lat_rad: f64) -> (f64, f64) {
         }
     }
 
-    let x = (2.0 * SQRT2 / PI) * lon_rad * theta.cos();
-    let y = SQRT2 * theta.sin();
+    let x = (2.0 * SQRT_2 / PI) * lon_rad * theta.cos();
+    let y = SQRT_2 * theta.sin();
 
     (x * 0.8, y * 0.8)
 }
@@ -386,6 +383,7 @@ impl CoordinateTrait for Geo {
 // ============================================================================
 
 impl Geo {
+    #[allow(clippy::type_complexity)]
     fn compute_projection_bounds(
         &self,
         panel: &Rect,
