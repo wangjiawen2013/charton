@@ -14,7 +14,7 @@ exclude = [
 
 [features]
 # Default features enabled for standard desktop builds.
-default = ["wgpu", "png"]
+default = []
 
 # Enables multi-threaded data processing via Rayon for massive datasets.
 # NOTE: Disable this feature when targeting WebAssembly (Wasm) unless
