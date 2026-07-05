@@ -57,6 +57,11 @@
 - [WASM CPU-Driven SVG Animation](web/wasm_cpu_svg.md)
 - [WASM WGPU Blazing-Fast Rendering](web/wasm_gpu_wgpu.md)
 
+# Native GUI & Engine Integration
+- [GUI Integration Concepts](gui/concepts.md)
+- [Zero-Copy Rendering (egui / Bevy)](gui/zero_copy.md)
+- [Decoupled Rendering (winit & wgpu)](gui/winit_decoupled.md)
+
 # The IPC Bridge
 - [Seamless Python Interop](ipc/python_interop.md)
 
