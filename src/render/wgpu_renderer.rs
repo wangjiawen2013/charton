@@ -1,3 +1,5 @@
+#![cfg(all(feature = "wgpu", feature = "png"))]
+
 use crate::core::composite::LayeredChart;
 use crate::core::conversion::IntoLayered;
 use crate::core::layer::{RenderBackend, TextConfig};
