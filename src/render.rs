@@ -21,7 +21,7 @@ pub mod wgpu_renderer;
 #[cfg(feature = "wgpu")]
 pub use backend::wgpu::WgpuBackend;
 
-#[cfg(feature = "wgpu")]
+#[cfg(all(feature = "wgpu", feature = "png"))]
 pub use wgpu_renderer::WgpuRenderer;
 
 #[cfg(feature = "png")]
