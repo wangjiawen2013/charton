@@ -153,7 +153,7 @@ impl WgpuRenderer {
         let unpadded_bytes = (width as usize) * bytes_per_pixel;
         // WGPU requires buffer rows to be aligned to 256 bytes (COPY_BYTES_PER_ROW_ALIGNMENT)
         let align = wgpu::COPY_BYTES_PER_ROW_ALIGNMENT as usize;
-        let padded_bytes = ((unpadded_bytes + align - 1) / align) * align;
+        let padded_bytes = unpadded_bytes.div_ceil(align) * align;
         let buffer_size = (padded_bytes * height as usize) as u64;
 
         let buffer = self.device.create_buffer(&wgpu::BufferDescriptor {
