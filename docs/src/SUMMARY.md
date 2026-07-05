@@ -12,6 +12,7 @@
 - [Scale Arbitration](concepts/scale_arbitration.md)
 - [Rendering Backends](concepts/rendering.md)
 - [Gpu Architecture](concepts/gpu.md)
+- [The WgpuRenderer Internals](concepts/wgpu_renderer.md)
 
 # The Core Engine: Dataset
 - [The Atomic Unit: ColumnVector](engine/column_vector.md)
@@ -56,6 +57,11 @@
 - [Vega-Lite Schema Export](web/vegalite_json.md)          # 导出标准 JSON 以支持 Web 框架集成
 - [WASM CPU-Driven SVG Animation](web/wasm_cpu_svg.md)
 - [WASM WGPU Blazing-Fast Rendering](web/wasm_gpu_wgpu.md)
+
+# Native GUI & Engine Integration
+- [GUI Integration Concepts](gui/concepts.md)
+- [Zero-Copy Rendering (egui / Bevy)](gui/zero_copy.md)
+- [Decoupled Rendering (winit & wgpu)](gui/winit_decoupled.md)
 
 # The IPC Bridge
 - [Seamless Python Interop](ipc/python_interop.md)

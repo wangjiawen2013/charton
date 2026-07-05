@@ -15,10 +15,14 @@ pub(crate) mod rect_renderer;
 pub(crate) mod rule_renderer;
 pub(crate) mod text_renderer;
 pub(crate) mod tick_renderer;
+pub mod wgpu_renderer;
 
 // Re-export the wgpubackend and rasterbackend so `render_to_surface` can be used from extern
 #[cfg(feature = "wgpu")]
 pub use backend::wgpu::WgpuBackend;
+
+#[cfg(all(feature = "wgpu", feature = "png"))]
+pub use wgpu_renderer::WgpuRenderer;
 
 #[cfg(feature = "png")]
 pub use backend::raster::RasterBackend;
