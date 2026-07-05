@@ -49,6 +49,7 @@ Here is the complete, standalone rendering example that compiles and runs flawle
 use bevy::prelude::*;
 use bevy::asset::RenderAssetUsages;
 use bevy::render::render_resource::{Extent3d, TextureDimension, TextureFormat};
+use bevy::core_pipeline::tonemapping::Tonemapping;
 use charton::prelude::*;
 use charton::render::WgpuRenderer;
 
@@ -70,8 +71,11 @@ fn setup(
     mut commands: Commands,
     mut images: ResMut<Assets<Image>>,
 ) {
-    // 1. Initialize 2D Camera (Camera2dBundle is deprecated in modern Bevy)
-    commands.spawn(Camera2d);
+    // 1. Initialize 2D Camera
+    commands.spawn((
+        Camera2d,
+        Tonemapping::None, 
+    ));
 
     // ==========================================
     // Phase 1: Chart Rendering (Headless & Decoupled)
@@ -110,7 +114,7 @@ fn setup(
         size,
         TextureDimension::D2,
         pixels,
-        TextureFormat::Rgba8Unorm, 
+        TextureFormat::Rgba8UnormSrgb, 
         RenderAssetUsages::MAIN_WORLD | RenderAssetUsages::RENDER_WORLD,
     );
 
