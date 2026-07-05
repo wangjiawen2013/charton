@@ -18,4 +18,11 @@ Charton solves this by treating rendering as a purely functional pipeline. We of
 
 If your application demands smooth, interactive 60 FPS animations, choose Zero-Copy. If you are building a tool where charts update infrequently and you want to completely avoid dependency conflicts, choose Decoupled.
 
+## The WGPU Version Dilemma
+In the Rust ecosystem, sharing a GPU Context (Zero-Copy) is strictly enforced by the compiler. If your host application (e.g., Bevy) uses `wgpu v0.28` and Charton uses `wgpu v0.29`, Rust considers their `Device` types to be completely incompatible.
+
+If you cannot align the versions, you must use the `WgpuRenderer` (Decoupled Rendering). It communicates via generic CPU memory (`Vec<u8>`), making it immune to version conflicts.
+
+If you need the performance of Zero-Copy rendering, you must ensure both your host framework and Charton depend on the exact same `wgpu` crate version.
+
 The following chapters will walk you through implementing both approaches.

@@ -12,6 +12,7 @@
 - [Scale Arbitration](concepts/scale_arbitration.md)
 - [Rendering Backends](concepts/rendering.md)
 - [Gpu Architecture](concepts/gpu.md)
+- [The WgpuRenderer Internals](concepts/wgpu_renderer.md)
 
 # The Core Engine: Dataset
 - [The Atomic Unit: ColumnVector](engine/column_vector.md)
