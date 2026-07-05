@@ -60,8 +60,10 @@
 
 # Native GUI & Engine Integration
 - [GUI Integration Concepts](gui/concepts.md)
-- [Zero-Copy Rendering (egui / Bevy)](gui/zero_copy.md)
-- [Decoupled Rendering (winit & wgpu)](gui/winit_decoupled.md)
+- [Zero-Copy Rendering](gui/zero_copy.md)
+- [Integrating with Winit & WGPU](gui/winit.md)
+- [Integrating with Bevy (Decoupled Approach)](gui/bevy.md)
+- [Integrating with egui (Zero-Copy Approach)](gui/egui.md)
 
 # The IPC Bridge
 - [Seamless Python Interop](ipc/python_interop.md)
