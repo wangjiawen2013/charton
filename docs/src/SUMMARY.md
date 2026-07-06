@@ -62,8 +62,8 @@
 - [GUI Integration Concepts](gui/concepts.md)
 - [Zero-Copy Rendering](gui/zero_copy.md)
 - [Integrating with Winit & WGPU](gui/winit.md)
-- [Integrating with Bevy (Decoupled Approach)](gui/bevy.md)
-- [Integrating with egui (Zero-Copy Approach)](gui/egui.md)
+- [Integrating with Bevy](gui/bevy.md)
+- [Integrating with egui](gui/egui.md)
 
 # The IPC Bridge
 - [Seamless Python Interop](ipc/python_interop.md)
