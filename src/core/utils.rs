@@ -529,7 +529,7 @@ fn infer_and_build_column(raw_col: Vec<Value>) -> ColumnVector {
     if raw_col.iter().all(|v| v.is_null()) {
         return ColumnVector::String {
             data: vec![String::new(); len],
-            validity: Some(vec![0; (len + 7) / 8]),
+            validity: Some(vec![0; len.div_ceil(8)]),
         };
     }
 
@@ -569,7 +569,7 @@ fn infer_and_build_column(raw_col: Vec<Value>) -> ColumnVector {
 fn build_f64_column(raw_col: Vec<Value>) -> ColumnVector {
     let len = raw_col.len();
     let mut data = Vec::with_capacity(len);
-    let mut validity = vec![0xFFu8; (len + 7) / 8];
+    let mut validity = vec![0xFFu8; len.div_ceil(8)];
 
     for (i, value) in raw_col.iter().enumerate() {
         if value.is_null() {
@@ -590,7 +590,7 @@ fn build_f64_column(raw_col: Vec<Value>) -> ColumnVector {
 fn build_bool_column(raw_col: Vec<Value>) -> ColumnVector {
     let len = raw_col.len();
     let mut data = Vec::with_capacity(len);
-    let mut validity = vec![0xFFu8; (len + 7) / 8];
+    let mut validity = vec![0xFFu8; len.div_ceil(8)];
 
     for (i, value) in raw_col.iter().enumerate() {
         if value.is_null() {
@@ -611,7 +611,7 @@ fn build_bool_column(raw_col: Vec<Value>) -> ColumnVector {
 fn build_string_column(raw_col: Vec<Value>) -> ColumnVector {
     let len = raw_col.len();
     let mut data = Vec::with_capacity(len);
-    let mut validity = vec![0xFFu8; (len + 7) / 8];
+    let mut validity = vec![0xFFu8; len.div_ceil(8)];
 
     for (i, value) in raw_col.iter().enumerate() {
         if value.is_null() {
@@ -636,6 +636,7 @@ fn clear_bit(validity: &mut [u8], index: usize) {
 }
 
 #[cfg(feature = "geo")]
+#[allow(clippy::too_many_arguments)]
 fn extract_vertices_with_meta(
     geometry: &geojson::Geometry,
     feature_tag: &str,
@@ -785,6 +786,7 @@ fn extract_vertices_with_meta(
 }
 
 #[cfg(feature = "geo")]
+#[allow(clippy::too_many_arguments)]
 fn push_vertex(
     feature_tag: &str,
     lon_data: &mut Vec<f64>,
@@ -808,7 +810,7 @@ fn push_vertex(
 }
 
 #[cfg(feature = "geo")]
-fn geometry_type_name(value: &GeometryValue) -> &'static str {
+const fn geometry_type_name(value: &GeometryValue) -> &'static str {
     match value {
         GeometryValue::Point { .. } => "Point",
         GeometryValue::MultiPoint { .. } => "MultiPoint",
