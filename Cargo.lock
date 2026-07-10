@@ -607,7 +607,7 @@ dependencies = [
 
 [[package]]
 name = "charton"
-version = "0.5.8"
+version = "0.5.9"
 dependencies = [
  "ab_glyph",
  "ahash",
