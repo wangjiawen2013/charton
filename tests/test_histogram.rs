@@ -4,7 +4,7 @@ use std::error::Error;
 #[test]
 fn test_histogram_1() -> Result<(), Box<dyn Error>> {
     let ds = load_dataset("iris")?;
-    println!("{:?}", &ds);
+    println!("{:?}", ds);
 
     let raw_sl = ds.get_column::<f64>("sepal_length")?;
     let raw_sw = ds.get_column::<f64>("sepal_width")?;
