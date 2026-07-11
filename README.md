@@ -148,16 +148,14 @@ line.and(point).save("layered.svg")?;
 ## Desktop GUI Integration
 Charton can render directly into native desktop applications via its GPU-accelerated backend. Below is a real-time system telemetry dashboard built with Charton and egui, demonstrating live CPU, memory, swap, and network monitoring with per-core load distribution:
 
-<p align="center"> <img src="assets/monitor.png" alt="Charton egui Dashboard" width="800"> </p>
+<p align="center"> <img src="assets/monitor.png" alt="Charton gui Dashboard"> </p>
 
 Charton offers two integration paths for GUI applications: `render_to_surface` for zero-copy GPU rendering (ideal for 60 FPS game loops where wgpu versions align), or the standalone `WgpuRenderer` that manages its own wgpu instance and returns a pixel buffer — slightly slower but immune to wgpu version conflicts between crates.
 
 ## WebAssembly and Frontend
 Charton supports WebAssembly and modern web frontend. Below is an interactive demo simulates a 50,000-point Lorenz Attractor at 60 FPS, demonstrating how WebAssembly enables high-performance, real-time data visualization in the browser.
 
-<p align="center">
-<img src="assets/lorenz.gif" alt="Charton Wasm demo">
-</p>
+<p align="center"> <img src="assets/lorenz.gif" alt="Charton Wasm demo"> </p>
 
 ## Interactive Notebooks (Jupyter)
 Charton integrates with evcxr_jupyter for interactive data exploration. Replacing `.save()` with `.show()` renders SVGs directly within notebook cells:
