@@ -17,8 +17,10 @@ pub struct Theme {
     pub(crate) right_margin: f64,
     pub(crate) bottom_margin: f64,
     pub(crate) left_margin: f64,
+
     /// Whether to render axes by default.
     pub(crate) show_axes: bool,
+
     /// Whether to render grid lines
     pub(crate) show_grid: bool,
     pub(crate) grid_color: SingleColor,
@@ -59,8 +61,10 @@ pub struct Theme {
     // --- Geometry & Stroke Properties ---
     /// Width of the main axis lines.
     pub(crate) axis_width: f64,
+    pub(crate) axes_color: SingleColor,
     /// Width of the small tick marks.
     pub(crate) tick_width: f64,
+    pub(crate) tick_color: SingleColor,
     /// The physical length of the tick marks.
     pub(crate) tick_length: f64,
     /// Minimum pixel spacing between ticks to ensure visual density.
@@ -70,6 +74,7 @@ pub struct Theme {
     pub(crate) show_legend: bool,
     /// Font size for the legend's title.
     pub(crate) legend_title_size: f64,
+    pub(crate) legend_title_color: SingleColor,
     /// Font size for legend item labels.
     pub(crate) legend_label_size: f64,
     /// Font family for all legend text.
@@ -252,8 +257,20 @@ impl Theme {
         self
     }
 
+
+    pub fn with_axes_color(mut self, color: impl Into<SingleColor>) -> Self {
+        self.axes_color = color.into();
+        self
+    }
+
     pub const fn with_tick_width(mut self, width: f64) -> Self {
         self.tick_width = width;
+        self
+    }
+
+
+    pub fn with_tick_color(mut self, color: impl Into<SingleColor>) -> Self {
+        self.tick_color = color.into();
         self
     }
 
@@ -276,6 +293,11 @@ impl Theme {
 
     pub const fn with_legend_title_size(mut self, size: f64) -> Self {
         self.legend_title_size = size;
+        self
+    }
+
+    pub fn with_legend_title_color(mut self, color: impl Into<SingleColor>) -> Self {
+        self.legend_title_color = color.into();
         self
     }
 
@@ -408,6 +430,7 @@ impl Default for Theme {
             right_margin: 0.03,
             bottom_margin: 0.08,
             left_margin: 0.06,
+
             show_axes: true,
 
             show_grid: false,
@@ -432,11 +455,14 @@ impl Default for Theme {
             y_tick_label_angle: 0.0,
 
             axis_width: 1.0,
+            axes_color: "black".into(),
             tick_width: 1.0,
+            tick_color: "black".into(),
             tick_length: 6.0,
             tick_min_spacing: 50.0,
 
             show_legend: true,
+            legend_title_color: "#333".into(),
             legend_title_size: 14.0,
             legend_label_size: 12.0,
             legend_label_family: font_stack,

@@ -89,7 +89,7 @@ impl LegendRenderer {
                 y: (current_y + (font_size / 2.0)) as Precision,
                 font_size: (font_size * 1.1) as Precision,
                 font_family: font_family.clone(),
-                color: theme.title_color,
+                color: theme.legend_title_color,
                 text_anchor: "start".to_string(),
                 dominant_baseline: "central".into(),
                 font_weight: "bold".to_string(),
