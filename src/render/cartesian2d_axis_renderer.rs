@@ -80,7 +80,7 @@ fn draw_axis_line(
             (x2 as Precision, y2 as Precision),
         ],
         fill: "none".into(),
-        stroke: theme.label_color,
+        stroke: theme.axes_color,
         stroke_width: theme.axis_width as Precision,
         opacity: 1.0,
         dash: vec![], // Solid line
@@ -160,7 +160,7 @@ fn draw_ticks_and_labels(
                 (x2 as Precision, y2 as Precision),
             ],
             fill: "none".into(),
-            stroke: theme.label_color,
+            stroke: theme.tick_color,
             stroke_width: theme.tick_width as Precision,
             opacity: 1.0,
             dash: vec![],
