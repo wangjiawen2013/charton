@@ -44,7 +44,7 @@ we build a system monitoring dashboard based on `egui` and `charton`. The core f
 
 By using this decoupled architecture—Hardware Acquisition → GPU Rendering → UI Presentation—we successfully solved the performance bottleneck between UI rendering and complex data visualization.
 
-Below is the complete implementation for `src/main.rs`. Simply overwrite your project file with this code to get a fully functional system monitoring dashboard on Windows OS.
+Below is the complete implementation for `src/main.rs`. Simply overwrite your project file with this code to get a fully functional system monitoring dashboard on Windows OS (assets/monitor.png).
 
 ```rust
 use eframe::egui;
