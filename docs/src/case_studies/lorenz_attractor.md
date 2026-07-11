@@ -20,6 +20,31 @@ Calling `to_vec()` 60 times a second on 50k points forces constant memory alloca
 
 We will create a persistent Rust object that pre-allocates memory for our points at startup. During the animation loop, Charton's `update_column_f64` performs an in-place memory copy, bypassing heap allocations entirely.
 
+Update your `Cargo.toml`:
+
+```toml
+[package]
+name = "lorenz"
+version = "0.2.0"
+edition = "2024"
+
+[lib]
+crate-type = ["cdylib"]
+
+[dependencies]
+wasm-bindgen = "0.2"
+wasm-bindgen-futures = "0.4" # Required for awaiting asynchronous GPU adapters
+charton = {version = "0.5", features = ["wgpu"] } # Enable WGPU feature
+
+getrandom = { version = "0.3", features = ["wasm_js"] }
+
+[profile.release]
+opt-level = "s"
+lto = true
+codegen-units = 1
+panic = "abort"
+```
+
 Update your `src/lib.rs`:
 
 ```rust
