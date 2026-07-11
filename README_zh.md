@@ -145,6 +145,13 @@ let point = chart!(height, weight)?
 line.and(point).save("layered.svg")?;
 ```
 
+## 桌面 GUI 集成
+Charton 可以通过其 GPU 加速后端直接渲染到原生桌面应用中。下图是一个使用 Charton 和 egui 构建的实时系统遥测仪表板，展示了实时 CPU、内存、Swap 和网络监控，以及每个核心的负载分布：
+
+<p align="center"> <img src="assets/sysmon_dashboard.png" alt="Charton egui 仪表板" width="800"> </p>
+
+Charton 为 GUI 应用提供了两种集成路径：`render_to_surface` 用于零拷贝 GPU 渲染（适合 wgpu 版本一致时的 60 FPS 游戏循环），或者独立的 `WgpuRenderer`，它管理自己的 wgpu 实例并返回像素缓冲区——速度稍慢，但不受 crate 之间 wgpu 版本冲突的影响。
+
 ## WebAssembly 与前端
 Charton 支持 WebAssembly 及现代 Web 前端开发。下面这个示例展示了一个支持实时交互的 50,000 点 Lorenz 吸引子 3D 动力学系统，利用 WASM 技术在浏览器中实现 60 FPS 的超流畅渲染。
 
