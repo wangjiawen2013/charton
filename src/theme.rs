@@ -257,7 +257,6 @@ impl Theme {
         self
     }
 
-
     pub fn with_axes_color(mut self, color: impl Into<SingleColor>) -> Self {
         self.axes_color = color.into();
         self
@@ -267,7 +266,6 @@ impl Theme {
         self.tick_width = width;
         self
     }
-
 
     pub fn with_tick_color(mut self, color: impl Into<SingleColor>) -> Self {
         self.tick_color = color.into();
