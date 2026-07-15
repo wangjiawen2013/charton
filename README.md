@@ -187,3 +187,9 @@ Please go to the [Charton Docs](https://wangjiawen2013.github.io/charton) for fu
 
 ## License
 Charton is licensed under the Apache License 2.0.
+
+## AI Declaration
+
+- AI used: Yes
+- Role: Implementation acceleration, test generation, documentation
+- Human responsibility: Grammar of Graphics architecture design, code review, maintenance, and all project decisions
