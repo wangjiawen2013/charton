@@ -145,7 +145,7 @@ let point = chart!(height, weight)?
 line.and(point).save("layered.svg")?;
 ```
 
-## Facet Ploting
+## Facet Plotting
 *In progress*
 
 ## Desktop GUI Integration
