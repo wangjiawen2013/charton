@@ -145,6 +145,9 @@ let point = chart!(height, weight)?
 line.and(point).save("layered.svg")?;
 ```
 
+## 分面作图
+*正在开发中*
+
 ## 桌面 GUI 集成
 Charton 可以通过其 GPU 加速后端直接渲染到原生桌面应用中。下图是一个使用 Charton 和 egui 构建的实时系统遥测仪表板，展示了实时 CPU、内存、Swap 和网络监控，以及每个核心的负载分布：
 
