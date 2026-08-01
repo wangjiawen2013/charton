@@ -145,6 +145,9 @@ let point = chart!(height, weight)?
 line.and(point).save("layered.svg")?;
 ```
 
+## Facet Ploting
+*In progress*
+
 ## Desktop GUI Integration
 Charton can render directly into native desktop applications via its GPU-accelerated backend. Below is a real-time system telemetry dashboard built with Charton and egui, demonstrating live CPU, memory, swap, and network monitoring with per-core load distribution:
 
