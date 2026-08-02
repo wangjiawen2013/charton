@@ -20,7 +20,7 @@ impl MarkRenderer for Chart<MarkHist> {
         backend: &mut dyn RenderBackend,
         context: &PanelContext,
     ) -> Result<(), ChartonError> {
-        let ds = &self.data;
+        let ds = context.dataset.as_ref().unwrap_or(&self.data);
         if ds.height() == 0 {
             return Ok(());
         }

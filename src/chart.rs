@@ -16,8 +16,9 @@ use crate::coordinate::CoordinateTrait;
 use crate::core::aesthetics::GlobalAesthetics;
 use crate::core::data::{Dataset, SemanticType, ToDataset};
 use crate::core::layer::{Layer, MarkRenderer};
-use crate::encode::{Channel, Encoding, IntoEncoding, y::StackMode};
+use crate::encode::{Channel, Encoding, FacetSpec, IntoEncoding, y::StackMode};
 use crate::error::ChartonError;
+use crate::facets::FacetStrategy;
 use crate::mark::{
     Mark, area::MarkArea, bar::MarkBar, boxplot::MarkBoxplot, errorbar::MarkErrorBar,
     geo_path::MarkGeoPath, histogram::MarkHist, line::MarkLine, no_mark::NoMark, point::MarkPoint,
@@ -257,36 +258,48 @@ impl Chart<NoMark> {
 
         Ok(chart)
     }
-
-    // Creates a faceted view of the chart based on a specific data field.
-    //
-    // Faceting (also known as small multiples) splits the data into multiple subsets
-    // based on the unique values of the provided `field`, creating a grid of sub-charts.
-    //
-    // Since faceting is a structural transformation of the data rather than a visual
-    // mark property, this method is defined on the base [Chart<NoMark>]. This allows
-    // you to define global encodings once and then apply a specific mark to all facets.
-    //
-    // # Arguments
-    //
-    // * `field` - The name of the column in the DataFrame to use for partitioning the data.
-    //
-    // # Returns
-    //
-    // Returns a `Result` containing a `FacetChart` or a `ChartonError` if the field
-    // does not exist in the data source.
-    //
-    // # Example
-    //
-    //pub fn facet(self, _field: &str) -> Result<FacetChart, ChartonError> {
-    // TODO: Implement the FacetChart structure and partitioning logic.
-    // This will likely involve grouping the Polars DataFrame and
-    // mapping each group to a sub-chart layer.
-    //Err(ChartonError::NotImplemented("Faceting is not yet implemented".into()))
-    //}
 }
 
 impl<T: Mark> Chart<T> {
+    /// Creates a faceted view of the chart using a single field and wraps
+    /// panels into a 2D grid.
+    pub fn facet_wrap(mut self, field: &str) -> Result<Self, ChartonError> {
+        self.encoding.facet = Some(crate::encode::FacetSpec::Wrap {
+            field: field.to_string(),
+            strategy: FacetStrategy::Fixed,
+            rows: None,
+            cols: None,
+        });
+        Ok(self)
+    }
+
+    /// Creates a faceted view of the chart using a single field and allows
+    /// the caller to explicitly control the number of rows and columns.
+    pub fn facet_wrap_with_dims(
+        mut self,
+        field: &str,
+        rows: Option<usize>,
+        cols: Option<usize>,
+    ) -> Result<Self, ChartonError> {
+        self.encoding.facet = Some(crate::encode::FacetSpec::Wrap {
+            field: field.to_string(),
+            strategy: FacetStrategy::Fixed,
+            rows,
+            cols,
+        });
+        Ok(self)
+    }
+
+    /// Creates a faceted view of the chart using row and column fields.
+    pub fn facet_grid(mut self, row_field: &str, col_field: &str) -> Result<Self, ChartonError> {
+        self.encoding.facet = Some(crate::encode::FacetSpec::Grid {
+            row_field: row_field.to_string(),
+            col_field: col_field.to_string(),
+            strategy: FacetStrategy::Fixed,
+        });
+        Ok(self)
+    }
+
     /// Apply encoding mappings to the chart.
     ///
     /// This method defines how data fields map to visual properties (channels).
@@ -776,6 +789,18 @@ where
         self.encoding
             .get_field_by_channel(channel)
             .map(|s| s.to_string())
+    }
+
+    fn get_facet_spec(&self) -> Option<FacetSpec> {
+        self.encoding.facet.clone()
+    }
+
+    fn get_data(&self) -> Option<Dataset> {
+        Some(self.data.clone())
+    }
+
+    fn get_data_column(&self, field: &str) -> Option<crate::core::data::ColumnVector> {
+        self.data.column(field).ok().cloned()
     }
 
     /// Retrieves user-configured scale types (e.g., Linear vs Log).

@@ -2,7 +2,8 @@ use super::aesthetics::GlobalAesthetics;
 use crate::Precision;
 use crate::coordinate::{CoordinateTrait, Rect};
 use crate::core::context::PanelContext;
-use crate::encode::Channel;
+use crate::core::data::Dataset;
+use crate::encode::{Channel, FacetSpec};
 use crate::error::ChartonError;
 use crate::scale::{Expansion, Scale, ScaleDomain};
 use crate::visual::color::SingleColor;
@@ -199,6 +200,21 @@ pub trait Layer: MarkRenderer + Send + Sync {
 
     /// Returns the data field name mapped to a specific visual channel (e.g., "horsepower" -> Color).
     fn get_field(&self, channel: Channel) -> Option<String>;
+
+    /// Returns the facet specification attached to this layer, if any.
+    fn get_facet_spec(&self) -> Option<FacetSpec> {
+        None
+    }
+
+    /// Returns the backing dataset for this layer, if available.
+    fn get_data(&self) -> Option<Dataset> {
+        None
+    }
+
+    /// Returns the data column for a field name if available.
+    fn get_data_column(&self, _field: &str) -> Option<crate::core::data::ColumnVector> {
+        None
+    }
 
     /// Returns the preferred scale type (e.g., Linear, Log, Discrete) for a channel.
     fn get_scale(&self, channel: Channel) -> Option<Scale>;

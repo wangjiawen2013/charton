@@ -6,8 +6,9 @@ use crate::core::aesthetics::GlobalAesthetics;
 use crate::core::context::{ChartSpec, PanelContext};
 use crate::core::guide::GuideSpec;
 use crate::core::layer::{Layer, RectConfig, RenderBackend, TextConfig};
-use crate::encode::Channel;
+use crate::encode::{Channel, FacetSpec};
 use crate::error::ChartonError;
+use crate::facets::{Facet, FacetGrid, FacetLayout, FacetWrap};
 use crate::scale::{
     Expansion, ExplicitTick, Scale, ScaleDomain, create_scale, mapper::VisualMapper,
 };
@@ -107,6 +108,7 @@ pub struct LayeredChart {
 
     // The device pixel ratio for raster rendering. Defaults to 2.0.
     pub(crate) scale_factor: f32,
+    pub(crate) facet_layout: Option<FacetLayout>,
 }
 
 impl Default for LayeredChart {
@@ -164,7 +166,106 @@ impl LayeredChart {
             polar_inner_radius: None,
 
             scale_factor: 2.0,
+            facet_layout: None,
         }
+    }
+
+    fn facet_field_names(facet_spec: &FacetSpec) -> Vec<String> {
+        match facet_spec {
+            FacetSpec::Wrap { field, .. } => vec![field.clone()],
+            FacetSpec::Grid {
+                row_field,
+                col_field,
+                ..
+            } => vec![row_field.clone(), col_field.clone()],
+        }
+    }
+
+    fn build_panel_dataset(
+        &self,
+        facet_spec: &FacetSpec,
+        panel_info: &crate::facets::FacetPanelInfo,
+    ) -> Result<Option<crate::core::data::Dataset>, ChartonError> {
+        let Some(first_layer) = self.layers.first() else {
+            return Ok(None);
+        };
+        let Some(dataset) = first_layer.get_data() else {
+            return Ok(None);
+        };
+
+        let mut selected_rows = Vec::new();
+        let field_names = Self::facet_field_names(facet_spec);
+        for row_idx in 0..dataset.height() {
+            let mut matches = true;
+            for (field_name, expected) in field_names.iter().zip(panel_info.facet_values.iter()) {
+                let actual = dataset
+                    .get(field_name, row_idx)
+                    .to_string()
+                    .unwrap_or_default();
+                if actual != *expected {
+                    matches = false;
+                    break;
+                }
+            }
+            if matches {
+                selected_rows.push(row_idx);
+            }
+        }
+
+        Ok(Some(dataset.take_rows(&selected_rows)?))
+    }
+
+    fn resolve_facet_layout(&self, container: &Rect) -> Result<Option<FacetLayout>, ChartonError> {
+        let Some(first_layer) = self.layers.first() else {
+            return Ok(None);
+        };
+
+        let Some(facet_spec) = first_layer.get_facet_spec() else {
+            return Ok(None);
+        };
+
+        let theme = &self.theme;
+
+        let facet = match facet_spec {
+            FacetSpec::Wrap {
+                field,
+                strategy,
+                rows,
+                cols,
+            } => Box::new(FacetWrap {
+                field: field.clone(),
+                strategy: strategy,
+                rows,
+                cols,
+            }) as Box<dyn Facet>,
+            FacetSpec::Grid {
+                row_field,
+                col_field,
+                strategy,
+            } => Box::new(FacetGrid {
+                row_field: row_field.clone(),
+                col_field: col_field.clone(),
+                strategy,
+            }) as Box<dyn Facet>,
+        };
+
+        let mut factors = Vec::new();
+        for field in facet.fields() {
+            let Some(column) = first_layer.get_data_column(&field) else {
+                return Ok(None);
+            };
+            let mut values = Vec::new();
+            for row_idx in 0..column.len() {
+                if let Some(label) = column.get(row_idx).to_string() {
+                    values.push(label);
+                }
+            }
+            values.sort();
+            values.dedup();
+            factors.push(values);
+        }
+
+        Ok(Some(facet.compute_layout(&factors, &container, theme)))
     }
 
     /// Resolves the unified visual specification for a given channel across all layers.
@@ -681,69 +782,232 @@ impl LayeredChart {
             layer.inject_resolved_scales(coord.clone(), &aesthetics);
         }
 
+        let facet_layout = self.resolve_facet_layout(&panel)?;
+        let facet_spec = self.layers.first().and_then(|layer| layer.get_facet_spec());
+
         // --- STEP 4: ORCHESTRATED DRAWING ---
-        // 4a. Initialize the Primary Panel Context.
-        let primary_panel_ctx = PanelContext::new(&spec, coord.clone(), panel);
+        let fallback_panel = PanelContext::new(&spec, coord.clone(), panel);
+        let panel_contexts = if let Some(layout) = &facet_layout {
+            let mut contexts = Vec::new();
+            for cell in &layout.cells {
+                let panel_ctx = if let Some(ref facet_spec) = facet_spec {
+                    match self.build_panel_dataset(facet_spec, &cell.info)? {
+                        Some(dataset) => {
+                            PanelContext::new_with_dataset(&spec, coord.clone(), cell.rect, dataset)
+                        }
+                        None => PanelContext::new(&spec, coord.clone(), cell.rect),
+                    }
+                } else {
+                    PanelContext::new(&spec, coord.clone(), cell.rect)
+                };
+                contexts.push(panel_ctx);
+            }
+            contexts
+        } else {
+            vec![fallback_panel]
+        };
 
-        // 4b. Render Grid Lines (BOTTOM LAYER)
-        // Check user override first, fallback to theme default.
-        let should_show_grid = self.show_grid.unwrap_or(self.theme.show_grid);
-        if should_show_grid {
-            let x_explicit = self.x_ticks.as_deref();
-            let y_explicit = self.y_ticks.as_deref();
+        if let Some(layout) = &facet_layout {
+            if let Some(first_cell) = layout.cells.first() {
+                match facet_spec.as_ref() {
+                    Some(FacetSpec::Wrap { field, .. }) => {
+                        let field_label_x = panel.x + panel.width - self.theme.facet_strip_padding;
+                        let field_label_y =
+                            first_cell.header_rect.y + first_cell.header_rect.height / 2.0;
+                        backend.draw_text(TextConfig {
+                            x: field_label_x as Precision,
+                            y: field_label_y as Precision,
+                            text: field.clone(),
+                            font_size: self.theme.facet_label_size as Precision,
+                            font_family: self.theme.label_family.clone(),
+                            color: self.theme.facet_label_color,
+                            text_anchor: "end".to_string(),
+                            dominant_baseline: "middle".to_string(),
+                            font_weight: "normal".to_string(),
+                            opacity: 1.0,
+                            angle: 0.0,
+                        });
+                    }
+                    Some(FacetSpec::Grid {
+                        row_field,
+                        col_field,
+                        ..
+                    }) => {
+                        let group_label_x = panel.x + panel.width - self.theme.facet_strip_padding;
+                        let group_label_y =
+                            first_cell.header_rect.y + first_cell.header_rect.height / 2.0;
+                        backend.draw_text(TextConfig {
+                            x: group_label_x as Precision,
+                            y: group_label_y as Precision,
+                            text: row_field.clone(),
+                            font_size: self.theme.facet_label_size as Precision,
+                            font_family: self.theme.label_family.clone(),
+                            color: self.theme.facet_label_color,
+                            text_anchor: "end".to_string(),
+                            dominant_baseline: "middle".to_string(),
+                            font_weight: "normal".to_string(),
+                            opacity: 1.0,
+                            angle: 0.0,
+                        });
 
-            // Polymorphic dispatch: The specific coordinate system handles its own grid drawing.
-            primary_panel_ctx.coord.render_grid_lines(
-                backend,
-                &self.theme,
-                &primary_panel_ctx.panel,
-                x_explicit,
-                y_explicit,
-            )?;
+                        let col_label_x = panel.x + panel.width * 0.5;
+                        let col_label_y = (first_cell.header_rect.y
+                            - self.theme.facet_strip_padding)
+                            as Precision;
+                        backend.draw_text(TextConfig {
+                            x: col_label_x as Precision,
+                            y: col_label_y,
+                            text: col_field.clone(),
+                            font_size: self.theme.facet_label_size as Precision,
+                            font_family: self.theme.label_family.clone(),
+                            color: self.theme.facet_label_color,
+                            text_anchor: "middle".to_string(),
+                            dominant_baseline: "middle".to_string(),
+                            font_weight: "normal".to_string(),
+                            opacity: 1.0,
+                            angle: 0.0,
+                        });
+                    }
+                    None => {}
+                }
+            }
+
+            match facet_spec.as_ref() {
+                Some(FacetSpec::Wrap { .. }) => {
+                    for cell in &layout.cells {
+                        backend.draw_rect(RectConfig {
+                            x: cell.header_rect.x as Precision,
+                            y: cell.header_rect.y as Precision,
+                            width: cell.header_rect.width as Precision,
+                            height: cell.header_rect.height as Precision,
+                            fill: self.theme.facet_strip_fill,
+                            stroke: self.theme.facet_label_color.clone(),
+                            stroke_width: 0.5,
+                            opacity: 1.0,
+                        });
+
+                        let label_x = cell.header_rect.x + cell.header_rect.width / 2.0;
+                        backend.draw_text(TextConfig {
+                            x: label_x as Precision,
+                            y: (cell.header_rect.y + cell.header_rect.height / 2.0) as Precision,
+                            text: cell.info.label.clone(),
+                            font_size: self.theme.facet_label_size as Precision,
+                            font_family: self.theme.label_family.clone(),
+                            color: self.theme.facet_label_color,
+                            text_anchor: "middle".to_string(),
+                            dominant_baseline: "middle".to_string(),
+                            font_weight: "normal".to_string(),
+                            opacity: 1.0,
+                            angle: 0.0,
+                        });
+                    }
+                }
+                Some(FacetSpec::Grid { .. }) => {
+                    for cell in &layout.cells {
+                        backend.draw_rect(RectConfig {
+                            x: cell.header_rect.x as Precision,
+                            y: cell.header_rect.y as Precision,
+                            width: cell.header_rect.width as Precision,
+                            height: cell.header_rect.height as Precision,
+                            fill: self.theme.facet_strip_fill,
+                            stroke: self.theme.facet_label_color.clone(),
+                            stroke_width: 0.5,
+                            opacity: 1.0,
+                        });
+
+                        if cell.info.row == 0 {
+                            let label_x = cell.header_rect.x + cell.header_rect.width / 2.0;
+                            let label_y = cell.header_rect.y + cell.header_rect.height / 2.0;
+                            backend.draw_text(TextConfig {
+                                x: label_x as Precision,
+                                y: label_y as Precision,
+                                text: cell.info.col_label.clone(),
+                                font_size: self.theme.facet_label_size as Precision,
+                                font_family: self.theme.label_family.clone(),
+                                color: self.theme.facet_label_color,
+                                text_anchor: "middle".to_string(),
+                                dominant_baseline: "middle".to_string(),
+                                font_weight: "normal".to_string(),
+                                opacity: 1.0,
+                                angle: 0.0,
+                            });
+                        }
+
+                        if cell.info.col == 0 {
+                            let label_x = panel.x + panel.width - self.theme.facet_strip_padding;
+                            let label_y = cell.header_rect.y + cell.header_rect.height / 2.0;
+                            backend.draw_text(TextConfig {
+                                x: label_x as Precision,
+                                y: label_y as Precision,
+                                text: cell.info.row_label.clone(),
+                                font_size: self.theme.facet_label_size as Precision,
+                                font_family: self.theme.label_family.clone(),
+                                color: self.theme.facet_label_color,
+                                text_anchor: "end".to_string(),
+                                dominant_baseline: "middle".to_string(),
+                                font_weight: "normal".to_string(),
+                                opacity: 1.0,
+                                angle: 0.0,
+                            });
+                        }
+                    }
+                }
+                None => {}
+            }
         }
 
-        // 4c. Render Chart Title.
-        self.render_title(backend, &primary_panel_ctx.panel)?;
+        let legend_context = PanelContext::new(&spec, coord.clone(), panel);
 
-        // 4d. Render Marks (MIDDLE LAYER - Data Geometries)
-        // We activate clipping to lock chart marks strictly inside the data viewport.
-        // Since grid lines are drawn before this, they safely sit underneath the data.
-        backend.begin_clip_scope(&primary_panel_ctx.panel);
+        for primary_panel_ctx in &panel_contexts {
+            // 4a. Render Grid Lines (BOTTOM LAYER)
+            let should_show_grid = self.show_grid.unwrap_or(self.theme.show_grid);
+            if should_show_grid {
+                let x_explicit = self.x_ticks.as_deref();
+                let y_explicit = self.y_ticks.as_deref();
 
-        for layer in &self.layers {
-            layer.render_marks(backend, &primary_panel_ctx)?;
+                primary_panel_ctx.coord.render_grid_lines(
+                    backend,
+                    &self.theme,
+                    &primary_panel_ctx.panel,
+                    x_explicit,
+                    y_explicit,
+                )?;
+            }
+
+            self.render_title(backend, &primary_panel_ctx.panel)?;
+
+            backend.begin_clip_scope(&primary_panel_ctx.panel);
+
+            for layer in &self.layers {
+                layer.render_marks(backend, primary_panel_ctx)?;
+            }
+
+            backend.end_clip_scope();
+
+            if self.theme.show_axes && self.layers.iter().any(|l| l.requires_axes()) {
+                let x_label = coord.get_x_label();
+                let y_label = coord.get_y_label();
+                let x_explicit = self.x_ticks.as_deref();
+                let y_explicit = self.y_ticks.as_deref();
+
+                primary_panel_ctx.coord.render_axes(
+                    backend,
+                    &self.theme,
+                    &primary_panel_ctx.panel,
+                    x_label,
+                    x_explicit,
+                    y_label,
+                    y_explicit,
+                )?;
+            }
         }
 
-        backend.end_clip_scope();
-
-        // 4e. Render Axes (TOP LAYER)
-        // Drawn after the marks and outside the clipping scope to ensure labels aren't clipped
-        // and axis spines sit crisply on top of data lines that touch the edges.
-        if self.theme.show_axes && self.layers.iter().any(|l| l.requires_axes()) {
-            let x_label = coord.get_x_label();
-            let y_label = coord.get_y_label();
-            let x_explicit = self.x_ticks.as_deref();
-            let y_explicit = self.y_ticks.as_deref();
-
-            // Polymorphic dispatch for axes
-            primary_panel_ctx.coord.render_axes(
-                backend,
-                &self.theme,
-                &primary_panel_ctx.panel,
-                x_label,
-                x_explicit,
-                y_label,
-                y_explicit,
-            )?;
-        }
-
-        // 4f. Render Unified Legends & Guides (FOREGROUND LAYER)
         if self.theme.show_legend {
             crate::render::legend_renderer::LegendRenderer::render_legend(
                 backend,
                 &guide_specs,
                 &self.theme,
-                &primary_panel_ctx,
+                &legend_context,
             );
         }
 

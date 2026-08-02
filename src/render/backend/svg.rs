@@ -16,12 +16,16 @@ use std::fmt::Write;
 pub struct SvgBackend<'a> {
     /// Target buffer where SVG XML content is appended.
     pub buffer: &'a mut String,
+    clip_scope_counter: usize,
 }
 
 impl<'a> SvgBackend<'a> {
     /// Creates a new `SvgBackend` wrapped around an external string stream.
     pub const fn new(buffer: &'a mut String) -> Self {
-        Self { buffer }
+        Self {
+            buffer,
+            clip_scope_counter: 0,
+        }
     }
 
     /// Directly formats a `SingleColor` into the SVG buffer as an `rgba()` string.
@@ -51,7 +55,8 @@ impl<'a> RenderBackend for SvgBackend<'a> {
     // =========================================================================
 
     fn begin_clip_scope(&mut self, rect: &crate::coordinate::Rect) {
-        let id = "plot-clip-area";
+        self.clip_scope_counter += 1;
+        let id = format!("plot-clip-area-{}", self.clip_scope_counter);
         // Define the clipPath inside a structural defs block
         let _ = writeln!(
             self.buffer,

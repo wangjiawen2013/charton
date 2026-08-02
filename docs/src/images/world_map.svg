@@ -15,8 +15,8 @@
 <line x1="92.200" y1="114.241" x2="485.000" y2="114.241" stroke="rgba(189,189,189,1.000)" stroke-width="1.000" stroke-opacity="1.000" />
 <line x1="92.200" y1="85.865" x2="485.000" y2="85.865" stroke="rgba(189,189,189,1.000)" stroke-width="1.000" stroke-opacity="1.000" />
 <line x1="92.200" y1="57.490" x2="485.000" y2="57.490" stroke="rgba(189,189,189,1.000)" stroke-width="1.000" stroke-opacity="1.000" />
-<defs><clipPath id="plot-clip-area"><rect x="92.200" y="40.000" width="392.800" height="271.000" /></clipPath></defs>
-<g clip-path="url(#plot-clip-area)">
+<defs><clipPath id="plot-clip-area-1"><rect x="92.200" y="40.000" width="392.800" height="271.000" /></clipPath></defs>
+<g clip-path="url(#plot-clip-area-1)">
 <path d="M 478.945 198.326 L 478.715 199.211 L 477.906 199.657 L 477.110 200.039 L 477.150 199.363 L 477.791 198.991 L 478.161 198.891 L 478.945 198.326 Z" fill="rgba(128,128,128,1.000)" fill-opacity="1.000" stroke="rgba(51,51,51,1.000)" stroke-width="0.500" stroke-opacity="1.000" stroke-linejoin="round" stroke-linecap="round" />
 <path d="M 478.945 198.326 L 478.715 199.211 L 477.906 199.657 L 477.110 200.039 L 477.150 199.363 L 477.791 198.991 L 478.161 198.891 L 478.945 198.326" fill="none" stroke="rgba(51,51,51,1.000)" stroke-width="0.500" stroke-opacity="1.000" stroke-linejoin="round" stroke-linecap="round" />
 <path d="M 476.216 200.933 L 476.567 200.634 L 476.796 201.157 L 476.350 202.104 L 475.607 202.353 L 475.075 202.129 L 475.195 201.331 L 475.784 200.708 L 476.216 200.933 Z" fill="rgba(128,128,128,1.000)" fill-opacity="1.000" stroke="rgba(51,51,51,1.000)" stroke-width="0.500" stroke-opacity="1.000" stroke-linejoin="round" stroke-linecap="round" />

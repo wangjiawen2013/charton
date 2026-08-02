@@ -24,7 +24,7 @@ impl MarkRenderer for Chart<MarkPoint> {
         backend: &mut dyn RenderBackend,
         context: &PanelContext,
     ) -> Result<(), ChartonError> {
-        let df_source = &self.data;
+        let df_source = context.dataset.as_ref().unwrap_or(&self.data);
         let row_count = df_source.height();
         if row_count == 0 {
             return Ok(());

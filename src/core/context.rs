@@ -1,5 +1,6 @@
 use crate::coordinate::{CoordinateTrait, Rect};
 use crate::core::aesthetics::GlobalAesthetics;
+use crate::core::data::Dataset;
 use crate::theme::Theme;
 use std::sync::Arc;
 
@@ -30,11 +31,34 @@ pub struct PanelContext<'a> {
 
     /// The physical rectangular area (in pixels) on the canvas for this panel.
     pub panel: Rect,
+
+    /// Optional dataset subset for faceted panels. When present, renderers use this
+    /// instead of the full layer dataset for this specific panel.
+    pub dataset: Option<Dataset>,
 }
 
 impl<'a> PanelContext<'a> {
     pub fn new(spec: &'a ChartSpec<'a>, coord: Arc<dyn CoordinateTrait>, panel: Rect) -> Self {
-        Self { spec, coord, panel }
+        Self {
+            spec,
+            coord,
+            panel,
+            dataset: None,
+        }
+    }
+
+    pub fn new_with_dataset(
+        spec: &'a ChartSpec<'a>,
+        coord: Arc<dyn CoordinateTrait>,
+        panel: Rect,
+        dataset: Dataset,
+    ) -> Self {
+        Self {
+            spec,
+            coord,
+            panel,
+            dataset: Some(dataset),
+        }
     }
 
     /// Maps normalized data values ([0.0, 1.0]) to absolute screen pixels.

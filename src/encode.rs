@@ -10,7 +10,23 @@ pub mod y2;
 use self::{
     color::Color, path_group::PathGroup, shape::Shape, size::Size, text::Text, x::X, y::Y, y2::Y2,
 };
+use crate::facets::FacetStrategy;
 use crate::scale::{Expansion, Scale};
+
+#[derive(Debug, Clone)]
+pub enum FacetSpec {
+    Wrap {
+        field: String,
+        strategy: FacetStrategy,
+        rows: Option<usize>,
+        cols: Option<usize>,
+    },
+    Grid {
+        row_field: String,
+        col_field: String,
+        strategy: FacetStrategy,
+    },
+}
 
 /// Represents the various visual aesthetics that can be mapped to data.
 ///
@@ -55,6 +71,7 @@ pub struct Encoding {
     pub(crate) size: Option<Size>,
     pub(crate) text: Option<Text>,
     pub(crate) path_group: Option<PathGroup>,
+    pub(crate) facet: Option<FacetSpec>,
 }
 
 impl Encoding {
@@ -75,6 +92,7 @@ impl Encoding {
             && self.size.is_none()
             && self.text.is_none()
             && self.path_group.is_none()
+            && self.facet.is_none()
     }
 
     /// Returns the data field name associated with a specific visual channel.

@@ -15,7 +15,7 @@ impl MarkRenderer for Chart<MarkBar> {
         backend: &mut dyn RenderBackend,
         context: &PanelContext,
     ) -> Result<(), ChartonError> {
-        let ds = &self.data;
+        let ds = context.dataset.as_ref().unwrap_or(&self.data);
         let row_count = ds.height();
         if row_count == 0 {
             return Ok(());

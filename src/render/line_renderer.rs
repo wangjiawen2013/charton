@@ -63,7 +63,7 @@ impl MarkRenderer for Chart<MarkLine> {
         backend: &mut dyn RenderBackend,
         context: &PanelContext,
     ) -> Result<(), ChartonError> {
-        let ds = &self.data;
+        let ds = context.dataset.as_ref().unwrap_or(&self.data);
         if ds.row_count == 0 {
             return Ok(());
         }
