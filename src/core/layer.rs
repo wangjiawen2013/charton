@@ -120,7 +120,7 @@ pub struct GradientRectConfig {
 }
 
 /// Abstract backend for rendering shapes.
-/// Implementations could be SvgBackend (String) or WgpuBackend (GPU Buffers).
+/// Implementations could be SvgBackend (String), RasterBackend or WgpuBackend (GPU Buffers).
 pub trait RenderBackend {
     /// Draws a circle with optional fill and stroke.
     fn draw_circle(&mut self, config: CircleConfig);
