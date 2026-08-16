@@ -188,6 +188,13 @@ Designed for precision, Charton provides pixel-perfect control over complex mark
 ## Documentation
 Please go to the [Charton Docs](https://wangjiawen2013.github.io/charton) for full documentation.
 
+## Ecosystem
+Other Rust plotting libraries worth knowing about:
+
+[kuva](https://github.com/Psy-Fer/kuva): A scientific plotting library in Rust. 64 plot types, SVG output, optional PNG/PDF backends, and a CLI binary that renders plots directly from the shell.
+
+[charts-rs](https://github.com/vicanso/charts-rs): An ECharts-inspired Rust charting library with multiple chart types, built-in themes, SVG animations, and multi-format export—tailored for dashboards and web-style visualizations rather than scientific plotting.
+
 ## License
 Charton is licensed under the Apache License 2.0.
 

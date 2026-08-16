@@ -190,6 +190,13 @@ Charton 作图精准，提供对复杂标记的像素级控制。无论是用于
 ## 文档
 请访问 [Charton Docs](https://wangjiawen2013.github.io/charton) 查看完整文档。
 
+## 生态系统
+其他值得了解的 Rust 绘图库：
+
+[kuva](https://github.com/Psy-Fer/kuva)：一个 Rust 科学绘图库。支持多种图表类型，SVG 输出，可选的 PNG/PDF 后端，以及一个可直接在终端中渲染绘图的 CLI 工具。
+
+[charts-rs](https://github.com/vicanso/charts-rs)： ECharts 风格的 Rust 图表库，支持多种图表类型、内置主题、SVG 动画和多格式导出——更适合仪表盘和 Web 风格可视化，而非科学绘图。
+
 ## License
 Charton 基于 Apache License 2.0 许可证开源。
 
