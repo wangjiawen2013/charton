@@ -21,7 +21,7 @@ pub struct FacetWrapImpl {
 
 impl FacetWrapImpl {
     /// Creates a new Wrap facet with the given field.
-    pub fn new(field: String) -> Self {
+    pub const fn new(field: String) -> Self {
         Self {
             field,
             columns: None,
@@ -30,13 +30,13 @@ impl FacetWrapImpl {
     }
 
     /// Sets the number of columns in the grid.
-    pub fn with_columns(mut self, columns: Option<usize>) -> Self {
+    pub const fn with_columns(mut self, columns: Option<usize>) -> Self {
         self.columns = columns;
         self
     }
 
     /// Sets the scale strategy for the facet.
-    pub fn with_strategy(mut self, strategy: FacetStrategy) -> Self {
+    pub const fn with_strategy(mut self, strategy: FacetStrategy) -> Self {
         self.strategy = strategy;
         self
     }
@@ -62,7 +62,7 @@ impl Facet for FacetWrapImpl {
 
         // 1. Calculate grid dimensions (columns and rows)
         let cols = self.columns.unwrap_or_else(|| (n as f64).sqrt().ceil() as usize).max(1);
-        let rows = (n + cols - 1) / cols;
+        let rows = n.div_ceil(cols);
 
         // 2. Calculate panel and plot dimensions
         let gap = theme.facet_spacing;

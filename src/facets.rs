@@ -86,7 +86,7 @@ impl FacetSpec {
     }
 
     /// Fluent builder method to set explicit column count (only applies to Wrap layout).
-    pub fn with_columns(mut self, cols: usize) -> Self {
+    pub const fn with_columns(mut self, cols: usize) -> Self {
         if let FacetSpec::Wrap { ref mut columns, .. } = self {
             *columns = Some(cols);
         }
