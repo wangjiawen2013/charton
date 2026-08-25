@@ -1,19 +1,52 @@
+//! Wrap faceting implementation.
+//!
+//! This module provides the concrete implementation of the `Facet` trait
+//! for wrap layouts (single field, wrapped into a 2D grid).
+
 use crate::coordinate::Rect;
-use crate::facets::{Facet, FacetCell, FacetInfo, FacetLayout, FacetStrategy};
+use crate::facets::{Facet, FacetLayout, FacetPanel, FacetPanelInfo, FacetStrategy};
 use crate::theme::Theme;
 
-/// FacetWrap partitions data by a single variable and wraps panels into a 2D grid.
-pub struct FacetWrap {
+/// Internal implementation of Wrap faceting.
+///
+/// This is the concrete type that implements the `Facet` trait.
+/// Users should use `FacetSpec` to create facets instead of constructing
+/// this directly.
+#[derive(Debug, Clone)]
+pub struct FacetWrapImpl {
     pub field: String,
+    pub columns: Option<usize>,
     pub strategy: FacetStrategy,
-    pub rows: Option<usize>,
-    pub cols: Option<usize>,
 }
 
-impl Facet for FacetWrap {
+impl FacetWrapImpl {
+    /// Creates a new Wrap facet with the given field.
+    pub fn new(field: String) -> Self {
+        Self {
+            field,
+            columns: None,
+            strategy: FacetStrategy::Fixed,
+        }
+    }
+
+    /// Sets the number of columns in the grid.
+    pub fn with_columns(mut self, columns: Option<usize>) -> Self {
+        self.columns = columns;
+        self
+    }
+
+    /// Sets the scale strategy for the facet.
+    pub fn with_strategy(mut self, strategy: FacetStrategy) -> Self {
+        self.strategy = strategy;
+        self
+    }
+}
+
+impl Facet for FacetWrapImpl {
     fn fields(&self) -> Vec<String> {
         vec![self.field.clone()]
     }
+
     fn strategy(&self) -> FacetStrategy {
         self.strategy
     }
@@ -24,49 +57,52 @@ impl Facet for FacetWrap {
         container: &Rect,
         theme: &Theme,
     ) -> FacetLayout {
-        let values = &factors[0]; // Wrap only uses the first variable
+        let values = &factors[0];
         let n = values.len();
 
-        // Calculate grid dimensions
-        let (rows, cols) = match (self.rows, self.cols) {
-            (Some(r), Some(c)) => (r, c),
-            (Some(r), None) => (r, (n as f64 / r as f64).ceil() as usize),
-            (None, Some(c)) => ((n as f64 / c as f64).ceil() as usize, c),
-            (None, None) => {
-                let c = (n as f64).sqrt().ceil() as usize;
-                let r = (n as f64 / c as f64).ceil() as usize;
-                (r, c)
-            }
-        };
+        // 1. Calculate grid dimensions (columns and rows)
+        let cols = self.columns.unwrap_or_else(|| (n as f64).sqrt().ceil() as usize).max(1);
+        let rows = (n + cols - 1) / cols;
 
-        let header_h = theme.facet_label_size * 1.5;
+        // 2. Calculate panel and plot dimensions
         let gap = theme.facet_spacing;
+        let header_h = theme.facet_label_size * 1.5 + theme.facet_strip_padding * 2.0;
 
         let panel_w = (container.width - (cols - 1) as f64 * gap) / cols as f64;
-        let panel_h =
-            (container.height - (rows - 1) as f64 * gap - rows as f64 * header_h) / rows as f64;
+        let panel_h = (container.height - (rows - 1) as f64 * gap) / rows as f64;
 
-        let mut cells = Vec::new();
-        for (idx, val) in values.iter().enumerate() {
-            let r = idx / cols;
-            let c = idx % cols;
+        let axis_pad = (theme.label_size + theme.tick_label_size + 12.0).max(24.0);
+        let plot_w = (panel_w - axis_pad - 12.0).max(40.0);
+        let plot_h = (panel_h - header_h - 8.0 - axis_pad).max(40.0);
 
-            let x = container.x + c as f64 * (panel_w + gap);
-            let header_y = container.y + r as f64 * (panel_h + header_h + gap);
-            let plot_y = header_y + header_h;
+        // 3. Generate panel layouts
+        let cells = values
+            .iter()
+            .enumerate()
+            .map(|(idx, val)| {
+                let r = idx / cols;
+                let c = idx % cols;
 
-            cells.push(FacetCell {
-                rect: Rect::new(x, plot_y, panel_w, panel_h),
-                header_rect: Rect::new(x, header_y, panel_w, header_h),
-                info: FacetInfo {
-                    row: r,
-                    col: c,
-                    total_rows: rows,
-                    total_cols: cols,
-                    label: val.clone(),
-                },
-            });
-        }
+                let x = container.x + c as f64 * (panel_w + gap);
+                let header_y = container.y + r as f64 * (panel_h + gap);
+
+                FacetPanel {
+                    rect: Rect::new(x + axis_pad, header_y + header_h + 8.0, plot_w, plot_h),
+                    header_rect: Rect::new(x, header_y, panel_w, header_h),
+                    info: FacetPanelInfo {
+                        row: r,
+                        col: c,
+                        total_rows: rows,
+                        total_cols: cols,
+                        label: val.clone(),
+                        row_label: val.clone(),
+                        col_label: String::new(),
+                        facet_values: vec![val.clone()],
+                    },
+                }
+            })
+            .collect();
+
         FacetLayout { cells }
     }
 }
