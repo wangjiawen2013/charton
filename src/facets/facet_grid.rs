@@ -21,7 +21,7 @@ pub struct FacetGridImpl {
 
 impl FacetGridImpl {
     /// Creates a new Grid facet with row and column fields.
-    pub fn new(row_field: String, col_field: String) -> Self {
+    pub const fn new(row_field: String, col_field: String) -> Self {
         Self {
             row_field,
             col_field,
@@ -30,7 +30,7 @@ impl FacetGridImpl {
     }
 
     /// Sets the scale strategy for the facet.
-    pub fn with_strategy(mut self, strategy: FacetStrategy) -> Self {
+    pub const fn with_strategy(mut self, strategy: FacetStrategy) -> Self {
         self.strategy = strategy;
         self
     }
