@@ -87,7 +87,10 @@ impl FacetSpec {
 
     /// Fluent builder method to set explicit column count (only applies to Wrap layout).
     pub const fn with_columns(mut self, cols: usize) -> Self {
-        if let FacetSpec::Wrap { ref mut columns, .. } = self {
+        if let FacetSpec::Wrap {
+            ref mut columns, ..
+        } = self
+        {
             *columns = Some(cols);
         }
         self
@@ -99,8 +102,14 @@ impl FacetSpec {
     pub fn with_strategy(mut self, strategy: impl Into<FacetStrategy>) -> Self {
         let strat = strategy.into();
         match self {
-            FacetSpec::Wrap { strategy: ref mut s, .. } |
-            FacetSpec::Grid { strategy: ref mut s, .. } => {
+            FacetSpec::Wrap {
+                strategy: ref mut s,
+                ..
+            }
+            | FacetSpec::Grid {
+                strategy: ref mut s,
+                ..
+            } => {
                 *s = strat;
             }
         }
@@ -127,8 +136,7 @@ impl FacetSpec {
                 col_field,
                 strategy,
             } => {
-                let grid = FacetGridImpl::new(row_field, col_field)
-                    .with_strategy(strategy);
+                let grid = FacetGridImpl::new(row_field, col_field).with_strategy(strategy);
                 Box::new(grid)
             }
         }

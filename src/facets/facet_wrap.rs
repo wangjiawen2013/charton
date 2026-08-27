@@ -61,7 +61,10 @@ impl Facet for FacetWrapImpl {
         let n = values.len();
 
         // 1. Calculate grid dimensions (columns and rows)
-        let cols = self.columns.unwrap_or_else(|| (n as f64).sqrt().ceil() as usize).max(1);
+        let cols = self
+            .columns
+            .unwrap_or_else(|| (n as f64).sqrt().ceil() as usize)
+            .max(1);
         let rows = n.div_ceil(cols);
 
         // 2. Calculate panel and plot dimensions
