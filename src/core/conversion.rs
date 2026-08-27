@@ -42,15 +42,15 @@ pub trait IntoLayered: Into<LayeredChart> + Clone {
     }
 
     /// Applies faceting to the chart, splitting it into multiple sub-plots.
-    /// 
+    ///
     /// This automatically promotes a single Chart into a LayeredChart container
     /// and applies the facet specification.
-    fn facet<F>(self, spec: F) -> LayeredChart 
+    fn facet<F>(self, spec: F) -> LayeredChart
     where
         F: Into<crate::facets::FacetSpec>,
     {
         let mut lc: LayeredChart = self.into();
-        lc.facet = Some(spec.into()); 
+        lc.facet = Some(spec.into());
         lc
     }
 
