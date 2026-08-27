@@ -184,7 +184,8 @@ impl From<&str> for FacetStrategy {
             "free" => FacetStrategy::Free,
             "freex" | "free_x" => FacetStrategy::FreeX,
             "freey" | "free_y" => FacetStrategy::FreeY,
-            "fixed" | _ => FacetStrategy::Fixed,
+            "fixed" => FacetStrategy::Fixed,
+            _ => FacetStrategy::Fixed,
         }
     }
 }
