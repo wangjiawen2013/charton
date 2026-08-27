@@ -12,6 +12,7 @@ use crate::scale::{
     Expansion, ExplicitTick, Scale, ScaleDomain, create_scale, mapper::VisualMapper,
 };
 use crate::theme::Theme;
+use crate::facets::FacetSpec;
 use std::sync::Arc;
 
 /// A complete specification for a visual channel before the final Scale object is created.
@@ -107,6 +108,8 @@ pub struct LayeredChart {
 
     // The device pixel ratio for raster rendering. Defaults to 2.0.
     pub(crate) scale_factor: f32,
+
+    pub(crate) facet: Option<FacetSpec>
 }
 
 impl Default for LayeredChart {
@@ -164,6 +167,8 @@ impl LayeredChart {
             polar_inner_radius: None,
 
             scale_factor: 2.0,
+
+            facet: None,
         }
     }
 

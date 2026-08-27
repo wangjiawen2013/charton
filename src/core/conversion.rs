@@ -41,6 +41,35 @@ pub trait IntoLayered: Into<LayeredChart> + Clone {
         lc
     }
 
+    /// Applies faceting to the chart, splitting it into multiple sub-plots.
+    /// 
+    /// This automatically promotes a single Chart into a LayeredChart container
+    /// and applies the facet specification.
+    fn facet<F>(self, spec: F) -> LayeredChart 
+    where
+        F: Into<crate::facets::FacetSpec>,
+    {
+        let mut lc: LayeredChart = self.into();
+        lc.facet = Some(spec.into()); 
+        lc
+    }
+
+    /// Provides a closure to modify the existing facet specification fluently.
+    ///
+    /// If faceting has already been configured on the chart (e.g. via `.facet(...)`),
+    /// this method takes the current [FacetSpec], applies the closure to mutate it,
+    /// and saves it back.
+    fn configure_facet<F>(self, f: F) -> LayeredChart
+    where
+        F: FnOnce(crate::facets::FacetSpec) -> crate::facets::FacetSpec,
+    {
+        let mut lc: LayeredChart = self.into();
+        if let Some(spec) = lc.facet.take() {
+            lc.facet = Some(f(spec));
+        }
+        lc
+    }
+
     // --- Physical Dimensions ---
 
     /// Sets the target dimensions of the chart in pixels.
