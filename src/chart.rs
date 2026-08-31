@@ -778,6 +778,14 @@ where
             .map(|s| s.to_string())
     }
 
+    /// Returns a reference to the underlying Dataset.
+    /// 
+    /// This provides direct access to the layer's data for faceting operations,
+    /// such as extracting unique facet values and filtering data by panel.
+    fn get_dataset(&self) -> &Dataset {
+        &self.data
+    }
+
     /// Retrieves user-configured scale types (e.g., Linear vs Log).
     fn get_scale(&self, channel: Channel) -> Option<Scale> {
         self.encoding.get_scale_by_channel(channel)
