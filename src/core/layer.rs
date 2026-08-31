@@ -200,6 +200,12 @@ pub trait Layer: MarkRenderer + Send + Sync {
     /// Returns the data field name mapped to a specific visual channel (e.g., "horsepower" -> Color).
     fn get_field(&self, channel: Channel) -> Option<String>;
 
+    /// Returns a reference to the underlying Dataset.
+    ///
+    /// This provides direct access to the layer's data for faceting operations,
+    /// such as extracting unique facet values and filtering data by panel.
+    fn get_dataset(&self) -> &Dataset;
+
     /// Returns the preferred scale type (e.g., Linear, Log, Discrete) for a channel.
     fn get_scale(&self, channel: Channel) -> Option<Scale>;
 
