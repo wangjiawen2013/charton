@@ -359,6 +359,87 @@ impl LayeredChart {
         }))
     }
 
+    /// Extracts unique facet values from all layers for the configured facet specification.
+    ///
+    /// This method follows the same "Discovery" pattern as `resolve_scale_spec`:
+    /// 1. Iterate through all layers to find the facet field
+    /// 2. Merges unique values from all layers while preserving first-appearance order
+    /// 3. Returns the values organized by field (Wrap: 1 field, Grid: 2 fields)
+    ///
+    /// # Arguments
+    /// * `facet` - The user-configured facet specification
+    ///
+    /// # Returns
+    /// * `Vec<Vec<String>>` - Unique values for each facet field
+    ///   - Wrap: `vec![field_values]`
+    ///   - Grid: `vec![row_values, col_values]`
+    ///
+    /// # Errors
+    /// Returns `ChartonError::Data` if:
+    /// - The facet field is not found in any layer
+    /// - The facet field has no valid values.
+    pub(crate) fn resolve_facet_factors(
+        &self,
+        facet: &FacetSpec,
+    ) -> Result<Vec<Vec<String>>, ChartonError> {
+        // 1. Extract field names from the facet specification
+        let fields: Vec<String> = match facet {
+            FacetSpec::Wrap { field, .. } => vec![field.clone()],
+            FacetSpec::Grid {
+                row_field,
+                col_field,
+                ..
+            } => vec![row_field.clone(), col_field.clone()],
+        };
+
+        // 2. For each field, collect unique values from all layers
+        let mut all_factors: Vec<Vec<String>> = Vec::with_capacity(fields.len());
+
+        for field in &fields {
+            let mut values: Vec<String> = Vec::new();
+            let mut seen = std::collections::HashSet::new();
+            let mut field_found = false;
+
+            // 3. Iterate through all layers to find this field
+            for layer in &self.layers {
+                let dataset = layer.get_dataset();
+
+                // Check if this layer contains the facet field
+                if let Ok(column) = dataset.column(field) {
+                    field_found = true;
+                    let unique_vals = column.unique_values();
+
+                    // Merge unique values while preserving first-appearance order
+                    for val in unique_vals {
+                        if seen.insert(val.clone()) {
+                            vlaues.push(val);
+                        }
+                    }
+                }
+            }
+
+            // 4. Validate that the field was found in at least one layer
+            if !field_found {
+                return Err(ChartonError::Data(format!(
+                    "Facet field '{}' not found in any layer",
+                    field
+                )));
+            }
+
+            // 5. Validate that the field has at least one valid value
+            if values.is_empty() {
+                return Err(ChartonError::Data(format!(
+                    "Facet field '{}' has no valid (non-null) values",
+                    field
+                )));
+            }
+
+            all_factors.push(values);
+        }
+
+        Ok(all_factors)
+    }
+
     /// Add a layer to the chart
     ///
     /// Adds a new chart layer to create a multi-layered visualization. Each layer can represent

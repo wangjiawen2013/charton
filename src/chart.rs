@@ -779,7 +779,7 @@ where
     }
 
     /// Returns a reference to the underlying Dataset.
-    /// 
+    ///
     /// This provides direct access to the layer's data for faceting operations,
     /// such as extracting unique facet values and filtering data by panel.
     fn get_dataset(&self) -> &Dataset {
