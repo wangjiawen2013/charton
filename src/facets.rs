@@ -23,19 +23,23 @@ pub trait Facet: Send + Sync {
     /// Returns the scale resolution strategy (Fixed vs Free).
     fn strategy(&self) -> FacetStrategy;
 
-    /// Computes the physical grid layout for the facets.
+    /// Computes the physical panel layout for the facets.
     ///
     /// # Arguments
     /// * `factors` - The unique values from the data fields, in the same order
     ///   as returned by `fields()`.
     /// * `container` - The total area available for all facets.
     /// * `theme` - Theme settings for spacing and label sizes.
-    fn compute_layout(
+    ///
+    /// # Returns
+    /// A `Vec<FacetPanel>` ordered row-major. Each panel contains its plot
+    /// rectangle, header rectangle, and facet filter for data subsetting.
+    fn compute_panels(
         &self,
         factors: &[Vec<String>],
         container: &Rect,
         theme: &crate::theme::Theme,
-    ) -> FacetLayout;
+    ) -> Vec<FacetPanel>;
 }
 
 // ============== User-Friendly API Entry Point ==============
@@ -205,8 +209,12 @@ pub struct FacetPanelInfo {
     pub row_label: String,
     /// The column-level facet value for this cell.
     pub col_label: String,
-    /// The facet values used to filter the underlying rows for this panel.
-    pub facet_values: Vec<String>,
+    /// The facet filter: `(field_name, value)` pairs used to filter the
+    /// underlying rows for this panel. Each layer must keep only the rows
+    /// whose facet field(s) match these exact values.
+    ///
+    /// Empty means no filtering (i.e., a non-faceted, single-panel chart).
+    pub facet_filter: Vec<(String, String)>,
 }
 
 /// A resolved facet panel containing its physical bounds.
@@ -217,11 +225,4 @@ pub struct FacetPanel {
     /// The area where the category label (strip) is drawn.
     pub header_rect: Rect,
     pub info: FacetPanelInfo,
-}
-
-/// The physical layout result of any faceting operation.
-/// This is consumed by the rendering engine.
-#[derive(Default, Clone)]
-pub struct FacetLayout {
-    pub cells: Vec<FacetPanel>,
 }

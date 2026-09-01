@@ -4,7 +4,7 @@
 //! for grid layouts (row field + column field, strict matrix layout).
 
 use crate::coordinate::Rect;
-use crate::facets::{Facet, FacetLayout, FacetPanel, FacetPanelInfo, FacetStrategy};
+use crate::facets::{Facet, FacetPanel, FacetPanelInfo, FacetStrategy};
 use crate::theme::Theme;
 
 /// Internal implementation of Grid faceting.
@@ -45,12 +45,12 @@ impl Facet for FacetGridImpl {
         self.strategy
     }
 
-    fn compute_layout(
+    fn compute_panels(
         &self,
         factors: &[Vec<String>],
         container: &Rect,
         theme: &Theme,
-    ) -> FacetLayout {
+    ) -> Vec<FacetPanel> {
         let row_values = &factors[0];
         let col_values = &factors[1];
 
@@ -69,7 +69,7 @@ impl Facet for FacetGridImpl {
         let plot_h = (panel_h - header_h - 8.0 - axis_pad).max(40.0);
 
         // 2. Generate panel layouts using functional style
-        let cells = row_values
+        row_values
             .iter()
             .enumerate()
             .flat_map(|(r_idx, r_val)| {
@@ -88,13 +88,14 @@ impl Facet for FacetGridImpl {
                             label: format!("{} | {}", r_val, c_val),
                             row_label: r_val.clone(),
                             col_label: c_val.clone(),
-                            facet_values: vec![r_val.clone(), c_val.clone()],
+                            facet_filter: vec![
+                                (self.row_field.clone(), r_val.clone()),
+                                (self.col_field.clone(), c_val.clone()),
+                            ],
                         },
                     }
                 })
             })
-            .collect();
-
-        FacetLayout { cells }
+            .collect()
     }
 }
