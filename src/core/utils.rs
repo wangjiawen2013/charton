@@ -631,7 +631,7 @@ fn build_string_column(raw_col: Vec<Value>) -> ColumnVector {
 }
 
 #[cfg(feature = "geo")]
-fn clear_bit(validity: &mut [u8], index: usize) {
+const fn clear_bit(validity: &mut [u8], index: usize) {
     validity[index / 8] &= !(1 << (index % 8));
 }
 
