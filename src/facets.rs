@@ -205,8 +205,12 @@ pub struct FacetPanelInfo {
     pub row_label: String,
     /// The column-level facet value for this cell.
     pub col_label: String,
-    /// The facet values used to filter the underlying rows for this panel.
-    pub facet_values: Vec<String>,
+    /// The facet filter: `(field_name, value)` pairs used to filter the
+    /// underlying rows for this panel. Each layer must keep only the rows
+    /// whose facet field(s) match these exact values.
+    ///
+    /// Empty means no filtering (i.e., a non-faceted, single-panel chart).
+    pub facet_filter: Vec<(String, String)>,
 }
 
 /// A resolved facet panel containing its physical bounds.

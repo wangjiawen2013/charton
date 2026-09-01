@@ -849,7 +849,7 @@ impl LayeredChart {
                 label: String::new(),
                 row_label: String::new(),
                 col_label: String::new(),
-                facet_values: Vec::new(),
+                facet_filter: Vec::new(),
             },
         }])
     }
@@ -885,10 +885,23 @@ impl LayeredChart {
             )?;
         }
 
-        // 4. Render marks with clipping
+        // 4. Render marks with clipping AND facet filtering
+        //    For a faceted chart, each layer is first reduced to the subset of
+        //    rows matching this panel's facet filter; the filtered layer is
+        //    then rendered. Non-faceted panels (empty filter) reuse the
+        //    original layer unchanged, avoiding any data copy.
         backend.begin_clip_scope(&panel.rect);
         for layer in &self.layers {
-            layer.render_marks(backend, &panel_ctx)?;
+            // Ask the layer for its filtered copy (Ok(Some)) or, when the
+            // filter is empty / the layer does not support filtering, for the
+            // original (Ok(None)). A non-empty filter with a missing field
+            // fails fast via Err, surfacing misconfigured facet specs.
+            let effective_layer: Arc<dyn Layer> =
+                match layer.with_facet_filter(&panel.info.facet_filter)? {
+                    Some(filtered) => filtered,
+                    None => layer.clone(),
+                };
+            effective_layer.render_marks(backend, &panel_ctx)?;
         }
         backend.end_clip_scope();
 

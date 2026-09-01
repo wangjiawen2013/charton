@@ -57,6 +57,7 @@ pub mod prelude {
     pub use crate::core::conversion::IntoLayered;
     pub use crate::core::data::{ColumnVector, Dataset, IntoColumn, ToDataset};
     pub use crate::datasets::load_dataset;
+    pub use crate::facets::FacetSpec;
     pub use crate::mark::{
         area::MarkArea, bar::MarkBar, boxplot::MarkBoxplot, errorbar::MarkErrorBar,
         geo_path::MarkGeoPath, line::MarkLine, point::MarkPoint, rect::MarkRect, rule::MarkRule,

@@ -235,4 +235,38 @@ pub trait Layer: MarkRenderer + Send + Sync {
         coord: Arc<dyn CoordinateTrait>,
         aesthetics: &GlobalAesthetics,
     );
+
+    // --- Faceted Data Subsetting ---
+
+    /// Creates a filtered copy of this layer that only retains the rows
+    /// matching the given facet filter. This is the core of faceted
+    /// rendering: each panel asks every layer for its data subset.
+    ///
+    /// # Arguments
+    /// * `filter` - A list of `(field_name, value)` pairs. A row is kept iff
+    ///   it matches **all** pairs (logical AND).
+    ///
+    /// # Returns
+    /// * `Ok(None)` - The filter is empty (non-faceted chart); the caller
+    ///   should use the original layer unchanged. This avoids a full data
+    ///   copy in the common single-panel case.
+    /// * `Ok(Some(Arc<dyn Layer>))` - A new layer whose dataset is the
+    ///   filtered subset (mark and encodings are preserved).
+    /// * `Err(...)` - A non-empty filter references a field that does not
+    ///   exist in this layer's dataset. We **fail fast** here instead of
+    ///   silently rendering the full dataset, so typos in facet fields are
+    ///   surfaced immediately rather than producing wrong charts.
+    ///
+    /// # Default implementation
+    /// Returns `Ok(None)` (no filtering). Concrete layers that own a
+    /// `Dataset` (e.g. `Chart<T>`) override this to implement real
+    /// subsetting. Special layers such as pure annotations can keep the
+    /// default to be drawn unchanged on every panel.
+    fn with_facet_filter(
+        &self,
+        filter: &[(String, String)],
+    ) -> Result<Option<Arc<dyn Layer>>, ChartonError> {
+        let _ = filter;
+        Ok(None)
+    }
 }

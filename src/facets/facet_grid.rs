@@ -88,7 +88,10 @@ impl Facet for FacetGridImpl {
                             label: format!("{} | {}", r_val, c_val),
                             row_label: r_val.clone(),
                             col_label: c_val.clone(),
-                            facet_values: vec![r_val.clone(), c_val.clone()],
+                            facet_filter: vec![
+                                (self.row_field.clone(), r_val.clone()),
+                                (self.col_field.clone(), c_val.clone()),
+                            ],
                         },
                     }
                 })
