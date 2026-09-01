@@ -470,7 +470,7 @@ impl LayeredChart {
         let facet_impl = facet_spec.clone().into_facet();
 
         // 4. Compute the physical panels
-        let panels = facet_impl.compute_layout(&factors, container, &self.theme);
+        let panels = facet_impl.compute_panels(&factors, container, &self.theme);
 
         Ok(Some(panels))
     }
