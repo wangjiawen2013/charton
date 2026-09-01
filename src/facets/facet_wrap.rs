@@ -4,7 +4,7 @@
 //! for wrap layouts (single field, wrapped into a 2D grid).
 
 use crate::coordinate::Rect;
-use crate::facets::{Facet, FacetLayout, FacetPanel, FacetPanelInfo, FacetStrategy};
+use crate::facets::{Facet, FacetPanel, FacetPanelInfo, FacetStrategy};
 use crate::theme::Theme;
 
 /// Internal implementation of Wrap faceting.
@@ -56,7 +56,7 @@ impl Facet for FacetWrapImpl {
         factors: &[Vec<String>],
         container: &Rect,
         theme: &Theme,
-    ) -> FacetLayout {
+    ) -> Vec<FacetPanel> {
         let values = &factors[0];
         let n = values.len();
 
@@ -106,6 +106,6 @@ impl Facet for FacetWrapImpl {
             })
             .collect();
 
-        FacetLayout { cells }
+        cells
     }
 }

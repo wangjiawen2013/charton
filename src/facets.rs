@@ -35,7 +35,7 @@ pub trait Facet: Send + Sync {
         factors: &[Vec<String>],
         container: &Rect,
         theme: &crate::theme::Theme,
-    ) -> FacetLayout;
+    ) -> Vec<FacetPanel>;
 }
 
 // ============== User-Friendly API Entry Point ==============
@@ -217,11 +217,4 @@ pub struct FacetPanel {
     /// The area where the category label (strip) is drawn.
     pub header_rect: Rect,
     pub info: FacetPanelInfo,
-}
-
-/// The physical layout result of any faceting operation.
-/// This is consumed by the rendering engine.
-#[derive(Default, Clone)]
-pub struct FacetLayout {
-    pub cells: Vec<FacetPanel>,
 }

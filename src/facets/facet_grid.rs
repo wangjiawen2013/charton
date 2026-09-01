@@ -4,7 +4,7 @@
 //! for grid layouts (row field + column field, strict matrix layout).
 
 use crate::coordinate::Rect;
-use crate::facets::{Facet, FacetLayout, FacetPanel, FacetPanelInfo, FacetStrategy};
+use crate::facets::{Facet, FacetPanel, FacetPanelInfo, FacetStrategy};
 use crate::theme::Theme;
 
 /// Internal implementation of Grid faceting.
@@ -50,7 +50,7 @@ impl Facet for FacetGridImpl {
         factors: &[Vec<String>],
         container: &Rect,
         theme: &Theme,
-    ) -> FacetLayout {
+    ) -> Vec<FacetPanel> {
         let row_values = &factors[0];
         let col_values = &factors[1];
 
@@ -95,6 +95,6 @@ impl Facet for FacetGridImpl {
             })
             .collect();
 
-        FacetLayout { cells }
+        cells
     }
 }

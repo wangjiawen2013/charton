@@ -1,4 +1,5 @@
 use super::aesthetics::GlobalAesthetics;
+use super::data::Dataset;
 use crate::Precision;
 use crate::coordinate::{CoordinateTrait, Rect};
 use crate::core::context::PanelContext;
