@@ -23,14 +23,18 @@ pub trait Facet: Send + Sync {
     /// Returns the scale resolution strategy (Fixed vs Free).
     fn strategy(&self) -> FacetStrategy;
 
-    /// Computes the physical grid layout for the facets.
+    /// Computes the physical panel layout for the facets.
     ///
     /// # Arguments
     /// * `factors` - The unique values from the data fields, in the same order
     ///   as returned by `fields()`.
     /// * `container` - The total area available for all facets.
     /// * `theme` - Theme settings for spacing and label sizes.
-    fn compute_layout(
+    ///
+    /// # Returns
+    /// A `Vec<FacetPanel>` ordered row-major. Each panel contains its plot
+    /// rectangle, header rectangle, and facet filter for data subsetting.
+    fn compute_panels(
         &self,
         factors: &[Vec<String>],
         container: &Rect,

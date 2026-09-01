@@ -45,7 +45,7 @@ impl Facet for FacetGridImpl {
         self.strategy
     }
 
-    fn compute_layout(
+    fn compute_panels(
         &self,
         factors: &[Vec<String>],
         container: &Rect,

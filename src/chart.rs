@@ -1005,7 +1005,7 @@ where
     /// were already injected during the global resolution phase).
     ///
     /// # Filter semantics
-    /// - A row is kept iff it matches **all** `(field, value)` pairs
+    /// - A row is kept if it matches **all** `(field, value)` pairs
     ///   (logical AND). This naturally supports both Wrap (one pair) and
     ///   Grid (two pairs) facets.
     ///
