@@ -8,7 +8,7 @@ use crate::core::guide::GuideSpec;
 use crate::core::layer::{Layer, RectConfig, RenderBackend, TextConfig};
 use crate::encode::Channel;
 use crate::error::ChartonError;
-use crate::facets::FacetSpec;
+use crate::facets::{FacetPanel, FacetPanelInfo, FacetSpec};
 use crate::scale::{
     Expansion, ExplicitTick, Scale, ScaleDomain, create_scale, mapper::VisualMapper,
 };
@@ -412,7 +412,7 @@ impl LayeredChart {
                     // Merge unique values while preserving first-appearance order
                     for val in unique_vals {
                         if seen.insert(val.clone()) {
-                            vlaues.push(val);
+                            values.push(val);
                         }
                     }
                 }
@@ -438,6 +438,41 @@ impl LayeredChart {
         }
 
         Ok(all_factors)
+    }
+
+    /// Computes the facet panels for the chart.
+    ///
+    /// This method orchestrates the complete faceting pipeline:
+    /// 1. Resolves facet factors (unique values) from all layers
+    /// 2. Converts the FacetSpec into a concrete Facet implementation
+    /// 3. Computes the physical panel layout
+    ///
+    /// # Arguments
+    /// * `container` - The total area available for all facets
+    ///
+    /// # Returns
+    /// * `Some(Vec<FacetPanel>)` if faceting is configured
+    /// * `None` if no facet is configured
+    pub(crate) fn compute_facet_panels(
+        &self,
+        container: &Rect,
+    ) -> Result<Option<Vec<FacetPanel>>, ChartonError> {
+        // 1. Check if faceting is configured
+        let facet_spec = match &self.facet {
+            Some(spec) => spec,
+            None => return Ok(None),
+        };
+
+        // 2. Resolve unique facet values from all layers
+        let factors = self.resolve_facet_factors(facet_spec)?;
+
+        // 3. Convert spec to concrete implementation
+        let facet_impl = facet_spec.clone().into_facet();
+
+        // 4. Compute the physical panels
+        let panels = facet_impl.compute_layout(&factors, container, &self.theme);
+
+        Ok(Some(panels))
     }
 
     /// Add a layer to the chart
@@ -745,8 +780,9 @@ impl LayeredChart {
 
     /// Renders the entire layered chart to the provided backend.
     ///
-    /// This implementation coordinates the final rendering pipeline with a clear separation
-    /// between global specifications (ChartSpec) and local drawing environments (PanelContext).
+    /// This implementation uses a unified rendering pipeline where:
+    /// - Non-faceted charts are treated as a single-panel facet
+    /// - Faceted charts render multiple panels with the same core logic
     pub fn render<B: RenderBackend>(&mut self, backend: &mut B) -> Result<(), ChartonError> {
         // 0. Guard: Ensure there's something to render.
         if self.layers.is_empty() {
@@ -767,71 +803,154 @@ impl LayeredChart {
             layer.inject_resolved_scales(coord.clone(), &aesthetics);
         }
 
-        // --- STEP 4: ORCHESTRATED DRAWING ---
-        // 4a. Initialize the Primary Panel Context.
-        let primary_panel_ctx = PanelContext::new(&spec, coord.clone(), panel);
+        // --- STEP 4: RESOLVE PANELS ---
+        let panels = self.resolve_panels(&panel)?;
 
-        // 4b. Render Grid Lines (BOTTOM LAYER)
-        // Check user override first, fallback to theme default.
-        let should_show_grid = self.show_grid.unwrap_or(self.theme.show_grid);
-        if should_show_grid {
-            let x_explicit = self.x_ticks.as_deref();
-            let y_explicit = self.y_ticks.as_deref();
+        // --- STEP 5: RENDER TITLE (once, centered over the entire chart) ---
+        self.render_title(backend, &panel)?;
 
-            // Polymorphic dispatch: The specific coordinate system handles its own grid drawing.
-            primary_panel_ctx.coord.render_grid_lines(
-                backend,
-                &self.theme,
-                &primary_panel_ctx.panel,
-                x_explicit,
-                y_explicit,
-            )?;
+        // --- STEP 6: RENDER ALL PANELS ---
+        for panel in &panels {
+            self.render_single_panel(backend, panel, &spec, &coord)?;
         }
 
-        // 4c. Render Chart Title.
-        self.render_title(backend, &primary_panel_ctx.panel)?;
-
-        // 4d. Render Marks (MIDDLE LAYER - Data Geometries)
-        // We activate clipping to lock chart marks strictly inside the data viewport.
-        // Since grid lines are drawn before this, they safely sit underneath the data.
-        backend.begin_clip_scope(&primary_panel_ctx.panel);
-
-        for layer in &self.layers {
-            layer.render_marks(backend, &primary_panel_ctx)?;
-        }
-
-        backend.end_clip_scope();
-
-        // 4e. Render Axes (TOP LAYER)
-        // Drawn after the marks and outside the clipping scope to ensure labels aren't clipped
-        // and axis spines sit crisply on top of data lines that touch the edges.
-        if self.theme.show_axes && self.layers.iter().any(|l| l.requires_axes()) {
-            let x_label = coord.get_x_label();
-            let y_label = coord.get_y_label();
-            let x_explicit = self.x_ticks.as_deref();
-            let y_explicit = self.y_ticks.as_deref();
-
-            // Polymorphic dispatch for axes
-            primary_panel_ctx.coord.render_axes(
-                backend,
-                &self.theme,
-                &primary_panel_ctx.panel,
-                x_label,
-                x_explicit,
-                y_label,
-                y_explicit,
-            )?;
-        }
-
-        // 4f. Render Unified Legends & Guides (FOREGROUND LAYER)
+        // --- STEP 7: RENDER UNIFIED LEGENDS (once, after all panels) ---
         if self.theme.show_legend {
+            let legend_ctx = PanelContext::new(&spec, coord.clone(), panel);
             crate::render::legend_renderer::LegendRenderer::render_legend(
                 backend,
                 &guide_specs,
                 &self.theme,
-                &primary_panel_ctx,
+                &legend_ctx,
             );
         }
+
+        Ok(())
+    }
+
+    /// Resolves the list of panels to render.
+    ///
+    /// Non-faceted charts return a single panel with empty header and no facet values.
+    /// Faceted charts return the panels computed from the facet specification.
+    fn resolve_panels(&self, main_panel: &Rect) -> Result<Vec<FacetPanel>, ChartonError> {
+        if let Some(panels) = self.compute_facet_panels(main_panel)? {
+            return Ok(panels);
+        }
+
+        // Non-faceted: single panel with no header
+        Ok(vec![FacetPanel {
+            rect: *main_panel,
+            header_rect: Rect::new(0.0, 0.0, 0.0, 0.0),
+            info: FacetPanelInfo {
+                row: 0,
+                col: 0,
+                total_rows: 1,
+                total_cols: 1,
+                label: String::new(),
+                row_label: String::new(),
+                col_label: String::new(),
+                facet_values: Vec::new(),
+            },
+        }])
+    }
+
+    /// Renders a single panel (either a facet panel or the main panel).
+    ///
+    /// This is the unified rendering core that handles both faceted and
+    /// non-faceted charts with identical logic.
+    fn render_single_panel<B: RenderBackend>(
+        &self,
+        backend: &mut B,
+        panel: &FacetPanel,
+        spec: &ChartSpec<'_>,
+        coord: &Arc<dyn CoordinateTrait>,
+    ) -> Result<(), ChartonError> {
+        // 1. Create a localized panel context
+        let panel_ctx = PanelContext::new(spec, coord.clone(), panel.rect);
+
+        // 2. Render panel header (only if label is non-empty, i.e., facet panel)
+        if !panel.info.label.is_empty() {
+            self.render_facet_header(backend, panel.header_rect, &panel.info.label)?;
+        }
+
+        // 3. Render grid lines (if enabled)
+        let should_show_grid = self.show_grid.unwrap_or(self.theme.show_grid);
+        if should_show_grid {
+            coord.render_grid_lines(
+                backend,
+                &self.theme,
+                &panel.rect,
+                self.x_ticks.as_deref(),
+                self.y_ticks.as_deref(),
+            )?;
+        }
+
+        // 4. Render marks with clipping
+        backend.begin_clip_scope(&panel.rect);
+        for layer in &self.layers {
+            layer.render_marks(backend, &panel_ctx)?;
+        }
+        backend.end_clip_scope();
+
+        // 5. Render axes (if enabled and needed)
+        if self.theme.show_axes && self.layers.iter().any(|l| l.requires_axes()) {
+            coord.render_axes(
+                backend,
+                &self.theme,
+                &panel.rect,
+                coord.get_x_label(),
+                self.x_ticks.as_deref(),
+                coord.get_y_label(),
+                self.y_ticks.as_deref(),
+            )?;
+        }
+
+        Ok(())
+    }
+
+    /// Renders the facet panel header (strip label).
+    ///
+    /// This draws the category label at the top of each facet panel,
+    /// helping users identify which data subset is shown in each panel.
+    ///
+    /// # Arguments
+    /// * `backend` - The rendering backend
+    /// * `header` - The physical rectangle for the header strip
+    /// * `label` - The text label to display
+    fn render_facet_header<B: RenderBackend>(
+        &self,
+        backend: &mut B,
+        header: Rect,
+        label: &str,
+    ) -> Result<(), ChartonError> {
+        // Draw header background
+        backend.draw_rect(RectConfig {
+            x: header.x as Precision,
+            y: header.y as Precision,
+            width: header.width as Precision,
+            height: header.height as Precision,
+            fill: self.theme.facet_strip_fill,
+            stroke: "none".into(),
+            stroke_width: 0.0,
+            opacity: 1.0,
+        });
+
+        // Draw header text
+        let config = TextConfig {
+            x: (header.x + header.width / 2.0) as Precision,
+            y: (header.y + header.height / 2.0) as Precision,
+            text: label.to_string(),
+            font_size: self.theme.facet_label_size as Precision,
+            font_family: self.theme.title_family.clone(),
+            color: self.theme.facet_label_color,
+            text_anchor: "middle".to_string(),
+            dominant_baseline: "middle".into(),
+            font_weight: "bold".to_string(),
+            opacity: 1.0,
+            angle: 0.0,
+        };
+
+        backend.draw_text(config);
 
         Ok(())
     }
