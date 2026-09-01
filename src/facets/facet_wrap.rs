@@ -100,7 +100,7 @@ impl Facet for FacetWrapImpl {
                         label: val.clone(),
                         row_label: val.clone(),
                         col_label: String::new(),
-                        facet_values: vec![val.clone()],
+                        facet_filter: vec![(self.field.clone(), val.clone())],
                     },
                 }
             })
