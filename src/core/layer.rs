@@ -243,7 +243,7 @@ pub trait Layer: MarkRenderer + Send + Sync {
     /// rendering: each panel asks every layer for its data subset.
     ///
     /// # Arguments
-    /// * `filter` - A list of `(field_name, value)` pairs. A row is kept iff
+    /// * `filter` - A list of `(field_name, value)` pairs. A row is kept if
     ///   it matches **all** pairs (logical AND).
     ///
     /// # Returns
