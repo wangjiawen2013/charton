@@ -69,7 +69,7 @@ impl Facet for FacetGridImpl {
         let plot_h = (panel_h - header_h - 8.0 - axis_pad).max(40.0);
 
         // 2. Generate panel layouts using functional style
-        let cells = row_values
+        row_values
             .iter()
             .enumerate()
             .flat_map(|(r_idx, r_val)| {
@@ -96,8 +96,6 @@ impl Facet for FacetGridImpl {
                     }
                 })
             })
-            .collect();
-
-        cells
+            .collect()
     }
 }

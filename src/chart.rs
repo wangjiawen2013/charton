@@ -1059,10 +1059,7 @@ where
 
         // 4. Build the subset dataset via take_rows (row-index based, preserves
         //    column order and schema), then clone the Chart with the new data.
-        let filtered_data = match self.data.take_rows(&indices) {
-            Ok(ds) => ds,
-            Err(e) => return Err(e),
-        };
+        let filtered_data = self.data.take_rows(&indices)?;
 
         let filtered_chart = Chart {
             data: filtered_data,
