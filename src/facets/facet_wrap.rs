@@ -79,7 +79,7 @@ impl Facet for FacetWrapImpl {
         let plot_h = (panel_h - header_h - 8.0 - axis_pad).max(40.0);
 
         // 3. Generate panel layouts
-        let cells = values
+        values
             .iter()
             .enumerate()
             .map(|(idx, val)| {
@@ -104,8 +104,6 @@ impl Facet for FacetWrapImpl {
                     },
                 }
             })
-            .collect();
-
-        cells
+            .collect()
     }
 }
