@@ -1,7 +1,7 @@
 <svg width="600" height="400" viewBox="0 0 600 400" xmlns="http://www.w3.org/2000/svg"><rect x="0.000" y="0.000" width="600.000" height="400.000" fill="rgba(255,255,255,1.000)" stroke="none" stroke-width="0.000" fill-opacity="1.000" stroke-opacity="1.000" />
 <text x="300.000" y="13.333" font-size="18.0" font-family="Inter, -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, 'PingFang SC', 'Microsoft YaHei', Ubuntu, Cantarell, 'Noto Sans', sans-serif" fill="rgba(51,51,51,1.000)" fill-opacity="1.000" text-anchor="middle" font-weight="bold" dominant-baseline="middle" transform="rotate(0 300.000 13.333)">Chart with Explicit Tick Values</text>
-<defs><clipPath id="plot-clip-area"><rect x="94.300" y="40.000" width="421.220" height="271.000" /></clipPath></defs>
-<g clip-path="url(#plot-clip-area)">
+<defs><clipPath id="plot-clip-area-0"><rect x="94.300" y="40.000" width="421.220" height="271.000" /></clipPath></defs>
+<g clip-path="url(#plot-clip-area-0)">
 <circle cx="129.402" cy="298.682" r="3.000" fill="rgba(31,119,180,1.000)" stroke="none" stroke-width="0.000" fill-opacity="1.000" stroke-opacity="1.000" />
 <circle cx="217.156" cy="237.091" r="3.000" fill="rgba(255,127,14,1.000)" stroke="none" stroke-width="0.000" fill-opacity="1.000" stroke-opacity="1.000" />
 <circle cx="304.910" cy="175.500" r="3.000" fill="rgba(44,160,44,1.000)" stroke="none" stroke-width="0.000" fill-opacity="1.000" stroke-opacity="1.000" />

@@ -1,7 +1,7 @@
 <svg width="600" height="400" viewBox="0 0 600 400" xmlns="http://www.w3.org/2000/svg"><rect x="0.000" y="0.000" width="600.000" height="400.000" fill="rgba(255,255,255,1.000)" stroke="none" stroke-width="0.000" fill-opacity="1.000" stroke-opacity="1.000" />
 <text x="300.000" y="13.333" font-size="18.0" font-family="Inter, -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, 'PingFang SC', 'Microsoft YaHei', Ubuntu, Cantarell, 'Noto Sans', sans-serif" fill="rgba(51,51,51,1.000)" fill-opacity="1.000" text-anchor="middle" font-weight="bold" dominant-baseline="middle" transform="rotate(0 300.000 13.333)">Iowa Electricity Generation</text>
-<defs><clipPath id="plot-clip-area"><rect x="101.450" y="40.000" width="398.150" height="271.000" /></clipPath></defs>
-<g clip-path="url(#plot-clip-area)">
+<defs><clipPath id="plot-clip-area-0"><rect x="101.450" y="40.000" width="398.150" height="271.000" /></clipPath></defs>
+<g clip-path="url(#plot-clip-area-0)">
 <path d="M 101.450 311.000 L 499.600 311.000" fill="none" stroke="rgba(136,136,136,1.000)" stroke-width="1.000" stroke-opacity="0.500" stroke-linejoin="round" stroke-linecap="round" stroke-dasharray="4,4" />
 <path d="M 119.548 246.476 L 152.453 220.667 L 185.358 143.238 L 218.263 104.524 L 251.168 78.714 L 284.073 52.905 L 316.977 91.619 L 349.882 130.333 L 382.787 194.857 L 415.692 233.571 L 415.692 311.000 L 382.787 311.000 L 349.882 311.000 L 316.977 311.000 L 284.073 311.000 L 251.168 311.000 L 218.263 311.000 L 185.358 311.000 L 152.453 311.000 L 119.548 311.000 Z" fill="rgba(31,119,180,1.000)" fill-opacity="0.300" stroke="none" />
 <path d="M 119.548 246.476 L 152.453 220.667 L 185.358 143.238 L 218.263 104.524 L 251.168 78.714 L 284.073 52.905 L 316.977 91.619 L 349.882 130.333 L 382.787 194.857 L 415.692 233.571" fill="none" stroke="rgba(31,119,180,1.000)" stroke-width="1.000" stroke-opacity="1.000" stroke-linejoin="round" stroke-linecap="round" />
