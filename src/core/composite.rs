@@ -805,13 +805,16 @@ impl LayeredChart {
 
         // --- STEP 4: RESOLVE PANELS ---
         let panels = self.resolve_panels(&panel)?;
+        let should_show_grid = self
+            .show_grid
+            .unwrap_or(self.theme.show_grid || panels.len() > 1);
 
         // --- STEP 5: RENDER TITLE (once, centered over the entire chart) ---
         self.render_title(backend, &panel)?;
 
         // --- STEP 6: RENDER ALL PANELS ---
         for panel in &panels {
-            self.render_single_panel(backend, panel, &spec, &coord)?;
+            self.render_single_panel(backend, panel, &spec, &coord, should_show_grid)?;
         }
 
         // --- STEP 7: RENDER UNIFIED LEGENDS (once, after all panels) ---
@@ -850,6 +853,8 @@ impl LayeredChart {
                 row_label: String::new(),
                 col_label: String::new(),
                 facet_filter: Vec::new(),
+                show_x_axis: true,
+                show_y_axis: true,
             },
         }])
     }
@@ -864,17 +869,17 @@ impl LayeredChart {
         panel: &FacetPanel,
         spec: &ChartSpec<'_>,
         coord: &Arc<dyn CoordinateTrait>,
+        should_show_grid: bool,
     ) -> Result<(), ChartonError> {
         // 1. Create a localized panel context
         let panel_ctx = PanelContext::new(spec, coord.clone(), panel.rect);
 
         // 2. Render panel header (only if label is non-empty, i.e., facet panel)
         if !panel.info.label.is_empty() {
-            self.render_facet_header(backend, panel.header_rect, &panel.info.label)?;
+            self.render_facet_header(backend, panel.header_rect, panel.rect, &panel.info.label)?;
         }
 
-        // 3. Render grid lines (if enabled)
-        let should_show_grid = self.show_grid.unwrap_or(self.theme.show_grid);
+        // 3. Render grid lines when enabled, including the multi-panel default.
         if should_show_grid {
             coord.render_grid_lines(
                 backend,
@@ -915,6 +920,10 @@ impl LayeredChart {
                 self.x_ticks.as_deref(),
                 coord.get_y_label(),
                 self.y_ticks.as_deref(),
+                crate::coordinate::AxisVisibility {
+                    show_x: panel.info.show_x_axis,
+                    show_y: panel.info.show_y_axis,
+                },
             )?;
         }
 
@@ -929,28 +938,18 @@ impl LayeredChart {
     /// # Arguments
     /// * `backend` - The rendering backend
     /// * `header` - The physical rectangle for the header strip
+    /// * `plot` - The panel's physical plotting rectangle
     /// * `label` - The text label to display
     fn render_facet_header<B: RenderBackend>(
         &self,
         backend: &mut B,
         header: Rect,
+        plot: Rect,
         label: &str,
     ) -> Result<(), ChartonError> {
-        // Draw header background
-        backend.draw_rect(RectConfig {
-            x: header.x as Precision,
-            y: header.y as Precision,
-            width: header.width as Precision,
-            height: header.height as Precision,
-            fill: self.theme.facet_strip_fill,
-            stroke: "none".into(),
-            stroke_width: 0.0,
-            opacity: 1.0,
-        });
-
         // Draw header text
         let config = TextConfig {
-            x: (header.x + header.width / 2.0) as Precision,
+            x: (plot.x + plot.width / 2.0) as Precision,
             y: (header.y + header.height / 2.0) as Precision,
             text: label.to_string(),
             font_size: self.theme.facet_label_size as Precision,

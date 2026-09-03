@@ -9,6 +9,12 @@ use crate::theme::Theme;
 use crate::visual::color::SingleColor;
 use std::sync::Arc;
 
+#[derive(Debug, Clone, Copy)]
+pub struct AxisVisibility {
+    pub show_x: bool,
+    pub show_y: bool,
+}
+
 /// A simple rectangle representing a physical area on the canvas.
 /// This defines where the coordinate system is allowed to draw.
 #[derive(Debug, Clone, Copy)]
@@ -79,6 +85,7 @@ pub trait CoordinateTrait: Send + Sync {
         x_explicit: Option<&[ExplicitTick]>,
         y_label: &str,
         y_explicit: Option<&[ExplicitTick]>,
+        visibility: AxisVisibility,
     ) -> Result<(), ChartonError>;
 
     /// Renders the coordinate system's background grid.

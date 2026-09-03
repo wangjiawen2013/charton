@@ -181,6 +181,35 @@ pub enum FacetStrategy {
     FreeY, // Shared X, Independent Y
 }
 
+impl FacetStrategy {
+    /// Determines whether the bottom (X) and left (Y) axes are shown for a panel.
+    ///
+    /// `is_last_in_column` is needed by wrap layouts whose final row may be
+    /// incomplete. For example, with five panels and three columns, the third
+    /// panel is the last panel in its column even though it belongs to the
+    /// first visual row.
+    pub(crate) fn axis_visibility(
+        self,
+        row: usize,
+        col: usize,
+        total_rows: usize,
+        // Whether this panel is the last actual panel in its column.
+        is_last_in_column: bool,
+    ) -> (bool, bool) {
+        // Shared X axes belong on the bottom-most actual panel of each column;
+        // shared Y axes belong on the left-most column.
+        let is_bottom = is_last_in_column || row + 1 == total_rows;
+        let is_left = col == 0;
+
+        match self {
+            Self::Fixed => (is_bottom, is_left),
+            Self::Free => (true, true),
+            Self::FreeX => (true, is_left),
+            Self::FreeY => (is_bottom, true),
+        }
+    }
+}
+
 /// Enables ergonomically setting strategy via string literals (e.g. `"free_x"`).
 impl From<&str> for FacetStrategy {
     fn from(s: &str) -> Self {
@@ -191,6 +220,53 @@ impl From<&str> for FacetStrategy {
             "fixed" => FacetStrategy::Fixed,
             _ => FacetStrategy::Fixed,
         }
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::FacetSpec;
+    use crate::coordinate::Rect;
+    use crate::theme::Theme;
+
+    #[test]
+    fn facet_panels_keep_equal_plot_dimensions() {
+        let container = Rect::new(0.0, 0.0, 1000.0, 800.0);
+        let theme = Theme::default();
+
+        let grid = FacetSpec::grid("row", "column").into_facet();
+        let grid_panels = grid.compute_panels(
+            &[
+                vec!["r1".to_string(), "r2".to_string()],
+                vec!["c1".to_string(), "c2".to_string()],
+            ],
+            &container,
+            &theme,
+        );
+        let grid_size = (grid_panels[0].rect.width, grid_panels[0].rect.height);
+        assert!(
+            grid_panels
+                .iter()
+                .all(|panel| (panel.rect.width, panel.rect.height) == grid_size)
+        );
+
+        let wrap = FacetSpec::wrap("category").with_columns(2).into_facet();
+        let wrap_panels = wrap.compute_panels(
+            &[vec![
+                "a".to_string(),
+                "b".to_string(),
+                "c".to_string(),
+                "d".to_string(),
+            ]],
+            &container,
+            &theme,
+        );
+        let wrap_size = (wrap_panels[0].rect.width, wrap_panels[0].rect.height);
+        assert!(
+            wrap_panels
+                .iter()
+                .all(|panel| (panel.rect.width, panel.rect.height) == wrap_size)
+        );
     }
 }
 
@@ -215,6 +291,8 @@ pub struct FacetPanelInfo {
     ///
     /// Empty means no filtering (i.e., a non-faceted, single-panel chart).
     pub facet_filter: Vec<(String, String)>,
+    pub show_x_axis: bool,
+    pub show_y_axis: bool,
 }
 
 /// A resolved facet panel containing its physical bounds.

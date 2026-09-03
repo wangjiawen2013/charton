@@ -1,5 +1,5 @@
 use crate::Precision;
-use crate::coordinate::{CoordinateTrait, Rect, polar::Polar};
+use crate::coordinate::{AxisVisibility, CoordinateTrait, Rect, polar::Polar};
 use crate::core::layer::{CircleConfig, LineConfig, RenderBackend, TextConfig};
 use crate::error::ChartonError;
 use crate::scale::ExplicitTick;
@@ -21,6 +21,7 @@ pub fn render_polar_axes(
     _x_explicit: Option<&[ExplicitTick]>,
     _y_label: &str,
     _y_explicit: Option<&[ExplicitTick]>,
+    visibility: AxisVisibility,
 ) -> Result<(), ChartonError> {
     let x_scale = coord.get_x_scale();
 
@@ -30,15 +31,17 @@ pub fn render_polar_axes(
     let max_r = panel.width.min(panel.height) / 2.0;
 
     // Draw the outermost boundary circle
-    backend.draw_circle(CircleConfig {
-        x: center_x as Precision,
-        y: center_y as Precision,
-        radius: max_r as Precision,
-        fill: "none".into(),
-        stroke: theme.grid_color,
-        stroke_width: theme.grid_width as Precision,
-        opacity: 0.5,
-    });
+    if visibility.show_x || visibility.show_y {
+        backend.draw_circle(CircleConfig {
+            x: center_x as Precision,
+            y: center_y as Precision,
+            radius: max_r as Precision,
+            fill: "none".into(),
+            stroke: theme.grid_color,
+            stroke_width: theme.grid_width as Precision,
+            opacity: 0.5,
+        });
+    }
 
     // Check if the chart is a Pie or Donut chart (implied by an empty x_label).
     // For Nightingale Rose charts, we generate ticks along the circumference based on the total perimeter.
@@ -50,48 +53,50 @@ pub fn render_polar_axes(
         vec![]
     };
 
-    for tick in x_ticks {
-        let x_n = x_scale.normalize(tick.value);
-        let theta = coord.start_angle + x_n * (coord.end_angle - coord.start_angle);
+    if visibility.show_x {
+        for tick in x_ticks {
+            let x_n = x_scale.normalize(tick.value);
+            let theta = coord.start_angle + x_n * (coord.end_angle - coord.start_angle);
 
-        // Calculate label coordinates with padding
-        let label_r = max_r + theme.tick_label_padding + 2.0;
-        let lx = center_x + label_r * theta.cos();
-        let ly = center_y + label_r * theta.sin();
+            // Calculate label coordinates with padding
+            let label_r = max_r + theme.tick_label_padding + 2.0;
+            let lx = center_x + label_r * theta.cos();
+            let ly = center_y + label_r * theta.sin();
 
-        let cos_t = theta.cos();
-        let sin_t = theta.sin();
+            let cos_t = theta.cos();
+            let sin_t = theta.sin();
 
-        // Resolve text anchoring: ensures text "grows" away from the circle center
-        // to prevent overlapping with grid lines.
-        let anchor = if cos_t > 0.1 {
-            "start"
-        } else if cos_t < -0.1 {
-            "end"
-        } else {
-            "middle"
-        };
-        let baseline = if sin_t > 0.5 {
-            "hanging"
-        } else if sin_t < -0.5 {
-            "auto"
-        } else {
-            "middle"
-        };
+            // Resolve text anchoring: ensures text "grows" away from the circle center
+            // to prevent overlapping with grid lines.
+            let anchor = if cos_t > 0.1 {
+                "start"
+            } else if cos_t < -0.1 {
+                "end"
+            } else {
+                "middle"
+            };
+            let baseline = if sin_t > 0.5 {
+                "hanging"
+            } else if sin_t < -0.5 {
+                "auto"
+            } else {
+                "middle"
+            };
 
-        backend.draw_text(TextConfig {
-            x: lx as Precision,
-            y: ly as Precision,
-            text: tick.label.clone(),
-            font_size: theme.tick_label_size as Precision,
-            font_family: theme.tick_label_family.clone(),
-            color: theme.tick_label_color,
-            text_anchor: anchor.to_string(),
-            dominant_baseline: baseline.to_string(),
-            font_weight: "normal".to_string(),
-            opacity: 1.0,
-            angle: 0.0,
-        });
+            backend.draw_text(TextConfig {
+                x: lx as Precision,
+                y: ly as Precision,
+                text: tick.label.clone(),
+                font_size: theme.tick_label_size as Precision,
+                font_family: theme.tick_label_family.clone(),
+                color: theme.tick_label_color,
+                text_anchor: anchor.to_string(),
+                dominant_baseline: baseline.to_string(),
+                font_weight: "normal".to_string(),
+                opacity: 1.0,
+                angle: 0.0,
+            });
+        }
     }
 
     Ok(())

@@ -16,12 +16,13 @@ use std::fmt::Write;
 pub struct SvgBackend<'a> {
     /// Target buffer where SVG XML content is appended.
     pub buffer: &'a mut String,
+    clip_id: usize,
 }
 
 impl<'a> SvgBackend<'a> {
     /// Creates a new `SvgBackend` wrapped around an external string stream.
     pub const fn new(buffer: &'a mut String) -> Self {
-        Self { buffer }
+        Self { buffer, clip_id: 0 }
     }
 
     /// Directly formats a `SingleColor` into the SVG buffer as an `rgba()` string.
@@ -51,15 +52,20 @@ impl<'a> RenderBackend for SvgBackend<'a> {
     // =========================================================================
 
     fn begin_clip_scope(&mut self, rect: &crate::coordinate::Rect) {
-        let id = "plot-clip-area";
+        let id = self.clip_id;
+        self.clip_id += 1;
         // Define the clipPath inside a structural defs block
         let _ = writeln!(
             self.buffer,
-            r#"<defs><clipPath id="{}"><rect x="{:.3}" y="{:.3}" width="{:.3}" height="{:.3}" /></clipPath></defs>"#,
+            r#"<defs><clipPath id="plot-clip-area-{}"><rect x="{:.3}" y="{:.3}" width="{:.3}" height="{:.3}" /></clipPath></defs>"#,
             id, rect.x, rect.y, rect.width, rect.height
         );
         // Open a grouping isolation element targeting the clipPath definition
-        let _ = writeln!(self.buffer, r#"<g clip-path="url(#{})">"#, id);
+        let _ = writeln!(
+            self.buffer,
+            r#"<g clip-path="url(#plot-clip-area-{})">"#,
+            id
+        );
     }
 
     fn end_clip_scope(&mut self) {

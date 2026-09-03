@@ -1,5 +1,6 @@
 use charton::core::layer::Layer;
 use charton::prelude::*;
+use std::collections::HashSet;
 use std::error::Error;
 
 /// Wrap faceting: split the mtcars dataset into panels by `cyl` (number of
@@ -47,6 +48,59 @@ fn test_facet_grid_cyl_gear() -> Result<(), Box<dyn Error>> {
     assert!(
         !svg.is_empty(),
         "A grid-faceted chart should export a non-empty SVG"
+    );
+
+    Ok(())
+}
+
+#[test]
+fn test_facet_svg_uses_unique_clip_paths() -> Result<(), Box<dyn Error>> {
+    let ds = load_dataset("mtcars")?;
+
+    let svg = Chart::build(ds)?
+        .mark_point()?
+        .encode((alt::x("wt"), alt::y("mpg")))?
+        .facet(FacetSpec::grid("vs", "am"))
+        .to_svg()?;
+
+    let clip_ids: HashSet<&str> = svg
+        .split("clipPath id=\"")
+        .skip(1)
+        .filter_map(|part| part.split('"').next())
+        .collect();
+    let clip_refs = svg.matches("clip-path=\"url(#").count();
+
+    assert_eq!(clip_ids.len(), 4, "each grid panel needs its own clipPath");
+    assert_eq!(clip_refs, 4, "each grid panel needs its own clip reference");
+
+    Ok(())
+}
+
+#[test]
+fn test_multi_panel_shows_grid_by_default_but_can_be_disabled() -> Result<(), Box<dyn Error>> {
+    let ds = load_dataset("mtcars")?;
+
+    let chart = Chart::build(ds.clone())?
+        .mark_point()?
+        .encode((alt::x("wt"), alt::y("mpg")))?
+        .facet(FacetSpec::grid("vs", "am"));
+    let default_svg = chart.to_svg()?;
+
+    let disabled_svg = Chart::build(ds)?
+        .mark_point()?
+        .encode((alt::x("wt"), alt::y("mpg")))?
+        .facet(FacetSpec::grid("vs", "am"))
+        .with_grid(false)
+        .to_svg()?;
+
+    assert!(
+        default_svg.matches("stroke-opacity=\"0.500\"").count() > 0,
+        "multi-panel charts should show grid lines by default"
+    );
+    assert_eq!(
+        disabled_svg.matches("stroke-opacity=\"0.500\"").count(),
+        0,
+        "explicit with_grid(false) should disable grid lines"
     );
 
     Ok(())
