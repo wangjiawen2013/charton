@@ -188,7 +188,7 @@ impl FacetStrategy {
     /// incomplete. For example, with five panels and three columns, the third
     /// panel is the last panel in its column even though it belongs to the
     /// first visual row.
-    pub(crate) fn axis_visibility(
+    pub(crate) const fn axis_visibility(
         self,
         row: usize,
         col: usize,
