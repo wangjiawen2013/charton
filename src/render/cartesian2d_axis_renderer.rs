@@ -1,5 +1,5 @@
 use crate::Precision;
-use crate::coordinate::{CoordinateTrait, Rect, cartesian::Cartesian2D};
+use crate::coordinate::{AxisVisibility, CoordinateTrait, Rect, cartesian::Cartesian2D};
 use crate::core::layer::{LineConfig, PathConfig, PathTopology, RenderBackend, TextConfig};
 use crate::error::ChartonError;
 use crate::scale::ExplicitTick;
@@ -19,6 +19,7 @@ pub fn render_cartesian_axes(
     x_explicit: Option<&[ExplicitTick]>,
     y_label: &str,
     y_explicit: Option<&[ExplicitTick]>,
+    visibility: AxisVisibility,
 ) -> Result<(), ChartonError> {
     // Determine which data label belongs to which physical position based on flip state.
     // If flipped, the Y-scale data is projected onto the visual Bottom axis.
@@ -41,14 +42,18 @@ pub fn render_cartesian_axes(
     };
 
     // 1. Process the Physical Bottom Axis (X-axis in standard, Y-axis in flipped)
-    draw_axis_line(backend, theme, panel, true)?;
-    draw_ticks_and_labels(backend, theme, panel, coord, true, bottom_explicit)?;
-    draw_axis_title(backend, theme, panel, coord, bottom_label, true)?;
+    if visibility.show_x {
+        draw_axis_line(backend, theme, panel, true)?;
+        draw_ticks_and_labels(backend, theme, panel, coord, true, bottom_explicit)?;
+        draw_axis_title(backend, theme, panel, coord, bottom_label, true)?;
+    }
 
     // 2. Process the Physical Left Axis (Y-axis in standard, X-axis in flipped)
-    draw_axis_line(backend, theme, panel, false)?;
-    draw_ticks_and_labels(backend, theme, panel, coord, false, left_explicit)?;
-    draw_axis_title(backend, theme, panel, coord, left_label, false)?;
+    if visibility.show_y {
+        draw_axis_line(backend, theme, panel, false)?;
+        draw_ticks_and_labels(backend, theme, panel, coord, false, left_explicit)?;
+        draw_axis_title(backend, theme, panel, coord, left_label, false)?;
+    }
 
     Ok(())
 }
@@ -378,6 +383,28 @@ pub fn render_cartesian_grid(
             y1: canvas_y as Precision,
             x2: (panel.x + panel.width) as Precision,
             y2: canvas_y as Precision,
+            color: theme.grid_color,
+            width: theme.grid_width as Precision,
+            opacity: 0.5,
+            dash: vec![],
+        });
+    }
+
+    // Close the grid at the panel boundary even when the first or last tick
+    // does not land exactly on a scale endpoint.
+    let right = panel.x + panel.width;
+    let bottom = panel.y + panel.height;
+    for (x1, y1, x2, y2) in [
+        (panel.x, panel.y, right, panel.y),
+        (right, panel.y, right, bottom),
+        (right, bottom, panel.x, bottom),
+        (panel.x, bottom, panel.x, panel.y),
+    ] {
+        backend.draw_line(LineConfig {
+            x1: x1 as Precision,
+            y1: y1 as Precision,
+            x2: x2 as Precision,
+            y2: y2 as Precision,
             color: theme.grid_color,
             width: theme.grid_width as Precision,
             opacity: 0.5,

@@ -1,22 +1,25 @@
-//! Wrap faceting: split a chart into a grid of panels, one per category.
+//! Wrap faceting: create one time-series panel for each city.
 //!
-//! The `facet` method accepts a `FacetSpec`, and `&str` is implicitly converted
-//! into a wrap facet on a single field. Here we facet the mtcars dataset by
-//! `cyl` (number of cylinders): each panel is a scatter of `wt` vs `mpg` for a
-//! single cylinder count, so the global encoding and mark are defined once and
-//! reused across all panels.
+//! The built-in unemployment dataset contains a complete time series for each
+//! country. Every wrapped panel therefore has observations for all years.
 
 use charton::prelude::*;
 use std::error::Error;
 
 fn main() -> Result<(), Box<dyn Error>> {
-    let ds = load_dataset("mtcars")?;
+    let ds = load_dataset("unemployment")?;
 
-    // chart.facet("cyl")  ==  chart.facet(FacetSpec::wrap("cyl"))
     Chart::build(ds)?
         .mark_point()?
-        .encode((alt::x("wt"), alt::y("mpg")))?
-        .facet("cyl")
+        .configure_point(|point| point.with_size(4.0).with_opacity(0.85))
+        .encode((alt::x("Year"), alt::y("Unemployment rate (%)")))?
+        .facet(
+            FacetSpec::wrap("Country")
+                .with_columns(4)
+                .with_strategy("fixed"),
+        )
+        .with_title("Unemployment Rate by Country")
+        .with_size(1200, 800)
         .save("docs/src/images/facet_wrap.svg")?;
 
     println!("Saved docs/src/images/facet_wrap.svg");

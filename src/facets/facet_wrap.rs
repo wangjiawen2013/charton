@@ -75,8 +75,6 @@ impl Facet for FacetWrapImpl {
         let panel_h = (container.height - (rows - 1) as f64 * gap) / rows as f64;
 
         let axis_pad = (theme.label_size + theme.tick_label_size + 12.0).max(24.0);
-        let plot_w = (panel_w - axis_pad - 12.0).max(40.0);
-        let plot_h = (panel_h - header_h - 8.0 - axis_pad).max(40.0);
 
         // 3. Generate panel layouts
         values
@@ -85,22 +83,32 @@ impl Facet for FacetWrapImpl {
             .map(|(idx, val)| {
                 let r = idx / cols;
                 let c = idx % cols;
+                let is_last_in_column = idx + cols >= n;
+                let (show_x_axis, show_y_axis) =
+                    self.strategy.axis_visibility(r, c, rows, is_last_in_column);
 
                 let x = container.x + c as f64 * (panel_w + gap);
                 let header_y = container.y + r as f64 * (panel_h + gap);
 
                 FacetPanel {
-                    rect: Rect::new(x + axis_pad, header_y + header_h + 8.0, plot_w, plot_h),
+                    rect: Rect::new(
+                        x + axis_pad,
+                        header_y + header_h + 8.0,
+                        (panel_w - axis_pad - 12.0).max(40.0),
+                        (panel_h - header_h - 8.0 - axis_pad).max(40.0),
+                    ),
                     header_rect: Rect::new(x, header_y, panel_w, header_h),
                     info: FacetPanelInfo {
                         row: r,
                         col: c,
                         total_rows: rows,
                         total_cols: cols,
-                        label: val.clone(),
+                        label: format!("{} = {}", self.field, val),
                         row_label: val.clone(),
                         col_label: String::new(),
                         facet_filter: vec![(self.field.clone(), val.clone())],
+                        show_x_axis,
+                        show_y_axis,
                     },
                 }
             })
