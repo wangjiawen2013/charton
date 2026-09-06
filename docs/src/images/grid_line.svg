@@ -9,8 +9,12 @@
 <line x1="88.300" y1="145.622" x2="430.800" y2="145.622" stroke="rgba(189,189,189,1.000)" stroke-width="1.000" stroke-opacity="0.500" />
 <line x1="88.300" y1="93.204" x2="430.800" y2="93.204" stroke="rgba(189,189,189,1.000)" stroke-width="1.000" stroke-opacity="0.500" />
 <line x1="88.300" y1="40.786" x2="430.800" y2="40.786" stroke="rgba(189,189,189,1.000)" stroke-width="1.000" stroke-opacity="0.500" />
-<defs><clipPath id="plot-clip-area"><rect x="88.300" y="40.000" width="342.500" height="271.000" /></clipPath></defs>
-<g clip-path="url(#plot-clip-area)">
+<line x1="88.300" y1="40.000" x2="430.800" y2="40.000" stroke="rgba(189,189,189,1.000)" stroke-width="1.000" stroke-opacity="0.500" />
+<line x1="430.800" y1="40.000" x2="430.800" y2="311.000" stroke="rgba(189,189,189,1.000)" stroke-width="1.000" stroke-opacity="0.500" />
+<line x1="430.800" y1="311.000" x2="88.300" y2="311.000" stroke="rgba(189,189,189,1.000)" stroke-width="1.000" stroke-opacity="0.500" />
+<line x1="88.300" y1="311.000" x2="88.300" y2="40.000" stroke="rgba(189,189,189,1.000)" stroke-width="1.000" stroke-opacity="0.500" />
+<defs><clipPath id="plot-clip-area-0"><rect x="88.300" y="40.000" width="342.500" height="271.000" /></clipPath></defs>
+<g clip-path="url(#plot-clip-area-0)">
 <circle cx="191.999" cy="187.556" r="5.157" fill="rgba(31,119,180,1.000)" stroke="none" stroke-width="0.000" fill-opacity="1.000" stroke-opacity="1.000" />
 <circle cx="212.300" cy="187.556" r="5.157" fill="rgba(31,119,180,1.000)" stroke="none" stroke-width="0.000" fill-opacity="1.000" stroke-opacity="1.000" />
 <circle cx="168.115" cy="168.686" r="5.694" fill="rgba(31,119,180,1.000)" stroke="none" stroke-width="0.000" fill-opacity="1.000" stroke-opacity="1.000" />

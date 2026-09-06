@@ -1,4 +1,4 @@
-use super::{CoordLayout, CoordinateTrait, Rect};
+use super::{AxisVisibility, CoordLayout, CoordinateTrait, Rect};
 use crate::core::layer::RenderBackend;
 use crate::error::ChartonError;
 use crate::scale::{ExplicitTick, ScaleTrait};
@@ -52,9 +52,10 @@ impl CoordinateTrait for Cartesian2D {
         x_explicit: Option<&[ExplicitTick]>,
         y_label: &str,
         y_explicit: Option<&[ExplicitTick]>,
+        visibility: AxisVisibility,
     ) -> Result<(), ChartonError> {
         crate::render::cartesian2d_axis_renderer::render_cartesian_axes(
-            backend, theme, panel, self, x_label, x_explicit, y_label, y_explicit,
+            backend, theme, panel, self, x_label, x_explicit, y_label, y_explicit, visibility,
         )
     }
 

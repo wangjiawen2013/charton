@@ -1,10 +1,11 @@
 use crate::Precision;
-use crate::coordinate::CoordinateTrait;
 use crate::coordinate::geo::Geo;
+use crate::coordinate::{AxisVisibility, CoordinateTrait};
 use crate::core::layer::{LineConfig, RenderBackend, TextConfig};
 use crate::error::ChartonError;
 use crate::scale::ExplicitTick;
 use crate::theme::Theme;
+use crate::visual::color::SingleColor;
 
 /// Renders geographic axes (longitude/latitude grid lines) for the Geo coordinate system.
 ///
@@ -19,6 +20,7 @@ pub(crate) fn render_geo_axes(
     x_explicit: Option<&[ExplicitTick]>,
     y_label: &str,
     y_explicit: Option<&[ExplicitTick]>,
+    visibility: AxisVisibility,
 ) -> Result<(), ChartonError> {
     let font_size = theme.tick_label_size;
     let text_color = theme.tick_label_color;
@@ -32,152 +34,156 @@ pub(crate) fn render_geo_axes(
     let title_gap = 5.0;
 
     // --- X-axis (Longitude) ---
-    let x_ticks = generate_ticks(geo, true, x_explicit);
-    let y_bottom = panel.y + panel.height;
+    if visibility.show_x {
+        let x_ticks = generate_ticks(geo, true, x_explicit);
+        let y_bottom = panel.y + panel.height;
 
-    // Axis line
-    backend.draw_line(LineConfig {
-        x1: panel.x as Precision,
-        y1: y_bottom as Precision,
-        x2: (panel.x + panel.width) as Precision,
-        y2: y_bottom as Precision,
-        color: axis_color,
-        width: axis_width as Precision,
-        opacity: 1.0,
-        dash: vec![],
-    });
-
-    // Tick marks and labels
-    for tick in &x_ticks {
-        let tx = panel.x + tick.0 * panel.width;
+        // Axis line
         backend.draw_line(LineConfig {
-            x1: tx as Precision,
+            x1: panel.x as Precision,
             y1: y_bottom as Precision,
-            x2: tx as Precision,
-            y2: (y_bottom + tick_len) as Precision,
+            x2: (panel.x + panel.width) as Precision,
+            y2: y_bottom as Precision,
             color: axis_color,
             width: axis_width as Precision,
             opacity: 1.0,
             dash: vec![],
         });
 
-        backend.draw_text(TextConfig {
-            x: tx as Precision,
-            y: (y_bottom + tick_len + theme.tick_label_padding) as Precision,
-            text: tick.1.clone(),
-            font_size: font_size as Precision,
-            font_family: font_family.clone(),
-            color: text_color,
-            text_anchor: "middle".to_string(),
-            dominant_baseline: "hanging".to_string(),
-            font_weight: "normal".to_string(),
-            opacity: 1.0,
-            angle: 0.0,
-        });
-    }
+        // Tick marks and labels
+        for tick in &x_ticks {
+            let tx = panel.x + tick.0 * panel.width;
+            backend.draw_line(LineConfig {
+                x1: tx as Precision,
+                y1: y_bottom as Precision,
+                x2: tx as Precision,
+                y2: (y_bottom + tick_len) as Precision,
+                color: axis_color,
+                width: axis_width as Precision,
+                opacity: 1.0,
+                dash: vec![],
+            });
 
-    // X-axis label
-    if !x_label.is_empty() {
-        let max_tick_height = x_ticks
-            .iter()
-            .map(|t| {
-                let w = crate::core::utils::estimate_text_width(&t.1, font_size);
-                let h = font_size;
-                w * 0.0 + h
-            })
-            .fold(0.0, f64::max);
+            backend.draw_text(TextConfig {
+                x: tx as Precision,
+                y: (y_bottom + tick_len + theme.tick_label_padding) as Precision,
+                text: tick.1.clone(),
+                font_size: font_size as Precision,
+                font_family: font_family.clone(),
+                color: text_color,
+                text_anchor: "middle".to_string(),
+                dominant_baseline: "hanging".to_string(),
+                font_weight: "normal".to_string(),
+                opacity: 1.0,
+                angle: 0.0,
+            });
+        }
 
-        let label_x = panel.x + panel.width / 2.0;
-        let label_y = y_bottom + tick_len + max_tick_height + theme.label_padding + title_gap;
-        backend.draw_text(TextConfig {
-            x: label_x as Precision,
-            y: label_y as Precision,
-            text: x_label.to_string(),
-            font_size: label_size as Precision,
-            font_family: label_family.clone(),
-            color: label_color,
-            text_anchor: "middle".to_string(),
-            dominant_baseline: "hanging".to_string(),
-            font_weight: "normal".to_string(),
-            opacity: 1.0,
-            angle: 0.0,
-        });
+        // X-axis label
+        if !x_label.is_empty() {
+            let max_tick_height = x_ticks
+                .iter()
+                .map(|t| {
+                    let w = crate::core::utils::estimate_text_width(&t.1, font_size);
+                    let h = font_size;
+                    w * 0.0 + h
+                })
+                .fold(0.0, f64::max);
+
+            let label_x = panel.x + panel.width / 2.0;
+            let label_y = y_bottom + tick_len + max_tick_height + theme.label_padding + title_gap;
+            backend.draw_text(TextConfig {
+                x: label_x as Precision,
+                y: label_y as Precision,
+                text: x_label.to_string(),
+                font_size: label_size as Precision,
+                font_family: label_family.clone(),
+                color: label_color,
+                text_anchor: "middle".to_string(),
+                dominant_baseline: "hanging".to_string(),
+                font_weight: "normal".to_string(),
+                opacity: 1.0,
+                angle: 0.0,
+            });
+        }
     }
 
     // --- Y-axis (Latitude) ---
-    let y_ticks = generate_ticks(geo, false, y_explicit);
-    let x_left = panel.x;
+    if visibility.show_y {
+        let y_ticks = generate_ticks(geo, false, y_explicit);
+        let x_left = panel.x;
 
-    // Axis line
-    backend.draw_line(LineConfig {
-        x1: x_left as Precision,
-        y1: panel.y as Precision,
-        x2: x_left as Precision,
-        y2: (panel.y + panel.height) as Precision,
-        color: axis_color,
-        width: axis_width as Precision,
-        opacity: 1.0,
-        dash: vec![],
-    });
-
-    // Tick marks and labels
-    for tick in &y_ticks {
-        let ty = panel.y + (1.0 - tick.0) * panel.height;
+        // Axis line
         backend.draw_line(LineConfig {
             x1: x_left as Precision,
-            y1: ty as Precision,
-            x2: (x_left - tick_len) as Precision,
-            y2: ty as Precision,
+            y1: panel.y as Precision,
+            x2: x_left as Precision,
+            y2: (panel.y + panel.height) as Precision,
             color: axis_color,
             width: axis_width as Precision,
             opacity: 1.0,
             dash: vec![],
         });
 
-        backend.draw_text(TextConfig {
-            x: (x_left - tick_len - theme.tick_label_padding) as Precision,
-            y: ty as Precision,
-            text: tick.1.clone(),
-            font_size: font_size as Precision,
-            font_family: font_family.clone(),
-            color: text_color,
-            text_anchor: "end".to_string(),
-            dominant_baseline: "central".to_string(),
-            font_weight: "normal".to_string(),
-            opacity: 1.0,
-            angle: 0.0,
-        });
-    }
+        // Tick marks and labels
+        for tick in &y_ticks {
+            let ty = panel.y + (1.0 - tick.0) * panel.height;
+            backend.draw_line(LineConfig {
+                x1: x_left as Precision,
+                y1: ty as Precision,
+                x2: (x_left - tick_len) as Precision,
+                y2: ty as Precision,
+                color: axis_color,
+                width: axis_width as Precision,
+                opacity: 1.0,
+                dash: vec![],
+            });
 
-    // Y-axis label
-    if !y_label.is_empty() {
-        let max_tick_width = y_ticks
-            .iter()
-            .map(|t| crate::core::utils::estimate_text_width(&t.1, font_size))
-            .fold(0.0, f64::max);
+            backend.draw_text(TextConfig {
+                x: (x_left - tick_len - theme.tick_label_padding) as Precision,
+                y: ty as Precision,
+                text: tick.1.clone(),
+                font_size: font_size as Precision,
+                font_family: font_family.clone(),
+                color: text_color,
+                text_anchor: "end".to_string(),
+                dominant_baseline: "central".to_string(),
+                font_weight: "normal".to_string(),
+                opacity: 1.0,
+                angle: 0.0,
+            });
+        }
 
-        let label_x = x_left
-            - tick_len
-            - max_tick_width
-            - theme.label_padding
-            - title_gap
-            - (label_size / 2.0)
-            - 3.0;
-        let label_y = panel.y + panel.height / 2.0;
+        // Y-axis label
+        if !y_label.is_empty() {
+            let max_tick_width = y_ticks
+                .iter()
+                .map(|t| crate::core::utils::estimate_text_width(&t.1, font_size))
+                .fold(0.0, f64::max);
 
-        backend.draw_text(TextConfig {
-            x: label_x as Precision,
-            y: label_y as Precision,
-            text: y_label.to_string(),
-            font_size: label_size as Precision,
-            font_family: label_family.clone(),
-            color: label_color,
-            text_anchor: "middle".to_string(),
-            dominant_baseline: "middle".to_string(),
-            font_weight: "normal".to_string(),
-            opacity: 1.0,
-            angle: -90.0,
-        });
+            let label_x = x_left
+                - tick_len
+                - max_tick_width
+                - theme.label_padding
+                - title_gap
+                - (label_size / 2.0)
+                - 3.0;
+            let label_y = panel.y + panel.height / 2.0;
+
+            backend.draw_text(TextConfig {
+                x: label_x as Precision,
+                y: label_y as Precision,
+                text: y_label.to_string(),
+                font_size: label_size as Precision,
+                font_family: label_family.clone(),
+                color: label_color,
+                text_anchor: "middle".to_string(),
+                dominant_baseline: "middle".to_string(),
+                font_weight: "normal".to_string(),
+                opacity: 1.0,
+                angle: -90.0,
+            });
+        }
     }
 
     Ok(())
@@ -221,6 +227,27 @@ pub(crate) fn render_geo_grid(
             y1: ty as Precision,
             x2: (panel.x + panel.width) as Precision,
             y2: ty as Precision,
+            color: grid_color,
+            width: grid_width as Precision,
+            opacity: 1.0,
+            dash: vec![],
+        });
+    }
+
+    // Close the grid at the panel boundary when ticks do not reach its edges.
+    let right = panel.x + panel.width;
+    let bottom = panel.y + panel.height;
+    for (x1, y1, x2, y2) in [
+        (panel.x, panel.y, right, panel.y),
+        (right, panel.y, right, bottom),
+        (right, bottom, panel.x, bottom),
+        (panel.x, bottom, panel.x, panel.y),
+    ] {
+        backend.draw_line(LineConfig {
+            x1: x1 as Precision,
+            y1: y1 as Precision,
+            x2: x2 as Precision,
+            y2: y2 as Precision,
             color: grid_color,
             width: grid_width as Precision,
             opacity: 1.0,
@@ -297,5 +324,3 @@ fn generate_explicit_ticks(
         })
         .collect()
 }
-
-use crate::visual::color::SingleColor;

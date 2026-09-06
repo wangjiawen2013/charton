@@ -1,6 +1,6 @@
 <svg width="500" height="300" viewBox="0 0 500 300" xmlns="http://www.w3.org/2000/svg"><rect x="0.000" y="0.000" width="500.000" height="300.000" fill="rgba(255,255,255,1.000)" stroke="none" stroke-width="0.000" fill-opacity="1.000" stroke-opacity="1.000" />
-<defs><clipPath id="plot-clip-area"><rect x="92.200" y="30.000" width="230.400" height="189.000" /></clipPath></defs>
-<g clip-path="url(#plot-clip-area)">
+<defs><clipPath id="plot-clip-area-0"><rect x="92.200" y="30.000" width="230.400" height="189.000" /></clipPath></defs>
+<g clip-path="url(#plot-clip-area-0)">
 <circle cx="102.673" cy="210.409" r="3.000" fill="rgba(0,0,0,1.000)" stroke="none" stroke-width="0.000" fill-opacity="1.000" stroke-opacity="1.000" />
 <rect x="112.335" y="197.643" width="5.317" height="5.317" fill="rgba(0,0,0,1.000)" stroke="none" stroke-width="0.000" fill-opacity="1.000" stroke-opacity="1.000" />
 <polygon points="127.314,185.530 131.354,192.528 123.274,192.528" fill="rgba(0,0,0,1.000)" stroke="none" stroke-width="0.000" fill-opacity="1.000" />
