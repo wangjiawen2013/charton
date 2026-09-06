@@ -1,0 +1,56 @@
+<svg width="720" height="480" viewBox="0 0 720 480" xmlns="http://www.w3.org/2000/svg"><rect x="0.000" y="0.000" width="720.000" height="480.000" fill="rgba(251,252,252,1.000)" stroke="none" stroke-width="0.000" fill-opacity="1.000" stroke-opacity="1.000" />
+<text x="360.000" y="12.800" font-size="18.0" font-family="Inter, -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, 'PingFang SC', 'Microsoft YaHei', Ubuntu, Cantarell, 'Noto Sans', sans-serif" fill="rgba(51,51,51,1.000)" fill-opacity="1.000" text-anchor="middle" font-weight="bold" dominant-baseline="middle" transform="rotate(0 360.000 12.800)">Scatter plot customization</text>
+<line x1="58.909" y1="38.400" x2="58.909" y2="441.600" stroke="rgba(212,221,221,1.000)" stroke-width="0.750" stroke-opacity="0.500" />
+<line x1="111.273" y1="38.400" x2="111.273" y2="441.600" stroke="rgba(212,221,221,1.000)" stroke-width="0.750" stroke-opacity="0.500" />
+<line x1="163.636" y1="38.400" x2="163.636" y2="441.600" stroke="rgba(212,221,221,1.000)" stroke-width="0.750" stroke-opacity="0.500" />
+<line x1="216.000" y1="38.400" x2="216.000" y2="441.600" stroke="rgba(212,221,221,1.000)" stroke-width="0.750" stroke-opacity="0.500" />
+<line x1="268.364" y1="38.400" x2="268.364" y2="441.600" stroke="rgba(212,221,221,1.000)" stroke-width="0.750" stroke-opacity="0.500" />
+<line x1="320.727" y1="38.400" x2="320.727" y2="441.600" stroke="rgba(212,221,221,1.000)" stroke-width="0.750" stroke-opacity="0.500" />
+<line x1="373.091" y1="38.400" x2="373.091" y2="441.600" stroke="rgba(212,221,221,1.000)" stroke-width="0.750" stroke-opacity="0.500" />
+<line x1="425.455" y1="38.400" x2="425.455" y2="441.600" stroke="rgba(212,221,221,1.000)" stroke-width="0.750" stroke-opacity="0.500" />
+<line x1="477.818" y1="38.400" x2="477.818" y2="441.600" stroke="rgba(212,221,221,1.000)" stroke-width="0.750" stroke-opacity="0.500" />
+<line x1="530.182" y1="38.400" x2="530.182" y2="441.600" stroke="rgba(212,221,221,1.000)" stroke-width="0.750" stroke-opacity="0.500" />
+<line x1="582.545" y1="38.400" x2="582.545" y2="441.600" stroke="rgba(212,221,221,1.000)" stroke-width="0.750" stroke-opacity="0.500" />
+<line x1="634.909" y1="38.400" x2="634.909" y2="441.600" stroke="rgba(212,221,221,1.000)" stroke-width="0.750" stroke-opacity="0.500" />
+<line x1="687.273" y1="38.400" x2="687.273" y2="441.600" stroke="rgba(212,221,221,1.000)" stroke-width="0.750" stroke-opacity="0.500" />
+<line x1="28.800" y1="405.565" x2="691.200" y2="405.565" stroke="rgba(212,221,221,1.000)" stroke-width="0.750" stroke-opacity="0.500" />
+<line x1="28.800" y1="361.296" x2="691.200" y2="361.296" stroke="rgba(212,221,221,1.000)" stroke-width="0.750" stroke-opacity="0.500" />
+<line x1="28.800" y1="317.028" x2="691.200" y2="317.028" stroke="rgba(212,221,221,1.000)" stroke-width="0.750" stroke-opacity="0.500" />
+<line x1="28.800" y1="272.759" x2="691.200" y2="272.759" stroke="rgba(212,221,221,1.000)" stroke-width="0.750" stroke-opacity="0.500" />
+<line x1="28.800" y1="228.490" x2="691.200" y2="228.490" stroke="rgba(212,221,221,1.000)" stroke-width="0.750" stroke-opacity="0.500" />
+<line x1="28.800" y1="184.221" x2="691.200" y2="184.221" stroke="rgba(212,221,221,1.000)" stroke-width="0.750" stroke-opacity="0.500" />
+<line x1="28.800" y1="139.953" x2="691.200" y2="139.953" stroke="rgba(212,221,221,1.000)" stroke-width="0.750" stroke-opacity="0.500" />
+<line x1="28.800" y1="95.684" x2="691.200" y2="95.684" stroke="rgba(212,221,221,1.000)" stroke-width="0.750" stroke-opacity="0.500" />
+<line x1="28.800" y1="51.415" x2="691.200" y2="51.415" stroke="rgba(212,221,221,1.000)" stroke-width="0.750" stroke-opacity="0.500" />
+<line x1="28.800" y1="38.400" x2="691.200" y2="38.400" stroke="rgba(212,221,221,1.000)" stroke-width="0.750" stroke-opacity="0.500" />
+<line x1="691.200" y1="38.400" x2="691.200" y2="441.600" stroke="rgba(212,221,221,1.000)" stroke-width="0.750" stroke-opacity="0.500" />
+<line x1="691.200" y1="441.600" x2="28.800" y2="441.600" stroke="rgba(212,221,221,1.000)" stroke-width="0.750" stroke-opacity="0.500" />
+<line x1="28.800" y1="441.600" x2="28.800" y2="38.400" stroke="rgba(212,221,221,1.000)" stroke-width="0.750" stroke-opacity="0.500" />
+<defs><clipPath id="plot-clip-area-0"><rect x="28.800" y="38.400" width="662.400" height="403.200" /></clipPath></defs>
+<g clip-path="url(#plot-clip-area-0)">
+<circle cx="58.909" cy="423.273" r="5.000" fill="rgba(31,119,180,1.000)" stroke="none" stroke-width="0.000" fill-opacity="1.000" stroke-opacity="1.000" />
+<circle cx="111.273" cy="391.399" r="5.000" fill="rgba(31,119,180,1.000)" stroke="none" stroke-width="0.000" fill-opacity="1.000" stroke-opacity="1.000" />
+<circle cx="163.636" cy="359.526" r="5.000" fill="rgba(31,119,180,1.000)" stroke="none" stroke-width="0.000" fill-opacity="1.000" stroke-opacity="1.000" />
+<circle cx="216.000" cy="327.652" r="5.000" fill="rgba(31,119,180,1.000)" stroke="none" stroke-width="0.000" fill-opacity="1.000" stroke-opacity="1.000" />
+<circle cx="268.364" cy="295.779" r="5.000" fill="rgba(31,119,180,1.000)" stroke="none" stroke-width="0.000" fill-opacity="1.000" stroke-opacity="1.000" />
+<circle cx="320.727" cy="263.905" r="5.000" fill="rgba(31,119,180,1.000)" stroke="none" stroke-width="0.000" fill-opacity="1.000" stroke-opacity="1.000" />
+<circle cx="373.091" cy="232.032" r="5.000" fill="rgba(31,119,180,1.000)" stroke="none" stroke-width="0.000" fill-opacity="1.000" stroke-opacity="1.000" />
+<circle cx="425.455" cy="200.158" r="5.000" fill="rgba(31,119,180,1.000)" stroke="none" stroke-width="0.000" fill-opacity="1.000" stroke-opacity="1.000" />
+<circle cx="477.818" cy="168.285" r="5.000" fill="rgba(31,119,180,1.000)" stroke="none" stroke-width="0.000" fill-opacity="1.000" stroke-opacity="1.000" />
+<circle cx="530.182" cy="136.411" r="5.000" fill="rgba(31,119,180,1.000)" stroke="none" stroke-width="0.000" fill-opacity="1.000" stroke-opacity="1.000" />
+<circle cx="582.545" cy="104.538" r="5.000" fill="rgba(31,119,180,1.000)" stroke="none" stroke-width="0.000" fill-opacity="1.000" stroke-opacity="1.000" />
+<circle cx="634.909" cy="72.664" r="5.000" fill="rgba(31,119,180,1.000)" stroke="none" stroke-width="0.000" fill-opacity="1.000" stroke-opacity="1.000" />
+<circle cx="85.091" cy="407.336" r="5.000" fill="rgba(255,127,14,1.000)" stroke="none" stroke-width="0.000" fill-opacity="1.000" stroke-opacity="1.000" />
+<circle cx="137.455" cy="375.462" r="5.000" fill="rgba(255,127,14,1.000)" stroke="none" stroke-width="0.000" fill-opacity="1.000" stroke-opacity="1.000" />
+<circle cx="189.818" cy="343.589" r="5.000" fill="rgba(255,127,14,1.000)" stroke="none" stroke-width="0.000" fill-opacity="1.000" stroke-opacity="1.000" />
+<circle cx="242.182" cy="311.715" r="5.000" fill="rgba(255,127,14,1.000)" stroke="none" stroke-width="0.000" fill-opacity="1.000" stroke-opacity="1.000" />
+<circle cx="294.545" cy="279.842" r="5.000" fill="rgba(255,127,14,1.000)" stroke="none" stroke-width="0.000" fill-opacity="1.000" stroke-opacity="1.000" />
+<circle cx="346.909" cy="247.968" r="5.000" fill="rgba(255,127,14,1.000)" stroke="none" stroke-width="0.000" fill-opacity="1.000" stroke-opacity="1.000" />
+<circle cx="399.273" cy="216.095" r="5.000" fill="rgba(255,127,14,1.000)" stroke="none" stroke-width="0.000" fill-opacity="1.000" stroke-opacity="1.000" />
+<circle cx="451.636" cy="184.221" r="5.000" fill="rgba(255,127,14,1.000)" stroke="none" stroke-width="0.000" fill-opacity="1.000" stroke-opacity="1.000" />
+<circle cx="504.000" cy="152.348" r="5.000" fill="rgba(255,127,14,1.000)" stroke="none" stroke-width="0.000" fill-opacity="1.000" stroke-opacity="1.000" />
+<circle cx="556.364" cy="120.474" r="5.000" fill="rgba(255,127,14,1.000)" stroke="none" stroke-width="0.000" fill-opacity="1.000" stroke-opacity="1.000" />
+<circle cx="608.727" cy="88.601" r="5.000" fill="rgba(255,127,14,1.000)" stroke="none" stroke-width="0.000" fill-opacity="1.000" stroke-opacity="1.000" />
+<circle cx="661.091" cy="56.727" r="5.000" fill="rgba(255,127,14,1.000)" stroke="none" stroke-width="0.000" fill-opacity="1.000" stroke-opacity="1.000" />
+</g>
+</svg>
