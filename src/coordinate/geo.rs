@@ -1,4 +1,4 @@
-use super::{CoordLayout, CoordinateTrait, Rect};
+use super::{AxisVisibility, CoordLayout, CoordinateTrait, Rect};
 use crate::core::layer::RenderBackend;
 use crate::error::ChartonError;
 use crate::scale::{ExplicitTick, ScaleTrait};
@@ -225,9 +225,10 @@ impl CoordinateTrait for Geo {
         x_explicit: Option<&[ExplicitTick]>,
         y_label: &str,
         y_explicit: Option<&[ExplicitTick]>,
+        visibility: AxisVisibility,
     ) -> Result<(), ChartonError> {
         crate::render::geo_axis_renderer::render_geo_axes(
-            backend, theme, panel, self, x_label, x_explicit, y_label, y_explicit,
+            backend, theme, panel, self, x_label, x_explicit, y_label, y_explicit, visibility,
         )
     }
 

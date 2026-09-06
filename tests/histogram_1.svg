@@ -1,7 +1,7 @@
 <svg width="600" height="400" viewBox="0 0 600 400" xmlns="http://www.w3.org/2000/svg"><rect x="0.000" y="0.000" width="600.000" height="400.000" fill="rgba(255,255,255,1.000)" stroke="none" stroke-width="0.000" fill-opacity="1.000" stroke-opacity="1.000" />
 <text x="300.000" y="13.333" font-size="18.0" font-family="Inter, -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, 'PingFang SC', 'Microsoft YaHei', Ubuntu, Cantarell, 'Noto Sans', sans-serif" fill="rgba(51,51,51,1.000)" fill-opacity="1.000" text-anchor="middle" font-weight="bold" dominant-baseline="middle" transform="rotate(0 300.000 13.333)">Histogram Example</text>
-<defs><clipPath id="plot-clip-area"><rect x="87.150" y="40.000" width="383.650" height="271.000" /></clipPath></defs>
-<g clip-path="url(#plot-clip-area)">
+<defs><clipPath id="plot-clip-area-0"><rect x="87.150" y="40.000" width="383.650" height="271.000" /></clipPath></defs>
+<g clip-path="url(#plot-clip-area-0)">
 <rect x="87.150" y="264.367" width="0.000" height="33.435" fill="rgba(31,119,180,1.000)" stroke="rgba(0,0,0,1.000)" stroke-width="0.000" fill-opacity="0.500" stroke-opacity="1.000" />
 <rect x="87.150" y="229.172" width="0.000" height="33.435" fill="rgba(31,119,180,1.000)" stroke="rgba(0,0,0,1.000)" stroke-width="0.000" fill-opacity="0.500" stroke-opacity="1.000" />
 <rect x="87.150" y="193.977" width="30.448" height="33.435" fill="rgba(31,119,180,1.000)" stroke="rgba(0,0,0,1.000)" stroke-width="0.000" fill-opacity="0.500" stroke-opacity="1.000" />

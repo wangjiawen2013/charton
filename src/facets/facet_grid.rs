@@ -65,8 +65,6 @@ impl Facet for FacetGridImpl {
         let panel_h = (container.height - (n_rows - 1) as f64 * gap) / n_rows as f64;
 
         let axis_pad = (theme.label_size + theme.tick_label_size + 12.0).max(24.0);
-        let plot_w = (panel_w - axis_pad - 12.0).max(40.0);
-        let plot_h = (panel_h - header_h - 8.0 - axis_pad).max(40.0);
 
         // 2. Generate panel layouts using functional style
         row_values
@@ -76,22 +74,34 @@ impl Facet for FacetGridImpl {
                 col_values.iter().enumerate().map(move |(c_idx, c_val)| {
                     let x = container.x + c_idx as f64 * (panel_w + gap);
                     let header_y = container.y + r_idx as f64 * (panel_h + gap);
+                    let (show_x_axis, show_y_axis) =
+                        self.strategy.axis_visibility(r_idx, c_idx, n_rows, false);
 
                     FacetPanel {
-                        rect: Rect::new(x + axis_pad, header_y + header_h + 8.0, plot_w, plot_h),
+                        rect: Rect::new(
+                            x + axis_pad,
+                            header_y + header_h + 8.0,
+                            (panel_w - axis_pad - 12.0).max(40.0),
+                            (panel_h - header_h - 8.0 - axis_pad).max(40.0),
+                        ),
                         header_rect: Rect::new(x, header_y, panel_w, header_h),
                         info: FacetPanelInfo {
                             row: r_idx,
                             col: c_idx,
                             total_rows: n_rows,
                             total_cols: n_cols,
-                            label: format!("{} | {}", r_val, c_val),
+                            label: format!(
+                                "{} = {} | {} = {}",
+                                self.row_field, r_val, self.col_field, c_val
+                            ),
                             row_label: r_val.clone(),
                             col_label: c_val.clone(),
                             facet_filter: vec![
                                 (self.row_field.clone(), r_val.clone()),
                                 (self.col_field.clone(), c_val.clone()),
                             ],
+                            show_x_axis,
+                            show_y_axis,
                         },
                     }
                 })
