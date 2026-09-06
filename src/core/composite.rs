@@ -671,17 +671,22 @@ impl LayeredChart {
                 - self.top_margin.unwrap_or(self.theme.top_margin)
                 - self.bottom_margin.unwrap_or(self.theme.bottom_margin));
 
-        // A. Measure Legend Constraints.
-        let legend_box = crate::core::layout::LayoutEngine::calculate_legend_constraints(
-            &guide_specs,
-            self.theme.legend_position,
-            w,
-            h,
-            initial_plot_w,
-            initial_plot_h,
-            self.theme.legend_margin,
-            &self.theme,
-        );
+        // A. Measure only the elements that will actually be rendered.
+        // Hidden legends and axes must not reserve space in the plot layout.
+        let legend_box = if self.theme.show_legend {
+            crate::core::layout::LayoutEngine::calculate_legend_constraints(
+                &guide_specs,
+                self.theme.legend_position,
+                w,
+                h,
+                initial_plot_w,
+                initial_plot_h,
+                self.theme.legend_margin,
+                &self.theme,
+            )
+        } else {
+            crate::core::layout::LegendLayoutConstraints::default()
+        };
 
         // B. Measure Axis Constraints using a temporary PanelContext.
         // We calculate a 'rough' panel area first to allow the engine to estimate
@@ -696,12 +701,16 @@ impl LayeredChart {
         // Create the temporary context required for layout measurement.
         let temp_ctx = PanelContext::new(&chart_spec, final_coord.clone(), temp_panel);
 
-        let axis_box = crate::core::layout::LayoutEngine::calculate_axis_constraints(
-            &temp_ctx,
-            &self.theme,
-            temp_panel.width,
-            temp_panel.height,
-        );
+        let axis_box = if self.theme.show_axes && self.layers.iter().any(|l| l.requires_axes()) {
+            crate::core::layout::LayoutEngine::calculate_axis_constraints(
+                &temp_ctx,
+                &self.theme,
+                temp_panel.width,
+                temp_panel.height,
+            )
+        } else {
+            crate::core::layout::AxisLayoutConstraints::default()
+        };
 
         // --- STEP 5: FINAL PANEL RESOLUTION ---
         let final_left = (self.left_margin.unwrap_or(self.theme.left_margin) * w)
