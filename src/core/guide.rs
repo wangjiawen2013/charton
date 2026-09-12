@@ -82,37 +82,114 @@ impl GuideSpec {
         }
     }
 
-    /// Entry point for the LayoutEngine to calculate required pixels.
-    pub fn estimate_size(&self, theme: &Theme, max_h: f64) -> GuideSize {
+    /// Estimates the guide footprint for a horizontal or vertical placement.
+    pub(crate) fn estimate_size(
+        &self,
+        theme: &Theme,
+        available_width: f64,
+        available_height: f64,
+        is_horizontal: bool,
+    ) -> GuideSize {
         match self.kind {
-            GuideKind::ColorBar => self.estimate_colorbar_size(theme, max_h),
-            GuideKind::Legend => self.estimate_legend_size(theme, max_h),
+            GuideKind::ColorBar => {
+                if is_horizontal {
+                    self.estimate_colorbar_size_horizontal(theme, available_width)
+                } else {
+                    self.estimate_colorbar_size_vertical(theme, available_height)
+                }
+            }
+            GuideKind::Legend => {
+                if is_horizontal {
+                    self.estimate_legend_size_horizontal(theme, available_width)
+                } else {
+                    self.estimate_legend_size_vertical(theme, available_height)
+                }
+            }
+        }
+    }
+
+    fn estimate_legend_size_horizontal(&self, theme: &Theme, max_w: f64) -> GuideSize {
+        let font_size = theme.legend_label_size;
+        let title_font_size = font_size * 1.1;
+        let title_w = estimate_text_width(&self.title, title_font_size);
+        let labels = self.get_sampling_labels();
+        let mut row_width = 0.0;
+        let mut row_height = 0.0;
+        let mut total_height = 0.0;
+        let mut content_width: f64 = 0.0;
+
+        for (index, label) in labels.iter().enumerate() {
+            let item_width =
+                18.0 + theme.legend_marker_text_gap + estimate_text_width(label, font_size);
+            let item_height = f64::max(18.0, font_size);
+            let item_with_gap = item_width
+                + if index + 1 < labels.len() {
+                    theme.legend_col_h_gap
+                } else {
+                    0.0
+                };
+
+            if row_width + item_with_gap > max_w && row_width > 0.0 {
+                total_height += row_height + theme.legend_item_v_gap;
+                content_width = content_width.max(row_width);
+                row_width = item_with_gap;
+                row_height = item_height;
+            } else {
+                row_width += item_with_gap;
+                row_height = row_height.max(item_height);
+            }
+        }
+
+        total_height += row_height;
+        content_width = content_width.max(row_width);
+        GuideSize {
+            width: title_w.max(content_width),
+            height: title_font_size + theme.legend_title_gap + total_height,
         }
     }
 
     /// Estimates dimensions for a gradient ColorBar.
-    fn estimate_colorbar_size(&self, theme: &Theme, max_h: f64) -> GuideSize {
+    fn estimate_colorbar_size_horizontal(&self, theme: &Theme, available_width: f64) -> GuideSize {
         let font_size = theme.legend_label_size;
         let title_font_size = font_size * 1.1;
 
         let title_w = estimate_text_width(&self.title, title_font_size);
-        let bar_w = 15.0; // Standard thickness of the color strip
+        let bar_w = f64::max(150.0, available_width.min(300.0));
+        GuideSize {
+            width: f64::max(title_w, bar_w),
+            height: title_font_size
+                + theme.legend_title_gap
+                + 15.0
+                + theme.tick_label_padding
+                + font_size,
+        }
+    }
 
-        let labels = self.get_sampling_labels();
-        let max_lbl_w = labels
+    fn estimate_colorbar_size_vertical(&self, theme: &Theme, available_height: f64) -> GuideSize {
+        let font_size = theme.legend_label_size;
+        let title_font_size = font_size * 1.1;
+        let title_w = estimate_text_width(&self.title, title_font_size);
+        let max_label_width = self
+            .get_sampling_labels()
             .iter()
-            .map(|l| estimate_text_width(l, font_size))
+            .map(|label| estimate_text_width(label, font_size))
             .fold(0.0, f64::max);
+        let bar_w = 15.0;
 
         GuideSize {
-            width: f64::max(title_w, bar_w + theme.legend_marker_text_gap + max_lbl_w),
+            width: f64::max(
+                title_w,
+                bar_w + theme.legend_marker_text_gap + max_label_width,
+            ),
             // Height is usually 70% of plot height or capped at a reasonable max (200px)
-            height: title_font_size + theme.legend_title_gap + f64::min(200.0, max_h * 0.7),
+            height: title_font_size
+                + theme.legend_title_gap
+                + f64::min(200.0, available_height * 0.7),
         }
     }
 
     /// Estimates dimensions for a discrete Legend, supporting multi-column wrapping.
-    fn estimate_legend_size(&self, theme: &Theme, max_h: f64) -> GuideSize {
+    fn estimate_legend_size_vertical(&self, theme: &Theme, max_h: f64) -> GuideSize {
         let font_size = theme.legend_label_size;
         let title_font_size = font_size * 1.1;
 

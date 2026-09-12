@@ -22,6 +22,79 @@ pub struct LegendLayoutConstraints {
 pub struct LayoutEngine;
 
 impl LayoutEngine {
+    /// Estimates the complete legend footprint using the renderer's wrapping rules.
+    pub(crate) fn estimate_legend_extent(
+        specs: &[GuideSpec],
+        position: LegendPosition,
+        available_width: f64,
+        available_height: f64,
+        theme: &Theme,
+    ) -> crate::core::guide::GuideSize {
+        if specs.is_empty() || matches!(position, LegendPosition::None) {
+            return crate::core::guide::GuideSize::default();
+        }
+
+        let block_gap = theme.legend_block_gap;
+        let is_horizontal = matches!(position, LegendPosition::Top | LegendPosition::Bottom);
+        if matches!(position, LegendPosition::Left | LegendPosition::Right) {
+            let mut total_width = 0.0;
+            let mut current_width = 0.0;
+            let mut current_height = 0.0;
+            let mut total_height: f64 = 0.0;
+
+            for (index, spec) in specs.iter().enumerate() {
+                let size = spec.estimate_size(theme, available_width, available_height, false);
+                if current_height + size.height > available_height && current_height > 0.0 {
+                    total_width += current_width + block_gap;
+                    total_height = total_height.max(current_height);
+                    current_width = size.width;
+                    current_height = size.height;
+                } else {
+                    current_width = current_width.max(size.width);
+                    current_height += size.height;
+                    if index < specs.len() - 1 {
+                        current_height += block_gap;
+                    }
+                }
+            }
+
+            total_width += current_width;
+            total_height = total_height.max(current_height);
+            return crate::core::guide::GuideSize {
+                width: total_width,
+                height: total_height,
+            };
+        }
+
+        let mut total_height = 0.0;
+        let mut current_height: f64 = 0.0;
+        let mut current_width = 0.0;
+        let mut max_width: f64 = 0.0;
+
+        for (index, spec) in specs.iter().enumerate() {
+            let size = spec.estimate_size(theme, available_width, available_height, is_horizontal);
+            if current_width + size.width > available_width && current_width > 0.0 {
+                total_height += current_height + block_gap;
+                max_width = max_width.max(current_width);
+                current_height = size.height;
+                current_width = size.width;
+            } else {
+                current_height = current_height.max(size.height);
+                current_width += size.width;
+                if index < specs.len() - 1 {
+                    current_width += block_gap;
+                }
+            }
+        }
+
+        total_height += current_height;
+        max_width = max_width.max(current_width);
+        crate::core::guide::GuideSize {
+            width: max_width,
+            height: total_height,
+        }
+    }
+
     /// Calculates legend margins using a greedy stacking algorithm.
     ///
     /// The logic follows a "Flex-box" style approach:
@@ -45,38 +118,15 @@ impl LayoutEngine {
             return constraints;
         }
 
-        let block_gap = theme.legend_block_gap;
-
         match position {
             LegendPosition::Right | LegendPosition::Left => {
-                // For side-aligned legends, the height is constrained by the plot area.
-                let max_h = initial_plot_h;
-
-                let mut total_width = 0.0;
-                let mut current_col_w = 0.0;
-                let mut current_col_h = 0.0;
-
-                for (i, spec) in specs.iter().enumerate() {
-                    let size = spec.estimate_size(theme, max_h);
-
-                    // If this block overflows the current column height, move to the next column
-                    // We only wrap if we already have at least one item in the current column.
-                    if current_col_h + size.height > max_h && current_col_h > 0.0 {
-                        total_width += current_col_w + block_gap;
-                        current_col_w = size.width;
-                        current_col_h = size.height;
-                    } else {
-                        // Expand column width if this block is wider than previous ones in the same column
-                        current_col_w = f64::max(current_col_w, size.width);
-                        current_col_h += size.height;
-
-                        // Add gap between blocks, but not after the last one in the column
-                        if i < specs.len() - 1 {
-                            current_col_h += block_gap;
-                        }
-                    }
-                }
-                total_width += current_col_w;
+                let extent = Self::estimate_legend_extent(
+                    specs,
+                    position,
+                    initial_plot_w,
+                    initial_plot_h,
+                    theme,
+                );
 
                 // Safety cap: Prevent legends from consuming too much horizontal space.
                 // We ensure the plot panel has a "Defense Floor".
@@ -85,7 +135,7 @@ impl LayoutEngine {
                 let max_allowed_legend_w =
                     (canvas_w - min_panel_w - theme.axis_reserve_buffer).max(0.0);
 
-                let final_w = f64::min(total_width, max_allowed_legend_w);
+                let final_w = f64::min(extent.width, max_allowed_legend_w);
                 let reserve = if final_w > 0.0 {
                     final_w + margin_gap
                 } else {
@@ -100,38 +150,20 @@ impl LayoutEngine {
             }
 
             LegendPosition::Top | LegendPosition::Bottom => {
-                // For top/bottom legends, the width is constrained by the plot area.
-                let max_w = initial_plot_w;
-                let mut total_height = 0.0;
-                let mut current_row_h = 0.0;
-                let mut current_row_w = 0.0;
-
-                for (i, spec) in specs.iter().enumerate() {
-                    // Capping the height of individual legend items for horizontal layout
-                    // to prevent "squashing" the plot panel vertically.
-                    let size = spec.estimate_size(theme, canvas_h * 0.25);
-
-                    if current_row_w + size.width > max_w && current_row_w > 0.0 {
-                        total_height += current_row_h + block_gap;
-                        current_row_h = size.height;
-                        current_row_w = size.width;
-                    } else {
-                        current_row_h = f64::max(current_row_h, size.height);
-                        current_row_w += size.width;
-
-                        if i < specs.len() - 1 {
-                            current_row_w += block_gap;
-                        }
-                    }
-                }
-                total_height += current_row_h;
+                let extent = Self::estimate_legend_extent(
+                    specs,
+                    position,
+                    initial_plot_w,
+                    initial_plot_h,
+                    theme,
+                );
 
                 let min_panel_h =
                     f64::max(theme.min_panel_size, canvas_h * theme.panel_defense_ratio);
                 let max_allowed_legend_h =
                     (canvas_h - min_panel_h - theme.axis_reserve_buffer).max(0.0);
 
-                let final_h = f64::min(total_height, max_allowed_legend_h);
+                let final_h = f64::min(extent.height, max_allowed_legend_h);
                 let reserve = if final_h > 0.0 {
                     final_h + margin_gap
                 } else {
@@ -291,5 +323,88 @@ impl LayoutEngine {
         // 4. Summation of Layout Segments
         // Total Depth = [Tick] + [Padding] + [Label Box] + [Title Area] + [Edge Buffer]
         tick_line_len + theme.tick_label_padding + max_label_footprint + title_area + edge_buffer
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use crate::core::aesthetics::AestheticMapping;
+    use crate::scale::mapper::VisualMapper;
+    use crate::scale::{Expansion, Scale, ScaleDomain, create_scale};
+
+    fn legend_specs() -> Vec<GuideSpec> {
+        let scale = create_scale(
+            &Scale::Discrete,
+            ScaleDomain::Discrete(vec!["A".into(), "B".into()]),
+            Expansion {
+                mult: (0.0, 0.0),
+                add: (0.0, 0.0),
+            },
+            Some(VisualMapper::new_shape_default()),
+        )
+        .unwrap();
+
+        vec![GuideSpec::new(
+            "group".into(),
+            ScaleDomain::Discrete(vec!["A".into(), "B".into()]),
+            vec![AestheticMapping {
+                field: "group".into(),
+                scale_impl: scale,
+            }],
+        )]
+    }
+
+    #[test]
+    fn legend_constraints_use_the_requested_side() {
+        let specs = legend_specs();
+        let theme = Theme::default();
+        let args = (500.0, 400.0, 400.0, 300.0, 8.0, &theme);
+
+        let left = LayoutEngine::calculate_legend_constraints(
+            &specs,
+            LegendPosition::Left,
+            args.0,
+            args.1,
+            args.2,
+            args.3,
+            args.4,
+            args.5,
+        );
+        let right = LayoutEngine::calculate_legend_constraints(
+            &specs,
+            LegendPosition::Right,
+            args.0,
+            args.1,
+            args.2,
+            args.3,
+            args.4,
+            args.5,
+        );
+        let top = LayoutEngine::calculate_legend_constraints(
+            &specs,
+            LegendPosition::Top,
+            args.0,
+            args.1,
+            args.2,
+            args.3,
+            args.4,
+            args.5,
+        );
+        let bottom = LayoutEngine::calculate_legend_constraints(
+            &specs,
+            LegendPosition::Bottom,
+            args.0,
+            args.1,
+            args.2,
+            args.3,
+            args.4,
+            args.5,
+        );
+
+        assert!(left.left > 0.0 && left.right == 0.0 && left.top == 0.0);
+        assert!(right.right > 0.0 && right.left == 0.0 && right.top == 0.0);
+        assert!(top.top > 0.0 && top.bottom == 0.0 && top.left == 0.0);
+        assert!(bottom.bottom > 0.0 && bottom.top == 0.0 && bottom.left == 0.0);
     }
 }
