@@ -49,6 +49,7 @@ Charton is a high-performance Rust plotting library featuring a declarative API 
     <tr>
         <td><img src="docs/src/images/grid_line.svg" alt="Grid Lines" /><p align="center">Grid Lines</p></td>
         <td><img src="docs/src/images/world_map.svg" alt="World map" /><p align="center">Geo Chart</p></td>
+        <td><img src="docs/src/images/facet_grid.svg" alt="Facet Grid" /><p align="center">Facet Chart</p></td>
     </tr>
 </table>
 
