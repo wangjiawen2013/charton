@@ -41,8 +41,16 @@ impl LegendRenderer {
         // Layout orientation: Top/Bottom positions are horizontal; Left/Right are vertical.
         let is_horizontal = matches!(position, LegendPosition::Top | LegendPosition::Bottom);
 
+        let legend_extent = crate::core::layout::LayoutEngine::estimate_legend_extent(
+            specs,
+            position,
+            ctx.panel.width,
+            ctx.panel.height,
+            theme,
+        );
+
         // Determine starting coordinates relative to the panel's bounding box.
-        let (start_x, start_y) = Self::calculate_initial_anchor(ctx, theme, is_horizontal);
+        let (start_x, start_y) = Self::calculate_initial_anchor(ctx, theme, legend_extent);
 
         let mut current_x = start_x;
         let mut current_y = start_y;
@@ -52,14 +60,8 @@ impl LegendRenderer {
         for spec in specs {
             // Estimate size for wrapping calculations.
             // In faceted plots, we typically use the full height of the plot area.
-            let block_size = spec.estimate_size(
-                theme,
-                if is_horizontal {
-                    150.0
-                } else {
-                    ctx.panel.height
-                },
-            );
+            let block_size =
+                spec.estimate_size(theme, ctx.panel.width, ctx.panel.height, is_horizontal);
 
             // --- Macro-Layout Wrapping ---
             // If the next legend block exceeds the panel's bounds, wrap to a new row/column.
@@ -102,9 +104,15 @@ impl LegendRenderer {
 
             // 2. Render content based on GuideKind (Continuous Gradient vs. Discrete Symbols)
             let actual_block_size = match spec.kind {
-                GuideKind::ColorBar => {
-                    Self::draw_colorbar(backend, spec, ctx, current_x, content_y_offset, theme)
-                }
+                GuideKind::ColorBar => Self::draw_colorbar(
+                    backend,
+                    spec,
+                    ctx,
+                    current_x,
+                    content_y_offset,
+                    theme,
+                    is_horizontal,
+                ),
                 GuideKind::Legend => {
                     let (labels, colors, shapes, sizes) = Self::resolve_mappings(spec, ctx);
                     Self::draw_spec_group(
@@ -118,8 +126,9 @@ impl LegendRenderer {
                         content_y_offset,
                         font_size,
                         theme,
+                        is_horizontal,
                         if is_horizontal {
-                            150.0
+                            ctx.panel.width
                         } else {
                             ctx.panel.height
                         },
@@ -144,9 +153,14 @@ impl LegendRenderer {
         x: f64,
         y: f64,
         theme: &Theme,
+        is_horizontal: bool,
     ) -> GuideSize {
-        let bar_w = 15.0;
-        let bar_h = 150.0;
+        let bar_w = if is_horizontal {
+            ctx.panel.width.clamp(150.0, 300.0)
+        } else {
+            15.0
+        };
+        let bar_h = if is_horizontal { 15.0 } else { 150.0 };
         let font_size = theme.legend_label_size;
         let font_family = &theme.legend_label_family;
 
@@ -173,7 +187,7 @@ impl LegendRenderer {
             width: bar_w as Precision,
             height: bar_h as Precision,
             stops,
-            is_vertical: true,
+            is_vertical: !is_horizontal,
             id_suffix: spec.field.clone(),
         };
         backend.draw_gradient_rect(gradient_rect_config);
@@ -190,60 +204,90 @@ impl LegendRenderer {
         };
         backend.draw_rect(rect_config);
 
-        let mut max_label_w = 0.0;
+        let mut max_label_w: f64 = 0.0;
         if let Some(mapping) = spec.mappings.first() {
             let ticks = mapping.scale_impl.suggest_ticks(5);
             for tick in ticks {
                 let norm = mapping.scale_impl.normalize(tick.value);
-                let tick_y = y + (bar_h * (1.0 - norm));
+                if is_horizontal {
+                    let tick_x = x + bar_w * norm;
+                    backend.draw_line(LineConfig {
+                        x1: tick_x as Precision,
+                        y1: y as Precision,
+                        x2: tick_x as Precision,
+                        y2: (y + 3.0) as Precision,
+                        color: "#FFFFFF".into(),
+                        width: 1.0,
+                        opacity: 1.0,
+                        dash: vec![],
+                    });
+                    backend.draw_text(TextConfig {
+                        text: tick.label.clone(),
+                        x: tick_x as Precision,
+                        y: (y + bar_h + theme.tick_label_padding) as Precision,
+                        font_size: font_size as Precision,
+                        font_family: font_family.clone(),
+                        color: theme.legend_label_color,
+                        text_anchor: "middle".to_string(),
+                        dominant_baseline: "hanging".into(),
+                        font_weight: "normal".to_string(),
+                        opacity: 1.0,
+                        angle: 0.0,
+                    });
+                } else {
+                    let tick_y = y + (bar_h * (1.0 - norm));
+                    backend.draw_line(LineConfig {
+                        x1: x as Precision,
+                        y1: tick_y as Precision,
+                        x2: (x + 3.0) as Precision,
+                        y2: tick_y as Precision,
+                        color: "#FFFFFF".into(),
+                        width: 1.0,
+                        opacity: 1.0,
+                        dash: vec![],
+                    });
+                    backend.draw_line(LineConfig {
+                        x1: (x + bar_w - 3.0) as Precision,
+                        y1: tick_y as Precision,
+                        x2: (x + bar_w) as Precision,
+                        y2: tick_y as Precision,
+                        color: "#FFFFFF".into(),
+                        width: 1.0,
+                        opacity: 1.0,
+                        dash: vec![],
+                    });
+                    backend.draw_text(TextConfig {
+                        text: tick.label.clone(),
+                        x: (x + bar_w + theme.legend_marker_text_gap) as Precision,
+                        y: tick_y as Precision,
+                        font_size: font_size as Precision,
+                        font_family: font_family.clone(),
+                        color: theme.legend_label_color,
+                        text_anchor: "start".to_string(),
+                        dominant_baseline: "central".into(),
+                        font_weight: "normal".to_string(),
+                        opacity: 1.0,
+                        angle: 0.0,
+                    });
+                }
 
-                let line_config = LineConfig {
-                    x1: x as Precision,
-                    y1: tick_y as Precision,
-                    x2: (x + 3.0) as Precision,
-                    y2: tick_y as Precision,
-                    color: "#FFFFFF".into(),
-                    width: 1.0,
-                    opacity: 1.0,
-                    dash: vec![],
-                };
-                backend.draw_line(line_config);
-
-                let line_config = LineConfig {
-                    x1: (x + bar_w - 3.0) as Precision,
-                    y1: tick_y as Precision,
-                    x2: (x + bar_w) as Precision,
-                    y2: tick_y as Precision,
-                    color: "#FFFFFF".into(),
-                    width: 1.0,
-                    opacity: 1.0,
-                    dash: vec![],
-                };
-                backend.draw_line(line_config);
-
-                let text_config = TextConfig {
-                    text: tick.label.clone(),
-                    x: (x + bar_w + theme.legend_marker_text_gap) as Precision,
-                    y: tick_y as Precision,
-                    font_size: font_size as Precision,
-                    font_family: font_family.clone(),
-                    color: theme.legend_label_color,
-                    text_anchor: "start".to_string(),
-                    dominant_baseline: "central".into(),
-                    font_weight: "normal".to_string(),
-                    opacity: 1.0,
-                    angle: 0.0,
-                };
-                backend.draw_text(text_config);
-
-                let lw = crate::core::utils::estimate_text_width(&tick.label, font_size);
-                max_label_w = f64::max(max_label_w, lw);
+                max_label_w = max_label_w.max(crate::core::utils::estimate_text_width(
+                    &tick.label,
+                    font_size,
+                ));
             }
         }
 
-        GuideSize {
-            width: bar_w + theme.legend_marker_text_gap + max_label_w,
-            height: bar_h,
+        if is_horizontal {
+            GuideSize {
+                width: bar_w,
+                height: bar_h + theme.tick_label_padding + font_size,
+            }
+        } else {
+            GuideSize {
+                width: bar_w + theme.legend_marker_text_gap + max_label_w,
+                height: bar_h,
+            }
         }
     }
 
@@ -260,8 +304,15 @@ impl LegendRenderer {
         y: f64,
         font_size: f64,
         theme: &Theme,
-        max_h: f64,
+        is_horizontal: bool,
+        max_space: f64,
     ) -> GuideSize {
+        if is_horizontal {
+            return Self::draw_spec_group_horizontal(
+                backend, labels, colors, shapes, sizes, x, y, font_size, theme, max_space,
+            );
+        }
+
         let mut col_x = x;
         let mut item_y = y;
         let mut current_col_w = 0.0;
@@ -276,7 +327,7 @@ impl LegendRenderer {
             let row_w = fixed_container_size + theme.legend_marker_text_gap + text_w;
             let row_h = f64::max(fixed_container_size, font_size);
 
-            if item_y + row_h > y + max_h && i > 0 {
+            if item_y + row_h > y + max_space && i > 0 {
                 total_w += current_col_w + theme.legend_col_h_gap;
                 col_x += current_col_w + theme.legend_col_h_gap;
                 item_y = y;
@@ -316,7 +367,86 @@ impl LegendRenderer {
 
         GuideSize {
             width: total_w + current_col_w,
-            height: if total_w > 0.0 { max_h } else { item_y - y },
+            height: if total_w > 0.0 { max_space } else { item_y - y },
+        }
+    }
+
+    #[allow(clippy::too_many_arguments)]
+    fn draw_spec_group_horizontal(
+        backend: &mut dyn RenderBackend,
+        labels: &[String],
+        colors: &[SingleColor],
+        shapes: Option<&[PointShape]>,
+        sizes: Option<&[f64]>,
+        x: f64,
+        y: f64,
+        font_size: f64,
+        theme: &Theme,
+        max_width: f64,
+    ) -> GuideSize {
+        let fixed_container_size = 18.0;
+        let mut item_x = x;
+        let mut item_y = y;
+        let mut row_height: f64 = 0.0;
+        let mut total_height = 0.0;
+        let mut content_width: f64 = 0.0;
+
+        for (index, label) in labels.iter().enumerate() {
+            let radius = sizes
+                .and_then(|values| values.get(index))
+                .cloned()
+                .unwrap_or(5.0);
+            let text_width = crate::core::utils::estimate_text_width(label, font_size);
+            let item_width = fixed_container_size + theme.legend_marker_text_gap + text_width;
+            let item_height = f64::max(fixed_container_size, font_size);
+            let gap = if index + 1 < labels.len() {
+                theme.legend_col_h_gap
+            } else {
+                0.0
+            };
+
+            if item_x + item_width + gap > x + max_width && item_x > x {
+                content_width = content_width.max(item_x - x);
+                total_height += row_height + theme.legend_item_v_gap;
+                item_x = x;
+                item_y = y + total_height;
+                row_height = 0.0;
+            }
+
+            let shape = shapes
+                .and_then(|values| values.get(index))
+                .unwrap_or(&PointShape::Circle);
+            Self::draw_symbol(
+                backend,
+                shape,
+                item_x + fixed_container_size / 2.0,
+                item_y + item_height / 2.0,
+                radius,
+                colors.get(index).unwrap_or(&"#333333".into()),
+            );
+            backend.draw_text(TextConfig {
+                text: label.clone(),
+                x: (item_x + fixed_container_size + theme.legend_marker_text_gap) as Precision,
+                y: (item_y + item_height / 2.0) as Precision,
+                font_size: font_size as Precision,
+                font_family: theme.legend_label_family.clone(),
+                color: theme.legend_label_color,
+                text_anchor: "start".to_string(),
+                dominant_baseline: "central".into(),
+                font_weight: "normal".to_string(),
+                opacity: 1.0,
+                angle: 0.0,
+            });
+
+            item_x += item_width + gap;
+            row_height = row_height.max(item_height);
+        }
+
+        content_width = content_width.max(item_x - x);
+        total_height += row_height;
+        GuideSize {
+            width: content_width,
+            height: total_height,
         }
     }
 
@@ -558,7 +688,11 @@ impl LegendRenderer {
     }
 
     /// Calculates the initial (x, y) anchor for the legend block based on the panel position.
-    fn calculate_initial_anchor(ctx: &PanelContext, theme: &Theme, _: bool) -> (f64, f64) {
+    fn calculate_initial_anchor(
+        ctx: &PanelContext,
+        theme: &Theme,
+        legend_extent: GuideSize,
+    ) -> (f64, f64) {
         let mut x = ctx.panel.x;
         let mut y = ctx.panel.y;
         let margin = theme.legend_margin;
@@ -566,8 +700,12 @@ impl LegendRenderer {
 
         match theme.legend_position {
             LegendPosition::Right => x = ctx.panel.x + ctx.panel.width + margin,
-            LegendPosition::Left => x = (ctx.panel.x - margin - axis_buffer).max(10.0),
-            LegendPosition::Top => y = (ctx.panel.y - margin - (axis_buffer * 0.8)).max(10.0),
+            LegendPosition::Left => {
+                x = (ctx.panel.x - margin - axis_buffer - legend_extent.width).max(10.0)
+            }
+            LegendPosition::Top => {
+                y = (ctx.panel.y - margin - (axis_buffer * 0.8) - legend_extent.height).max(10.0)
+            }
             LegendPosition::Bottom => y = ctx.panel.y + ctx.panel.height + margin,
             _ => {}
         }
