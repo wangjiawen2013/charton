@@ -109,6 +109,7 @@ impl LegendRenderer {
     }
 
     /// Renders a continuous color gradient bar (ColorBar).
+    #[allow(clippy::too_many_arguments)]
     fn draw_colorbar<B: RenderBackend>(
         backend: &mut B,
         spec: &GuideSpec,
