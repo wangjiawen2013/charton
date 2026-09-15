@@ -19,80 +19,124 @@ pub struct LegendLayoutConstraints {
     pub right: f64,
 }
 
+#[derive(Debug, Clone, Copy)]
+pub(crate) struct LegendBlockLayout {
+    pub(crate) index: usize,
+    pub(crate) offset_x: f64,
+    pub(crate) offset_y: f64,
+    pub(crate) width: f64,
+    pub(crate) height: f64,
+}
+
+#[derive(Debug, Clone)]
+pub(crate) struct LegendLayoutPlan {
+    pub(crate) position: LegendPosition,
+    pub(crate) blocks: Vec<LegendBlockLayout>,
+    pub(crate) width: f64,
+    pub(crate) height: f64,
+}
+
 pub struct LayoutEngine;
 
 impl LayoutEngine {
-    /// Estimates the complete legend footprint using the renderer's wrapping rules.
-    pub(crate) fn estimate_legend_extent(
+    pub(crate) fn build_legend_layout(
         specs: &[GuideSpec],
         position: LegendPosition,
         available_width: f64,
         available_height: f64,
         theme: &Theme,
-    ) -> crate::core::guide::GuideSize {
-        if specs.is_empty() || matches!(position, LegendPosition::None) {
-            return crate::core::guide::GuideSize::default();
-        }
-
-        let block_gap = theme.legend_block_gap;
+    ) -> LegendLayoutPlan {
         let is_horizontal = matches!(position, LegendPosition::Top | LegendPosition::Bottom);
-        if matches!(position, LegendPosition::Left | LegendPosition::Right) {
-            let mut total_width = 0.0;
-            let mut current_width = 0.0;
-            let mut current_height = 0.0;
-            let mut total_height: f64 = 0.0;
-
-            for (index, spec) in specs.iter().enumerate() {
-                let size = spec.estimate_size(theme, available_width, available_height, false);
-                if current_height + size.height > available_height && current_height > 0.0 {
-                    total_width += current_width + block_gap;
-                    total_height = total_height.max(current_height);
-                    current_width = size.width;
-                    current_height = size.height;
-                } else {
-                    current_width = current_width.max(size.width);
-                    current_height += size.height;
-                    if index < specs.len() - 1 {
-                        current_height += block_gap;
-                    }
-                }
-            }
-
-            total_width += current_width;
-            total_height = total_height.max(current_height);
-            return crate::core::guide::GuideSize {
-                width: total_width,
-                height: total_height,
-            };
-        }
-
-        let mut total_height = 0.0;
-        let mut current_height: f64 = 0.0;
-        let mut current_width = 0.0;
-        let mut max_width: f64 = 0.0;
+        let block_gap = theme.legend_block_gap;
+        let mut blocks = Vec::with_capacity(specs.len());
+        let mut cursor_x = 0.0;
+        let mut cursor_y = 0.0;
+        let mut line_extent = 0.0;
+        let mut total_width: f64 = 0.0;
+        let mut total_height: f64 = 0.0;
 
         for (index, spec) in specs.iter().enumerate() {
             let size = spec.estimate_size(theme, available_width, available_height, is_horizontal);
-            if current_width + size.width > available_width && current_width > 0.0 {
-                total_height += current_height + block_gap;
-                max_width = max_width.max(current_width);
-                current_height = size.height;
-                current_width = size.width;
-            } else {
-                current_height = current_height.max(size.height);
-                current_width += size.width;
-                if index < specs.len() - 1 {
-                    current_width += block_gap;
+
+            if is_horizontal {
+                if cursor_x + size.width > available_width && cursor_x > 0.0 {
+                    cursor_y += line_extent + block_gap;
+                    cursor_x = 0.0;
+                    line_extent = 0.0;
                 }
+
+                blocks.push(LegendBlockLayout {
+                    index,
+                    offset_x: cursor_x,
+                    offset_y: cursor_y,
+                    width: size.width,
+                    height: size.height,
+                });
+                cursor_x += size.width + block_gap;
+                line_extent = line_extent.max(size.height);
+                total_width = total_width.max(cursor_x - block_gap);
+                total_height = total_height.max(cursor_y + line_extent);
+            } else {
+                if cursor_y + size.height > available_height && cursor_y > 0.0 {
+                    cursor_x += line_extent + block_gap;
+                    cursor_y = 0.0;
+                    line_extent = 0.0;
+                }
+
+                blocks.push(LegendBlockLayout {
+                    index,
+                    offset_x: cursor_x,
+                    offset_y: cursor_y,
+                    width: size.width,
+                    height: size.height,
+                });
+                cursor_y += size.height + block_gap;
+                line_extent = line_extent.max(size.width);
+                total_width = total_width.max(cursor_x + line_extent);
+                total_height = total_height.max(cursor_y - block_gap);
             }
         }
 
-        total_height += current_height;
-        max_width = max_width.max(current_width);
-        crate::core::guide::GuideSize {
-            width: max_width,
+        LegendLayoutPlan {
+            position,
+            blocks,
+            width: total_width,
             height: total_height,
         }
+    }
+
+    pub(crate) fn legend_constraints_for_plan(
+        plan: &LegendLayoutPlan,
+        canvas_w: f64,
+        canvas_h: f64,
+        margin_gap: f64,
+        theme: &Theme,
+    ) -> LegendLayoutConstraints {
+        let mut constraints = LegendLayoutConstraints::default();
+        if plan.blocks.is_empty() || matches!(plan.position, LegendPosition::None) {
+            return constraints;
+        }
+
+        if matches!(plan.position, LegendPosition::Left | LegendPosition::Right) {
+            let min_panel_w = f64::max(theme.min_panel_size, canvas_w * theme.panel_defense_ratio);
+            let max_width = (canvas_w - min_panel_w - theme.axis_reserve_buffer).max(0.0);
+            let reserve = f64::min(plan.width, max_width) + margin_gap;
+            if plan.position == LegendPosition::Right {
+                constraints.right = reserve;
+            } else {
+                constraints.left = reserve;
+            }
+        } else {
+            let min_panel_h = f64::max(theme.min_panel_size, canvas_h * theme.panel_defense_ratio);
+            let max_height = (canvas_h - min_panel_h - theme.axis_reserve_buffer).max(0.0);
+            let reserve = f64::min(plan.height, max_height) + margin_gap;
+            if plan.position == LegendPosition::Top {
+                constraints.top = reserve;
+            } else {
+                constraints.bottom = reserve;
+            }
+        }
+        constraints
     }
 
     /// Calculates legend margins using a greedy stacking algorithm.
@@ -113,74 +157,9 @@ impl LayoutEngine {
         margin_gap: f64, // Space between plot panel and the whole legend block
         theme: &Theme,
     ) -> LegendLayoutConstraints {
-        let mut constraints = LegendLayoutConstraints::default();
-        if specs.is_empty() {
-            return constraints;
-        }
-
-        match position {
-            LegendPosition::Right | LegendPosition::Left => {
-                let extent = Self::estimate_legend_extent(
-                    specs,
-                    position,
-                    initial_plot_w,
-                    initial_plot_h,
-                    theme,
-                );
-
-                // Safety cap: Prevent legends from consuming too much horizontal space.
-                // We ensure the plot panel has a "Defense Floor".
-                let min_panel_w =
-                    f64::max(theme.min_panel_size, canvas_w * theme.panel_defense_ratio);
-                let max_allowed_legend_w =
-                    (canvas_w - min_panel_w - theme.axis_reserve_buffer).max(0.0);
-
-                let final_w = f64::min(extent.width, max_allowed_legend_w);
-                let reserve = if final_w > 0.0 {
-                    final_w + margin_gap
-                } else {
-                    0.0
-                };
-
-                if position == LegendPosition::Right {
-                    constraints.right = reserve;
-                } else {
-                    constraints.left = reserve;
-                }
-            }
-
-            LegendPosition::Top | LegendPosition::Bottom => {
-                let extent = Self::estimate_legend_extent(
-                    specs,
-                    position,
-                    initial_plot_w,
-                    initial_plot_h,
-                    theme,
-                );
-
-                let min_panel_h =
-                    f64::max(theme.min_panel_size, canvas_h * theme.panel_defense_ratio);
-                let max_allowed_legend_h =
-                    (canvas_h - min_panel_h - theme.axis_reserve_buffer).max(0.0);
-
-                let final_h = f64::min(extent.height, max_allowed_legend_h);
-                let reserve = if final_h > 0.0 {
-                    final_h + margin_gap
-                } else {
-                    0.0
-                };
-
-                if position == LegendPosition::Top {
-                    constraints.top = reserve;
-                } else {
-                    constraints.bottom = reserve;
-                }
-            }
-            LegendPosition::None => {
-                return constraints;
-            }
-        }
-        constraints
+        let plan =
+            Self::build_legend_layout(specs, position, initial_plot_w, initial_plot_h, theme);
+        Self::legend_constraints_for_plan(&plan, canvas_w, canvas_h, margin_gap, theme)
     }
 
     /// Calculates layout constraints based on predicted axis dimensions.
