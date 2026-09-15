@@ -23,6 +23,14 @@ pub struct ResolvedSpec {
     pub expand: Expansion,
 }
 
+struct ResolvedScene {
+    coord: Arc<dyn CoordinateTrait>,
+    panel: Rect,
+    aesthetics: GlobalAesthetics,
+    guides: Vec<GuideSpec>,
+    legend_plan: crate::core::layout::LegendLayoutPlan,
+}
+
 /// `LayeredChart` is the central orchestrator of the visualization.
 ///
 /// It follows the "Specification" pattern:
@@ -534,18 +542,7 @@ impl LayeredChart {
     /// 4. **Layout Measurement**: Calculates the physical pixel Rect for the plot panel.
     ///
     /// The output is the "Final Blueprint" required to begin the actual drawing phase.
-    #[allow(clippy::type_complexity)] // This is the core resolution result; a type alias isn't needed for a single usage.
-    pub fn resolve_scene(
-        &self,
-    ) -> Result<
-        (
-            Arc<dyn CoordinateTrait>,
-            Rect,
-            GlobalAesthetics,
-            Vec<GuideSpec>,
-        ),
-        ChartonError,
-    > {
+    fn resolve_scene(&self) -> Result<ResolvedScene, ChartonError> {
         // --- STEP 1: RESOLVE GLOBAL AESTHETIC MAPPINGS ---
         // We resolve non-positional encodings (Color, Shape, Size) across all layers.
 
@@ -673,20 +670,29 @@ impl LayeredChart {
 
         // A. Measure only the elements that will actually be rendered.
         // Hidden legends and axes must not reserve space in the plot layout.
-        let legend_box = if self.theme.show_legend {
-            crate::core::layout::LayoutEngine::calculate_legend_constraints(
+        let legend_plan = if self.theme.show_legend {
+            crate::core::layout::LayoutEngine::build_legend_layout(
                 &guide_specs,
                 self.theme.legend_position,
-                w,
-                h,
                 initial_plot_w,
                 initial_plot_h,
-                self.theme.legend_margin,
                 &self.theme,
             )
         } else {
-            crate::core::layout::LegendLayoutConstraints::default()
+            crate::core::layout::LegendLayoutPlan {
+                position: self.theme.legend_position,
+                blocks: Vec::new(),
+                width: 0.0,
+                height: 0.0,
+            }
         };
+        let legend_box = crate::core::layout::LayoutEngine::legend_constraints_for_plan(
+            &legend_plan,
+            w,
+            h,
+            self.theme.legend_margin,
+            &self.theme,
+        );
 
         // B. Measure Axis Constraints using a temporary PanelContext.
         // We calculate a 'rough' panel area first to allow the engine to estimate
@@ -729,7 +735,13 @@ impl LayeredChart {
 
         let final_panel_rect = Rect::new(final_left, final_top, plot_w, plot_h);
 
-        Ok((final_coord, final_panel_rect, aesthetics, guide_specs))
+        Ok(ResolvedScene {
+            coord: final_coord,
+            panel: final_panel_rect,
+            aesthetics,
+            guides: guide_specs,
+            legend_plan,
+        })
     }
 
     /// Renders the chart title at the top-center of the SVG canvas.
@@ -799,7 +811,12 @@ impl LayeredChart {
         }
 
         // --- STEP 1: SCENE RESOLUTION ---
-        let (coord, panel, aesthetics, guide_specs) = self.resolve_scene()?;
+        let scene = self.resolve_scene()?;
+        let coord = scene.coord;
+        let panel = scene.panel;
+        let aesthetics = scene.aesthetics;
+        let guide_specs = scene.guides;
+        let legend_plan = scene.legend_plan;
 
         // --- STEP 2: GLOBAL SPECIFICATION SETUP ---
         let spec = ChartSpec {
@@ -832,6 +849,7 @@ impl LayeredChart {
             crate::render::legend_renderer::LegendRenderer::render_legend(
                 backend,
                 &guide_specs,
+                &legend_plan,
                 &self.theme,
                 &legend_ctx,
             );

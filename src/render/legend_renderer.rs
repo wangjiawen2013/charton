@@ -5,6 +5,7 @@ use crate::core::layer::{
     CircleConfig, GradientRectConfig, LineConfig, PolygonConfig, RectConfig, RenderBackend,
     TextConfig,
 };
+use crate::core::layout::LegendLayoutPlan;
 use crate::scale::ScaleDomain;
 use crate::scale::mapper::VisualMapper;
 use crate::theme::Theme;
@@ -25,11 +26,12 @@ impl LegendRenderer {
     pub fn render_legend<B: RenderBackend>(
         backend: &mut B,
         specs: &[GuideSpec],
+        plan: &LegendLayoutPlan,
         theme: &Theme,
         ctx: &PanelContext,
     ) {
         // Resolve the legend position from the theme.
-        let position = theme.legend_position;
+        let position = plan.position;
 
         if specs.is_empty() || matches!(position, LegendPosition::None) {
             return;
@@ -38,51 +40,15 @@ impl LegendRenderer {
         let font_size = theme.legend_label_size;
         let font_family = &theme.legend_label_family;
 
-        // Layout orientation: Top/Bottom positions are horizontal; Left/Right are vertical.
         let is_horizontal = matches!(position, LegendPosition::Top | LegendPosition::Bottom);
+        let (origin_x, origin_y) = Self::calculate_initial_anchor(ctx, theme, plan);
 
-        let legend_extent = crate::core::layout::LayoutEngine::estimate_legend_extent(
-            specs,
-            position,
-            ctx.panel.width,
-            ctx.panel.height,
-            theme,
-        );
-
-        // Determine starting coordinates relative to the panel's bounding box.
-        let (start_x, start_y) = Self::calculate_initial_anchor(ctx, theme, legend_extent);
-
-        let mut current_x = start_x;
-        let mut current_y = start_y;
-        let mut max_dim_in_row_col = 0.0;
-        let block_gap = theme.legend_block_gap;
-
-        for spec in specs {
-            // Estimate size for wrapping calculations.
-            // In faceted plots, we typically use the full height of the plot area.
-            let block_size =
-                spec.estimate_size(theme, ctx.panel.width, ctx.panel.height, is_horizontal);
-
-            // --- Macro-Layout Wrapping ---
-            // If the next legend block exceeds the panel's bounds, wrap to a new row/column.
-            if !is_horizontal {
-                if current_y + block_size.height > start_y + ctx.panel.height && current_y > start_y
-                {
-                    current_x += max_dim_in_row_col + block_gap;
-                    current_y = start_y;
-                    max_dim_in_row_col = block_size.width;
-                } else {
-                    max_dim_in_row_col = f64::max(max_dim_in_row_col, block_size.width);
-                }
-            } else if current_x + block_size.width > start_x + ctx.panel.width
-                && current_x > start_x
-            {
-                current_y += max_dim_in_row_col + block_gap;
-                current_x = start_x;
-                max_dim_in_row_col = block_size.height;
-            } else {
-                max_dim_in_row_col = f64::max(max_dim_in_row_col, block_size.height);
-            }
+        for block in &plan.blocks {
+            let Some(spec) = specs.get(block.index) else {
+                continue;
+            };
+            let current_x = origin_x + block.offset_x;
+            let current_y = origin_y + block.offset_y;
 
             // 1. Draw Legend Block Title
             let text_config = TextConfig {
@@ -103,7 +69,7 @@ impl LegendRenderer {
             let content_y_offset = current_y + (font_size * 1.1) + theme.legend_title_gap;
 
             // 2. Render content based on GuideKind (Continuous Gradient vs. Discrete Symbols)
-            let actual_block_size = match spec.kind {
+            match spec.kind {
                 GuideKind::ColorBar => Self::draw_colorbar(
                     backend,
                     spec,
@@ -112,6 +78,8 @@ impl LegendRenderer {
                     content_y_offset,
                     theme,
                     is_horizontal,
+                    block.width,
+                    block.height,
                 ),
                 GuideKind::Legend => {
                     let (labels, colors, shapes, sizes) = Self::resolve_mappings(spec, ctx);
@@ -128,20 +96,15 @@ impl LegendRenderer {
                         theme,
                         is_horizontal,
                         if is_horizontal {
-                            ctx.panel.width
+                            block.width
                         } else {
-                            ctx.panel.height
+                            (block.height - font_size * 1.1 - theme.legend_title_gap).max(20.0)
                         },
                     )
                 }
             };
 
             // 3. Advance the cursor
-            if !is_horizontal {
-                current_y += actual_block_size.height + block_gap;
-            } else {
-                current_x += actual_block_size.width + block_gap;
-            }
         }
     }
 
@@ -154,9 +117,11 @@ impl LegendRenderer {
         y: f64,
         theme: &Theme,
         is_horizontal: bool,
+        block_width: f64,
+        _block_height: f64,
     ) -> GuideSize {
         let bar_w = if is_horizontal {
-            ctx.panel.width.clamp(150.0, 300.0)
+            block_width.clamp(150.0, 300.0)
         } else {
             15.0
         };
@@ -691,20 +656,18 @@ impl LegendRenderer {
     fn calculate_initial_anchor(
         ctx: &PanelContext,
         theme: &Theme,
-        legend_extent: GuideSize,
+        plan: &LegendLayoutPlan,
     ) -> (f64, f64) {
         let mut x = ctx.panel.x;
         let mut y = ctx.panel.y;
         let margin = theme.legend_margin;
         let axis_buffer = theme.axis_reserve_buffer;
 
-        match theme.legend_position {
+        match plan.position {
             LegendPosition::Right => x = ctx.panel.x + ctx.panel.width + margin,
-            LegendPosition::Left => {
-                x = (ctx.panel.x - margin - axis_buffer - legend_extent.width).max(10.0)
-            }
+            LegendPosition::Left => x = (ctx.panel.x - margin - axis_buffer - plan.width).max(10.0),
             LegendPosition::Top => {
-                y = (ctx.panel.y - margin - (axis_buffer * 0.8) - legend_extent.height).max(10.0)
+                y = (ctx.panel.y - margin - (axis_buffer * 0.8) - plan.height).max(10.0)
             }
             LegendPosition::Bottom => y = ctx.panel.y + ctx.panel.height + margin,
             _ => {}
