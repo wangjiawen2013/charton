@@ -207,8 +207,7 @@ fn an_oversized_legend_is_clipped_to_the_band_outside_the_panel()
         // The legend is drawn last, so the highest clip id belongs to its band.
         let band = svg
             .lines()
-            .filter(|line| line.contains("<clipPath id="))
-            .next_back()
+            .rfind(|line| line.contains("<clipPath id="))
             .map(|line| {
                 (
                     attr(line, "x"),
