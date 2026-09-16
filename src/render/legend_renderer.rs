@@ -1,11 +1,13 @@
 use crate::Precision;
+use crate::coordinate::Rect;
 use crate::core::context::PanelContext;
-use crate::core::guide::{GuideKind, GuideSize, GuideSpec, LegendPosition};
+use crate::core::flow::Direction;
+use crate::core::guide::{ColorBarGeometry, GuideKind, GuideSpec, LegendPosition};
 use crate::core::layer::{
     CircleConfig, GradientRectConfig, LineConfig, PolygonConfig, RectConfig, RenderBackend,
     TextConfig,
 };
-use crate::core::layout::LegendLayoutPlan;
+use crate::core::layout::{GuideBlockLayout, LegendLayoutPlan};
 use crate::scale::ScaleDomain;
 use crate::scale::mapper::VisualMapper;
 use crate::theme::Theme;
@@ -23,12 +25,17 @@ impl LegendRenderer {
     ///
     /// It coordinates the layout flow (wrapping blocks) based on the available space
     /// around the provided PanelContext.
+    ///
+    /// Everything it draws is clipped to `band`, the region outside the plot panel
+    /// on the side the legend sits on. See `LayoutEngine::legend_band` for when that
+    /// changes anything.
     pub fn render_legend<B: RenderBackend>(
         backend: &mut B,
         specs: &[GuideSpec],
         plan: &LegendLayoutPlan,
         theme: &Theme,
         ctx: &PanelContext,
+        band: &Rect,
     ) {
         // Resolve the legend position from the theme.
         let position = plan.position;
@@ -40,21 +47,31 @@ impl LegendRenderer {
         let font_size = theme.legend_label_size;
         let font_family = &theme.legend_label_family;
 
-        let is_horizontal = matches!(position, LegendPosition::Top | LegendPosition::Bottom);
+        let direction = Direction::for_legend(position);
+        let is_horizontal = matches!(direction, Direction::Horizontal);
         let (origin_x, origin_y) = Self::calculate_initial_anchor(ctx, theme, plan);
+        Self::warn_if_clipped(plan, ctx, origin_x, origin_y, band);
 
+        // Only ever paint outside the plot panel: a legend too big to fit is cut
+        // off at the panel edge instead of being drawn over the data. For a legend
+        // that fits -- the normal case -- this clip changes nothing.
+        backend.begin_clip_scope(band);
+
+        // Every block and every entry already knows where it goes; this loop only
+        // draws. It must not re-derive any layout, or the drawing would start
+        // disagreeing with the space the layout reserved.
         for block in &plan.blocks {
             let Some(spec) = specs.get(block.index) else {
                 continue;
             };
-            let current_x = origin_x + block.offset_x;
-            let current_y = origin_y + block.offset_y;
+            let block_x = origin_x + block.offset_x;
+            let block_y = origin_y + block.offset_y;
 
-            // 1. Draw Legend Block Title
-            let text_config = TextConfig {
+            // 1. Draw the block title.
+            backend.draw_text(TextConfig {
                 text: spec.title.clone(),
-                x: current_x as Precision,
-                y: (current_y + (font_size / 2.0)) as Precision,
+                x: block_x as Precision,
+                y: (block_y + (font_size / 2.0)) as Precision,
                 font_size: (font_size * 1.1) as Precision,
                 font_family: font_family.clone(),
                 color: theme.legend_title_color,
@@ -63,52 +80,99 @@ impl LegendRenderer {
                 font_weight: "bold".to_string(),
                 opacity: 1.0,
                 angle: 0.0,
-            };
-            backend.draw_text(text_config);
+            });
 
-            let content_y_offset = current_y + (font_size * 1.1) + theme.legend_title_gap;
-
-            // 2. Render content based on GuideKind (Continuous Gradient vs. Discrete Symbols)
+            // 2. Draw the content: a gradient bar, or the discrete entries.
+            // Entry offsets are relative to the block origin and already sit
+            // below the title, so no extra offset is needed here.
             match spec.kind {
-                GuideKind::ColorBar => Self::draw_colorbar(
-                    backend,
-                    spec,
-                    ctx,
-                    current_x,
-                    content_y_offset,
-                    theme,
-                    is_horizontal,
-                    block.width,
-                    block.height,
-                ),
+                GuideKind::ColorBar => {
+                    // Colour bars are guaranteed to carry their geometry.
+                    if let Some(geometry) = block.colorbar {
+                        Self::draw_colorbar(
+                            backend,
+                            spec,
+                            ctx,
+                            block_x,
+                            block_y + (font_size * 1.1) + theme.legend_title_gap,
+                            theme,
+                            is_horizontal,
+                            geometry,
+                        );
+                    }
+                }
                 GuideKind::Legend => {
                     let (labels, colors, shapes, sizes) = Self::resolve_mappings(spec, ctx);
-                    Self::draw_spec_group(
+                    Self::draw_entries(
                         backend,
-                        spec,
                         &labels,
                         &colors,
                         shapes.as_deref(),
                         sizes.as_deref(),
-                        current_x,
-                        content_y_offset,
+                        block,
+                        block_x,
+                        block_y,
                         font_size,
                         theme,
-                        is_horizontal,
-                        if is_horizontal {
-                            block.width
-                        } else {
-                            (block.height - font_size * 1.1 - theme.legend_title_gap).max(20.0)
-                        },
-                    )
+                    );
                 }
             };
-
-            // 3. Advance the cursor
         }
+
+        backend.end_clip_scope();
+    }
+
+    /// Whether `inner` lies completely inside `outer`.
+    ///
+    /// Split out from the warning below so the condition can be unit tested
+    /// without having to capture stderr.
+    fn fits_inside(outer: &Rect, inner: &Rect) -> bool {
+        inner.x >= outer.x
+            && inner.y >= outer.y
+            && inner.x + inner.width <= outer.x + outer.width
+            && inner.y + inner.height <= outer.y + outer.height
+    }
+
+    /// Reports a legend strip that does not fit the band it is drawn in.
+    ///
+    /// The layout shrinks the plot panel to make room for the legend, but only
+    /// down to a floor (`theme.min_panel_size`, guarded by
+    /// `theme.panel_defense_ratio`), so a legend that is simply too large for the
+    /// canvas ends up longer than the space reserved for it. The clip below then
+    /// cuts it off at the panel edge: the leading entries are drawn and the rest
+    /// silently disappears. That is the right trade-off -- a clean plot beats a
+    /// legend painted over the data -- but it should never happen unnoticed, hence
+    /// this line. It fires once per rendered sheet, and never on the GPU path,
+    /// which does not draw legends at all.
+    fn warn_if_clipped(
+        plan: &LegendLayoutPlan,
+        ctx: &PanelContext,
+        origin_x: f64,
+        origin_y: f64,
+        band: &Rect,
+    ) {
+        let strip = Rect::new(origin_x, origin_y, plan.width, plan.height);
+        if Self::fits_inside(band, &strip) {
+            return;
+        }
+
+        eprintln!(
+            "Legend: Clipped a {:.0}x{:.0} strip to the {:.0}x{:.0} band on the {:?} side \
+             (panel kept at {:.0}x{:.0}).",
+            strip.width,
+            strip.height,
+            band.width,
+            band.height,
+            plan.position,
+            ctx.panel.width,
+            ctx.panel.height
+        );
     }
 
     /// Renders a continuous color gradient bar (ColorBar).
+    ///
+    /// The bar's size, its ticks and its labels all come from the layout plan, so
+    /// what is drawn here is exactly the box that was reserved for it.
     #[allow(clippy::too_many_arguments)]
     fn draw_colorbar<B: RenderBackend>(
         backend: &mut B,
@@ -118,15 +182,15 @@ impl LegendRenderer {
         y: f64,
         theme: &Theme,
         is_horizontal: bool,
-        block_width: f64,
-        _block_height: f64,
-    ) -> GuideSize {
-        let bar_w = if is_horizontal {
-            block_width.clamp(150.0, 300.0)
+        geometry: ColorBarGeometry,
+    ) {
+        // The gradient runs along the bar, so on a vertical bar the measured
+        // length becomes the drawn height.
+        let (bar_w, bar_h) = if is_horizontal {
+            (geometry.length, geometry.thickness)
         } else {
-            15.0
+            (geometry.thickness, geometry.length)
         };
-        let bar_h = if is_horizontal { 15.0 } else { 150.0 };
         let font_size = theme.legend_label_size;
         let font_family = &theme.legend_label_family;
 
@@ -170,10 +234,8 @@ impl LegendRenderer {
         };
         backend.draw_rect(rect_config);
 
-        let mut max_label_w: f64 = 0.0;
         if let Some(mapping) = spec.mappings.first() {
-            let ticks = mapping.scale_impl.suggest_ticks(5);
-            for tick in ticks {
+            for tick in spec.colorbar_ticks() {
                 let norm = mapping.scale_impl.normalize(tick.value);
                 if is_horizontal {
                     let tick_x = x + bar_w * norm;
@@ -236,87 +298,60 @@ impl LegendRenderer {
                         angle: 0.0,
                     });
                 }
-
-                max_label_w = max_label_w.max(crate::core::utils::estimate_text_width(
-                    &tick.label,
-                    font_size,
-                ));
-            }
-        }
-
-        if is_horizontal {
-            GuideSize {
-                width: bar_w,
-                height: bar_h + theme.tick_label_padding + font_size,
-            }
-        } else {
-            GuideSize {
-                width: bar_w + theme.legend_marker_text_gap + max_label_w,
-                height: bar_h,
             }
         }
     }
 
-    /// Renders a group of categorical symbols and labels.
+    /// Draws the discrete entries of one legend block.
+    ///
+    /// Every position comes from the layout plan, which resolved symbol and label
+    /// placement while measuring. This function therefore never decides *where*
+    /// an entry goes -- it only centres each symbol in its pre-computed cell.
     #[allow(clippy::too_many_arguments)]
-    fn draw_spec_group(
+    fn draw_entries(
         backend: &mut dyn RenderBackend,
-        _spec: &GuideSpec,
         labels: &[String],
         colors: &[SingleColor],
         shapes: Option<&[PointShape]>,
         sizes: Option<&[f64]>,
-        x: f64,
-        y: f64,
+        block: &GuideBlockLayout,
+        block_x: f64,
+        block_y: f64,
         font_size: f64,
         theme: &Theme,
-        is_horizontal: bool,
-        max_space: f64,
-    ) -> GuideSize {
-        if is_horizontal {
-            return Self::draw_spec_group_horizontal(
-                backend, labels, colors, shapes, sizes, x, y, font_size, theme, max_space,
-            );
-        }
-
-        let mut col_x = x;
-        let mut item_y = y;
-        let mut current_col_w = 0.0;
-        let mut total_w = 0.0;
-
+    ) {
         let font_family = &theme.legend_label_family;
-        let fixed_container_size = 18.0;
+        let cell = block.metrics.cell;
+        let row = block.metrics.row;
 
-        for (i, label) in labels.iter().enumerate() {
-            let r = sizes.and_then(|s| s.get(i)).cloned().unwrap_or(5.0);
-            let text_w = crate::core::utils::estimate_text_width(label, font_size);
-            let row_w = fixed_container_size + theme.legend_marker_text_gap + text_w;
-            let row_h = f64::max(fixed_container_size, font_size);
+        for (index, entry) in block.entries.iter().enumerate() {
+            let Some(label) = labels.get(index) else {
+                break;
+            };
+            let radius = sizes
+                .and_then(|values| values.get(index))
+                .cloned()
+                .unwrap_or(5.0);
+            let shape = shapes
+                .and_then(|values| values.get(index))
+                .unwrap_or(&PointShape::Circle);
 
-            if item_y + row_h > y + max_space && i > 0 {
-                total_w += current_col_w + theme.legend_col_h_gap;
-                col_x += current_col_w + theme.legend_col_h_gap;
-                item_y = y;
-                current_col_w = row_w;
-            } else {
-                current_col_w = f64::max(current_col_w, row_w);
-            }
-
-            let shape = shapes.and_then(|s| s.get(i)).unwrap_or(&PointShape::Circle);
+            // The symbol and its label share the vertical centre of the row.
+            let centre_y = block_y + entry.y + row / 2.0;
 
             Self::draw_symbol(
                 backend,
                 shape,
-                col_x + (fixed_container_size / 2.0),
-                item_y + (row_h / 2.0),
-                r,
-                colors.get(i).unwrap_or(&"#333333".into()),
+                block_x + entry.x + (cell / 2.0),
+                centre_y,
+                radius,
+                colors.get(index).unwrap_or(&"#333333".into()),
             );
 
-            let text_config = TextConfig {
+            backend.draw_text(TextConfig {
                 text: label.clone(),
-                x: (col_x + fixed_container_size + theme.legend_marker_text_gap) as Precision,
-                y: (item_y + row_h / 2.0) as Precision,
+                x: (block_x + entry.x + cell + theme.legend_marker_text_gap) as Precision,
+                y: centre_y as Precision,
                 font_size: font_size as Precision,
                 font_family: font_family.clone(),
                 color: theme.legend_label_color,
@@ -325,94 +360,7 @@ impl LegendRenderer {
                 font_weight: "normal".to_string(),
                 opacity: 1.0,
                 angle: 0.0,
-            };
-            backend.draw_text(text_config);
-
-            item_y += row_h + theme.legend_item_v_gap;
-        }
-
-        GuideSize {
-            width: total_w + current_col_w,
-            height: if total_w > 0.0 { max_space } else { item_y - y },
-        }
-    }
-
-    #[allow(clippy::too_many_arguments)]
-    fn draw_spec_group_horizontal(
-        backend: &mut dyn RenderBackend,
-        labels: &[String],
-        colors: &[SingleColor],
-        shapes: Option<&[PointShape]>,
-        sizes: Option<&[f64]>,
-        x: f64,
-        y: f64,
-        font_size: f64,
-        theme: &Theme,
-        max_width: f64,
-    ) -> GuideSize {
-        let fixed_container_size = 18.0;
-        let mut item_x = x;
-        let mut item_y = y;
-        let mut row_height: f64 = 0.0;
-        let mut total_height = 0.0;
-        let mut content_width: f64 = 0.0;
-
-        for (index, label) in labels.iter().enumerate() {
-            let radius = sizes
-                .and_then(|values| values.get(index))
-                .cloned()
-                .unwrap_or(5.0);
-            let text_width = crate::core::utils::estimate_text_width(label, font_size);
-            let item_width = fixed_container_size + theme.legend_marker_text_gap + text_width;
-            let item_height = f64::max(fixed_container_size, font_size);
-            let gap = if index + 1 < labels.len() {
-                theme.legend_col_h_gap
-            } else {
-                0.0
-            };
-
-            if item_x + item_width + gap > x + max_width && item_x > x {
-                content_width = content_width.max(item_x - x);
-                total_height += row_height + theme.legend_item_v_gap;
-                item_x = x;
-                item_y = y + total_height;
-                row_height = 0.0;
-            }
-
-            let shape = shapes
-                .and_then(|values| values.get(index))
-                .unwrap_or(&PointShape::Circle);
-            Self::draw_symbol(
-                backend,
-                shape,
-                item_x + fixed_container_size / 2.0,
-                item_y + item_height / 2.0,
-                radius,
-                colors.get(index).unwrap_or(&"#333333".into()),
-            );
-            backend.draw_text(TextConfig {
-                text: label.clone(),
-                x: (item_x + fixed_container_size + theme.legend_marker_text_gap) as Precision,
-                y: (item_y + item_height / 2.0) as Precision,
-                font_size: font_size as Precision,
-                font_family: theme.legend_label_family.clone(),
-                color: theme.legend_label_color,
-                text_anchor: "start".to_string(),
-                dominant_baseline: "central".into(),
-                font_weight: "normal".to_string(),
-                opacity: 1.0,
-                angle: 0.0,
             });
-
-            item_x += item_width + gap;
-            row_height = row_height.max(item_height);
-        }
-
-        content_width = content_width.max(item_x - x);
-        total_height += row_height;
-        GuideSize {
-            width: content_width,
-            height: total_height,
         }
     }
 
@@ -674,5 +622,52 @@ impl LegendRenderer {
             _ => {}
         }
         (x, y)
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    fn rect(x: f64, y: f64, w: f64, h: f64) -> Rect {
+        Rect::new(x, y, w, h)
+    }
+
+    #[test]
+    fn fits_inside_accepts_a_strip_touching_the_band_edges() {
+        let band = rect(200.0, 0.0, 520.0, 480.0);
+        // Exactly filling the band still counts as a fit: nothing is cut off.
+        assert!(LegendRenderer::fits_inside(
+            &band,
+            &rect(200.0, 0.0, 520.0, 480.0)
+        ));
+        assert!(LegendRenderer::fits_inside(
+            &band,
+            &rect(210.0, 10.0, 100.0, 100.0)
+        ));
+    }
+
+    #[test]
+    fn fits_inside_rejects_overflow_on_every_side() {
+        let band = rect(200.0, 0.0, 520.0, 480.0);
+
+        // Starts before the band (the clamped left/top case).
+        assert!(!LegendRenderer::fits_inside(
+            &band,
+            &rect(190.0, 0.0, 100.0, 100.0)
+        ));
+        assert!(!LegendRenderer::fits_inside(
+            &band,
+            &rect(200.0, -10.0, 100.0, 100.0)
+        ));
+        // Runs past the band (the clipped right/bottom case).
+        assert!(!LegendRenderer::fits_inside(
+            &band,
+            &rect(200.0, 0.0, 521.0, 100.0)
+        ));
+        assert!(!LegendRenderer::fits_inside(
+            &band,
+            &rect(200.0, 0.0, 100.0, 481.0)
+        ));
     }
 }

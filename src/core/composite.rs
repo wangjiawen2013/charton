@@ -656,78 +656,107 @@ impl LayeredChart {
         let guide_specs = crate::core::guide::GuideManager::collect_guides(&aesthetics);
 
         // --- STEP 4: PHYSICAL MEASUREMENT (LAYOUT ENGINE) ---
+        //
+        // Three quantities depend on one another:
+        //   * the plot panel depends on the room reserved for the legend and the axes,
+        //   * the axes depend on the panel (their labels are measured against it),
+        //   * the legend depends on the panel (it wraps to match the panel's length).
+        //
+        // The cycle is broken by starting from a panel that only accounts for the
+        // percentage margins and then re-measuring until the reservations stop
+        // changing. The first pass reproduces the historical behaviour; every
+        // further pass tightens it. The loop always terminates because the
+        // reservations are clamped and the panel can only shrink, so a small fixed
+        // number of passes is both sufficient and a safe upper bound.
+        const LAYOUT_PASSES: usize = 4;
+
         let w = self.width as f64;
         let h = self.height as f64;
 
-        let initial_plot_w = w
-            * (1.0
-                - self.left_margin.unwrap_or(self.theme.left_margin)
-                - self.right_margin.unwrap_or(self.theme.right_margin));
-        let initial_plot_h = h
-            * (1.0
-                - self.top_margin.unwrap_or(self.theme.top_margin)
-                - self.bottom_margin.unwrap_or(self.theme.bottom_margin));
+        let top_margin = self.top_margin.unwrap_or(self.theme.top_margin) * h;
+        let right_margin = self.right_margin.unwrap_or(self.theme.right_margin) * w;
+        let bottom_margin = self.bottom_margin.unwrap_or(self.theme.bottom_margin) * h;
+        let left_margin = self.left_margin.unwrap_or(self.theme.left_margin) * w;
 
-        // A. Measure only the elements that will actually be rendered.
-        // Hidden legends and axes must not reserve space in the plot layout.
-        let legend_plan = if self.theme.show_legend {
-            crate::core::layout::LayoutEngine::build_legend_layout(
-                &guide_specs,
-                self.theme.legend_position,
-                initial_plot_w,
-                initial_plot_h,
+        // Canvas area left once the border margins are removed.
+        let border_plot_w = w - left_margin - right_margin;
+        let border_plot_h = h - top_margin - bottom_margin;
+
+        let direction = crate::core::flow::Direction::for_legend(self.theme.legend_position);
+        let wants_axes = self.theme.show_axes && self.layers.iter().any(|l| l.requires_axes());
+
+        let mut legend_box = crate::core::layout::LegendLayoutConstraints::default();
+        let mut axis_box = crate::core::layout::AxisLayoutConstraints::default();
+        let mut legend_plan =
+            crate::core::layout::LegendLayoutPlan::empty(self.theme.legend_position);
+
+        for _ in 0..LAYOUT_PASSES {
+            // Panel as it would be if only the legend were claiming space. The
+            // axes are measured against *this* rectangle, because reserving space
+            // for them is exactly what the measurement is about.
+            let unclaimed_w = (border_plot_w - legend_box.left - legend_box.right).max(10.0);
+            let unclaimed_h = (border_plot_h - legend_box.top - legend_box.bottom).max(10.0);
+            let axis_reference = Rect::new(
+                left_margin + legend_box.left,
+                top_margin + legend_box.top,
+                unclaimed_w,
+                unclaimed_h,
+            );
+
+            let new_axis_box = if wants_axes {
+                crate::core::layout::LayoutEngine::calculate_axis_constraints(
+                    &PanelContext::new(&chart_spec, final_coord.clone(), axis_reference),
+                    &self.theme,
+                    unclaimed_w,
+                    unclaimed_h,
+                )
+            } else {
+                crate::core::layout::AxisLayoutConstraints::default()
+            };
+
+            // The real panel is what is left after the axes take their share.
+            let plot_w = (unclaimed_w - new_axis_box.left).max(self.theme.min_panel_size);
+            let plot_h = (unclaimed_h - new_axis_box.bottom).max(self.theme.min_panel_size);
+
+            // A legend must be no longer than the panel it sits next to, along the
+            // direction it is packed in. Packing against anything larger (the raw
+            // canvas, or a panel measured before the axes) lets a long legend run
+            // past the axis line and overlap the tick labels.
+            let legend_budget = direction.measure(plot_w, plot_h).main;
+
+            let new_plan = if self.theme.show_legend {
+                crate::core::layout::LayoutEngine::pack_guides(
+                    &guide_specs,
+                    self.theme.legend_position,
+                    legend_budget,
+                    &self.theme,
+                )
+            } else {
+                crate::core::layout::LegendLayoutPlan::empty(self.theme.legend_position)
+            };
+
+            let new_legend_box = crate::core::layout::LayoutEngine::legend_constraints_for_plan(
+                &new_plan,
+                w,
+                h,
+                self.theme.legend_margin,
                 &self.theme,
-            )
-        } else {
-            crate::core::layout::LegendLayoutPlan {
-                position: self.theme.legend_position,
-                blocks: Vec::new(),
-                width: 0.0,
-                height: 0.0,
+            );
+
+            let settled = new_legend_box == legend_box && new_axis_box == axis_box;
+            legend_box = new_legend_box;
+            axis_box = new_axis_box;
+            legend_plan = new_plan;
+            if settled {
+                break;
             }
-        };
-        let legend_box = crate::core::layout::LayoutEngine::legend_constraints_for_plan(
-            &legend_plan,
-            w,
-            h,
-            self.theme.legend_margin,
-            &self.theme,
-        );
-
-        // B. Measure Axis Constraints using a temporary PanelContext.
-        // We calculate a 'rough' panel area first to allow the engine to estimate
-        // tick density and label overlap.
-        let temp_panel = Rect::new(
-            (self.left_margin.unwrap_or(self.theme.left_margin) * w) + legend_box.left,
-            (self.top_margin.unwrap_or(self.theme.top_margin) * h) + legend_box.top,
-            (initial_plot_w - legend_box.left - legend_box.right).max(10.0),
-            (initial_plot_h - legend_box.top - legend_box.bottom).max(10.0),
-        );
-
-        // Create the temporary context required for layout measurement.
-        let temp_ctx = PanelContext::new(&chart_spec, final_coord.clone(), temp_panel);
-
-        let axis_box = if self.theme.show_axes && self.layers.iter().any(|l| l.requires_axes()) {
-            crate::core::layout::LayoutEngine::calculate_axis_constraints(
-                &temp_ctx,
-                &self.theme,
-                temp_panel.width,
-                temp_panel.height,
-            )
-        } else {
-            crate::core::layout::AxisLayoutConstraints::default()
-        };
+        }
 
         // --- STEP 5: FINAL PANEL RESOLUTION ---
-        let final_left = (self.left_margin.unwrap_or(self.theme.left_margin) * w)
-            + legend_box.left
-            + axis_box.left;
-        let final_right =
-            (self.right_margin.unwrap_or(self.theme.right_margin) * w) + legend_box.right;
-        let final_top = (self.top_margin.unwrap_or(self.theme.top_margin) * h) + legend_box.top;
-        let final_bottom = (self.bottom_margin.unwrap_or(self.theme.bottom_margin) * h)
-            + legend_box.bottom
-            + axis_box.bottom;
+        let final_left = left_margin + legend_box.left + axis_box.left;
+        let final_right = right_margin + legend_box.right;
+        let final_top = top_margin + legend_box.top;
+        let final_bottom = bottom_margin + legend_box.bottom + axis_box.bottom;
 
         // Apply final dimensions with a safety floor (min_panel_size).
         let plot_w = (w - final_left - final_right).max(self.theme.min_panel_size);
@@ -846,12 +875,21 @@ impl LayeredChart {
         // --- STEP 7: RENDER UNIFIED LEGENDS (once, after all panels) ---
         if self.theme.show_legend {
             let legend_ctx = PanelContext::new(&spec, coord.clone(), panel);
+            // The legend may only paint outside the plot panel. See
+            // `LayoutEngine::legend_band` for why this is needed at all.
+            let band = crate::core::layout::LayoutEngine::legend_band(
+                self.theme.legend_position,
+                &panel,
+                self.width as f64,
+                self.height as f64,
+            );
             crate::render::legend_renderer::LegendRenderer::render_legend(
                 backend,
                 &guide_specs,
                 &legend_plan,
                 &self.theme,
                 &legend_ctx,
+                &band,
             );
         }
 
@@ -1743,6 +1781,156 @@ impl LayeredChart {
             Err(ChartonError::Render(
                 "render_to_canvas is only supported on WebAssembly platforms".into(),
             ))
+        }
+    }
+}
+
+#[cfg(test)]
+mod legend_layout_tests {
+    use super::*;
+    use crate::alt;
+    use crate::core::conversion::IntoLayered;
+    use crate::core::data::Dataset;
+    use crate::core::flow::Direction;
+    use crate::core::guide::LegendPosition;
+
+    /// Builds a point chart whose colour legend has `categories` entries.
+    fn chart_with_categories(categories: usize) -> LayeredChart {
+        let count = 60;
+        let x: Vec<f64> = (0..count).map(|i| i as f64).collect();
+        let y: Vec<f64> = x.iter().map(|v| (v * 0.35).sin() * 10.0).collect();
+        let cat: Vec<String> = (0..count)
+            .map(|i| format!("Category {:02}", i % categories))
+            .collect();
+
+        let dataset = Dataset::new()
+            .with_column("x", x)
+            .unwrap()
+            .with_column("y", y)
+            .unwrap()
+            .with_column("cat", cat)
+            .unwrap();
+
+        Chart::build(dataset)
+            .unwrap()
+            .mark_point()
+            .unwrap()
+            .encode((alt::x("x"), alt::y("y"), alt::color("cat")))
+            .unwrap()
+            .with_size(720, 480)
+    }
+
+    /// Regression test: a legend with many entries used to be packed against the
+    /// panel size measured *before* the axes claimed their space, so the last one
+    /// or two entries spilled over the x-axis. The strip must never be longer than
+    /// the panel it is packed against.
+    #[test]
+    fn a_long_legend_never_grows_past_the_panel() {
+        for position in [
+            LegendPosition::Right,
+            LegendPosition::Left,
+            LegendPosition::Top,
+            LegendPosition::Bottom,
+        ] {
+            let chart = chart_with_categories(30)
+                .configure_theme(|theme| theme.with_legend_position(position));
+            let scene = chart.resolve_scene().unwrap();
+            let direction = Direction::for_legend(position);
+
+            let legend_length = direction
+                .measure(scene.legend_plan.width, scene.legend_plan.height)
+                .main;
+            let panel_length = direction
+                .measure(scene.panel.width, scene.panel.height)
+                .main;
+
+            assert!(
+                legend_length <= panel_length + 1e-6,
+                "{position:?}: legend is {legend_length} long but the panel is only {panel_length}"
+            );
+        }
+    }
+
+    /// Builds a point chart with a continuous colour mapping (a gradient bar).
+    fn chart_with_colorbar(width: u32, height: u32) -> LayeredChart {
+        let count = 60;
+        let x: Vec<f64> = (0..count).map(|i| i as f64).collect();
+        let y: Vec<f64> = x.iter().map(|v| (v * 0.35).sin() * 10.0).collect();
+        let value: Vec<f64> = (0..count).map(|i| (i as f64) * 1.7 - 20.0).collect();
+
+        let dataset = Dataset::new()
+            .with_column("x", x)
+            .unwrap()
+            .with_column("y", y)
+            .unwrap()
+            .with_column("value", value)
+            .unwrap();
+
+        Chart::build(dataset)
+            .unwrap()
+            .mark_point()
+            .unwrap()
+            .encode((alt::x("x"), alt::y("y"), alt::color("value")))
+            .unwrap()
+            .with_size(width, height)
+    }
+
+    /// Regression test: the gradient bar used to be drawn at a fixed 150px length
+    /// whatever the panel size, so on a short canvas it ran past the x-axis. Its
+    /// length now comes from the same measurement that reserves the space for it.
+    #[test]
+    fn a_colorbar_never_grows_past_the_panel() {
+        for (width, height) in [(720, 260), (720, 480), (720, 1000), (400, 300)] {
+            for position in [LegendPosition::Right, LegendPosition::Left] {
+                let chart = chart_with_colorbar(width, height)
+                    .configure_theme(|theme| theme.with_legend_position(position));
+                let scene = chart.resolve_scene().unwrap();
+                let block = &scene.legend_plan.blocks[0];
+                let bar = block.colorbar.expect("colour bar geometry");
+                let direction = Direction::for_legend(position);
+
+                // The bar plus its title is what the block reserves, and the block
+                // is packed against the panel.
+                let reserved = bar.length + block.height - bar.length;
+                let panel_length = direction
+                    .measure(scene.panel.width, scene.panel.height)
+                    .main;
+                assert!(
+                    reserved <= panel_length + 1e-6,
+                    "{width}x{height} {position:?}: colour bar block is {reserved} tall \
+                     but the panel is only {panel_length} long"
+                );
+            }
+        }
+    }
+
+    /// The same invariant expressed in absolute coordinates for the two vertical
+    /// positions, where the strip is anchored to the top edge of the panel.
+    #[test]
+    fn vertical_legend_entries_stay_above_the_bottom_of_the_panel() {
+        for position in [LegendPosition::Right, LegendPosition::Left] {
+            let chart = chart_with_categories(30)
+                .configure_theme(|theme| theme.with_legend_position(position));
+            let scene = chart.resolve_scene().unwrap();
+
+            let lowest_entry_bottom = scene
+                .legend_plan
+                .blocks
+                .iter()
+                .flat_map(|block| {
+                    block
+                        .entries
+                        .iter()
+                        .map(|entry| block.offset_y + entry.y + block.metrics.row)
+                })
+                .fold(0.0_f64, f64::max);
+
+            let panel_bottom = scene.panel.y + scene.panel.height;
+            assert!(
+                scene.panel.y + lowest_entry_bottom <= panel_bottom + 1e-6,
+                "{position:?}: legend reaches {} but the panel ends at {panel_bottom}",
+                scene.panel.y + lowest_entry_bottom
+            );
         }
     }
 }

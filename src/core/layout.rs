@@ -1,17 +1,21 @@
 use super::context::PanelContext;
-use super::guide::{GuideSpec, LegendPosition};
+use super::flow::{self, Direction, Extent};
+use super::guide::{
+    ColorBarGeometry, EntryMetrics, EntryOffset, GuideSpec, LegendPosition, MeasuredGuide,
+};
 use super::utils::estimate_text_width;
+use crate::coordinate::Rect;
 use crate::theme::Theme;
 
 /// Physical constraints calculated for axis areas.
-#[derive(Default, Debug, Clone, Copy)]
+#[derive(Default, Debug, Clone, Copy, PartialEq)]
 pub struct AxisLayoutConstraints {
     pub bottom: f64,
     pub left: f64,
 }
 
 /// Margin reserved on each side of the plot for legend placement.
-#[derive(Default, Debug, Clone, Copy)]
+#[derive(Default, Debug, Clone, Copy, PartialEq)]
 pub struct LegendLayoutConstraints {
     pub top: f64,
     pub bottom: f64,
@@ -19,92 +23,190 @@ pub struct LegendLayoutConstraints {
     pub right: f64,
 }
 
-#[derive(Debug, Clone, Copy)]
-pub(crate) struct LegendBlockLayout {
+/// One guide (a legend or a colour bar) placed inside the legend strip.
+#[derive(Debug, Clone)]
+pub(crate) struct GuideBlockLayout {
+    /// Index into the `GuideSpec` slice this block was measured from.
     pub(crate) index: usize,
+    /// Top-left corner of the block, relative to the top-left of the strip.
     pub(crate) offset_x: f64,
     pub(crate) offset_y: f64,
     pub(crate) width: f64,
     pub(crate) height: f64,
+    /// Symbol/label geometry shared by all of the block's entries.
+    pub(crate) metrics: EntryMetrics,
+    /// Pre-computed top-left corner of every entry, relative to this block.
+    ///
+    /// Renderers must draw these offsets verbatim instead of wrapping again:
+    /// duplicated wrapping logic is what used to let the measured size and the
+    /// drawn size drift apart.
+    pub(crate) entries: Vec<EntryOffset>,
+    /// Resolved gradient geometry, for colour bars. Also drawn verbatim.
+    pub(crate) colorbar: Option<ColorBarGeometry>,
 }
 
+/// The fully resolved legend: where each block goes and how big the strip is.
 #[derive(Debug, Clone)]
 pub(crate) struct LegendLayoutPlan {
     pub(crate) position: LegendPosition,
-    pub(crate) blocks: Vec<LegendBlockLayout>,
+    pub(crate) blocks: Vec<GuideBlockLayout>,
+    /// Bounding box of the whole strip, containing every block.
     pub(crate) width: f64,
     pub(crate) height: f64,
+}
+
+impl LegendLayoutPlan {
+    /// An empty plan, for charts that do not draw a legend.
+    pub(crate) const fn empty(position: LegendPosition) -> Self {
+        Self {
+            position,
+            blocks: Vec::new(),
+            width: 0.0,
+            height: 0.0,
+        }
+    }
 }
 
 pub struct LayoutEngine;
 
 impl LayoutEngine {
-    pub(crate) fn build_legend_layout(
+    /// Measures every guide and packs the resulting blocks into one strip.
+    ///
+    /// This is the only place that decides where legend content goes. It works at
+    /// two nested levels, and both levels are handled by [`flow::pack`]:
+    ///
+    /// 1. **Inside a block**: the entries of one guide are turned into boxes and
+    ///    packed by [`GuideSpec::measure`]. A box there is one `● Label` row.
+    /// 2. **Between blocks**: the blocks are packed by this function, with the very
+    ///    same algorithm. A box here is one whole guide, so it contains its title
+    ///    plus all of its entries, which step 1 has already laid out.
+    ///
+    /// # What the budget is here
+    ///
+    /// `main_budget` is how long the strip may become along the packing direction
+    /// before it wraps onto another line (a column for a left/right legend, a row
+    /// for a top/bottom one). The caller derives it from the plot panel: a legend
+    /// must never be longer than the panel it sits next to, otherwise it would run
+    /// past the axis line.
+    pub(crate) fn pack_guides(
         specs: &[GuideSpec],
         position: LegendPosition,
-        available_width: f64,
-        available_height: f64,
+        main_budget: f64,
         theme: &Theme,
     ) -> LegendLayoutPlan {
-        let is_horizontal = matches!(position, LegendPosition::Top | LegendPosition::Bottom);
-        let block_gap = theme.legend_block_gap;
-        let mut blocks = Vec::with_capacity(specs.len());
-        let mut cursor_x = 0.0;
-        let mut cursor_y = 0.0;
-        let mut line_extent = 0.0;
-        let mut total_width: f64 = 0.0;
-        let mut total_height: f64 = 0.0;
+        let direction = Direction::for_legend(position);
 
-        for (index, spec) in specs.iter().enumerate() {
-            let size = spec.estimate_size(theme, available_width, available_height, is_horizontal);
+        // Level 1: measure every block, which also resolves its entry positions.
+        let measured: Vec<MeasuredGuide> = specs
+            .iter()
+            .map(|spec| spec.measure(theme, direction, main_budget))
+            .collect();
 
-            if is_horizontal {
-                if cursor_x + size.width > available_width && cursor_x > 0.0 {
-                    cursor_y += line_extent + block_gap;
-                    cursor_x = 0.0;
-                    line_extent = 0.0;
-                }
+        // Level 2: pack the blocks with the very same algorithm. Note that the
+        // budget is *not* reduced here: a block already fits it by construction,
+        // because its own entries were wrapped against it in level 1.
+        let extents: Vec<Extent> = measured
+            .iter()
+            .map(|guide| direction.measure(guide.size.width, guide.size.height))
+            .collect();
+        let packed = flow::pack(
+            &extents,
+            main_budget,
+            theme.legend_block_gap,
+            theme.legend_block_gap,
+        );
 
-                blocks.push(LegendBlockLayout {
+        let blocks: Vec<GuideBlockLayout> = measured
+            .into_iter()
+            .zip(&packed.offsets)
+            .enumerate()
+            .map(|(index, (guide, &(main, cross)))| {
+                let (offset_x, offset_y) = direction.resolve(main, cross);
+                GuideBlockLayout {
                     index,
-                    offset_x: cursor_x,
-                    offset_y: cursor_y,
-                    width: size.width,
-                    height: size.height,
-                });
-                cursor_x += size.width + block_gap;
-                line_extent = line_extent.max(size.height);
-                total_width = total_width.max(cursor_x - block_gap);
-                total_height = total_height.max(cursor_y + line_extent);
-            } else {
-                if cursor_y + size.height > available_height && cursor_y > 0.0 {
-                    cursor_x += line_extent + block_gap;
-                    cursor_y = 0.0;
-                    line_extent = 0.0;
+                    offset_x,
+                    offset_y,
+                    width: guide.size.width,
+                    height: guide.size.height,
+                    metrics: guide.metrics,
+                    entries: guide.entries,
+                    colorbar: guide.colorbar,
                 }
+            })
+            .collect();
 
-                blocks.push(LegendBlockLayout {
-                    index,
-                    offset_x: cursor_x,
-                    offset_y: cursor_y,
-                    width: size.width,
-                    height: size.height,
-                });
-                cursor_y += size.height + block_gap;
-                line_extent = line_extent.max(size.width);
-                total_width = total_width.max(cursor_x + line_extent);
-                total_height = total_height.max(cursor_y - block_gap);
-            }
-        }
+        let (width, height) = direction.resolve(packed.main_total, packed.cross_total);
+
+        // Invariants guarded in debug builds: every entry, and every gradient
+        // bar, must stay inside the box reserved for its block. A violation means
+        // the measurement and the drawing disagree about the same geometry, which
+        // is precisely the class of bug this layout engine exists to make
+        // impossible.
+        debug_assert!(blocks.iter().all(|block| {
+            let block_extent = direction.measure(block.width, block.height);
+            block.entries.iter().all(|entry| {
+                entry.x >= 0.0 && entry.y >= 0.0 && entry.x < block.width && entry.y < block.height
+            }) && block.colorbar.is_none_or(|bar| {
+                bar.length <= block_extent.main && bar.thickness <= block_extent.cross
+            })
+        }));
 
         LegendLayoutPlan {
             position,
             blocks,
-            width: total_width,
-            height: total_height,
+            width,
+            height,
         }
     }
 
+    /// The region a legend is allowed to paint in: everything between the panel
+    /// and the canvas edge on the side the legend sits on.
+    ///
+    /// Normally the strip is packed to be no longer than the panel it sits next
+    /// to, so it fits inside this band on its own and the clip changes nothing.
+    /// It matters when a legend is far too large to ever fit -- hundreds of
+    /// categories on a small canvas: the space reserved for it is clamped so that
+    /// the panel keeps a usable size (`legend_constraints_for_plan`), leaving the
+    /// strip longer than the space it was given. Clipping to this band is what
+    /// keeps that surplus from being painted over the data: the legend shows its
+    /// leading entries and the rest is cut off, instead of covering the plot.
+    ///
+    /// The band is deliberately generous -- it is the whole half-plane outside the
+    /// panel, not just the panel's own extent. It is a safety net, not the thing
+    /// that lays the legend out, so it should only ever catch genuine overflow.
+    pub(crate) fn legend_band(
+        position: LegendPosition,
+        panel: &Rect,
+        canvas_w: f64,
+        canvas_h: f64,
+    ) -> Rect {
+        let (x, y, width, height) = match position {
+            LegendPosition::Right => (
+                panel.x + panel.width,
+                0.0,
+                canvas_w - (panel.x + panel.width),
+                canvas_h,
+            ),
+            LegendPosition::Left => (0.0, 0.0, panel.x, canvas_h),
+            LegendPosition::Top => (0.0, 0.0, canvas_w, panel.y),
+            LegendPosition::Bottom => (
+                0.0,
+                panel.y + panel.height,
+                canvas_w,
+                canvas_h - (panel.y + panel.height),
+            ),
+            // No legend is drawn at all in this case; hand back the whole canvas.
+            LegendPosition::None => (0.0, 0.0, canvas_w, canvas_h),
+        };
+        Rect::new(x, y, width.max(0.0), height.max(0.0))
+    }
+
+    /// Turns a measured strip into the margin it needs, expressed as space taken
+    /// away from the plot panel.
+    ///
+    /// The margin is clamped so that the panel always keeps a usable size, even
+    /// if the legend would happily eat the whole canvas. The strip itself is not
+    /// resized by that clamp -- only the space reserved for it is.
     pub(crate) fn legend_constraints_for_plan(
         plan: &LegendLayoutPlan,
         canvas_w: f64,
@@ -137,29 +239,6 @@ impl LayoutEngine {
             }
         }
         constraints
-    }
-
-    /// Calculates legend margins using a greedy stacking algorithm.
-    ///
-    /// The logic follows a "Flex-box" style approach:
-    /// 1. **Vertical Stacking (Right/Left)**: Legends are stacked in a column.
-    ///    If a legend exceeds `initial_plot_h`, a new column is started to the side.
-    /// 2. **Horizontal Stacking (Top/Bottom)**: Legends are laid out in a row.
-    ///    If a legend exceeds `initial_plot_w`, a new row is started below/above.
-    #[allow(clippy::too_many_arguments)]
-    pub fn calculate_legend_constraints(
-        specs: &[GuideSpec],
-        position: LegendPosition,
-        canvas_w: f64,
-        canvas_h: f64,
-        initial_plot_w: f64,
-        initial_plot_h: f64,
-        margin_gap: f64, // Space between plot panel and the whole legend block
-        theme: &Theme,
-    ) -> LegendLayoutConstraints {
-        let plan =
-            Self::build_legend_layout(specs, position, initial_plot_w, initial_plot_h, theme);
-        Self::legend_constraints_for_plan(&plan, canvas_w, canvas_h, margin_gap, theme)
     }
 
     /// Calculates layout constraints based on predicted axis dimensions.
@@ -312,6 +391,7 @@ mod tests {
     use crate::scale::mapper::VisualMapper;
     use crate::scale::{Expansion, Scale, ScaleDomain, create_scale};
 
+    /// A guide with two categories and a label wide enough to matter.
     fn legend_specs() -> Vec<GuideSpec> {
         let scale = create_scale(
             &Scale::Discrete,
@@ -335,55 +415,231 @@ mod tests {
     }
 
     #[test]
-    fn legend_constraints_use_the_requested_side() {
+    fn legend_reserves_space_on_the_requested_side_only() {
         let specs = legend_specs();
         let theme = Theme::default();
-        let args = (500.0, 400.0, 400.0, 300.0, 8.0, &theme);
+        let (canvas_w, canvas_h) = (500.0, 400.0);
 
-        let left = LayoutEngine::calculate_legend_constraints(
-            &specs,
-            LegendPosition::Left,
-            args.0,
-            args.1,
-            args.2,
-            args.3,
-            args.4,
-            args.5,
-        );
-        let right = LayoutEngine::calculate_legend_constraints(
-            &specs,
-            LegendPosition::Right,
-            args.0,
-            args.1,
-            args.2,
-            args.3,
-            args.4,
-            args.5,
-        );
-        let top = LayoutEngine::calculate_legend_constraints(
-            &specs,
-            LegendPosition::Top,
-            args.0,
-            args.1,
-            args.2,
-            args.3,
-            args.4,
-            args.5,
-        );
-        let bottom = LayoutEngine::calculate_legend_constraints(
-            &specs,
-            LegendPosition::Bottom,
-            args.0,
-            args.1,
-            args.2,
-            args.3,
-            args.4,
-            args.5,
-        );
+        for (position, expected) in [
+            (
+                LegendPosition::Left,
+                LegendLayoutConstraints {
+                    left: 1.0,
+                    ..Default::default()
+                },
+            ),
+            (
+                LegendPosition::Right,
+                LegendLayoutConstraints {
+                    right: 1.0,
+                    ..Default::default()
+                },
+            ),
+            (
+                LegendPosition::Top,
+                LegendLayoutConstraints {
+                    top: 1.0,
+                    ..Default::default()
+                },
+            ),
+            (
+                LegendPosition::Bottom,
+                LegendLayoutConstraints {
+                    bottom: 1.0,
+                    ..Default::default()
+                },
+            ),
+        ] {
+            let plan = LayoutEngine::pack_guides(&specs, position, 300.0, &theme);
+            let reserve =
+                LayoutEngine::legend_constraints_for_plan(&plan, canvas_w, canvas_h, 8.0, &theme);
 
-        assert!(left.left > 0.0 && left.right == 0.0 && left.top == 0.0);
-        assert!(right.right > 0.0 && right.left == 0.0 && right.top == 0.0);
-        assert!(top.top > 0.0 && top.bottom == 0.0 && top.left == 0.0);
-        assert!(bottom.bottom > 0.0 && bottom.top == 0.0 && bottom.left == 0.0);
+            // Normalise to 1.0 so that only the *side* is compared, not the size.
+            let actual = LegendLayoutConstraints {
+                top: f64::from(reserve.top > 0.0),
+                bottom: f64::from(reserve.bottom > 0.0),
+                left: f64::from(reserve.left > 0.0),
+                right: f64::from(reserve.right > 0.0),
+            };
+            assert_eq!(actual.top, expected.top, "top for {position:?}");
+            assert_eq!(actual.bottom, expected.bottom, "bottom for {position:?}");
+            assert_eq!(actual.left, expected.left, "left for {position:?}");
+            assert_eq!(actual.right, expected.right, "right for {position:?}");
+        }
+    }
+
+    #[test]
+    fn vertical_legends_wrap_into_columns_before_exceeding_the_budget() {
+        let specs = legend_specs();
+        let theme = Theme::default();
+
+        // A budget too small for even two entries forces one column per entry.
+        let plan = LayoutEngine::pack_guides(&specs, LegendPosition::Right, 20.0, &theme);
+        let block = &plan.blocks[0];
+
+        assert_eq!(block.entries.len(), 2);
+        // The second entry must sit in a new column, i.e. to the right.
+        assert!(block.entries[1].x > block.entries[0].x);
+        assert_eq!(block.entries[1].y, block.entries[0].y);
+    }
+
+    #[test]
+    fn entries_stay_inside_their_block_and_below_the_title() {
+        let specs = legend_specs();
+        let theme = Theme::default();
+        let plan = LayoutEngine::pack_guides(&specs, LegendPosition::Right, 300.0, &theme);
+        let block = &plan.blocks[0];
+
+        let title_height = theme.legend_label_size * 1.1 + theme.legend_title_gap;
+        assert!(block.entries[0].y >= title_height);
+
+        // Nothing may escape the box the layout reserved for the block.
+        for entry in &block.entries {
+            assert!(
+                entry.x >= 0.0 && entry.x < block.width,
+                "entry.x = {}",
+                entry.x
+            );
+            assert!(
+                entry.y >= 0.0 && entry.y < block.height,
+                "entry.y = {}",
+                entry.y
+            );
+        }
+    }
+
+    /// The band a legend is clipped to must never touch the plot panel, whatever
+    /// the legend position and however squeezed the panel is.
+    #[test]
+    fn legend_band_never_intersects_the_panel() {
+        let canvases = [(720.0, 480.0), (300.0, 300.0), (2000.0, 200.0)];
+        // A comfortable panel, and one squeezed against the safety floor.
+        let panels = [
+            Rect::new(102.0, 48.0, 530.0, 336.0),
+            Rect::new(102.0, 48.0, 100.0, 100.0),
+        ];
+
+        for (canvas_w, canvas_h) in canvases {
+            for panel in panels {
+                for position in [
+                    LegendPosition::Right,
+                    LegendPosition::Left,
+                    LegendPosition::Top,
+                    LegendPosition::Bottom,
+                ] {
+                    let band = LayoutEngine::legend_band(position, &panel, canvas_w, canvas_h);
+
+                    let overlap_x =
+                        (band.x + band.width).min(panel.x + panel.width) - band.x.max(panel.x);
+                    let overlap_y =
+                        (band.y + band.height).min(panel.y + panel.height) - band.y.max(panel.y);
+
+                    assert!(
+                        overlap_x.max(0.0) * overlap_y.max(0.0) == 0.0,
+                        "{position:?} on {canvas_w}x{canvas_h}: band {band:?} covers the panel {panel:?}"
+                    );
+                    // The band has to be on the legend's side of the panel, so it
+                    // must also be non-empty on a sane canvas.
+                    assert!(band.width >= 0.0 && band.height >= 0.0);
+                }
+            }
+        }
+    }
+
+    /// The band is the half-plane outside the panel on the legend's side.
+    #[test]
+    fn legend_band_sits_outside_the_requested_edge() {
+        let panel = Rect::new(100.0, 50.0, 500.0, 300.0);
+        let band = |position| LayoutEngine::legend_band(position, &panel, 800.0, 400.0);
+
+        assert_eq!(band(LegendPosition::Right).x, 600.0);
+        assert_eq!(band(LegendPosition::Left).width, 100.0);
+        assert_eq!(band(LegendPosition::Top).height, 50.0);
+        assert_eq!(band(LegendPosition::Bottom).y, 350.0);
+    }
+
+    #[test]
+    fn a_hidden_legend_reserves_nothing() {
+        let theme = Theme::default();
+        let plan = LegendLayoutPlan::empty(LegendPosition::Right);
+        let constraints =
+            LayoutEngine::legend_constraints_for_plan(&plan, 500.0, 400.0, 8.0, &theme);
+
+        assert_eq!(constraints.top, 0.0);
+        assert_eq!(constraints.bottom, 0.0);
+        assert_eq!(constraints.left, 0.0);
+        assert_eq!(constraints.right, 0.0);
+    }
+
+    /// A continuous colour mapping, used to exercise the gradient-bar path.
+    fn colorbar_spec() -> GuideSpec {
+        let scale = create_scale(
+            &Scale::Linear,
+            ScaleDomain::Continuous(0.0, 100.0),
+            Expansion {
+                mult: (0.0, 0.0),
+                add: (0.0, 0.0),
+            },
+            Some(VisualMapper::new_color_default(
+                &Scale::Linear,
+                &Theme::default(),
+            )),
+        )
+        .unwrap();
+
+        GuideSpec::new(
+            "value".into(),
+            ScaleDomain::Continuous(0.0, 100.0),
+            vec![AestheticMapping {
+                field: "value".into(),
+                scale_impl: scale,
+            }],
+        )
+    }
+
+    /// A vertical gradient bar scales with the panel but never exceeds its cap,
+    /// and the geometry the plan records is the geometry a renderer will draw.
+    #[test]
+    fn vertical_colorbar_length_is_derived_from_the_budget() {
+        let theme = Theme::default();
+        let specs = [colorbar_spec()];
+
+        for (budget, expected) in [
+            (100.0, 70.0),  // 70% of a tight budget
+            (200.0, 140.0), // still scaling
+            (286.0, 200.0), // 0.7 * 286 = 200.2 -> capped
+            (700.0, 200.0), // a tall chart must not produce a giant bar
+        ] {
+            let plan = LayoutEngine::pack_guides(&specs, LegendPosition::Right, budget, &theme);
+            let bar = plan.blocks[0].colorbar.expect("colour bar geometry");
+
+            assert!(
+                (bar.length - expected).abs() < 1e-6,
+                "budget {budget}: expected bar length {expected}, got {}",
+                bar.length
+            );
+            // The bar plus its title has to fit the space the block reserved.
+            assert!(bar.length + 20.2 <= plan.blocks[0].height + 1e-6);
+        }
+    }
+
+    /// A horizontal gradient bar is clamped, and never longer than its block.
+    #[test]
+    fn horizontal_colorbar_length_is_clamped() {
+        let theme = Theme::default();
+        let specs = [colorbar_spec()];
+
+        for (budget, expected) in [(60.0, 150.0), (220.0, 220.0), (900.0, 300.0)] {
+            let plan = LayoutEngine::pack_guides(&specs, LegendPosition::Top, budget, &theme);
+            let block = &plan.blocks[0];
+            let bar = block.colorbar.expect("colour bar geometry");
+
+            assert!(
+                (bar.length - expected).abs() < 1e-6,
+                "budget {budget}: expected bar length {expected}, got {}",
+                bar.length
+            );
+            assert!(bar.length <= block.width + 1e-6);
+        }
     }
 }
