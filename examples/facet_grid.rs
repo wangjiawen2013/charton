@@ -22,6 +22,7 @@ fn main() -> Result<(), Box<dyn Error>> {
         // am: transmission (0 = automatic, 1 = manual)
         .facet(FacetSpec::grid("vs", "am").with_strategy("fixed"))
         .with_size(1000, 800)
+        .with_left_margin(0.0)
         .save("docs/src/images/facet_grid.svg")?;
 
     println!("Saved docs/src/images/facet_grid.svg");
