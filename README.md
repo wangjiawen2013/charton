@@ -15,12 +15,12 @@
   <i>standard blocks — limitless charts</i>
 </p>
 
-Charton is a high-performance Rust plotting library featuring a declarative API inspired by [Altair](https://altair-viz.github.io/). It provides [Polars](https://github.com/pola-rs/polars) support and bridges the gap to the Python visualization ecosystem (Altair/Matplotlib). Integrated with evcxr_jupyter, it enables seamless interactive data exploration in notebooks.
+Charton is a high-performance Rust plotting library featuring a declarative API inspired by [Altair](https://altair-viz.github.io/). It provides [Polars](https://github.com/pola-rs/polars) support for fast data processing. Integrated with evcxr_jupyter, it enables seamless interactive data exploration in notebooks.
 
 <table>
     <tr>
-        <td><img src="docs/src/images/altair.svg" alt="Altair" /><p align="center">Altair</p></td>
-        <td><img src="docs/src/images/matplotlib.png" alt="Matplotlib" /><p align="center">Matplotlib</p></td>
+        <td><img src="docs/src/images/grid_line.svg" alt="Grid Lines" /><p align="center">Grid Lines</p></td>
+        <td><img src="docs/src/images/facet_grid.svg" alt="Facet Grid" /><p align="center">Facet Chart</p></td>
         <td><img src="docs/src/images/stacked_bar.svg" alt="Stacked Bar Chart" /><p align="center">Stacked Bar Chart</p></td>
         <td><img src="docs/src/images/grouped_bar_with_errorbar_2.svg" alt="Grouped Bar Chart with Errorbar" /><p align="center">Grouped Bar With Errorbar</p></td>
         <td><img src="docs/src/images/density.svg" alt="Density" /><p align="center">Density</p></td>
@@ -47,9 +47,7 @@ Charton is a high-performance Rust plotting library featuring a declarative API 
         <td><img src="docs/src/images/strip.svg" alt="Strip" /><p align="center">Strip</p></td>
     </tr>
     <tr>
-        <td><img src="docs/src/images/grid_line.svg" alt="Grid Lines" /><p align="center">Grid Lines</p></td>
         <td><img src="docs/src/images/world_map.svg" alt="World map" /><p align="center">Geo Chart</p></td>
-        <td><img src="docs/src/images/facet_grid.svg" alt="Facet Grid" /><p align="center">Facet Chart</p></td>
     </tr>
 </table>
 
@@ -58,14 +56,13 @@ Add to `Cargo.toml`:
 
 ```toml
 [dependencies]
-charton = "0.5"                                            # Standard (Single-threaded + SVG export)
-charton = { version = "0.5", features = ["png"] }          # Pure Headless Raster Renderer (CPU only)
-charton = { version = "0.5", features = ["pdf"] }          # Export charts to PDF format
-charton = { version = "0.5", features = ["wgpu", "png"] }  # Local Desktop with GPU acceleration + PNG export
-charton = { version = "0.5", features = ["wgpu"] }         # Web Browsers (WebAssembly/Wasm target)
-charton = { version = "0.5", features = ["parallel"] }     # Multi-threaded data processing (Rayon)
-charton = { version = "0.5", features = ["geo"] }          # Enable geospatial coordinate support
-charton = { version = "0.5", features = ["bridge"] }       # With Altair/Matplotlib/Polars interop
+charton = "0.6"                                            # Standard (Single-threaded + SVG export)
+charton = { version = "0.6", features = ["png"] }          # Pure Headless Raster Renderer (CPU only)
+charton = { version = "0.6", features = ["pdf"] }          # Export charts to PDF format
+charton = { version = "0.6", features = ["wgpu", "png"] }  # Local Desktop with GPU acceleration + PNG export
+charton = { version = "0.6", features = ["wgpu"] }         # Web Browsers (WebAssembly/Wasm target)
+charton = { version = "0.6", features = ["parallel"] }     # Multi-threaded data processing (Rayon)
+charton = { version = "0.6", features = ["geo"] }          # Enable geospatial coordinate support
 ```
 
 ## Quick Start
@@ -165,9 +162,6 @@ Charton supports WebAssembly and modern web frontend. Below is an interactive de
 Charton integrates with evcxr_jupyter for interactive data exploration. Replacing `.save()` with `.show()` renders SVGs directly within notebook cells:
 
 ![evcxr jupyter](assets/evcxr_jupyter.png)
-
-## Leveraging External Plotting Power
-Charton bridges Rust with mature visualization ecosystems like **Altair** and **Matplotlib** via a high-speed IPC, enabling users to leverage diverse, professional-grade plotting tools within a unified workflow. please refer to [Charton Docs](https://wangjiawen2013.github.io/charton) for details.
 
 ## True Layer Synchronization
 Stop fighting with fragile, hard-coded patches. Charton treats scaling as a **Single Source of Truth**, making it possible to combine heterogeneous data sources into one plot while maintaining total mathematical consistency across every mark and axis.

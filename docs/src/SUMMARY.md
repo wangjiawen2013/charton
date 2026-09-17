@@ -65,8 +65,5 @@
 - [Integrating with Bevy](gui/bevy.md)
 - [Integrating with egui](gui/egui.md)
 
-# The IPC Bridge
-- [Seamless Python Interop](ipc/python_interop.md)
-
 # Appendix
 - [Wgpu Text](appendix/wgpu_text.md)
