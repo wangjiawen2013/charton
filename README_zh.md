@@ -15,12 +15,12 @@
   <i>标准组件 — 无限图表</i>
 </p>
 
-Charton 是一款高性能 Rust 绘图库，其声明式 API 灵感源自 [Altair](https://altair-viz.github.io/)。它支持 [Polars](https://github.com/pola-rs/polars) 数据框，并可使用已有的 Python 可视化工具（Altair/Matplotlib）。通过与 evcxr_jupyter 集成，还可以在 Notebook 中实现交互式数据探索。
+Charton 是一款高性能 Rust 绘图库，其声明式 API 灵感源自 [Altair](https://altair-viz.github.io/)。它支持 [Polars](https://github.com/pola-rs/polars) 数据框来快速处理数据。通过与 evcxr_jupyter 集成，还可以在 Notebook 中实现交互式数据探索。
 
 <table>
     <tr>
-        <td><img src="docs/src/images/altair.svg" alt="Altair" /><p align="center">Altair</p></td>
-        <td><img src="docs/src/images/matplotlib.png" alt="Matplotlib" /><p align="center">Matplotlib</p></td>
+        <td><img src="docs/src/images/grid_line.svg" alt="Grid Lines" /><p align="center">Grid Lines</p></td>
+        <td><img src="docs/src/images/facet_grid.svg" alt="Facet Gird" /><p align="center">Facet Chart</p></td>
         <td><img src="docs/src/images/stacked_bar.svg" alt="Stacked Bar Chart" /><p align="center">Stacked Bar Chart</p></td>
         <td><img src="docs/src/images/grouped_bar_with_errorbar_2.svg" alt="Grouped Bar Chart with Errorbar" /><p align="center">Grouped Bar With Errorbar</p></td>
         <td><img src="docs/src/images/density.svg" alt="Density" /><p align="center">Density</p></td>
@@ -47,9 +47,7 @@ Charton 是一款高性能 Rust 绘图库，其声明式 API 灵感源自 [Altai
         <td><img src="docs/src/images/strip.svg" alt="Strip" /><p align="center">Strip</p></td>
     </tr>
     <tr>
-        <td><img src="docs/src/images/grid_line.svg" alt="Grid Lines" /><p align="center">Grid Lines</p></td>
         <td><img src="docs/src/images/world_map.svg" alt="World map" /><p align="center">Geo Chart</p></td>
-        <td><img src="docs/src/images/facet_grid.svg" alt="Facet Gird" /><p align="center">Facet Chart</p></td>
     </tr>
 </table>
 
@@ -58,14 +56,13 @@ Charton 是一款高性能 Rust 绘图库，其声明式 API 灵感源自 [Altai
 
 ```toml
 [dependencies]
-charton = "0.5"                                            # 标准版 (单线程 + SVG 导出)
-charton = { version = "0.5", features = ["png"] }          # 纯后端光栅化渲染（仅 CPU 模式）
-charton = { version = "0.5", features = ["pdf"] }          # PDF 格式图表导出
-charton = { version = "0.5", features = ["wgpu", "png"] }  # 本地桌面端（GPU 加速 + PNG 导出）
-charton = { version = "0.5", features = ["wgpu"] }         # 网页浏览器（WebAssembly/Wasm 目标平台）
-charton = { version = "0.5", features = ["parallel"] }     # 多线程数据处理（基于 Rayon）
-charton = { version = "0.5", features = ["geo"] }          # 地理坐标支持
-charton = { version = "0.5", features = ["bridge"] }       # 生态互操作性支持（兼容 Altair/Matplotlib/Polars）
+charton = "0.6"                                            # 标准版 (单线程 + SVG 导出)
+charton = { version = "0.6", features = ["png"] }          # 纯后端光栅化渲染（仅 CPU 模式）
+charton = { version = "0.6", features = ["pdf"] }          # PDF 格式图表导出
+charton = { version = "0.6", features = ["wgpu", "png"] }  # 本地桌面端（GPU 加速 + PNG 导出）
+charton = { version = "0.6", features = ["wgpu"] }         # 网页浏览器（WebAssembly/Wasm 目标平台）
+charton = { version = "0.6", features = ["parallel"] }     # 多线程数据处理（基于 Rayon）
+charton = { version = "0.6", features = ["geo"] }          # 地理坐标支持
 ```
 
 ## 快速上手
@@ -165,9 +162,6 @@ Charton 支持 WebAssembly 及现代 Web 前端开发。下面这个示例展示
 Charton 与 evcxr_jupyter 集成，支持交互式数据探索。将 `.save()` 替换为 `.show()` 即可直接在 jupyter notebook 单元格中显示 SVG：
 
 ![evcxr jupyter](assets/evcxr_jupyter.png)
-
-## 利用第三方可视化生态
-Charton 通过高速 IPC 将 Rust 与成熟的可视化生态（如 **Altair** 和 **Matplotlib**）连接起来，使用户能够在统一的工作流中利用多样化、专业级的绘图工具。详情请参考 [Charton Docs](https://wangjiawen2013.github.io/charton)。
 
 ## 原生图层同步
 Charton 基于**单一事实来源**处理标度映射，能组合不同来源的数据，并保持所有图表元素与坐标轴的逻辑一致性。
