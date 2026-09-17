@@ -141,7 +141,6 @@ line.and(point).save("layered.svg")?;
 ```
 
 ## Faceting Support
-
 Now supporting multi-panel faceting (`wrap` and `grid` layouts), enabling you to easily split and compare complex datasets across coordinated subplots.
 
 <p align="center"> <img src="docs/src/images/facet_grid.svg" alt="Facet Grid"> </p>
