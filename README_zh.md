@@ -20,33 +20,30 @@ Charton 是一款高性能 Rust 绘图库，其声明式 API 灵感源自 [Altai
 <table>
     <tr>
         <td><img src="docs/src/images/grid_line.svg" alt="Grid Lines" /><p align="center">Grid Lines</p></td>
-        <td><img src="docs/src/images/facet_grid.svg" alt="Facet Gird" /><p align="center">Facet Chart</p></td>
         <td><img src="docs/src/images/stacked_bar.svg" alt="Stacked Bar Chart" /><p align="center">Stacked Bar Chart</p></td>
         <td><img src="docs/src/images/grouped_bar_with_errorbar_2.svg" alt="Grouped Bar Chart with Errorbar" /><p align="center">Grouped Bar With Errorbar</p></td>
         <td><img src="docs/src/images/density.svg" alt="Density" /><p align="center">Density</p></td>
+        <td><img src="docs/src/images/histogram.svg" alt="Histogram" /><p align="center">Histogram</p></td>
     </tr>
     <tr>
-        <td><img src="docs/src/images/histogram.svg" alt="Histogram" /><p align="center">Histogram</p></td>
         <td><img src="docs/src/images/2d_density.svg" alt="2d Density" /><p align="center">2d Density Chart</p></td>
         <td><img src="docs/src/images/heatmap.svg" alt="Heatmap" /><p align="center">Heatmap</p></td>
         <td><img src="docs/src/images/grouped_boxplot.svg" alt="Grouped Boxplot" /><p align="center">Grouped Boxplot</p></td>
         <td><img src="docs/src/images/cumulative_frequency.svg" alt="Cumulative Frequency" /><p align="center">Cumulative Frequency</p></td>
+        <td><img src="docs/src/images/distribution.svg" alt="Distribution" /><p align="center">Distribution</p></td>
     </tr>
     <tr>
-        <td><img src="docs/src/images/distribution.svg" alt="Distribution" /><p align="center">Distribution</p></td>
         <td><img src="docs/src/images/pie.svg" alt="Pie" /><p align="center">Pie</p></td>
         <td><img src="docs/src/images/donut.svg" alt="Donut" /><p align="center">Donut</p></td>
         <td><img src="docs/src/images/rose.svg" alt="Rose" /><p align="center">Rose</p></td>
         <td><img src="docs/src/images/nightingale.svg" alt="Nightingale" /><p align="center">Nightingale</p></td>
+        <td><img src="docs/src/images/simple_stacked_area.svg" alt="Simple Stacked Area" /><p align="center">Simple Stack Area</p></td>
     </tr>
     <tr>
-        <td><img src="docs/src/images/simple_stacked_area.svg" alt="Simple Stacked Area" /><p align="center">Simple Stack Area</p></td>
         <td><img src="docs/src/images/normalized_stacked_area.svg" alt="Normalized Stacked Area" /><p align="center">Normalized Stacked Area</p></td>
         <td><img src="docs/src/images/steamgraph.svg" alt="Steamgraph" /><p align="center">Steamgraph</p></td>
         <td><img src="docs/src/images/beeswarm.svg" alt="Beeswarm" /><p align="center">Beeswarm</p></td>
         <td><img src="docs/src/images/strip.svg" alt="Strip" /><p align="center">Strip</p></td>
-    </tr>
-    <tr>
         <td><img src="docs/src/images/world_map.svg" alt="World map" /><p align="center">Geo Chart</p></td>
     </tr>
 </table>
@@ -144,7 +141,9 @@ line.and(point).save("layered.svg")?;
 ```
 
 ## 分面作图
-*正在开发中*
+现已支持多面板分面（包含`wrap`和`grid`布局），可将复杂数据集拆分到多个联动的子图中，进行直观的对比分析。
+
+<p align="center"> <img src="docs/src/images/facet_grid.svg" alt="Facet Grid"> </p>
 
 ## 桌面 GUI 集成
 Charton 可以通过其 GPU 加速后端直接渲染到原生桌面应用中。下图是一个使用 Charton 和 egui 构建的实时系统遥测仪表板，展示了实时 CPU、内存、Swap 和网络监控，以及每个核心的负载分布：

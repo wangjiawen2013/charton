@@ -20,33 +20,30 @@ Charton is a high-performance Rust plotting library featuring a declarative API 
 <table>
     <tr>
         <td><img src="docs/src/images/grid_line.svg" alt="Grid Lines" /><p align="center">Grid Lines</p></td>
-        <td><img src="docs/src/images/facet_grid.svg" alt="Facet Grid" /><p align="center">Facet Chart</p></td>
         <td><img src="docs/src/images/stacked_bar.svg" alt="Stacked Bar Chart" /><p align="center">Stacked Bar Chart</p></td>
         <td><img src="docs/src/images/grouped_bar_with_errorbar_2.svg" alt="Grouped Bar Chart with Errorbar" /><p align="center">Grouped Bar With Errorbar</p></td>
         <td><img src="docs/src/images/density.svg" alt="Density" /><p align="center">Density</p></td>
+        <td><img src="docs/src/images/histogram.svg" alt="Histogram" /><p align="center">Histogram</p></td>
     </tr>
     <tr>
-        <td><img src="docs/src/images/histogram.svg" alt="Histogram" /><p align="center">Histogram</p></td>
         <td><img src="docs/src/images/2d_density.svg" alt="2d Density" /><p align="center">2d Density Chart</p></td>
         <td><img src="docs/src/images/heatmap.svg" alt="Heatmap" /><p align="center">Heatmap</p></td>
         <td><img src="docs/src/images/grouped_boxplot.svg" alt="Grouped Boxplot" /><p align="center">Grouped Boxplot</p></td>
         <td><img src="docs/src/images/cumulative_frequency.svg" alt="Cumulative Frequency" /><p align="center">Cumulative Frequency</p></td>
+        <td><img src="docs/src/images/distribution.svg" alt="Distribution" /><p align="center">Distribution</p></td>
     </tr>
     <tr>
-        <td><img src="docs/src/images/distribution.svg" alt="Distribution" /><p align="center">Distribution</p></td>
         <td><img src="docs/src/images/pie.svg" alt="Pie" /><p align="center">Pie</p></td>
         <td><img src="docs/src/images/donut.svg" alt="Donut" /><p align="center">Donut</p></td>
         <td><img src="docs/src/images/rose.svg" alt="Rose" /><p align="center">Rose</p></td>
         <td><img src="docs/src/images/nightingale.svg" alt="Nightingale" /><p align="center">Nightingale</p></td>
+        <td><img src="docs/src/images/simple_stacked_area.svg" alt="Simple Stacked Area" /><p align="center">Simple Stack Area</p></td>
     </tr>
     <tr>
-        <td><img src="docs/src/images/simple_stacked_area.svg" alt="Simple Stacked Area" /><p align="center">Simple Stack Area</p></td>
         <td><img src="docs/src/images/normalized_stacked_area.svg" alt="Normalized Stacked Area" /><p align="center">Normalized Stacked Area</p></td>
         <td><img src="docs/src/images/steamgraph.svg" alt="Steamgraph" /><p align="center">Steamgraph</p></td>
         <td><img src="docs/src/images/beeswarm.svg" alt="Beeswarm" /><p align="center">Beeswarm</p></td>
         <td><img src="docs/src/images/strip.svg" alt="Strip" /><p align="center">Strip</p></td>
-    </tr>
-    <tr>
         <td><img src="docs/src/images/world_map.svg" alt="World map" /><p align="center">Geo Chart</p></td>
     </tr>
 </table>
@@ -143,8 +140,11 @@ let point = chart!(height, weight)?
 line.and(point).save("layered.svg")?;
 ```
 
-## Facet Plotting
-*In progress*
+## Faceting Support
+
+Now supporting multi-panel faceting (`wrap` and `grid` layouts), enabling you to easily split and compare complex datasets across coordinated subplots.
+
+<p align="center"> <img src="docs/src/images/facet_grid.svg" alt="Facet Grid"> </p>
 
 ## Desktop GUI Integration
 Charton can render directly into native desktop applications via its GPU-accelerated backend. Below is a real-time system telemetry dashboard built with Charton and egui, demonstrating live CPU, memory, swap, and network monitoring with per-core load distribution:
