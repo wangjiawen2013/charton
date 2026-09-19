@@ -8,7 +8,7 @@ use crate::core::guide::GuideSpec;
 use crate::core::layer::{Layer, RectConfig, RenderBackend, TextConfig};
 use crate::encode::Channel;
 use crate::error::ChartonError;
-use crate::facets::{FacetPanel, FacetPanelInfo, FacetSpec};
+use crate::facets::{FacetMetrics, FacetPanel, FacetPanelInfo, FacetSpec};
 use crate::scale::{
     Expansion, ExplicitTick, Scale, ScaleDomain, create_scale, mapper::VisualMapper,
 };
@@ -29,6 +29,12 @@ struct ResolvedScene {
     aesthetics: GlobalAesthetics,
     guides: Vec<GuideSpec>,
     legend_plan: crate::core::layout::LegendLayoutPlan,
+    /// Axis space measured for the panel.
+    ///
+    /// For a single chart this has already been taken out of `panel`, so it is
+    /// only informational. For a faceted chart it has *not*: the facet grid owns
+    /// the axes and receives these extents as per-column/row tracks.
+    axis_constraints: crate::core::layout::AxisLayoutConstraints,
 }
 
 /// `LayeredChart` is the central orchestrator of the visualization.
@@ -457,6 +463,7 @@ impl LayeredChart {
     ///
     /// # Arguments
     /// * `container` - The total area available for all facets
+    /// * `metrics` - The measured axis extents the grid turns into tracks
     ///
     /// # Returns
     /// * `Some(Vec<FacetPanel>)` if faceting is configured
@@ -464,6 +471,7 @@ impl LayeredChart {
     pub(crate) fn compute_facet_panels(
         &self,
         container: &Rect,
+        metrics: &FacetMetrics,
     ) -> Result<Option<Vec<FacetPanel>>, ChartonError> {
         // 1. Check if faceting is configured
         let facet_spec = match &self.facet {
@@ -478,7 +486,7 @@ impl LayeredChart {
         let facet_impl = facet_spec.clone().into_facet();
 
         // 4. Compute the physical panels
-        let panels = facet_impl.compute_panels(&factors, container, &self.theme);
+        let panels = facet_impl.compute_panels(&factors, container, metrics, &self.theme);
 
         Ok(Some(panels))
     }
@@ -684,6 +692,16 @@ impl LayeredChart {
 
         let direction = crate::core::flow::Direction::for_legend(self.theme.legend_position);
         let wants_axes = self.theme.show_axes && self.layers.iter().any(|l| l.requires_axes());
+        // Who owns the axis space?
+        //
+        // A single chart owns it on the outer border: the panel is shrunk from
+        // the left/bottom and the axes live in the gap. A faceted chart cannot do
+        // that, because its axes live *inside* the grid, on specific columns and
+        // rows -- reserving them on the border as well is exactly the double
+        // reservation that used to leave a dead band at the left and bottom
+        // edges. So the measured extents are still computed below (the grid needs
+        // their size), but they are only added to the border when `!is_faceted`.
+        let is_faceted = self.facet.is_some();
 
         let mut legend_box = crate::core::layout::LegendLayoutConstraints::default();
         let mut axis_box = crate::core::layout::AxisLayoutConstraints::default();
@@ -714,9 +732,15 @@ impl LayeredChart {
                 crate::core::layout::AxisLayoutConstraints::default()
             };
 
-            // The real panel is what is left after the axes take their share.
-            let plot_w = (unclaimed_w - new_axis_box.left).max(self.theme.min_panel_size);
-            let plot_h = (unclaimed_h - new_axis_box.bottom).max(self.theme.min_panel_size);
+            // The extent the legend is measured against. For a single chart the
+            // axes come out of the panel; for a facet grid they do not, because
+            // the legend sits next to the whole grid and the grid's axis tracks
+            // are inside it. `plot_w`/`plot_h` are used *only* for the legend
+            // budget here -- the final panel rect is recomputed in step 5.
+            let plot_w = (unclaimed_w - if is_faceted { 0.0 } else { new_axis_box.left })
+                .max(self.theme.min_panel_size);
+            let plot_h = (unclaimed_h - if is_faceted { 0.0 } else { new_axis_box.bottom })
+                .max(self.theme.min_panel_size);
 
             // A legend must be no longer than the panel it sits next to, along the
             // direction it is packed in. Packing against anything larger (the raw
@@ -753,10 +777,19 @@ impl LayeredChart {
         }
 
         // --- STEP 5: FINAL PANEL RESOLUTION ---
-        let final_left = left_margin + legend_box.left + axis_box.left;
+        //
+        // A faceted panel rect spans the *whole* grid, axis tracks included; the
+        // facet layout will carve the tracks out of it. Adding the measured axis
+        // extents to the border as well would pay for them twice, so they are
+        // added only for a single chart. For a faceted chart `axis_box` is not
+        // discarded: it is stored on the scene and forwarded to the facet layout
+        // as `FacetMetrics`, where it becomes the axis tracks.
+        let outer_axis_left = if is_faceted { 0.0 } else { axis_box.left };
+        let outer_axis_bottom = if is_faceted { 0.0 } else { axis_box.bottom };
+        let final_left = left_margin + legend_box.left + outer_axis_left;
         let final_right = right_margin + legend_box.right;
         let final_top = top_margin + legend_box.top;
-        let final_bottom = bottom_margin + legend_box.bottom + axis_box.bottom;
+        let final_bottom = bottom_margin + legend_box.bottom + outer_axis_bottom;
 
         // Apply final dimensions with a safety floor (min_panel_size).
         let plot_w = (w - final_left - final_right).max(self.theme.min_panel_size);
@@ -770,6 +803,7 @@ impl LayeredChart {
             aesthetics,
             guides: guide_specs,
             legend_plan,
+            axis_constraints: axis_box,
         })
     }
 
@@ -846,6 +880,14 @@ impl LayeredChart {
         let aesthetics = scene.aesthetics;
         let guide_specs = scene.guides;
         let legend_plan = scene.legend_plan;
+        // Hand the measured axis extents to the facet layout, where they become
+        // the axis tracks. `resolve_panels` ignores this for a non-faceted chart,
+        // whose single panel already had the axes taken out of it in
+        // `resolve_scene`.
+        let facet_metrics = FacetMetrics {
+            axis_left: scene.axis_constraints.left,
+            axis_bottom: scene.axis_constraints.bottom,
+        };
 
         // --- STEP 2: GLOBAL SPECIFICATION SETUP ---
         let spec = ChartSpec {
@@ -859,7 +901,7 @@ impl LayeredChart {
         }
 
         // --- STEP 4: RESOLVE PANELS ---
-        let panels = self.resolve_panels(&panel)?;
+        let panels = self.resolve_panels(&panel, &facet_metrics)?;
         let should_show_grid = self
             .show_grid
             .unwrap_or(self.theme.show_grid || panels.len() > 1);
@@ -900,8 +942,12 @@ impl LayeredChart {
     ///
     /// Non-faceted charts return a single panel with empty header and no facet values.
     /// Faceted charts return the panels computed from the facet specification.
-    fn resolve_panels(&self, main_panel: &Rect) -> Result<Vec<FacetPanel>, ChartonError> {
-        if let Some(panels) = self.compute_facet_panels(main_panel)? {
+    fn resolve_panels(
+        &self,
+        main_panel: &Rect,
+        metrics: &FacetMetrics,
+    ) -> Result<Vec<FacetPanel>, ChartonError> {
+        if let Some(panels) = self.compute_facet_panels(main_panel, metrics)? {
             return Ok(panels);
         }
 
