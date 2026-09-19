@@ -4,7 +4,9 @@
 //! for wrap layouts (single field, wrapped into a 2D grid).
 
 use crate::coordinate::Rect;
-use crate::facets::{Facet, FacetPanel, FacetPanelInfo, FacetStrategy};
+use crate::facets::{
+    Facet, FacetGridGeometry, FacetMetrics, FacetPanel, FacetPanelInfo, FacetStrategy,
+};
 use crate::theme::Theme;
 
 /// Internal implementation of Wrap faceting.
@@ -55,49 +57,70 @@ impl Facet for FacetWrapImpl {
         &self,
         factors: &[Vec<String>],
         container: &Rect,
+        metrics: &FacetMetrics,
         theme: &Theme,
     ) -> Vec<FacetPanel> {
         let values = &factors[0];
         let n = values.len();
 
-        // 1. Calculate grid dimensions (columns and rows)
+        // --- Pass 1: grid shape -------------------------------------------------
+        // The number of columns is explicit or the square root of the panel
+        // count; the last row may therefore be partial.
         let cols = self
             .columns
             .unwrap_or_else(|| (n as f64).sqrt().ceil() as usize)
             .max(1);
-        let rows = n.div_ceil(cols);
+        let rows = n.div_ceil(cols).max(1);
 
-        // 2. Calculate panel and plot dimensions
-        let gap = theme.facet_spacing;
-        let header_h = theme.facet_label_size * 1.5 + theme.facet_strip_padding * 2.0;
+        // --- Pass 2: decide which axis tracks the grid needs --------------------
+        //
+        // Same idea as the grid facet, with one extra wrinkle: because the last
+        // row can be incomplete, "the bottom-most cell of a column" is not always
+        // in the last row. `is_last_in_column` tells `axis_visibility` which cell
+        // sits at the bottom of its own column, so an x axis is still labelled on
+        // a column that ends early. A column with no cell at all never asks for a
+        // track.
+        let visibility = |idx: usize| {
+            let r = idx / cols;
+            let c = idx % cols;
+            let is_last_in_column = idx + cols >= n;
+            self.strategy.axis_visibility(r, c, rows, is_last_in_column)
+        };
+        let mut has_left_axis = vec![false; cols];
+        let mut has_bottom_axis = vec![false; rows];
+        for idx in 0..n {
+            let r = idx / cols;
+            let c = idx % cols;
+            let (show_x_axis, show_y_axis) = visibility(idx);
+            // A track serves the whole column/row, so one demanding cell reserves it.
+            has_left_axis[c] |= show_y_axis;
+            has_bottom_axis[r] |= show_x_axis;
+        }
 
-        let panel_w = (container.width - (cols - 1) as f64 * gap) / cols as f64;
-        let panel_h = (container.height - (rows - 1) as f64 * gap) / rows as f64;
+        // --- Pass 3: solve the tracks and place the panels ----------------------
+        // Reserving `cols` tracks even for a partial last row keeps panels across
+        // rows aligned in the same columns.
+        let geometry = FacetGridGeometry::new(
+            rows,
+            cols,
+            container,
+            metrics,
+            theme,
+            &has_left_axis,
+            &has_bottom_axis,
+        );
 
-        let axis_pad = (theme.label_size + theme.tick_label_size + 12.0).max(24.0);
-
-        // 3. Generate panel layouts
         values
             .iter()
             .enumerate()
             .map(|(idx, val)| {
                 let r = idx / cols;
                 let c = idx % cols;
-                let is_last_in_column = idx + cols >= n;
-                let (show_x_axis, show_y_axis) =
-                    self.strategy.axis_visibility(r, c, rows, is_last_in_column);
-
-                let x = container.x + c as f64 * (panel_w + gap);
-                let header_y = container.y + r as f64 * (panel_h + gap);
+                let (show_x_axis, show_y_axis) = visibility(idx);
 
                 FacetPanel {
-                    rect: Rect::new(
-                        x + axis_pad,
-                        header_y + header_h + 8.0,
-                        (panel_w - axis_pad - 12.0).max(40.0),
-                        (panel_h - header_h - 8.0 - axis_pad).max(40.0),
-                    ),
-                    header_rect: Rect::new(x, header_y, panel_w, header_h),
+                    rect: geometry.panel_rect(r, c),
+                    header_rect: geometry.header_rect(r, c),
                     info: FacetPanelInfo {
                         row: r,
                         col: c,
