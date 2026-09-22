@@ -4,6 +4,7 @@ use crate::coordinate::{CoordSystem, CoordinateTrait, Rect};
 use crate::core::aesthetics::AestheticMapping;
 use crate::core::aesthetics::GlobalAesthetics;
 use crate::core::context::{ChartSpec, PanelContext};
+use crate::core::data::FacetPartition;
 use crate::core::guide::GuideSpec;
 use crate::core::layer::{Layer, RectConfig, RenderBackend, TextConfig};
 use crate::encode::Channel;
@@ -397,19 +398,12 @@ impl LayeredChart {
         facet: &FacetSpec,
     ) -> Result<Vec<Vec<String>>, ChartonError> {
         // 1. Extract field names from the facet specification
-        let fields: Vec<String> = match facet {
-            FacetSpec::Wrap { field, .. } => vec![field.clone()],
-            FacetSpec::Grid {
-                row_field,
-                col_field,
-                ..
-            } => vec![row_field.clone(), col_field.clone()],
-        };
+        let fields = facet.field_names();
 
         // 2. For each field, collect unique values from all layers
         let mut all_factors: Vec<Vec<String>> = Vec::with_capacity(fields.len());
 
-        for field in &fields {
+        for &field in &fields {
             let mut values: Vec<String> = Vec::new();
             let mut seen = std::collections::HashSet::new();
             let mut field_found = false;
@@ -902,6 +896,25 @@ impl LayeredChart {
 
         // --- STEP 4: RESOLVE PANELS ---
         let panels = self.resolve_panels(&panel, &facet_metrics)?;
+
+        // Split every layer by the facet fields once, then reuse the result for
+        // all panels: each panel looks its own rows up in the partition. A layer
+        // that cannot be partitioned (e.g. an annotation) yields `None` and is
+        // drawn unchanged on every panel.
+        let facet_fields: Vec<&str> = self
+            .facet
+            .as_ref()
+            .map(FacetSpec::field_names)
+            .unwrap_or_default();
+        let facet_partitions: Vec<Option<FacetPartition>> = if facet_fields.is_empty() {
+            vec![None; self.layers.len()]
+        } else {
+            self.layers
+                .iter()
+                .map(|layer| layer.facet_partition(&facet_fields))
+                .collect::<Result<Vec<_>, _>>()?
+        };
+
         let should_show_grid = self
             .show_grid
             .unwrap_or(self.theme.show_grid || panels.len() > 1);
@@ -911,7 +924,14 @@ impl LayeredChart {
 
         // --- STEP 6: RENDER ALL PANELS ---
         for panel in &panels {
-            self.render_single_panel(backend, panel, &spec, &coord, should_show_grid)?;
+            self.render_single_panel(
+                backend,
+                panel,
+                &spec,
+                &coord,
+                should_show_grid,
+                &facet_partitions,
+            )?;
         }
 
         // --- STEP 7: RENDER UNIFIED LEGENDS (once, after all panels) ---
@@ -981,6 +1001,7 @@ impl LayeredChart {
         spec: &ChartSpec<'_>,
         coord: &Arc<dyn CoordinateTrait>,
         should_show_grid: bool,
+        facet_partitions: &[Option<FacetPartition>],
     ) -> Result<(), ChartonError> {
         // 1. Create a localized panel context
         let panel_ctx = PanelContext::new(spec, coord.clone(), panel.rect);
@@ -1001,22 +1022,25 @@ impl LayeredChart {
             )?;
         }
 
-        // 4. Render marks with clipping AND facet filtering
-        //    For a faceted chart, each layer is first reduced to the subset of
-        //    rows matching this panel's facet filter; the filtered layer is
-        //    then rendered. Non-faceted panels (empty filter) reuse the
-        //    original layer unchanged, avoiding any data copy.
+        // 4. Render marks with clipping AND facet subsetting.
+        //    For a faceted chart, each layer is replaced by the subset of rows
+        //    belonging to this panel, found through the layer's facet partition.
+        //    Layers without a partition hold no data and are drawn as-is.
         backend.begin_clip_scope(&panel.rect);
-        for layer in &self.layers {
-            // Ask the layer for its filtered copy (Ok(Some)) or, when the
-            // filter is empty / the layer does not support filtering, for the
-            // original (Ok(None)). A non-empty filter with a missing field
-            // fails fast via Err, surfacing misconfigured facet specs.
-            let effective_layer: Arc<dyn Layer> =
-                match layer.with_facet_filter(&panel.info.facet_filter)? {
-                    Some(filtered) => filtered,
-                    None => layer.clone(),
-                };
+        for (layer, partition) in self.layers.iter().zip(facet_partitions.iter()) {
+            let effective_layer: Arc<dyn Layer> = match partition {
+                Some(partition) => {
+                    let empty: [usize; 0] = [];
+                    let rows = partition
+                        .row_indices(&panel.info.facet_filter)
+                        .unwrap_or(&empty);
+                    match layer.subset_rows(rows)? {
+                        Some(subset) => subset,
+                        None => layer.clone(),
+                    }
+                }
+                None => layer.clone(),
+            };
             effective_layer.render_marks(backend, &panel_ctx)?;
         }
         backend.end_clip_scope();

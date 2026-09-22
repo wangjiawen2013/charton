@@ -8,7 +8,8 @@ use std::error::Error;
 ///
 /// Note: `chart.facet(...)` goes through the `IntoLayered` trait and returns a
 /// `LayeredChart` directly (not a `Result`), so it must NOT be followed by `?`.
-/// The actual row subsetting happens at render time via `with_facet_filter`.
+/// The actual row subsetting happens at render time via the layer's
+/// `facet_partition` / `subset_rows` contract.
 #[test]
 fn test_facet_wrap_cyl() -> Result<(), Box<dyn Error>> {
     let ds = load_dataset("mtcars")?;
@@ -130,7 +131,7 @@ fn test_facet_wrap_with_columns_and_strategy() -> Result<(), Box<dyn Error>> {
 /// Fail-fast guard: when a facet field is missing from the data, rendering
 /// must error out instead of silently drawing the full dataset. (The facet
 /// call itself does not validate; validation happens in
-/// `render_single_panel -> with_facet_filter` and propagates via `?`.)
+/// `render_single_panel -> facet_partition` and propagates via `?`.)
 #[test]
 fn test_facet_missing_field_errors() -> Result<(), Box<dyn Error>> {
     let ds = load_dataset("mtcars")?;
@@ -152,38 +153,47 @@ fn test_facet_missing_field_errors() -> Result<(), Box<dyn Error>> {
     Ok(())
 }
 
-/// Verify data-subset correctness through `with_facet_filter`:
-/// mtcars has 11 rows with `cyl == 4`; after filtering, the subset must have
+/// Verify data-subset correctness through the faceting primitives:
+/// mtcars has 11 rows with `cyl == 4`; after subsetting, the layer must have
 /// exactly 11 rows and every row must have `cyl == 4`.
 #[test]
-fn test_facet_filter_subset_correctness() -> Result<(), Box<dyn Error>> {
+fn test_facet_subset_correctness() -> Result<(), Box<dyn Error>> {
     let ds = load_dataset("mtcars")?;
 
     let chart = Chart::build(ds.clone())?
         .mark_point()?
         .encode((alt::x("wt"), alt::y("mpg")))?;
 
-    // Manually emulate the filter that a wrap facet on cyl=4 would produce.
-    let filter = vec![("cyl".to_string(), "4".to_string())];
-
-    // Invoke through the Layer trait.
+    // Emulate the two-step faceting contract: build the partition once, then
+    // resolve a panel's rows from it.
     let layer: &dyn Layer = &chart;
-    let filtered = layer
-        .with_facet_filter(&filter)?
-        .expect("A non-empty filter should return Some");
+    let partition = layer
+        .facet_partition(&["cyl"])?
+        .expect("A data layer should return a partition");
 
-    // The filtered dataset must have exactly the rows where cyl == 4 (11).
-    let filtered_ds = filtered.get_dataset();
+    let filter = vec![("cyl".to_string(), "4".to_string())];
+    let rows = partition
+        .row_indices(&filter)
+        .expect("The cyl=4 group should exist");
+
+    // The cyl=4 sub-population has exactly 11 rows.
+    assert_eq!(rows.len(), 11, "The cyl=4 group should have 11 rows");
+
+    // Materialize the subset layer and verify every retained row has cyl == 4.
+    let subset = layer
+        .subset_rows(rows)?
+        .expect("A non-empty subset should return Some");
+
+    let subset_ds = subset.get_dataset();
     assert_eq!(
-        filtered_ds.height(),
+        subset_ds.height(),
         11,
         "The cyl=4 subset should have 11 rows, got {}",
-        filtered_ds.height()
+        subset_ds.height()
     );
 
-    // Verify every retained row actually has cyl == 4.
-    for row in 0..filtered_ds.height() {
-        let cyl = filtered_ds.get("cyl", row).to_string();
+    for row in 0..subset_ds.height() {
+        let cyl = subset_ds.get("cyl", row).to_string();
         assert_eq!(
             cyl.as_deref(),
             Some("4"),

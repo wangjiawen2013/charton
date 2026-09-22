@@ -286,6 +286,23 @@ pub enum FacetSpec {
 }
 
 impl FacetSpec {
+    /// Returns the facet field names in the exact order used to build each
+    /// panel's `facet_filter` (and therefore the order a
+    /// [`Dataset::partition_by`](crate::core::data::Dataset::partition_by) key
+    /// must follow).
+    ///
+    /// Wrap -> `[field]`; Grid -> `[row_field, col_field]`.
+    pub fn field_names(&self) -> Vec<&str> {
+        match self {
+            FacetSpec::Wrap { field, .. } => vec![field.as_str()],
+            FacetSpec::Grid {
+                row_field,
+                col_field,
+                ..
+            } => vec![row_field.as_str(), col_field.as_str()],
+        }
+    }
+
     /// Creates a Wrap facet specification with default settings.
     pub fn wrap(field: &str) -> Self {
         FacetSpec::Wrap {

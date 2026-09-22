@@ -14,7 +14,7 @@ pub mod tick_chart;
 use crate::TEMP_SUFFIX;
 use crate::coordinate::CoordinateTrait;
 use crate::core::aesthetics::GlobalAesthetics;
-use crate::core::data::{Dataset, SemanticType, ToDataset};
+use crate::core::data::{Dataset, FacetPartition, SemanticType, ToDataset};
 use crate::core::layer::{Layer, MarkRenderer};
 use crate::encode::{Channel, Encoding, IntoEncoding, y::StackMode};
 use crate::error::ChartonError;
@@ -994,42 +994,15 @@ where
         }
     }
 
-    /// Creates a filtered copy of this `Chart` that retains only the rows
-    /// matching the given facet filter.
+    /// Partitions this chart's dataset by the given facet `fields`.
     ///
-    /// Faceted rendering calls this once per (panel, layer). Each panel
-    /// supplies a `filter` describing which subset of rows it should draw;
-    /// this method materializes that subset as a brand-new `Dataset` and
-    /// clones the `Chart`, swapping in the filtered data while preserving
-    /// the mark configuration and the encodings (including any scales that
-    /// were already injected during the global resolution phase).
-    ///
-    /// # Filter semantics
-    /// - A row is kept if it matches **all** `(field, value)` pairs
-    ///   (logical AND). This naturally supports both Wrap (one pair) and
-    ///   Grid (two pairs) facets.
-    ///
-    /// # Fail-fast guard
-    /// A non-empty filter that references a field missing from this layer's
-    /// dataset returns an `Err` instead of silently rendering the full data.
-    /// This surfaces typos in facet field names immediately, rather than
-    /// producing visually incorrect (unfiltered) panels.
-    fn with_facet_filter(
-        &self,
-        filter: &[(String, String)],
-    ) -> Result<Option<Arc<dyn Layer>>, ChartonError> {
-        // 1. Empty filter => non-faceted chart, no subsetting needed.
-        //    Returning None lets the caller reuse the original layer without
-        //    paying the cost of a full dataset copy in the common case.
-        if filter.is_empty() {
-            return Ok(None);
-        }
-
-        // 2. Fail-fast validation: every facet field must exist in this layer.
-        //    If a field is missing, the facet spec is likely misconfigured
-        //    (e.g. a typo), so we error out instead of silently dropping it.
-        for (field, _) in filter {
-            if !self.data.schema.contains_key(field) {
+    /// See [`Layer::facet_partition`](crate::core::layer::Layer::facet_partition).
+    /// A field missing from the dataset is reported as an error.
+    fn facet_partition(&self, fields: &[&str]) -> Result<Option<FacetPartition>, ChartonError> {
+        // A facet field missing from this layer is almost always a typo, so
+        // report it instead of silently leaving the panel unfiltered.
+        for field in fields {
+            if !self.data.schema.contains_key(*field) {
                 return Err(ChartonError::Data(format!(
                     "Facet field '{}' not found in the layer's dataset",
                     field
@@ -1037,36 +1010,24 @@ where
             }
         }
 
-        // 3. Row scan: collect the indices of rows that match every
-        //    (field, expected_value) pair.
-        let mut indices: Vec<usize> = Vec::new();
-        for row in 0..self.data.height() {
-            let mut all_match = true;
-            for (field, expected) in filter {
-                // Dataset::get returns an AnyValue; to_string() yields
-                // Option<String> (None for nulls). A null never matches an
-                // expected value, which is the desired behaviour.
-                let actual = self.data.get(field, row);
-                if actual.to_string().as_deref() != Some(expected.as_str()) {
-                    all_match = false;
-                    break;
-                }
-            }
-            if all_match {
-                indices.push(row);
-            }
-        }
+        Ok(Some(self.data.partition_by(fields)?))
+    }
 
-        // 4. Build the subset dataset via take_rows (row-index based, preserves
-        //    column order and schema), then clone the Chart with the new data.
-        let filtered_data = self.data.take_rows(&indices)?;
+    /// Returns a copy of this chart containing only `rows`, preserving the mark
+    /// and encodings so the subset renders with the same resolved scales as the
+    /// full layer.
+    ///
+    /// See [`Layer::subset_rows`](crate::core::layer::Layer::subset_rows).
+    fn subset_rows(&self, rows: &[usize]) -> Result<Option<Arc<dyn Layer>>, ChartonError> {
+        // `take_rows` keeps column order and schema intact.
+        let data = self.data.take_rows(rows)?;
 
-        let filtered_chart = Chart {
-            data: filtered_data,
+        let subset = Chart {
+            data,
             encoding: self.encoding.clone(),
             mark: self.mark.clone(),
         };
 
-        Ok(Some(Arc::new(filtered_chart)))
+        Ok(Some(Arc::new(subset)))
     }
 }
