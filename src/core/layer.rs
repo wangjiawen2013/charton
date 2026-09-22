@@ -1,5 +1,5 @@
 use super::aesthetics::GlobalAesthetics;
-use super::data::Dataset;
+use super::data::{Dataset, FacetPartition};
 use crate::Precision;
 use crate::coordinate::{CoordinateTrait, Rect};
 use crate::core::context::PanelContext;
@@ -238,35 +238,31 @@ pub trait Layer: MarkRenderer + Send + Sync {
 
     // --- Faceted Data Subsetting ---
 
-    /// Creates a filtered copy of this layer that only retains the rows
-    /// matching the given facet filter. This is the core of faceted
-    /// rendering: each panel asks every layer for its data subset.
+    /// Partitions this layer's rows by the given facet `fields`.
     ///
-    /// # Arguments
-    /// * `filter` - A list of `(field_name, value)` pairs. A row is kept if
-    ///   it matches **all** pairs (logical AND).
+    /// The result maps each combination of field values (in `fields` order) to
+    /// the rows that carry it, so a panel can turn its `(field, value)` filter
+    /// into a concrete set of rows via [`FacetPartition::row_indices`].
     ///
-    /// # Returns
-    /// * `Ok(None)` - The filter is empty (non-faceted chart); the caller
-    ///   should use the original layer unchanged. This avoids a full data
-    ///   copy in the common single-panel case.
-    /// * `Ok(Some(Arc<dyn Layer>))` - A new layer whose dataset is the
-    ///   filtered subset (mark and encodings are preserved).
-    /// * `Err(...)` - A non-empty filter references a field that does not
-    ///   exist in this layer's dataset. We **fail fast** here instead of
-    ///   silently rendering the full dataset, so typos in facet fields are
-    ///   surfaced immediately rather than producing wrong charts.
+    /// Returns `Ok(None)` when the layer holds no facetable data (e.g. a pure
+    /// annotation), in which case it is drawn unchanged on every panel.
     ///
-    /// # Default implementation
-    /// Returns `Ok(None)` (no filtering). Concrete layers that own a
-    /// `Dataset` (e.g. `Chart<T>`) override this to implement real
-    /// subsetting. Special layers such as pure annotations can keep the
-    /// default to be drawn unchanged on every panel.
-    fn with_facet_filter(
-        &self,
-        filter: &[(String, String)],
-    ) -> Result<Option<Arc<dyn Layer>>, ChartonError> {
-        let _ = filter;
+    /// Implementations fail fast when a requested field is missing from their
+    /// dataset, so a mistyped facet field is reported instead of silently
+    /// leaving panels unfiltered.
+    fn facet_partition(&self, fields: &[&str]) -> Result<Option<FacetPartition>, ChartonError> {
+        let _ = fields;
+        Ok(None)
+    }
+
+    /// Returns a copy of this layer containing only `rows`.
+    ///
+    /// This materializes one panel: the caller looks the panel's rows up in the
+    /// partition returned by [`Layer::facet_partition`] and passes them here.
+    ///
+    /// Returns `Ok(None)` when the layer does not hold subsettable data.
+    fn subset_rows(&self, rows: &[usize]) -> Result<Option<Arc<dyn Layer>>, ChartonError> {
+        let _ = rows;
         Ok(None)
     }
 }
