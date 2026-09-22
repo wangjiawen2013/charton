@@ -2076,6 +2076,45 @@ impl FromColumnVector for String {
     }
 }
 
+/// The rows of a [`Dataset`] grouped by one or more facet fields.
+///
+/// Each group is keyed by the tuple of field values (in the order the fields
+/// were supplied to [`Dataset::partition_by`]) and holds the row indices that
+/// carry those values. Every row lands in exactly one group, and rows with a
+/// null value are left out entirely.
+///
+/// This is the data side of faceting: a panel describes its subset as a list of
+/// `(field, value)` pairs, and [`FacetPartition::row_indices`] turns that
+/// description into the matching rows.
+#[derive(Debug, Default, Clone)]
+pub struct FacetPartition {
+    /// Key = facet values in the same order as the `columns` that built it.
+    /// Value = ascending row indices belonging to that key.
+    groups: AHashMap<Vec<String>, Vec<usize>>,
+}
+
+impl FacetPartition {
+    /// Returns the rows matching `filter`, where every `(field, value)` pair
+    /// must hold for a row to be included (logical AND).
+    ///
+    /// Returns `None` when no row matches. The values must be listed in the
+    /// same order as the `columns` passed to [`Dataset::partition_by`].
+    pub fn row_indices(&self, filter: &[(String, String)]) -> Option<&[usize]> {
+        let key: Vec<String> = filter.iter().map(|(_, value)| value.clone()).collect();
+        self.groups.get(&key).map(Vec::as_slice)
+    }
+
+    /// Returns the number of groups in the partition.
+    pub fn len(&self) -> usize {
+        self.groups.len()
+    }
+
+    /// Returns `true` when the partition holds no groups.
+    pub fn is_empty(&self) -> bool {
+        self.groups.is_empty()
+    }
+}
+
 /// Represents the result of a grouping operation, preserving the order of appearance.
 pub struct GroupedIndices {
     /// - `Option<String>`: The group label (formatted string representation).
@@ -2422,6 +2461,57 @@ impl Dataset {
             columns: new_columns,
             row_count: new_len,
         })
+    }
+
+    /// Partitions the row indices by the combined key of `columns`.
+    ///
+    /// Every distinct tuple of values across `columns` becomes one group in the
+    /// returned [`FacetPartition`], holding the rows (in ascending order) that
+    /// carry that tuple. It is the multi-column counterpart to
+    /// [`Dataset::group_by`]: `group_by` collects a single field into ordered,
+    /// labeled groups, while `partition_by` indexes several fields together for
+    /// keyed lookup.
+    ///
+    /// Rows with a null/NaN in any of `columns` are excluded, so a group never
+    /// contains a missing value.
+    pub fn partition_by(&self, columns: &[&str]) -> Result<FacetPartition, ChartonError> {
+        // Resolve the column references once so the row loop can index them
+        // directly instead of looking names up again per row.
+        let cols = columns
+            .iter()
+            .map(|name| self.column(name))
+            .collect::<Result<Vec<_>, _>>()?;
+
+        let mut groups: AHashMap<Vec<String>, Vec<usize>> = AHashMap::new();
+        let mut key: Vec<String> = Vec::with_capacity(cols.len());
+
+        for row in 0..self.row_count {
+            key.clear();
+            let mut valid = true;
+
+            for col in &cols {
+                match col.get(row).to_string() {
+                    Some(value) => key.push(value),
+                    None => {
+                        valid = false;
+                        break;
+                    }
+                }
+            }
+
+            if !valid {
+                continue;
+            }
+
+            // Add the row to its existing group, or start a new one.
+            if let Some(indices) = groups.get_mut(&key) {
+                indices.push(row);
+            } else {
+                groups.insert(key.clone(), vec![row]);
+            }
+        }
+
+        Ok(FacetPartition { groups })
     }
 
     /// Partitions the dataset using aHash and Rayon (if enabled) for maximum throughput,
@@ -3092,6 +3182,53 @@ pub fn get_quantile(sorted_data: &[f64], q: f64) -> f64 {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn test_partition_by_matches_facet_keys() {
+        let ds = Dataset::new()
+            .with_column("g", vec!["a", "b", "a", "b", "a"])
+            .unwrap()
+            .with_column("h", vec![1i64, 1, 2, 1, 2])
+            .unwrap()
+            .with_column("v", vec![10.0, 20.0, 30.0, 40.0, 50.0])
+            .unwrap();
+
+        let partition = ds.partition_by(&["g", "h"]).unwrap();
+
+        let key = |g: &str, h: &str| {
+            vec![
+                ("g".to_string(), g.to_string()),
+                ("h".to_string(), h.to_string()),
+            ]
+        };
+
+        assert_eq!(
+            partition.row_indices(&key("a", "1")),
+            Some([0usize].as_slice())
+        );
+        assert_eq!(
+            partition.row_indices(&key("a", "2")),
+            Some([2usize, 4].as_slice())
+        );
+        assert_eq!(
+            partition.row_indices(&key("b", "1")),
+            Some([1usize, 3].as_slice())
+        );
+        // A key that never appears in the data yields no rows.
+        assert!(partition.row_indices(&key("z", "1")).is_none());
+        assert_eq!(partition.len(), 3);
+
+        // Nulls in a key column are excluded from every group.
+        let ds_null = Dataset::new()
+            .with_column(
+                "g",
+                vec![Some("a".to_string()), None, Some("a".to_string())],
+            )
+            .unwrap();
+        let partition = ds_null.partition_by(&["g"]).unwrap();
+        let a = vec![("g".to_string(), "a".to_string())];
+        assert_eq!(partition.row_indices(&a), Some([0usize, 2].as_slice()));
+    }
     #[test]
     fn test_dataset_construction_methods() {
         use time::macros::datetime;
