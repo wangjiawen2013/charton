@@ -14,7 +14,7 @@ use crate::scale::{
     Expansion, ExplicitTick, Scale, ScaleDomain, create_scale, formatter::LabelFormat,
     mapper::VisualMapper,
 };
-use crate::theme::Theme;
+use crate::theme::{Theme, TitleAnchor};
 use std::sync::Arc;
 
 /// A complete specification for a visual channel before the final Scale object is created.
@@ -811,8 +811,12 @@ impl LayeredChart {
         // chart the axes are not bands at all: the panel spans the whole grid
         // and the facet layout carves the axis tracks out of it, so the measured
         // extents are forwarded as `FacetMetrics` instead.
-        let layout =
-            crate::core::layout::LayoutEngine::arrange(content, &bands, self.theme.min_panel_size);
+        let layout = crate::core::layout::LayoutEngine::arrange(
+            content,
+            &bands,
+            self.theme.title_frame,
+            self.theme.min_panel_size,
+        );
 
         Ok(ResolvedScene {
             coord: final_coord,
@@ -826,31 +830,40 @@ impl LayeredChart {
         })
     }
 
-    /// Renders the chart title inside the band the layout reserved for it.
+    /// Draws the chart title in the strip of space the layout set aside for it.
     ///
-    /// The title is centred over the whole canvas and sits in the middle of its
-    /// band. The band is what keeps it clear of a legend placed at the top.
+    /// The title always goes in that one strip, whatever else the chart shows.
+    /// Where it sits inside the strip comes from the theme's title anchor, and
+    /// the strip is as wide as the frame chosen for the title, not as the text
+    /// itself. That is what keeps the title clear of a legend at the top, and
+    /// lets it line up with either the data area or the whole figure.
     fn render_title<B: RenderBackend>(
         &self,
         backend: &mut B,
         title_rect: Option<Rect>,
     ) -> Result<(), ChartonError> {
-        // Nothing to draw when the chart has no title or no band was reserved.
+        // Nothing to draw when the chart has no title or no strip was set aside.
         let (Some(title_text), Some(rect)) = (&self.title, title_rect) else {
             return Ok(());
         };
 
-        let center_x = self.width as f64 / 2.0;
+        // The strip already has the right width for the chosen frame, so the
+        // anchor only has to choose one of its sides or its middle.
+        let (x, text_anchor) = match self.theme.title_anchor {
+            TitleAnchor::Start => (rect.x, "start"),
+            TitleAnchor::Middle => (rect.x + rect.width / 2.0, "middle"),
+            TitleAnchor::End => (rect.x + rect.width, "end"),
+        };
         let center_y = rect.y + rect.height / 2.0;
 
         let config = TextConfig {
-            x: center_x as Precision,
+            x: x as Precision,
             y: center_y as Precision,
             text: title_text.clone(),
             font_size: self.theme.title_size as Precision,
             font_family: self.theme.title_family.clone(),
             color: self.theme.title_color,
-            text_anchor: "middle".to_string(),
+            text_anchor: text_anchor.to_string(),
             dominant_baseline: "middle".into(),
             font_weight: "bold".to_string(),
             opacity: 1.0,
@@ -947,8 +960,15 @@ impl LayeredChart {
             && let Some(legend_rect) = legend_rect
         {
             let legend_ctx = PanelContext::new(&spec, coord.clone(), panel);
-            // The legend is drawn inside the band reserved for it, so it can
-            // never spill onto the title or the plot.
+            // A legend may use the whole open area on its side of the panel, so
+            // a label that comes out a few pixels wider than expected is still
+            // drawn in full. It can never reach the plot itself.
+            let band = crate::core::layout::LayoutEngine::legend_band(
+                self.theme.legend_position,
+                &panel,
+                self.width as f64,
+                self.height as f64,
+            );
             crate::render::legend_renderer::LegendRenderer::render_legend(
                 backend,
                 &guide_specs,
@@ -956,6 +976,7 @@ impl LayeredChart {
                 &self.theme,
                 &legend_ctx,
                 &legend_rect,
+                &band,
             );
         }
 

@@ -51,6 +51,7 @@ pub mod prelude {
     pub use crate::core::composite::LayeredChart;
     pub use crate::core::conversion::IntoLayered;
     pub use crate::core::data::{ColumnVector, Dataset, IntoColumn, ToDataset};
+    pub use crate::core::guide::LegendPosition;
     pub use crate::datasets::load_dataset;
     pub use crate::facets::FacetSpec;
     pub use crate::mark::{
@@ -61,7 +62,7 @@ pub mod prelude {
     pub use crate::render::line_renderer::PathInterpolation;
     pub use crate::scale::formatter::{Abbreviation, LabelFormat};
     pub use crate::scale::{Expansion, Scale};
-    pub use crate::theme::Theme;
+    pub use crate::theme::{Theme, TitleAnchor, TitleFrame};
     pub use crate::transform::{
         density_transform::{BandwidthType, DensityTransform, KernelType},
         window_transform::{WindowFieldDef, WindowOnlyOp, WindowTransform},
