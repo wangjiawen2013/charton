@@ -10,6 +10,11 @@ pub struct AestheticMapping {
     /// This is crucial for merging different aesthetics into a single legend block.
     pub field: String,
 
+    /// Title of the legend built from this mapping. When `None`, the field name
+    /// is used instead. It is kept separate from `field`, which is the name of
+    /// the data column that the marks read.
+    pub title: Option<String>,
+
     /// The mathematical implementation that normalizes data to [0, 1].
     pub scale_impl: Arc<dyn ScaleTrait>,
 }

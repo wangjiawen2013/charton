@@ -51,6 +51,7 @@
 - [Biomedicine (NEJM Study)](case_studies/biomedicine.md)
 - [Data Science & ML](case_studies/data_science.md)        # 机器学习：训练曲线、混淆矩阵、残差分析
 - [Finance & Economics](case_studies/finance.md)           # 金融领域：K 线图、波动率与收益率分析
+- [Economist-Style Highlights](case_studies/economist_style.md)  # 高亮重点序列 + 灰色背景 + 货币缩写
 - [Lorenz Attractor](case_studies/lorenz_attractor.md)
 
 # WebAssembly & Vega-Lite JSON

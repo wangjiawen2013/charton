@@ -409,6 +409,7 @@ mod tests {
             ScaleDomain::Discrete(vec!["A".into(), "B".into()]),
             vec![AestheticMapping {
                 field: "group".into(),
+                title: None,
                 scale_impl: scale,
             }],
         )]
@@ -592,6 +593,7 @@ mod tests {
             ScaleDomain::Continuous(0.0, 100.0),
             vec![AestheticMapping {
                 field: "value".into(),
+                title: None,
                 scale_impl: scale,
             }],
         )

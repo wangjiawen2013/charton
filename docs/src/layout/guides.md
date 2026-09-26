@@ -425,6 +425,73 @@ The automated generation of these guides provides three core advantages:
 2. Reduced Visual Noise: By merging multiple aesthetics into a single legend block, the chart keeps the viewer's focus on the data, not on redundant interface elements.
 3. Automated Layout: Because the layout manager is aware of guide requirements, you don't need to manually configure margins. The chart automatically adjusts to accommodate the font sizes and number of categories present in your specific dataset.
 
+## Formatting Labels
+
+By default Charton derives every label from the scale: pretty numbers with
+scientific notation for axes, category names for legends. Production charts
+routinely need more, so `LabelFormat` is the one builder for all of it:
+currency prefixes, compact notation, fixed precision, thousands separators, or
+an entirely custom string.
+
+```rust
+use charton::prelude::*;
+
+let money = LabelFormat::new()
+    .with_prefix("$")
+    .with_compact_notation() // 20_000_000_000 -> 20B
+    .with_precision(0);
+
+chart!(year, investment)?
+    .mark_line()?
+    .encode((alt::x("year"), alt::y("investment"), alt::color("area")))?
+    .with_y_label_format(money.clone())   // axis ticks
+    .with_legend_label_format(money)      // legend entries / colour bar
+    .to_svg()?;
+```
+
+<img src="../images/label_format.svg" width="640">
+
+Three setters exist: `with_x_label_format`, `with_y_label_format` and
+`with_legend_label_format`. The legend title is renamed with
+`with_color_label` / `with_shape_label` / `with_size_label`, and the legend is
+hidden completely with `configure_theme(|t| t.with_show_legend(false))` (or
+`LegendPosition::None`).
+
+### One formatting pass, at the scale
+
+The formatter is applied by decorating the scale in a `FormattedScale`, not by
+patching strings after the fact. That single decision is what keeps the guide
+machinery self-consistent:
+
+- Every consumer of the scale -- the axis renderer, the grid, the colour bar,
+  and the layout engine that measures how much room the labels need -- sees the
+  same strings. A formatted label that is wider than the raw one therefore
+  reserves exactly the space it later occupies.
+- Guide code must not re-derive labels. When a scale carries a formatter,
+  `ScaleTrait::label_formatter` returns `Some`, and the guide's decimal
+  alignment pass (`get_sampling_labels` / `get_sampling_ticks`) returns the
+  scale's labels untouched.
+- Visual mappings still key on the **raw** category values. The legend keeps a
+  separate list of unformatted lookup labels, so uppercasing a legend label
+  never changes which colour a category resolves to.
+
+### Escaping to arbitrary text
+
+When the built-in options are not enough, hand the scale a closure:
+
+```rust
+// Continuous values
+let custom = LabelFormat::new()
+    .with_numeric_formatter(|value| format!("{:.1}%", value * 100.0));
+
+// Categorical values
+let custom = LabelFormat::new()
+    .with_text_formatter(|label| label.replace('_', " "));
+```
+
+The closure produces the core text; `with_prefix` / `with_suffix` still apply
+around it.
+
 ## Key Takeaways
 
 Axes map space; Legends map aesthetics.
@@ -434,3 +501,4 @@ Axes map space; Legends map aesthetics.
 - Two levels, one packer: entries are packed into blocks, blocks into the strip, by the same flex-wrap routine in a `main`/`cross` frame.
 - Layout Awareness: Guides communicate their size requirements to the layout engine, and the panel, the axes and the legends are resolved together by a short fixed-point loop.
 - Known limitation: that loop is a fixed-point iteration over quantised values and is not guaranteed to converge; a rare period-2 oscillation can leave the legend layout one column off and flip it as the canvas is resized.
+- Labels are formatted once, at the scale, via `LabelFormat`; every axis, grid line, legend and colour bar reads the same strings, and the space reserved for them is measured from those same strings.
