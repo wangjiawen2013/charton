@@ -70,20 +70,6 @@ impl<'a> PanelContext<'a> {
         self.coord.transform_path(points, is_closed, &self.panel)
     }
 
-    /// Convenience helper for X-axis transformation.
-    /// Also inlined to maintain high-throughput rendering.
-    #[inline]
-    pub fn x_to_px(&self, x_norm: f64) -> f64 {
-        self.transform(x_norm, 0.0).0
-    }
-
-    /// Convenience helper for Y-axis transformation.
-    /// Also inlined to maintain high-throughput rendering.
-    #[inline]
-    pub fn y_to_px(&self, y_norm: f64) -> f64 {
-        self.transform(0.0, y_norm).1
-    }
-
     /// Provides direct access to the global theme.
     pub const fn theme(&self) -> &Theme {
         self.spec.theme

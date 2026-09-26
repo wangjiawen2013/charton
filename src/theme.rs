@@ -33,6 +33,8 @@ pub struct Theme {
     pub(crate) title_family: String,
     /// Text color for the main chart title.
     pub(crate) title_color: SingleColor,
+    /// Space between the title and whatever comes next below it.
+    pub(crate) title_padding: f64,
 
     // --- Axis Title (Label) Styling ---
     /// Font size for axis titles (e.g., "Price").
@@ -193,6 +195,11 @@ impl Theme {
 
     pub fn with_title_color(mut self, color: impl Into<SingleColor>) -> Self {
         self.title_color = color.into();
+        self
+    }
+
+    pub const fn with_title_padding(mut self, padding: f64) -> Self {
+        self.title_padding = padding;
         self
     }
 
@@ -424,7 +431,7 @@ impl Default for Theme {
 
         Self {
             background_color: "white".into(),
-            top_margin: 0.10,
+            top_margin: 0.05,
             right_margin: 0.03,
             bottom_margin: 0.08,
             left_margin: 0.06,
@@ -438,6 +445,7 @@ impl Default for Theme {
             title_size: 18.0,
             title_family: font_stack.clone(),
             title_color: "#333".into(),
+            title_padding: 6.0,
 
             label_size: 15.0,
             label_family: font_stack.clone(),

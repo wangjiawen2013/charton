@@ -70,6 +70,35 @@ fn legend_position_changes_svg_anchor() -> Result<(), Box<dyn std::error::Error>
     Ok(())
 }
 
+/// A chart title and a legend placed at the top must never be drawn on top of
+/// each other. The title owns its own band above the legend.
+#[test]
+fn title_sits_above_a_top_legend() -> Result<(), Box<dyn std::error::Error>> {
+    use charton::core::guide::LegendPosition;
+
+    let title = "A title that must stay clear of the legend";
+    let x = vec![1.0, 2.0, 3.0, 4.0];
+    let y = vec![2.0, 4.0, 3.0, 5.0];
+    let group = vec!["A", "B", "A", "B"];
+
+    let svg = chart!(x, y, group)?
+        .mark_point()?
+        .encode((alt::x("x"), alt::y("y"), alt::color("group")))?
+        .with_title(title)
+        .configure_theme(|theme| theme.with_legend_position(LegendPosition::Top))
+        .to_svg()?;
+
+    let (_, title_y) = text_position(&svg, title);
+    let (_, legend_y) = text_position(&svg, "group");
+
+    assert!(
+        title_y < legend_y,
+        "the title at y={title_y} should sit above the legend title at y={legend_y}"
+    );
+
+    Ok(())
+}
+
 /// Reads a numeric attribute from an SVG element line.
 fn attr(line: &str, name: &str) -> f64 {
     let needle = format!(" {name}=\"");

@@ -28,6 +28,10 @@ pub struct ResolvedSpec {
 struct ResolvedScene {
     coord: Arc<dyn CoordinateTrait>,
     panel: Rect,
+    /// The band the title is drawn in, when the chart has a title.
+    title_rect: Option<Rect>,
+    /// The band the legend is drawn in, when the chart has a legend.
+    legend_rect: Option<Rect>,
     aesthetics: GlobalAesthetics,
     guides: Vec<GuideSpec>,
     legend_plan: crate::core::layout::LegendLayoutPlan,
@@ -689,16 +693,20 @@ impl LayeredChart {
         // --- STEP 4: PHYSICAL MEASUREMENT (LAYOUT ENGINE) ---
         //
         // Three quantities depend on one another:
-        //   * the plot panel depends on the room reserved for the legend and the axes,
+        //   * the plot panel is whatever is left after the title, the legend and
+        //     the axes have taken their share,
         //   * the axes depend on the panel (their labels are measured against it),
         //   * the legend depends on the panel (it wraps to match the panel's length).
         //
-        // The cycle is broken by starting from a panel that only accounts for the
-        // percentage margins and then re-measuring until the reservations stop
-        // changing. The first pass reproduces the historical behaviour; every
-        // further pass tightens it. The loop always terminates because the
-        // reservations are clamped and the panel can only shrink, so a small fixed
-        // number of passes is both sufficient and a safe upper bound.
+        // The cycle is broken by measuring a few times in a row: every pass
+        // uses the reservations left by the previous one, and the loop stops as
+        // soon as the reservations and the axis depths stop changing. Usually
+        // that happens after two or three passes. `LAYOUT_PASSES` is a hard cap,
+        // not a promise that the sizes settle: tick counts and legend wrapping
+        // jump in whole steps, so a rare combination can keep flip-flopping, and
+        // the cap is what ends it. Whichever pass the loop ends on, the final
+        // plan and the reservation it was fitted into come from that same pass,
+        // so the two always agree.
         const LAYOUT_PASSES: usize = 4;
 
         let w = self.width as f64;
@@ -726,50 +734,43 @@ impl LayeredChart {
         // their size), but they are only added to the border when `!is_faceted`.
         let is_faceted = self.facet.is_some();
 
-        let mut legend_box = crate::core::layout::LegendLayoutConstraints::default();
+        // The area inside the outer margins. Everything the chart needs to show
+        // besides the data itself is stacked around the panel inside this area.
+        let content = Rect::new(left_margin, top_margin, border_plot_w, border_plot_h);
+
         let mut axis_box = crate::core::layout::AxisLayoutConstraints::default();
         let mut legend_plan =
             crate::core::layout::LegendLayoutPlan::empty(self.theme.legend_position);
+        let mut reservations = crate::core::layout::Reservations::default();
+        let mut bands = crate::core::layout::Bands::default();
 
         for _ in 0..LAYOUT_PASSES {
-            // Panel as it would be if only the legend were claiming space. The
-            // axes are measured against *this* rectangle, because reserving space
-            // for them is exactly what the measurement is about.
-            let unclaimed_w = (border_plot_w - legend_box.left - legend_box.right).max(10.0);
-            let unclaimed_h = (border_plot_h - legend_box.top - legend_box.bottom).max(10.0);
-            let axis_reference = Rect::new(
-                left_margin + legend_box.left,
-                top_margin + legend_box.top,
-                unclaimed_w,
-                unclaimed_h,
+            // The panel as it stands with the bands measured so far. The axes
+            // and the legend are measured against this rectangle, because
+            // reserving space for them is exactly what the measuring is about.
+            let panel_guess = crate::core::layout::LayoutEngine::panel_from(
+                content,
+                &reservations,
+                self.theme.min_panel_size,
             );
 
             let new_axis_box = if wants_axes {
                 crate::core::layout::LayoutEngine::calculate_axis_constraints(
-                    &PanelContext::new(&chart_spec, final_coord.clone(), axis_reference),
+                    &PanelContext::new(&chart_spec, final_coord.clone(), panel_guess),
                     &self.theme,
-                    unclaimed_w,
-                    unclaimed_h,
+                    panel_guess.width,
+                    panel_guess.height,
                 )
             } else {
                 crate::core::layout::AxisLayoutConstraints::default()
             };
 
-            // The extent the legend is measured against. For a single chart the
-            // axes come out of the panel; for a facet grid they do not, because
-            // the legend sits next to the whole grid and the grid's axis tracks
-            // are inside it. `plot_w`/`plot_h` are used *only* for the legend
-            // budget here -- the final panel rect is recomputed in step 5.
-            let plot_w = (unclaimed_w - if is_faceted { 0.0 } else { new_axis_box.left })
-                .max(self.theme.min_panel_size);
-            let plot_h = (unclaimed_h - if is_faceted { 0.0 } else { new_axis_box.bottom })
-                .max(self.theme.min_panel_size);
-
-            // A legend must be no longer than the panel it sits next to, along the
-            // direction it is packed in. Packing against anything larger (the raw
-            // canvas, or a panel measured before the axes) lets a long legend run
-            // past the axis line and overlap the tick labels.
-            let legend_budget = direction.measure(plot_w, plot_h).main;
+            // The legend wraps against the panel it sits next to. The panel
+            // guess already has the axes and everything else taken out of it,
+            // so it is exactly the rectangle the legend will border.
+            let legend_budget = direction
+                .measure(panel_guess.width, panel_guess.height)
+                .main;
 
             let new_plan = if self.theme.show_legend {
                 crate::core::layout::LayoutEngine::pack_guides(
@@ -782,18 +783,22 @@ impl LayeredChart {
                 crate::core::layout::LegendLayoutPlan::empty(self.theme.legend_position)
             };
 
-            let new_legend_box = crate::core::layout::LayoutEngine::legend_constraints_for_plan(
-                &new_plan,
-                w,
-                h,
-                self.theme.legend_margin,
+            let new_bands = crate::core::layout::LayoutEngine::build_bands(
                 &self.theme,
+                self.title.is_some(),
+                self.theme.show_legend,
+                self.theme.legend_position,
+                crate::core::layout::LayoutEngine::legend_thickness(&new_plan, w, h, &self.theme),
+                &new_axis_box,
+                !is_faceted,
             );
+            let new_reservations = crate::core::layout::Reservations::of(&new_bands);
 
-            let settled = new_legend_box == legend_box && new_axis_box == axis_box;
-            legend_box = new_legend_box;
+            let settled = new_reservations == reservations && new_axis_box == axis_box;
+            reservations = new_reservations;
             axis_box = new_axis_box;
             legend_plan = new_plan;
+            bands = new_bands;
             if settled {
                 break;
             }
@@ -801,28 +806,19 @@ impl LayeredChart {
 
         // --- STEP 5: FINAL PANEL RESOLUTION ---
         //
-        // A faceted panel rect spans the *whole* grid, axis tracks included; the
-        // facet layout will carve the tracks out of it. Adding the measured axis
-        // extents to the border as well would pay for them twice, so they are
-        // added only for a single chart. For a faceted chart `axis_box` is not
-        // discarded: it is stored on the scene and forwarded to the facet layout
-        // as `FacetMetrics`, where it becomes the axis tracks.
-        let outer_axis_left = if is_faceted { 0.0 } else { axis_box.left };
-        let outer_axis_bottom = if is_faceted { 0.0 } else { axis_box.bottom };
-        let final_left = left_margin + legend_box.left + outer_axis_left;
-        let final_right = right_margin + legend_box.right;
-        let final_top = top_margin + legend_box.top;
-        let final_bottom = bottom_margin + legend_box.bottom + outer_axis_bottom;
-
-        // Apply final dimensions with a safety floor (min_panel_size).
-        let plot_w = (w - final_left - final_right).max(self.theme.min_panel_size);
-        let plot_h = (h - final_top - final_bottom).max(self.theme.min_panel_size);
-
-        let final_panel_rect = Rect::new(final_left, final_top, plot_w, plot_h);
+        // The band sizes have settled, so now they are turned into rectangles.
+        // The panel is whatever the bands leave in the middle. For a faceted
+        // chart the axes are not bands at all: the panel spans the whole grid
+        // and the facet layout carves the axis tracks out of it, so the measured
+        // extents are forwarded as `FacetMetrics` instead.
+        let layout =
+            crate::core::layout::LayoutEngine::arrange(content, &bands, self.theme.min_panel_size);
 
         Ok(ResolvedScene {
             coord: final_coord,
-            panel: final_panel_rect,
+            panel: layout.panel,
+            title_rect: layout.title,
+            legend_rect: layout.legend,
             aesthetics,
             guides: guide_specs,
             legend_plan,
@@ -830,49 +826,30 @@ impl LayeredChart {
         })
     }
 
-    /// Renders the chart title at the top-center of the SVG canvas.
+    /// Renders the chart title inside the band the layout reserved for it.
     ///
-    /// In this revised implementation, the title position is no longer a fixed offset.
-    /// Instead, it dynamically calculates its vertical position to be centered within
-    /// the space defined by `top_margin`. This ensures the title remains visually
-    /// balanced even as the chart scales or if large margins are specified.
+    /// The title is centred over the whole canvas and sits in the middle of its
+    /// band. The band is what keeps it clear of a legend placed at the top.
     fn render_title<B: RenderBackend>(
         &self,
         backend: &mut B,
-        panel: &Rect,
+        title_rect: Option<Rect>,
     ) -> Result<(), ChartonError> {
-        // 1. Guard: Check if a title exists.
-        let title_text = match &self.title {
-            Some(t) => t,
-            None => return Ok(()),
+        // Nothing to draw when the chart has no title or no band was reserved.
+        let (Some(title_text), Some(rect)) = (&self.title, title_rect) else {
+            return Ok(());
         };
 
-        // 2. Horizontal Positioning:
-        // Use the full canvas width to find the absolute horizontal center.
         let center_x = self.width as f64 / 2.0;
+        let center_y = rect.y + rect.height / 2.0;
 
-        // 3. Vertical Positioning Logic:
-        // We calculate the available vertical space above the plot panel (panel.y).
-        // We place the text's baseline in the middle of this area.
-        let title_area_height = panel.y;
-        let font_size = self.theme.title_size;
-
-        // Calculate the vertical midpoint.
-        // Note: Using 'dominant-baseline="middle"' allows us to use the exact midpoint as the Y coordinate.
-        let center_y = title_area_height / 3.0;
-
-        // 4. Style Metadata Extraction:
-        let font_family = &self.theme.title_family;
-        let font_color = &self.theme.title_color;
-
-        // 5. Construct TextConfig and Draw
         let config = TextConfig {
             x: center_x as Precision,
             y: center_y as Precision,
             text: title_text.clone(),
-            font_size: font_size as Precision,
-            font_family: font_family.clone(),
-            color: *font_color,
+            font_size: self.theme.title_size as Precision,
+            font_family: self.theme.title_family.clone(),
+            color: self.theme.title_color,
             text_anchor: "middle".to_string(),
             dominant_baseline: "middle".into(),
             font_weight: "bold".to_string(),
@@ -900,6 +877,8 @@ impl LayeredChart {
         let scene = self.resolve_scene()?;
         let coord = scene.coord;
         let panel = scene.panel;
+        let title_rect = scene.title_rect;
+        let legend_rect = scene.legend_rect;
         let aesthetics = scene.aesthetics;
         let guide_specs = scene.guides;
         let legend_plan = scene.legend_plan;
@@ -949,7 +928,7 @@ impl LayeredChart {
             .unwrap_or(self.theme.show_grid || panels.len() > 1);
 
         // --- STEP 5: RENDER TITLE (once, centered over the entire chart) ---
-        self.render_title(backend, &panel)?;
+        self.render_title(backend, title_rect)?;
 
         // --- STEP 6: RENDER ALL PANELS ---
         for panel in &panels {
@@ -964,23 +943,19 @@ impl LayeredChart {
         }
 
         // --- STEP 7: RENDER UNIFIED LEGENDS (once, after all panels) ---
-        if self.theme.show_legend {
+        if self.theme.show_legend
+            && let Some(legend_rect) = legend_rect
+        {
             let legend_ctx = PanelContext::new(&spec, coord.clone(), panel);
-            // The legend may only paint outside the plot panel. See
-            // `LayoutEngine::legend_band` for why this is needed at all.
-            let band = crate::core::layout::LayoutEngine::legend_band(
-                self.theme.legend_position,
-                &panel,
-                self.width as f64,
-                self.height as f64,
-            );
+            // The legend is drawn inside the band reserved for it, so it can
+            // never spill onto the title or the plot.
             crate::render::legend_renderer::LegendRenderer::render_legend(
                 backend,
                 &guide_specs,
                 &legend_plan,
                 &self.theme,
                 &legend_ctx,
-                &band,
+                &legend_rect,
             );
         }
 
