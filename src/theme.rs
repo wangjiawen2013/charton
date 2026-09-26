@@ -2,6 +2,34 @@ use crate::core::guide::LegendPosition;
 use crate::prelude::SingleColor;
 use crate::visual::color::{ColorMap, ColorPalette};
 
+/// Where the chart title sits across the width it is aligned to.
+///
+/// The width itself is chosen by [`TitleFrame`]. This only says whether the
+/// title hugs the left side, the middle, or the right side of that width.
+#[derive(Clone, Copy, Debug, PartialEq, Eq, Default)]
+pub enum TitleAnchor {
+    /// Against the left side.
+    Start,
+    /// In the middle.
+    #[default]
+    Middle,
+    /// Against the right side.
+    End,
+}
+
+/// The width the chart title is aligned to.
+///
+/// A title that describes the data lines up with the plot panel. A title that
+/// belongs to the whole picture lines up with the figure body.
+#[derive(Clone, Copy, Debug, PartialEq, Eq, Default)]
+pub enum TitleFrame {
+    /// The area the data is drawn in.
+    #[default]
+    Panel,
+    /// The whole figure, i.e. the canvas inside the outer margins.
+    Figure,
+}
+
 /// A `Theme` defines the visual "look and feel" of a chart.
 ///
 /// It stores constants for aesthetics (colors, fonts) and layout preferences (margins, spacing).
@@ -35,6 +63,10 @@ pub struct Theme {
     pub(crate) title_color: SingleColor,
     /// Space between the title and whatever comes next below it.
     pub(crate) title_padding: f64,
+    /// Where the title sits across the width it is aligned to.
+    pub(crate) title_anchor: TitleAnchor,
+    /// The width the title is aligned to.
+    pub(crate) title_frame: TitleFrame,
 
     // --- Axis Title (Label) Styling ---
     /// Font size for axis titles (e.g., "Price").
@@ -200,6 +232,20 @@ impl Theme {
 
     pub const fn with_title_padding(mut self, padding: f64) -> Self {
         self.title_padding = padding;
+        self
+    }
+
+    /// Places the title against the left side, the middle, or the right side of
+    /// the width it is aligned to.
+    pub const fn with_title_anchor(mut self, anchor: TitleAnchor) -> Self {
+        self.title_anchor = anchor;
+        self
+    }
+
+    /// Chooses whether the title lines up with the data area or with the whole
+    /// figure.
+    pub const fn with_title_frame(mut self, frame: TitleFrame) -> Self {
+        self.title_frame = frame;
         self
     }
 
@@ -446,6 +492,8 @@ impl Default for Theme {
             title_family: font_stack.clone(),
             title_color: "#333".into(),
             title_padding: 6.0,
+            title_anchor: TitleAnchor::Middle,
+            title_frame: TitleFrame::Panel,
 
             label_size: 15.0,
             label_family: font_stack.clone(),

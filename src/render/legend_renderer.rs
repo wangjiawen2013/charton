@@ -23,9 +23,13 @@ pub struct LegendRenderer;
 impl LegendRenderer {
     /// The primary entry point for rendering all legends and colorbars.
     ///
-    /// It draws every guide inside `placement`, the band the layout reserved for
-    /// the legend. Nothing it paints is allowed outside that band, so a legend
-    /// can never cover the title or the plot.
+    /// `placement` is the strip the layout set aside for the legend; it decides
+    /// where the strip starts. `band` is the open area on that side of the
+    /// panel, and it is what the drawing is clipped to. The reserved strip is
+    /// based on an estimated text width, so an estimate that is a little short
+    /// leaves the label sticking out of the strip. Clipping to the wider band
+    /// keeps such a label whole, while the panel stays out of the band, so a
+    /// legend can still never cover the data.
     pub fn render_legend<B: RenderBackend>(
         backend: &mut B,
         specs: &[GuideSpec],
@@ -33,6 +37,7 @@ impl LegendRenderer {
         theme: &Theme,
         ctx: &PanelContext,
         placement: &Rect,
+        band: &Rect,
     ) {
         // Resolve the legend position from the theme.
         let position = plan.position;
@@ -48,19 +53,19 @@ impl LegendRenderer {
         let is_horizontal = matches!(direction, Direction::Horizontal);
 
         // The strip hugs the panel on its cross axis and starts at the outer
-        // edge of its band. Because the band that was reserved and the band that
-        // is drawn are the same rectangle, the two can never disagree.
+        // edge of the reserved strip. Because `placement` is the strip the
+        // layout set aside, the drawing and the reserved space always line up.
         let (origin_x, origin_y) = match position {
             LegendPosition::Top | LegendPosition::Bottom => (ctx.panel.x, placement.y),
             LegendPosition::Left | LegendPosition::Right => (placement.x, ctx.panel.y),
             LegendPosition::None => (ctx.panel.x, ctx.panel.y),
         };
-        Self::warn_if_clipped(plan, ctx, origin_x, origin_y, placement);
+        Self::warn_if_clipped(plan, ctx, origin_x, origin_y, band);
 
-        // Only ever paint inside the reserved band, so a legend that is too big
-        // for the canvas is cut off instead of spilling onto the title or the
-        // plot.
-        backend.begin_clip_scope(placement);
+        // Only ever paint inside the open area on this side of the panel, so a
+        // legend that is far too big is cut off instead of spilling onto the
+        // title or the plot.
+        backend.begin_clip_scope(band);
 
         // Every block and every entry already knows where it goes; this loop only
         // draws. It must not re-derive any layout, or the drawing would start
@@ -143,8 +148,8 @@ impl LegendRenderer {
     /// The layout shrinks the plot panel to make room for the legend, but only
     /// down to a floor (`theme.min_panel_size`, guarded by
     /// `theme.panel_defense_ratio`), so a legend that is simply too large for the
-    /// canvas ends up longer than the space reserved for it. The clip below then
-    /// cuts it off at the edge of the reserved band: the leading entries are
+    /// canvas can end up bigger than the open space around the panel. The clip
+    /// below then cuts it off at the edge of that space: the leading entries are
     /// drawn and the rest silently disappears. That is the right trade-off -- a
     /// clean plot beats a legend painted over the data -- but it should never
     /// happen unnoticed, hence this line. It fires once per rendered sheet, and
