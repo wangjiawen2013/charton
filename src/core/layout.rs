@@ -1,3 +1,43 @@
+//! Where every part of the chart ends up on the canvas.
+//!
+//! A chart is not just data. It also has a title, one or more legends and a
+//! pair of axes, and every one of them needs room. This module works out how
+//! much room each of them takes and hands back the rectangle that is left for
+//! the data itself.
+//!
+//! The canvas is treated as a set of nested rectangles, a bit like a picture
+//! frame:
+//!
+//! ```text
+//!   +------------------------------------------+  canvas edge
+//!   |  outer margin                             |
+//!   |   +----------------------------------+    |
+//!   |   |  title                            |   |
+//!   |   +----------------------------------+    |
+//!   |   |  legend (top)                     |   |
+//!   |   +----------------------------------+    |
+//!   |   |                                   |   |
+//!   |   |  plot panel                       |   |
+//!   |   |                                   |   |
+//!   |   +----------------------------------+    |
+//!   |                                           |
+//!   +------------------------------------------+
+//! ```
+//!
+//! The strips around the panel are called "bands". A band knows which edge it
+//! belongs to, how thick it is, and how much breathing room it needs before the
+//! next thing inside it. The bands on one edge are stacked from the canvas edge
+//! inwards. The title is always the outermost band on top, so a legend placed
+//! at the top ends up below the title instead of under it. A legend on the
+//! left, right or bottom sits outside the axis, so it never lands on the axis
+//! labels.
+//!
+//! The sizes feed back into each other: the axes get deeper when there is more
+//! room, the legend wraps into fewer rows when the panel is wider, and the
+//! panel is exactly what is left once the two of them have taken their share.
+//! The caller breaks that loop by measuring a few times until nothing changes.
+//! This module only provides the measuring and the stacking.
+
 use super::context::PanelContext;
 use super::flow::{self, Direction, Extent};
 use super::guide::{
@@ -7,20 +47,17 @@ use super::utils::estimate_text_width;
 use crate::coordinate::Rect;
 use crate::theme::Theme;
 
-/// Physical constraints calculated for axis areas.
+/// How much room the axes take on the left and below the panel.
+///
+/// The chart draws the value scale down the left edge and the category scale
+/// along the bottom, so these two numbers describe the only space the axes
+/// claim. They are measured before the panel is finalised. When the chart is
+/// split into facets, the same numbers are handed to the facet grid, which puts
+/// the axes inside the grid instead of around the whole chart.
 #[derive(Default, Debug, Clone, Copy, PartialEq)]
 pub struct AxisLayoutConstraints {
     pub bottom: f64,
     pub left: f64,
-}
-
-/// Margin reserved on each side of the plot for legend placement.
-#[derive(Default, Debug, Clone, Copy, PartialEq)]
-pub struct LegendLayoutConstraints {
-    pub top: f64,
-    pub bottom: f64,
-    pub left: f64,
-    pub right: f64,
 }
 
 /// One guide (a legend or a colour bar) placed inside the legend strip.
@@ -67,27 +104,100 @@ impl LegendLayoutPlan {
     }
 }
 
+/// What a reserved band actually holds.
+///
+/// The title and the legend are drawn by their own renderers, so the layout
+/// hands them a finished rectangle to draw in. The axes are different: the
+/// coordinate system already knows how to draw them from the panel alone, so
+/// their band exists only to keep the panel away from the edge.
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub(crate) enum BandKind {
+    Title,
+    Legend,
+    XAxis,
+    YAxis,
+}
+
+/// A strip of space reserved on one edge of the panel.
+///
+/// `thickness` is how far the strip reaches inwards from its edge, and `gap` is
+/// the breathing room between this strip and whatever comes next inside it.
+/// Adding the two up for every band on a side gives the total space that side
+/// takes away from the panel.
+pub(crate) struct Band {
+    pub(crate) kind: BandKind,
+    pub(crate) thickness: f64,
+    pub(crate) gap: f64,
+}
+
+/// The bands reserved on each of the four edges, outermost first.
+///
+/// "Outermost first" means the order runs from the canvas edge inwards, so the
+/// first band on the top edge is the one closest to the top of the picture.
+#[derive(Default)]
+pub(crate) struct Bands {
+    pub(crate) top: Vec<Band>,
+    pub(crate) bottom: Vec<Band>,
+    pub(crate) left: Vec<Band>,
+    pub(crate) right: Vec<Band>,
+}
+
+/// Total space each edge gives up, gaps included.
+///
+/// The caller compares this between measuring passes to notice when the layout
+/// has stopped moving.
+#[derive(Default, Clone, Copy, Debug, PartialEq)]
+pub(crate) struct Reservations {
+    pub(crate) top: f64,
+    pub(crate) bottom: f64,
+    pub(crate) left: f64,
+    pub(crate) right: f64,
+}
+
+impl Reservations {
+    /// Adds up the bands on each edge.
+    pub(crate) fn of(bands: &Bands) -> Self {
+        let along = |bands: &[Band]| bands.iter().map(|b| b.thickness + b.gap).sum();
+        Self {
+            top: along(&bands.top),
+            bottom: along(&bands.bottom),
+            left: along(&bands.left),
+            right: along(&bands.right),
+        }
+    }
+}
+
+/// The finished physical layout.
+///
+/// `panel` is where the data is drawn. `title` and `legend` are the rectangles
+/// their renderers must paint in, and they are `None` when the chart has no
+/// title or no legend. The axes do not need a rectangle here: the coordinate
+/// system draws them straight from `panel`.
+pub(crate) struct LayoutPlan {
+    pub(crate) panel: Rect,
+    pub(crate) title: Option<Rect>,
+    pub(crate) legend: Option<Rect>,
+}
+
 pub struct LayoutEngine;
 
 impl LayoutEngine {
-    /// Measures every guide and packs the resulting blocks into one strip.
+    /// Packs every guide into one legend strip.
     ///
-    /// This is the only place that decides where legend content goes. It works at
-    /// two nested levels, and both levels are handled by [`flow::pack`]:
+    /// This works at two nested levels, and both are handled by the very same
+    /// routine, [`flow::pack`]:
     ///
     /// 1. **Inside a block**: the entries of one guide are turned into boxes and
     ///    packed by [`GuideSpec::measure`]. A box there is one `● Label` row.
-    /// 2. **Between blocks**: the blocks are packed by this function, with the very
-    ///    same algorithm. A box here is one whole guide, so it contains its title
-    ///    plus all of its entries, which step 1 has already laid out.
+    /// 2. **Between blocks**: the blocks are packed here. A box at this level is
+    ///    one whole guide, so it contains its title plus all of its entries,
+    ///    which step 1 has already laid out.
     ///
-    /// # What the budget is here
-    ///
-    /// `main_budget` is how long the strip may become along the packing direction
-    /// before it wraps onto another line (a column for a left/right legend, a row
-    /// for a top/bottom one). The caller derives it from the plot panel: a legend
-    /// must never be longer than the panel it sits next to, otherwise it would run
-    /// past the axis line.
+    /// `main_budget` is how long the strip may become along the packing
+    /// direction before it wraps onto another line (a column for a left/right
+    /// legend, a row for a top/bottom one). The caller derives it from the plot
+    /// panel: a legend must never be longer than the panel it sits next to,
+    /// otherwise it would run past the axis line.
     pub(crate) fn pack_guides(
         specs: &[GuideSpec],
         position: LegendPosition,
@@ -138,10 +248,7 @@ impl LayoutEngine {
         let (width, height) = direction.resolve(packed.main_total, packed.cross_total);
 
         // Invariants guarded in debug builds: every entry, and every gradient
-        // bar, must stay inside the box reserved for its block. A violation means
-        // the measurement and the drawing disagree about the same geometry, which
-        // is precisely the class of bug this layout engine exists to make
-        // impossible.
+        // bar, must stay inside the box reserved for its block.
         debug_assert!(blocks.iter().all(|block| {
             let block_extent = direction.measure(block.width, block.height);
             block.entries.iter().all(|entry| {
@@ -159,92 +266,223 @@ impl LayoutEngine {
         }
     }
 
-    /// The region a legend is allowed to paint in: everything between the panel
-    /// and the canvas edge on the side the legend sits on.
+    /// How thick the legend strip is on its edge.
     ///
-    /// Normally the strip is packed to be no longer than the panel it sits next
-    /// to, so it fits inside this band on its own and the clip changes nothing.
-    /// It matters when a legend is far too large to ever fit -- hundreds of
-    /// categories on a small canvas: the space reserved for it is clamped so that
-    /// the panel keeps a usable size (`legend_constraints_for_plan`), leaving the
-    /// strip longer than the space it was given. Clipping to this band is what
-    /// keeps that surplus from being painted over the data: the legend shows its
-    /// leading entries and the rest is cut off, instead of covering the plot.
+    /// A legend on the top or bottom edge grows sideways, so its thickness is
+    /// its height. A legend on the left or right edge grows downwards, so its
+    /// thickness is its width.
     ///
-    /// The band is deliberately generous -- it is the whole half-plane outside the
-    /// panel, not just the panel's own extent. It is a safety net, not the thing
-    /// that lays the legend out, so it should only ever catch genuine overflow.
-    pub(crate) fn legend_band(
-        position: LegendPosition,
-        panel: &Rect,
-        canvas_w: f64,
-        canvas_h: f64,
-    ) -> Rect {
-        let (x, y, width, height) = match position {
-            LegendPosition::Right => (
-                panel.x + panel.width,
-                0.0,
-                canvas_w - (panel.x + panel.width),
-                canvas_h,
-            ),
-            LegendPosition::Left => (0.0, 0.0, panel.x, canvas_h),
-            LegendPosition::Top => (0.0, 0.0, canvas_w, panel.y),
-            LegendPosition::Bottom => (
-                0.0,
-                panel.y + panel.height,
-                canvas_w,
-                canvas_h - (panel.y + panel.height),
-            ),
-            // No legend is drawn at all in this case; hand back the whole canvas.
-            LegendPosition::None => (0.0, 0.0, canvas_w, canvas_h),
-        };
-        Rect::new(x, y, width.max(0.0), height.max(0.0))
-    }
-
-    /// Turns a measured strip into the margin it needs, expressed as space taken
-    /// away from the plot panel.
-    ///
-    /// The margin is clamped so that the panel always keeps a usable size, even
-    /// if the legend would happily eat the whole canvas. The strip itself is not
-    /// resized by that clamp -- only the space reserved for it is.
-    pub(crate) fn legend_constraints_for_plan(
+    /// The number is capped so that a legend can never squeeze the panel out of
+    /// existence. The cap only limits how much room is *reserved*; a legend that
+    /// is larger than the cap still draws its full size and is cut off at the
+    /// reserved edge.
+    pub(crate) fn legend_thickness(
         plan: &LegendLayoutPlan,
         canvas_w: f64,
         canvas_h: f64,
-        margin_gap: f64,
         theme: &Theme,
-    ) -> LegendLayoutConstraints {
-        let mut constraints = LegendLayoutConstraints::default();
-        if plan.blocks.is_empty() || matches!(plan.position, LegendPosition::None) {
-            return constraints;
+    ) -> f64 {
+        if plan.blocks.is_empty() {
+            return 0.0;
         }
 
-        if matches!(plan.position, LegendPosition::Left | LegendPosition::Right) {
-            let min_panel_w = f64::max(theme.min_panel_size, canvas_w * theme.panel_defense_ratio);
-            let max_width = (canvas_w - min_panel_w - theme.axis_reserve_buffer).max(0.0);
-            let reserve = f64::min(plan.width, max_width) + margin_gap;
-            if plan.position == LegendPosition::Right {
-                constraints.right = reserve;
+        let (raw, canvas) = match plan.position {
+            LegendPosition::Top | LegendPosition::Bottom => (plan.height, canvas_h),
+            LegendPosition::Left | LegendPosition::Right => (plan.width, canvas_w),
+            LegendPosition::None => (0.0, 0.0),
+        };
+
+        // Keep at least a usable slice of the canvas for the panel.
+        let min_panel = (canvas * theme.panel_defense_ratio).max(theme.min_panel_size);
+        let max_reserved = (canvas - min_panel - theme.axis_reserve_buffer).max(0.0);
+        raw.min(max_reserved)
+    }
+
+    /// Lays out the bands that surround the panel.
+    ///
+    /// The order within each edge runs from the canvas inwards, which is what
+    /// keeps the title above a top legend and the legend below a bottom axis.
+    /// The axes are left out entirely for a faceted chart, because there they
+    /// live inside the facet grid rather than around the whole chart.
+    #[allow(clippy::too_many_arguments)]
+    pub(crate) fn build_bands(
+        theme: &Theme,
+        has_title: bool,
+        show_legend: bool,
+        legend_position: LegendPosition,
+        legend_thickness: f64,
+        axis: &AxisLayoutConstraints,
+        outer_axes: bool,
+    ) -> Bands {
+        let mut bands = Bands::default();
+
+        // The title is always the outermost thing on top, so a top legend ends
+        // up between the title and the panel instead of on top of it.
+        if has_title {
+            bands.top.push(Band {
+                kind: BandKind::Title,
+                thickness: theme.title_size * 1.2,
+                gap: theme.title_padding,
+            });
+        }
+        if show_legend && legend_position == LegendPosition::Top {
+            bands.top.push(Band {
+                kind: BandKind::Legend,
+                thickness: legend_thickness,
+                gap: theme.legend_margin,
+            });
+        }
+
+        // On the other three edges the legend goes outside the axis, so the
+        // tick labels and the axis title stay clear of it.
+        if show_legend && legend_position == LegendPosition::Bottom {
+            bands.bottom.push(Band {
+                kind: BandKind::Legend,
+                thickness: legend_thickness,
+                gap: theme.legend_margin,
+            });
+        }
+        if show_legend && legend_position == LegendPosition::Left {
+            bands.left.push(Band {
+                kind: BandKind::Legend,
+                thickness: legend_thickness,
+                gap: theme.legend_margin,
+            });
+        }
+        if show_legend && legend_position == LegendPosition::Right {
+            bands.right.push(Band {
+                kind: BandKind::Legend,
+                thickness: legend_thickness,
+                gap: theme.legend_margin,
+            });
+        }
+
+        if outer_axes {
+            bands.bottom.push(Band {
+                kind: BandKind::XAxis,
+                thickness: axis.bottom,
+                gap: 0.0,
+            });
+            bands.left.push(Band {
+                kind: BandKind::YAxis,
+                thickness: axis.left,
+                gap: 0.0,
+            });
+        }
+
+        bands
+    }
+
+    /// The panel left over once every band has taken its share.
+    ///
+    /// The result never shrinks below `min_panel`, so a chart that is far too
+    /// small can overflow instead of collapsing to nothing. The caller uses
+    /// this to measure the axes and the legend against the panel they will
+    /// actually sit next to.
+    pub(crate) fn panel_from(content: Rect, reservations: &Reservations, min_panel: f64) -> Rect {
+        let width = (content.width - reservations.left - reservations.right).max(min_panel);
+        let height = (content.height - reservations.top - reservations.bottom).max(min_panel);
+        Rect::new(
+            content.x + reservations.left,
+            content.y + reservations.top,
+            width,
+            height,
+        )
+    }
+
+    /// Places every band and returns the final panel.
+    ///
+    /// This is the last step of the layout: the sizes have already been agreed
+    /// on, so here they are only turned into rectangles. The panel is worked out
+    /// first, and then the bands are stacked outwards from its edges, innermost
+    /// first. Building the bands out from the panel this way means they can never
+    /// be drawn on top of it, even when the panel is so squeezed that it hits its
+    /// smallest allowed size.
+    pub(crate) fn arrange(content: Rect, bands: &Bands, min_panel: f64) -> LayoutPlan {
+        let reservations = Reservations::of(bands);
+        let panel = Self::panel_from(content, &reservations, min_panel);
+
+        let mut title = None;
+        let mut legend = None;
+
+        // The title is centred over the whole canvas, so its band spans the full
+        // width. A legend only ever sits next to the panel, so its band spans
+        // exactly the panel on the cross axis and can never reach the title.
+        let cross_of = |kind: BandKind, along_side: bool| {
+            if along_side {
+                // Top/bottom band: the cross axis is horizontal.
+                if kind == BandKind::Title {
+                    (content.x, content.width)
+                } else {
+                    (panel.x, panel.width)
+                }
             } else {
-                constraints.left = reserve;
+                (panel.y, panel.height)
             }
-        } else {
-            let min_panel_h = f64::max(theme.min_panel_size, canvas_h * theme.panel_defense_ratio);
-            let max_height = (canvas_h - min_panel_h - theme.axis_reserve_buffer).max(0.0);
-            let reserve = f64::min(plan.height, max_height) + margin_gap;
-            if plan.position == LegendPosition::Top {
-                constraints.top = reserve;
-            } else {
-                constraints.bottom = reserve;
+        };
+
+        // Top: walk up from the panel. The last band in the list is the one
+        // closest to the panel, so the list is walked backwards.
+        let mut edge = panel.y;
+        for band in bands.top.iter().rev() {
+            edge -= band.gap;
+            edge -= band.thickness;
+            let (x, width) = cross_of(band.kind, true);
+            let rect = Rect::new(x, edge, width, band.thickness);
+            match band.kind {
+                BandKind::Title => title = Some(rect),
+                BandKind::Legend => legend = Some(rect),
+                _ => {}
             }
         }
-        constraints
+
+        // Bottom: walk down from the panel.
+        let mut edge = panel.y + panel.height;
+        for band in bands.bottom.iter().rev() {
+            edge += band.gap;
+            let (x, width) = cross_of(band.kind, true);
+            let rect = Rect::new(x, edge, width, band.thickness);
+            edge += band.thickness;
+            if band.kind == BandKind::Legend {
+                legend = Some(rect);
+            }
+        }
+
+        // Left: walk left from the panel.
+        let mut edge = panel.x;
+        for band in bands.left.iter().rev() {
+            edge -= band.gap;
+            edge -= band.thickness;
+            let (y, height) = cross_of(band.kind, false);
+            let rect = Rect::new(edge, y, band.thickness, height);
+            if band.kind == BandKind::Legend {
+                legend = Some(rect);
+            }
+        }
+
+        // Right: walk right from the panel.
+        let mut edge = panel.x + panel.width;
+        for band in bands.right.iter().rev() {
+            edge += band.gap;
+            let (y, height) = cross_of(band.kind, false);
+            let rect = Rect::new(edge, y, band.thickness, height);
+            edge += band.thickness;
+            if band.kind == BandKind::Legend {
+                legend = Some(rect);
+            }
+        }
+
+        LayoutPlan {
+            panel,
+            title,
+            legend,
+        }
     }
 
     /// Calculates layout constraints based on predicted axis dimensions.
     ///
-    /// This method uses the chart's reference dimensions to estimate the "worst-case"
-    /// margin required for labels and titles.
+    /// This method uses the chart's reference dimensions to estimate the
+    /// "worst-case" margin required for labels and titles.
     pub fn calculate_axis_constraints(
         ctx: &PanelContext,
         theme: &Theme,
@@ -314,8 +552,9 @@ impl LayoutEngine {
 
     /// Estimates the total physical 'depth' required for an axis.
     ///
-    /// For a Bottom axis, this represents the total height (from the X-axis line down to the SVG edge).
-    /// For a Left axis, this represents the total width (from the Y-axis line left to the SVG edge).
+    /// For a Bottom axis, this represents the total height (from the X-axis line
+    /// down to the SVG edge). For a Left axis, this represents the total width
+    /// (from the Y-axis line left to the SVG edge).
     ///
     /// It accounts for:
     /// 1. Tick mark lines.
@@ -415,58 +654,31 @@ mod tests {
         )]
     }
 
-    #[test]
-    fn legend_reserves_space_on_the_requested_side_only() {
-        let specs = legend_specs();
-        let theme = Theme::default();
-        let (canvas_w, canvas_h) = (500.0, 400.0);
+    /// A continuous colour mapping, used to exercise the gradient-bar path.
+    fn colorbar_spec() -> GuideSpec {
+        let scale = create_scale(
+            &Scale::Linear,
+            ScaleDomain::Continuous(0.0, 100.0),
+            Expansion {
+                mult: (0.0, 0.0),
+                add: (0.0, 0.0),
+            },
+            Some(VisualMapper::new_color_default(
+                &Scale::Linear,
+                &Theme::default(),
+            )),
+        )
+        .unwrap();
 
-        for (position, expected) in [
-            (
-                LegendPosition::Left,
-                LegendLayoutConstraints {
-                    left: 1.0,
-                    ..Default::default()
-                },
-            ),
-            (
-                LegendPosition::Right,
-                LegendLayoutConstraints {
-                    right: 1.0,
-                    ..Default::default()
-                },
-            ),
-            (
-                LegendPosition::Top,
-                LegendLayoutConstraints {
-                    top: 1.0,
-                    ..Default::default()
-                },
-            ),
-            (
-                LegendPosition::Bottom,
-                LegendLayoutConstraints {
-                    bottom: 1.0,
-                    ..Default::default()
-                },
-            ),
-        ] {
-            let plan = LayoutEngine::pack_guides(&specs, position, 300.0, &theme);
-            let reserve =
-                LayoutEngine::legend_constraints_for_plan(&plan, canvas_w, canvas_h, 8.0, &theme);
-
-            // Normalise to 1.0 so that only the *side* is compared, not the size.
-            let actual = LegendLayoutConstraints {
-                top: f64::from(reserve.top > 0.0),
-                bottom: f64::from(reserve.bottom > 0.0),
-                left: f64::from(reserve.left > 0.0),
-                right: f64::from(reserve.right > 0.0),
-            };
-            assert_eq!(actual.top, expected.top, "top for {position:?}");
-            assert_eq!(actual.bottom, expected.bottom, "bottom for {position:?}");
-            assert_eq!(actual.left, expected.left, "left for {position:?}");
-            assert_eq!(actual.right, expected.right, "right for {position:?}");
-        }
+        GuideSpec::new(
+            "value".into(),
+            ScaleDomain::Continuous(0.0, 100.0),
+            vec![AestheticMapping {
+                field: "value".into(),
+                title: None,
+                scale_impl: scale,
+            }],
+        )
     }
 
     #[test]
@@ -507,96 +719,6 @@ mod tests {
                 entry.y
             );
         }
-    }
-
-    /// The band a legend is clipped to must never touch the plot panel, whatever
-    /// the legend position and however squeezed the panel is.
-    #[test]
-    fn legend_band_never_intersects_the_panel() {
-        let canvases = [(720.0, 480.0), (300.0, 300.0), (2000.0, 200.0)];
-        // A comfortable panel, and one squeezed against the safety floor.
-        let panels = [
-            Rect::new(102.0, 48.0, 530.0, 336.0),
-            Rect::new(102.0, 48.0, 100.0, 100.0),
-        ];
-
-        for (canvas_w, canvas_h) in canvases {
-            for panel in panels {
-                for position in [
-                    LegendPosition::Right,
-                    LegendPosition::Left,
-                    LegendPosition::Top,
-                    LegendPosition::Bottom,
-                ] {
-                    let band = LayoutEngine::legend_band(position, &panel, canvas_w, canvas_h);
-
-                    let overlap_x =
-                        (band.x + band.width).min(panel.x + panel.width) - band.x.max(panel.x);
-                    let overlap_y =
-                        (band.y + band.height).min(panel.y + panel.height) - band.y.max(panel.y);
-
-                    assert!(
-                        overlap_x.max(0.0) * overlap_y.max(0.0) == 0.0,
-                        "{position:?} on {canvas_w}x{canvas_h}: band {band:?} covers the panel {panel:?}"
-                    );
-                    // The band has to be on the legend's side of the panel, so it
-                    // must also be non-empty on a sane canvas.
-                    assert!(band.width >= 0.0 && band.height >= 0.0);
-                }
-            }
-        }
-    }
-
-    /// The band is the half-plane outside the panel on the legend's side.
-    #[test]
-    fn legend_band_sits_outside_the_requested_edge() {
-        let panel = Rect::new(100.0, 50.0, 500.0, 300.0);
-        let band = |position| LayoutEngine::legend_band(position, &panel, 800.0, 400.0);
-
-        assert_eq!(band(LegendPosition::Right).x, 600.0);
-        assert_eq!(band(LegendPosition::Left).width, 100.0);
-        assert_eq!(band(LegendPosition::Top).height, 50.0);
-        assert_eq!(band(LegendPosition::Bottom).y, 350.0);
-    }
-
-    #[test]
-    fn a_hidden_legend_reserves_nothing() {
-        let theme = Theme::default();
-        let plan = LegendLayoutPlan::empty(LegendPosition::Right);
-        let constraints =
-            LayoutEngine::legend_constraints_for_plan(&plan, 500.0, 400.0, 8.0, &theme);
-
-        assert_eq!(constraints.top, 0.0);
-        assert_eq!(constraints.bottom, 0.0);
-        assert_eq!(constraints.left, 0.0);
-        assert_eq!(constraints.right, 0.0);
-    }
-
-    /// A continuous colour mapping, used to exercise the gradient-bar path.
-    fn colorbar_spec() -> GuideSpec {
-        let scale = create_scale(
-            &Scale::Linear,
-            ScaleDomain::Continuous(0.0, 100.0),
-            Expansion {
-                mult: (0.0, 0.0),
-                add: (0.0, 0.0),
-            },
-            Some(VisualMapper::new_color_default(
-                &Scale::Linear,
-                &Theme::default(),
-            )),
-        )
-        .unwrap();
-
-        GuideSpec::new(
-            "value".into(),
-            ScaleDomain::Continuous(0.0, 100.0),
-            vec![AestheticMapping {
-                field: "value".into(),
-                title: None,
-                scale_impl: scale,
-            }],
-        )
     }
 
     /// A vertical gradient bar scales with the panel but never exceeds its cap,
@@ -643,5 +765,106 @@ mod tests {
             );
             assert!(bar.length <= block.width + 1e-6);
         }
+    }
+
+    /// The title band must sit above a top legend, never on top of it.
+    #[test]
+    fn title_band_sits_above_a_top_legend() {
+        let theme = Theme::default();
+        let legend = 50.0;
+        let bands = LayoutEngine::build_bands(
+            &theme,
+            true,
+            true,
+            LegendPosition::Top,
+            legend,
+            &AxisLayoutConstraints {
+                bottom: 40.0,
+                left: 50.0,
+            },
+            true,
+        );
+
+        // Top edge, from the canvas inwards: title first, then legend.
+        assert_eq!(bands.top[0].kind, BandKind::Title);
+        assert_eq!(bands.top[1].kind, BandKind::Legend);
+    }
+
+    /// Everything placed on a side must stay outside the panel.
+    #[test]
+    fn bands_never_cover_the_panel() {
+        let theme = Theme::default();
+        let content = Rect::new(50.0, 40.0, 800.0, 600.0);
+
+        for position in [
+            LegendPosition::Right,
+            LegendPosition::Left,
+            LegendPosition::Top,
+            LegendPosition::Bottom,
+        ] {
+            for has_title in [false, true] {
+                let bands = LayoutEngine::build_bands(
+                    &theme,
+                    has_title,
+                    true,
+                    position,
+                    80.0,
+                    &AxisLayoutConstraints {
+                        bottom: 45.0,
+                        left: 55.0,
+                    },
+                    true,
+                );
+                let plan = LayoutEngine::arrange(content, &bands, theme.min_panel_size);
+
+                let overlaps = |a: &Rect, b: &Rect| {
+                    let x = (a.x + a.width).min(b.x + b.width) - a.x.max(b.x);
+                    let y = (a.y + a.height).min(b.y + b.height) - a.y.max(b.y);
+                    x.max(0.0) * y.max(0.0) > 0.0
+                };
+
+                if let Some(title) = plan.title {
+                    assert!(
+                        !overlaps(&title, &plan.panel),
+                        "{position:?}: title {title:?} covers the panel {:?}",
+                        plan.panel
+                    );
+                }
+                if let Some(legend) = plan.legend {
+                    assert!(
+                        !overlaps(&legend, &plan.panel),
+                        "{position:?}: legend {legend:?} covers the panel {:?}",
+                        plan.panel
+                    );
+                    if let Some(title) = plan.title {
+                        assert!(
+                            !overlaps(&title, &legend),
+                            "{position:?}: title {title:?} covers the legend {legend:?}"
+                        );
+                    }
+                }
+            }
+        }
+    }
+
+    /// A chart without a legend only gives up room for the axis.
+    #[test]
+    fn a_hidden_legend_reserves_nothing() {
+        let theme = Theme::default();
+        let bands = LayoutEngine::build_bands(
+            &theme,
+            false,
+            false,
+            LegendPosition::Right,
+            0.0,
+            &AxisLayoutConstraints {
+                bottom: 30.0,
+                left: 40.0,
+            },
+            true,
+        );
+
+        assert!(bands.top.is_empty());
+        assert!(bands.left.iter().all(|b| b.kind == BandKind::YAxis));
     }
 }

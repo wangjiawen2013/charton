@@ -165,13 +165,3 @@ fn resolve_fill_color(
         *fallback
     }
 }
-
-impl Chart<MarkGeoPath> {
-    /// Provides access to the path_group encoding field if set.
-    pub fn get_path_group_field(&self) -> Option<&str> {
-        self.encoding
-            .path_group
-            .as_ref()
-            .map(|pg| pg.field.as_str())
-    }
-}
