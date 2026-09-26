@@ -130,11 +130,6 @@ impl CoordinateTrait for Cartesian2D {
         self.flipped
     }
 
-    /// Cartesian coordinates typically clip data that falls outside the panel.
-    fn is_clipped(&self) -> bool {
-        true
-    }
-
     /// Returns layout hints optimized for rectangular grids.
     fn layout_hints(&self) -> CoordLayout {
         CoordLayout {

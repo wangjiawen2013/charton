@@ -360,10 +360,6 @@ impl CoordinateTrait for Geo {
         false
     }
 
-    fn is_clipped(&self) -> bool {
-        true
-    }
-
     fn layout_hints(&self) -> CoordLayout {
         CoordLayout {
             default_bar_stroke: SingleColor::new("#333333"),

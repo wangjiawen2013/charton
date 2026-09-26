@@ -23,19 +23,16 @@ pub struct LegendRenderer;
 impl LegendRenderer {
     /// The primary entry point for rendering all legends and colorbars.
     ///
-    /// It coordinates the layout flow (wrapping blocks) based on the available space
-    /// around the provided PanelContext.
-    ///
-    /// Everything it draws is clipped to `band`, the region outside the plot panel
-    /// on the side the legend sits on. See `LayoutEngine::legend_band` for when that
-    /// changes anything.
+    /// It draws every guide inside `placement`, the band the layout reserved for
+    /// the legend. Nothing it paints is allowed outside that band, so a legend
+    /// can never cover the title or the plot.
     pub fn render_legend<B: RenderBackend>(
         backend: &mut B,
         specs: &[GuideSpec],
         plan: &LegendLayoutPlan,
         theme: &Theme,
         ctx: &PanelContext,
-        band: &Rect,
+        placement: &Rect,
     ) {
         // Resolve the legend position from the theme.
         let position = plan.position;
@@ -49,13 +46,21 @@ impl LegendRenderer {
 
         let direction = Direction::for_legend(position);
         let is_horizontal = matches!(direction, Direction::Horizontal);
-        let (origin_x, origin_y) = Self::calculate_initial_anchor(ctx, theme, plan);
-        Self::warn_if_clipped(plan, ctx, origin_x, origin_y, band);
 
-        // Only ever paint outside the plot panel: a legend too big to fit is cut
-        // off at the panel edge instead of being drawn over the data. For a legend
-        // that fits -- the normal case -- this clip changes nothing.
-        backend.begin_clip_scope(band);
+        // The strip hugs the panel on its cross axis and starts at the outer
+        // edge of its band. Because the band that was reserved and the band that
+        // is drawn are the same rectangle, the two can never disagree.
+        let (origin_x, origin_y) = match position {
+            LegendPosition::Top | LegendPosition::Bottom => (ctx.panel.x, placement.y),
+            LegendPosition::Left | LegendPosition::Right => (placement.x, ctx.panel.y),
+            LegendPosition::None => (ctx.panel.x, ctx.panel.y),
+        };
+        Self::warn_if_clipped(plan, ctx, origin_x, origin_y, placement);
+
+        // Only ever paint inside the reserved band, so a legend that is too big
+        // for the canvas is cut off instead of spilling onto the title or the
+        // plot.
+        backend.begin_clip_scope(placement);
 
         // Every block and every entry already knows where it goes; this loop only
         // draws. It must not re-derive any layout, or the drawing would start
@@ -139,11 +144,11 @@ impl LegendRenderer {
     /// down to a floor (`theme.min_panel_size`, guarded by
     /// `theme.panel_defense_ratio`), so a legend that is simply too large for the
     /// canvas ends up longer than the space reserved for it. The clip below then
-    /// cuts it off at the panel edge: the leading entries are drawn and the rest
-    /// silently disappears. That is the right trade-off -- a clean plot beats a
-    /// legend painted over the data -- but it should never happen unnoticed, hence
-    /// this line. It fires once per rendered sheet, and never on the GPU path,
-    /// which does not draw legends at all.
+    /// cuts it off at the edge of the reserved band: the leading entries are
+    /// drawn and the rest silently disappears. That is the right trade-off -- a
+    /// clean plot beats a legend painted over the data -- but it should never
+    /// happen unnoticed, hence this line. It fires once per rendered sheet, and
+    /// never on the GPU path, which does not draw legends at all.
     fn warn_if_clipped(
         plan: &LegendLayoutPlan,
         ctx: &PanelContext,
@@ -606,29 +611,6 @@ impl LegendRenderer {
             ));
         }
         pts
-    }
-
-    /// Calculates the initial (x, y) anchor for the legend block based on the panel position.
-    fn calculate_initial_anchor(
-        ctx: &PanelContext,
-        theme: &Theme,
-        plan: &LegendLayoutPlan,
-    ) -> (f64, f64) {
-        let mut x = ctx.panel.x;
-        let mut y = ctx.panel.y;
-        let margin = theme.legend_margin;
-        let axis_buffer = theme.axis_reserve_buffer;
-
-        match plan.position {
-            LegendPosition::Right => x = ctx.panel.x + ctx.panel.width + margin,
-            LegendPosition::Left => x = (ctx.panel.x - margin - axis_buffer - plan.width).max(10.0),
-            LegendPosition::Top => {
-                y = (ctx.panel.y - margin - (axis_buffer * 0.8) - plan.height).max(10.0)
-            }
-            LegendPosition::Bottom => y = ctx.panel.y + ctx.panel.height + margin,
-            _ => {}
-        }
-        (x, y)
     }
 }
 
