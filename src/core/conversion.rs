@@ -4,7 +4,7 @@ use crate::core::composite::LayeredChart;
 use crate::core::layer::Layer;
 use crate::error::ChartonError;
 use crate::mark::Mark;
-use crate::scale::{Expansion, IntoExplicitTicks, ScaleDomain};
+use crate::scale::{Expansion, IntoExplicitTicks, ScaleDomain, formatter::LabelFormat};
 use crate::theme::Theme;
 
 /// A unified interface for configuring and rendering visualizations and API.
@@ -201,6 +201,13 @@ pub trait IntoLayered: Into<LayeredChart> + Clone {
         lc
     }
 
+    /// Sets the title of the color legend.
+    fn with_color_label<S: Into<String>>(self, label: S) -> LayeredChart {
+        let mut lc: LayeredChart = self.into();
+        lc.color_label = Some(label.into());
+        lc
+    }
+
     fn with_shape_label<S: Into<String>>(self, label: S) -> LayeredChart {
         let mut lc: LayeredChart = self.into();
         lc.shape_label = Some(label.into());
@@ -210,6 +217,29 @@ pub trait IntoLayered: Into<LayeredChart> + Clone {
     fn with_size_label<S: Into<String>>(self, label: S) -> LayeredChart {
         let mut lc: LayeredChart = self.into();
         lc.size_label = Some(label.into());
+        lc
+    }
+
+    // --- Label Formatting ---
+
+    /// Formats the X-axis tick labels (e.g. currency, compact notation, precision).
+    fn with_x_label_format(self, format: LabelFormat) -> LayeredChart {
+        let mut lc: LayeredChart = self.into();
+        lc.x_format = Some(format);
+        lc
+    }
+
+    /// Formats the Y-axis tick labels (e.g. currency, compact notation, precision).
+    fn with_y_label_format(self, format: LabelFormat) -> LayeredChart {
+        let mut lc: LayeredChart = self.into();
+        lc.y_format = Some(format);
+        lc
+    }
+
+    /// Formats every legend entry and colour-bar label.
+    fn with_legend_label_format(self, format: LabelFormat) -> LayeredChart {
+        let mut lc: LayeredChart = self.into();
+        lc.legend_format = Some(format);
         lc
     }
 
