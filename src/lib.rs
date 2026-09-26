@@ -59,6 +59,7 @@ pub mod prelude {
         text::MarkText, tick::MarkTick,
     };
     pub use crate::render::line_renderer::PathInterpolation;
+    pub use crate::scale::formatter::{Abbreviation, LabelFormat};
     pub use crate::scale::{Expansion, Scale};
     pub use crate::theme::Theme;
     pub use crate::transform::{

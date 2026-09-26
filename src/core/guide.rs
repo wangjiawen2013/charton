@@ -403,6 +403,12 @@ impl GuideSpec {
                 ticks = first_mapping.scale_impl.sample_n(count);
             }
 
+            // A formatted scale already produced the final text; the alignment
+            // pass below would overwrite it.
+            if first_mapping.scale_impl.label_formatter().is_some() {
+                return ticks.into_iter().map(|t| t.label).collect();
+            }
+
             // 3. --- Uniform Precision Logic ---
 
             // Check if we are dealing with a numeric (non-categorical) scale
@@ -455,6 +461,11 @@ impl GuideSpec {
 
             if ticks.len() < 3 && !matches!(self.domain, ScaleDomain::Discrete(_)) {
                 ticks = first_mapping.scale_impl.sample_n(count);
+            }
+
+            // A formatted scale already produced the final text.
+            if first_mapping.scale_impl.label_formatter().is_some() {
+                return ticks;
             }
 
             // Apply the precision alignment we discussed earlier
@@ -530,9 +541,17 @@ impl GuideManager {
         field_map
             .into_iter()
             .map(|(field, (domain, mappings))| {
+                // Use the mapping's own title when it has one (set with
+                // `with_color_label`, and so on), otherwise the field name.
+                let title = mappings
+                    .first()
+                    .and_then(|m| m.title.clone())
+                    .unwrap_or_else(|| field.clone());
                 // GuideSpec::new performs semantic inference to decide if this
                 // should be rendered as a discrete Legend or a continuous ColorBar.
-                GuideSpec::new(field, domain, mappings)
+                let mut spec = GuideSpec::new(field, domain, mappings);
+                spec.title = title;
+                spec
             })
             .collect()
     }
