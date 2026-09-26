@@ -63,11 +63,27 @@ axis reserves exactly the width the formatted text occupies.
 stays `Entity`, so colours and grouping are unaffected. This is why the title
 lives on the aesthetic mapping separately from the field name.
 
-### One palette for the layered chart
+### Theme settings belong to the whole chart
 
-A layered chart keeps the theme of its first layer, and the merged colour domain
-lists that layer's categories first. The palette is therefore built as *one
-colour per focus area, then grey for every context area*:
+`with_palette` and `with_legend_position` describe the figure as a whole, so
+they are applied once, after `.and()` has combined the layers:
+
+```rust
+highlight_chart
+    .and(base_chart)
+    .with_size(760, 480)
+    .configure_theme(|theme| {
+        theme
+            .with_palette(ColorPalette::Custom(palette))
+            .with_legend_position(LegendPosition::Top)
+    })
+```
+
+Setting them on a single layer would be misleading: when two charts are
+combined, only the left one's theme survives, so a setting written on the right
+layer is silently dropped. The merged colour domain still lists the first
+layer's categories first, so the palette is built as *one colour per focus area,
+then grey for every context area*:
 
 ```rust
 let mut palette: Vec<SingleColor> = ["#17648d", "#51bec7", "#008c8f", "#d6ab63", "#843844"]
@@ -77,8 +93,8 @@ let mut palette: Vec<SingleColor> = ["#17648d", "#51bec7", "#008c8f", "#d6ab63",
 palette.extend(std::iter::repeat_n(SingleColor::from("#d4dddd"), CONTEXT.len()));
 ```
 
-The context layer then only has to lower the stroke width; its own palette is
-not needed, because the first layer's theme already covers every category.
+The context layer only sets its thinner stroke width; the palette and the legend
+are supplied by the combined chart and cover every category.
 
 ## Using the real dataset
 

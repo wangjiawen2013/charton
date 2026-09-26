@@ -14,6 +14,15 @@ The bands on one edge are stacked from the canvas inwards. The title is always t
 
 Because the title is a band like any other, it only takes space when the chart actually has a title. A chart without one simply leaves that strip to the legend, or to the panel when there is no legend either.
 
+### Aligning the title
+
+The title is aligned inside a frame. By default that frame is the plot panel, so
+the title lines up with the data area and with a legend placed at the top.
+`with_title_frame(TitleFrame::Figure)` switches the frame to the whole figure
+body, which suits a title that belongs to the whole picture rather than to the
+data. `with_title_anchor` then picks where inside the frame the title sits:
+`Start`, `Middle` (the default) or `End`.
+
 ## The Reservation Loop
 
 The size a guide needs is not used directly as a margin. It is fed into a small fixed-point
