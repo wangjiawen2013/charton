@@ -1,4 +1,5 @@
 pub mod discrete;
+pub mod formatter;
 pub mod linear;
 pub mod log;
 pub mod mapper;
@@ -221,6 +222,19 @@ pub trait ScaleTrait: std::fmt::Debug + Send + Sync {
 
     /// Equidistant sampling of the domain.
     fn sample_n(&self, n: usize) -> Vec<Tick>;
+
+    /// Returns the user's label formatter for this scale, if one was set.
+    ///
+    /// If this returns `Some`, the scale has already applied that formatter to
+    /// its tick labels. Callers can use [`Tick::label`] as is and should not
+    /// format it again.
+    ///
+    /// If this returns `None`, no user formatter was set. The labels are the
+    /// scale's own automatic formatting, so callers are allowed to reformat
+    /// them (for example, to align decimal places across legend ticks).
+    fn label_formatter(&self) -> Option<&formatter::LabelFormat> {
+        None
+    }
 }
 
 /// Factory function to create a fully initialized scale.

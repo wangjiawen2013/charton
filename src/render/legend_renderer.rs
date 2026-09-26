@@ -375,15 +375,21 @@ impl LegendRenderer {
         Option<Vec<PointShape>>,
         Option<Vec<f64>>,
     ) {
-        let (labels, values_f64): (Vec<String>, Vec<f64>) = match &spec.domain {
-            ScaleDomain::Discrete(values) => (values.clone(), Vec::new()),
-            _ => {
-                let ticks = spec.get_sampling_ticks();
-                let l = ticks.iter().map(|t| t.label.clone()).collect();
-                let v = ticks.iter().map(|t| t.value).collect();
-                (l, v)
-            }
-        };
+        // `labels` are shown to the user and may have been formatted.
+        // `lookup_labels` are the original category names used to look up
+        // colours and shapes. Formatting must not affect that lookup.
+        let (labels, lookup_labels, values_f64): (Vec<String>, Vec<String>, Vec<f64>) =
+            match &spec.domain {
+                ScaleDomain::Discrete(values) => {
+                    (spec.get_sampling_labels(), values.clone(), Vec::new())
+                }
+                _ => {
+                    let ticks = spec.get_sampling_ticks();
+                    let l = ticks.iter().map(|t| t.label.clone()).collect();
+                    let v = ticks.iter().map(|t| t.value).collect();
+                    (l, Vec::new(), v)
+                }
+            };
 
         let mut colors = Vec::new();
         let mut shapes = Vec::new();
@@ -411,13 +417,14 @@ impl LegendRenderer {
 
         for (i, label_str) in labels.iter().enumerate() {
             let val_f64 = values_f64.get(i).cloned();
+            let lookup = lookup_labels.get(i).unwrap_or(label_str);
 
             // Resolve Color
             if has_color {
                 if let Some(ref mapping) = ctx.spec.aesthetics.color {
                     let norm = val_f64
                         .map(|v| mapping.scale_impl.normalize(v))
-                        .unwrap_or_else(|| mapping.scale_impl.normalize_string(label_str));
+                        .unwrap_or_else(|| mapping.scale_impl.normalize_string(lookup));
 
                     let color = mapping
                         .scale_impl
@@ -435,7 +442,7 @@ impl LegendRenderer {
                 if let Some(ref mapping) = ctx.spec.aesthetics.shape {
                     let norm = val_f64
                         .map(|v| mapping.scale_impl.normalize(v))
-                        .unwrap_or_else(|| mapping.scale_impl.normalize_string(label_str));
+                        .unwrap_or_else(|| mapping.scale_impl.normalize_string(lookup));
 
                     let shape = mapping
                         .scale_impl
@@ -453,7 +460,7 @@ impl LegendRenderer {
                 if let Some(ref mapping) = ctx.spec.aesthetics.size {
                     let norm = val_f64
                         .map(|v| mapping.scale_impl.normalize(v))
-                        .unwrap_or_else(|| mapping.scale_impl.normalize_string(label_str));
+                        .unwrap_or_else(|| mapping.scale_impl.normalize_string(lookup));
 
                     let size = mapping
                         .scale_impl

@@ -11,7 +11,8 @@ use crate::encode::Channel;
 use crate::error::ChartonError;
 use crate::facets::{FacetMetrics, FacetPanel, FacetPanelInfo, FacetSpec};
 use crate::scale::{
-    Expansion, ExplicitTick, Scale, ScaleDomain, create_scale, mapper::VisualMapper,
+    Expansion, ExplicitTick, Scale, ScaleDomain, create_scale, formatter::LabelFormat,
+    mapper::VisualMapper,
 };
 use crate::theme::Theme;
 use std::sync::Arc;
@@ -111,6 +112,14 @@ pub struct LayeredChart {
     pub(crate) size_label: Option<String>,
     pub(crate) size_expand: Option<Expansion>,
 
+    // --- Label Formatting Overrides ---
+    /// Formatter for the X-axis tick labels.
+    pub(crate) x_format: Option<LabelFormat>,
+    /// Formatter for the Y-axis tick labels.
+    pub(crate) y_format: Option<LabelFormat>,
+    /// Formatter applied to every legend entry and colour-bar label.
+    pub(crate) legend_format: Option<LabelFormat>,
+
     // --- Structural Modifiers ---
     /// Whether to swap the X and Y axes (common for horizontal bar charts).
     pub(crate) flipped: bool,
@@ -174,6 +183,10 @@ impl LayeredChart {
             size_domain: None,
             size_label: None,
             size_expand: None,
+
+            x_format: None,
+            y_format: None,
+            legend_format: None,
 
             flipped: false,
 
@@ -268,17 +281,16 @@ impl LayeredChart {
         }
 
         // --- Step 2: Retrieve User Overrides ---
-        let (manual_domain, manual_label, manual_expand) = match channel {
-            Channel::X => (self.x_domain.clone(), self.x_label.clone(), self.x_expand),
-            Channel::Y => (self.y_domain.clone(), self.y_label.clone(), self.y_expand),
-            Channel::Color => (
-                self.color_domain.clone(),
-                self.color_label.clone(),
-                self.color_expand,
-            ),
-            Channel::Shape => (self.shape_domain.clone(), None, self.shape_expand),
-            Channel::Size => (self.size_domain.clone(), None, self.size_expand),
-            Channel::Text | Channel::PathGroup => (None, None, None),
+        // Per-channel overrides, as (domain, expansion). Titles are applied by
+        // the caller: axis titles come from `x_label`/`y_label`, and legend
+        // titles from the aesthetic mapping.
+        let (manual_domain, manual_expand) = match channel {
+            Channel::X => (self.x_domain.clone(), self.x_expand),
+            Channel::Y => (self.y_domain.clone(), self.y_expand),
+            Channel::Color => (self.color_domain.clone(), self.color_expand),
+            Channel::Shape => (self.shape_domain.clone(), self.shape_expand),
+            Channel::Size => (self.size_domain.clone(), self.size_expand),
+            Channel::Text | Channel::PathGroup => (None, None),
         };
 
         // --- Step 3: Final Reconciliation ---
@@ -294,10 +306,8 @@ impl LayeredChart {
             _ => return Ok(None), // No data and no override
         };
 
-        // B. Resolve Field Label
-        let field = manual_label
-            .or(inferred_field)
-            .unwrap_or_else(|| format!("{:?}", channel));
+        // B. Resolve the data field
+        let field = inferred_field.unwrap_or_else(|| format!("{:?}", channel));
 
         // C. Resolve Domain (Priority: Manual > Consolidated)
         let domain = if let Some(d) = manual_domain {
@@ -548,6 +558,11 @@ impl LayeredChart {
         // --- STEP 1: RESOLVE GLOBAL AESTHETIC MAPPINGS ---
         // We resolve non-positional encodings (Color, Shape, Size) across all layers.
 
+        // Legends read from the aesthetic scales (color/shape/size), so the legend
+        // format is attached here. Only `Tick::label` is rewritten; normalisation
+        // and the visual mappers are forwarded unchanged, so marks are unaffected.
+        let legend_format = self.legend_format.as_ref();
+
         let color_mapping = if let Some(spec) = self.resolve_scale_spec(Channel::Color)? {
             let mapper = VisualMapper::new_color_default(&spec.scale_type, &self.theme);
             let scale_impl = create_scale(
@@ -558,7 +573,8 @@ impl LayeredChart {
             )?;
             Some(AestheticMapping {
                 field: spec.field,
-                scale_impl,
+                title: self.color_label.clone(),
+                scale_impl: crate::scale::formatter::format_scale(scale_impl, legend_format),
             })
         } else {
             None
@@ -574,7 +590,8 @@ impl LayeredChart {
             )?;
             Some(AestheticMapping {
                 field: spec.field,
-                scale_impl,
+                title: self.shape_label.clone(),
+                scale_impl: crate::scale::formatter::format_scale(scale_impl, legend_format),
             })
         } else {
             None
@@ -590,7 +607,8 @@ impl LayeredChart {
             )?;
             Some(AestheticMapping {
                 field: spec.field,
-                scale_impl,
+                title: self.size_label.clone(),
+                scale_impl: crate::scale::formatter::format_scale(scale_impl, legend_format),
             })
         } else {
             None
@@ -610,13 +628,24 @@ impl LayeredChart {
 
         let x_scale = create_scale(&x_spec.scale_type, x_spec.domain, x_spec.expand, None)?;
         let y_scale = create_scale(&y_spec.scale_type, y_spec.domain, y_spec.expand, None)?;
+        // Axis formats decorate the positional scales. The tick renderer, the grid,
+        // the polar/geo axis renderers and the layout measurement all read the axis
+        // through these scales, so they share the same formatted labels and the
+        // reserved space matches the drawn text.
+        let x_scale = crate::scale::formatter::format_scale(x_scale, self.x_format.as_ref());
+        let y_scale = crate::scale::formatter::format_scale(y_scale, self.y_format.as_ref());
+
+        // Axis titles default to the data field names; `with_x_label` and
+        // `with_y_label` replace them.
+        let x_title = self.x_label.clone().unwrap_or_else(|| x_spec.field.clone());
+        let y_title = self.y_label.clone().unwrap_or_else(|| y_spec.field.clone());
 
         let final_coord: Arc<dyn CoordinateTrait> = match self.coord_system {
             CoordSystem::Cartesian2D => Arc::new(crate::coordinate::cartesian::Cartesian2D::new(
                 x_scale,
                 y_scale,
-                x_spec.field.clone(),
-                y_spec.field.clone(),
+                x_title.clone(),
+                y_title.clone(),
                 self.flipped,
             )),
             CoordSystem::Polar => {
@@ -635,8 +664,8 @@ impl LayeredChart {
                 let mut polar = crate::coordinate::polar::Polar::new(
                     x_scale,
                     y_scale,
-                    x_spec.field.clone(),
-                    y_spec.field.clone(),
+                    x_title.clone(),
+                    y_title.clone(),
                 );
 
                 // 3. Inject the finalized geometric parameters into the execution instance.
@@ -649,8 +678,8 @@ impl LayeredChart {
             CoordSystem::Geo => Arc::new(crate::coordinate::geo::Geo::new(
                 x_scale,
                 y_scale,
-                x_spec.field.clone(),
-                y_spec.field.clone(),
+                x_title.clone(),
+                y_title.clone(),
             )),
         };
 
