@@ -312,49 +312,6 @@ pub fn create_scale(
     Ok(Arc::from(scale))
 }
 
-/// Utility for extracting a normalized [0, 1] value from an `ExplicitTick`.
-///
-/// This function acts as a bridge between raw data variants and the mathematical
-/// scale logic, enforcing the "Interpretation Mode" dictated by the scale type:
-///
-/// - **Discrete Scales**: Operates in "Universal Discrete" mode. Every input variant
-///   is coerced into its string representation to be mapped against categorical labels.
-/// - **Continuous Scales (Linear, Log, Temporal)**: Treats inputs as numerical values.
-///   Temporal types are converted to nanosecond-precision floats.
-///
-/// Returns `f64::NAN` if the conversion is impossible or the value cannot be mapped,
-/// ensuring invalid data is safely ignored by the renderer rather than defaulting to the origin.
-pub fn get_normalized_value(
-    scale_trait: &dyn ScaleTrait,
-    scale_type: &Scale,
-    value: &ExplicitTick,
-) -> f64 {
-    match scale_type {
-        // --- 1. DISCRETE SCALE ---
-        // Mirroring the 'Universal Discrete' logic: everything is a string.
-        Scale::Discrete => {
-            let label = match value {
-                ExplicitTick::Discrete(s) => s.clone(),
-                ExplicitTick::Continuous(v) => v.to_string(),
-                ExplicitTick::Timestamp(ts) => ts.to_string(),
-                ExplicitTick::Temporal(dt) => dt.to_string(),
-            };
-            scale_trait.normalize_string(&label)
-        }
-
-        // --- 2. CONTINUOUS SCALES (Linear, Log, Temporal) ---
-        // These all rely on f64 mapping (Temporal uses nanoseconds as f64).
-        _ => match value {
-            ExplicitTick::Continuous(v) => scale_trait.normalize(*v),
-            ExplicitTick::Timestamp(ns) => scale_trait.normalize(*ns as f64),
-            ExplicitTick::Temporal(dt) => scale_trait.normalize(dt.unix_timestamp_nanos() as f64),
-            ExplicitTick::Discrete(_) => {
-                unreachable!("Discrete values are blocked for cotinuous scales by validataion")
-            }
-        },
-    }
-}
-
 /// A universal tick formatter following data visualization best practices.
 /// Suitable for linear, power, and log scales.
 pub(crate) fn format_ticks(values: &[f64]) -> Vec<Tick> {

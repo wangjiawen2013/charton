@@ -159,11 +159,6 @@ pub trait CoordinateTrait: Send + Sync {
         false
     }
 
-    /// If true, the renderer should clip shapes extending beyond panel boundaries.
-    fn is_clipped(&self) -> bool {
-        true
-    }
-
     /// Returns the layout hints for this coordinate system.
     /// Default implementation provides Cartesian-friendly defaults.
     fn layout_hints(&self) -> CoordLayout;
