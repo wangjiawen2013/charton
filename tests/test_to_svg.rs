@@ -99,6 +99,43 @@ fn title_sits_above_a_top_legend() -> Result<(), Box<dyn std::error::Error>> {
     Ok(())
 }
 
+/// The title can be aligned to the panel and anchored at start, middle or end.
+#[test]
+fn title_anchor_moves_the_title_along_its_frame() -> Result<(), Box<dyn std::error::Error>> {
+    let build = |anchor| -> Result<String, Box<dyn std::error::Error>> {
+        let x = vec![1.0, 2.0, 3.0, 4.0];
+        let y = vec![2.0, 4.0, 3.0, 5.0];
+        Ok(chart!(x, y)?
+            .mark_point()?
+            .encode((alt::x("x"), alt::y("y")))?
+            .with_title("Title")
+            .configure_theme(|theme| theme.with_title_anchor(anchor))
+            .to_svg()?)
+    };
+
+    let (px, _, pw, _) = panel_rect(&build(TitleAnchor::Middle)?);
+    let (start_x, _) = text_position(&build(TitleAnchor::Start)?, "Title");
+    let (middle_x, _) = text_position(&build(TitleAnchor::Middle)?, "Title");
+    let (end_x, _) = text_position(&build(TitleAnchor::End)?, "Title");
+
+    assert!(
+        (start_x - px).abs() < 0.5,
+        "start {start_x} vs panel left {px}"
+    );
+    assert!(
+        (middle_x - (px + pw / 2.0)).abs() < 0.5,
+        "middle {middle_x} vs panel centre {}",
+        px + pw / 2.0
+    );
+    assert!(
+        (end_x - (px + pw)).abs() < 0.5,
+        "end {end_x} vs panel right {}",
+        px + pw
+    );
+
+    Ok(())
+}
+
 /// Reads a numeric attribute from an SVG element line.
 fn attr(line: &str, name: &str) -> f64 {
     let needle = format!(" {name}=\"");

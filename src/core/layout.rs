@@ -45,7 +45,7 @@ use super::guide::{
 };
 use super::utils::estimate_text_width;
 use crate::coordinate::Rect;
-use crate::theme::Theme;
+use crate::theme::{Theme, TitleFrame};
 
 /// How much room the axes take on the left and below the panel.
 ///
@@ -398,23 +398,37 @@ impl LayoutEngine {
     /// first. Building the bands out from the panel this way means they can never
     /// be drawn on top of it, even when the panel is so squeezed that it hits its
     /// smallest allowed size.
-    pub(crate) fn arrange(content: Rect, bands: &Bands, min_panel: f64) -> LayoutPlan {
+    ///
+    /// A band stretches along the edge it sits on: a band on the top or bottom
+    /// is as wide as the panel, and a band on the left or right is as tall as
+    /// the panel. The title is the one exception. The strip set aside for it is
+    /// as wide as the frame chosen by `title_frame`, so the title always has the
+    /// same width to be lined up in. The text itself is only as wide as the
+    /// string the font draws, which this function does not measure.
+    pub(crate) fn arrange(
+        content: Rect,
+        bands: &Bands,
+        title_frame: TitleFrame,
+        min_panel: f64,
+    ) -> LayoutPlan {
         let reservations = Reservations::of(bands);
         let panel = Self::panel_from(content, &reservations, min_panel);
 
         let mut title = None;
         let mut legend = None;
 
-        // The title is centred over the whole canvas, so its band spans the full
-        // width. A legend only ever sits next to the panel, so its band spans
-        // exactly the panel on the cross axis and can never reach the title.
+        // A legend sits right next to the panel, so it spans the panel. The
+        // strip set aside for the title spans its frame instead: the panel, or
+        // the whole figure. Bands on the left and right span the panel's height.
         let cross_of = |kind: BandKind, along_side: bool| {
             if along_side {
-                // Top/bottom band: the cross axis is horizontal.
-                if kind == BandKind::Title {
-                    (content.x, content.width)
-                } else {
-                    (panel.x, panel.width)
+                // A band on the top or bottom edge, so length runs sideways.
+                match kind {
+                    BandKind::Title => match title_frame {
+                        TitleFrame::Panel => (panel.x, panel.width),
+                        TitleFrame::Figure => (content.x, content.width),
+                    },
+                    _ => (panel.x, panel.width),
                 }
             } else {
                 (panel.y, panel.height)
@@ -477,6 +491,41 @@ impl LayoutEngine {
             title,
             legend,
         }
+    }
+
+    /// The open space outside the panel where a legend is allowed to paint.
+    ///
+    /// This is the whole area between the panel and the edge of the canvas on
+    /// the side the legend sits on, not just the strip reserved for it. The
+    /// strip is sized from a text-width estimate, and an estimate can come out a
+    /// little short, so giving the legend the gaps around the strip means a
+    /// slightly-too-long label is drawn in full instead of being cut off at the
+    /// strip's edge. The panel itself is never part of this area, so a legend
+    /// still cannot cover the data.
+    pub(crate) fn legend_band(
+        position: LegendPosition,
+        panel: &Rect,
+        canvas_w: f64,
+        canvas_h: f64,
+    ) -> Rect {
+        let (x, y, width, height) = match position {
+            LegendPosition::Right => (
+                panel.x + panel.width,
+                0.0,
+                canvas_w - (panel.x + panel.width),
+                canvas_h,
+            ),
+            LegendPosition::Left => (0.0, 0.0, panel.x, canvas_h),
+            LegendPosition::Top => (0.0, 0.0, canvas_w, panel.y),
+            LegendPosition::Bottom => (
+                0.0,
+                panel.y + panel.height,
+                canvas_w,
+                canvas_h - (panel.y + panel.height),
+            ),
+            LegendPosition::None => (0.0, 0.0, canvas_w, canvas_h),
+        };
+        Rect::new(x, y, width.max(0.0), height.max(0.0))
     }
 
     /// Calculates layout constraints based on predicted axis dimensions.
@@ -790,6 +839,84 @@ mod tests {
         assert_eq!(bands.top[1].kind, BandKind::Legend);
     }
 
+    /// The title band follows its frame: the panel, or the whole figure body.
+    #[test]
+    fn title_band_follows_the_selected_frame() {
+        let theme = Theme::default();
+        let content = Rect::new(50.0, 40.0, 800.0, 600.0);
+        let bands = LayoutEngine::build_bands(
+            &theme,
+            true,
+            false,
+            LegendPosition::Right,
+            0.0,
+            &AxisLayoutConstraints {
+                bottom: 45.0,
+                left: 55.0,
+            },
+            true,
+        );
+
+        let panel_plan =
+            LayoutEngine::arrange(content, &bands, TitleFrame::Panel, theme.min_panel_size);
+        let figure_plan =
+            LayoutEngine::arrange(content, &bands, TitleFrame::Figure, theme.min_panel_size);
+
+        let panel_title = panel_plan.title.expect("a title band");
+        let figure_title = figure_plan.title.expect("a title band");
+        let panel = panel_plan.panel;
+
+        // Panel frame: the title band lines up with the data area.
+        assert!((panel_title.x - panel.x).abs() < 1e-9);
+        assert!((panel_title.width - panel.width).abs() < 1e-9);
+
+        // Figure frame: the title band spans the whole figure body.
+        assert!((figure_title.x - content.x).abs() < 1e-9);
+        assert!((figure_title.width - content.width).abs() < 1e-9);
+    }
+
+    /// The open area a legend paints in stays outside the panel on every side.
+    #[test]
+    fn legend_band_stays_outside_the_panel() {
+        let panel = Rect::new(94.5, 125.8, 642.7, 258.8);
+        let (canvas_w, canvas_h) = (760.0, 480.0);
+
+        for position in [
+            LegendPosition::Right,
+            LegendPosition::Left,
+            LegendPosition::Top,
+            LegendPosition::Bottom,
+        ] {
+            let band = LayoutEngine::legend_band(position, &panel, canvas_w, canvas_h);
+
+            let overlap_x = (band.x + band.width).min(panel.x + panel.width) - band.x.max(panel.x);
+            let overlap_y =
+                (band.y + band.height).min(panel.y + panel.height) - band.y.max(panel.y);
+
+            assert!(
+                overlap_x.max(0.0) * overlap_y.max(0.0) == 0.0,
+                "{position:?}: band {band:?} covers the panel {panel:?}"
+            );
+            assert!(band.width >= 0.0 && band.height >= 0.0);
+        }
+    }
+
+    /// The band reaches the canvas edge on the side the legend sits on, which is
+    /// the room that keeps a slightly-too-wide label from being cut off.
+    #[test]
+    fn legend_band_reaches_the_canvas_edge() {
+        let panel = Rect::new(100.0, 50.0, 500.0, 300.0);
+        let band = |position| LayoutEngine::legend_band(position, &panel, 800.0, 400.0);
+
+        let right = band(LegendPosition::Right);
+        assert!((right.x - 600.0).abs() < 1e-9);
+        assert!((right.x + right.width - 800.0).abs() < 1e-9);
+
+        assert!(band(LegendPosition::Left).x.abs() < 1e-9);
+        assert!((band(LegendPosition::Top).height - 50.0).abs() < 1e-9);
+        assert!((band(LegendPosition::Bottom).y - 350.0).abs() < 1e-9);
+    }
+
     /// Everything placed on a side must stay outside the panel.
     #[test]
     fn bands_never_cover_the_panel() {
@@ -815,7 +942,8 @@ mod tests {
                     },
                     true,
                 );
-                let plan = LayoutEngine::arrange(content, &bands, theme.min_panel_size);
+                let plan =
+                    LayoutEngine::arrange(content, &bands, TitleFrame::Panel, theme.min_panel_size);
 
                 let overlaps = |a: &Rect, b: &Rect| {
                     let x = (a.x + a.width).min(b.x + b.width) - a.x.max(b.x);
