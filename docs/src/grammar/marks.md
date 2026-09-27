@@ -22,6 +22,13 @@ The simplest mark, representing each data row as an individual geometric shape.
 - Dimensions: Primarily uses `X` and `Y`.
 - Aesthetics: Heavily utilizes `Shape`, `Size`, and `Color`.
 - Use Case: Scatter plots and bubble charts.
+- Layouts: When one axis is categorical, `.with_layout(...)` decides how the
+  points share the space of their category. `"jitter"` scatters them at
+  random, `"beeswarm"` packs them tightly so no two points overlap (best for
+  small groups), and `"quasirandom"` spreads them with a density aware
+  sequence so the cloud traces a violin outline (best for large groups).
+  The quasirandom pairing can be changed with
+  `.with_quasirandom_method("pseudorandom")`.
 
 ### Line Mark (`mark_line`)
 

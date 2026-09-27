@@ -2,78 +2,13 @@ use crate::chart::Chart;
 use crate::core::data::{ColumnVector, Dataset};
 use crate::error::ChartonError;
 use crate::mark::Mark;
+use crate::stats::kde::Kde;
 use ahash::AHashMap;
-use kernel_density_estimation::prelude::*;
 
-/// Kernel functions used in kernel density estimation
-///
-/// The kernel function determines the shape of the distribution used to estimate
-/// the probability density at each point. Different kernels can produce different
-/// smoothness characteristics in the resulting density curve.
-///
-/// Variants:
-/// - `Normal`: Gaussian kernel, produces smooth curves
-/// - `Epanechnikov`: Quartic kernel, optimal in mean square error sense
-/// - `Uniform`: Rectangular kernel, equivalent to a moving average
-#[derive(Debug, Clone)]
-pub enum KernelType {
-    Normal,
-    Epanechnikov,
-    Uniform,
-}
-
-impl KernelType {
-    const fn as_str(&self) -> &'static str {
-        match self {
-            KernelType::Normal => "Normal",
-            KernelType::Epanechnikov => "Epanechnikov",
-            KernelType::Uniform => "Uniform",
-        }
-    }
-}
-
-impl std::fmt::Display for KernelType {
-    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        write!(f, "{}", self.as_str())
-    }
-}
-
-/// Bandwidth selection methods for kernel density estimation
-///
-/// The bandwidth parameter controls the smoothness of the density estimation.
-/// A larger bandwidth results in a smoother density curve, while a smaller
-/// bandwidth results in a more detailed curve that may capture more features
-/// but also more noise.
-///
-/// Variants:
-/// - `Scott`: Uses Scott's rule of thumb for automatic bandwidth selection
-/// - `Silverman`: Uses Silverman's rule of thumb for automatic bandwidth selection
-/// - `Fixed(f64)`: Uses a fixed bandwidth value specified by the contained f64
-#[derive(Debug, Clone)]
-pub enum BandwidthType {
-    Scott,
-    Silverman,
-    Fixed(f64),
-}
-
-impl BandwidthType {
-    const fn as_str(&self) -> &'static str {
-        match self {
-            BandwidthType::Scott => "Scott",
-            BandwidthType::Silverman => "Silverman",
-            BandwidthType::Fixed(_) => "Fixed",
-        }
-    }
-}
-
-impl std::fmt::Display for BandwidthType {
-    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        match self {
-            BandwidthType::Fixed(value) => write!(f, "Fixed({})", value),
-            _ => write!(f, "{}", self.as_str()),
-        }
-    }
-}
+// The density options and the estimator live in the statistics module so that
+// the density transform and the point layouts share one implementation. They
+// are imported here to sit next to the transform that uses them.
+pub use crate::stats::kde::{BandwidthType, KernelType};
 
 /// Configuration parameters for kernel density estimation transformation
 ///
@@ -267,11 +202,11 @@ impl<T: Mark> Chart<T> {
         // Generate 200 evaluation points for a smooth curve.
         let steps = 200;
         let step_size = (extended_max - extended_min) / (steps as f64);
-        let eval_points: Vec<f32> = (0..steps)
-            .map(|i| (extended_min + (i as f64) * step_size) as f32)
+        let eval_points: Vec<f64> = (0..steps)
+            .map(|i| extended_min + (i as f64) * step_size)
             .collect();
 
-        let x_axis_values: Vec<f64> = eval_points.iter().map(|&v| v as f64).collect();
+        let x_axis_values = eval_points.clone();
 
         // --- STEP 2: Establish Deterministic Order ---
         // We use unique_values() to ensure the order of density curves matches
@@ -289,7 +224,7 @@ impl<T: Mark> Chart<T> {
         };
 
         // --- STEP 3: Aggregate Observations by Group ---
-        let mut groups: AHashMap<Option<String>, Vec<f32>> = AHashMap::new();
+        let mut groups: AHashMap<Option<String>, Vec<f64>> = AHashMap::new();
         let row_count = self.data.height();
 
         if let Some(ref g_field) = params.groupby {
@@ -297,7 +232,7 @@ impl<T: Mark> Chart<T> {
             for i in 0..row_count {
                 if let Some(val) = density_col.get(i).to_f64() {
                     let key = group_col.get(i).to_string();
-                    groups.entry(key).or_default().push(val as f32);
+                    groups.entry(key).or_default().push(val);
                 }
             }
         } else {
@@ -305,7 +240,7 @@ impl<T: Mark> Chart<T> {
             let mut all_obs = Vec::with_capacity(row_count);
             for i in 0..row_count {
                 if let Some(val) = density_col.get(i).to_f64() {
-                    all_obs.push(val as f32);
+                    all_obs.push(val);
                 }
             }
             groups.insert(None, all_obs);
@@ -324,101 +259,14 @@ impl<T: Mark> Chart<T> {
 
             let group_label = key.as_deref().unwrap_or("all").to_string();
 
-            // KDE calculation dispatch (Logic preserved from original version)
-            let density_values: Vec<f64> = match (&params.bandwidth, &params.kernel) {
-                (BandwidthType::Scott, KernelType::Normal) => {
-                    let kde = KernelDensityEstimator::new(observations.clone(), Scott, Normal);
-                    if params.cumulative {
-                        kde.cdf(&eval_points)
-                    } else {
-                        kde.pdf(&eval_points)
-                    }
-                }
-                (BandwidthType::Scott, KernelType::Epanechnikov) => {
-                    let kde =
-                        KernelDensityEstimator::new(observations.clone(), Scott, Epanechnikov);
-                    if params.cumulative {
-                        kde.cdf(&eval_points)
-                    } else {
-                        kde.pdf(&eval_points)
-                    }
-                }
-                (BandwidthType::Scott, KernelType::Uniform) => {
-                    let kde = KernelDensityEstimator::new(observations.clone(), Scott, Uniform);
-                    if params.cumulative {
-                        kde.cdf(&eval_points)
-                    } else {
-                        kde.pdf(&eval_points)
-                    }
-                }
-                (BandwidthType::Silverman, KernelType::Normal) => {
-                    let kde = KernelDensityEstimator::new(observations.clone(), Silverman, Normal);
-                    if params.cumulative {
-                        kde.cdf(&eval_points)
-                    } else {
-                        kde.pdf(&eval_points)
-                    }
-                }
-                (BandwidthType::Silverman, KernelType::Epanechnikov) => {
-                    let kde =
-                        KernelDensityEstimator::new(observations.clone(), Silverman, Epanechnikov);
-                    if params.cumulative {
-                        kde.cdf(&eval_points)
-                    } else {
-                        kde.pdf(&eval_points)
-                    }
-                }
-                (BandwidthType::Silverman, KernelType::Uniform) => {
-                    let kde = KernelDensityEstimator::new(observations.clone(), Silverman, Uniform);
-                    if params.cumulative {
-                        kde.cdf(&eval_points)
-                    } else {
-                        kde.pdf(&eval_points)
-                    }
-                }
-                (BandwidthType::Fixed(bw), KernelType::Normal) => {
-                    let h = *bw as f32;
-                    let kde = KernelDensityEstimator::new(
-                        observations.clone(),
-                        move |_: &[f32]| h,
-                        Normal,
-                    );
-                    if params.cumulative {
-                        kde.cdf(&eval_points)
-                    } else {
-                        kde.pdf(&eval_points)
-                    }
-                }
-                (BandwidthType::Fixed(bw), KernelType::Epanechnikov) => {
-                    let h = *bw as f32;
-                    let kde = KernelDensityEstimator::new(
-                        observations.clone(),
-                        move |_: &[f32]| h,
-                        Epanechnikov,
-                    );
-                    if params.cumulative {
-                        kde.cdf(&eval_points)
-                    } else {
-                        kde.pdf(&eval_points)
-                    }
-                }
-                (BandwidthType::Fixed(bw), KernelType::Uniform) => {
-                    let h = *bw as f32;
-                    let kde = KernelDensityEstimator::new(
-                        observations.clone(),
-                        move |_: &[f32]| h,
-                        Uniform,
-                    );
-                    if params.cumulative {
-                        kde.cdf(&eval_points)
-                    } else {
-                        kde.pdf(&eval_points)
-                    }
-                }
-            }
-            .into_iter()
-            .map(|v| v as f64)
-            .collect();
+            // Build one estimate for this group and read it at the fixed
+            // evaluation points that make up the density curve.
+            let kde = Kde::new(observations.clone(), params.bandwidth, params.kernel);
+            let density_values: Vec<f64> = if params.cumulative {
+                kde.cdf(&eval_points)
+            } else {
+                kde.pdf(&eval_points)
+            };
 
             let obs_count = observations.len() as f64;
             let processed_y = if params.counts {
