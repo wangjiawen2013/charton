@@ -24,8 +24,42 @@ pub mod theme;
 pub mod transform;
 pub mod visual;
 
+/// Minimal re-exports of the Apache Arrow building blocks used by the
+/// `arrow` feature.
+///
+/// Charton depends only on the lightweight `arrow-array`, `arrow-schema` and
+/// `arrow-select` crates instead of the full `arrow` umbrella crate. This keeps
+/// the optional Arrow integration much cheaper to compile while still exposing
+/// the same type paths (`charton::arrow::array::*`, `charton::arrow::datatypes::*`, ...).
 #[cfg(feature = "arrow")]
-pub use arrow;
+pub mod arrow {
+    pub use arrow_array;
+    pub use arrow_schema;
+    pub use arrow_select;
+
+    /// Arrow array types (`Array`, `Float64Array`, `RecordBatch`, ...).
+    pub mod array {
+        pub use arrow_array::cast::*;
+        pub use arrow_array::*;
+    }
+
+    /// Arrow logical data types and primitive type aliases
+    /// (`DataType`, `TimeUnit`, `Int64Type`, ...).
+    pub mod datatypes {
+        pub use arrow_array::types::*;
+        pub use arrow_schema::*;
+    }
+
+    /// Record batch support.
+    pub mod record_batch {
+        pub use arrow_array::RecordBatch;
+    }
+
+    /// Compute kernels required for ingestion.
+    pub mod compute {
+        pub use arrow_select::concat::concat;
+    }
+}
 
 /// Global macros providing syntactic sugar for data construction,
 /// external library integration, and developer convenience.
