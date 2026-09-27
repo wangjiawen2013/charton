@@ -1174,6 +1174,57 @@ impl LayeredChart {
         Ok(svg_content)
     }
 
+    /// Generates and returns a PDF representation of the chart.
+    ///
+    /// Drawing goes straight into the PDF page, so the same layout and colors
+    /// that produce the SVG and raster output are used here as well. As with the
+    /// other backends, the chart is cloned so the stateful training phase does
+    /// not modify the original instance.
+    ///
+    /// # Returns
+    /// A Result containing the encoded PDF bytes or a ChartonError.
+    #[cfg(feature = "pdf")]
+    pub fn to_pdf(&self) -> Result<Vec<u8>, ChartonError> {
+        use krilla::Document;
+        use krilla::geom::Size;
+        use krilla::page::PageSettings;
+
+        let mut chart_instance = self.clone();
+
+        let page_size = Size::from_wh(self.width as f32, self.height as f32)
+            .ok_or_else(|| ChartonError::Render("Invalid chart dimensions for PDF".to_string()))?;
+
+        // 1. Create the document and a page that matches the chart canvas.
+        let mut document = Document::new();
+        let mut page = document.start_page_with(PageSettings::new(page_size));
+        let mut surface = page.surface();
+
+        // 2. Draw the background and the full rendering pipeline onto the page.
+        {
+            let mut backend = crate::render::backend::pdf::PdfBackend::new(&mut surface);
+
+            backend.draw_rect(RectConfig {
+                x: 0.0,
+                y: 0.0,
+                width: self.width as Precision,
+                height: self.height as Precision,
+                fill: self.theme.background_color,
+                stroke: "none".into(),
+                stroke_width: 0.0,
+                opacity: 1.0,
+            });
+
+            chart_instance.render(&mut backend)?;
+        }
+
+        // 3. Finalize the page and serialize the document.
+        surface.finish();
+        page.finish();
+        document
+            .finish()
+            .map_err(|e| ChartonError::Render(format!("PDF generation error: {e:?}")))
+    }
+
     /// Generates and returns a PNG representation of the chart as a byte vector.
     ///
     /// This method renders the entire chart into a pixel buffer using the `tiny-skia`
@@ -1324,22 +1375,7 @@ impl LayeredChart {
             Some("pdf") => {
                 #[cfg(feature = "pdf")]
                 {
-                    let svg_content = self.to_svg()?;
-                    let mut opts = svg2pdf::usvg::Options::default();
-                    opts.fontdb = crate::core::utils::get_font_db();
-
-                    // Parse the raw SVG string into a usvg render tree
-                    let tree = svg2pdf::usvg::Tree::from_str(&svg_content, &opts)
-                        .map_err(|e| ChartonError::Render(format!("SVG parsing error: {:?}", e)))?;
-
-                    // Compile the tree into standard binary PDF bytes
-                    let pdf_data = svg2pdf::to_pdf(
-                        &tree,
-                        svg2pdf::ConversionOptions::default(),
-                        svg2pdf::PageOptions::default(),
-                    )
-                    .map_err(|e| ChartonError::Render(format!("PDF generation error: {:?}", e)))?;
-
+                    let pdf_data = self.to_pdf()?;
                     std::fs::write(path_obj, pdf_data).map_err(ChartonError::Io)?;
                 }
                 #[cfg(not(feature = "pdf"))]
@@ -2027,5 +2063,46 @@ mod legend_layout_tests {
                 scene.panel.y + lowest_entry_bottom
             );
         }
+    }
+}
+
+#[cfg(all(test, feature = "pdf"))]
+mod pdf_export_tests {
+    use super::*;
+    use crate::alt;
+    use crate::core::conversion::IntoLayered;
+    use crate::core::data::Dataset;
+
+    /// Builds a small multi-series point chart used to exercise PDF output.
+    fn sample_chart() -> LayeredChart {
+        let x: Vec<f64> = (0..12).map(|i| i as f64).collect();
+        let y: Vec<f64> = x.iter().map(|v| (v * 0.5).sin() * 3.0 + v * 0.2).collect();
+        let group: Vec<String> = (0..12)
+            .map(|i| if i % 2 == 0 { "A" } else { "B" }.to_string())
+            .collect();
+
+        let dataset = Dataset::new()
+            .with_column("x", x)
+            .unwrap()
+            .with_column("y", y)
+            .unwrap()
+            .with_column("group", group)
+            .unwrap();
+
+        Chart::build(dataset)
+            .unwrap()
+            .mark_point()
+            .unwrap()
+            .encode((alt::x("x"), alt::y("y"), alt::color("group")))
+            .unwrap()
+            .with_size(480, 320)
+    }
+
+    /// The exported bytes must be a PDF document with a sane size.
+    #[test]
+    fn pdf_export_produces_a_document() {
+        let bytes = sample_chart().to_pdf().unwrap();
+        assert!(bytes.starts_with(b"%PDF-"), "missing PDF header");
+        assert!(bytes.len() > 512, "PDF looks suspiciously small");
     }
 }
