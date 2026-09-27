@@ -41,7 +41,7 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
     // 2. Render the Chart
     chart!(categories, outcomes, treatments)?
         .mark_point()?
-        .configure_point(|m| m.with_layout("beeswarm").with_size(2.5))
+        .configure_point(|m| m.with_layout("beeswarm").with_size(1.5))
         .encode((
             alt::x("categories"),
             alt::y("outcomes"),
