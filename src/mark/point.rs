@@ -12,16 +12,49 @@ pub enum PointLayout {
     Jitter,
     /// Points are arranged using a force-directed layout to avoid overlap.
     Beeswarm,
+    /// Points are spread by a density aware quasirandom sequence, so the
+    /// outline of the cloud follows the shape of the data distribution.
+    Quasirandom,
+}
+
+/// Strategy for deciding which side of the lane each point moves to in a
+/// quasirandom layout.
+///
+/// The density estimate controls how far a point may move from the lane
+/// center. The method controls how the many points that share a similar value
+/// are paired, which changes the texture of the cloud.
+#[derive(Debug, Clone, Copy, Default, PartialEq, Eq)]
+pub enum QuasirandomMethod {
+    /// Pairs nearby points with a low discrepancy sequence. This produces the
+    /// smooth, symmetric violin outline that the layout is known for.
+    #[default]
+    Tukey,
+    /// Pairs nearby points with a deterministic random-like sequence. The
+    /// outline is noisier and never shows a repeating band.
+    Pseudorandom,
 }
 
 /// Implements conversion from string slices for a more ergonomic Fluent API.
+///
+/// Every layout has exactly one name. An unrecognized name falls back to the
+/// default layout, so a configuration call never fails. Callers that need to
+/// catch misspellings should match on the enum instead of passing a string.
 impl From<&str> for PointLayout {
     fn from(s: &str) -> Self {
         match s.to_lowercase().as_str() {
-            "jitter" | "random" => PointLayout::Jitter,
-            "beeswarm" | "swarm" | "force" => PointLayout::Beeswarm,
-            "standard" | "none" | "center" => PointLayout::Standard,
+            "jitter" => PointLayout::Jitter,
+            "beeswarm" => PointLayout::Beeswarm,
+            "quasirandom" => PointLayout::Quasirandom,
             _ => PointLayout::Standard,
+        }
+    }
+}
+
+impl From<&str> for QuasirandomMethod {
+    fn from(s: &str) -> Self {
+        match s.to_lowercase().as_str() {
+            "pseudorandom" => QuasirandomMethod::Pseudorandom,
+            _ => QuasirandomMethod::Tukey,
         }
     }
 }
@@ -40,8 +73,11 @@ pub struct MarkPoint {
     pub(crate) stroke_width: f64,
 
     // --- Layout strategy ---
-    /// The physical arrangement strategy (Standard, Jitter, or Beeswarm).
+    /// The physical arrangement strategy (Standard, Jitter, Beeswarm, or
+    /// Quasirandom).
     pub(crate) layout: PointLayout,
+    /// The pairing strategy used when the layout is Quasirandom.
+    pub(crate) quasirandom_method: QuasirandomMethod,
 
     // --- Layout parameters for grouping (dodge) ---
     /// Relative width of a group/lane. In Jitter/Beeswarm mode,
@@ -63,6 +99,7 @@ impl MarkPoint {
             stroke: SingleColor::new("none"),
             stroke_width: 0.0,
             layout: PointLayout::Standard,
+            quasirandom_method: QuasirandomMethod::Tukey,
             width: 0.5,
             spacing: 0.2,
             span: 0.7,
@@ -117,6 +154,15 @@ impl MarkPoint {
     /// Accepts `PointLayout` variants or string literals like "jitter".
     pub fn with_layout(mut self, layout: impl Into<PointLayout>) -> Self {
         self.layout = layout.into();
+        self
+    }
+
+    /// Sets the pairing strategy for a quasirandom layout.
+    ///
+    /// Accepts `QuasirandomMethod` variants or string literals like
+    /// "pseudorandom". It has no effect on other layouts.
+    pub fn with_quasirandom_method(mut self, method: impl Into<QuasirandomMethod>) -> Self {
+        self.quasirandom_method = method.into();
         self
     }
 
