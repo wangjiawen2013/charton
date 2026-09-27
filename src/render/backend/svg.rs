@@ -5,6 +5,36 @@ use crate::core::layer::{
 use crate::visual::color::SingleColor;
 use std::fmt::Write;
 
+/// Escapes the characters that are unsafe inside XML text content and quoted
+/// attributes.
+///
+/// This is a tiny, allocation-conscious replacement for the `html-escape`
+/// crate's `encode_safe`, covering exactly the characters charton can emit:
+/// `&`, `<`, `>`, `"`, `'` and `/`.
+fn escape_xml(input: &str) -> String {
+    // Fast path: the vast majority of labels contain nothing to escape.
+    if !input
+        .bytes()
+        .any(|b| matches!(b, b'&' | b'<' | b'>' | b'"' | b'\'' | b'/'))
+    {
+        return input.to_string();
+    }
+
+    let mut out = String::with_capacity(input.len() + 8);
+    for ch in input.chars() {
+        match ch {
+            '&' => out.push_str("&amp;"),
+            '<' => out.push_str("&lt;"),
+            '>' => out.push_str("&gt;"),
+            '"' => out.push_str("&quot;"),
+            '\'' => out.push_str("&#x27;"),
+            '/' => out.push_str("&#x2F;"),
+            _ => out.push(ch),
+        }
+    }
+    out
+}
+
 /// `SvgBackend` implements the `RenderBackend` trait with a focus on performance.
 ///
 /// Traditional SVG generators often create many temporary `String` objects (e.g., via `format!`).
@@ -270,7 +300,7 @@ impl<'a> RenderBackend for SvgBackend<'a> {
         let _ = self.buffer.write_str(">");
 
         // Character escaping for XML safety
-        self.buffer.push_str(&html_escape::encode_safe(&text));
+        self.buffer.push_str(&escape_xml(&text));
 
         let _ = self.buffer.write_str("</text>\n");
     }

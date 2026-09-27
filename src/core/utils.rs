@@ -27,52 +27,15 @@ pub(crate) fn estimate_text_width(text: &str, font_size: f64) -> f64 {
 #[cfg(any(feature = "png", feature = "pdf"))]
 use std::sync::OnceLock;
 
-#[cfg(feature = "pdf")]
-use std::sync::Arc;
-
-/// Global cache for the font database to avoid expensive system scans on every render.
-/// We use Arc to allow thread-safe sharing across multiple chart generation tasks.
-#[cfg(feature = "pdf")]
-static GLOBAL_FONT_DB: OnceLock<Arc<svg2pdf::usvg::fontdb::Database>> = OnceLock::new();
-
-/// Retrieves a shared instance of the font database.
-///
-/// The first call triggers a full system font scan and loads the embedded fallback fonts.
-/// Subsequent calls return a cloned reference to the cached database, reducing the
-/// font initialization overhead to nearly 0ms.
-#[cfg(feature = "pdf")]
-pub(crate) fn get_font_db() -> Arc<svg2pdf::usvg::fontdb::Database> {
-    GLOBAL_FONT_DB
-        .get_or_init(|| {
-            // Initialize the database using the usvg version re-exported by svg2pdf.
-            let mut fontdb = svg2pdf::usvg::fontdb::Database::new();
-
-            // 1. Scan the operating system's font directories.
-            // This is an expensive I/O operation, which is why we cache the result globally.
-            fontdb.load_system_fonts();
-
-            // 2. Load the built-in "emergency" font.
-            // This ensures consistent text rendering even in restricted environments
-            // like minimal Docker containers or CI runners where system fonts may be missing.
-            let default_font_data = include_bytes!("../../assets/fonts/Inter-Regular.ttf");
-            fontdb.load_font_data(default_font_data.to_vec());
-
-            // 3. Define the default fallback family for 'sans-serif' requests.
-            // When an SVG specifies "sans-serif" but no system mapping exists,
-            // the renderer will use the "Inter" font we just loaded.
-            fontdb.set_sans_serif_family("Inter");
-
-            Arc::new(fontdb)
-        })
-        .clone()
-}
-
-// =============================== Raster Font Utilities (PNG) =====================================
-#[cfg(feature = "png")]
+#[cfg(any(feature = "png", feature = "pdf"))]
 use ab_glyph::FontArc;
+#[cfg(feature = "pdf")]
+use ab_glyph::FontVec;
+
 #[cfg(feature = "png")]
 use std::sync::RwLock;
 
+// =============================== Raster Font Utilities (PNG) =====================================
 /// Global cache for raster fonts.
 /// Maps lowercase font family names to FontArc instances.
 #[cfg(feature = "png")]
@@ -80,17 +43,21 @@ static RASTER_FONT_REGISTRY: OnceLock<RwLock<AHashMap<String, FontArc>>> = OnceL
 
 /// Global cache for the system font database.
 /// This allows us to search for system fonts by name without rescanning the OS directories every time.
-#[cfg(feature = "png")]
+#[cfg(any(feature = "png", feature = "pdf"))]
 static SYSTEM_FONT_DB: OnceLock<fontdb::Database> = OnceLock::new();
 
 /// Retrieves or initializes the global system font database.
 /// This performs an expensive I/O operation (scanning OS font dirs) only once.
-#[cfg(feature = "png")]
+#[cfg(any(feature = "png", feature = "pdf"))]
 fn get_system_font_db() -> &'static fontdb::Database {
     SYSTEM_FONT_DB.get_or_init(|| {
         let mut db = fontdb::Database::new();
         // Load all available system fonts
         db.load_system_fonts();
+        // The bundled Inter font guarantees readable output on machines without
+        // suitable system fonts, and backs the generic families below.
+        db.load_font_data(include_bytes!("../../assets/fonts/Inter-Regular.ttf").to_vec());
+        db.set_sans_serif_family("Inter");
         db
     })
 }
@@ -205,6 +172,63 @@ pub fn register_raster_font(name: &str, data: Vec<u8>) -> Result<(), Box<dyn std
     let mut map = registry.write().expect("Failed to write to font registry");
     map.insert(name.to_lowercase(), font);
     Ok(())
+}
+
+// =============================== PDF Font Utilities =====================================
+/// Resolves a family name to the pair of font handles used by the PDF backend:
+/// a krilla font for embedding text and an `ab_glyph` font for measuring it.
+///
+/// The family may be a CSS-like stack ("Inter, 'Segoe UI', sans-serif"); names
+/// are tried left to right. If nothing matches, the bundled Inter font is used
+/// so text never disappears.
+#[cfg(feature = "pdf")]
+pub(crate) fn resolve_pdf_font(family: &str) -> Option<(krilla::text::Font, FontArc)> {
+    let system_db = get_system_font_db();
+
+    for name in family.split(',') {
+        let name = name.trim().trim_matches(['\'', '"']).trim();
+        if name.is_empty() {
+            continue;
+        }
+
+        // Map the CSS generic families onto fontdb's generic families.
+        let generic = match name.to_lowercase().as_str() {
+            "sans-serif" => Some(fontdb::Family::SansSerif),
+            "serif" => Some(fontdb::Family::Serif),
+            "monospace" => Some(fontdb::Family::Monospace),
+            "cursive" => Some(fontdb::Family::Cursive),
+            "fantasy" => Some(fontdb::Family::Fantasy),
+            _ => None,
+        };
+
+        let families = [generic.unwrap_or(fontdb::Family::Name(name))];
+        let query = fontdb::Query {
+            families: &families,
+            weight: fontdb::Weight::NORMAL,
+            stretch: fontdb::Stretch::Normal,
+            style: fontdb::Style::Normal,
+        };
+
+        if let Some(id) = system_db.query(&query)
+            && let Some(font) = system_db
+                .with_face_data(id, |data, index| build_pdf_font(data.to_vec(), index))
+                .flatten()
+        {
+            return Some(font);
+        }
+    }
+
+    // Last resort: the font bundled with the crate.
+    let data = include_bytes!("../../assets/fonts/Inter-Regular.ttf").to_vec();
+    build_pdf_font(data, 0)
+}
+
+/// Builds the krilla and ab_glyph handles for one font face.
+#[cfg(feature = "pdf")]
+fn build_pdf_font(data: Vec<u8>, index: u32) -> Option<(krilla::text::Font, FontArc)> {
+    let pdf_font = krilla::text::Font::new(data.clone().into(), index)?;
+    let metrics_font = FontArc::new(FontVec::try_from_vec_and_index(data, index).ok()?);
+    Some((pdf_font, metrics_font))
 }
 
 //=============================== Parallelization Utilities =====================================

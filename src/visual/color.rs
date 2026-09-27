@@ -2,6 +2,7 @@
 #![allow(clippy::approx_constant)]
 
 use crate::Precision;
+use crate::visual::named_colors::named_color;
 use csscolorparser::Color;
 
 // Continuous color mapping schemes (colormaps) for numerical data visualization.
@@ -720,8 +721,13 @@ impl SingleColor {
             return Self::none();
         }
 
-        // Parse using csscolorparser
-        let parsed = color_str.parse::<Color>().unwrap_or_else(|_| {
+        // Resolve CSS named colors from the bundled table first. This keeps
+        // `csscolorparser`'s `named-colors` (and its `phf` proc-macro stack) off.
+        if let Some([r, g, b]) = named_color(&color_lc) {
+            return Self::from_rgba(r as f64 / 255.0, g as f64 / 255.0, b as f64 / 255.0, 1.0);
+        }
+
+        let parsed = color_lc.parse::<Color>().unwrap_or_else(|_| {
             // Fallback to opaque black on error
             Color::new(0.0, 0.0, 0.0, 1.0)
         });
@@ -798,5 +804,36 @@ impl From<String> for SingleColor {
 impl From<[f64; 4]> for SingleColor {
     fn from(c: [f64; 4]) -> Self {
         Self::from_rgba(c[0], c[1], c[2], c[3])
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    fn rgb(c: SingleColor) -> [u8; 4] {
+        let [r, g, b, a] = c.rgba();
+        [
+            (r * 255.0).round() as u8,
+            (g * 255.0).round() as u8,
+            (b * 255.0).round() as u8,
+            (a * 255.0).round() as u8,
+        ]
+    }
+
+    #[test]
+    fn parses_named_colors_case_insensitively() {
+        assert_eq!(rgb(SingleColor::new("red")), [255, 0, 0, 255]);
+        assert_eq!(rgb(SingleColor::new("SteelBlue")), [70, 130, 180, 255]);
+        assert_eq!(rgb(SingleColor::new("REBECCAPURPLE")), [102, 51, 153, 255]);
+        assert_eq!(rgb(SingleColor::new("grey")), [128, 128, 128, 255]);
+        assert_eq!(rgb(SingleColor::new("transparent")), [0, 0, 0, 0]);
+    }
+
+    #[test]
+    fn parses_hex_and_functional_colors() {
+        assert_eq!(rgb(SingleColor::new("#ff0000")), [255, 0, 0, 255]);
+        assert_eq!(rgb(SingleColor::new("#00ff0080")), [0, 255, 0, 128]);
+        assert_eq!(rgb(SingleColor::new("rgb(0, 0, 255)")), [0, 0, 255, 255]);
     }
 }

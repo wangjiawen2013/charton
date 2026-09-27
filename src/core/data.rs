@@ -1206,10 +1206,14 @@ impl ColumnVector {
     }
 
     /// Converts an Apache Arrow Array into a Charton ColumnVector.
+    ///
+    /// Arrow temporal values are normalized to nanoseconds (charton's internal
+    /// representation), so second/millisecond/microsecond units are scaled on
+    /// ingestion.
     #[cfg(feature = "arrow")]
-    pub fn from_arrow(array: &dyn Array) -> Result<Self, ChartonError> {
-        use arrow::array::*;
-        use arrow::datatypes::*;
+    pub fn from_arrow(array: &dyn crate::arrow::array::Array) -> Result<Self, ChartonError> {
+        use crate::arrow::array::*;
+        use crate::arrow::datatypes::*;
 
         match array.data_type() {
             // --- FLOATING POINT ---
@@ -1248,38 +1252,40 @@ impl ColumnVector {
 
             // --- STRINGS ---
             DataType::Utf8 | DataType::LargeUtf8 => {
-                // Using as_string::<i32> or as_string::<i64> via AsArray trait
-                let arr = array
-                    .as_any()
-                    .downcast_ref::<StringArray>()
-                    .or_else(|| array.as_any().downcast_ref::<LargeStringArray>())
-                    .ok_or_else(|| {
-                        ChartonError::Data("Failed to downcast string array".to_string())
-                    })?;
-
-                let (data, validity) = collect_with_validity(
-                    (0..arr.len()).map(|i| {
-                        if arr.is_valid(i) {
-                            Some(arr.value(i).to_string())
-                        } else {
-                            None
-                        }
-                    }),
-                    String::new(),
-                );
+                let (data, validity) =
+                    if let Some(arr) = array.as_any().downcast_ref::<StringArray>() {
+                        Self::collect_arrow_strings(arr)
+                    } else if let Some(arr) = array.as_any().downcast_ref::<LargeStringArray>() {
+                        Self::collect_arrow_strings(arr)
+                    } else {
+                        return Err(ChartonError::Data(
+                            "Failed to downcast string array".to_string(),
+                        ));
+                    };
                 Ok(ColumnVector::String { data, validity })
             }
 
             // --- TEMPORAL & DURATION ---
-            DataType::Timestamp(unit, _) => {
-                let arr = array.as_primitive::<TimestampMicrosecondType>(); // This is tricky, see note below
-                // Note: Arrow stores specific types for units. Better to use as_primitive_opt
-                // or a generic helper. For simplicity, we'll use i64 physical access:
-                let (data, validity) = Self::extract_arrow_i64_physical(array);
+            DataType::Timestamp(unit, tz) => {
+                let (raw, validity) = match unit {
+                    TimeUnit::Second => {
+                        Self::extract_arrow_primitives(array.as_primitive::<TimestampSecondType>())
+                    }
+                    TimeUnit::Millisecond => Self::extract_arrow_primitives(
+                        array.as_primitive::<TimestampMillisecondType>(),
+                    ),
+                    TimeUnit::Microsecond => Self::extract_arrow_primitives(
+                        array.as_primitive::<TimestampMicrosecondType>(),
+                    ),
+                    TimeUnit::Nanosecond => Self::extract_arrow_primitives(
+                        array.as_primitive::<TimestampNanosecondType>(),
+                    ),
+                };
+                let data = Self::scale_to_nanos(raw, Self::arrow_time_unit_factor(unit));
                 Ok(ColumnVector::Datetime {
                     data,
                     validity,
-                    unit: unit.clone().into(),
+                    timezone: tz.as_ref().map(|s| s.to_string()),
                 })
             }
             DataType::Date32 => {
@@ -1288,32 +1294,58 @@ impl ColumnVector {
                 Ok(ColumnVector::Date { data, validity })
             }
             DataType::Duration(unit) => {
-                let (data, validity) = Self::extract_arrow_i64_physical(array);
-                Ok(ColumnVector::Duration {
-                    data,
-                    validity,
-                    unit: unit.clone().into(),
-                })
+                let (raw, validity) = match unit {
+                    TimeUnit::Second => {
+                        Self::extract_arrow_primitives(array.as_primitive::<DurationSecondType>())
+                    }
+                    TimeUnit::Millisecond => Self::extract_arrow_primitives(
+                        array.as_primitive::<DurationMillisecondType>(),
+                    ),
+                    TimeUnit::Microsecond => Self::extract_arrow_primitives(
+                        array.as_primitive::<DurationMicrosecondType>(),
+                    ),
+                    TimeUnit::Nanosecond => Self::extract_arrow_primitives(
+                        array.as_primitive::<DurationNanosecondType>(),
+                    ),
+                };
+                let data = Self::scale_to_nanos(raw, Self::arrow_time_unit_factor(unit));
+                Ok(ColumnVector::Duration { data, validity })
             }
-            // Support for Time (Time32 uses i32, Time64 uses i64)
+            // Time32 is physically i32 and only supports second/millisecond units.
             DataType::Time32(unit) => {
-                let arr = array.as_primitive::<Int32Type>(); // Physical view
-                let (data, validity) = Self::extract_arrow_primitives(arr);
-                // Cast i32 to i64 to match our ColumnVector::Time storage
-                let data_i64 = data.into_iter().map(|v| v as i64).collect();
-                Ok(ColumnVector::Time {
-                    data: data_i64,
-                    validity,
-                    unit: unit.clone().into(),
-                })
+                let (raw, validity) = match unit {
+                    TimeUnit::Second => {
+                        Self::extract_arrow_primitives(array.as_primitive::<Time32SecondType>())
+                    }
+                    TimeUnit::Millisecond => Self::extract_arrow_primitives(
+                        array.as_primitive::<Time32MillisecondType>(),
+                    ),
+                    other => {
+                        return Err(ChartonError::Data(format!(
+                            "Unsupported Arrow Time32 unit: {other:?}"
+                        )));
+                    }
+                };
+                let factor = Self::arrow_time_unit_factor(unit) as i64;
+                let data: Vec<i64> = raw.into_iter().map(|v| v as i64 * factor).collect();
+                Ok(ColumnVector::Time { data, validity })
             }
             DataType::Time64(unit) => {
-                let (data, validity) = Self::extract_arrow_i64_physical(array);
-                Ok(ColumnVector::Time {
-                    data,
-                    validity,
-                    unit: unit.clone().into(),
-                })
+                let (raw, validity) = match unit {
+                    TimeUnit::Microsecond => Self::extract_arrow_primitives(
+                        array.as_primitive::<Time64MicrosecondType>(),
+                    ),
+                    TimeUnit::Nanosecond => {
+                        Self::extract_arrow_primitives(array.as_primitive::<Time64NanosecondType>())
+                    }
+                    other => {
+                        return Err(ChartonError::Data(format!(
+                            "Unsupported Arrow Time64 unit: {other:?}"
+                        )));
+                    }
+                };
+                let data = Self::scale_to_nanos(raw, Self::arrow_time_unit_factor(unit));
+                Ok(ColumnVector::Time { data, validity })
             }
 
             _ => Err(ChartonError::Data(format!(
@@ -1323,24 +1355,66 @@ impl ColumnVector {
         }
     }
 
-    /// Helper to extract data from any array that is physically i64 (Timestamp, Duration, Int64, Time64).
+    /// Number of nanoseconds contained in a single Arrow [`TimeUnit`].
     #[cfg(feature = "arrow")]
-    fn extract_arrow_i64_physical(array: &dyn Array) -> (Vec<i64>, Option<Vec<u8>>) {
-        use arrow::array::AsArray;
-        let arr = array.as_primitive::<Int64Type>();
+    const fn arrow_time_unit_factor(unit: &crate::arrow::datatypes::TimeUnit) -> i64 {
+        use crate::arrow::datatypes::TimeUnit;
+        match unit {
+            TimeUnit::Second => 1_000_000_000,
+            TimeUnit::Millisecond => 1_000_000,
+            TimeUnit::Microsecond => 1_000,
+            TimeUnit::Nanosecond => 1,
+        }
+    }
+
+    /// Scales physical Arrow temporal values (i64) to nanoseconds.
+    #[cfg(feature = "arrow")]
+    fn scale_to_nanos(values: Vec<i64>, factor: i64) -> Vec<i64> {
+        if factor == 1 {
+            values
+        } else {
+            values
+                .into_iter()
+                .map(|v| v.saturating_mul(factor))
+                .collect()
+        }
+    }
+
+    #[cfg(feature = "arrow")]
+    fn extract_arrow_primitives<T>(
+        arr: &crate::arrow::array::PrimitiveArray<T>,
+    ) -> (Vec<T::Native>, Option<Vec<u8>>)
+    where
+        T: crate::arrow::datatypes::ArrowPrimitiveType,
+    {
+        use crate::arrow::array::Array as _;
+
         let data = arr.values().to_vec();
         let validity = arr.nulls().map(|nb| nb.buffer().as_slice().to_vec());
         (data, validity)
     }
 
+    /// Collects a nullable Arrow byte/string array into owned strings.
     #[cfg(feature = "arrow")]
-    fn extract_arrow_primitives<T>(arr: &PrimitiveArray<T>) -> (Vec<T::Native>, Option<Vec<u8>>)
+    fn collect_arrow_strings<T>(
+        arr: &crate::arrow::array::GenericByteArray<T>,
+    ) -> (Vec<String>, Option<Vec<u8>>)
     where
-        T: arrow::datatypes::ArrowPrimitiveType,
+        T: crate::arrow::datatypes::ByteArrayType,
+        T::Native: std::fmt::Display,
     {
-        let data = arr.values().to_vec();
-        let validity = arr.nulls().map(|nb| nb.buffer().as_slice().to_vec());
-        (data, validity)
+        use crate::arrow::array::Array as _;
+
+        collect_with_validity(
+            (0..arr.len()).map(|i| {
+                if arr.is_valid(i) {
+                    Some(arr.value(i).to_string())
+                } else {
+                    None
+                }
+            }),
+            String::new(),
+        )
     }
 
     /// Creates a new ColumnVector containing a sub-range of the data.
@@ -2673,11 +2747,8 @@ impl Dataset {
     /// Polars-originated data, prefer `from_arrays` via the `load_polars_df!` macro.
     #[cfg(feature = "arrow")]
     pub fn from_record_batches(
-        batches: &[arrow::record_batch::RecordBatch],
+        batches: &[crate::arrow::record_batch::RecordBatch],
     ) -> Result<Self, ChartonError> {
-        use arrow::array::{Array, Float32Array, Float64Array, Int64Array, StringArray};
-        use arrow::datatypes::{DataType, TimeUnit};
-
         if batches.is_empty() {
             return Ok(Self::new());
         }
@@ -2689,12 +2760,12 @@ impl Dataset {
         // Process columns one by one to keep memory access patterns predictable.
         for (i, field) in schema.fields().iter().enumerate() {
             // 1. Gather all chunks (RecordBatches) for the current column.
-            let column_arrays: Vec<&dyn arrow::array::Array> =
+            let column_arrays: Vec<&dyn crate::arrow::array::Array> =
                 batches.iter().map(|b| b.column(i).as_ref()).collect();
 
             // 2. Unify fragmented chunks into a single contiguous Arrow array.
             // This is a physical memory copy operation (Concatenation).
-            let merged_array = arrow::compute::concat(&column_arrays)
+            let merged_array = crate::arrow::compute::concat(&column_arrays)
                 .map_err(|e| ChartonError::Data(format!("Arrow concat error: {}", e)))?;
 
             // 3. Perform type-specific conversion to Charton's internal format.
@@ -3382,30 +3453,36 @@ mod tests {
     #[cfg(feature = "arrow")]
     mod arrow_tests {
         use super::*;
-        use arrow::array::{Float64Array, Int64Array, StringArray, TimestampMillisecondArray};
+        use crate::arrow::array::{
+            Float64Array, Int64Array, StringArray, TimestampMillisecondArray,
+        };
 
         #[test]
         fn test_arrow_ingestion() {
-            // 1. Float64 with Nulls (Target: GPU/Canvas optimization)
+            // 1. Float64 with Nulls (validity mask is preserved)
             let f64_array = Float64Array::from(vec![Some(1.1), None, Some(3.3)]);
             let col_f64 = ColumnVector::from_arrow(&f64_array).expect("F64 ingestion failed");
 
-            if let ColumnVector::F64 { data } = col_f64 {
+            if let ColumnVector::Float64 { data, validity } = col_f64 {
                 assert_eq!(data[0], 1.1);
-                assert!(data[1].is_nan()); // NaN is essential for canvas drawing skips
                 assert_eq!(data[2], 3.3);
+                let mask = validity.expect("Validity mask should exist");
+                // LSB-first: [Valid, Invalid, Valid] => 0b101
+                assert_eq!(mask[0] & 0b111, 0b101);
+            } else {
+                panic!("expected Float64 column");
             }
 
             // 2. Int64 with Nulls (Bitmask verification)
             let i64_array = Int64Array::from(vec![Some(10), None, Some(30)]);
             let col_i64 = ColumnVector::from_arrow(&i64_array).expect("I64 ingestion failed");
 
-            if let ColumnVector::I64 { data, validity } = col_i64 {
+            if let ColumnVector::Int64 { data, validity } = col_i64 {
                 assert_eq!(data, vec![10, 0, 30]); // Default 0 for nulls
                 let mask = validity.expect("Validity mask should exist");
-                // LSB-first: bit 0 = index 0 (Some), bit 1 = index 1 (None), bit 2 = index 2 (Some)
-                // 0b101 is correct for [Valid, Invalid, Valid]
                 assert_eq!(mask[0] & 0b111, 0b101);
+            } else {
+                panic!("expected Int64 column");
             }
 
             // 3. StringArray
@@ -3417,21 +3494,20 @@ mod tests {
                 assert_eq!(data[1], ""); // Standard empty filler
                 assert_eq!(data[2], "Rust");
                 assert!(validity.is_some());
+            } else {
+                panic!("expected String column");
             }
 
-            // 4. Timestamp (Millisecond)
-            // 1711872000000 ms = 2024-03-31T08:00:00Z
-            let ts_array = TimestampMillisecondArray::from(vec![Some(1711872000000), None]);
+            // 4. Timestamp (Millisecond) is normalized to nanoseconds.
+            // 1_711_872_000_000 ms = 2024-03-31T08:00:00Z
+            let ts_array = TimestampMillisecondArray::from(vec![Some(1_711_872_000_000), None]);
             let col_ts = ColumnVector::from_arrow(&ts_array).expect("Timestamp ingestion failed");
 
-            if let ColumnVector::DateTime { data, validity, .. } = col_ts {
-                // Verify year extraction
-                assert_eq!(data[0].year(), 2024);
-                assert_eq!(data[0].month(), time::Month::March);
-
-                // Null should map to UNIX Epoch (1970) as a safe fallback
-                assert_eq!(data[1].year(), 1970);
+            if let ColumnVector::Datetime { data, validity, .. } = col_ts {
+                assert_eq!(data[0], 1_711_872_000_000_000_000);
                 assert!(validity.expect("Mask missing")[0] & 0b11 == 0b01);
+            } else {
+                panic!("expected Datetime column");
             }
         }
 
