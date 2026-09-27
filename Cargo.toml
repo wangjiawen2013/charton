@@ -1,6 +1,6 @@
 [package]
 name = "charton"
-version = "0.6.3"
+version = "0.6.4"
 edition = "2024"
 description = "A high-performance, layered charting system for Rust, featuring a flexible data core and multi-backend rendering."
 license = "Apache-2.0"
@@ -21,8 +21,8 @@ default = []
 # using a specialized thread-pool adapter like wasm-bindgen-rayon.
 parallel = ["dep:rayon"]
 
-# Enables exporting SVG to PDF format using the usvg rendering engine.
-pdf = ["dep:svg2pdf"]
+# Enables exporting charts to PDF.
+pdf = ["dep:krilla", "dep:ab_glyph", "dep:fontdb"]
 
 # Enables high-performance raster rendering (PNG, etc.)
 raster = ["dep:tiny-skia", "dep:ab_glyph", "dep:fontdb"]
@@ -32,28 +32,28 @@ png = ["raster"] # png is an alias of raster
 wgpu = ["dep:wgpu", "dep:bytemuck", "dep:pollster"]
 
 # Enable support for geographic data parsing (GeoJSON)
-geo = ["dep:geojson", "dep:serde", "dep:serde_json"]
+geo = ["dep:geojson", "dep:serde_json"]
 
 # Enables universal columnar data ingestion via the Apache Arrow standard.
-arrow = ["dep:arrow"]
+arrow = ["dep:arrow-array", "dep:arrow-schema", "dep:arrow-select"]
 
 [dependencies]
 # --- Core Dependencies ---
 thiserror = "2.0"
 time = { version = "0.3", features = ["macros", "formatting"] }
 ahash = "0.8"
-csscolorparser = "0.8"
-html-escape = "0.2"
+csscolorparser = { version = "0.8", default-features = false, features = ["std"] }
 
 # --- Optional Dependencies ---
 rayon = { version = "1.11", optional = true }
-svg2pdf = { version = "0.13", optional = true }
+krilla = { version = "0.8", optional = true, default-features = false }
 tiny-skia = { version = "0.12", optional = true }
 ab_glyph = { version = "0.2", optional = true }
 fontdb = { version = "0.23", optional = true }
-arrow = { version = "58.1", default-features = false, optional = true }
+arrow-array = { version = "58.1", default-features = false, optional = true }
+arrow-schema = { version = "58.1", default-features = false, optional = true }
+arrow-select = { version = "58.1", default-features = false, optional = true }
 geojson = { version = "1.0.0", optional = true }
-serde = { version = "1.0", features = ["derive"], optional = true }
 serde_json = { version = "1.0", optional = true }
 wgpu = { version = "29", optional = true }
 bytemuck = { version = "1.25", features = ["derive"], optional = true }
