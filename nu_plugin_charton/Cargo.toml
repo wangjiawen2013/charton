@@ -1,0 +1,28 @@
+[package]
+name = "nu_plugin_charton"
+version = "0.1.0"
+edition = "2024"
+license = "Apache-2.0"
+repository = "https://github.com/wangjiawen2013/charton"
+description = "Nushell plugin for charton: turn pipeline tables into charts"
+
+[dependencies]
+# Path + version so the crate stays publishable; enable png for terminal raster.
+charton = { path = "..", version = "0.6", features = ["png", "geo"] }
+# Protocol version MUST match the installed Nushell (0.103.0).
+nu-plugin = "=0.103.0"
+nu-protocol = "=0.103.0"
+# Decode charton's PNG output for truecolor half-block terminal rendering.
+png = "0.18"
+# Base64 payloads for the iTerm2 / Kitty inline image protocols.
+base64 = "0.22"
+# Read the interactive terminal dimensions for auto-fitting inline charts.
+terminal_size = "0.4"
+
+# Pin transitive IPC crate: nu-plugin-core 0.103.0 uses the pre-2.3
+# `local_socket::traits::ListenerNonblockingMode` path, which 2.3+ moved.
+interprocess = "=2.2.0"
+icy_sixel = "0.7.0"
+
+[dev-dependencies]
+nu-plugin-test-support = "=0.103.0"
