@@ -146,15 +146,101 @@ cargo build -p nu_plugin_charton --release
 cargo test  -p nu_plugin_charton
 ```
 
-## Install
+## Installation
+
+The plugin is not published to crates.io yet, so build it from this repository.
+It requires the **same Nushell version it is pinned to** — see
+[Protocol version](#protocol-version).
+
+### 1. Build
 
 ```sh
 cargo build -p nu_plugin_charton --release
-nu --plugins '[target/release/nu_plugin_charton.exe]'   # quick, no registry entry
-# or register it (name is `charton`, without the nu_plugin_ prefix):
+```
+
+The binary lands in the workspace target directory:
+
+| Platform | Path |
+|---|---|
+| Linux / macOS | `target/release/nu_plugin_charton` |
+| Windows | `target/release/nu_plugin_charton.exe` |
+
+Alternatively, install it onto your `PATH` with:
+
+```sh
+cargo install --path nu_plugin_charton --locked
+```
+
+### 2. Register with Nushell (once)
+
+`plugin add` records the plugin in Nushell's registry
+(`$nu.plugin-path`). From a Nushell session:
+
+```nu
+# Linux / macOS
+plugin add target/release/nu_plugin_charton
+
+# Windows
 plugin add target/release/nu_plugin_charton.exe
+```
+
+The registered name drops the `nu_plugin_` prefix, so this plugin is `charton`.
+
+To try it without touching the registry:
+
+```sh
+# Linux / macOS
+nu --plugins '[target/release/nu_plugin_charton]'
+# Windows
+nu --plugins '[target/release/nu_plugin_charton.exe]'
+```
+
+### 3. Load it
+
+Restart Nushell — every registered plugin is imported automatically — or load
+it immediately:
+
+```nu
 plugin use charton
 ```
+
+`plugin use` is a parser keyword, so it cannot share a single script with the
+`plugin add` that registers the plugin. Run it at the REPL, or in a later
+session.
+
+### 4. Verify
+
+```nu
+plugin list | where name == charton
+charton-probe | to md          # transport + terminal capability report
+[[g, v]; [a, 1] [b, 2]] | charton -g bar -x g -y v
+```
+
+In an interactive terminal the last command renders the chart inline; in a
+non-interactive context (`nu -c`, piping to a file) it returns the SVG string
+instead. To update an already-registered plugin after a rebuild, run
+`plugin add` again and restart, or `plugin use charton`.
+
+## Uninstall
+
+Remove it from the registry so it is no longer loaded at startup:
+
+```nu
+plugin rm charton
+```
+
+Commands created by the plugin stay in scope until the current session ends, so
+restart Nushell to fully unload it. If you installed the binary with
+`cargo install`, remove that too:
+
+```sh
+cargo uninstall nu_plugin_charton
+```
+
+Otherwise delete the build artifact manually (`rm -rf target/release/nu_plugin_charton*`
+on Linux/macOS). `plugin rm` does **not** touch any `$env.config.plugins.charton`
+settings you added to `config.nu`; delete those yourself if you no longer want
+them.
 
 ## Protocol version
 
