@@ -113,6 +113,8 @@ $env.config.plugins.charton = {
     width: 1000
     height: 700
     scale: 2.0
+    cell_width: 9                  # terminal cell size in device px
+    cell_height: 20                # (tune if inline charts look soft)
     inline_style: kitty            # auto | halfblock | iterm2 | kitty | sixel
     grid: true
     palette: tab10                 # or ["#333" "#6fc481" "red"]
@@ -125,7 +127,8 @@ $env.config.plugins.charton = {
 | Config key | Type | Purpose |
 |---|---|---|
 | `width`, `height` | int | default pixel canvas |
-| `scale` | float | raster scale factor |
+| `scale` | float | raster scale factor (also disables inline auto-fit) |
+| `cell_width`, `cell_height` | int | assumed terminal cell size in device px; used to fit inline images |
 | `inline_style` | string | default inline renderer |
 | `grid` | bool | show grid lines |
 | `palette` | string \| list | named palette (`tab10`…`accent`) or explicit colors |
@@ -174,7 +177,8 @@ cargo install --path nu_plugin_charton --locked
 ### 2. Register with Nushell (once)
 
 `plugin add` records the plugin in Nushell's registry
-(`$nu.plugin-path`). From a Nushell session:
+(`$nu.plugin-path`). From a Nushell session, pass the **executable**
+(filename or path), not the command name:
 
 ```nu
 # Linux / macOS
@@ -184,7 +188,13 @@ plugin add target/release/nu_plugin_charton
 plugin add target/release/nu_plugin_charton.exe
 ```
 
-The registered name drops the `nu_plugin_` prefix, so this plugin is `charton`.
+After `cargo install`, the executable lives in `~/.cargo/bin`; the most
+reliable form is its full path, e.g.
+`plugin add 'C:/Users/you/.cargo/bin/nu_plugin_charton.exe'`. Passing the
+registered name instead (`plugin add charton`) fails with a file-not-found
+error, and on Windows a bare `nu_plugin_charton` may fail to spawn even when it
+is on `PATH`. The registered name drops the `nu_plugin_` prefix, so this plugin
+is `charton`.
 
 To try it without touching the registry:
 
@@ -197,16 +207,18 @@ nu --plugins '[target/release/nu_plugin_charton.exe]'
 
 ### 3. Load it
 
-Restart Nushell — every registered plugin is imported automatically — or load
-it immediately:
+In Nushell 0.116 a plugin in the registry is **not** loaded automatically on
+startup; its commands only enter scope after `plugin use`:
 
 ```nu
 plugin use charton
 ```
 
-`plugin use` is a parser keyword, so it cannot share a single script with the
-`plugin add` that registers the plugin. Run it at the REPL, or in a later
-session.
+To load it in every session, add the same line to your `config.nu` (after the
+registry has been written by step 2). `plugin use` is a parser keyword, so it
+must be on its own line and cannot share a script with the `plugin add` that
+registers the plugin. If you only want to try it without touching the registry,
+use the `--plugins` flag shown above instead — that loads the plugin directly.
 
 ### 4. Verify
 
@@ -223,7 +235,8 @@ instead. To update an already-registered plugin after a rebuild, run
 
 ## Uninstall
 
-Remove it from the registry so it is no longer loaded at startup:
+Remove it from the registry so `plugin use` can no longer load it (also delete
+any `plugin use charton` line you added to `config.nu`):
 
 ```nu
 plugin rm charton
@@ -245,23 +258,22 @@ them.
 ## Protocol version
 
 `nu-plugin` / `nu-protocol` **must match the installed Nushell version**. This
-crate is pinned to `=0.103.0`. After a Nushell upgrade, bump these and re-run
+crate is pinned to `=0.116.0`. After a Nushell upgrade, bump these and re-run
 `plugin add`.
 
-### Windows / interprocess pin
-
-`nu-plugin-core 0.103.0` uses `local_socket::traits::ListenerNonblockingMode`,
-which `interprocess >= 2.3` moved. This crate pins `interprocess = "=2.2.0"` to
-keep the crate compiling. Remove the pin once Nushell ships a fix.
-
 ## How inline rendering works
+
+> The full rationale — process model, why SVG cannot be drawn inline, cell-size
+> tuning, and protocol-version semantics — is written up in the book chapter
+> [**Nushell Plugin Internals**](https://wangjiawen2013.github.io/charton/ecosystem/nushell_internals.html).
+> This section is the operational summary.
 
 Nushell launches Rust plugins in **local-socket mode** by default, so the
 protocol travels over a named pipe and the plugin's `stdout` is inherited
 straight from Nushell. That means in an interactive terminal the plugin may
 write image escape sequences directly to `stdout`.
 
-Verified on Windows + WezTerm (Nushell 0.103.0):
+Verified on Windows + WezTerm (Nushell 0.116.0):
 
 - `engine.is_using_stdio() == false` → local-socket mode.
 - Writing an ANSI escape sequence to `stdout` passes through to the parent
@@ -291,9 +303,18 @@ Three renderers, highest fidelity first, auto-detected from the environment
 | 3 | **Sixel** (`ESC P...q`) | xterm, foot, mlterm, Windows Terminal 1.22+ |
 | 4 | **Truecolor half-blocks** (`▀`) | everywhere |
 
-The full-resolution PNG is sent to the terminal in tiers 1–2 and scaled to the
-terminal cell grid; sixel is downscaled to that grid first; tier 4 downsamples
-to half-blocks in the plugin itself.
+For tiers 1–3 the PNG is rendered to fit the terminal's pixel area (the
+character grid times the cell size), so the terminal barely scales it — that is
+what keeps text crisp and horizontal/vertical strokes the same width. The cell
+size defaults to **9×20 device px**; set `cell_width`/`cell_height` if your font
+or DPI differ (an explicit `--scale` disables the auto-fit). To measure it:
+
+```sh
+wezterm cli list --format json   # cell = pixel_width/cols × pixel_height/rows
+```
+
+Tier 4 downsamples to half-blocks in the plugin itself and keeps the
+full-resolution raster.
 
 Detection order: `TERM_PROGRAM` (`*iterm*`/`*wezterm*` → iTerm2, `*ghostty*` →
 Kitty) → `KITTY_WINDOW_ID` → `WEZTERM_EXECUTABLE`/`WEZTERM_PANE` → `TERM`

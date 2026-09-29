@@ -7,6 +7,8 @@
 //!     width: 1000
 //!     height: 700
 //!     scale: 2.0
+//!     cell_width: 9       # terminal cell size in device px (inline fitting)
+//!     cell_height: 20
 //!     inline_style: kitty
 //!     grid: true
 //!     palette: tab10            # or a list like ["#333" "#6fc481" "red"]
@@ -54,6 +56,10 @@ pub struct Config {
     pub width: Option<u32>,
     pub height: Option<u32>,
     pub scale: Option<f32>,
+    /// Assumed terminal cell size in device pixels, used to fit the raster
+    /// resolution of inline images. Tune if inline charts look soft or tiny.
+    pub cell_width: Option<u32>,
+    pub cell_height: Option<u32>,
     pub inline_style: Option<String>,
     pub palette: Option<PaletteSetting>,
     pub grid: Option<bool>,
@@ -94,6 +100,12 @@ impl Config {
             width: int_field(val, "width").map(|v| v.max(16) as u32),
             height: int_field(val, "height").map(|v| v.max(16) as u32),
             scale: float_field(val, "scale").map(|v| v as f32),
+            cell_width: int_field(val, "cell_width")
+                .or_else(|| int_field(val, "cell-width"))
+                .map(|v| v.max(1) as u32),
+            cell_height: int_field(val, "cell_height")
+                .or_else(|| int_field(val, "cell-height"))
+                .map(|v| v.max(1) as u32),
             inline_style: str_field(val, "inline_style").or_else(|| str_field(val, "inline-style")),
             palette,
             grid: bool_field(val, "grid"),

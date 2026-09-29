@@ -238,12 +238,23 @@ impl PluginCommand for Charton {
             .map(|v| v.max(16) as u32)
             .or(cfg.height)
             .unwrap_or(600);
-        let scale = call
-            .get_flag::<f64>("scale")?
+        let scale_flag = call.get_flag::<f64>("scale")?;
+        // Remember whether the user chose a scale: inline fitting only kicks in
+        // when the resolution was left to us.
+        let scale_explicit = scale_flag.is_some() || cfg.scale.is_some();
+        let scale = scale_flag
             .map(|v| v as f32)
             .or(cfg.scale)
             .filter(|s| *s > 0.0)
             .unwrap_or(2.0);
+        let cell_w = cfg
+            .cell_width
+            .map(|v| v as usize)
+            .unwrap_or(render::DEFAULT_CELL_W);
+        let cell_h = cfg
+            .cell_height
+            .map(|v| v as usize)
+            .unwrap_or(render::DEFAULT_CELL_H);
         let palette = match &cfg.palette {
             Some(p) => Some(
                 config::to_color_palette(p)
@@ -378,8 +389,6 @@ impl PluginCommand for Charton {
         // 3b. Inline terminal rendering. Only safe when stdout is the terminal
         //     (local-socket mode); never in stdio mode.
         if can_inline {
-            let bytes = render::to_png(&chart)
-                .map_err(|e| LabeledError::new("PNG rendering failed").with_label(e, span))?;
             let (cols, rows) = terminal_size::terminal_size()
                 .map(|(w, h)| (w.0 as usize, h.0 as usize))
                 .unwrap_or((100, 30));
@@ -392,25 +401,49 @@ impl PluginCommand for Charton {
                 inline_style
             };
 
+            // Protocols that hand a bitmap to the terminal (iTerm2, Kitty,
+            // Sixel) look best when the raster already matches the terminal's
+            // pixel area: the terminal then scales little or not at all, which
+            // keeps text crisp and strokes even. Half-blocks are downsampled by
+            // us per cell, so they keep the full-resolution raster.
+            let terminal_sized = !scale_explicit
+                && matches!(
+                    style,
+                    render::InlineStyle::Iterm2 | render::InlineStyle::Kitty | render::InlineStyle::Sixel
+                );
+            let inline_chart = if terminal_sized {
+                let fitted = render::inline_scale(width, height, max_cols, max_rows, cell_w, cell_h);
+                chart.clone().with_scale_factor(fitted)
+            } else {
+                chart.clone()
+            };
+            let bytes = render::to_png(&inline_chart)
+                .map_err(|e| LabeledError::new("PNG rendering failed").with_label(e, span))?;
+
             let art = match style {
                 render::InlineStyle::Iterm2 => {
                     let (w, h) = render::png_dimensions(&bytes).map_err(|e| {
                         LabeledError::new("Inline rendering failed").with_label(e, span)
                     })?;
-                    let (c, r) = render::fit_cells(w, h, max_cols, max_rows);
+                    let (c, r) = render::fit_cells_with_cell(
+                        w, h, max_cols, max_rows, cell_w, cell_h,
+                    );
                     render::iterm2_image(&bytes, c, r)
                 }
                 render::InlineStyle::Kitty => {
                     let (w, h) = render::png_dimensions(&bytes).map_err(|e| {
                         LabeledError::new("Inline rendering failed").with_label(e, span)
                     })?;
-                    let (c, r) = render::fit_cells(w, h, max_cols, max_rows);
+                    let (c, r) = render::fit_cells_with_cell(
+                        w, h, max_cols, max_rows, cell_w, cell_h,
+                    );
                     render::kitty_image(&bytes, c, r)
                 }
-                render::InlineStyle::Sixel => render::sixel_image(&bytes, max_cols, max_rows)
-                    .map_err(|e| {
+                render::InlineStyle::Sixel => {
+                    render::sixel_image(&bytes, max_cols, max_rows, cell_w, cell_h).map_err(|e| {
                         LabeledError::new("Inline rendering failed").with_label(e, span)
-                    })?,
+                    })?
+                }
                 // `Auto` already resolved above; treat as the universal fallback.
                 render::InlineStyle::HalfBlock | render::InlineStyle::Auto => {
                     render::png_to_halfblock(&bytes, max_cols, max_rows).map_err(|e| {
@@ -913,7 +946,7 @@ fn parse_layers(
         return Ok(Vec::new());
     };
     let records = match value {
-        Value::List { vals, .. } => vals,
+        Value::List { vals, .. } => vals.into_owned(),
         other => vec![other],
     };
 

@@ -13,6 +13,43 @@ use charton::prelude::LayeredChart;
 use icy_sixel::{BackgroundMode, PixelAspectRatio, SixelImage};
 use std::io::Cursor;
 
+/// Assumed terminal cell size in device pixels, used to pick a raster
+/// resolution that matches what the terminal can actually show. Modern
+/// monospace fonts (~11-12pt at 96 DPI) land around 9x20; tune it with the
+/// `cell_width`/`cell_height` config keys. Rendering larger than the cell is
+/// safer than smaller, because downscaling looks better than upscaling.
+pub const DEFAULT_CELL_W: usize = 9;
+pub const DEFAULT_CELL_H: usize = 20;
+
+/// Cell size assumed for the half-block fallback. One character always covers a
+/// 1x2 block of pixels, so this ratio is fixed at 2:1 regardless of the font.
+const HALFBLOCK_CELL_W: usize = 8;
+const HALFBLOCK_CELL_H: usize = 16;
+
+/// Pick a raster scale factor so the chart's PNG is about as large as the
+/// terminal's display area (`max_cols * cell_w` by `max_rows * cell_h`).
+///
+/// Rendering at the display resolution avoids the heavy, non-integer downscale
+/// that terminals otherwise apply to a fixed-size image, which is what blurs
+/// text and makes horizontal and vertical strokes appear to differ in width.
+/// The chart's logical layout is unchanged; only the pixel density is fitted.
+pub fn inline_scale(
+    logical_w: u32,
+    logical_h: u32,
+    max_cols: usize,
+    max_rows: usize,
+    cell_w: usize,
+    cell_h: usize,
+) -> f32 {
+    let logical_w = logical_w.max(1) as f32;
+    let logical_h = logical_h.max(1) as f32;
+    let target_w = (max_cols.max(1) * cell_w.max(1)) as f32;
+    let target_h = (max_rows.max(1) * cell_h.max(1)) as f32;
+    (target_w / logical_w)
+        .min(target_h / logical_h)
+        .clamp(0.25, 8.0)
+}
+
 /// Which inline image protocol to use.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum InlineStyle {
@@ -109,17 +146,40 @@ pub fn png_dimensions(png_bytes: &[u8]) -> Result<(usize, usize), String> {
 /// A terminal cell is roughly twice as tall as it is wide, so one cell covers
 /// `1 x 2` square pixels.
 pub fn fit_cells(img_w: usize, img_h: usize, max_cols: usize, max_rows: usize) -> (usize, usize) {
+    fit_cells_with_cell(
+        img_w,
+        img_h,
+        max_cols,
+        max_rows,
+        HALFBLOCK_CELL_W,
+        HALFBLOCK_CELL_H,
+    )
+}
+
+/// Like [`fit_cells`], but for an explicit terminal cell size. Using the real
+/// cell aspect ratio keeps the display box the same shape as the image, so the
+/// terminal does not stretch it (which makes horizontal and vertical strokes
+/// appear to have different widths).
+pub fn fit_cells_with_cell(
+    img_w: usize,
+    img_h: usize,
+    max_cols: usize,
+    max_rows: usize,
+    cell_w: usize,
+    cell_h: usize,
+) -> (usize, usize) {
     let max_cols = max_cols.max(1);
     let max_rows = max_rows.max(1);
     if img_w == 0 || img_h == 0 {
         return (max_cols.min(1), max_rows.min(1));
     }
-    let aspect = img_w as f64 / img_h as f64;
+    // cols / rows such that (cols*cell_w) : (rows*cell_h) == img_w : img_h.
+    let ratio = (cell_h.max(1) as f64 / cell_w.max(1) as f64) * (img_w as f64 / img_h as f64);
     let mut rows = max_rows;
-    let mut cols = (rows as f64 * 2.0 * aspect).round() as usize;
+    let mut cols = (rows as f64 * ratio).round() as usize;
     if cols > max_cols {
         cols = max_cols;
-        rows = ((cols as f64 / (2.0 * aspect)).round() as usize).max(1);
+        rows = ((cols as f64 / ratio).round() as usize).max(1);
     }
     (cols.max(1), rows.max(1))
 }
@@ -170,15 +230,18 @@ pub fn kitty_image(png_bytes: &[u8], cols: usize, rows: usize) -> String {
 /// Sixel is a pixel protocol, so we downscale the bitmap to the target area
 /// first. Terminal cells are assumed to be a typical 8x16 device pixels; this
 /// is approximate, which is why Sixel is normally an explicit choice.
-pub fn sixel_image(png_bytes: &[u8], max_cols: usize, max_rows: usize) -> Result<String, String> {
-    const CELL_W: usize = 8;
-    const CELL_H: usize = 16;
-
+pub fn sixel_image(
+    png_bytes: &[u8],
+    max_cols: usize,
+    max_rows: usize,
+    cell_w: usize,
+    cell_h: usize,
+) -> Result<String, String> {
     let (w, h, rgba) = decode_png_rgba(png_bytes)?;
     if w == 0 || h == 0 {
         return Err("image has zero size".to_string());
     }
-    let (dw, dh) = fit_pixels(w, h, max_cols.max(1) * CELL_W, max_rows.max(1) * CELL_H);
+    let (dw, dh) = fit_pixels(w, h, max_cols.max(1) * cell_w.max(1), max_rows.max(1) * cell_h.max(1));
     let resized = resize_nearest_rgba(&rgba, w, h, dw, dh);
 
     let image = SixelImage::try_from_rgba(resized, dw, dh)
@@ -389,7 +452,7 @@ mod tests {
 
     #[test]
     fn sixel_frame_is_well_formed() {
-        let s = sixel_image(&tiny_png(), 40, 20).unwrap();
+        let s = sixel_image(&tiny_png(), 40, 20, 8, 16).unwrap();
         // DEC sixel DCS introducer and string terminator.
         assert!(s.starts_with("\u{1b}P"), "got {:?}", &s[..s.len().min(8)]);
         assert!(s.trim_end().ends_with("\u{1b}\\"));
@@ -408,10 +471,27 @@ mod tests {
     }
 
     #[test]
+    fn inline_scale_matches_terminal_area() {
+        // 119x28 cells at 8x16 px is 952x448 px. An 800x600 chart is
+        // height-bound, so the scale is 448/600.
+        let s = inline_scale(800, 600, 119, 28, 8, 16);
+        assert!((s - 448.0 / 600.0).abs() < 1e-6, "got {s}");
+        // A wide terminal lets the chart reach its full logical width.
+        let s = inline_scale(800, 600, 400, 100, 8, 16);
+        assert!(s > 2.0, "got {s}");
+        // Degenerate inputs never panic or return zero.
+        assert!(inline_scale(0, 0, 0, 0, 0, 0) > 0.0);
+    }
+
+    #[test]
     fn fit_preserves_aspect() {
         // 1000x500 (2:1) into 80x40 cells -> width-bound, 20 cells tall.
         assert_eq!(fit_cells(1000, 500, 80, 40), (80, 20));
         // Tall image (1:10) into 80x40 cells -> height-bound, 8 cells wide.
         assert_eq!(fit_cells(100, 1000, 80, 40), (8, 40));
+        // A square image with non-2:1 cells still yields a matching box.
+        let (c, r) = fit_cells_with_cell(600, 600, 80, 40, 8, 18);
+        let box_aspect = (c * 8) as f64 / (r * 18) as f64;
+        assert!((box_aspect - 1.0).abs() < 0.06, "{c}x{r} -> {box_aspect}");
     }
 }
