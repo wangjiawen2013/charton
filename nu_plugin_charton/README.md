@@ -36,7 +36,7 @@ charton -g geo --geojson world.geojson -c POP_EST -o world.png
 | `-c, --color` | column mapped to color/grouping (required for `rect`) |
 | `--y2` | upper-bound column for `errorbar`/`rule` (errorbar aggregates mean ± std without it) |
 | `--text` | label column for `-g text` |
-| `--layer` | extra layer(s): a record or list of records with `geom`/`x`/`y`/`y2`/`color`/`text`, plus optional `style` and `x_scale`/`y_scale` |
+| `--layer` | extra layer(s): a record or list of records with `geom`/`x`/`y`/`y2`/`color`/`text`/`size_by`/`shape_by`, plus optional `style`, `stack`, `x_scale`/`y_scale` |
 | `-o, --output` | save to `.svg` or `.png` (relative paths resolve against the shell cwd) |
 | `--geojson` | GeoJSON file to render with `-g geo` |
 | `--scale` | raster pixel scale factor (default 2.0) |
@@ -46,15 +46,24 @@ charton -g geo --geojson world.geojson -c POP_EST -o world.png
 | `--facet-strategy` | `fixed` (default) \| `free` |
 | `--x-label`, `--y-label`, `--color-label` | axis / legend labels |
 | `--x-scale`, `--y-scale` | axis scale: `linear` \| `log` \| `discrete` \| `temporal` |
+| `--stack`, `--normalize` | bar/area stacking (`none`/`stacked`/`normalize`/`center`) and value normalization |
+| `--size-by`, `--shape-by` | columns mapped to point size / shape (bubble & shape-coded scatter) |
+| `--size-label`, `--shape-label` | size / shape legend labels |
 | `--color-map` | continuous color map for `rect`/heatmap/density, e.g. `viridis`, `magma`, `ylgnbu` |
 | `--x-format`, `--y-format`, `--legend-format` | tick/legend label format: preset `compact`, or a record `{prefix, suffix, precision, compact, thousands, multiplier}` |
 | `--x-min`, `--x-max`, `--y-min`, `--y-max` | axis domain overrides (must be paired) |
 | `--flip` | swap the x and y axes |
+| `--coord` | coordinate system: `cartesian` (default) \| `polar` (geo via `-g geo`) |
+| `--inner-radius` | polar inner radius ratio 0.0-1.0 (donut charts) |
+| `--start-angle`, `--end-angle` | polar angular span in degrees (rose / nightingale charts) |
 | `--grid`, `--no-grid` | force grid lines on/off |
 | `--legend` | legend position: `left`/`right`/`top`/`bottom`/`none` |
 | `--theme` | color theme: `auto` (default) \| `light` \| `dark` |
 | `--x-angle` | x tick label angle in degrees |
 | `--mark-color`, `--opacity`, `--size`, `--stroke`, `--stroke-width` | mark-level styling |
+| `--mark-width` | mark band width fraction 0.0-1.0 (bar/box/point/errorbar) |
+| `--cap-length`, `--no-center` | errorbar cap length and center dot |
+| `--no-outliers`, `--outlier-size` | boxplot outlier visibility and size |
 | `--shape` | point shape: `circle`/`square`/`triangle`/`star`/`diamond`/`pentagon`/`hexagon`/`octagon` |
 | `--dash` | line dash pattern, e.g. `6,4` |
 | `--interpolation` | line interpolation: `linear`/`step`/`step-before` |
@@ -376,7 +385,11 @@ Sixel is only auto-selected when `TERM` advertises it; otherwise choose it with
 - [x] axis scales (`--x-scale`/`--y-scale`), continuous color maps
       (`--color-map`), and tick/legend formatting (`--x-format`/`--y-format`/
       `--legend-format`)
-- [x] per-layer `style` and `x_scale`/`y_scale` overrides in `--layer`
+- [x] polar coordinates (`--coord polar` + `--inner-radius`/`--start-angle`/
+      `--end-angle`) for pie/donut/rose/nightingale charts
+- [x] stacking (`--stack`/`--normalize`) and `size`/`shape` encoding channels
+      (`--size-by`/`--shape-by`)
+- [x] per-layer `style`, `stack`, and `x_scale`/`y_scale` overrides in `--layer`
 - [x] configuration via `$env.config.plugins.charton` (size, scale, palette,
       color map, legend, grid, x angle, background, inline style, theme)
 - [x] light/dark color themes (`--theme`, auto-detected from `COLORFGBG`)

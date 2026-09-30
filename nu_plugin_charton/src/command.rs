@@ -69,6 +69,41 @@ impl PluginCommand for Charton {
             .named("y-min", SyntaxShape::Number, "Override the y axis minimum", None)
             .named("y-max", SyntaxShape::Number, "Override the y axis maximum", None)
             .switch("flip", "Swap the x and y axes", None)
+            .named(
+                "coord",
+                SyntaxShape::String,
+                "Coordinate system: cartesian (default) | polar (geo via -g geo)",
+                None,
+            )
+            .named(
+                "inner-radius",
+                SyntaxShape::Number,
+                "Polar inner radius ratio 0.0-1.0 (donut charts)",
+                None,
+            )
+            .named(
+                "start-angle",
+                SyntaxShape::Number,
+                "Polar start angle in degrees (default 0)",
+                None,
+            )
+            .named(
+                "end-angle",
+                SyntaxShape::Number,
+                "Polar end angle in degrees (default 360)",
+                None,
+            )
+            .named(
+                "stack",
+                SyntaxShape::String,
+                "Bar/area stacking: none | stacked | normalize | center",
+                None,
+            )
+            .switch(
+                "normalize",
+                "Normalize y values (hist/bar) to proportions",
+                None,
+            )
             .switch("grid", "Show grid lines", None)
             .switch("no-grid", "Hide grid lines", None)
             .named(
@@ -94,6 +129,40 @@ impl PluginCommand for Charton {
                 "Stroke width for the mark",
                 None,
             )
+            .named(
+                "mark-width",
+                SyntaxShape::Number,
+                "Mark band width as a fraction 0.0-1.0 (bar/box/point/errorbar)",
+                None,
+            )
+            .named(
+                "cap-length",
+                SyntaxShape::Number,
+                "Errorbar cap length in pixels",
+                None,
+            )
+            .switch("no-center", "Hide the center dot of error bars", None)
+            .switch("no-outliers", "Hide boxplot outlier points", None)
+            .named(
+                "outlier-size",
+                SyntaxShape::Number,
+                "Boxplot outlier point size",
+                None,
+            )
+            .named(
+                "size-by",
+                SyntaxShape::String,
+                "Column mapped to point size (bubble charts; -g point/beeswarm)",
+                None,
+            )
+            .named(
+                "shape-by",
+                SyntaxShape::String,
+                "Column mapped to point shape (-g point/beeswarm)",
+                None,
+            )
+            .named("size-label", SyntaxShape::String, "Size legend label", None)
+            .named("shape-label", SyntaxShape::String, "Shape legend label", None)
             .named(
                 "shape",
                 SyntaxShape::String,
@@ -328,6 +397,19 @@ impl PluginCommand for Charton {
             weight: call.get_flag("weight")?,
             layout: call.get_flag("layout")?,
             quasirandom_method: call.get_flag("quasirandom-method")?,
+            mark_width: call.get_flag("mark-width")?,
+            cap_length: call.get_flag("cap-length")?,
+            center: if call.has_flag("no-center")? {
+                Some(false)
+            } else {
+                None
+            },
+            show_outliers: if call.has_flag("no-outliers")? {
+                Some(false)
+            } else {
+                None
+            },
+            outlier_size: call.get_flag("outlier-size")?,
         };
         let x_scale = call
             .get_flag::<String>("x-scale")?
@@ -359,6 +441,19 @@ impl PluginCommand for Charton {
         let background = call
             .get_flag::<String>("background")?
             .or_else(|| cfg.background.clone());
+        let coord = parse_coord(call.get_flag::<String>("coord")?, span)?;
+        let inner_radius = call.get_flag::<f64>("inner-radius")?;
+        let start_angle = call.get_flag::<f64>("start-angle")?;
+        let end_angle = call.get_flag::<f64>("end-angle")?;
+        let stack = match call.get_flag::<String>("stack")? {
+            Some(s) => Some(parse_stack(&s, span)?),
+            None => None,
+        };
+        let normalize = call.has_flag("normalize")?;
+        let size_by: Option<String> = call.get_flag("size-by")?;
+        let shape_by: Option<String> = call.get_flag("shape-by")?;
+        let size_label: Option<String> = call.get_flag("size-label")?;
+        let shape_label: Option<String> = call.get_flag("shape-label")?;
         let raw = call.has_flag("raw")?;
         let want_png = call.has_flag("png")?;
         let no_inline = call.has_flag("no-inline")?;
@@ -459,6 +554,10 @@ impl PluginCommand for Charton {
             style: style.clone(),
             x_scale,
             y_scale,
+            stack,
+            normalize,
+            size_by,
+            shape_by,
         };
         let layers = parse_layers(call.get_flag::<Value>("layer")?, &primary, span)?;
 
@@ -508,6 +607,12 @@ impl PluginCommand for Charton {
             x_format,
             y_format,
             legend_format,
+            coord,
+            inner_radius,
+            start_angle,
+            end_angle,
+            size_label: size_label.as_deref(),
+            shape_label: shape_label.as_deref(),
             theme,
             width,
             height,
@@ -644,6 +749,10 @@ struct LayerOpts {
     style: Style,
     x_scale: Option<Scale>,
     y_scale: Option<Scale>,
+    stack: Option<String>,
+    normalize: bool,
+    size_by: Option<String>,
+    shape_by: Option<String>,
 }
 
 struct BuildOpts<'a> {
@@ -667,6 +776,12 @@ struct BuildOpts<'a> {
     x_format: Option<LabelFormat>,
     y_format: Option<LabelFormat>,
     legend_format: Option<LabelFormat>,
+    coord: Option<CoordSystem>,
+    inner_radius: Option<f64>,
+    start_angle: Option<f64>,
+    end_angle: Option<f64>,
+    size_label: Option<&'a str>,
+    shape_label: Option<&'a str>,
     theme: ThemeMode,
     width: u32,
     height: u32,
@@ -691,6 +806,13 @@ struct Style {
     weight: Option<String>,
     layout: Option<String>,
     quasirandom_method: Option<String>,
+    mark_width: Option<f64>,
+    cap_length: Option<f64>,
+    /// `Some(false)` when `--no-center` is given; `None` keeps the default.
+    center: Option<bool>,
+    /// `Some(false)` when `--no-outliers` is given.
+    show_outliers: Option<bool>,
+    outlier_size: Option<f64>,
 }
 
 fn style_point(mut m: MarkPoint, s: &Style) -> MarkPoint {
@@ -717,6 +839,9 @@ fn style_point(mut m: MarkPoint, s: &Style) -> MarkPoint {
     }
     if let Some(method) = &s.quasirandom_method {
         m = m.with_quasirandom_method(method.as_str());
+    }
+    if let Some(w) = s.mark_width {
+        m = m.with_width(w);
     }
     m
 }
@@ -752,6 +877,9 @@ fn style_bar(mut m: MarkBar, s: &Style) -> MarkBar {
     }
     if let Some(w) = s.stroke_width {
         m = m.with_stroke_width(w);
+    }
+    if let Some(w) = s.mark_width {
+        m = m.with_width(w);
     }
     m
 }
@@ -803,6 +931,15 @@ fn style_boxplot(mut m: MarkBoxplot, s: &Style) -> MarkBoxplot {
     }
     if let Some(c) = &s.outlier_color {
         m = m.with_outlier_color(c.as_str());
+    }
+    if let Some(w) = s.mark_width {
+        m = m.with_width(w);
+    }
+    if let Some(show) = s.show_outliers {
+        m = m.with_outliers(show);
+    }
+    if let Some(size) = s.outlier_size {
+        m = m.with_outlier_size(size);
     }
     m
 }
@@ -864,6 +1001,15 @@ fn style_errorbar(mut m: MarkErrorBar, s: &Style) -> MarkErrorBar {
     }
     if let Some(w) = s.stroke_width {
         m = m.with_stroke_width(w);
+    }
+    if let Some(w) = s.mark_width {
+        m = m.with_width(w);
+    }
+    if let Some(l) = s.cap_length {
+        m = m.with_cap_length(l);
+    }
+    if let Some(show) = s.center {
+        m = m.with_center(show);
     }
     m
 }
@@ -956,27 +1102,54 @@ fn build_layer(
     let color = layer.color.as_deref();
     let style = &layer.style;
     let (x_scale, y_scale) = (layer.x_scale, layer.y_scale);
+    let stack = layer.stack.as_deref();
+    let normalize = layer.normalize;
+    let (size_by, shape_by) = (layer.size_by.as_deref(), layer.shape_by.as_deref());
 
-    // Encode `(x, y [, color])`, requiring both x and y. Mark styling is applied
-    // *before* `encode` so mark-dependent transforms see the final settings.
-    // Explicit `--x-scale`/`--y-scale` are attached to the encoders.
+    // X/Y encoders carry an explicit scale and, for bar/area/hist, stacking and
+    // normalization. Built fresh per call so the closures stay `Fn`.
+    let make_x = |field: &str| match x_scale {
+        Some(s) => alt::x(field).with_scale(s),
+        None => alt::x(field),
+    };
+    let make_y = |field: &str| {
+        let mut e = match y_scale {
+            Some(s) => alt::y(field).with_scale(s),
+            None => alt::y(field),
+        };
+        if let Some(mode) = stack {
+            e = e.with_stack(mode);
+        }
+        if normalize {
+            e = e.with_normalize(true);
+        }
+        e
+    };
+
+    // Encode x and y (both required), plus any of color/size/shape that were
+    // requested. Mark styling is applied *before* `encode` so mark-dependent
+    // transforms see the final settings.
     macro_rules! enc_xy_color {
         ($chart:expr) => {{
             let (x, y) = match (x, y) {
                 (Some(x), Some(y)) => (x, y),
                 _ => return Err(missing(geom, "both --x and --y", span)),
             };
-            let xe = match x_scale {
-                Some(s) => alt::x(x).with_scale(s),
-                None => alt::x(x),
-            };
-            let ye = match y_scale {
-                Some(s) => alt::y(y).with_scale(s),
-                None => alt::y(y),
-            };
-            match color {
-                Some(col) => $chart.encode((xe, ye, alt::color(col))),
-                None => $chart.encode((xe, ye)),
+            let xe = make_x(x);
+            let ye = make_y(y);
+            match (color, size_by, shape_by) {
+                (None, None, None) => $chart.encode((xe, ye)),
+                (Some(c), None, None) => $chart.encode((xe, ye, alt::color(c))),
+                (None, Some(sz), None) => $chart.encode((xe, ye, alt::size(sz))),
+                (None, None, Some(sh)) => $chart.encode((xe, ye, alt::shape(sh))),
+                (Some(c), Some(sz), None) => $chart.encode((xe, ye, alt::color(c), alt::size(sz))),
+                (Some(c), None, Some(sh)) => $chart.encode((xe, ye, alt::color(c), alt::shape(sh))),
+                (None, Some(sz), Some(sh)) => {
+                    $chart.encode((xe, ye, alt::size(sz), alt::shape(sh)))
+                }
+                (Some(c), Some(sz), Some(sh)) => {
+                    $chart.encode((xe, ye, alt::color(c), alt::size(sz), alt::shape(sh)))
+                }
             }
             .map_err(|e| chart_err(span, e))?
         }};
@@ -1093,14 +1266,8 @@ fn build_layer(
         "errorbar" => {
             let x = x.ok_or_else(|| missing(geom, "--x", span))?;
             let y = y.ok_or_else(|| missing(geom, "--y", span))?;
-            let xe = match x_scale {
-                Some(s) => alt::x(x).with_scale(s),
-                None => alt::x(x),
-            };
-            let ye = match y_scale {
-                Some(s) => alt::y(y).with_scale(s),
-                None => alt::y(y),
-            };
+            let xe = make_x(x);
+            let ye = make_y(y);
             let c = Chart::build(dataset)
                 .map_err(|e| chart_err(span, e))?
                 .mark_errorbar()
@@ -1119,16 +1286,13 @@ fn build_layer(
         }
         "hist" | "histogram" => {
             let x = x.ok_or_else(|| missing(geom, "--x", span))?;
-            let xe = match x_scale {
-                Some(s) => alt::x(x).with_scale(s),
-                None => alt::x(x),
-            };
+            let xe = make_x(x);
             let c = Chart::build(dataset)
                 .map_err(|e| chart_err(span, e))?
                 .mark_hist()
                 .map_err(|e| chart_err(span, e))?;
             // charton computes the bin counts into the y field named here.
-            c.encode((xe, alt::y("count")))
+            c.encode((xe, make_y("count")))
                 .map_err(|e| chart_err(span, e))?
                 .into()
         }
@@ -1189,6 +1353,13 @@ fn parse_layers(
         };
         let x_scale = scale_field("x_scale", "x-scale")?.or(primary.x_scale);
         let y_scale = scale_field("y_scale", "y-scale")?.or(primary.y_scale);
+        let stack = match field("stack") {
+            Some(s) => Some(parse_stack(&s, layer_span)?),
+            None => primary.stack.clone(),
+        };
+        let normalize = field("normalize")
+            .and_then(|s| s.parse::<bool>().ok())
+            .unwrap_or(primary.normalize);
         out.push(LayerOpts {
             geom: geom.to_lowercase(),
             x: field("x").or_else(|| primary.x.clone()),
@@ -1199,6 +1370,14 @@ fn parse_layers(
             style,
             x_scale,
             y_scale,
+            stack,
+            normalize,
+            size_by: field("size_by")
+                .or_else(|| field("size-by"))
+                .or_else(|| primary.size_by.clone()),
+            shape_by: field("shape_by")
+                .or_else(|| field("shape-by"))
+                .or_else(|| primary.shape_by.clone()),
         });
     }
     Ok(out)
@@ -1218,6 +1397,42 @@ fn parse_scale(spec: &str, span: Span) -> Result<Scale, LabeledError> {
             ));
         }
     })
+}
+
+/// Parse `--coord`. `cartesian` (and aliases) means the default, so it maps to
+/// `None` and is left untouched; `geo` is selected with `-g geo` instead.
+fn parse_coord(spec: Option<String>, span: Span) -> Result<Option<CoordSystem>, LabeledError> {
+    let Some(spec) = spec else {
+        return Ok(None);
+    };
+    Ok(match spec.trim().to_ascii_lowercase().as_str() {
+        "cartesian" | "cartesian2d" | "xy" => None,
+        "polar" => Some(CoordSystem::Polar),
+        other => {
+            return Err(LabeledError::new("Invalid coordinate system").with_label(
+                format!("unknown coord '{other}'; expected cartesian or polar"),
+                span,
+            ));
+        }
+    })
+}
+
+/// Validated `--stack` value, normalized to one of the four core [`StackMode`]
+/// spellings so it can be handed to `with_stack(&str)`.
+fn parse_stack(spec: &str, span: Span) -> Result<String, LabeledError> {
+    Ok(match spec.trim().to_ascii_lowercase().as_str() {
+        "none" | "grouped" | "identity" => "none",
+        "stacked" | "stack" => "stacked",
+        "normalize" | "normalized" | "percent" => "normalize",
+        "center" | "stream" | "streamgraph" => "center",
+        other => {
+            return Err(LabeledError::new("Invalid stack mode").with_label(
+                format!("unknown stack '{other}'; expected none, stacked, normalize, or center"),
+                span,
+            ));
+        }
+    }
+    .to_string())
 }
 
 /// Parse `--dash`, e.g. `"6,4"` or `"2 2"`, into an on/off pattern in pixels.
@@ -1407,6 +1622,12 @@ fn finish(layered: LayeredChart, opts: &BuildOpts<'_>) -> LayeredChart {
     if let Some(c) = opts.color_label {
         l = l.with_color_label(c);
     }
+    if let Some(s) = opts.size_label {
+        l = l.with_size_label(s);
+    }
+    if let Some(s) = opts.shape_label {
+        l = l.with_shape_label(s);
+    }
     if let Some((min, max)) = opts.x_domain {
         l = l.with_x_domain(min, max);
     }
@@ -1415,6 +1636,18 @@ fn finish(layered: LayeredChart, opts: &BuildOpts<'_>) -> LayeredChart {
     }
     if opts.flip {
         l = l.coord_flip();
+    }
+    if let Some(coord) = opts.coord {
+        l = l.with_coord(coord);
+    }
+    if let Some(r) = opts.inner_radius {
+        l = l.with_inner_radius(r);
+    }
+    if let Some(a) = opts.start_angle {
+        l = l.with_start_angle(a.to_radians());
+    }
+    if let Some(a) = opts.end_angle {
+        l = l.with_end_angle(a.to_radians());
     }
     if let Some(facet) = &opts.facet {
         l = l.facet(facet.clone());
@@ -1795,5 +2028,81 @@ mod tests {
             run("charton -g bar -x species -y petal_length --theme dark --background '#ff0000'")?;
         assert!(out.as_str()?.contains("rgba(255,0,0,1.000)"));
         Ok(())
+    }
+
+    #[test]
+    fn polar_charts_render() -> Result<(), ShellError> {
+        // Pie / rose: bar mark in a polar coordinate system.
+        let out = run("charton -g bar -x species -y petal_length --coord polar")?;
+        assert!(out.as_str()?.contains("<svg"));
+        // Donut adds an inner radius.
+        let out =
+            run("charton -g bar -x species -y petal_length --coord polar --inner-radius 0.5")?;
+        assert!(out.as_str()?.contains("<svg"));
+        // A partial angular span (rose / nightingale style).
+        let out = run(
+            "charton -g bar -x species -y petal_length --coord polar --start-angle 0 --end-angle 270",
+        )?;
+        assert!(out.as_str()?.contains("<svg"));
+        Ok(())
+    }
+
+    #[test]
+    fn invalid_coord_is_an_error() {
+        assert!(run("charton -g bar -x species -y petal_length --coord spherical").is_err());
+    }
+
+    #[test]
+    fn stacking_renders() -> Result<(), ShellError> {
+        let out = run("charton -g bar -x species -y petal_length -c grp --stack stacked")?;
+        assert!(out.as_str()?.contains("<svg"));
+        let out = run("charton -g area -x t -y petal_length -c grp --stack normalize")?;
+        assert!(out.as_str()?.contains("<svg"));
+        let out = run("charton -g bar -x species -y petal_length -c grp --normalize")?;
+        assert!(out.as_str()?.contains("<svg"));
+        Ok(())
+    }
+
+    #[test]
+    fn invalid_stack_is_an_error() {
+        assert!(run("charton -g bar -x species -y petal_length -c grp --stack wobble").is_err());
+    }
+
+    #[test]
+    fn mark_geometry_options_render() -> Result<(), ShellError> {
+        let out = run("charton -g bar -x species -y petal_length --mark-width 0.5")?;
+        assert!(out.as_str()?.contains("<svg"));
+        let out = run("charton -g errorbar -x t -y lo --y2 hi --cap-length 4 --no-center")?;
+        assert!(out.as_str()?.contains("<svg"));
+        let out =
+            run("charton -g boxplot -x species -y petal_length --no-outliers --outlier-size 3")?;
+        assert!(out.as_str()?.contains("<svg"));
+        Ok(())
+    }
+
+    #[test]
+    fn size_and_shape_encoding_render() -> Result<(), ShellError> {
+        let out = run(
+            "charton -g point -x t -y petal_length --size-by petal_length --size-label Weight",
+        )?;
+        assert!(out.as_str()?.contains("<svg"));
+        let out =
+            run("charton -g point -x t -y petal_length --shape-by species --shape-label Species")?;
+        assert!(out.as_str()?.contains("<svg"));
+        Ok(())
+    }
+
+    #[test]
+    fn unsupported_output_extension_is_an_error() {
+        let path = std::env::temp_dir().join("charton_test_output.pdf");
+        let arg = path.to_string_lossy().replace('\\', "/");
+        let res = run(&format!(
+            "charton -g bar -x species -y petal_length -o '{arg}'"
+        ));
+        let _ = std::fs::remove_file(&path);
+        assert!(
+            res.is_err(),
+            "a .pdf output must be rejected, not written as SVG"
+        );
     }
 }
