@@ -21,5 +21,10 @@ terminal_size = "0.4"
 
 icy_sixel = "0.7.0"
 
+[features]
+# Development-only diagnostic command (`charton-probe`). Off by default so it
+# does not appear in users' `help commands`.
+probe = []
+
 [dev-dependencies]
 nu-plugin-test-support = "=0.116"
