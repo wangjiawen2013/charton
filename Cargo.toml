@@ -1,3 +1,9 @@
+[workspace]
+members = [".", "nu_plugin_charton"]
+# Only build the core charton crate by default; the Nushell plugin pulls in the
+# heavy nu-plugin/nu-protocol dependency tree and is built explicitly with -p.
+default-members = ["."]
+
 [package]
 name = "charton"
 version = "0.6.4"
@@ -9,7 +15,8 @@ authors = ["Jiawen Wang <wangjiawen2013@163.com>"]
 
 # Exclude heavy files when uploading to crates.io
 exclude = [
-    "assets/wasm.gif"
+    "assets/wasm.gif",
+    "nu_plugin_charton",
 ]
 
 [features]
