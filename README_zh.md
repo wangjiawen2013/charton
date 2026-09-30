@@ -56,13 +56,13 @@ Charton 是一款高性能 Rust 绘图库，其声明式 API 灵感源自 [Altai
 
 ```toml
 [dependencies]
-charton = "0.6"                                            # 标准版 (单线程 + SVG 导出)
-charton = { version = "0.6", features = ["png"] }          # 纯后端光栅化渲染（仅 CPU 模式）
-charton = { version = "0.6", features = ["pdf"] }          # PDF 格式图表导出
-charton = { version = "0.6", features = ["wgpu", "png"] }  # 本地桌面端（GPU 加速 + PNG 导出）
-charton = { version = "0.6", features = ["wgpu"] }         # 网页浏览器（WebAssembly/Wasm 目标平台）
-charton = { version = "0.6", features = ["parallel"] }     # 多线程数据处理（基于 Rayon）
-charton = { version = "0.6", features = ["geo"] }          # 地理坐标支持
+charton = "0.7"                                            # 标准版 (单线程 + SVG 导出)
+charton = { version = "0.7", features = ["png"] }          # 纯后端光栅化渲染（仅 CPU 模式）
+charton = { version = "0.7", features = ["pdf"] }          # PDF 格式图表导出
+charton = { version = "0.7", features = ["wgpu", "png"] }  # 本地桌面端（GPU 加速 + PNG 导出）
+charton = { version = "0.7", features = ["wgpu"] }         # 网页浏览器（WebAssembly/Wasm 目标平台）
+charton = { version = "0.7", features = ["parallel"] }     # 多线程数据处理（基于 Rayon）
+charton = { version = "0.7", features = ["geo"] }          # 地理坐标支持
 ```
 
 ## 快速上手
@@ -78,6 +78,16 @@ let weight = vec![55.0, 62.0, 68.0, 75.0, 82.0];
 // 一行代码绘图
 chart!(height, weight)?.mark_point()?.encode((alt::x("height"), alt::y("weight")))?.save("out.svg")?;
 ```
+
+## Nushell
+
+Charton 自带一个 Nushell 插件 `nu_plugin_charton`，可以把任意管道表格直接画成图表——在终端内联显示，或保存为 SVG/PNG。表格直接转成 `Dataset`，无需 CSV 中转。
+
+```nu
+open iris.csv | charton -g scatter -x petal_length -y petal_width -c species
+```
+
+安装、flag 与配置见[插件 README](nu_plugin_charton/README.md)，概念说明见[《Nushell Plugin》章节](https://wangjiawen2013.github.io/charton/ecosystem/nushell.html)。
 
 ## 从宏到生产级 API
 虽然 `chart!` 宏在快速原型设计和书写简单脚本时非常方便，但在需要显式处理数据的生产环境中，建议使用底层的 `Chart::build` API。
