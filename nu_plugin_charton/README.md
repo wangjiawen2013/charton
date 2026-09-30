@@ -62,6 +62,24 @@ charton -g geo --geojson world.geojson -c POP_EST -o world.png
 Output precedence: inline (when the terminal supports it) → `-o` save →
 `--raw` data → SVG string.
 
+### Inline rendering over SSH
+
+The plugin picks an inline protocol from the environment. The terminal-specific
+variables (`TERM_PROGRAM`, `WEZTERM_*`, `KITTY_*`, ...) are **not forwarded by
+SSH by default**, but `TERM` always is. `auto` therefore also reads `TERM`, so a
+WezTerm/Kitty/Ghostty client is recognised on a remote server and the crisp
+image protocols are used instead of the half-block fallback (where text and
+thin axis lines degrade into coloured blocks).
+
+If your client is not detected (for example WezTerm configured with
+`term = "xterm-256color"`), force it either with the `CHARTON_INLINE_STYLE`
+environment variable, the `--inline-style` flag, or the plugin config:
+
+```nu
+$env.CHARTON_INLINE_STYLE = "iterm2"            # WezTerm / iTerm2
+$env.config.plugins.charton = { inline_style: kitty }
+```
+
 The `-g` names cover all **12 charton marks**; `beeswarm` is the `point` mark
 configured with a beeswarm layout, so it is not a separate mark. `scatter`,
 `box`, `label`, `heatmap`, `histogram`, and `geoshape` are aliases.
