@@ -827,8 +827,10 @@ impl PluginCommand for Charton {
     }
 }
 
-/// One chart layer. `x`/`color` default to the primary layer for `--layer`
-/// overlays when omitted.
+/// One chart layer: the mark to draw and the columns that feed it.
+///
+/// Only `geom` is required. When a `--layer` overlay omits a field, it falls
+/// back to the primary layer, so an overlay only states what it changes.
 struct LayerOpts {
     geom: String,
     x: Option<String>,
@@ -892,8 +894,11 @@ struct BuildOpts<'a> {
     span: Span,
 }
 
-/// Mark-level visual overrides applied to every layer where the mark supports
-/// them. Unsupported options are ignored for that mark (e.g. `--size` on bars).
+/// Mark-level visual overrides shared by every layer.
+///
+/// A mark applies the options it supports and ignores the rest, so the same
+/// style works across marks (for example `--size` on a bar). A `--layer` may
+/// carry its own style record, which is merged over this one.
 #[derive(Clone, Default)]
 struct Style {
     color: Option<String>,
@@ -1226,9 +1231,9 @@ fn build_layer(
         add: (0.0, 0.0),
     };
 
-    // X/Y encoders carry an explicit scale, binning, padding, and (for y)
-    // stacking, normalization and aggregation. Built fresh per call so the
-    // closures stay `Fn`.
+    // Build an x or y encoding from this layer's settings. The x encoder carries
+    // the axis scale, binning and padding; the y encoder additionally carries
+    // stacking, normalization and aggregation.
     let make_x = |field: &str| {
         let mut e = match x_scale {
             Some(s) => alt::x(field).with_scale(s),
@@ -1262,9 +1267,9 @@ fn build_layer(
         e
     };
 
-    // Encode x and y (both required), plus any of color/size/shape that were
-    // requested. Mark styling is applied *before* `encode` so mark-dependent
-    // transforms see the final settings.
+    // Encode x and y (both required) together with whichever of the
+    // color/size/shape channels this layer uses. Styling is applied to the mark
+    // before encoding, so mark-dependent transforms see the final settings.
     macro_rules! enc_xy_color {
         ($chart:expr) => {{
             let (x, y) = match (x, y) {
@@ -1584,7 +1589,7 @@ fn parse_layers(
     Ok(out)
 }
 
-/// Parse `--x-scale` / `--y-scale`.
+/// Parse `--x-scale` / `--y-scale`: `linear`, `log`, `discrete`, or `temporal`.
 fn parse_scale(spec: &str, span: Span) -> Result<Scale, LabeledError> {
     Ok(match spec.trim().to_ascii_lowercase().as_str() {
         "linear" | "lin" => Scale::Linear,
@@ -1600,8 +1605,8 @@ fn parse_scale(spec: &str, span: Span) -> Result<Scale, LabeledError> {
     })
 }
 
-/// Parse `--coord`. `cartesian` (and aliases) means the default, so it maps to
-/// `None` and is left untouched; `geo` is selected with `-g geo` instead.
+/// Parse `--coord`: `cartesian` (the default) or `polar`. Geographic charts are
+/// selected with `-g geo`, not with this flag.
 fn parse_coord(spec: Option<String>, span: Span) -> Result<Option<CoordSystem>, LabeledError> {
     let Some(spec) = spec else {
         return Ok(None);
@@ -1618,8 +1623,7 @@ fn parse_coord(spec: Option<String>, span: Span) -> Result<Option<CoordSystem>, 
     })
 }
 
-/// Validated `--stack` value, normalized to one of the four core [`StackMode`]
-/// spellings so it can be handed to `with_stack(&str)`.
+/// Parse `--stack`: `none`, `stacked`, `normalize`, or `center`.
 fn parse_stack(spec: &str, span: Span) -> Result<String, LabeledError> {
     Ok(match spec.trim().to_ascii_lowercase().as_str() {
         "none" | "grouped" | "identity" => "none",
@@ -1636,7 +1640,7 @@ fn parse_stack(spec: &str, span: Span) -> Result<String, LabeledError> {
     .to_string())
 }
 
-/// Validated `--aggregate` value, normalized to a core [`AggregateOp`] spelling.
+/// Parse `--aggregate`: `sum`, `mean`, `median`, `min`, `max`, or `count`.
 fn parse_aggregate(spec: &str, span: Span) -> Result<String, LabeledError> {
     let key = spec.trim().to_ascii_lowercase();
     match key.as_str() {
@@ -1648,7 +1652,7 @@ fn parse_aggregate(spec: &str, span: Span) -> Result<String, LabeledError> {
     }
 }
 
-/// Parse `--density-kernel`.
+/// Parse `--density-kernel`: `normal`, `epanechnikov`, or `uniform`.
 fn parse_kernel(spec: &str, span: Span) -> Result<KernelType, LabeledError> {
     Ok(match spec.trim().to_ascii_lowercase().as_str() {
         "normal" | "gaussian" | "gauss" => KernelType::Normal,
@@ -1663,7 +1667,7 @@ fn parse_kernel(spec: &str, span: Span) -> Result<KernelType, LabeledError> {
     })
 }
 
-/// Parse `--margins` as `top,right,bottom,left`.
+/// Parse `--margins` as four fractions: `top,right,bottom,left`.
 fn parse_margins(spec: &str, span: Span) -> Result<[f64; 4], LabeledError> {
     let parts: Result<Vec<f64>, _> = spec
         .split([',', ' '])
@@ -1684,7 +1688,7 @@ fn parse_margins(spec: &str, span: Span) -> Result<[f64; 4], LabeledError> {
     })
 }
 
-/// Parse `--x-ticks` / `--y-ticks` (a list, or a single number).
+/// Parse `--x-ticks` / `--y-ticks` from a list of numbers (or a single number).
 fn parse_ticks(value: Option<Value>, span: Span) -> Result<Option<Vec<f64>>, LabeledError> {
     let Some(value) = value else {
         return Ok(None);

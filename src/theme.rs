@@ -30,16 +30,15 @@ pub enum TitleFrame {
     Figure,
 }
 
-/// A ready-made light/dark color scheme for a [`Theme`].
+/// A ready-made light or dark color scheme for a [`Theme`].
 ///
-/// A mode only selects the *colors* used for the canvas, axes, grid, text and
-/// default palette. It deliberately leaves layout, typography and sizing alone,
-/// so switching modes never changes the structure of a chart.
+/// A mode chooses the colors of the canvas, axes, grid, text and default
+/// palette, and leaves layout, fonts and sizes untouched, so changing modes
+/// never changes the structure of a chart.
 ///
-/// The core library has no `System`/`Auto` variant on purpose: a library cannot
-/// know what background it will be shown on. Callers that do know (a CLI, a GUI
-/// host, the Nushell plugin) should detect the environment and pick [`Light`]
-/// or [`Dark`].
+/// There is no automatic mode: a library cannot know what background it will be
+/// shown on. Callers that do know (a CLI, a GUI, the Nushell plugin) detect the
+/// environment and pick [`Light`] or [`Dark`].
 ///
 /// [`Light`]: ThemeMode::Light
 /// [`Dark`]: ThemeMode::Dark
@@ -247,12 +246,11 @@ impl Theme {
         }
     }
 
-    /// Replaces this theme's colors with the given preset.
+    /// Switch to the given preset, replacing every color of this theme.
     ///
-    /// Layout and typography are preserved because both presets share the same
-    /// defaults, but any *color* customizations made before this call are
-    /// dropped, which is the point of switching modes. Apply user overrides
-    /// (palette, background, ...) after this call to layer them on top.
+    /// The presets differ only in color, so layout and typography are the same
+    /// either way. Per-chart overrides (palette, background, ...) should be
+    /// applied after this call so they win over the preset.
     pub fn with_mode(self, mode: ThemeMode) -> Self {
         match mode {
             ThemeMode::Light => Theme::light(),
