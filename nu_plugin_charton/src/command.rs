@@ -1470,18 +1470,18 @@ fn write_output(chart: &LayeredChart, path: &Path, span: Span) -> Result<(), Lab
         LabeledError::new("Failed to write output").with_label(e.to_string(), span)
     };
 
-    if path
-        .extension()
-        .and_then(|e| e.to_str())
-        .is_some_and(|e| e.eq_ignore_ascii_case("png"))
-    {
+    let ext = path.extension().and_then(|e| e.to_str()).unwrap_or("");
+    if ext.eq_ignore_ascii_case("png") {
         let bytes = render::to_png(chart)
             .map_err(|e| LabeledError::new("PNG rendering failed").with_label(e, span))?;
         std::fs::write(path, bytes).map_err(write_err)?;
-    } else {
+    } else if ext.is_empty() || ext.eq_ignore_ascii_case("svg") {
         let svg = render::to_svg(chart)
             .map_err(|e| LabeledError::new("SVG rendering failed").with_label(e, span))?;
         std::fs::write(path, svg).map_err(write_err)?;
+    } else {
+        return Err(LabeledError::new("Unsupported output format")
+            .with_label(format!("'.{ext}' is not supported; use .svg or .png"), span));
     }
     Ok(())
 }
