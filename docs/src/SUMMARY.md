@@ -66,5 +66,9 @@
 - [Integrating with Bevy](gui/bevy.md)
 - [Integrating with egui](gui/egui.md)
 
+# Ecosystem & Integrations
+- [The Nushell Plugin](ecosystem/nushell.md)
+- [Nushell Plugin Internals](ecosystem/nushell_internals.md)
+
 # Appendix
 - [Wgpu Text](appendix/wgpu_text.md)
