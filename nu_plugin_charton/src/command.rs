@@ -409,10 +409,13 @@ impl PluginCommand for Charton {
             let terminal_sized = !scale_explicit
                 && matches!(
                     style,
-                    render::InlineStyle::Iterm2 | render::InlineStyle::Kitty | render::InlineStyle::Sixel
+                    render::InlineStyle::Iterm2
+                        | render::InlineStyle::Kitty
+                        | render::InlineStyle::Sixel
                 );
             let inline_chart = if terminal_sized {
-                let fitted = render::inline_scale(width, height, max_cols, max_rows, cell_w, cell_h);
+                let fitted =
+                    render::inline_scale(width, height, max_cols, max_rows, cell_w, cell_h);
                 chart.clone().with_scale_factor(fitted)
             } else {
                 chart.clone()
@@ -425,25 +428,22 @@ impl PluginCommand for Charton {
                     let (w, h) = render::png_dimensions(&bytes).map_err(|e| {
                         LabeledError::new("Inline rendering failed").with_label(e, span)
                     })?;
-                    let (c, r) = render::fit_cells_with_cell(
-                        w, h, max_cols, max_rows, cell_w, cell_h,
-                    );
+                    let (c, r) =
+                        render::fit_cells_with_cell(w, h, max_cols, max_rows, cell_w, cell_h);
                     render::iterm2_image(&bytes, c, r)
                 }
                 render::InlineStyle::Kitty => {
                     let (w, h) = render::png_dimensions(&bytes).map_err(|e| {
                         LabeledError::new("Inline rendering failed").with_label(e, span)
                     })?;
-                    let (c, r) = render::fit_cells_with_cell(
-                        w, h, max_cols, max_rows, cell_w, cell_h,
-                    );
+                    let (c, r) =
+                        render::fit_cells_with_cell(w, h, max_cols, max_rows, cell_w, cell_h);
                     render::kitty_image(&bytes, c, r)
                 }
-                render::InlineStyle::Sixel => {
-                    render::sixel_image(&bytes, max_cols, max_rows, cell_w, cell_h).map_err(|e| {
-                        LabeledError::new("Inline rendering failed").with_label(e, span)
-                    })?
-                }
+                render::InlineStyle::Sixel => render::sixel_image(
+                    &bytes, max_cols, max_rows, cell_w, cell_h,
+                )
+                .map_err(|e| LabeledError::new("Inline rendering failed").with_label(e, span))?,
                 // `Auto` already resolved above; treat as the universal fallback.
                 render::InlineStyle::HalfBlock | render::InlineStyle::Auto => {
                     render::png_to_halfblock(&bytes, max_cols, max_rows).map_err(|e| {
