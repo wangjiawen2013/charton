@@ -36,7 +36,7 @@ charton -g geo --geojson world.geojson -c POP_EST -o world.png
 | `-c, --color` | column mapped to color/grouping (required for `rect`) |
 | `--y2` | upper-bound column for `errorbar`/`rule` (errorbar aggregates mean ± std without it) |
 | `--text` | label column for `-g text` |
-| `--layer` | extra layer(s): a record or list of records with `geom`/`x`/`y`/`y2`/`color`/`text` |
+| `--layer` | extra layer(s): a record or list of records with `geom`/`x`/`y`/`y2`/`color`/`text`, plus optional `style` and `x_scale`/`y_scale` |
 | `-o, --output` | save to `.svg` or `.png` (relative paths resolve against the shell cwd) |
 | `--geojson` | GeoJSON file to render with `-g geo` |
 | `--scale` | raster pixel scale factor (default 2.0) |
@@ -45,12 +45,23 @@ charton -g geo --geojson world.geojson -c POP_EST -o world.png
 | `--facet-row`, `--facet-col` | two-field facet grid |
 | `--facet-strategy` | `fixed` (default) \| `free` |
 | `--x-label`, `--y-label`, `--color-label` | axis / legend labels |
+| `--x-scale`, `--y-scale` | axis scale: `linear` \| `log` \| `discrete` \| `temporal` |
+| `--color-map` | continuous color map for `rect`/heatmap/density, e.g. `viridis`, `magma`, `ylgnbu` |
+| `--x-format`, `--y-format`, `--legend-format` | tick/legend label format: preset `compact`, or a record `{prefix, suffix, precision, compact, thousands, multiplier}` |
 | `--x-min`, `--x-max`, `--y-min`, `--y-max` | axis domain overrides (must be paired) |
 | `--flip` | swap the x and y axes |
 | `--grid`, `--no-grid` | force grid lines on/off |
 | `--legend` | legend position: `left`/`right`/`top`/`bottom`/`none` |
+| `--theme` | color theme: `auto` (default) \| `light` \| `dark` |
 | `--x-angle` | x tick label angle in degrees |
 | `--mark-color`, `--opacity`, `--size`, `--stroke`, `--stroke-width` | mark-level styling |
+| `--shape` | point shape: `circle`/`square`/`triangle`/`star`/`diamond`/`pentagon`/`hexagon`/`octagon` |
+| `--dash` | line dash pattern, e.g. `6,4` |
+| `--interpolation` | line interpolation: `linear`/`step`/`step-before` |
+| `--outlier-color` | outlier color for `-g boxplot` |
+| `--anchor`, `--weight` | text anchor (`start`/`middle`/`end`) and font weight (`normal`/`bold`/`100..900`) |
+| `--layout`, `--quasirandom-method` | point layout (`standard`/`jitter`/`beeswarm`/`quasirandom`) and its pairing method |
+| `--background` | chart background color (overrides `--theme`) |
 | `-t, --title` | chart title |
 | `--width`, `--height` | pixel canvas size (default 800x600) |
 | `--raw` | return the image instead of drawing inline |
@@ -153,6 +164,8 @@ $env.config.plugins.charton = {
 | `legend` | string | `left`/`right`/`top`/`bottom`/`none` |
 | `x_angle` | float | x tick label angle |
 | `background` | string | chart background color |
+| `theme` | string | color theme: `auto`/`light`/`dark` |
+| `color_map` | string | continuous color map, e.g. `viridis`/`magma`/`ylgnbu` |
 
 ## Workspace
 
@@ -165,6 +178,8 @@ the core `charton` crate and does **not** pull in the heavy
 cargo build                          # core library only (fast)
 cargo build -p nu_plugin_charton --release
 cargo test  -p nu_plugin_charton
+# Development-only diagnostic command `charton-probe` (off by default):
+cargo build -p nu_plugin_charton --release --features probe
 ```
 
 ## Installation
@@ -356,9 +371,16 @@ Sixel is only auto-selected when `TERM` advertises it; otherwise choose it with
 - [x] faceting: `--facet-wrap` and `--facet-row`/`--facet-col` grid
 - [x] axis labels, domain overrides, `--flip`, legend/grid overrides, and
       mark-level styling (`--mark-color`/`--opacity`/`--size`/`--stroke`/
-      `--stroke-width`)
+      `--stroke-width`/`--shape`/`--dash`/`--interpolation`/`--outlier-color`/
+      `--anchor`/`--weight`)
+- [x] axis scales (`--x-scale`/`--y-scale`), continuous color maps
+      (`--color-map`), and tick/legend formatting (`--x-format`/`--y-format`/
+      `--legend-format`)
+- [x] per-layer `style` and `x_scale`/`y_scale` overrides in `--layer`
 - [x] configuration via `$env.config.plugins.charton` (size, scale, palette,
-      legend, grid, x angle, background, inline style)
-- [x] unit tests via `nu-plugin-test-support`
+      color map, legend, grid, x angle, background, inline style, theme)
+- [x] light/dark color themes (`--theme`, auto-detected from `COLORFGBG`)
+- [x] unit tests via `nu-plugin-test-support` (with unknown config-key warnings)
 
-Planned: theme presets, heatmap color maps, companion label/annotation marks.
+Planned: companion label/annotation marks, a native ANSI terminal backend
+(crisp text without going through a raster image).

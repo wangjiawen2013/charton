@@ -6,13 +6,13 @@ use std::path::Path;
 
 use charton::error::ChartonError;
 use charton::prelude::{
-    Chart, ColorPalette, CoordSystem, Dataset, FacetSpec, IntoLayered, LayeredChart, MarkArea,
-    MarkBar, MarkBoxplot, MarkErrorBar, MarkLine, MarkPoint, MarkRect, MarkRule, MarkText,
-    MarkTick, alt, geojson_to_dataset,
+    Chart, ColorMap, ColorPalette, CoordSystem, Dataset, FacetSpec, IntoLayered, LabelFormat,
+    LayeredChart, MarkArea, MarkBar, MarkBoxplot, MarkErrorBar, MarkLine, MarkPoint, MarkRect,
+    MarkRule, MarkText, MarkTick, Scale, ThemeMode, alt, geojson_to_dataset,
 };
 use nu_plugin::{EngineInterface, EvaluatedCall, PluginCommand};
 use nu_protocol::{
-    IntoPipelineData, LabeledError, PipelineData, Signature, Span, SyntaxShape, Type, Value,
+    IntoPipelineData, LabeledError, PipelineData, Record, Signature, Span, SyntaxShape, Type, Value,
 };
 
 use crate::ChartonPlugin;
@@ -77,6 +77,12 @@ impl PluginCommand for Charton {
                 "Legend position: left | right | top | bottom | none",
                 None,
             )
+            .named(
+                "theme",
+                SyntaxShape::String,
+                "Color theme: auto | light | dark (default auto)",
+                None,
+            )
             .named("x-angle", SyntaxShape::Number, "X tick label angle in degrees", None)
             .named("mark-color", SyntaxShape::String, "Fixed color for the mark", None)
             .named("opacity", SyntaxShape::Number, "Mark opacity 0.0-1.0", None)
@@ -86,6 +92,96 @@ impl PluginCommand for Charton {
                 "stroke-width",
                 SyntaxShape::Number,
                 "Stroke width for the mark",
+                None,
+            )
+            .named(
+                "shape",
+                SyntaxShape::String,
+                "Point shape: circle | square | triangle | star | diamond | pentagon | hexagon | octagon",
+                None,
+            )
+            .named(
+                "dash",
+                SyntaxShape::String,
+                "Dash pattern for lines, e.g. '6,4' (on, off) in pixels",
+                None,
+            )
+            .named(
+                "interpolation",
+                SyntaxShape::String,
+                "Line interpolation: linear | step | step-before | monotone",
+                None,
+            )
+            .named(
+                "outlier-color",
+                SyntaxShape::String,
+                "Outlier point color for -g boxplot",
+                None,
+            )
+            .named(
+                "anchor",
+                SyntaxShape::String,
+                "Text horizontal anchor: start | middle | end",
+                None,
+            )
+            .named(
+                "weight",
+                SyntaxShape::String,
+                "Text font weight: normal | bold | 100..900",
+                None,
+            )
+            .named(
+                "layout",
+                SyntaxShape::String,
+                "Point layout: standard | jitter | beeswarm | quasirandom",
+                None,
+            )
+            .named(
+                "quasirandom-method",
+                SyntaxShape::String,
+                "Quasirandom pairing: tukey | pseudorandom",
+                None,
+            )
+            .named(
+                "x-scale",
+                SyntaxShape::String,
+                "X axis scale: linear | log | discrete | temporal",
+                None,
+            )
+            .named(
+                "y-scale",
+                SyntaxShape::String,
+                "Y axis scale: linear | log | discrete | temporal",
+                None,
+            )
+            .named(
+                "color-map",
+                SyntaxShape::String,
+                "Continuous color map, e.g. viridis | magma | ylgnbu",
+                None,
+            )
+            .named(
+                "x-format",
+                SyntaxShape::Any,
+                "X tick label format: a preset like 'compact' or a record {prefix, suffix, precision, compact, thousands, multiplier}",
+                None,
+            )
+            .named(
+                "y-format",
+                SyntaxShape::Any,
+                "Y tick label format (same forms as --x-format)",
+                None,
+            )
+            .named(
+                "legend-format",
+                SyntaxShape::Any,
+                "Legend/colorbar label format (same forms as --x-format)",
+                None,
+            )
+            .named(
+                "background",
+                SyntaxShape::String,
+                "Chart background color (overrides --theme)",
                 None,
             )
             .named(
@@ -221,7 +317,48 @@ impl PluginCommand for Charton {
             size: call.get_flag::<f64>("size")?,
             stroke: call.get_flag("stroke")?,
             stroke_width: call.get_flag::<f64>("stroke-width")?,
+            shape: call.get_flag("shape")?,
+            dash: call
+                .get_flag::<String>("dash")?
+                .map(|s| parse_dash(&s, span))
+                .transpose()?,
+            interpolation: call.get_flag("interpolation")?,
+            outlier_color: call.get_flag("outlier-color")?,
+            anchor: call.get_flag("anchor")?,
+            weight: call.get_flag("weight")?,
+            layout: call.get_flag("layout")?,
+            quasirandom_method: call.get_flag("quasirandom-method")?,
         };
+        let x_scale = call
+            .get_flag::<String>("x-scale")?
+            .map(|s| parse_scale(&s, span))
+            .transpose()?;
+        let y_scale = call
+            .get_flag::<String>("y-scale")?
+            .map(|s| parse_scale(&s, span))
+            .transpose()?;
+        let color_map = match call.get_flag::<String>("color-map")? {
+            Some(name) => Some(
+                config::to_color_map(&name)
+                    .map_err(|e| LabeledError::new("Invalid color map").with_label(e, span))?,
+            ),
+            None => cfg.color_map,
+        };
+        let x_format = call
+            .get_flag::<Value>("x-format")?
+            .map(|v| parse_label_format(&v, span))
+            .transpose()?;
+        let y_format = call
+            .get_flag::<Value>("y-format")?
+            .map(|v| parse_label_format(&v, span))
+            .transpose()?;
+        let legend_format = call
+            .get_flag::<Value>("legend-format")?
+            .map(|v| parse_label_format(&v, span))
+            .transpose()?;
+        let background = call
+            .get_flag::<String>("background")?
+            .or_else(|| cfg.background.clone());
         let raw = call.has_flag("raw")?;
         let want_png = call.has_flag("png")?;
         let no_inline = call.has_flag("no-inline")?;
@@ -319,6 +456,9 @@ impl PluginCommand for Charton {
             y2: y2.clone(),
             color: color.clone(),
             text: text.clone(),
+            style: style.clone(),
+            x_scale,
+            y_scale,
         };
         let layers = parse_layers(call.get_flag::<Value>("layer")?, &primary, span)?;
 
@@ -340,12 +480,16 @@ impl PluginCommand for Charton {
             ),
             None => cfg.legend,
         };
+        let theme = resolve_theme(
+            call.get_flag::<String>("theme")?
+                .or_else(|| cfg.theme.clone()),
+            span,
+        )?;
 
         // 3. Build the (layered) chart.
         let opts = BuildOpts {
             primary,
             layers,
-            style,
             title: title.as_deref(),
             x_label: x_label.as_deref(),
             y_label: y_label.as_deref(),
@@ -359,7 +503,12 @@ impl PluginCommand for Charton {
             palette,
             legend,
             x_angle: x_angle_flag.or(cfg.x_angle),
-            background: cfg.background.clone(),
+            background,
+            color_map,
+            x_format,
+            y_format,
+            legend_format,
+            theme,
             width,
             height,
             scale,
@@ -490,12 +639,16 @@ struct LayerOpts {
     y2: Option<String>,
     color: Option<String>,
     text: Option<String>,
+    /// Style for this layer. Extra layers inherit the primary's unless the
+    /// layer record carries its own `style` record.
+    style: Style,
+    x_scale: Option<Scale>,
+    y_scale: Option<Scale>,
 }
 
 struct BuildOpts<'a> {
     primary: LayerOpts,
     layers: Vec<LayerOpts>,
-    style: Style,
     title: Option<&'a str>,
     x_label: Option<&'a str>,
     y_label: Option<&'a str>,
@@ -510,6 +663,11 @@ struct BuildOpts<'a> {
     legend: Option<LegendSetting>,
     x_angle: Option<f64>,
     background: Option<String>,
+    color_map: Option<ColorMap>,
+    x_format: Option<LabelFormat>,
+    y_format: Option<LabelFormat>,
+    legend_format: Option<LabelFormat>,
+    theme: ThemeMode,
     width: u32,
     height: u32,
     scale: f32,
@@ -525,6 +683,14 @@ struct Style {
     size: Option<f64>,
     stroke: Option<String>,
     stroke_width: Option<f64>,
+    shape: Option<String>,
+    dash: Option<Vec<f64>>,
+    interpolation: Option<String>,
+    outlier_color: Option<String>,
+    anchor: Option<String>,
+    weight: Option<String>,
+    layout: Option<String>,
+    quasirandom_method: Option<String>,
 }
 
 fn style_point(mut m: MarkPoint, s: &Style) -> MarkPoint {
@@ -543,6 +709,15 @@ fn style_point(mut m: MarkPoint, s: &Style) -> MarkPoint {
     if let Some(w) = s.stroke_width {
         m = m.with_stroke_width(w);
     }
+    if let Some(shape) = &s.shape {
+        m = m.with_shape(shape.as_str());
+    }
+    if let Some(layout) = &s.layout {
+        m = m.with_layout(layout.as_str());
+    }
+    if let Some(method) = &s.quasirandom_method {
+        m = m.with_quasirandom_method(method.as_str());
+    }
     m
 }
 
@@ -555,6 +730,12 @@ fn style_line(mut m: MarkLine, s: &Style) -> MarkLine {
     }
     if let Some(w) = s.stroke_width {
         m = m.with_stroke_width(w);
+    }
+    if let Some(dash) = &s.dash {
+        m = m.with_dash(dash.clone());
+    }
+    if let Some(interpolation) = &s.interpolation {
+        m = m.with_interpolation(interpolation.as_str());
     }
     m
 }
@@ -620,6 +801,9 @@ fn style_boxplot(mut m: MarkBoxplot, s: &Style) -> MarkBoxplot {
     if let Some(w) = s.stroke_width {
         m = m.with_stroke_width(w);
     }
+    if let Some(c) = &s.outlier_color {
+        m = m.with_outlier_color(c.as_str());
+    }
     m
 }
 
@@ -648,6 +832,12 @@ fn style_text(mut m: MarkText, s: &Style) -> MarkText {
     }
     if let Some(v) = s.size {
         m = m.with_size(v);
+    }
+    if let Some(anchor) = &s.anchor {
+        m = m.with_anchor(anchor.as_str());
+    }
+    if let Some(weight) = &s.weight {
+        m = m.with_weight(weight.as_str());
     }
     m
 }
@@ -747,9 +937,9 @@ fn build_chart(values: &[Value], opts: &BuildOpts<'_>) -> Result<LayeredChart, L
     let table = Table::from_values(values, span)?;
     let dataset = table.to_dataset()?;
 
-    let mut layered = build_layer(dataset.clone(), &opts.primary, &opts.style, span)?;
+    let mut layered = build_layer(dataset.clone(), &opts.primary, span)?;
     for extra in &opts.layers {
-        layered = layered.and(build_layer(dataset.clone(), extra, &opts.style, span)?);
+        layered = layered.and(build_layer(dataset.clone(), extra, span)?);
     }
     Ok(finish(layered, opts))
 }
@@ -759,26 +949,37 @@ fn build_chart(values: &[Value], opts: &BuildOpts<'_>) -> Result<LayeredChart, L
 fn build_layer(
     dataset: Dataset,
     layer: &LayerOpts,
-    style: &Style,
     span: Span,
 ) -> Result<LayeredChart, LabeledError> {
     let geom = layer.geom.as_str();
     let (x, y, y2) = (layer.x.as_deref(), layer.y.as_deref(), layer.y2.as_deref());
     let color = layer.color.as_deref();
+    let style = &layer.style;
+    let (x_scale, y_scale) = (layer.x_scale, layer.y_scale);
 
     // Encode `(x, y [, color])`, requiring both x and y. Mark styling is applied
     // *before* `encode` so mark-dependent transforms see the final settings.
+    // Explicit `--x-scale`/`--y-scale` are attached to the encoders.
     macro_rules! enc_xy_color {
-        ($chart:expr) => {
-            match (x, y, color) {
-                (Some(x), Some(y), Some(col)) => {
-                    $chart.encode((alt::x(x), alt::y(y), alt::color(col)))
-                }
-                (Some(x), Some(y), None) => $chart.encode((alt::x(x), alt::y(y))),
+        ($chart:expr) => {{
+            let (x, y) = match (x, y) {
+                (Some(x), Some(y)) => (x, y),
                 _ => return Err(missing(geom, "both --x and --y", span)),
+            };
+            let xe = match x_scale {
+                Some(s) => alt::x(x).with_scale(s),
+                None => alt::x(x),
+            };
+            let ye = match y_scale {
+                Some(s) => alt::y(y).with_scale(s),
+                None => alt::y(y),
+            };
+            match color {
+                Some(col) => $chart.encode((xe, ye, alt::color(col))),
+                None => $chart.encode((xe, ye)),
             }
             .map_err(|e| chart_err(span, e))?
-        };
+        }};
     }
 
     let layered: LayeredChart = match geom {
@@ -892,6 +1093,14 @@ fn build_layer(
         "errorbar" => {
             let x = x.ok_or_else(|| missing(geom, "--x", span))?;
             let y = y.ok_or_else(|| missing(geom, "--y", span))?;
+            let xe = match x_scale {
+                Some(s) => alt::x(x).with_scale(s),
+                None => alt::x(x),
+            };
+            let ye = match y_scale {
+                Some(s) => alt::y(y).with_scale(s),
+                None => alt::y(y),
+            };
             let c = Chart::build(dataset)
                 .map_err(|e| chart_err(span, e))?
                 .mark_errorbar()
@@ -900,24 +1109,26 @@ fn build_layer(
             // With --y2: explicit min/max columns. Without: charton aggregates
             // the raw y values per group into mean +/- std.
             let c = match (y2, color) {
-                (Some(y2), Some(col)) => {
-                    c.encode((alt::x(x), alt::y(y), alt::y2(y2), alt::color(col)))
-                }
-                (Some(y2), None) => c.encode((alt::x(x), alt::y(y), alt::y2(y2))),
-                (None, Some(col)) => c.encode((alt::x(x), alt::y(y), alt::color(col))),
-                (None, None) => c.encode((alt::x(x), alt::y(y))),
+                (Some(y2), Some(col)) => c.encode((xe, ye, alt::y2(y2), alt::color(col))),
+                (Some(y2), None) => c.encode((xe, ye, alt::y2(y2))),
+                (None, Some(col)) => c.encode((xe, ye, alt::color(col))),
+                (None, None) => c.encode((xe, ye)),
             }
             .map_err(|e| chart_err(span, e))?;
             c.into()
         }
         "hist" | "histogram" => {
             let x = x.ok_or_else(|| missing(geom, "--x", span))?;
+            let xe = match x_scale {
+                Some(s) => alt::x(x).with_scale(s),
+                None => alt::x(x),
+            };
             let c = Chart::build(dataset)
                 .map_err(|e| chart_err(span, e))?
                 .mark_hist()
                 .map_err(|e| chart_err(span, e))?;
             // charton computes the bin counts into the y field named here.
-            c.encode((alt::x(x), alt::y("count")))
+            c.encode((xe, alt::y("count")))
                 .map_err(|e| chart_err(span, e))?
                 .into()
         }
@@ -952,15 +1163,32 @@ fn parse_layers(
 
     let mut out = Vec::with_capacity(records.len());
     for (i, record) in records.into_iter().enumerate() {
+        let layer_span = record.span();
         let Value::Record { val, .. } = &record else {
             return Err(LabeledError::new("Invalid layer")
-                .with_label(format!("layer {i} must be a record"), record.span()));
+                .with_label(format!("layer {i} must be a record"), layer_span));
         };
         let field = |k: &str| val.get(k).and_then(|v| v.as_str().ok().map(str::to_string));
         let geom = field("geom").or_else(|| field("mark")).ok_or_else(|| {
             LabeledError::new("Invalid layer")
                 .with_label(format!("layer {i} is missing `geom`"), span)
         })?;
+        // A layer may carry its own style record and axis scales; otherwise it
+        // inherits the primary layer's.
+        let style = match val.get("style") {
+            Some(Value::Record { val: style_rec, .. }) => {
+                parse_style_record(style_rec, &primary.style, layer_span)?
+            }
+            _ => primary.style.clone(),
+        };
+        let scale_field = |k: &str, legacy: &str| -> Result<Option<Scale>, LabeledError> {
+            match field(k).or_else(|| field(legacy)) {
+                Some(s) => Ok(Some(parse_scale(&s, layer_span)?)),
+                None => Ok(None),
+            }
+        };
+        let x_scale = scale_field("x_scale", "x-scale")?.or(primary.x_scale);
+        let y_scale = scale_field("y_scale", "y-scale")?.or(primary.y_scale);
         out.push(LayerOpts {
             geom: geom.to_lowercase(),
             x: field("x").or_else(|| primary.x.clone()),
@@ -968,9 +1196,199 @@ fn parse_layers(
             y2: field("y2").or_else(|| primary.y2.clone()),
             color: field("color").or_else(|| primary.color.clone()),
             text: field("text").or_else(|| primary.text.clone()),
+            style,
+            x_scale,
+            y_scale,
         });
     }
     Ok(out)
+}
+
+/// Parse `--x-scale` / `--y-scale`.
+fn parse_scale(spec: &str, span: Span) -> Result<Scale, LabeledError> {
+    Ok(match spec.trim().to_ascii_lowercase().as_str() {
+        "linear" | "lin" => Scale::Linear,
+        "log" | "log10" | "logarithmic" => Scale::Log,
+        "discrete" | "category" | "categorical" => Scale::Discrete,
+        "temporal" | "time" | "date" | "datetime" => Scale::Temporal,
+        other => {
+            return Err(LabeledError::new("Invalid axis scale").with_label(
+                format!("unknown scale '{other}'; expected linear, log, discrete, or temporal"),
+                span,
+            ));
+        }
+    })
+}
+
+/// Parse `--dash`, e.g. `"6,4"` or `"2 2"`, into an on/off pattern in pixels.
+fn parse_dash(spec: &str, span: Span) -> Result<Vec<f64>, LabeledError> {
+    let parts: Result<Vec<f64>, _> = spec
+        .split([',', ' '])
+        .filter(|p| !p.trim().is_empty())
+        .map(|p| p.trim().parse::<f64>())
+        .collect();
+    let parts = parts.map_err(|_| {
+        LabeledError::new("Invalid dash pattern").with_label(
+            format!("'{spec}' is not a list of numbers; try '6,4'"),
+            span,
+        )
+    })?;
+    if parts.is_empty() || parts.iter().any(|v| !v.is_finite() || *v < 0.0) {
+        return Err(LabeledError::new("Invalid dash pattern").with_label(
+            format!("'{spec}' must contain non-negative numbers; try '6,4'"),
+            span,
+        ));
+    }
+    Ok(parts)
+}
+
+/// Parse `--x-format` / `--y-format` / `--legend-format`.
+///
+/// Accepts the preset string `compact` (or `plain`), or a record such as
+/// `{prefix: "$", compact: true, precision: 0}`.
+fn parse_label_format(value: &Value, span: Span) -> Result<LabelFormat, LabeledError> {
+    let bad = |msg: String| LabeledError::new("Invalid label format").with_label(msg, span);
+    match value {
+        Value::String { val, .. } => match val.trim().to_ascii_lowercase().as_str() {
+            "compact" | "short" => Ok(LabelFormat::new().with_compact_notation()),
+            "plain" | "none" | "default" => Ok(LabelFormat::new()),
+            other => Err(bad(format!(
+                "unknown format preset '{other}'; use 'compact' or a record like \
+                 {{compact: true, prefix: \"$\"}}"
+            ))),
+        },
+        Value::Record { val, .. } => {
+            let mut format = LabelFormat::new();
+            let strf = |k: &str| val.get(k).and_then(|v| v.as_str().ok());
+            let numf = |k: &str| {
+                val.get(k).and_then(|v| {
+                    v.as_float()
+                        .ok()
+                        .or_else(|| v.as_int().ok().map(|i| i as f64))
+                })
+            };
+            if let Some(p) = strf("prefix") {
+                format = format.with_prefix(p);
+            }
+            if let Some(suf) = strf("suffix") {
+                format = format.with_suffix(suf);
+            }
+            if let Some(p) = numf("precision") {
+                format = format.with_precision(p.max(0.0) as usize);
+            }
+            if val
+                .get("compact")
+                .and_then(|v| v.as_bool().ok())
+                .unwrap_or(false)
+            {
+                format = format.with_compact_notation();
+            }
+            if let Some(sep) = strf("thousands").and_then(|s| s.chars().next()) {
+                format = format.with_thousands_separator(sep);
+            }
+            if let Some(m) = numf("multiplier") {
+                format = format.with_multiplier(m);
+            }
+            Ok(format)
+        }
+        other => Err(bad(format!(
+            "expected a string preset or a record, got {}",
+            other.get_type()
+        ))),
+    }
+}
+
+/// Build a per-layer [`Style`] by overriding `base` with the fields present in
+/// a `--layer` `style` record.
+fn parse_style_record(rec: &Record, base: &Style, span: Span) -> Result<Style, LabeledError> {
+    let mut s = base.clone();
+    let strf = |k: &str| rec.get(k).and_then(|v| v.as_str().ok().map(str::to_string));
+    let numf = |k: &str| {
+        rec.get(k).and_then(|v| {
+            v.as_float()
+                .ok()
+                .or_else(|| v.as_int().ok().map(|i| i as f64))
+        })
+    };
+    if let Some(v) = strf("color") {
+        s.color = Some(v);
+    }
+    if let Some(v) = numf("opacity") {
+        s.opacity = Some(v);
+    }
+    if let Some(v) = numf("size") {
+        s.size = Some(v);
+    }
+    if let Some(v) = strf("stroke") {
+        s.stroke = Some(v);
+    }
+    if let Some(v) = numf("stroke_width").or_else(|| numf("stroke-width")) {
+        s.stroke_width = Some(v);
+    }
+    if let Some(v) = strf("shape") {
+        s.shape = Some(v);
+    }
+    if let Some(v) = strf("dash") {
+        s.dash = Some(parse_dash(&v, span)?);
+    }
+    if let Some(v) = strf("interpolation") {
+        s.interpolation = Some(v);
+    }
+    if let Some(v) = strf("outlier_color").or_else(|| strf("outlier-color")) {
+        s.outlier_color = Some(v);
+    }
+    if let Some(v) = strf("anchor") {
+        s.anchor = Some(v);
+    }
+    if let Some(v) = strf("weight") {
+        s.weight = Some(v);
+    }
+    if let Some(v) = strf("layout") {
+        s.layout = Some(v);
+    }
+    if let Some(v) = strf("quasirandom_method").or_else(|| strf("quasirandom-method")) {
+        s.quasirandom_method = Some(v);
+    }
+    Ok(s)
+}
+
+/// Resolve the `--theme` flag (or plugin config) into a [`ThemeMode`].
+///
+/// `auto` inspects the terminal's background when the shell exposes it
+/// (`COLORFGBG`) and otherwise falls back to [`ThemeMode::Light`], so behavior
+/// stays unchanged on terminals we cannot detect.
+fn resolve_theme(setting: Option<String>, span: Span) -> Result<ThemeMode, LabeledError> {
+    let value = setting.unwrap_or_else(|| "auto".to_string());
+    if value.eq_ignore_ascii_case("auto") {
+        return Ok(detect_theme_mode());
+    }
+    value
+        .parse::<ThemeMode>()
+        .map_err(|e| LabeledError::new("Invalid theme").with_label(e, span))
+}
+
+/// Best-effort detection of the terminal background from `COLORFGBG`.
+///
+/// The variable is commonly formatted as `"fg;bg"` (for example `"15;0"`),
+/// where the last field is the background color index. Indices 0-6 and 8 are
+/// dark; 7 and 9-15 are light. Absent or malformed values keep the light
+/// default.
+fn detect_theme_mode() -> ThemeMode {
+    std::env::var("COLORFGBG")
+        .ok()
+        .as_deref()
+        .and_then(parse_colorfgbg)
+        .unwrap_or(ThemeMode::Light)
+}
+
+/// Parse a `COLORFGBG` value into a mode, if it carries a usable background
+/// index.
+fn parse_colorfgbg(value: &str) -> Option<ThemeMode> {
+    let bg = value.rsplit(';').next()?;
+    match bg.trim().parse::<u8>().ok()? {
+        7 | 9..=15 => Some(ThemeMode::Light),
+        _ => Some(ThemeMode::Dark),
+    }
 }
 
 fn finish(layered: LayeredChart, opts: &BuildOpts<'_>) -> LayeredChart {
@@ -1004,29 +1422,38 @@ fn finish(layered: LayeredChart, opts: &BuildOpts<'_>) -> LayeredChart {
     if let Some(grid) = opts.grid {
         l = l.with_grid(grid);
     }
-    if opts.palette.is_some()
-        || opts.legend.is_some()
-        || opts.x_angle.is_some()
-        || opts.background.is_some()
-    {
-        l = l.configure_theme(|mut t| {
-            if let Some(p) = &opts.palette {
-                t = t.with_palette(p.clone());
+    // Start from the selected light/dark preset, then layer user overrides on
+    // top. An explicit `--background` always wins over the theme's background.
+    l = l.configure_theme(|mut t| {
+        t = t.with_mode(opts.theme);
+        if let Some(p) = &opts.palette {
+            t = t.with_palette(p.clone());
+        }
+        if let Some(legend) = opts.legend {
+            match legend {
+                LegendSetting::Off => t = t.with_show_legend(false),
+                LegendSetting::Position(pos) => t = t.with_legend_position(pos),
             }
-            if let Some(legend) = opts.legend {
-                match legend {
-                    LegendSetting::Off => t = t.with_show_legend(false),
-                    LegendSetting::Position(pos) => t = t.with_legend_position(pos),
-                }
-            }
-            if let Some(angle) = opts.x_angle {
-                t = t.with_x_tick_label_angle(angle);
-            }
-            if let Some(bg) = &opts.background {
-                t = t.with_background_color(bg.as_str());
-            }
-            t
-        });
+        }
+        if let Some(angle) = opts.x_angle {
+            t = t.with_x_tick_label_angle(angle);
+        }
+        if let Some(map) = opts.color_map {
+            t = t.with_color_map(map);
+        }
+        if let Some(bg) = &opts.background {
+            t = t.with_background_color(bg.as_str());
+        }
+        t
+    });
+    if let Some(format) = opts.x_format.clone() {
+        l = l.with_x_label_format(format);
+    }
+    if let Some(format) = opts.y_format.clone() {
+        l = l.with_y_label_format(format);
+    }
+    if let Some(format) = opts.legend_format.clone() {
+        l = l.with_legend_label_format(format);
     }
     l
 }
@@ -1061,6 +1488,7 @@ fn write_output(chart: &LayeredChart, path: &Path, span: Span) -> Result<(), Lab
 
 #[cfg(test)]
 mod tests {
+    use super::*;
     use nu_plugin_test_support::PluginTest;
     use nu_protocol::{IntoPipelineData, ShellError, Span, Value, record};
 
@@ -1104,6 +1532,26 @@ mod tests {
         let out = run("charton -g bar -x species -y petal_length")?;
         assert!(out.as_str()?.trim_start().starts_with("<svg"));
         Ok(())
+    }
+
+    #[test]
+    fn theme_dark_uses_dark_background() -> Result<(), ShellError> {
+        let out = run("charton -g bar -x species -y petal_length --theme dark")?;
+        // Catppuccin Mocha base #1E1E2E renders as rgba(30,30,46,1.000).
+        assert!(out.as_str()?.contains("rgba(30,30,46,1.000)"));
+        Ok(())
+    }
+
+    #[test]
+    fn theme_light_uses_white_background() -> Result<(), ShellError> {
+        let out = run("charton -g bar -x species -y petal_length --theme light")?;
+        assert!(out.as_str()?.contains("rgba(255,255,255,1.000)"));
+        Ok(())
+    }
+
+    #[test]
+    fn unknown_theme_is_an_error() {
+        assert!(run("charton -g bar -x species -y petal_length --theme blue").is_err());
     }
 
     #[test]
@@ -1273,5 +1721,79 @@ mod tests {
     #[test]
     fn unknown_geom_is_an_error() {
         assert!(run("charton -g pie -x species -y petal_length").is_err());
+    }
+
+    #[test]
+    fn colorfgbg_selects_a_mode() {
+        assert_eq!(parse_colorfgbg("15;0"), Some(ThemeMode::Dark));
+        assert_eq!(parse_colorfgbg("0;15"), Some(ThemeMode::Light));
+        assert_eq!(parse_colorfgbg("7"), Some(ThemeMode::Light));
+        assert_eq!(parse_colorfgbg("8"), Some(ThemeMode::Dark));
+        assert_eq!(parse_colorfgbg("not-a-color"), None);
+    }
+
+    #[test]
+    fn log_scale_renders() -> Result<(), ShellError> {
+        let out = run("charton -g point -x t -y petal_length --y-scale log")?;
+        assert!(out.as_str()?.contains("<svg"));
+        Ok(())
+    }
+
+    #[test]
+    fn invalid_scale_is_an_error() {
+        assert!(run("charton -g point -x t -y petal_length --y-scale nope").is_err());
+    }
+
+    #[test]
+    fn color_map_renders_and_rejects_unknown() -> Result<(), ShellError> {
+        let out = run("charton -g rect -x species -y grp -c petal_length --color-map magma")?;
+        assert!(out.as_str()?.contains("<svg"));
+        assert!(run("charton -g rect -x species -y grp -c petal_length --color-map nope").is_err());
+        Ok(())
+    }
+
+    #[test]
+    fn label_format_preset_and_record_render() -> Result<(), ShellError> {
+        let out = run("charton -g bar -x species -y petal_length --y-format compact")?;
+        assert!(out.as_str()?.contains("<svg"));
+        let out = run(
+            "charton -g bar -x species -y petal_length --y-format {compact: true, prefix: '$'}",
+        )?;
+        assert!(out.as_str()?.contains("<svg"));
+        assert!(run("charton -g bar -x species -y petal_length --y-format nope").is_err());
+        Ok(())
+    }
+
+    #[test]
+    fn mark_options_render() -> Result<(), ShellError> {
+        let out = run("charton -g point -x t -y petal_length --shape square")?;
+        assert!(out.as_str()?.contains("<svg"));
+        let out = run("charton -g line -x t -y petal_length --dash 6,4 --interpolation step")?;
+        assert!(out.as_str()?.contains("<svg"));
+        let out = run("charton -g boxplot -x species -y petal_length --outlier-color red")?;
+        assert!(out.as_str()?.contains("<svg"));
+        Ok(())
+    }
+
+    #[test]
+    fn invalid_dash_is_an_error() {
+        assert!(run("charton -g line -x t -y petal_length --dash abc").is_err());
+    }
+
+    #[test]
+    fn layer_style_override_renders() -> Result<(), ShellError> {
+        let out = run(
+            "charton -g bar -x species -y petal_length --layer {geom: point, style: {color: red, size: 4}}",
+        )?;
+        assert!(out.as_str()?.contains("<svg"));
+        Ok(())
+    }
+
+    #[test]
+    fn background_flag_overrides_theme() -> Result<(), ShellError> {
+        let out =
+            run("charton -g bar -x species -y petal_length --theme dark --background '#ff0000'")?;
+        assert!(out.as_str()?.contains("rgba(255,0,0,1.000)"));
+        Ok(())
     }
 }
