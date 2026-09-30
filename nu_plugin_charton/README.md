@@ -30,7 +30,7 @@ charton -g geo --geojson world.geojson -c POP_EST -o world.png
 
 | Flag | Meaning |
 |---|---|
-| `-g, --geom` | `point` (default) \| `line` \| `area` \| `bar` \| `boxplot` \| `errorbar` \| `rule` \| `tick` \| `text` \| `rect`/`heatmap` \| `hist` \| `beeswarm` \| `geo` |
+| `-g, --geom` | `point` (default) \| `line` \| `area` \| `bar` \| `boxplot` \| `errorbar` \| `rule` \| `tick` \| `text` \| `rect`/`heatmap` \| `hist` \| `density`/`kde` \| `ecdf` \| `beeswarm` \| `geo` |
 | `-x, --x` | column for the x axis |
 | `-y, --y` | column for the y axis (`hist` uses a generated `count`) |
 | `-c, --color` | column mapped to color/grouping (required for `rect`) |
@@ -47,6 +47,11 @@ charton -g geo --geojson world.geojson -c POP_EST -o world.png
 | `--x-label`, `--y-label`, `--color-label` | axis / legend labels |
 | `--x-scale`, `--y-scale` | axis scale: `linear` \| `log` \| `discrete` \| `temporal` |
 | `--stack`, `--normalize` | bar/area stacking (`none`/`stacked`/`normalize`/`center`) and value normalization |
+| `--aggregate` | aggregate y per x group: `sum`/`mean`/`median`/`min`/`max`/`count` |
+| `--bins` | number of bins for a continuous x axis |
+| `--loess`, `--loess-bandwidth` | LOESS-smooth `-g line` |
+| `--density-bandwidth`, `--density-kernel`, `--cumulative`, `--counts` | KDE options for `-g density` |
+| `--margins`, `--x-expand`, `--y-expand`, `--x-ticks`, `--y-ticks` | canvas margins, axis padding, explicit ticks |
 | `--size-by`, `--shape-by` | columns mapped to point size / shape (bubble & shape-coded scatter) |
 | `--size-label`, `--shape-label` | size / shape legend labels |
 | `--color-map` | continuous color map for `rect`/heatmap/density, e.g. `viridis`, `magma`, `ylgnbu` |
@@ -390,6 +395,10 @@ Sixel is only auto-selected when `TERM` advertises it; otherwise choose it with
 - [x] stacking (`--stack`/`--normalize`) and `size`/`shape` encoding channels
       (`--size-by`/`--shape-by`)
 - [x] per-layer `style`, `stack`, and `x_scale`/`y_scale` overrides in `--layer`
+- [x] statistics transforms: `-g density`/`kde` (KDE, cumulative, kernels),
+      `-g ecdf` (CumulativeDist window), `--aggregate`, `--bins`, `--loess`
+- [x] layout controls: `--margins`, `--x-expand`/`--y-expand`,
+      `--x-ticks`/`--y-ticks`
 - [x] configuration via `$env.config.plugins.charton` (size, scale, palette,
       color map, legend, grid, x angle, background, inline style, theme)
 - [x] light/dark color themes (`--theme`, auto-detected from `COLORFGBG`)

@@ -6,9 +6,10 @@ use std::path::Path;
 
 use charton::error::ChartonError;
 use charton::prelude::{
-    Chart, ColorMap, ColorPalette, CoordSystem, Dataset, FacetSpec, IntoLayered, LabelFormat,
-    LayeredChart, MarkArea, MarkBar, MarkBoxplot, MarkErrorBar, MarkLine, MarkPoint, MarkRect,
-    MarkRule, MarkText, MarkTick, Scale, ThemeMode, alt, geojson_to_dataset,
+    BandwidthType, Chart, ColorMap, ColorPalette, CoordSystem, Dataset, DensityTransform,
+    Expansion, FacetSpec, IntoLayered, KernelType, LabelFormat, LayeredChart, MarkArea, MarkBar,
+    MarkBoxplot, MarkErrorBar, MarkLine, MarkPoint, MarkRect, MarkRule, MarkText, MarkTick, Scale,
+    ThemeMode, WindowFieldDef, WindowOnlyOp, WindowTransform, alt, geojson_to_dataset,
 };
 use nu_plugin::{EngineInterface, EvaluatedCall, PluginCommand};
 use nu_protocol::{
@@ -104,6 +105,62 @@ impl PluginCommand for Charton {
                 "Normalize y values (hist/bar) to proportions",
                 None,
             )
+            .named(
+                "aggregate",
+                SyntaxShape::String,
+                "Aggregate y per x group: sum | mean | median | min | max | count",
+                None,
+            )
+            .named(
+                "bins",
+                SyntaxShape::Int,
+                "Number of bins for a continuous x axis",
+                None,
+            )
+            .named(
+                "x-expand",
+                SyntaxShape::Number,
+                "Padding added to both ends of the x axis (fraction of the range)",
+                None,
+            )
+            .named(
+                "y-expand",
+                SyntaxShape::Number,
+                "Padding added to both ends of the y axis (fraction of the range)",
+                None,
+            )
+            .named(
+                "x-ticks",
+                SyntaxShape::Any,
+                "Explicit x tick values, e.g. [0 1 2 3]",
+                None,
+            )
+            .named(
+                "y-ticks",
+                SyntaxShape::Any,
+                "Explicit y tick values, e.g. [0 1 2 3]",
+                None,
+            )
+            .named(
+                "margins",
+                SyntaxShape::String,
+                "Canvas margins as 'top,right,bottom,left' (fractions 0.0-1.0)",
+                None,
+            )
+            .named(
+                "density-bandwidth",
+                SyntaxShape::Number,
+                "KDE bandwidth for -g density (in data units; default Scott's rule)",
+                None,
+            )
+            .named(
+                "density-kernel",
+                SyntaxShape::String,
+                "KDE kernel for -g density: normal | epanechnikov | uniform",
+                None,
+            )
+            .switch("cumulative", "-g density: cumulative density instead of density", None)
+            .switch("counts", "-g density: smoothed counts instead of probabilities", None)
             .switch("grid", "Show grid lines", None)
             .switch("no-grid", "Hide grid lines", None)
             .named(
@@ -175,10 +232,12 @@ impl PluginCommand for Charton {
                 "Dash pattern for lines, e.g. '6,4' (on, off) in pixels",
                 None,
             )
+            .named("interpolation", SyntaxShape::String, "Line interpolation: linear | step | step-before | monotone", None)
+            .switch("loess", "Smooth the line with LOESS", None)
             .named(
-                "interpolation",
-                SyntaxShape::String,
-                "Line interpolation: linear | step | step-before | monotone",
+                "loess-bandwidth",
+                SyntaxShape::Number,
+                "LOESS bandwidth 0.0-1.0",
                 None,
             )
             .named(
@@ -410,6 +469,8 @@ impl PluginCommand for Charton {
                 None
             },
             outlier_size: call.get_flag("outlier-size")?,
+            loess: call.has_flag("loess")?,
+            loess_bandwidth: call.get_flag("loess-bandwidth")?,
         };
         let x_scale = call
             .get_flag::<String>("x-scale")?
@@ -454,6 +515,26 @@ impl PluginCommand for Charton {
         let shape_by: Option<String> = call.get_flag("shape-by")?;
         let size_label: Option<String> = call.get_flag("size-label")?;
         let shape_label: Option<String> = call.get_flag("shape-label")?;
+        let aggregate = match call.get_flag::<String>("aggregate")? {
+            Some(s) => Some(parse_aggregate(&s, span)?),
+            None => None,
+        };
+        let bins = call.get_flag::<i64>("bins")?.map(|n| n.max(1) as usize);
+        let x_expand = call.get_flag::<f64>("x-expand")?;
+        let y_expand = call.get_flag::<f64>("y-expand")?;
+        let margins = match call.get_flag::<String>("margins")? {
+            Some(s) => Some(parse_margins(&s, span)?),
+            None => None,
+        };
+        let x_ticks = parse_ticks(call.get_flag::<Value>("x-ticks")?, span)?;
+        let y_ticks = parse_ticks(call.get_flag::<Value>("y-ticks")?, span)?;
+        let density_bandwidth = call.get_flag::<f64>("density-bandwidth")?;
+        let density_kernel = match call.get_flag::<String>("density-kernel")? {
+            Some(s) => Some(parse_kernel(&s, span)?),
+            None => None,
+        };
+        let density_cumulative = call.has_flag("cumulative")?;
+        let density_counts = call.has_flag("counts")?;
         let raw = call.has_flag("raw")?;
         let want_png = call.has_flag("png")?;
         let no_inline = call.has_flag("no-inline")?;
@@ -558,6 +639,14 @@ impl PluginCommand for Charton {
             normalize,
             size_by,
             shape_by,
+            aggregate,
+            bins,
+            x_expand,
+            y_expand,
+            density_bandwidth,
+            density_kernel,
+            density_cumulative,
+            density_counts,
         };
         let layers = parse_layers(call.get_flag::<Value>("layer")?, &primary, span)?;
 
@@ -613,6 +702,9 @@ impl PluginCommand for Charton {
             end_angle,
             size_label: size_label.as_deref(),
             shape_label: shape_label.as_deref(),
+            margins,
+            x_ticks,
+            y_ticks,
             theme,
             width,
             height,
@@ -753,6 +845,14 @@ struct LayerOpts {
     normalize: bool,
     size_by: Option<String>,
     shape_by: Option<String>,
+    aggregate: Option<String>,
+    bins: Option<usize>,
+    x_expand: Option<f64>,
+    y_expand: Option<f64>,
+    density_bandwidth: Option<f64>,
+    density_kernel: Option<KernelType>,
+    density_cumulative: bool,
+    density_counts: bool,
 }
 
 struct BuildOpts<'a> {
@@ -782,6 +882,9 @@ struct BuildOpts<'a> {
     end_angle: Option<f64>,
     size_label: Option<&'a str>,
     shape_label: Option<&'a str>,
+    margins: Option<[f64; 4]>,
+    x_ticks: Option<Vec<f64>>,
+    y_ticks: Option<Vec<f64>>,
     theme: ThemeMode,
     width: u32,
     height: u32,
@@ -813,6 +916,8 @@ struct Style {
     /// `Some(false)` when `--no-outliers` is given.
     show_outliers: Option<bool>,
     outlier_size: Option<f64>,
+    loess: bool,
+    loess_bandwidth: Option<f64>,
 }
 
 fn style_point(mut m: MarkPoint, s: &Style) -> MarkPoint {
@@ -861,6 +966,12 @@ fn style_line(mut m: MarkLine, s: &Style) -> MarkLine {
     }
     if let Some(interpolation) = &s.interpolation {
         m = m.with_interpolation(interpolation.as_str());
+    }
+    if s.loess || s.loess_bandwidth.is_some() {
+        m = m.with_loess(true);
+    }
+    if let Some(bw) = s.loess_bandwidth {
+        m = m.with_loess_bandwidth(bw);
     }
     m
 }
@@ -1105,12 +1216,31 @@ fn build_layer(
     let stack = layer.stack.as_deref();
     let normalize = layer.normalize;
     let (size_by, shape_by) = (layer.size_by.as_deref(), layer.shape_by.as_deref());
+    let aggregate = layer.aggregate.as_deref();
+    let bins = layer.bins;
+    let (x_expand, y_expand) = (layer.x_expand, layer.y_expand);
 
-    // X/Y encoders carry an explicit scale and, for bar/area/hist, stacking and
-    // normalization. Built fresh per call so the closures stay `Fn`.
-    let make_x = |field: &str| match x_scale {
-        Some(s) => alt::x(field).with_scale(s),
-        None => alt::x(field),
+    // Axis padding from `--x-expand`/`--y-expand`, as a symmetric fraction.
+    let pad = |v: f64| Expansion {
+        mult: (v, v),
+        add: (0.0, 0.0),
+    };
+
+    // X/Y encoders carry an explicit scale, binning, padding, and (for y)
+    // stacking, normalization and aggregation. Built fresh per call so the
+    // closures stay `Fn`.
+    let make_x = |field: &str| {
+        let mut e = match x_scale {
+            Some(s) => alt::x(field).with_scale(s),
+            None => alt::x(field),
+        };
+        if let Some(n) = bins {
+            e = e.with_bins(n);
+        }
+        if let Some(v) = x_expand {
+            e = e.with_expansion(pad(v));
+        }
+        e
     };
     let make_y = |field: &str| {
         let mut e = match y_scale {
@@ -1122,6 +1252,12 @@ fn build_layer(
         }
         if normalize {
             e = e.with_normalize(true);
+        }
+        if let Some(op) = aggregate {
+            e = e.with_aggregate(op);
+        }
+        if let Some(v) = y_expand {
+            e = e.with_expansion(pad(v));
         }
         e
     };
@@ -1284,6 +1420,60 @@ fn build_layer(
             .map_err(|e| chart_err(span, e))?;
             c.into()
         }
+        "density" | "kde" => {
+            let x = x.ok_or_else(|| missing(geom, "--x", span))?;
+            let mut dt = DensityTransform::new(x)
+                .with_as(x, "density")
+                .with_cumulative(layer.density_cumulative)
+                .with_counts(layer.density_counts);
+            if let Some(group) = color {
+                dt = dt.with_groupby(group);
+            }
+            if let Some(kernel) = layer.density_kernel {
+                dt = dt.with_kernel(kernel);
+            }
+            if let Some(bw) = layer.density_bandwidth {
+                dt = dt.with_bandwidth(BandwidthType::Fixed(bw));
+            }
+            let c = Chart::build(dataset)
+                .map_err(|e| chart_err(span, e))?
+                .mark_area()
+                .map_err(|e| chart_err(span, e))?
+                .configure_area(|m| style_area(m, style))
+                .transform_density(dt)
+                .map_err(|e| chart_err(span, e))?;
+            let xe = make_x(x);
+            let ye = make_y("density");
+            match color {
+                Some(col) => c.encode((xe, ye, alt::color(col))),
+                None => c.encode((xe, ye)),
+            }
+            .map_err(|e| chart_err(span, e))?
+            .into()
+        }
+        "ecdf" => {
+            let x = x.ok_or_else(|| missing(geom, "--x", span))?;
+            let field = WindowFieldDef::new(x, WindowOnlyOp::CumeDist, "ecdf");
+            let mut wt = WindowTransform::new(field);
+            if let Some(group) = color {
+                wt = wt.with_groupby(group);
+            }
+            let c = Chart::build(dataset)
+                .map_err(|e| chart_err(span, e))?
+                .mark_line()
+                .map_err(|e| chart_err(span, e))?
+                .configure_line(|m| style_line(m.with_interpolation("step"), style))
+                .transform_window(wt)
+                .map_err(|e| chart_err(span, e))?;
+            let xe = make_x(x);
+            let ye = make_y("ecdf");
+            match color {
+                Some(col) => c.encode((xe, ye, alt::color(col))),
+                None => c.encode((xe, ye)),
+            }
+            .map_err(|e| chart_err(span, e))?
+            .into()
+        }
         "hist" | "histogram" => {
             let x = x.ok_or_else(|| missing(geom, "--x", span))?;
             let xe = make_x(x);
@@ -1300,7 +1490,7 @@ fn build_layer(
             return Err(LabeledError::new("Unknown geom").with_label(
                 format!(
                     "'{other}' is not supported; try point, line, area, bar, boxplot, \
-                     errorbar, rule, tick, text, rect, hist, beeswarm, or geo"
+                     errorbar, rule, tick, text, rect, hist, density, ecdf, beeswarm, or geo"
                 ),
                 span,
             ));
@@ -1378,6 +1568,17 @@ fn parse_layers(
             shape_by: field("shape_by")
                 .or_else(|| field("shape-by"))
                 .or_else(|| primary.shape_by.clone()),
+            aggregate: match field("aggregate") {
+                Some(s) => Some(parse_aggregate(&s, layer_span)?),
+                None => primary.aggregate.clone(),
+            },
+            bins: field("bins").and_then(|s| s.parse().ok()).or(primary.bins),
+            x_expand: primary.x_expand,
+            y_expand: primary.y_expand,
+            density_bandwidth: primary.density_bandwidth,
+            density_kernel: primary.density_kernel,
+            density_cumulative: primary.density_cumulative,
+            density_counts: primary.density_counts,
         });
     }
     Ok(out)
@@ -1433,6 +1634,82 @@ fn parse_stack(spec: &str, span: Span) -> Result<String, LabeledError> {
         }
     }
     .to_string())
+}
+
+/// Validated `--aggregate` value, normalized to a core [`AggregateOp`] spelling.
+fn parse_aggregate(spec: &str, span: Span) -> Result<String, LabeledError> {
+    let key = spec.trim().to_ascii_lowercase();
+    match key.as_str() {
+        "sum" | "mean" | "avg" | "median" | "min" | "max" | "count" | "n" => Ok(key),
+        other => Err(LabeledError::new("Invalid aggregate").with_label(
+            format!("unknown aggregate '{other}'; expected sum, mean, median, min, max, or count"),
+            span,
+        )),
+    }
+}
+
+/// Parse `--density-kernel`.
+fn parse_kernel(spec: &str, span: Span) -> Result<KernelType, LabeledError> {
+    Ok(match spec.trim().to_ascii_lowercase().as_str() {
+        "normal" | "gaussian" | "gauss" => KernelType::Normal,
+        "epanechnikov" | "epan" => KernelType::Epanechnikov,
+        "uniform" | "box" => KernelType::Uniform,
+        other => {
+            return Err(LabeledError::new("Invalid density kernel").with_label(
+                format!("unknown kernel '{other}'; expected normal, epanechnikov, or uniform"),
+                span,
+            ));
+        }
+    })
+}
+
+/// Parse `--margins` as `top,right,bottom,left`.
+fn parse_margins(spec: &str, span: Span) -> Result<[f64; 4], LabeledError> {
+    let parts: Result<Vec<f64>, _> = spec
+        .split([',', ' '])
+        .filter(|p| !p.trim().is_empty())
+        .map(|p| p.trim().parse::<f64>())
+        .collect();
+    let parts = parts.map_err(|_| {
+        LabeledError::new("Invalid margins").with_label(
+            format!("'{spec}' is not four numbers; try '0.05,0.03,0.08,0.06'"),
+            span,
+        )
+    })?;
+    parts.try_into().map_err(|_| {
+        LabeledError::new("Invalid margins").with_label(
+            format!("'{spec}' must be exactly top,right,bottom,left"),
+            span,
+        )
+    })
+}
+
+/// Parse `--x-ticks` / `--y-ticks` (a list, or a single number).
+fn parse_ticks(value: Option<Value>, span: Span) -> Result<Option<Vec<f64>>, LabeledError> {
+    let Some(value) = value else {
+        return Ok(None);
+    };
+    let values = match value {
+        Value::List { vals, .. } => vals.into_owned(),
+        other => vec![other],
+    };
+    let mut ticks = Vec::with_capacity(values.len());
+    for v in values {
+        let n = v
+            .as_float()
+            .ok()
+            .or_else(|| v.as_int().ok().map(|i| i as f64));
+        match n {
+            Some(n) => ticks.push(n),
+            None => {
+                return Err(LabeledError::new("Invalid ticks").with_label(
+                    format!("tick value must be a number, got {}", v.get_type()),
+                    span,
+                ));
+            }
+        }
+    }
+    Ok(Some(ticks))
 }
 
 /// Parse `--dash`, e.g. `"6,4"` or `"2 2"`, into an on/off pattern in pixels.
@@ -1633,6 +1910,15 @@ fn finish(layered: LayeredChart, opts: &BuildOpts<'_>) -> LayeredChart {
     }
     if let Some((min, max)) = opts.y_domain {
         l = l.with_y_domain(min, max);
+    }
+    if let Some([top, right, bottom, left]) = opts.margins {
+        l = l.with_margins(top, right, bottom, left);
+    }
+    if let Some(ticks) = opts.x_ticks.clone() {
+        l = l.with_x_ticks(ticks);
+    }
+    if let Some(ticks) = opts.y_ticks.clone() {
+        l = l.with_y_ticks(ticks);
     }
     if opts.flip {
         l = l.coord_flip();
@@ -2104,5 +2390,50 @@ mod tests {
             res.is_err(),
             "a .pdf output must be rejected, not written as SVG"
         );
+    }
+
+    #[test]
+    fn density_and_ecdf_render() -> Result<(), ShellError> {
+        let out = run("charton -g density -x petal_length")?;
+        assert!(out.as_str()?.contains("<svg"));
+        let out = run("charton -g density -x petal_length -c species --cumulative")?;
+        assert!(out.as_str()?.contains("<svg"));
+        let out = run("charton -g density -x petal_length --density-kernel uniform")?;
+        assert!(out.as_str()?.contains("<svg"));
+        let out = run("charton -g ecdf -x petal_length -c species")?;
+        assert!(out.as_str()?.contains("<svg"));
+        Ok(())
+    }
+
+    #[test]
+    fn invalid_density_kernel_is_an_error() {
+        assert!(run("charton -g density -x petal_length --density-kernel cosine").is_err());
+    }
+
+    #[test]
+    fn aggregate_bins_and_loess_render() -> Result<(), ShellError> {
+        let out = run("charton -g bar -x species -y petal_length --aggregate mean")?;
+        assert!(out.as_str()?.contains("<svg"));
+        let out = run("charton -g hist -x petal_length --bins 5")?;
+        assert!(out.as_str()?.contains("<svg"));
+        let out = run("charton -g line -x t -y petal_length --loess --loess-bandwidth 0.5")?;
+        assert!(out.as_str()?.contains("<svg"));
+        Ok(())
+    }
+
+    #[test]
+    fn invalid_aggregate_is_an_error() {
+        assert!(run("charton -g bar -x species -y petal_length --aggregate mode").is_err());
+    }
+
+    #[test]
+    fn layout_overrides_render() -> Result<(), ShellError> {
+        let out = run(
+            "charton -g point -x t -y petal_length --margins 0.1,0.1,0.1,0.1 --x-expand 0.2 --y-ticks [0 2 4 6]",
+        )?;
+        assert!(out.as_str()?.contains("<svg"));
+        assert!(run("charton -g point -x t -y petal_length --margins 1,2,3").is_err());
+        assert!(run("charton -g point -x t -y petal_length --y-ticks a").is_err());
+        Ok(())
     }
 }
