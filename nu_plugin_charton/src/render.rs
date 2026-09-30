@@ -241,7 +241,12 @@ pub fn sixel_image(
     if w == 0 || h == 0 {
         return Err("image has zero size".to_string());
     }
-    let (dw, dh) = fit_pixels(w, h, max_cols.max(1) * cell_w.max(1), max_rows.max(1) * cell_h.max(1));
+    let (dw, dh) = fit_pixels(
+        w,
+        h,
+        max_cols.max(1) * cell_w.max(1),
+        max_rows.max(1) * cell_h.max(1),
+    );
     let resized = resize_nearest_rgba(&rgba, w, h, dw, dh);
 
     let image = SixelImage::try_from_rgba(resized, dw, dh)
