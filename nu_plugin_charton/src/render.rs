@@ -328,18 +328,11 @@ pub fn png_to_halfblock(
     let dest_w = cols;
     let dest_h = rows * 2;
 
-    let sample = |dx: usize, dy: usize| -> (u8, u8, u8) {
-        let sx = (dx * w / dest_w).min(w - 1);
-        let sy = (dy * h / dest_h).min(h - 1);
-        let idx = (sy * w + sx) * 4;
-        (rgba[idx], rgba[idx + 1], rgba[idx + 2])
-    };
-
     let mut out = String::with_capacity(cols * rows * 32);
     for cy in 0..rows {
         for cx in 0..cols {
-            let (tr, tg, tb) = sample(cx, cy * 2);
-            let (br, bg, bb) = sample(cx, cy * 2 + 1);
+            let (tr, tg, tb) = downsample(&rgba, w, h, dest_w, dest_h, cx, cy * 2);
+            let (br, bg, bb) = downsample(&rgba, w, h, dest_w, dest_h, cx, cy * 2 + 1);
             out.push_str("\x1b[38;2;");
             push_u8(&mut out, tr);
             out.push(';');
@@ -357,6 +350,60 @@ pub fn png_to_halfblock(
         out.push_str("\x1b[0m\n");
     }
     Ok(out)
+}
+
+/// Average the source rectangle that maps to output pixel `(dx, dy)`.
+///
+/// The plugin halves the raster into a `dest_w x dest_h` grid, which is a large
+/// downscale. Nearest-neighbour sampling makes thin axis lines and text strokes
+/// appear and disappear from cell to cell (some edges double, others vanish);
+/// averaging instead keeps them visible as a lighter shade. Fully transparent
+/// source pixels are ignored, so an alpha cut-out does not darken its cell.
+fn downsample(
+    rgba: &[u8],
+    w: usize,
+    h: usize,
+    dest_w: usize,
+    dest_h: usize,
+    dx: usize,
+    dy: usize,
+) -> (u8, u8, u8) {
+    // Half-open source span [start, end) for output index `i`; spans tile the
+    // axis so no pixel is sampled twice or skipped. When upscaling (dest > src)
+    // the span is empty, so fall back to the single nearest pixel.
+    let span = |i: usize, dst: usize, src: usize| -> (usize, usize) {
+        let start = i * src / dst;
+        let end = (i + 1) * src / dst;
+        if end > start {
+            (start, end)
+        } else {
+            (start, (start + 1).min(src))
+        }
+    };
+    let (x0, x1) = span(dx, dest_w, w);
+    let (y0, y1) = span(dy, dest_h, h);
+    let mut sum = [0u64; 3];
+    let mut alpha = 0u64;
+    for sy in y0..y1 {
+        let row = sy * w;
+        for sx in x0..x1 {
+            let idx = (row + sx) * 4;
+            let a = rgba[idx + 3] as u64;
+            sum[0] += rgba[idx] as u64 * a;
+            sum[1] += rgba[idx + 1] as u64 * a;
+            sum[2] += rgba[idx + 2] as u64 * a;
+            alpha += a;
+        }
+    }
+    if let (Some(r), Some(g), Some(b)) = (
+        sum[0].checked_div(alpha),
+        sum[1].checked_div(alpha),
+        sum[2].checked_div(alpha),
+    ) {
+        (r as u8, g as u8, b as u8)
+    } else {
+        (0, 0, 0)
+    }
 }
 
 /// Decode a PNG into an RGBA8 buffer: `(width, height, rgba)`.
@@ -457,6 +504,39 @@ mod tests {
         let art = png_to_halfblock(&tiny_png(), 80, 40).unwrap();
         assert!(art.contains('\u{2580}'));
         assert!(art.contains("\x1b[38;2;"));
+    }
+
+    #[test]
+    fn box_downsampling_keeps_thin_lines() {
+        // 20x20 white with a 1px black vertical line at x=11.
+        let (w, h) = (20usize, 20usize);
+        let mut rgba = vec![255u8; w * h * 4];
+        for y in 0..h {
+            let idx = (y * w + 11) * 4;
+            rgba[idx] = 0;
+            rgba[idx + 1] = 0;
+            rgba[idx + 2] = 0;
+        }
+        // Downscale to 4 columns. The line falls inside column 2 ([10, 15));
+        // nearest-neighbour at x = 2*20/4 = 10 would miss it entirely.
+        let line = downsample(&rgba, w, h, 4, 4, 2, 0);
+        assert!(line.0 < 255, "thin line must not vanish: {line:?}");
+        // A column that does not cover the line stays white.
+        assert_eq!(downsample(&rgba, w, h, 4, 4, 0, 0), (255, 255, 255));
+    }
+
+    #[test]
+    fn box_downsampling_ignores_transparent_pixels() {
+        // One transparent pixel and one opaque red pixel in the same cell.
+        let (w, h) = (2usize, 1usize);
+        let mut rgba = vec![0u8; w * h * 4];
+        rgba[4] = 255; // x=1 red
+        rgba[7] = 255; // x=1 alpha
+        assert_eq!(
+            downsample(&rgba, w, h, 1, 1, 0, 0),
+            (255, 0, 0),
+            "transparent pixels must not darken the cell"
+        );
     }
 
     #[test]
