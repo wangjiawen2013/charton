@@ -4,6 +4,7 @@
 mod command;
 mod config;
 mod converter;
+#[cfg(feature = "probe")]
 mod probe;
 mod render;
 
@@ -17,7 +18,14 @@ impl Plugin for ChartonPlugin {
     }
 
     fn commands(&self) -> Vec<Box<dyn PluginCommand<Plugin = Self>>> {
-        vec![Box::new(command::Charton), Box::new(probe::Probe)]
+        #[allow(unused_mut)]
+        let mut commands: Vec<Box<dyn PluginCommand<Plugin = Self>>> =
+            vec![Box::new(command::Charton)];
+        // `charton-probe` is a development diagnostic; enable it with
+        // `--features probe` so it does not show up in users' `help commands`.
+        #[cfg(feature = "probe")]
+        commands.push(Box::new(probe::Probe));
+        commands
     }
 }
 
