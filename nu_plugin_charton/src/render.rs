@@ -82,8 +82,24 @@ impl InlineStyle {
 
     /// Detect the best available protocol from environment variables.
     pub fn detect() -> Self {
-        let var = |k: &str| std::env::var(k).ok();
+        Self::detect_from(|key| std::env::var(key).ok())
+    }
 
+    /// Testable core of [`InlineStyle::detect`].
+    fn detect_from(getenv: impl Fn(&str) -> Option<String>) -> Self {
+        let var = |k: &str| getenv(k);
+
+        // An explicit override wins, so users on a remote host can force a
+        // protocol without touching their Nushell config.
+        if let Some(v) = var("CHARTON_INLINE_STYLE")
+            && let Ok(style) = Self::parse(&v)
+            && style != Self::Auto
+        {
+            return style;
+        }
+
+        // Program identity. These are set by the terminal emulator itself, so
+        // on a remote host they only exist when the SSH client forwards them.
         if let Some(tp) = var("TERM_PROGRAM") {
             let tp = tp.to_lowercase();
             if tp.contains("iterm") || tp.contains("wezterm") {
@@ -93,20 +109,28 @@ impl InlineStyle {
                 return Self::Kitty;
             }
         }
-
-        if var("KITTY_WINDOW_ID").is_some() {
+        if var("KITTY_WINDOW_ID").is_some() || var("GHOSTTY_RESOURCES_DIR").is_some() {
             return Self::Kitty;
         }
-        if var("WEZTERM_EXECUTABLE").is_some() || var("WEZTERM_PANE").is_some() {
+        if var("WEZTERM_EXECUTABLE").is_some()
+            || var("WEZTERM_PANE").is_some()
+            || var("ITERM_SESSION_ID").is_some()
+        {
             return Self::Iterm2;
         }
+
+        // `TERM` *is* forwarded by SSH even when the program-specific variables
+        // above are not, so it is the reliable hint on a remote server.
         if let Some(term) = var("TERM") {
             let term = term.to_lowercase();
+            if term.contains("wezterm") || term.contains("iterm") {
+                return Self::Iterm2;
+            }
+            if term.contains("kitty") || term.contains("ghostty") {
+                return Self::Kitty;
+            }
             if term.contains("sixel") || term.starts_with("foot") || term.starts_with("mlterm") {
                 return Self::Sixel;
-            }
-            if term.contains("kitty") {
-                return Self::Kitty;
             }
         }
 
@@ -498,5 +522,63 @@ mod tests {
         let (c, r) = fit_cells_with_cell(600, 600, 80, 40, 8, 18);
         let box_aspect = (c * 8) as f64 / (r * 18) as f64;
         assert!((box_aspect - 1.0).abs() < 0.06, "{c}x{r} -> {box_aspect}");
+    }
+
+    /// Build a `getenv` closure from a fixed list of `(key, value)` pairs.
+    fn env<'a>(pairs: &'a [(&'a str, &'a str)]) -> impl Fn(&str) -> Option<String> + 'a {
+        move |key| {
+            pairs
+                .iter()
+                .find(|(k, _)| *k == key)
+                .map(|(_, v)| (*v).to_string())
+        }
+    }
+
+    #[test]
+    fn detection_recognises_wezterm_over_ssh_via_term() {
+        // Over SSH `TERM_PROGRAM`/`WEZTERM_*` are usually absent, but `TERM`
+        // is forwarded. This is the Ubuntu-server-over-SSH case.
+        let style = InlineStyle::detect_from(env(&[("TERM", "wezterm")]));
+        assert_eq!(style, InlineStyle::Iterm2);
+    }
+
+    #[test]
+    fn detection_recognises_kitty_and_foot_terms() {
+        assert_eq!(
+            InlineStyle::detect_from(env(&[("TERM", "xterm-kitty")])),
+            InlineStyle::Kitty
+        );
+        assert_eq!(
+            InlineStyle::detect_from(env(&[("TERM", "foot")])),
+            InlineStyle::Sixel
+        );
+    }
+
+    #[test]
+    fn detection_prefers_term_program_hint() {
+        let style = InlineStyle::detect_from(env(&[
+            ("TERM_PROGRAM", "WezTerm"),
+            ("TERM", "xterm-256color"),
+        ]));
+        assert_eq!(style, InlineStyle::Iterm2);
+    }
+
+    #[test]
+    fn detection_env_override_wins() {
+        let style = InlineStyle::detect_from(env(&[
+            ("CHARTON_INLINE_STYLE", "halfblock"),
+            ("TERM", "wezterm"),
+        ]));
+        assert_eq!(style, InlineStyle::HalfBlock);
+    }
+
+    #[test]
+    fn detection_falls_back_to_halfblock() {
+        assert_eq!(InlineStyle::detect_from(env(&[])), InlineStyle::HalfBlock);
+        // A dumb terminal that matches nothing still falls back safely.
+        assert_eq!(
+            InlineStyle::detect_from(env(&[("TERM", "dumb")])),
+            InlineStyle::HalfBlock
+        );
     }
 }
