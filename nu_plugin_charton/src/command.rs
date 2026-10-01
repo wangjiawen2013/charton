@@ -1915,6 +1915,7 @@ fn finish(layered: LayeredChart, opts: &BuildOpts<'_>) -> LayeredChart {
     if let Some((min, max)) = opts.y_domain {
         l = l.with_y_domain(min, max);
     }
+    // Canvas margins come from the theme; `--margins` overrides them.
     if let Some([top, right, bottom, left]) = opts.margins {
         l = l.with_margins(top, right, bottom, left);
     }

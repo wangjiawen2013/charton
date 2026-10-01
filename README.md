@@ -17,6 +17,8 @@
 
 Charton is a high-performance Rust plotting library featuring a declarative API inspired by [Altair](https://altair-viz.github.io/). It provides [Polars](https://github.com/pola-rs/polars) support for fast data processing. Integrated with evcxr_jupyter, it enables seamless interactive data exploration in notebooks.
 
+> **Using Nushell?** Charton also ships as a Nushell plugin: `nu_plugin_charton` turns any pipeline table into a chart, inline or saved as SVG/PNG. Install and usage → [plugin README](nu_plugin_charton/README.md).
+
 <table>
     <tr>
         <td><img src="docs/src/images/grid_line.svg" alt="Grid Lines" /><p align="center">Grid Lines</p></td>
@@ -78,20 +80,6 @@ let weight = vec![55.0, 62.0, 68.0, 75.0, 82.0];
 // One-liner plotting
 chart!(height, weight)?.mark_point()?.encode((alt::x("height"), alt::y("weight")))?.save("out.svg")?;
 ```
-
-## Nushell
-
-Charton ships a Nushell plugin, `nu_plugin_charton`, that turns any pipeline
-table into a chart — drawn inline in the terminal or saved as SVG/PNG. The table
-goes straight into a `Dataset`; there is no CSV round-trip.
-
-```nu
-open iris.csv | charton -g scatter -x petal_length -y petal_width -c species
-```
-
-Install, flags and configuration are in the
-[plugin README](nu_plugin_charton/README.md); the conceptual overview is in the
-[Nushell Plugin chapter](https://wangjiawen2013.github.io/charton/ecosystem/nushell.html).
 
 ## From Macros to Production API
 While the `chart!` macro is a convenient syntactic sugar for rapid prototyping and simple scripts, the underlying `Chart::build` API is recommended for production environments where explicit data handling is required.
@@ -200,6 +188,10 @@ Designed for precision, Charton provides pixel-perfect control over complex mark
 Please go to the [Charton Docs](https://wangjiawen2013.github.io/charton) for full documentation.
 
 ## Ecosystem
+
+Charton ships a first-party [Nushell plugin](nu_plugin_charton/README.md) that
+turns pipeline tables into charts, inline or as SVG/PNG.
+
 Other Rust plotting libraries worth knowing about:
 
 [kuva](https://github.com/Psy-Fer/kuva): A scientific plotting library in Rust. 64 plot types, SVG output, optional PNG/PDF backends, and a CLI binary that renders plots directly from the shell.
