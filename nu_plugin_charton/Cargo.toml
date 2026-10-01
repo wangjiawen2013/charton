@@ -4,11 +4,16 @@ version = "0.116.0"
 edition = "2024"
 license = "Apache-2.0"
 repository = "https://github.com/wangjiawen2013/charton"
+homepage = "https://wangjiawen2013.github.io/charton"
+documentation = "https://wangjiawen2013.github.io/charton/ecosystem/nushell.html"
 description = "Nushell plugin for charton: turn pipeline tables into charts"
+readme = "README.md"
+keywords = ["nushell", "charts", "plotting", "cli", "visualization"]
+categories = ["command-line-utilities", "visualization"]
 
 [dependencies]
 # Path + version so the crate stays publishable; enable png for terminal raster.
-charton = { path = "..", version = "0.6", features = ["png", "geo"] }
+charton = { path = "..", version = "0.7", features = ["png", "geo"] }
 # Protocol version MUST match the installed Nushell (0.116).
 nu-plugin = "=0.116"
 nu-protocol = "=0.116"
@@ -20,6 +25,11 @@ base64 = "0.22"
 terminal_size = "0.4"
 
 icy_sixel = "0.7.0"
+
+[features]
+# Development-only diagnostic command (`charton-probe`). Off by default so it
+# does not appear in users' `help commands`.
+probe = []
 
 [dev-dependencies]
 nu-plugin-test-support = "=0.116"

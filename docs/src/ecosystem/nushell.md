@@ -13,9 +13,11 @@ open sales.csv | charton -g bar -x region -y revenue
 That single line reads a file, infers column types, builds a Charton `Dataset`,
 renders a bar chart, and draws it inline in the terminal.
 
+![charton drawing a bubble chart inline in the terminal](../images/nushell-demo.gif)
+
 > This chapter is the conceptual overview. The complete flag/config reference
 > lives in the plugin's own
-> [`README`](https://github.com/wangjiawen2013/charton/blob/dev/nu_plugin_charton/README.md).
+> [`README`](https://github.com/wangjiawen2013/charton/blob/main/nu_plugin_charton/README.md).
 > The non-obvious engineering — process model, inline protocols, resolution
 > fitting, protocol versioning — is covered in
 > [Nushell Plugin Internals](nushell_internals.md).
@@ -73,7 +75,7 @@ plugin use charton
 ```
 
 The full, platform-specific walk-through (including uninstall) is in the
-[plugin README](https://github.com/wangjiawen2013/charton/blob/dev/nu_plugin_charton/README.md#installation).
+[plugin README](https://github.com/wangjiawen2013/charton/blob/main/nu_plugin_charton/README.md#install).
 
 ### Everyday use
 

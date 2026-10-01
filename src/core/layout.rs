@@ -624,7 +624,9 @@ impl LayoutEngine {
         // Physical constants (should match those used in draw_ticks_and_labels)
         let tick_line_len = 6.0;
         let title_gap = 5.0; // Distance between labels and the title text
-        let edge_buffer = 10.0; // Prevents the title from touching the very edge of the SVG
+        // Small safety margin only; the theme's canvas margins provide the real
+        // breathing room, so this no longer needs to reserve a wide band.
+        let edge_buffer = 4.0;
         let angle_rad = angle_deg.to_radians();
 
         // 1. Predictive Tick Generation

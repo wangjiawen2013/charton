@@ -17,6 +17,8 @@
 
 Charton is a high-performance Rust plotting library featuring a declarative API inspired by [Altair](https://altair-viz.github.io/). It provides [Polars](https://github.com/pola-rs/polars) support for fast data processing. Integrated with evcxr_jupyter, it enables seamless interactive data exploration in notebooks.
 
+> **Using Nushell?** Charton also ships as a Nushell plugin: `nu_plugin_charton` turns any pipeline table into a chart, inline or saved as SVG/PNG. Install and usage → [plugin README](nu_plugin_charton/README.md).
+
 <table>
     <tr>
         <td><img src="docs/src/images/grid_line.svg" alt="Grid Lines" /><p align="center">Grid Lines</p></td>
@@ -56,13 +58,13 @@ Add to `Cargo.toml`:
 
 ```toml
 [dependencies]
-charton = "0.6"                                            # Standard (Single-threaded + SVG export)
-charton = { version = "0.6", features = ["png"] }          # Pure Headless Raster Renderer (CPU only)
-charton = { version = "0.6", features = ["pdf"] }          # Export charts to PDF format
-charton = { version = "0.6", features = ["wgpu", "png"] }  # Local Desktop with GPU acceleration + PNG export
-charton = { version = "0.6", features = ["wgpu"] }         # Web Browsers (WebAssembly/Wasm target)
-charton = { version = "0.6", features = ["parallel"] }     # Multi-threaded data processing (Rayon)
-charton = { version = "0.6", features = ["geo"] }          # Enable geospatial coordinate support
+charton = "0.7"                                            # Standard (Single-threaded + SVG export)
+charton = { version = "0.7", features = ["png"] }          # Pure Headless Raster Renderer (CPU only)
+charton = { version = "0.7", features = ["pdf"] }          # Export charts to PDF format
+charton = { version = "0.7", features = ["wgpu", "png"] }  # Local Desktop with GPU acceleration + PNG export
+charton = { version = "0.7", features = ["wgpu"] }         # Web Browsers (WebAssembly/Wasm target)
+charton = { version = "0.7", features = ["parallel"] }     # Multi-threaded data processing (Rayon)
+charton = { version = "0.7", features = ["geo"] }          # Enable geospatial coordinate support
 ```
 
 ## Quick Start
@@ -186,6 +188,10 @@ Designed for precision, Charton provides pixel-perfect control over complex mark
 Please go to the [Charton Docs](https://wangjiawen2013.github.io/charton) for full documentation.
 
 ## Ecosystem
+
+Charton ships a first-party [Nushell plugin](nu_plugin_charton/README.md) that
+turns pipeline tables into charts, inline or as SVG/PNG.
+
 Other Rust plotting libraries worth knowing about:
 
 [kuva](https://github.com/Psy-Fer/kuva): A scientific plotting library in Rust. 64 plot types, SVG output, optional PNG/PDF backends, and a CLI binary that renders plots directly from the shell.
