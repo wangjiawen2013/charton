@@ -16,10 +16,9 @@ That one line reads the table, infers the column types, builds the chart and
 draws it in the terminal. The Nushell command is `charton` (the plugin is
 registered under the name without the `nu_plugin_` prefix).
 
-> **Compatibility:** this plugin is pinned to **Nushell 0.116**. It is a
-> separate crate from the `charton` library (0.7.x) and follows Nushell's
-> version number so the supported shell version is obvious. See
-> [Compatibility](#compatibility).
+> **Compatibility:** `nu_plugin_charton` targets **Nushell 0.116** and shares
+> the `charton` version number (both `0.7.x`), so one release covers the
+> matching pair. See [Compatibility](#compatibility).
 
 ## Install
 
@@ -336,9 +335,13 @@ charton-probe | to md
 ## Compatibility
 
 `nu-plugin` / `nu-protocol` **must match the installed Nushell version**; this
-crate is pinned to `=0.116.0`. After upgrading Nushell, install the matching
-plugin version (or rebuild) and re-run `plugin add`. The `charton` library it
-depends on (`0.7.x`) follows its own version scheme.
+crate is pinned to `=0.116`, so it targets **Nushell 0.116**. After upgrading
+Nushell, install the matching plugin release (or rebuild) and re-run
+`plugin add`.
+
+`nu_plugin_charton` shares its version number with the `charton` library it
+depends on, so `charton 0.7.0` and `nu_plugin_charton 0.7.0` ship as a pair.
+The Nushell target is stated here and in the release notes.
 
 ## Uninstall
 

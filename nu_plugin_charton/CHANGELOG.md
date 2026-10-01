@@ -1,9 +1,10 @@
 # Changelog
 
-All notable changes to `nu_plugin_charton` are documented here. This crate is
-pinned to a Nushell version and follows Nushell's version number.
+All notable changes to `nu_plugin_charton` are documented here. The crate
+shares the `charton` version number, and the Nushell release it targets is
+stated in the README and in each release.
 
-## [0.116.0]
+## [0.7.0]
 
 First public release. Targets Nushell 0.116.
 
@@ -33,4 +34,4 @@ First public release. Targets Nushell 0.116.
 - Configuration via `$env.config.plugins.charton`.
 - `charton-probe` diagnostic command behind an off-by-default `probe` feature.
 
-[0.116.0]: https://github.com/wangjiawen2013/charton/releases/tag/v2026.10.01
+[0.7.0]: https://github.com/wangjiawen2013/charton/releases/tag/v0.7.0
