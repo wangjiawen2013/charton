@@ -28,4 +28,4 @@ predate this file.
   legend ink instead of a hard-coded `#333333`, which was nearly invisible on
   dark backgrounds.
 
-[0.7.0]: https://github.com/wangjiawen2013/charton/releases/tag/v2026.10.01
+[0.7.0]: https://github.com/wangjiawen2013/charton/releases/tag/v0.7.0
