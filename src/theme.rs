@@ -30,6 +30,46 @@ pub enum TitleFrame {
     Figure,
 }
 
+/// A ready-made light or dark color scheme for a [`Theme`].
+///
+/// A mode chooses the colors of the canvas, axes, grid, text and default
+/// palette, and leaves layout, fonts and sizes untouched, so changing modes
+/// never changes the structure of a chart.
+///
+/// There is no automatic mode: a library cannot know what background it will be
+/// shown on. Callers that do know (a CLI, a GUI, the Nushell plugin) detect the
+/// environment and pick [`Light`] or [`Dark`].
+///
+/// [`Light`]: ThemeMode::Light
+/// [`Dark`]: ThemeMode::Dark
+#[derive(Clone, Copy, Debug, PartialEq, Eq, Default)]
+pub enum ThemeMode {
+    /// Dark ink and chrome for light backgrounds. The library default.
+    #[default]
+    Light,
+    /// Light ink and chrome for dark backgrounds (Catppuccin Mocha palette).
+    Dark,
+}
+
+impl ThemeMode {
+    /// Whether this mode targets a dark background.
+    pub const fn is_dark(self) -> bool {
+        matches!(self, ThemeMode::Dark)
+    }
+}
+
+impl std::str::FromStr for ThemeMode {
+    type Err = String;
+
+    fn from_str(s: &str) -> Result<Self, Self::Err> {
+        match s.trim().to_ascii_lowercase().as_str() {
+            "light" | "latte" => Ok(ThemeMode::Light),
+            "dark" | "mocha" => Ok(ThemeMode::Dark),
+            other => Err(format!("unknown theme '{other}'; expected light or dark")),
+        }
+    }
+}
+
 /// A `Theme` defines the visual "look and feel" of a chart.
 ///
 /// It stores constants for aesthetics (colors, fonts) and layout preferences (margins, spacing).
@@ -166,6 +206,67 @@ pub struct Theme {
 }
 
 impl Theme {
+    // --- Presets ---
+
+    /// The default light theme: dark text on a light background.
+    pub fn light() -> Self {
+        Self::default()
+    }
+
+    /// A dark theme tuned for dark terminals and dark-mode output.
+    ///
+    /// Starts from [`Theme::default`] and overrides only the colors that define
+    /// the look against a dark background; layout, typography and sizing stay
+    /// identical to the default theme.
+    pub fn dark() -> Self {
+        Self {
+            background_color: "#1E1E2E".into(), // Catppuccin Mocha base
+            axes_color: "#6C7086".into(),       // overlay0
+            tick_color: "#6C7086".into(),
+            grid_color: "#313244".into(),  // surface0
+            title_color: "#CDD6F4".into(), // text
+            label_color: "#CDD6F4".into(),
+            tick_label_color: "#BAC2DE".into(), // subtext1
+            legend_title_color: "#CDD6F4".into(),
+            legend_label_color: "#BAC2DE".into(),
+            facet_label_color: "#CDD6F4".into(),
+            facet_strip_fill: "#313244".into(),
+            palette: [
+                "#89B4FA", // blue
+                "#F38BA8", // red
+                "#A6E3A1", // green
+                "#F9E2AF", // yellow
+                "#CBA6F7", // mauve
+                "#94E2D5", // teal
+                "#FAB387", // peach
+                "#F5C2E7", // pink
+            ]
+            .into(),
+            ..Self::default()
+        }
+    }
+
+    /// Switch to the given preset, replacing every color of this theme.
+    ///
+    /// The presets differ only in color, so layout and typography are the same
+    /// either way. Per-chart overrides (palette, background, ...) should be
+    /// applied after this call so they win over the preset.
+    pub fn with_mode(self, mode: ThemeMode) -> Self {
+        match mode {
+            ThemeMode::Light => Theme::light(),
+            ThemeMode::Dark => Theme::dark(),
+        }
+    }
+
+    /// Whether this theme is intended for a dark background.
+    ///
+    /// Backends can use this to pick contrast-dependent details (for example
+    /// antialiasing or a fallback color when the background is transparent).
+    pub const fn is_dark(&self) -> bool {
+        let [r, g, b, _] = self.background_color.rgba();
+        (0.2126 * r + 0.7152 * g + 0.0722 * b) < 0.5
+    }
+
     // --- Global Configuration ---
 
     pub fn with_background_color(mut self, color: impl Into<SingleColor>) -> Self {
@@ -477,10 +578,10 @@ impl Default for Theme {
 
         Self {
             background_color: "white".into(),
-            top_margin: 0.05,
-            right_margin: 0.03,
-            bottom_margin: 0.08,
-            left_margin: 0.06,
+            top_margin: 0.025,
+            right_margin: 0.02,
+            bottom_margin: 0.03,
+            left_margin: 0.025,
 
             show_axes: true,
 
@@ -547,5 +648,63 @@ impl Default for Theme {
             polar_end_angle: 3.0 * std::f64::consts::FRAC_PI_2, // start + 2*PI
             polar_inner_radius: 0.0,
         }
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn theme_mode_parses_and_rejects() {
+        assert_eq!("light".parse::<ThemeMode>(), Ok(ThemeMode::Light));
+        assert_eq!("Dark".parse::<ThemeMode>(), Ok(ThemeMode::Dark));
+        assert_eq!("mocha".parse::<ThemeMode>(), Ok(ThemeMode::Dark));
+        assert_eq!("latte".parse::<ThemeMode>(), Ok(ThemeMode::Light));
+        assert!("blue".parse::<ThemeMode>().is_err());
+    }
+
+    #[test]
+    fn dark_preset_marks_itself_dark() {
+        assert!(Theme::dark().is_dark());
+        assert!(!Theme::light().is_dark());
+        assert!(!Theme::default().is_dark());
+    }
+
+    fn rgba(c: SingleColor) -> [f32; 4] {
+        c.rgba()
+    }
+
+    #[test]
+    fn dark_preset_only_changes_colors() {
+        let dark = Theme::dark();
+        let light = Theme::default();
+        // Layout / typography must be untouched.
+        assert_eq!(dark.title_size, light.title_size);
+        assert_eq!(dark.top_margin, light.top_margin);
+        assert_eq!(dark.grid_width, light.grid_width);
+        assert_eq!(dark.min_panel_size, light.min_panel_size);
+        // But the ink and background do change.
+        assert_ne!(rgba(dark.background_color), rgba(light.background_color));
+        assert_ne!(rgba(dark.title_color), rgba(light.title_color));
+    }
+
+    #[test]
+    fn with_mode_matches_presets() {
+        let dark = Theme::light().with_mode(ThemeMode::Dark);
+        assert!(dark.is_dark());
+        let light = Theme::dark().with_mode(ThemeMode::Light);
+        assert!(!light.is_dark());
+    }
+
+    #[test]
+    fn dark_preset_overrides_palette() {
+        let dark = Theme::dark();
+        let ColorPalette::Custom(colors) = dark.palette else {
+            panic!("dark theme should use a custom palette");
+        };
+        assert_eq!(colors.len(), 8);
+        // First entry is Catppuccin Mocha blue #89B4FA.
+        assert_eq!(rgba(colors[0])[0], 0x89 as f32 / 255.0);
     }
 }

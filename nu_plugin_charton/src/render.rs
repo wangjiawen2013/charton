@@ -82,8 +82,24 @@ impl InlineStyle {
 
     /// Detect the best available protocol from environment variables.
     pub fn detect() -> Self {
-        let var = |k: &str| std::env::var(k).ok();
+        Self::detect_from(|key| std::env::var(key).ok())
+    }
 
+    /// Testable core of [`InlineStyle::detect`].
+    fn detect_from(getenv: impl Fn(&str) -> Option<String>) -> Self {
+        let var = |k: &str| getenv(k);
+
+        // An explicit override wins, so users on a remote host can force a
+        // protocol without touching their Nushell config.
+        if let Some(v) = var("CHARTON_INLINE_STYLE")
+            && let Ok(style) = Self::parse(&v)
+            && style != Self::Auto
+        {
+            return style;
+        }
+
+        // Program identity. These are set by the terminal emulator itself, so
+        // on a remote host they only exist when the SSH client forwards them.
         if let Some(tp) = var("TERM_PROGRAM") {
             let tp = tp.to_lowercase();
             if tp.contains("iterm") || tp.contains("wezterm") {
@@ -93,20 +109,28 @@ impl InlineStyle {
                 return Self::Kitty;
             }
         }
-
-        if var("KITTY_WINDOW_ID").is_some() {
+        if var("KITTY_WINDOW_ID").is_some() || var("GHOSTTY_RESOURCES_DIR").is_some() {
             return Self::Kitty;
         }
-        if var("WEZTERM_EXECUTABLE").is_some() || var("WEZTERM_PANE").is_some() {
+        if var("WEZTERM_EXECUTABLE").is_some()
+            || var("WEZTERM_PANE").is_some()
+            || var("ITERM_SESSION_ID").is_some()
+        {
             return Self::Iterm2;
         }
+
+        // `TERM` *is* forwarded by SSH even when the program-specific variables
+        // above are not, so it is the reliable hint on a remote server.
         if let Some(term) = var("TERM") {
             let term = term.to_lowercase();
+            if term.contains("wezterm") || term.contains("iterm") {
+                return Self::Iterm2;
+            }
+            if term.contains("kitty") || term.contains("ghostty") {
+                return Self::Kitty;
+            }
             if term.contains("sixel") || term.starts_with("foot") || term.starts_with("mlterm") {
                 return Self::Sixel;
-            }
-            if term.contains("kitty") {
-                return Self::Kitty;
             }
         }
 
@@ -304,18 +328,11 @@ pub fn png_to_halfblock(
     let dest_w = cols;
     let dest_h = rows * 2;
 
-    let sample = |dx: usize, dy: usize| -> (u8, u8, u8) {
-        let sx = (dx * w / dest_w).min(w - 1);
-        let sy = (dy * h / dest_h).min(h - 1);
-        let idx = (sy * w + sx) * 4;
-        (rgba[idx], rgba[idx + 1], rgba[idx + 2])
-    };
-
     let mut out = String::with_capacity(cols * rows * 32);
     for cy in 0..rows {
         for cx in 0..cols {
-            let (tr, tg, tb) = sample(cx, cy * 2);
-            let (br, bg, bb) = sample(cx, cy * 2 + 1);
+            let (tr, tg, tb) = downsample(&rgba, w, h, dest_w, dest_h, cx, cy * 2);
+            let (br, bg, bb) = downsample(&rgba, w, h, dest_w, dest_h, cx, cy * 2 + 1);
             out.push_str("\x1b[38;2;");
             push_u8(&mut out, tr);
             out.push(';');
@@ -333,6 +350,60 @@ pub fn png_to_halfblock(
         out.push_str("\x1b[0m\n");
     }
     Ok(out)
+}
+
+/// Average the source rectangle that maps to output pixel `(dx, dy)`.
+///
+/// The plugin halves the raster into a `dest_w x dest_h` grid, which is a large
+/// downscale. Nearest-neighbour sampling makes thin axis lines and text strokes
+/// appear and disappear from cell to cell (some edges double, others vanish);
+/// averaging instead keeps them visible as a lighter shade. Fully transparent
+/// source pixels are ignored, so an alpha cut-out does not darken its cell.
+fn downsample(
+    rgba: &[u8],
+    w: usize,
+    h: usize,
+    dest_w: usize,
+    dest_h: usize,
+    dx: usize,
+    dy: usize,
+) -> (u8, u8, u8) {
+    // Half-open source span [start, end) for output index `i`; spans tile the
+    // axis so no pixel is sampled twice or skipped. When upscaling (dest > src)
+    // the span is empty, so fall back to the single nearest pixel.
+    let span = |i: usize, dst: usize, src: usize| -> (usize, usize) {
+        let start = i * src / dst;
+        let end = (i + 1) * src / dst;
+        if end > start {
+            (start, end)
+        } else {
+            (start, (start + 1).min(src))
+        }
+    };
+    let (x0, x1) = span(dx, dest_w, w);
+    let (y0, y1) = span(dy, dest_h, h);
+    let mut sum = [0u64; 3];
+    let mut alpha = 0u64;
+    for sy in y0..y1 {
+        let row = sy * w;
+        for sx in x0..x1 {
+            let idx = (row + sx) * 4;
+            let a = rgba[idx + 3] as u64;
+            sum[0] += rgba[idx] as u64 * a;
+            sum[1] += rgba[idx + 1] as u64 * a;
+            sum[2] += rgba[idx + 2] as u64 * a;
+            alpha += a;
+        }
+    }
+    if let (Some(r), Some(g), Some(b)) = (
+        sum[0].checked_div(alpha),
+        sum[1].checked_div(alpha),
+        sum[2].checked_div(alpha),
+    ) {
+        (r as u8, g as u8, b as u8)
+    } else {
+        (0, 0, 0)
+    }
 }
 
 /// Decode a PNG into an RGBA8 buffer: `(width, height, rgba)`.
@@ -359,7 +430,7 @@ fn decode_png_rgba(bytes: &[u8]) -> Result<(usize, usize, Vec<u8>), String> {
         png::ColorType::Rgba => data.to_vec(),
         png::ColorType::Rgb => {
             let mut out = Vec::with_capacity(width * height * 4);
-            for px in data.chunks_exact(3) {
+            for px in data.as_chunks::<3>().0 {
                 out.extend_from_slice(&[px[0], px[1], px[2], 255]);
             }
             out
@@ -373,7 +444,7 @@ fn decode_png_rgba(bytes: &[u8]) -> Result<(usize, usize, Vec<u8>), String> {
         }
         png::ColorType::GrayscaleAlpha => {
             let mut out = Vec::with_capacity(width * height * 4);
-            for px in data.chunks_exact(2) {
+            for px in data.as_chunks::<2>().0 {
                 out.extend_from_slice(&[px[0], px[0], px[0], px[1]]);
             }
             out
@@ -433,6 +504,39 @@ mod tests {
         let art = png_to_halfblock(&tiny_png(), 80, 40).unwrap();
         assert!(art.contains('\u{2580}'));
         assert!(art.contains("\x1b[38;2;"));
+    }
+
+    #[test]
+    fn box_downsampling_keeps_thin_lines() {
+        // 20x20 white with a 1px black vertical line at x=11.
+        let (w, h) = (20usize, 20usize);
+        let mut rgba = vec![255u8; w * h * 4];
+        for y in 0..h {
+            let idx = (y * w + 11) * 4;
+            rgba[idx] = 0;
+            rgba[idx + 1] = 0;
+            rgba[idx + 2] = 0;
+        }
+        // Downscale to 4 columns. The line falls inside column 2 ([10, 15));
+        // nearest-neighbour at x = 2*20/4 = 10 would miss it entirely.
+        let line = downsample(&rgba, w, h, 4, 4, 2, 0);
+        assert!(line.0 < 255, "thin line must not vanish: {line:?}");
+        // A column that does not cover the line stays white.
+        assert_eq!(downsample(&rgba, w, h, 4, 4, 0, 0), (255, 255, 255));
+    }
+
+    #[test]
+    fn box_downsampling_ignores_transparent_pixels() {
+        // One transparent pixel and one opaque red pixel in the same cell.
+        let (w, h) = (2usize, 1usize);
+        let mut rgba = vec![0u8; w * h * 4];
+        rgba[4] = 255; // x=1 red
+        rgba[7] = 255; // x=1 alpha
+        assert_eq!(
+            downsample(&rgba, w, h, 1, 1, 0, 0),
+            (255, 0, 0),
+            "transparent pixels must not darken the cell"
+        );
     }
 
     #[test]
@@ -498,5 +602,63 @@ mod tests {
         let (c, r) = fit_cells_with_cell(600, 600, 80, 40, 8, 18);
         let box_aspect = (c * 8) as f64 / (r * 18) as f64;
         assert!((box_aspect - 1.0).abs() < 0.06, "{c}x{r} -> {box_aspect}");
+    }
+
+    /// Build a `getenv` closure from a fixed list of `(key, value)` pairs.
+    fn env<'a>(pairs: &'a [(&'a str, &'a str)]) -> impl Fn(&str) -> Option<String> + 'a {
+        move |key| {
+            pairs
+                .iter()
+                .find(|(k, _)| *k == key)
+                .map(|(_, v)| (*v).to_string())
+        }
+    }
+
+    #[test]
+    fn detection_recognises_wezterm_over_ssh_via_term() {
+        // Over SSH `TERM_PROGRAM`/`WEZTERM_*` are usually absent, but `TERM`
+        // is forwarded. This is the Ubuntu-server-over-SSH case.
+        let style = InlineStyle::detect_from(env(&[("TERM", "wezterm")]));
+        assert_eq!(style, InlineStyle::Iterm2);
+    }
+
+    #[test]
+    fn detection_recognises_kitty_and_foot_terms() {
+        assert_eq!(
+            InlineStyle::detect_from(env(&[("TERM", "xterm-kitty")])),
+            InlineStyle::Kitty
+        );
+        assert_eq!(
+            InlineStyle::detect_from(env(&[("TERM", "foot")])),
+            InlineStyle::Sixel
+        );
+    }
+
+    #[test]
+    fn detection_prefers_term_program_hint() {
+        let style = InlineStyle::detect_from(env(&[
+            ("TERM_PROGRAM", "WezTerm"),
+            ("TERM", "xterm-256color"),
+        ]));
+        assert_eq!(style, InlineStyle::Iterm2);
+    }
+
+    #[test]
+    fn detection_env_override_wins() {
+        let style = InlineStyle::detect_from(env(&[
+            ("CHARTON_INLINE_STYLE", "halfblock"),
+            ("TERM", "wezterm"),
+        ]));
+        assert_eq!(style, InlineStyle::HalfBlock);
+    }
+
+    #[test]
+    fn detection_falls_back_to_halfblock() {
+        assert_eq!(InlineStyle::detect_from(env(&[])), InlineStyle::HalfBlock);
+        // A dumb terminal that matches nothing still falls back safely.
+        assert_eq!(
+            InlineStyle::detect_from(env(&[("TERM", "dumb")])),
+            InlineStyle::HalfBlock
+        );
     }
 }

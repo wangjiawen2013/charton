@@ -96,7 +96,7 @@ pub mod prelude {
     pub use crate::render::line_renderer::PathInterpolation;
     pub use crate::scale::formatter::{Abbreviation, LabelFormat};
     pub use crate::scale::{Expansion, Scale};
-    pub use crate::theme::{Theme, TitleAnchor, TitleFrame};
+    pub use crate::theme::{Theme, ThemeMode, TitleAnchor, TitleFrame};
     pub use crate::transform::{
         density_transform::{BandwidthType, DensityTransform, KernelType},
         window_transform::{WindowFieldDef, WindowOnlyOp, WindowTransform},

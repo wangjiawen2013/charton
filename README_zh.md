@@ -17,6 +17,8 @@
 
 Charton 是一款高性能 Rust 绘图库，其声明式 API 灵感源自 [Altair](https://altair-viz.github.io/)。它支持 [Polars](https://github.com/pola-rs/polars) 数据框来快速处理数据。通过与 evcxr_jupyter 集成，还可以在 Notebook 中实现交互式数据探索。
 
+> **使用 Nushell？** Charton 也提供 Nushell 插件：`nu_plugin_charton` 可以把任意管道表格画成图表，终端内联显示或保存为 SVG/PNG。安装与用法见[插件 README](nu_plugin_charton/README.md)。
+
 <table>
     <tr>
         <td><img src="docs/src/images/grid_line.svg" alt="Grid Lines" /><p align="center">Grid Lines</p></td>
@@ -56,13 +58,13 @@ Charton 是一款高性能 Rust 绘图库，其声明式 API 灵感源自 [Altai
 
 ```toml
 [dependencies]
-charton = "0.6"                                            # 标准版 (单线程 + SVG 导出)
-charton = { version = "0.6", features = ["png"] }          # 纯后端光栅化渲染（仅 CPU 模式）
-charton = { version = "0.6", features = ["pdf"] }          # PDF 格式图表导出
-charton = { version = "0.6", features = ["wgpu", "png"] }  # 本地桌面端（GPU 加速 + PNG 导出）
-charton = { version = "0.6", features = ["wgpu"] }         # 网页浏览器（WebAssembly/Wasm 目标平台）
-charton = { version = "0.6", features = ["parallel"] }     # 多线程数据处理（基于 Rayon）
-charton = { version = "0.6", features = ["geo"] }          # 地理坐标支持
+charton = "0.7"                                            # 标准版 (单线程 + SVG 导出)
+charton = { version = "0.7", features = ["png"] }          # 纯后端光栅化渲染（仅 CPU 模式）
+charton = { version = "0.7", features = ["pdf"] }          # PDF 格式图表导出
+charton = { version = "0.7", features = ["wgpu", "png"] }  # 本地桌面端（GPU 加速 + PNG 导出）
+charton = { version = "0.7", features = ["wgpu"] }         # 网页浏览器（WebAssembly/Wasm 目标平台）
+charton = { version = "0.7", features = ["parallel"] }     # 多线程数据处理（基于 Rayon）
+charton = { version = "0.7", features = ["geo"] }          # 地理坐标支持
 ```
 
 ## 快速上手
@@ -188,6 +190,9 @@ Charton 作图精准，提供对复杂标记的像素级控制。无论是用于
 请访问 [Charton Docs](https://wangjiawen2013.github.io/charton) 查看完整文档。
 
 ## 生态系统
+
+Charton 提供官方的 [Nushell 插件](nu_plugin_charton/README.md)，可以把管道表格画成图表，终端内联显示或保存为 SVG/PNG。
+
 其他值得了解的 Rust 绘图库：
 
 [kuva](https://github.com/Psy-Fer/kuva)：一个 Rust 科学绘图库。支持多种图表类型，SVG 输出，可选的 PNG/PDF 后端，以及一个可直接在终端中渲染绘图的 CLI 工具。

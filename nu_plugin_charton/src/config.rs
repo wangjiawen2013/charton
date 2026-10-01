@@ -15,12 +15,39 @@
 //!     legend: bottom            # left | right | top | bottom | none
 //!     x_angle: -45
 //!     background: "#ffffff"
+//!     theme: dark               # auto | light | dark
+//!     color_map: viridis        # continuous color scheme (heatmaps, density)
 //! }
 //! ```
+//!
+//! Unknown keys are ignored with a warning on stderr, so typos surface instead
+//! of silently doing nothing.
 
-use charton::prelude::{ColorPalette, LegendPosition};
+use charton::prelude::{ColorMap, ColorPalette, LegendPosition};
 use nu_plugin::EngineInterface;
 use nu_protocol::{Record, Value};
+
+/// Every config key `Config::load` understands, including kebab-case aliases.
+const KNOWN_KEYS: &[&str] = &[
+    "width",
+    "height",
+    "scale",
+    "cell_width",
+    "cell-width",
+    "cell_height",
+    "cell-height",
+    "inline_style",
+    "inline-style",
+    "palette",
+    "color_map",
+    "color-map",
+    "grid",
+    "legend",
+    "x_angle",
+    "x-angle",
+    "background",
+    "theme",
+];
 
 /// A configured palette: either a named built-in or an explicit color list.
 #[derive(Clone, Debug)]
@@ -66,6 +93,10 @@ pub struct Config {
     pub legend: Option<LegendSetting>,
     pub x_angle: Option<f64>,
     pub background: Option<String>,
+    /// Preferred color theme: `auto`, `light` or `dark`.
+    pub theme: Option<String>,
+    /// Continuous color scheme for heatmaps / density plots.
+    pub color_map: Option<ColorMap>,
 }
 
 impl Config {
@@ -96,6 +127,18 @@ impl Config {
             _ => None,
         };
 
+        let color_map = match str_field(val, "color_map").or_else(|| str_field(val, "color-map")) {
+            Some(name) => Some(to_color_map(&name)?),
+            None => None,
+        };
+
+        // Surface typos: unknown keys do nothing, which is otherwise invisible.
+        for key in val.columns() {
+            if !KNOWN_KEYS.contains(&key.as_str()) {
+                eprintln!("[charton] warning: unknown config key `{key}` ignored");
+            }
+        }
+
         Ok(Self {
             width: int_field(val, "width").map(|v| v.max(16) as u32),
             height: int_field(val, "height").map(|v| v.max(16) as u32),
@@ -112,6 +155,8 @@ impl Config {
             legend,
             x_angle: float_field(val, "x_angle").or_else(|| float_field(val, "x-angle")),
             background: str_field(val, "background"),
+            theme: str_field(val, "theme"),
+            color_map,
         })
     }
 }
@@ -139,6 +184,50 @@ pub fn to_color_palette(setting: &PaletteSetting) -> Result<ColorPalette, String
             Ok(ColorPalette::from(refs))
         }
     }
+}
+
+/// Convert a color-map name into a charton [`ColorMap`].
+///
+/// Names accept `-`, `_` and spaces as separators, so `yl-gn-bu`, `YlGnBu` and
+/// `ylorgn` all resolve.
+pub fn to_color_map(name: &str) -> Result<ColorMap, String> {
+    let key = name.to_lowercase().replace(['-', '_', ' '], "");
+    Ok(match key.as_str() {
+        "viridis" => ColorMap::Viridis,
+        "inferno" => ColorMap::Inferno,
+        "magma" => ColorMap::Magma,
+        "plasma" => ColorMap::Plasma,
+        "cividis" => ColorMap::Cividis,
+        "blues" => ColorMap::Blues,
+        "greens" => ColorMap::Greens,
+        "greys" | "grays" => ColorMap::Greys,
+        "oranges" => ColorMap::Oranges,
+        "purples" => ColorMap::Purples,
+        "reds" => ColorMap::Reds,
+        "bugn" => ColorMap::BuGn,
+        "bupu" => ColorMap::BuPu,
+        "gnbu" => ColorMap::GnBu,
+        "orrd" => ColorMap::OrRd,
+        "pubugn" => ColorMap::PuBuGn,
+        "pubu" => ColorMap::PuBu,
+        "purd" => ColorMap::PuRd,
+        "rdpu" => ColorMap::RdPu,
+        "ylgnbu" => ColorMap::YlGnBu,
+        "ylgn" => ColorMap::YlGn,
+        "ylorbr" => ColorMap::YlOrBr,
+        "ylorrd" => ColorMap::YlOrRd,
+        "rainbow" => ColorMap::Rainbow,
+        "jet" => ColorMap::Jet,
+        "hot" => ColorMap::Hot,
+        "cool" => ColorMap::Cool,
+        other => {
+            return Err(format!(
+                "unknown color map '{other}'; try viridis, inferno, magma, plasma, 
+                 cividis, blues, greens, greys, oranges, purples, reds, or a 
+                 multi-hue map like ylgnbu"
+            ));
+        }
+    })
 }
 
 fn int_field(rec: &Record, key: &str) -> Option<i64> {
@@ -171,6 +260,17 @@ mod tests {
         assert!(to_color_palette(&PaletteSetting::Named("tab10".into())).is_ok());
         assert!(to_color_palette(&PaletteSetting::Named("dark-2".into())).is_ok());
         assert!(to_color_palette(&PaletteSetting::Named("nope".into())).is_err());
+    }
+
+    #[test]
+    fn color_map_resolves_aliases() {
+        assert!(matches!(to_color_map("viridis"), Ok(ColorMap::Viridis)));
+        assert!(matches!(to_color_map("Magma"), Ok(ColorMap::Magma)));
+        // Separators are ignored, so kebab/snake/camel case all work.
+        assert!(matches!(to_color_map("yl-gn-bu"), Ok(ColorMap::YlGnBu)));
+        assert!(matches!(to_color_map("YlGnBu"), Ok(ColorMap::YlGnBu)));
+        assert!(matches!(to_color_map("grays"), Ok(ColorMap::Greys)));
+        assert!(to_color_map("nope").is_err());
     }
 
     #[test]
