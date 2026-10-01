@@ -33,4 +33,4 @@ First public release. Targets Nushell 0.116.
 - Configuration via `$env.config.plugins.charton`.
 - `charton-probe` diagnostic command behind an off-by-default `probe` feature.
 
-[0.116.0]: https://github.com/wangjiawen2013/charton/releases/tag/v2026.09.30
+[0.116.0]: https://github.com/wangjiawen2013/charton/releases/tag/v2026.10.31
