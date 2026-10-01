@@ -24,7 +24,7 @@ First public release. Targets Nushell 0.116.
 - Encodings: `x`/`y`/`y2`/`color`/`text`, plus `size`/`shape` channels and
   their legend labels.
 - Scales and axes: linear/log/discrete/temporal scales, domain overrides, axis
-  padding, explicit ticks, label formatting, and fonts.
+  padding, explicit ticks, and label formatting.
 - Appearance: light/dark themes, continuous color maps, palettes, background
   color, legend placement, and grid control, plus mark-level styling.
 - Output: inline terminal rendering (Kitty graphics, iTerm2 inline images,

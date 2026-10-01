@@ -17,6 +17,8 @@
 
 Charton 是一款高性能 Rust 绘图库，其声明式 API 灵感源自 [Altair](https://altair-viz.github.io/)。它支持 [Polars](https://github.com/pola-rs/polars) 数据框来快速处理数据。通过与 evcxr_jupyter 集成，还可以在 Notebook 中实现交互式数据探索。
 
+> **使用 Nushell？** Charton 也提供 Nushell 插件：`nu_plugin_charton` 可以把任意管道表格画成图表，终端内联显示或保存为 SVG/PNG。安装与用法见[插件 README](nu_plugin_charton/README.md)。
+
 <table>
     <tr>
         <td><img src="docs/src/images/grid_line.svg" alt="Grid Lines" /><p align="center">Grid Lines</p></td>
@@ -78,16 +80,6 @@ let weight = vec![55.0, 62.0, 68.0, 75.0, 82.0];
 // 一行代码绘图
 chart!(height, weight)?.mark_point()?.encode((alt::x("height"), alt::y("weight")))?.save("out.svg")?;
 ```
-
-## Nushell
-
-Charton 自带一个 Nushell 插件 `nu_plugin_charton`，可以把任意管道表格直接画成图表——在终端内联显示，或保存为 SVG/PNG。表格直接转成 `Dataset`，无需 CSV 中转。
-
-```nu
-open iris.csv | charton -g scatter -x petal_length -y petal_width -c species
-```
-
-安装、flag 与配置见[插件 README](nu_plugin_charton/README.md)，概念说明见[《Nushell Plugin》章节](https://wangjiawen2013.github.io/charton/ecosystem/nushell.html)。
 
 ## 从宏到生产级 API
 虽然 `chart!` 宏在快速原型设计和书写简单脚本时非常方便，但在需要显式处理数据的生产环境中，建议使用底层的 `Chart::build` API。
@@ -198,6 +190,9 @@ Charton 作图精准，提供对复杂标记的像素级控制。无论是用于
 请访问 [Charton Docs](https://wangjiawen2013.github.io/charton) 查看完整文档。
 
 ## 生态系统
+
+Charton 提供官方的 [Nushell 插件](nu_plugin_charton/README.md)，可以把管道表格画成图表，终端内联显示或保存为 SVG/PNG。
+
 其他值得了解的 Rust 绘图库：
 
 [kuva](https://github.com/Psy-Fer/kuva)：一个 Rust 科学绘图库。支持多种图表类型，SVG 输出，可选的 PNG/PDF 后端，以及一个可直接在终端中渲染绘图的 CLI 工具。

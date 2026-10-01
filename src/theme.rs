@@ -578,10 +578,10 @@ impl Default for Theme {
 
         Self {
             background_color: "white".into(),
-            top_margin: 0.05,
-            right_margin: 0.03,
-            bottom_margin: 0.08,
-            left_margin: 0.06,
+            top_margin: 0.025,
+            right_margin: 0.02,
+            bottom_margin: 0.03,
+            left_margin: 0.025,
 
             show_axes: true,
 

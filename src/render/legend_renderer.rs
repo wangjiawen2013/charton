@@ -112,7 +112,7 @@ impl LegendRenderer {
                     }
                 }
                 GuideKind::Legend => {
-                    let (labels, colors, shapes, sizes) = Self::resolve_mappings(spec, ctx);
+                    let (labels, colors, shapes, sizes) = Self::resolve_mappings(spec, ctx, theme);
                     Self::draw_entries(
                         backend,
                         &labels,
@@ -355,7 +355,7 @@ impl LegendRenderer {
                 block_x + entry.x + (cell / 2.0),
                 centre_y,
                 radius,
-                colors.get(index).unwrap_or(&"#333333".into()),
+                colors.get(index).unwrap_or(&theme.legend_label_color),
             );
 
             backend.draw_text(TextConfig {
@@ -374,11 +374,22 @@ impl LegendRenderer {
         }
     }
 
+    /// The color a legend symbol is drawn with.
+    ///
+    /// A block with a color scale passes its mapped color. A size/shape-only
+    /// block (or a missing mapping) has no color scale, so it falls back to the
+    /// theme's legend ink — that stays visible on both light and dark
+    /// backgrounds, unlike a fixed grey.
+    fn legend_symbol_color(mapped: Option<SingleColor>, theme: &Theme) -> SingleColor {
+        mapped.unwrap_or(theme.legend_label_color)
+    }
+
     /// Maps data values into visual properties using the GlobalAesthetics context.
     #[allow(clippy::type_complexity)]
     fn resolve_mappings(
         spec: &GuideSpec,
         ctx: &PanelContext,
+        theme: &Theme,
     ) -> (
         Vec<String>,
         Vec<SingleColor>,
@@ -436,15 +447,14 @@ impl LegendRenderer {
                         .map(|v| mapping.scale_impl.normalize(v))
                         .unwrap_or_else(|| mapping.scale_impl.normalize_string(lookup));
 
-                    let color = mapping
+                    let mapped = mapping
                         .scale_impl
                         .mapper()
-                        .map(|m| m.map_to_color(norm, mapping.scale_impl.logical_max()))
-                        .unwrap_or_else(|| "#333333".into());
-                    colors.push(color);
+                        .map(|m| m.map_to_color(norm, mapping.scale_impl.logical_max()));
+                    colors.push(Self::legend_symbol_color(mapped, theme));
                 }
             } else {
-                colors.push("#333333".into());
+                colors.push(Self::legend_symbol_color(None, theme));
             }
 
             // Resolve Shape
@@ -639,6 +649,24 @@ mod tests {
             &band,
             &rect(210.0, 10.0, 100.0, 100.0)
         ));
+    }
+
+    #[test]
+    fn legend_symbols_use_the_theme_ink_without_a_color_scale() {
+        let dark = Theme::dark();
+        // A size/shape legend has no color scale, so it uses the theme ink.
+        assert_eq!(
+            LegendRenderer::legend_symbol_color(None, &dark),
+            dark.legend_label_color
+        );
+        // A mapped color is kept as-is.
+        let red: SingleColor = "#ff0000".into();
+        assert_eq!(LegendRenderer::legend_symbol_color(Some(red), &dark), red);
+        // Regression: the old fixed #333333 was invisible on the dark canvas.
+        assert_ne!(
+            LegendRenderer::legend_symbol_color(None, &dark),
+            SingleColor::new("#333333")
+        );
     }
 
     #[test]

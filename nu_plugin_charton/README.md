@@ -4,16 +4,20 @@ Turn any Nushell pipeline table into a chart — inline in the terminal, or save
 as SVG/PNG. Built on the [charton](https://github.com/wangjiawen2013/charton)
 plotting library.
 
+## Demo
+
+![charton drawing a bubble chart inline in the terminal](assets/nushell-demo.gif)
+
 ```nu
-open iris.csv | charton -g scatter -x petal_length -y petal_width -c species
+open demo.csv | charton -g point -x x -y y -c group --size-by size --theme dark
 ```
 
-That one line reads the file, infers the column types, builds the chart and
+That one line reads the table, infers the column types, builds the chart and
 draws it in the terminal. The Nushell command is `charton` (the plugin is
 registered under the name without the `nu_plugin_` prefix).
 
 > **Compatibility:** this plugin is pinned to **Nushell 0.116**. It is a
-> separate crate from the `charton` library (0.6.x) and follows Nushell's
+> separate crate from the `charton` library (0.7.x) and follows Nushell's
 > version number so the supported shell version is obvious. See
 > [Compatibility](#compatibility).
 
@@ -334,7 +338,7 @@ charton-probe | to md
 `nu-plugin` / `nu-protocol` **must match the installed Nushell version**; this
 crate is pinned to `=0.116.0`. After upgrading Nushell, install the matching
 plugin version (or rebuild) and re-run `plugin add`. The `charton` library it
-depends on (`0.6.x`) follows its own version scheme.
+depends on (`0.7.x`) follows its own version scheme.
 
 ## Uninstall
 

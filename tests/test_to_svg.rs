@@ -288,8 +288,10 @@ fn an_oversized_legend_is_clipped_to_the_band_outside_the_panel()
         let overlap_x = (bx + bw).min(px + pw) - bx.max(px);
         let overlap_y = (by + bh).min(py + ph) - by.max(py);
 
+        // The band and the panel may touch exactly (the legend sits flush
+        // against the panel), so compare with a tolerance instead of `== 0.0`.
         assert!(
-            overlap_x.max(0.0) * overlap_y.max(0.0) == 0.0,
+            overlap_x.max(0.0) * overlap_y.max(0.0) < 1e-6,
             "{position:?}: legend band ({bx},{by},{bw}x{bh}) covers the panel \
              ({px},{py},{pw}x{ph})"
         );
