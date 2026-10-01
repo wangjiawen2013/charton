@@ -1,6 +1,6 @@
 [package]
 name = "nu_plugin_charton"
-version = "0.116.0"
+version = "0.7.0"
 edition = "2024"
 license = "Apache-2.0"
 repository = "https://github.com/wangjiawen2013/charton"
