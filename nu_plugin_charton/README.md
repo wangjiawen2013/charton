@@ -33,7 +33,7 @@ already adds to your `PATH`.
 
 `plugin add` requires the path to the executable binary.
 
-**If installed via `cargo install`:**
+On Linux,
 ```nu
 plugin add ~/.cargo/bin/nu_plugin_charton
 ```
