@@ -52,6 +52,9 @@ Override with `--inline-style auto|halfblock|iterm2|kitty|sixel`. WezTerm is
 mapped to **iTerm2** deliberately: it is its most reliable protocol, and it
 avoids the platform-specific Sixel support matrix.
 
+Every frame ends on a clean line at column 0, so whatever follows — usually
+the shell prompt — starts below the chart at the left margin.
+
 ## 3. Pitfall: terminals cannot render SVG
 
 It is tempting to ask "why rasterize at all — can't we hand the terminal the
@@ -192,7 +195,7 @@ Three consequences:
 
 1. **Only `nu-plugin-protocol`'s version is checked.** The plugin's own
    `version()` (what `plugin list` shows) is pure metadata — the plugin can
-   report `0.7.0` and still load under Nushell `0.116.0`.
+   report `0.7.1` and still load under Nushell `0.116.0`.
 2. **Patch versions are compatible.** For `0.x`, a caret requirement locks the
    minor: `^0.116.0` means `>= 0.116.0, < 0.117.0`. So `0.116.1` and
    `0.116.0` are compatible in either direction, which is exactly why the
@@ -250,3 +253,4 @@ compiler points straight at the changed signature.
 | `plugin use` → plugin not found | 0.116 does not auto-load registered plugins | `plugin add` first, then `plugin use` in `config.nu` |
 | Protocol error after a version bump | plugin protocol minor differs from the engine | keep `nu-plugin*` on the engine's `0.116.x` line |
 | Inline output corrupts a pipe | escape sequence written in stdio mode | inline is gated on `!is_using_stdio() && tty` |
+| Prompt indented after an inline chart | some image protocols leave the cursor at the image's right edge | every frame ends with a CRLF + backspace/CR cursor resync |

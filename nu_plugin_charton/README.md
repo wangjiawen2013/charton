@@ -9,7 +9,7 @@ plotting library.
 ![charton drawing a bubble chart inline in the terminal](assets/nushell-demo.gif)
 
 ```nu
-open demo.csv | charton -g point -x x -y y -c group --size-by size --theme dark
+open assets/demo.csv | charton -g point -x x -y y -c group --size-by size --theme dark
 ```
 
 That one line reads the table, infers the column types, builds the chart and
@@ -22,40 +22,27 @@ registered under the name without the `nu_plugin_` prefix).
 
 ## Install
 
-### From crates.io
-
 ```sh
 cargo install nu_plugin_charton
 ```
 
-This puts the executable in `~/.cargo/bin`, which is already on your `PATH`
-after a rustup install.
-
-### From a local clone
-
-```sh
-git clone https://github.com/wangjiawen2013/charton
-cd charton
-cargo install --path nu_plugin_charton --locked
-```
+This puts the `nu_plugin_charton` executable in `~/.cargo/bin`, which `rustup`
+already adds to your `PATH`.
 
 ### Register with Nushell
 
 `plugin add` records the plugin in Nushell's registry. Pass the **executable**
-(filename or path), not the command name:
+name or path, not the `charton` command name:
 
 ```nu
-# Linux / macOS (from a clone; after `cargo install` use the ~/.cargo/bin path)
-plugin add target/release/nu_plugin_charton
-
-# Windows
-plugin add target/release/nu_plugin_charton.exe
+plugin add nu_plugin_charton
 ```
 
-A bare `plugin add charton` fails: it is treated as a file name, not a command.
-On Windows, the full path (for example
-`plugin add 'C:/Users/you/.cargo/bin/nu_plugin_charton.exe'`) is the most
-reliable form.
+On Windows, the full path is the most reliable form:
+
+```nu
+plugin add 'C:/Users/you/.cargo/bin/nu_plugin_charton.exe'
+```
 
 ### Load it
 
@@ -79,11 +66,7 @@ plugin list | where name == charton
 
 In an interactive terminal the last command draws the chart inline; in a
 non-interactive context (`nu -c`, output redirected) it returns the SVG text
-instead. If you only want to try it without touching the registry:
-
-```sh
-nu --plugins '[target/release/nu_plugin_charton]'
-```
+instead.
 
 ## Quick start
 
@@ -92,28 +75,37 @@ nu --plugins '[target/release/nu_plugin_charton]'
 ls | charton -g bar -x name -y size
 
 # Save to a file — format comes from the extension (.svg or .png)
-open data.csv | charton -g line -x date -y value -o chart.svg
-open data.csv | charton -g beeswarm -x group -y score -o chart.png
+open assets/data.csv | charton -g line -x date -y value -o chart.svg
+open assets/data.csv | charton -g beeswarm -x group -y score -o chart.png
 
 # Return the image to the pipeline instead of drawing it
-open data.csv | charton -g point -x a -y b --raw | save chart.svg
-open data.csv | charton -g point -x a -y b --raw --png | save chart.png
+open assets/data.csv | charton -g point -x a -y b --raw | save chart.svg
+open assets/data.csv | charton -g point -x a -y b --raw --png | save chart.png
 
 # Group by a column with color, stack, and aggregate
-open sales.csv | charton -g bar -x region -y revenue -c quarter --stack stacked
-open sales.csv | charton -g bar -x region -y revenue --aggregate mean
+open assets/sales.csv | charton -g bar -x region -y revenue -c quarter --stack stacked
+open assets/sales.csv | charton -g bar -x region -y revenue --aggregate mean
 
-# Distribution and trend
-open data.csv | charton -g density -x score -c group
-open data.csv | charton -g line -x t -y v --loess
+# Distribution and trend (--opacity keeps overlapping density curves visible)
+open assets/data.csv | charton -g density -x score -c group --opacity 0.5
+open assets/data.csv | charton -g line -x t -y v --loess
 
-# Pie / donut (bar mark in polar coordinates)
-open data.csv | charton -g bar -x category -y amount --coord polar
-open data.csv | charton -g bar -x category -y amount --coord polar --inner-radius 0.5
+# Pie / donut (bar mark in polar coordinates; omit -x so y becomes the slices)
+open assets/data.csv | charton -g bar -y amount -c category --coord polar
+open assets/data.csv | charton -g bar -y amount -c category --coord polar --inner-radius 0.5
+
+# Rose / Nightingale (x maps to the angle, y to the radius)
+open assets/data.csv | charton -g bar -x category -y amount -c category --coord polar
 
 # Geographic choropleth from a GeoJSON file
-charton -g geo --geojson world.geojson -c POP_EST -o world.png
+charton -g geo --geojson assets/world.geojson -c POP_EST -o world.png
 ```
+
+The examples read the small sample files shipped in `assets/`: `data.csv` has
+columns `date,value,group,score,a,b,t,v,category,amount`, `sales.csv` has
+`region,quarter,revenue`, and `world.geojson` is a Natural Earth country map.
+Run the commands from the `nu_plugin_charton/` directory (or prefix `assets/`
+with its path), and swap in your own file and column names to chart your data.
 
 ## Output modes
 
@@ -191,7 +183,7 @@ Flags are grouped by what you want to do. `[]` in the type column marks a list.
 | `--facet-row`, `--facet-col` | Two-field facet grid |
 | `--facet-strategy` | `fixed` (default) \| `free` |
 | `--coord` | Coordinate system: `cartesian` (default) \| `polar` (geographic charts use `-g geo`) |
-| `--inner-radius` | Polar inner radius ratio 0.0–1.0 (donut charts) |
+| `--inner-radius` | Polar inner radius ratio 0.0–1.0: a pie/donut (`-g bar`, no `-x`) or a rose with an open centre |
 | `--start-angle`, `--end-angle` | Polar angular span in degrees (rose / nightingale charts) |
 | `--margins` | Canvas margins as `top,right,bottom,left` (fractions 0.0–1.0) |
 
@@ -292,6 +284,9 @@ stay sharp. Tier 4 is the universal fallback: it packs the bitmap into colored
 `--inline-style`, the `CHARTON_INLINE_STYLE` environment variable, or the
 `inline_style` config key.
 
+After drawing, the cursor is left at the start of the next line, so the shell
+prompt is printed below the chart at the left margin rather than beside it.
+
 Inline drawing only happens when the plugin is **not** in stdio mode and its
 `stdout` is a TTY; otherwise the command falls back to `-o` saving, `--raw`
 data, or an SVG string. The full rationale (process model, resolution fitting,
@@ -340,7 +335,7 @@ Nushell, install the matching plugin release (or rebuild) and re-run
 `plugin add`.
 
 `nu_plugin_charton` shares its version number with the `charton` library it
-depends on, so `charton 0.7.0` and `nu_plugin_charton 0.7.0` ship as a pair.
+depends on, so `charton 0.7.1` and `nu_plugin_charton 0.7.1` ship as a pair.
 The Nushell target is stated here and in the release notes.
 
 ## Uninstall
