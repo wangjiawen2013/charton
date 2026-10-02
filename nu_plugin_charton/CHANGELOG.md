@@ -4,6 +4,21 @@ All notable changes to `nu_plugin_charton` are documented here. The crate
 shares the `charton` version number, and the Nushell release it targets is
 stated in the README and in each release.
 
+## [0.7.1]
+
+### Added
+
+- Bundled sample datasets under `assets/`: `data.csv`, `sales.csv`, and
+  `world.geojson`.
+
+### Changed
+
+- The Quick start examples now read the bundled `assets/` files, so they run
+  out of the box from a clone.
+- Simplified the install instructions for end users.
+
+[0.7.1]: https://github.com/wangjiawen2013/charton/releases/tag/v0.7.1
+
 ## [0.7.0]
 
 First public release. Targets Nushell 0.116.
