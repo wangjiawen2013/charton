@@ -482,7 +482,7 @@ checksum = "613afe47fcd5fac7ccf1db93babcb082c5994d996f20b8b159f2ad1658eb5724"
 
 [[package]]
 name = "charton"
-version = "0.7.0"
+version = "0.7.1"
 dependencies = [
  "ab_glyph",
  "ahash",
@@ -2356,7 +2356,7 @@ dependencies = [
 
 [[package]]
 name = "nu_plugin_charton"
-version = "0.7.0"
+version = "0.7.1"
 dependencies = [
  "base64",
  "charton",

@@ -4,6 +4,13 @@ All notable changes to the `charton` library are documented here. The project
 follows [Semantic Versioning](https://semver.org/). Releases before 0.7.0
 predate this file.
 
+## [0.7.1]
+
+No API changes. This release bumps the version to stay in lockstep with
+`nu_plugin_charton` 0.7.1.
+
+[0.7.1]: https://github.com/wangjiawen2013/charton/releases/tag/v0.7.1
+
 ## [0.7.0]
 
 ### Added
