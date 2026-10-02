@@ -31,11 +31,11 @@ already adds to your `PATH`.
 
 ### Register with Nushell
 
-`plugin add` records the plugin in Nushell's registry. Pass the **executable**
-name or path, not the `charton` command name:
+`plugin add` requires the path to the executable binary.
 
+**If installed via `cargo install`:**
 ```nu
-plugin add nu_plugin_charton
+plugin add ~/.cargo/bin/nu_plugin_charton
 ```
 
 On Windows, the full path is the most reliable form:
