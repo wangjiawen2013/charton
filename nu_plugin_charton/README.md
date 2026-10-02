@@ -86,13 +86,16 @@ open assets/data.csv | charton -g point -x a -y b --raw --png | save chart.png
 open assets/sales.csv | charton -g bar -x region -y revenue -c quarter --stack stacked
 open assets/sales.csv | charton -g bar -x region -y revenue --aggregate mean
 
-# Distribution and trend
-open assets/data.csv | charton -g density -x score -c group
+# Distribution and trend (--opacity keeps overlapping density curves visible)
+open assets/data.csv | charton -g density -x score -c group --opacity 0.5
 open assets/data.csv | charton -g line -x t -y v --loess
 
-# Pie / donut (bar mark in polar coordinates)
-open assets/data.csv | charton -g bar -x category -y amount --coord polar
-open assets/data.csv | charton -g bar -x category -y amount --coord polar --inner-radius 0.5
+# Pie / donut (bar mark in polar coordinates; omit -x so y becomes the slices)
+open assets/data.csv | charton -g bar -y amount -c category --coord polar
+open assets/data.csv | charton -g bar -y amount -c category --coord polar --inner-radius 0.5
+
+# Rose / Nightingale (x maps to the angle, y to the radius)
+open assets/data.csv | charton -g bar -x category -y amount -c category --coord polar
 
 # Geographic choropleth from a GeoJSON file
 charton -g geo --geojson assets/world.geojson -c POP_EST -o world.png
@@ -180,7 +183,7 @@ Flags are grouped by what you want to do. `[]` in the type column marks a list.
 | `--facet-row`, `--facet-col` | Two-field facet grid |
 | `--facet-strategy` | `fixed` (default) \| `free` |
 | `--coord` | Coordinate system: `cartesian` (default) \| `polar` (geographic charts use `-g geo`) |
-| `--inner-radius` | Polar inner radius ratio 0.0–1.0 (donut charts) |
+| `--inner-radius` | Polar inner radius ratio 0.0–1.0: a pie/donut (`-g bar`, no `-x`) or a rose with an open centre |
 | `--start-angle`, `--end-angle` | Polar angular span in degrees (rose / nightingale charts) |
 | `--margins` | Canvas margins as `top,right,bottom,left` (fractions 0.0–1.0) |
 
@@ -280,6 +283,9 @@ stay sharp. Tier 4 is the universal fallback: it packs the bitmap into colored
 `▀` characters and works on any UTF-8 terminal. Override the choice with
 `--inline-style`, the `CHARTON_INLINE_STYLE` environment variable, or the
 `inline_style` config key.
+
+After drawing, the cursor is left at the start of the next line, so the shell
+prompt is printed below the chart at the left margin rather than beside it.
 
 Inline drawing only happens when the plugin is **not** in stdio mode and its
 `stdout` is a TTY; otherwise the command falls back to `-o` saving, `--raw`

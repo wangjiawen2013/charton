@@ -208,16 +208,26 @@ pub fn fit_cells_with_cell(
     (cols.max(1), rows.max(1))
 }
 
+/// Line ending for every inline frame.
+///
+/// An inline frame is a full chart — an image protocol or half-block art — and
+/// it ends with this so the chart is followed by a clean new line at column 0.
+/// The carriage return is explicit because a lone `\n` does not always return
+/// to the first column.
+const FRAME_END: &str = "\r\n";
+
 /// Encode the PNG as an iTerm2 inline image, sized to `cols` x `rows` cells.
 pub fn iterm2_image(png_bytes: &[u8], cols: usize, rows: usize) -> String {
     let payload = base64::engine::general_purpose::STANDARD.encode(png_bytes);
-    format!(
-        "\x1b]1337;File=inline=1;size={};width={};height={};preserveAspectRatio=1;type=image/png:{}\x07\n",
+    let mut out = format!(
+        "\x1b]1337;File=inline=1;size={};width={};height={};preserveAspectRatio=1;type=image/png:{}\x07",
         png_bytes.len(),
         cols,
         rows,
         payload
-    )
+    );
+    out.push_str(FRAME_END);
+    out
 }
 
 /// Encode the PNG as a Kitty graphics protocol image, sized to `cols` x `rows`.
@@ -244,8 +254,7 @@ pub fn kitty_image(png_bytes: &[u8], cols: usize, rows: usize) -> String {
         }
         offset = end;
     }
-    // Reserve a line so the shell prompt does not overlap the image.
-    out.push('\n');
+    out.push_str(FRAME_END);
     out
 }
 
@@ -279,7 +288,7 @@ pub fn sixel_image(
         .with_background_mode(BackgroundMode::Transparent);
 
     let mut out = image.encode().map_err(|e| format!("sixel: {e}"))?;
-    out.push('\n');
+    out.push_str(FRAME_END);
     Ok(out)
 }
 
@@ -347,7 +356,8 @@ pub fn png_to_halfblock(
             push_u8(&mut out, bb);
             out.push_str("m\u{2580}");
         }
-        out.push_str("\x1b[0m\n");
+        out.push_str("\x1b[0m");
+        out.push_str(FRAME_END);
     }
     Ok(out)
 }
@@ -504,6 +514,8 @@ mod tests {
         let art = png_to_halfblock(&tiny_png(), 80, 40).unwrap();
         assert!(art.contains('\u{2580}'));
         assert!(art.contains("\x1b[38;2;"));
+        // Each row ends with CRLF so the next row (and prompt) starts at column 0.
+        assert!(art.contains("\x1b[0m\r\n"));
     }
 
     #[test]
@@ -544,7 +556,7 @@ mod tests {
         let s = iterm2_image(b"abcdef", 10, 5);
         assert!(s.starts_with("\x1b]1337;File=inline=1;size=6;width=10;height=5;"));
         assert!(s.contains("preserveAspectRatio=1"));
-        assert!(s.ends_with('\n'));
+        assert!(s.ends_with("\r\n"));
     }
 
     #[test]
@@ -556,7 +568,7 @@ mod tests {
         // First chunk is `more`, the final chunk must be `m=0`.
         assert!(s.contains("\x1b_Gm=1;"));
         assert!(s.contains("\x1b_Gm=0;"));
-        assert!(s.ends_with('\n'));
+        assert!(s.ends_with("\r\n"));
     }
 
     #[test]

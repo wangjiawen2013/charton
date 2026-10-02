@@ -73,13 +73,13 @@ impl PluginCommand for Charton {
             .named(
                 "coord",
                 SyntaxShape::String,
-                "Coordinate system: cartesian (default) | polar (geo via -g geo)",
+                "Coordinate system: cartesian (default) | polar (rose, or pie when --x is omitted)",
                 None,
             )
             .named(
                 "inner-radius",
                 SyntaxShape::Number,
-                "Polar inner radius ratio 0.0-1.0 (donut charts)",
+                "Polar inner radius ratio 0.0-1.0 (turns a pie into a donut)",
                 None,
             )
             .named(
@@ -800,6 +800,10 @@ impl PluginCommand for Charton {
 
             let mut out = std::io::stdout();
             let _ = out.write_all(art.as_bytes());
+            // Put the cursor at the start of the next line. The backspace clears
+            // any column that an image protocol left behind, so following output
+            // (usually the shell prompt) starts at the left margin.
+            let _ = out.write_all(b"\x08\r");
             let _ = out.flush();
             return Ok(Value::nothing(span).into_pipeline_data());
         }
@@ -1199,9 +1203,9 @@ fn build_chart(values: &[Value], opts: &BuildOpts<'_>) -> Result<LayeredChart, L
     let table = Table::from_values(values, span)?;
     let dataset = table.to_dataset()?;
 
-    let mut layered = build_layer(dataset.clone(), &opts.primary, span)?;
+    let mut layered = build_layer(dataset.clone(), &opts.primary, opts.coord, span)?;
     for extra in &opts.layers {
-        layered = layered.and(build_layer(dataset.clone(), extra, span)?);
+        layered = layered.and(build_layer(dataset.clone(), extra, opts.coord, span)?);
     }
     Ok(finish(layered, opts))
 }
@@ -1211,6 +1215,7 @@ fn build_chart(values: &[Value], opts: &BuildOpts<'_>) -> Result<LayeredChart, L
 fn build_layer(
     dataset: Dataset,
     layer: &LayerOpts,
+    coord: Option<CoordSystem>,
     span: Span,
 ) -> Result<LayeredChart, LabeledError> {
     let geom = layer.geom.as_str();
@@ -1335,7 +1340,25 @@ fn build_layer(
                 .mark_bar()
                 .map_err(|e| chart_err(span, e))?
                 .configure_bar(|m| style_bar(m, style));
-            enc_xy_color!(c).into()
+            // Polar bar charts have two forms, matching charton's semantics:
+            //   * with `-x`, x is the angle and y the radius — a rose / Nightingale
+            //     chart;
+            //   * without `-x`, charton uses pie mode: y becomes the slices
+            //     (aggregated per colour) and the bar width is the radial extent —
+            //     a pie, or a donut with `--inner-radius`.
+            let pie = coord == Some(CoordSystem::Polar) && x.map(str::is_empty).unwrap_or(true);
+            if pie {
+                let y = y.ok_or_else(|| missing(geom, "--y", span))?;
+                let (xe, ye) = (alt::x(""), make_y(y));
+                let c = match color {
+                    Some(col) => c.encode((xe, ye, alt::color(col))),
+                    None => c.encode((xe, ye)),
+                }
+                .map_err(|e| chart_err(span, e))?;
+                c.into()
+            } else {
+                enc_xy_color!(c).into()
+            }
         }
         "boxplot" | "box" => {
             let c = Chart::build(dataset)
@@ -2323,7 +2346,7 @@ mod tests {
 
     #[test]
     fn polar_charts_render() -> Result<(), ShellError> {
-        // Pie / rose: bar mark in a polar coordinate system.
+        // Rose / Nightingale: `-x` maps to the angle (bar mark in polar).
         let out = run("charton -g bar -x species -y petal_length --coord polar")?;
         assert!(out.as_str()?.contains("<svg"));
         // Donut adds an inner radius.
@@ -2335,6 +2358,21 @@ mod tests {
             "charton -g bar -x species -y petal_length --coord polar --start-angle 0 --end-angle 270",
         )?;
         assert!(out.as_str()?.contains("<svg"));
+        Ok(())
+    }
+
+    #[test]
+    fn polar_pie_and_donut_without_x() -> Result<(), ShellError> {
+        // Omitting `-x` selects charton's pie mode: the y values become the
+        // slices and the colour column separates them, so percentage labels
+        // are drawn.
+        let pie = run("charton -g bar -y petal_length -c species --coord polar")?;
+        assert!(pie.as_str()?.contains('%'), "pie mode should draw % labels");
+        let donut =
+            run("charton -g bar -y petal_length -c species --coord polar --inner-radius 0.5")?;
+        assert!(donut.as_str()?.contains("<svg"));
+        // Outside polar coordinates, an omitted x is still an error.
+        assert!(run("charton -g bar -y petal_length").is_err());
         Ok(())
     }
 
@@ -2407,6 +2445,18 @@ mod tests {
         assert!(out.as_str()?.contains("<svg"));
         let out = run("charton -g ecdf -x petal_length -c species")?;
         assert!(out.as_str()?.contains("<svg"));
+        Ok(())
+    }
+
+    #[test]
+    fn density_opacity_is_opt_in() -> Result<(), ShellError> {
+        // No implicit transparency: like charton's KDE example, the caller asks
+        // for a translucent fill explicitly.
+        let out = run("charton -g density -x petal_length -c species")?;
+        assert!(!out.as_str()?.contains("fill-opacity=\"0.500\""));
+        // --opacity is applied as written.
+        let out = run("charton -g density -x petal_length -c species --opacity 0.5")?;
+        assert!(out.as_str()?.contains("fill-opacity=\"0.500\""));
         Ok(())
     }
 

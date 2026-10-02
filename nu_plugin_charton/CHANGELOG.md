@@ -17,6 +17,17 @@ stated in the README and in each release.
   out of the box from a clone.
 - Simplified the install instructions for end users.
 
+### Fixed
+
+- Inline charts now leave the cursor at the start of the next line, so the
+  shell prompt is no longer indented by the image width. All inline frames end
+  with CRLF and a cursor resync for terminals whose image protocols park the
+  cursor at the image edge.
+- Polar bar charts now distinguish the two shapes charton defines: omitting `-x`
+  produces a pie, or a donut with `--inner-radius`; keeping `-x` maps it to the
+  angle for a rose / Nightingale chart. Previously every polar bar chart was a
+  rose.
+
 [0.7.1]: https://github.com/wangjiawen2013/charton/releases/tag/v0.7.1
 
 ## [0.7.0]
