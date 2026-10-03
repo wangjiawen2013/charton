@@ -979,7 +979,8 @@ impl LayeredChart {
 
         // A panel's coordinate system does not depend on its rectangle, so the
         // materialised layers and their scales survive the second layout pass.
-        let mut panel_cache: Option<Vec<(Vec<Arc<dyn Layer>>, Arc<dyn CoordinateTrait>)>> = None;
+        type PanelCache = Vec<(Vec<Arc<dyn Layer>>, Arc<dyn CoordinateTrait>)>;
+        let mut panel_cache: Option<PanelCache> = None;
 
         if (free_x || free_y) && panels.len() > 1 {
             let cols = panels.iter().map(|p| p.info.col).max().unwrap_or(0) + 1;

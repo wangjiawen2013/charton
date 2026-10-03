@@ -38,6 +38,19 @@ impl<T> LaneLayout<T> {
     }
 }
 
+/// The lane-placement options shared by the band and box geometries.
+#[derive(Clone, Copy)]
+pub(crate) struct LaneLayoutOptions<'a> {
+    /// How several lanes inside one centre are arranged (`Identity` / `Dodge`).
+    pub position: &'a Position,
+    /// Total width of one centre's lane group, in category steps.
+    pub span: f64,
+    /// The widest a single lane may be, in category steps.
+    pub max_width: f64,
+    /// Share the centre line (a split violin) instead of sitting side by side.
+    pub split: bool,
+}
+
 /// Groups `data` by `(category, group)` and solves the lane layout.
 ///
 /// `extract` returns the payload for one row, or `None` to skip it (a null or
@@ -50,15 +63,18 @@ pub(crate) fn build_lane_layout<T, F>(
     data: &Dataset,
     category: Option<&str>,
     group: Option<&str>,
-    position: &Position,
-    span: f64,
-    max_width: f64,
-    split: bool,
+    options: LaneLayoutOptions<'_>,
     mut extract: F,
 ) -> Result<LaneLayout<T>, ChartonError>
 where
     F: FnMut(usize) -> Option<T>,
 {
+    let LaneLayoutOptions {
+        position,
+        span,
+        max_width,
+        split,
+    } = options;
     // The order the categories and lanes first appear keeps colours and facets
     // stable from run to run.
     let category_order: Vec<Option<String>> = match category {

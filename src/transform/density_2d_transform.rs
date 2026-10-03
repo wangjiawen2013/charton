@@ -65,7 +65,7 @@ impl Density2DTransform {
     }
 
     /// Sets how far the grid is widened past the data, as a fraction.
-    pub fn with_padding(mut self, padding: f64) -> Self {
+    pub const fn with_padding(mut self, padding: f64) -> Self {
         self.padding = padding.max(0.0);
         self
     }
@@ -141,10 +141,10 @@ impl<T: Mark> Chart<T> {
 
         let mut out_x = Vec::with_capacity(n * n);
         let mut out_y = Vec::with_capacity(n * n);
-        for j in 0..n {
-            for i in 0..n {
-                out_x.push(grid_x[i]);
-                out_y.push(grid_y[j]);
+        for &gy in &grid_y {
+            for &gx in &grid_x {
+                out_x.push(gx);
+                out_y.push(gy);
             }
         }
 

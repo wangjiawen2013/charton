@@ -73,13 +73,14 @@
 //! `+0.3176`, and the outermost mark's edge reaches `±0.45` — exactly the span.
 
 /// Describes how items that share the same category are arranged.
-#[derive(Debug, Clone, Copy, PartialEq)]
+#[derive(Debug, Clone, Copy, PartialEq, Default)]
 pub enum Position {
     /// Every item is placed on the category centre, so they overlap.
     ///
     /// This is the right choice when there is only one item per category
     /// (a single violin, a plain bar) or when categories are split across
     /// facets instead of being placed side by side.
+    #[default]
     Identity,
 
     /// Items are placed side by side inside the category slot.
@@ -191,12 +192,6 @@ impl Position {
                 (index - (n - 1.0) / 2.0) * item_width * (1.0 + spacing)
             }
         }
-    }
-}
-
-impl Default for Position {
-    fn default() -> Self {
-        Self::Identity
     }
 }
 
