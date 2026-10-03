@@ -13,7 +13,7 @@ fn test_boxplot_1() -> Result<(), Box<dyn Error>> {
             alt::color("Species"),
         ))?
         .coord_flip()
-        .save("./tests/boxplot_1.svg")?;
+        .save("./target/test-output/boxplot_1.svg")?;
 
     Ok(())
 }

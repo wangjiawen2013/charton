@@ -9,8 +9,10 @@
 //!    (the geometric part).
 //! 3. `coord_flip` stands the value axis upright.
 //!
-//! Grouping is a separate concern: add `-c` / `alt::color` and a `facet` (see
-//! `grouped_violin.rs`), or a `Position` (see `grouped_violin.rs` part 2).
+//! Grouping is a separate concern: add `alt::color` and a `facet` for one panel
+//! per group, a `Position::dodge` for side-by-side violins (both in
+//! `grouped_violin.rs`), or `transform_band(…).with_split(true)` for a split
+//! violin (see `split_violin.rs`).
 
 use charton::prelude::*;
 use std::error::Error;

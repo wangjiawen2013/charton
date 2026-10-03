@@ -5,56 +5,20 @@ polygon. Because those parts are independent, they can be rearranged and stacked
 into the richer pictures researchers commonly need. Nothing below adds a new
 mark — every picture is a stack of ordinary layers.
 
+> For the complete, compiled recipes (single → grouped → faceted → split →
+raincloud) start at the [Violin cookbook page](violin.md). This page goes deeper
+on stacking a violin with a box.
+
 ## Raincloud: violin + box + points
 
 A *raincloud* shows the same distribution three ways: a density outline, a box
 plot for the quartiles, and the raw observations. Each view is a layer, and all
 of them share one scale so they line up automatically.
 
+<img src="../images/raincloud.svg" width="500">
+
 ```rust
-use charton::prelude::*;
-
-let penguins = load_dataset("penguins")?;
-
-// 1. The cloud: the density outline (stat + general band geometry).
-let violin = chart!(&penguins)?
-    .transform_density(
-        DensityTransform::new("Body Mass (g)")
-            .with_as("Body Mass (g)", "density")
-            .with_groupbys(["Species"])
-            .with_trim(true),
-    )?
-    .transform_band(
-        BandTransform::new("Body Mass (g)", "density").with_center("Species"),
-    )?
-    .mark_polygon()?
-    .configure_geoshape(|m| m.with_fill("#d6eaf8").with_stroke("#2c3e50"))
-    .encode((
-        alt::x("x").with_category_labels("Species"),
-        alt::y("y"),
-        alt::path_group("path_group"),
-    ))?;
-
-// 2. The box: quartiles + median, from the same observations.
-let inner_box = chart!(&penguins)?
-    .transform_quantile_box(
-        QuantileBoxTransform::new("Body Mass (g)").with_category("Species"),
-    )?
-    .mark_polygon()?
-    .configure_geoshape(|m| m.with_fill("white").with_stroke("black"))
-    .encode((
-        alt::x("x").with_category_labels("Species"),
-        alt::y("y"),
-        alt::path_group("path_group"),
-    ))?;
-
-// 3. The rain: every observation, jittered inside the violin.
-let rain = chart!(&penguins)?
-    .mark_point()?
-    .configure_point(|p| p.with_layout("jitter").with_size(2.5).with_opacity(0.55))
-    .encode((alt::x("Species"), alt::y("Body Mass (g)")))?;
-
-violin.and(inner_box).and(rain).save("raincloud.svg")?;
+{{#include ../../../examples/raincloud.rs}}
 ```
 
 ## Split violin
@@ -65,29 +29,10 @@ two fields, and the band geometry is asked for `with_split(true)`; colour the
 result by group and the two halves read as a single violin split down the
 middle.
 
+<img src="../images/split_violin.svg" width="500">
+
 ```rust
-chart!(&penguins)?
-    .transform_density(
-        DensityTransform::new("Body Mass (g)")
-            .with_as("Body Mass (g)", "density")
-            .with_groupbys(["Species", "Sex"])
-            .with_trim(true),
-    )?
-    .transform_band(
-        BandTransform::new("Body Mass (g)", "density")
-            .with_center("Species")
-            .with_group("Sex")
-            .with_split(true),
-    )?
-    .mark_polygon()?
-    .configure_geoshape(|m| m.with_fill("#95a5a6").with_stroke("#2c3e50"))
-    .encode((
-        alt::x("x").with_category_labels("Species"),
-        alt::y("y"),
-        alt::path_group("path_group"),
-        alt::color("Sex"),
-    ))?
-    .save("split_violin.svg")?;
+{{#include ../../../examples/split_violin.rs}}
 ```
 
 ## Overlaying a box on a normally-dodged violin

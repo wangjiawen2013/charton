@@ -22,7 +22,7 @@ fn main() -> Result<(), Box<dyn Error>> {
         .with_grid(true)
         // CoordSystem::Polar transforms the rectangular bar chart into a Rose Chart
         .with_coord(CoordSystem::Polar)
-        .save("rose_gpu.png")?;
+        .save("target/example-output/rose_gpu.png")?;
 
     Ok(())
 }

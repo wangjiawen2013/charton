@@ -17,7 +17,7 @@ fn main() -> Result<(), Box<dyn Error>> {
         .mark_rect()?
         .encode((alt::x("x"), alt::y("y"), alt::color("value")))?
         .configure_theme(|t| t.with_color_map(ColorMap::GnBu))
-        .save("heatmap_rect_gpu.png")?;
+        .save("target/example-output/heatmap_rect_gpu.png")?;
 
     Ok(())
 }

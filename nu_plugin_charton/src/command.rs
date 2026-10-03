@@ -42,7 +42,7 @@ impl PluginCommand for Charton {
             .named(
                 "geom",
                 SyntaxShape::String,
-                "Mark type: point | line | area | bar | boxplot | violin | errorbar | rule | tick | text | rect | hist | contour | beeswarm | geo",
+                "Mark type: point | line | area | bar | boxplot | violin | errorbar | rule | tick | text | rect | hist | density | ecdf | contour | beeswarm | geo",
                 Some('g'),
             )
             .named("x", SyntaxShape::String, "Column mapped to the x axis", Some('x'))
@@ -241,7 +241,7 @@ impl PluginCommand for Charton {
                 "Dash pattern for lines, e.g. '6,4' (on, off) in pixels",
                 None,
             )
-            .named("interpolation", SyntaxShape::String, "Line interpolation: linear | step | step-before | monotone", None)
+            .named("interpolation", SyntaxShape::String, "Line interpolation: linear | step | step-before", None)
             .switch("loess", "Smooth the line with LOESS", None)
             .named(
                 "loess-bandwidth",

@@ -13,7 +13,7 @@ fn test_rect_1() -> Result<(), Box<dyn Error>> {
         .mark_rect()?
         .encode((alt::x("a"), alt::y("b"), alt::color("value")))?
         .with_size(500, 400)
-        .save("./tests/rect_1.svg")?;
+        .save("./target/test-output/rect_1.svg")?;
 
     Ok(())
 }
@@ -30,7 +30,7 @@ fn test_rect_2() -> Result<(), Box<dyn Error>> {
         .encode((alt::x("a"), alt::y("b"), alt::color("value")))?
         .with_size(500, 400)
         .coord_flip()
-        .save("./tests/rect_2.svg")?;
+        .save("./target/test-output/rect_2.svg")?;
 
     Ok(())
 }
@@ -49,7 +49,7 @@ fn test_rect_3() -> Result<(), Box<dyn Error>> {
         .encode((alt::x("x"), alt::y("y"), alt::color("value")))?
         .with_size(500, 400)
         .configure_theme(|t| t.with_color_map(ColorMap::GnBu))
-        .save("./tests/rect_3.svg")?;
+        .save("./target/test-output/rect_3.svg")?;
 
     Ok(())
 }

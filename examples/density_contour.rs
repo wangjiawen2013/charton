@@ -18,7 +18,11 @@ fn main() -> Result<(), Box<dyn Error>> {
     chart!(iris)?
         // 1. Estimate the joint density of the two measurements.
         .transform_density_2d(
-            Density2DTransform::new("sepal_length", "petal_length").with_grid_size(60),
+            // Pad the estimation grid so the outer iso-lines close before its
+            // edge instead of being clipped by it.
+            Density2DTransform::new("sepal_length", "petal_length")
+                .with_grid_size(60)
+                .with_padding(0.3),
         )?
         // 2. Extract iso-density lines from the grid.
         .transform_contour(ContourTransform::new("x", "y", "density").with_levels(8))?

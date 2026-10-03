@@ -31,7 +31,7 @@ fn main() -> Result<(), Box<dyn Error>> {
             mult: (0.1, 0.1),
             add: (0.1, 0.1),
         })
-        .save("text_gpu.png")?;
+        .save("target/example-output/text_gpu.png")?;
 
     Ok(())
 }

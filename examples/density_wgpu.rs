@@ -16,7 +16,7 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
             alt::y("density"),
             alt::color("species"),
         ))?
-        .save("density_gpu.png")?;
+        .save("target/example-output/density_gpu.png")?;
 
     Ok(())
 }

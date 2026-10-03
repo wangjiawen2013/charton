@@ -17,7 +17,7 @@ fn test_line_1() -> Result<(), Box<dyn Error>> {
             //alt::color("category"),
         ))?
         .with_size(500, 300)
-        .save("./tests/line_1.svg")?;
+        .save("./target/test-output/line_1.svg")?;
 
     Ok(())
 }
@@ -36,7 +36,7 @@ fn test_line_2() -> Result<(), Box<dyn Error>> {
         .configure_line(|l| l.with_loess(true).with_loess_bandwidth(0.3))
         .encode((alt::x("a"), alt::y("b"), alt::color("category")))?
         .with_size(600, 400)
-        .save("./tests/line_2.svg")?;
+        .save("./target/test-output/line_2.svg")?;
 
     Ok(())
 }
@@ -62,7 +62,7 @@ fn test_line_3() -> Result<(), Box<dyn Error>> {
         ))?
         .with_size(600, 400)
         .coord_flip()
-        .save("./tests/line_3.svg")?;
+        .save("./target/test-output/line_3.svg")?;
 
     Ok(())
 }
@@ -83,7 +83,7 @@ fn test_line_4() -> Result<(), Box<dyn Error>> {
             alt::color("category"), // This creates separate lines for each category
         ))?
         .with_size(500, 400)
-        .save("./tests/line_4.svg")?;
+        .save("./target/test-output/line_4.svg")?;
 
     Ok(())
 }

@@ -22,7 +22,7 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
         ))?
         .configure_theme(|t| t.with_x_tick_label_angle(-45.0))
         .coord_flip()
-        .save("line_gpu.png")?;
+        .save("target/example-output/line_gpu.png")?;
 
     Ok(())
 }

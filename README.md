@@ -51,12 +51,14 @@ Charton is a high-performance Rust plotting library featuring a declarative API 
     <tr>
         <td><img src="docs/src/images/quasirandom.svg" alt="Quasirandom" /><p align="center">Quasirandom</p></td>
         <td><img src="docs/src/images/grouped_violin.svg" alt="Grouped Violin" /><p align="center">Grouped Violin</p></td>
+        <td><img src="docs/src/images/density_contour.svg" alt="Density Contour" /><p align="center">Density Contour</p></td>
+    </tr>
+    <tr>
         <td><img src="docs/src/images/violin.svg" alt="Violin" /><p align="center">Violin</p></td>
         <td><img src="docs/src/images/faceted_violin.svg" alt="Faceted Violin" /><p align="center">Faceted Violin</p></td>
         <td><img src="docs/src/images/split_violin.svg" alt="Split Violin" /><p align="center">Split Violin</p></td>
         <td><img src="docs/src/images/raincloud.svg" alt="Raincloud" /><p align="center">Raincloud</p></td>
         <td><img src="docs/src/images/contour.svg" alt="Contour" /><p align="center">Contour</p></td>
-        <td><img src="docs/src/images/density_contour.svg" alt="Density Contour" /><p align="center">Density Contour</p></td>
     </tr>
 </table>
 
@@ -65,13 +67,13 @@ Add to `Cargo.toml`:
 
 ```toml
 [dependencies]
-charton = "0.7"                                            # Standard (Single-threaded + SVG export)
-charton = { version = "0.7", features = ["png"] }          # Pure Headless Raster Renderer (CPU only)
-charton = { version = "0.7", features = ["pdf"] }          # Export charts to PDF format
-charton = { version = "0.7", features = ["wgpu", "png"] }  # Local Desktop with GPU acceleration + PNG export
-charton = { version = "0.7", features = ["wgpu"] }         # Web Browsers (WebAssembly/Wasm target)
-charton = { version = "0.7", features = ["parallel"] }     # Multi-threaded data processing (Rayon)
-charton = { version = "0.7", features = ["geo"] }          # Enable geospatial coordinate support
+charton = "0.8"                                            # Standard (Single-threaded + SVG export)
+charton = { version = "0.8", features = ["png"] }          # Pure Headless Raster Renderer (CPU only)
+charton = { version = "0.8", features = ["pdf"] }          # Export charts to PDF format
+charton = { version = "0.8", features = ["wgpu", "png"] }  # Local Desktop with GPU acceleration + PNG export
+charton = { version = "0.8", features = ["wgpu"] }         # Web Browsers (WebAssembly/Wasm target)
+charton = { version = "0.8", features = ["parallel"] }     # Multi-threaded data processing (Rayon)
+charton = { version = "0.8", features = ["geo"] }          # Enable geospatial coordinate support
 ```
 
 ## Quick Start

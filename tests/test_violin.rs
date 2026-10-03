@@ -17,7 +17,7 @@ fn test_violin_1() -> Result<(), Box<dyn Error>> {
         .mark_polygon()?
         .configure_geoshape(|mark| mark.with_fill("#7fb3d5").with_stroke("#2c3e50"))
         .encode((alt::x("x"), alt::y("y"), alt::path_group("path_group")))?
-        .save("./tests/violin_1.svg")?;
+        .save("./target/test-output/violin_1.svg")?;
 
     Ok(())
 }
@@ -48,7 +48,7 @@ fn test_violin_2() -> Result<(), Box<dyn Error>> {
             alt::path_group("path_group"),
             alt::color("Species"),
         ))?
-        .save("./tests/violin_2.svg")?;
+        .save("./target/test-output/violin_2.svg")?;
 
     Ok(())
 }
@@ -75,7 +75,7 @@ fn test_violin_3() -> Result<(), Box<dyn Error>> {
         ))?
         .facet(FacetSpec::wrap("Species").with_columns(3))
         .coord_flip()
-        .save("./tests/violin_3.svg")?;
+        .save("./target/test-output/violin_3.svg")?;
 
     Ok(())
 }
@@ -123,7 +123,9 @@ fn test_violin_4() -> Result<(), Box<dyn Error>> {
             alt::path_group("path_group"),
         ))?;
 
-    outline.and(inner_box).save("./tests/violin_4.svg")?;
+    outline
+        .and(inner_box)
+        .save("./target/test-output/violin_4.svg")?;
 
     Ok(())
 }
@@ -151,7 +153,7 @@ fn test_violin_5() -> Result<(), Box<dyn Error>> {
         ))?
         .facet(FacetSpec::wrap("species").with_columns(3))
         .coord_flip()
-        .save("./tests/violin_5.svg")?;
+        .save("./target/test-output/violin_5.svg")?;
 
     Ok(())
 }
@@ -183,7 +185,7 @@ fn test_violin_split() -> Result<(), Box<dyn Error>> {
             alt::path_group("path_group"),
             alt::color("Sex"),
         ))?
-        .save("./tests/violin_6.svg")?;
+        .save("./target/test-output/violin_6.svg")?;
 
     Ok(())
 }
@@ -238,7 +240,7 @@ fn test_violin_raincloud() -> Result<(), Box<dyn Error>> {
     violin
         .and(inner_box)
         .and(rain)
-        .save("./tests/violin_7.svg")?;
+        .save("./target/test-output/violin_7.svg")?;
 
     Ok(())
 }

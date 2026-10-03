@@ -30,7 +30,7 @@ fn test_text_1() -> Result<(), Box<dyn Error>> {
         .with_x_label("GDP (Trillion USD)")
         .with_y_label("Population (Millions)")
         .coord_flip()
-        .save("./tests/text_1.svg")?;
+        .save("./target/test-output/text_1.svg")?;
 
     Ok(())
 }

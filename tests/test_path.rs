@@ -13,7 +13,7 @@ fn test_path_is_open() -> Result<(), Box<dyn Error>> {
         .mark_path()?
         .configure_path(|m| m.with_stroke_width(2.0))
         .encode((alt::x("x"), alt::y("y"), alt::path_group("g")))?
-        .save("./tests/path_1.svg")?;
+        .save("./target/test-output/path_1.svg")?;
 
     Ok(())
 }
@@ -29,7 +29,7 @@ fn test_polygon_is_closed() -> Result<(), Box<dyn Error>> {
     chart!(x, y, g)?
         .mark_polygon()?
         .encode((alt::x("x"), alt::y("y"), alt::path_group("g")))?
-        .save("./tests/path_2.svg")?;
+        .save("./target/test-output/path_2.svg")?;
 
     Ok(())
 }

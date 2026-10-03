@@ -27,7 +27,7 @@ fn test_contour_lines() -> Result<(), Box<dyn Error>> {
             alt::path_group("path_group"),
             alt::color("level"),
         ))?
-        .save("./tests/contour_1.svg")?;
+        .save("./target/test-output/contour_1.svg")?;
 
     Ok(())
 }
@@ -60,7 +60,7 @@ fn test_contour_explicit_levels() -> Result<(), Box<dyn Error>> {
             alt::path_group("path_group"),
             alt::color("level"),
         ))?
-        .save("./tests/contour_2.svg")?;
+        .save("./target/test-output/contour_2.svg")?;
 
     Ok(())
 }
@@ -82,7 +82,7 @@ fn test_density_contour() -> Result<(), Box<dyn Error>> {
             alt::path_group("path_group"),
             alt::color("level"),
         ))?
-        .save("./tests/contour_3.svg")?;
+        .save("./target/test-output/contour_3.svg")?;
 
     Ok(())
 }

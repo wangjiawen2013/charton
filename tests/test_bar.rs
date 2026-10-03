@@ -32,7 +32,7 @@ fn test_bar_1() -> Result<(), Box<dyn Error>> {
         .with_size(600, 400)
         .with_title("Colored Bar Chart Example")
         .coord_flip()
-        .save("./tests/bar_1.svg")?;
+        .save("./target/test-output/bar_1.svg")?;
 
     Ok(())
 }

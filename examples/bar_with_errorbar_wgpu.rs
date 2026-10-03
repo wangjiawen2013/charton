@@ -26,7 +26,7 @@ fn main() -> Result<(), Box<dyn Error>> {
     errorbar
         .and(bar)
         .with_y_label("value")
-        .save("bar_with_errorbar_gpu.png")?;
+        .save("target/example-output/bar_with_errorbar_gpu.png")?;
 
     Ok(())
 }
