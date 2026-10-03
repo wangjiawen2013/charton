@@ -21,6 +21,7 @@
 //! layout is shared with [`crate::transform::band_transform`], so a box always
 //! stays centred over its band.
 
+use super::ensure_distinct_columns;
 use super::lane_layout::{LaneLayoutOptions, build_lane_layout};
 use crate::chart::Chart;
 use crate::core::data::{ColumnVector, Dataset, get_quantile};
@@ -145,6 +146,18 @@ impl<T: Mark> Chart<T> {
         params: QuantileBoxTransform,
     ) -> Result<Self, ChartonError> {
         let value_col = self.data.column(&params.value)?;
+
+        // The generated polygon columns must not clash with the category/group
+        // columns that are copied back into the output table.
+        let mut output_names: Vec<&str> = params.as_.iter().map(String::as_str).collect();
+        output_names.push("box_part");
+        if let Some(category) = &params.category {
+            output_names.push(category);
+        }
+        if let Some(group) = &params.group {
+            output_names.push(group);
+        }
+        ensure_distinct_columns(&output_names)?;
 
         // Group the raw observations by `(category, lane)` and solve the lanes,
         // exactly as `transform_band` does, so boxes sit over their bands.

@@ -30,6 +30,13 @@ pub struct Density2DTransform {
 
 impl Density2DTransform {
     /// Estimates the joint density of the `x` and `y` columns.
+    ///
+    /// **Replaces the table.** Reads the `x` and `y` columns and emits a regular
+    /// grid with the columns `x`, `y` and `density` (rename them with
+    /// [`with_as`](Self::with_as)). Feed the result to
+    /// [`transform_contour`](crate::chart::Chart::transform_contour) as
+    /// `ContourTransform::new("x", "y", "density")`, or draw it directly with
+    /// `mark_rect` as a density heatmap.
     pub fn new(x: impl Into<String>, y: impl Into<String>) -> Self {
         Self {
             x: x.into(),
@@ -87,6 +94,12 @@ impl<T: Mark> Chart<T> {
         mut self,
         params: Density2DTransform,
     ) -> Result<Self, ChartonError> {
+        crate::transform::ensure_distinct_columns(&[
+            params.as_[0].as_str(),
+            params.as_[1].as_str(),
+            params.as_[2].as_str(),
+        ])?;
+
         // --- Step 1: collect the samples ---
         let row_count = self.data.height();
         let x_col = self.data.column(&params.x)?;

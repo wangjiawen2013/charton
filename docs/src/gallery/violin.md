@@ -80,6 +80,9 @@ observation as a jittered point layer.
   tuning the shape (`BandScale`, bandwidth, kernel).
 - [Box & Violin Combinations](box_violin_charts.md) — overlaying a box on a
   dodged violin.
+- [Transforms & Columns](../grammar/transforms.md) — which columns each
+  transform reads and emits (`density`, `path_group`, `level`, …), and how to
+  rename them.
 - Primitives: `transform_density`, `transform_band`,
   `transform_quantile_box`, `mark_polygon`, `mark_area` — see
   [Marks & Geometries](../grammar/marks.md).
