@@ -65,7 +65,7 @@ impl Density2DTransform {
     }
 
     /// Sets how far the grid is widened past the data, as a fraction.
-    pub fn with_padding(mut self, padding: f64) -> Self {
+    pub const fn with_padding(mut self, padding: f64) -> Self {
         self.padding = padding.max(0.0);
         self
     }

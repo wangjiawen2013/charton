@@ -104,19 +104,19 @@ impl QuantileBoxTransform {
     }
 
     /// Sets the total width of a category's box group, in category steps.
-    pub fn with_span(mut self, span: f64) -> Self {
+    pub const fn with_span(mut self, span: f64) -> Self {
         self.span = span.clamp(0.0, 1.0);
         self
     }
 
     /// Sets the maximum width of a single box lane, in category steps.
-    pub fn with_width(mut self, width: f64) -> Self {
+    pub const fn with_width(mut self, width: f64) -> Self {
         self.max_width = width.clamp(0.0, 1.0);
         self
     }
 
     /// Sets the box width as a fraction of the resolved lane (0.0–1.0).
-    pub fn with_box_width(mut self, width: f64) -> Self {
+    pub const fn with_box_width(mut self, width: f64) -> Self {
         self.box_width = width.clamp(0.0, 1.0);
         self
     }

@@ -27,7 +27,7 @@ pub(crate) struct ContourLine {
 /// us join segments without an epsilon.
 type PointKey = (u64, u64);
 
-fn key(p: (f64, f64)) -> PointKey {
+const fn key(p: (f64, f64)) -> PointKey {
     (p.0.to_bits(), p.1.to_bits())
 }
 

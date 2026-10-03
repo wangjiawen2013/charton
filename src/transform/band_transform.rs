@@ -177,13 +177,13 @@ impl BandTransform {
     /// Sets the total width of a centre's lane group, in category steps.
     ///
     /// Defaults to `0.7`, matching the box plot and point marks.
-    pub fn with_span(mut self, span: f64) -> Self {
+    pub const fn with_span(mut self, span: f64) -> Self {
         self.span = span.clamp(0.0, 1.0);
         self
     }
 
     /// Sets the maximum width of a single band, in category steps.
-    pub fn with_width(mut self, width: f64) -> Self {
+    pub const fn with_width(mut self, width: f64) -> Self {
         self.max_width = width.clamp(0.0, 1.0);
         self
     }
