@@ -57,6 +57,14 @@ pub struct ContourTransform {
 
 impl ContourTransform {
     /// Contours the field `z` sampled on the regular grid of `x` and `y`.
+    ///
+    /// **Replaces the table.** Reads the `x`, `y` and `z` columns and emits one
+    /// row per polyline vertex, with the columns `x`, `y`, `path_group` and
+    /// `level`. Rename them with [`with_as`](Self::with_as) and
+    /// [`with_level_as`](Self::with_level_as). Draw the result with
+    /// [`mark_path`](crate::chart::Chart::mark_path), mapping `path_group` to the
+    /// `path_group` channel (it groups the vertices of one line) and `level` to
+    /// colour.
     pub fn new(x: impl Into<String>, y: impl Into<String>, z: impl Into<String>) -> Self {
         Self {
             x: x.into(),
@@ -111,6 +119,13 @@ impl<T: Mark> Chart<T> {
     ///     .save("contour.svg")?;
     /// ```
     pub fn transform_contour(mut self, params: ContourTransform) -> Result<Self, ChartonError> {
+        crate::transform::ensure_distinct_columns(&[
+            params.as_[0].as_str(),
+            params.as_[1].as_str(),
+            params.as_[2].as_str(),
+            params.level_as.as_str(),
+        ])?;
+
         // --- Step 1: pull the samples out of the source columns ---
         let row_count = self.data.height();
         let x_col = self.data.column(&params.x)?;

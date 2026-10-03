@@ -152,6 +152,12 @@ impl<T: Mark> Chart<T> {
         let density_field = &params.density;
         let density_col = self.data.column(density_field)?;
 
+        // The estimate's output columns must not clash with the group columns
+        // that are copied back into the output table.
+        let mut output_names: Vec<&str> = vec![params.as_[0].as_str(), params.as_[1].as_str()];
+        output_names.extend(params.groupby.iter().map(String::as_str));
+        crate::transform::ensure_distinct_columns(&output_names)?;
+
         // 200 points keeps a curve smooth without being expensive.
         const STEPS: usize = 200;
 

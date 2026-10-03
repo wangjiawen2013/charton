@@ -6,6 +6,11 @@
 //!   `(x, y, path_group, level)` polylines;
 //! * `mark_path` draws those polylines, coloured by `level`.
 //!
+//! The scalar grid is *your* data, so `transform_contour` reads `x`, `y`, `z`
+//! and replaces the table with `x`, `y`, `path_group`, `level`. In `encode` you
+//! then map those columns to channels: `x`/`y` to the axes, `path_group` groups
+//! the vertices into separate lines, and `level` colours each line.
+//!
 //! The same two transforms draw a contour of a bivariate density, a pressure
 //! field, an elevation map or any other scalar grid.
 

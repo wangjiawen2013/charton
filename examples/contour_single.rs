@@ -2,6 +2,9 @@
 //!
 //! The same iso-lines as `contour.rs`, but with no colour channel: the path's
 //! own stroke is used, so every line is one colour.
+//!
+//! `transform_contour` still emits `x`, `y`, `path_group` and `level`; we simply
+//! do not map `level` to a colour, and `mark_path` strokes everything the same.
 
 use charton::prelude::*;
 use std::error::Error;

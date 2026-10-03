@@ -52,6 +52,7 @@
 //! separate polygons that share the centre line — the left and right halves of
 //! a split violin, coloured by group.
 
+use super::ensure_distinct_columns;
 use super::lane_layout::{LaneLayoutOptions, build_lane_layout};
 use crate::chart::Chart;
 use crate::core::data::{ColumnVector, Dataset};
@@ -234,6 +235,17 @@ impl<T: Mark> Chart<T> {
     pub fn transform_band(mut self, params: BandTransform) -> Result<Self, ChartonError> {
         let value_col = self.data.column(&params.value)?;
         let width_col = self.data.column(&params.width)?;
+
+        // The generated polygon columns must not clash with the centre/group
+        // columns that are copied back into the output table.
+        let mut output_names: Vec<&str> = params.as_.iter().map(String::as_str).collect();
+        if let Some(center) = &params.center {
+            output_names.push(center);
+        }
+        if let Some(group) = &params.group {
+            output_names.push(group);
+        }
+        ensure_distinct_columns(&output_names)?;
 
         // Group by `(centre, lane)` and solve the lanes once, exactly as the
         // box plot and point marks do, so a dodged band lines up with them.
@@ -541,5 +553,41 @@ mod tests {
                 "{key:?}: band centre {band_centre} vs box centre {box_centre}"
             );
         }
+    }
+
+    /// A category column that already carries a generated output name must be
+    /// rejected, not silently overwritten.
+    #[test]
+    fn rejects_a_generated_name_clash() {
+        let mut ds = Dataset::new();
+        ds.add_column(
+            "value",
+            ColumnVector::Float64 {
+                data: vec![1.0, 2.0, 3.0],
+                validity: None,
+            },
+        )
+        .unwrap();
+        ds.add_column(
+            "width",
+            ColumnVector::Float64 {
+                data: vec![1.0, 1.0, 1.0],
+                validity: None,
+            },
+        )
+        .unwrap();
+        // A category column literally called `x`, which the band also emits.
+        ds.add_column(
+            "x",
+            ColumnVector::String {
+                data: vec!["a".into(), "a".into(), "a".into()],
+                validity: None,
+            },
+        )
+        .unwrap();
+        let chart = Chart::<NoMark>::build(ds).unwrap();
+
+        let result = chart.transform_band(BandTransform::new("value", "width").with_center("x"));
+        assert!(result.is_err(), "a generated-name clash must be rejected");
     }
 }
