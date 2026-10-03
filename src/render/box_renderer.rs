@@ -4,6 +4,7 @@ use crate::core::layer::{CircleConfig, LineConfig, MarkRenderer, RectConfig, Ren
 use crate::core::utils::IntoParallelizable;
 use crate::error::ChartonError;
 use crate::mark::boxplot::MarkBoxplot;
+use crate::position::Position;
 use crate::visual::color::SingleColor;
 use crate::{Precision, TEMP_SUFFIX};
 
@@ -99,13 +100,16 @@ impl MarkRenderer for Chart<MarkBoxplot> {
                 let sub_idx = sub_idx_col.get(i).to_f64().unwrap_or(0.0);
 
                 // --- DODGE LOGIC ---
-                let box_width_data = mark_config.width.min(
-                    mark_config.span / (total_groups + (total_groups - 1.0) * mark_config.spacing),
-                );
+                // The side-by-side layout is owned by `Position`; the renderer
+                // only converts the resulting category-step shift into pixels.
+                let position = Position::Dodge {
+                    spacing: mark_config.spacing,
+                };
+                let box_width_data =
+                    position.item_width(total_groups, mark_config.span, mark_config.width);
                 let box_width_norm = box_width_data * unit_step_norm;
-                let spacing_norm = box_width_norm * mark_config.spacing;
                 let offset_norm =
-                    (sub_idx - (total_groups - 1.0) / 2.0) * (box_width_norm + spacing_norm);
+                    position.offset(sub_idx, total_groups, box_width_data) * unit_step_norm;
 
                 let x_center_n = x_norms[i]? + offset_norm;
 

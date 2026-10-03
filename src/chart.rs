@@ -48,6 +48,25 @@ pub struct Chart<T: Mark = NoMark> {
     pub(crate) data: Dataset,
     pub(crate) encoding: Encoding,
     pub(crate) mark: Option<T>,
+
+    /// The dataset as it was *before* the mark-implied statistics ran.
+    ///
+    /// Faceted charts use it to re-run the statistic on each panel's own rows,
+    /// so a stat never mixes data across panels. It is `None` for charts that
+    /// have no statistical transform (or that were built directly as a subset).
+    pub(crate) source_data: Option<Dataset>,
+}
+
+/// Returns `true` when a mark runs a statistical transform whose result must be
+/// recomputed inside each facet panel (binning, stacking, density, ...).
+///
+/// Marks that only draw the data they are given (line, rule, text, polygon,
+/// tick) do not need the extra pre-statistic copy.
+fn mark_has_stat(mark_type: &str) -> bool {
+    matches!(
+        mark_type,
+        "point" | "boxplot" | "errorbar" | "rect" | "bar" | "hist" | "area"
+    )
 }
 
 impl Chart<NoMark> {
@@ -71,6 +90,7 @@ impl Chart<NoMark> {
             data: dataset,
             encoding: Encoding::new(),
             mark: None,
+            source_data: None,
         })
     }
 
@@ -82,6 +102,7 @@ impl Chart<NoMark> {
             data: self.data,
             encoding: self.encoding,
             mark: Some(MarkPoint::default()),
+            source_data: self.source_data,
         };
 
         // If the user called .encode() before .mark_point(),
@@ -99,6 +120,7 @@ impl Chart<NoMark> {
             data: self.data,
             encoding: self.encoding,
             mark: Some(MarkLine::default()),
+            source_data: self.source_data,
         };
 
         if !chart.encoding.is_empty() {
@@ -114,6 +136,7 @@ impl Chart<NoMark> {
             data: self.data,
             encoding: self.encoding,
             mark: Some(MarkBar::default()),
+            source_data: self.source_data,
         };
 
         if !chart.encoding.is_empty() {
@@ -129,6 +152,7 @@ impl Chart<NoMark> {
             data: self.data,
             encoding: self.encoding,
             mark: Some(MarkArea::default()),
+            source_data: self.source_data,
         };
 
         if !chart.encoding.is_empty() {
@@ -144,6 +168,7 @@ impl Chart<NoMark> {
             data: self.data,
             encoding: self.encoding,
             mark: Some(MarkText::default()),
+            source_data: self.source_data,
         };
 
         if !chart.encoding.is_empty() {
@@ -159,6 +184,7 @@ impl Chart<NoMark> {
             data: self.data,
             encoding: self.encoding,
             mark: Some(MarkRule::default()),
+            source_data: self.source_data,
         };
 
         if !chart.encoding.is_empty() {
@@ -174,6 +200,7 @@ impl Chart<NoMark> {
             data: self.data,
             encoding: self.encoding,
             mark: Some(MarkBoxplot::default()),
+            source_data: self.source_data,
         };
 
         if !chart.encoding.is_empty() {
@@ -189,6 +216,7 @@ impl Chart<NoMark> {
             data: self.data,
             encoding: self.encoding,
             mark: Some(MarkHist::default()),
+            source_data: self.source_data,
         };
 
         if !chart.encoding.is_empty() {
@@ -204,6 +232,7 @@ impl Chart<NoMark> {
             data: self.data,
             encoding: self.encoding,
             mark: Some(MarkRect::default()),
+            source_data: self.source_data,
         };
 
         if !chart.encoding.is_empty() {
@@ -219,6 +248,7 @@ impl Chart<NoMark> {
             data: self.data,
             encoding: self.encoding,
             mark: Some(MarkErrorBar::default()),
+            source_data: self.source_data,
         };
 
         if !chart.encoding.is_empty() {
@@ -234,6 +264,7 @@ impl Chart<NoMark> {
             data: self.data,
             encoding: self.encoding,
             mark: Some(MarkGeoPath::default()),
+            source_data: self.source_data,
         };
 
         if !chart.encoding.is_empty() {
@@ -243,12 +274,23 @@ impl Chart<NoMark> {
         Ok(chart)
     }
 
+    /// Transitions the base chart into a polygon chart.
+    ///
+    /// A polygon is defined by grouping rows with the same `path_group` value
+    /// and connecting them in order. This is the geometry behind violins,
+    /// custom shapes, region maps and any other closed outline. It is the same
+    /// renderer as [`Chart::mark_geoshape`], exposed under a domain-neutral name.
+    pub fn mark_polygon(self) -> Result<Chart<MarkGeoPath>, ChartonError> {
+        self.mark_geoshape()
+    }
+
     /// Transitions the base chart into a Tick chart.
     pub fn mark_tick(self) -> Result<Chart<MarkTick>, ChartonError> {
         let chart = Chart::<MarkTick> {
             data: self.data,
             encoding: self.encoding,
             mark: Some(MarkTick::default()),
+            source_data: self.source_data,
         };
 
         if !chart.encoding.is_empty() {
@@ -315,6 +357,16 @@ impl<T: Mark> Chart<T> {
             .as_ref()
             .map(|m| m.mark_type().to_string())
             .ok_or_else(|| ChartonError::Mark("A mark is required for validation".into()))?;
+
+        // Remember the rows as they are *before* the mark-implied statistic runs.
+        // A faceted chart re-runs the statistic on each panel's own subset of
+        // these rows, so no statistic can mix data across panels.
+        //
+        // Only marks that actually run a statistic keep the extra copy; a plain
+        // line, rule or text layer continues to hold a single dataset.
+        if self.source_data.is_none() && mark_has_stat(&mark_type) {
+            self.source_data = Some(self.data.clone());
+        }
 
         // --- Step 2: Mandatory Encoding Validation ---
         self.validate_mandatory_encodings(&mark_type)?;
@@ -455,10 +507,18 @@ impl<T: Mark> Chart<T> {
 
         if let Some(ref mut x) = self.encoding.x {
             x.scale_type = resolve_channel_scale(&x.field, x.scale_type)?;
+            // A numeric position axis with explicit category labels behaves like
+            // a discrete axis: integer ticks, categorical labels.
+            if x.category_field.is_some() {
+                x.scale_type = Some(Scale::Discrete);
+            }
         }
 
         if let Some(ref mut y) = self.encoding.y {
             y.scale_type = resolve_channel_scale(&y.field, y.scale_type)?;
+            if y.category_field.is_some() {
+                y.scale_type = Some(Scale::Discrete);
+            }
         }
 
         if let Some(ref mut color) = self.encoding.color {
@@ -565,8 +625,13 @@ impl<T: Mark> Chart<T> {
                 );
             }
             "geo_path" => {
-                // Geo paths: X and Y should be continuous (longitude/latitude).
-                expected.insert(Channel::X, vec![Scale::Linear, Scale::Temporal]);
+                // Geo paths: X and Y are continuous by default (longitude/latitude).
+                // X also accepts a discrete position axis so a polygon can carry
+                // integer categories (used by violin plots).
+                expected.insert(
+                    Channel::X,
+                    vec![Scale::Linear, Scale::Temporal, Scale::Discrete],
+                );
                 expected.insert(Channel::Y, vec![Scale::Linear, Scale::Temporal]);
                 // Color is typically a continuous magnitude for choropleth.
                 expected.insert(
@@ -693,7 +758,7 @@ impl<T: Mark> Chart<T> {
         // --- 2. HALF-STEP PADDING FOR DISCRETE AXES ---
         // Categorical marks with thickness (Bar, Boxplot, Rect) need 0.5 units of padding
         // to center the marks and prevent them from clipping against axis lines.
-        let needs_discrete_padding = ["bar", "boxplot", "rect"].contains(&mt);
+        let needs_discrete_padding = ["bar", "boxplot", "rect", "geo_path"].contains(&mt);
         if needs_discrete_padding {
             if x_enc.scale_type == Some(Scale::Discrete) && x_enc.expansion.is_none() {
                 x_enc.expansion = Some(Expansion {
@@ -756,7 +821,9 @@ where
     /// This provides direct access to the layer's data for faceting operations,
     /// such as extracting unique facet values and filtering data by panel.
     fn get_dataset(&self) -> &Dataset {
-        &self.data
+        // Facet factors must be read from the data *before* the statistic ran,
+        // because a statistic may drop or re-shape the columns it consumes.
+        self.source_data.as_ref().unwrap_or(&self.data)
     }
 
     /// Retrieves user-configured scale types (e.g., Linear vs Log).
@@ -783,6 +850,14 @@ where
         })?;
 
         let primary_series = self.data.column(field_name)?;
+
+        // A discrete position axis can take its categories from a separate
+        // column while `field_name` holds numeric positions. When that is the
+        // case the axis domain is the category list, not the positions.
+        if let Some(category_field) = self.encoding.get_category_field_by_channel(channel) {
+            let categories = self.data.column(category_field)?;
+            return Ok(ScaleDomain::Discrete(categories.unique_values()));
+        }
 
         // --- Determine the active scale type (User Override > Inferred) ---
         // This ensures if a user sets alt::color("year").scale_type(Scale::Discrete),
@@ -999,10 +1074,14 @@ where
     /// See [`Layer::facet_partition`](crate::core::layer::Layer::facet_partition).
     /// A field missing from the dataset is reported as an error.
     fn facet_partition(&self, fields: &[&str]) -> Result<Option<FacetPartition>, ChartonError> {
+        // Partition the rows *before* the statistic, so the panel subset can be
+        // re-transformed. A statistic may drop the very column we facet on.
+        let source = self.source_data.as_ref().unwrap_or(&self.data);
+
         // A facet field missing from this layer is almost always a typo, so
         // report it instead of silently leaving the panel unfiltered.
         for field in fields {
-            if !self.data.schema.contains_key(*field) {
+            if !source.schema.contains_key(*field) {
                 return Err(ChartonError::Data(format!(
                     "Facet field '{}' not found in the layer's dataset",
                     field
@@ -1010,7 +1089,7 @@ where
             }
         }
 
-        Ok(Some(self.data.partition_by(fields)?))
+        Ok(Some(source.partition_by(fields)?))
     }
 
     /// Returns a copy of this chart containing only `rows`, preserving the mark
@@ -1019,15 +1098,37 @@ where
     ///
     /// See [`Layer::subset_rows`](crate::core::layer::Layer::subset_rows).
     fn subset_rows(&self, rows: &[usize]) -> Result<Option<Arc<dyn Layer>>, ChartonError> {
-        // `take_rows` keeps column order and schema intact.
-        let data = self.data.take_rows(rows)?;
+        // When a statistic was applied, the panel must see the rows *before*
+        // that statistic and re-run it. Otherwise a cumulative stat (stacking,
+        // normalisation, ...) would keep the values it computed on the whole
+        // dataset instead of the panel's own rows.
+        let base = self.source_data.as_ref().unwrap_or(&self.data);
+        let data = base.take_rows(rows)?;
 
         let subset = Chart {
             data,
             encoding: self.encoding.clone(),
             mark: self.mark.clone(),
+            source_data: None,
+        };
+
+        // Re-apply the mark-implied statistic on the panel subset. The resolved
+        // scales are injected later by the engine, exactly as for a full layer.
+        let subset = if self.source_data.is_some() {
+            subset.validate_and_transform()?
+        } else {
+            subset
         };
 
         Ok(Some(Arc::new(subset)))
+    }
+
+    /// Returns this layer with its pre-statistic snapshot released.
+    ///
+    /// See [`Layer::without_source_data`](crate::core::layer::Layer::without_source_data).
+    fn without_source_data(&self) -> Arc<dyn Layer> {
+        let mut released = self.clone();
+        released.source_data = None;
+        Arc::new(released)
     }
 }

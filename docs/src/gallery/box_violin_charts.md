@@ -1,62 +1,106 @@
+# Box & Violin Combinations
+
+The violin chapter built a single violin from a density stat, a position and a
+polygon. Because those parts are independent, they can be rearranged and stacked
+into the richer pictures researchers commonly need. Nothing below adds a new
+mark — every picture is a stack of ordinary layers.
+
+## Raincloud: violin + box + points
+
+A *raincloud* shows the same distribution three ways: a density outline, a box
+plot for the quartiles, and the raw observations. Each view is a layer, and all
+of them share one scale so they line up automatically.
+
+```rust
 use charton::prelude::*;
 
-fn main() -> Result<(), Box<dyn std::error::Error>> {
-    let mut categories = Vec::new();
-    let mut outcomes = Vec::new();
-    let mut treatments = Vec::new();
+let penguins = load_dataset("penguins")?;
 
-    let configs = [
-        ("Cohort A", 45.0, 12.0),
-        ("Cohort B", 70.0, 6.0),
-        ("Cohort C", 35.0, 18.0),
-    ];
+// The statistics are shared between the outline and the box.
+let params = ViolinTransform::new("Body Mass (g)")
+    .with_category("Species")
+    .with_scale(ViolinScale::Width);
 
-    let treatment_types = ["Placebo", "Active"];
+// 1. The cloud: the density outline.
+let violin = chart!(&penguins)?
+    .transform_violin(params.clone())?
+    .mark_polygon()?
+    .configure_geoshape(|m| m.with_fill("#d6eaf8").with_stroke("#2c3e50"))
+    .encode((
+        alt::x("x").with_category_labels("Species"),
+        alt::y("y"),
+        alt::path_group("violin_id"),
+    ))?;
 
-    // Use a simple deterministic counter to simulate "randomness"
-    let mut seed: u32 = 42;
+// 2. The box: quartiles + median, from the same statistics.
+let inner_box = chart!(&penguins)?
+    .transform_violin_box(params)?
+    .mark_polygon()?
+    .configure_geoshape(|m| m.with_fill("white").with_stroke("black"))
+    .encode((
+        alt::x("x").with_category_labels("Species"),
+        alt::y("y"),
+        alt::path_group("violin_id"),
+    ))?;
 
-    for (label, mean, std_dev) in configs {
-        for i in 0..150 {
-            categories.push(label.to_string());
+// 3. The rain: every observation, jittered inside the violin.
+let rain = chart!(&penguins)?
+    .mark_point()?
+    .configure_point(|p| p.with_layout("jitter").with_size(2.5).with_opacity(0.55))
+    .encode((alt::x("Species"), alt::y("Body Mass (g)")))?;
 
-            // 1. Deterministic Pseudo-random using LCG
-            seed = seed.wrapping_mul(1103515245).wrapping_add(12345);
-            let raw_rand = (seed & 0x7FFFFFFF) as f64 / 2147483647.0;
+violin.and(inner_box).and(rain).save("raincloud.svg")?;
+```
 
-            // 2. Simple Box-Muller transform to simulate Normal Distribution
-            // This creates the "cluster" effect needed to show off Beeswarm
-            let u1 = raw_rand;
-            let u2 = ((i as f64 * 0.1).sin() + 1.0) / 2.0; // Another "random" seed
-            let z0 = (-2.0 * u1.ln().max(-10.0)).sqrt() * (2.0 * std::f64::consts::PI * u2).cos();
+## Split violin
 
-            outcomes.push(mean + z0 * std_dev);
+A split violin contrasts two groups inside one outline: the first group grows to
+the right of the category centre, the second to the left. Ask the transform for
+`with_split(true)` and colour the result by group — the two halves then read as a
+single violin split down the middle.
 
-            // 3. Deterministic sub-group assignment
-            let sub_idx = (i % 2) as usize;
-            treatments.push(treatment_types[sub_idx].to_string());
-        }
-    }
+```rust
+chart!(&penguins)?
+    .transform_violin(
+        ViolinTransform::new("Body Mass (g)")
+            .with_category("Species")
+            .with_group("Sex")
+            .with_split(true)
+            .with_scale(ViolinScale::Width),
+    )?
+    .mark_polygon()?
+    .configure_geoshape(|m| m.with_fill("#95a5a6").with_stroke("#2c3e50"))
+    .encode((
+        alt::x("x").with_category_labels("Species"),
+        alt::y("y"),
+        alt::path_group("violin_id"),
+        alt::color("Sex"),
+    ))?
+    .save("split_violin.svg")?;
+```
 
-    // 2. Render the Chart
-    let beeswarm = chart!(categories, outcomes, treatments)?
-        .mark_point()?
-        .configure_point(|m| m.with_layout("beeswarm").with_size(2.5))
-        .encode((
-            alt::x("categories"),
-            alt::y("outcomes"),
-            alt::color("treatments"),
-        ))?;
-    
-    let boxplot = chart!(categories, outcomes, treatments)?
-        .mark_boxplot()?.configure_boxplot(|b| b.with_outliers(false).with_opacity(0.0).with_stroke_width(1.5))
-        .encode((
-            alt::x("categories"),
-            alt::y("outcomes"),
-            alt::color("treatments"),
-        ))?;
-    
-    beeswarm.and(boxplot).save("docs/src/images/beeswarm.svg")?;
+## Overlaying a box on a normally-dodged violin
 
-    Ok(())
-}
+`transform_violin` also writes `y_q1`, `y_median` and `y_q3` columns, so any
+overlay can read them directly. For a dodged (side-by-side) violin, layer
+`transform_violin_box` on top exactly as in the raincloud, but keep the
+`Position::Dodge` on both transforms so the boxes follow their violins.
+
+## Why this is better than a dedicated "violin mark"
+
+Every combination above — raincloud, split, overlay, grouped, faceted — would
+need bespoke branching inside a single `MarkViolin`. Building from a density
+stat plus a polygon instead means:
+
+* the polygon renderer is shared with maps and custom shapes;
+* new combinations are new layers, not new renderers;
+* every rendering backend (SVG, PNG, PDF, GPU) already knows how to draw the
+  parts.
+
+## See also
+
+* [Statistical Distributions](statistics.md) — the basic violin and box plots.
+* [The Layer Pipeline](../concepts/grammar_pipeline.md) — the stat/position/geom
+  model behind these examples.
+* `examples/raincloud.rs`, `examples/split_violin.rs`, `examples/violin.rs`,
+  `examples/grouped_violin.rs`.

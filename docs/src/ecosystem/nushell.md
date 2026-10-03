@@ -87,6 +87,9 @@ ls | charton -g bar -x name -y size
 open data.csv | charton -g line -x date -y value -o chart.svg
 open data.csv | charton -g beeswarm -x group -y score -o chart.png
 
+# violin: a density outline with an inner quartile box; -c dodges one per group
+open data.csv | charton -g violin -x category -y score -c group -o violin.svg
+
 # group by a column with a color channel, then overlay a second mark
 open data.csv | charton -g line -x t -y v -c series \
     --layer {geom: point}
@@ -95,10 +98,11 @@ open data.csv | charton -g line -x t -y v -c series \
 charton -g geo --geojson world.geojson -c POP_EST -o world.png
 ```
 
-The `-g` names cover all twelve Charton marks (`point`, `line`, `area`, `bar`,
+The `-g` names cover every Charton mark (`point`, `line`, `area`, `bar`,
 `boxplot`, `errorbar`, `rule`, `tick`, `text`, `rect`/`heatmap`, `hist`,
-`beeswarm`, `geo`); aliases such as `scatter`, `label`, and `heatmap` map onto
-them. The full flag table is in the plugin README.
+`geo`) plus two compositions (`beeswarm`, `violin`); aliases such as `scatter`,
+`label`, and `heatmap` map onto the marks. The full flag table is in the plugin
+README.
 
 ## Configuration
 

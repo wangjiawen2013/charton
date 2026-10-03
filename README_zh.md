@@ -50,6 +50,7 @@ Charton 是一款高性能 Rust 绘图库，其声明式 API 灵感源自 [Altai
     </tr>
     <tr>
         <td><img src="docs/src/images/quasirandom.svg" alt="Quasirandom" /><p align="center">Quasirandom</p></td>
+        <td><img src="docs/src/images/grouped_violin.svg" alt="Grouped Violin" /><p align="center">Grouped Violin</p></td>
     </tr>
 </table>
 

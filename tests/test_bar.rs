@@ -36,3 +36,30 @@ fn test_bar_1() -> Result<(), Box<dyn Error>> {
 
     Ok(())
 }
+
+/// A non-faceted chart does not need the pre-statistic snapshot. Releasing it
+/// drops the raw rows and leaves only the aggregated result.
+#[test]
+fn without_source_data_switches_to_post_statistic_data() {
+    use charton::core::layer::Layer;
+
+    let ds = Dataset::new()
+        .with_column("x", vec!["a", "a", "b"])
+        .unwrap()
+        .with_column("y", vec![1.0, 2.0, 3.0])
+        .unwrap();
+
+    let chart = Chart::build(ds)
+        .unwrap()
+        .mark_bar()
+        .unwrap()
+        .encode((alt::x("x"), alt::y("y")))
+        .unwrap();
+
+    // Before release the layer exposes the rows kept for per-panel statistics.
+    assert_eq!(chart.get_dataset().height(), 3);
+
+    // After release it exposes only the aggregated result (two bars).
+    let released = chart.without_source_data();
+    assert_eq!(released.get_dataset().height(), 2);
+}

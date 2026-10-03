@@ -16,7 +16,8 @@ The Input layer acts as the entry point for all data. Charton is built on the Ar
 
 This is the "Brain" of Charton. It is responsible for the logical interpretation of the user’s intent. It consists of three primary sub-systems:
 * Specification (Spec): Stores the "Blueprints" of the chart—which columns go to which axes, which colors are used, and which geometric marks are applied.
-* Scale Arbitration: A critical phase where the engine scans all layers to find global data boundaries (min/max or unique categories) to ensure all layers are visually synchronized.
+* Statistics & Position: A statistic summarises data per group and per panel (density, binning, quartiles); Position decides where marks that share a category sit (on top of each other or side by side). Both work in data space, before any pixel is involved. See [The Layer Pipeline](grammar_pipeline.md).
+* Scale Arbitration: A critical phase where the engine scans all layers to find shared data boundaries (min/max or unique categories) so all layers are visually synchronized. Facets may instead train a scale per panel.
 * Aesthetic Mapping: Resolves abstract data values into normalized [0, 1] ratios, which are later mapped to physical properties like hex codes or point shapes.
 
 ### III. The Render Layer (The Geometric Factory)

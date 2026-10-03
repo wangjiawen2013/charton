@@ -205,3 +205,23 @@ fn test_facet_subset_correctness() -> Result<(), Box<dyn Error>> {
 
     Ok(())
 }
+
+/// Free scales: each panel trains its own y scale, so a panel whose values sit
+/// high on the axis is not flattened by the global range.
+#[test]
+fn test_facet_free_scales() -> Result<(), Box<dyn Error>> {
+    let penguins = load_dataset("penguins")?;
+
+    chart!(&penguins)?
+        .mark_point()?
+        .configure_point(|p| p.with_size(3.0))
+        .encode((alt::x("Body Mass (g)"), alt::y("Flipper Length (mm)")))?
+        .facet(
+            FacetSpec::wrap("Species")
+                .with_columns(3)
+                .with_strategy("free_y"),
+        )
+        .save("./tests/facet_free_1.svg")?;
+
+    Ok(())
+}

@@ -7,6 +7,7 @@
 
 # Concepts & Philosophy
 - [The Charton Mental Model](concepts/mental_model.md)
+- [The Layer Pipeline](concepts/grammar_pipeline.md)
 - [System Architecture](concepts/architecture.md)
 - [From Data to Pixels](concepts/chart_life.md)
 - [Scale Arbitration](concepts/scale_arbitration.md)
@@ -42,7 +43,8 @@
 
 # Chart Gallery
 - [Basic Marks](gallery/basic_marks.md)                    # 基础图表：点、线、柱、面积图
-- [Statistical Distributions](gallery/statistics.md)       # 统计展示：Jitter, Beeswarm, Boxplot, Density
+- [Statistical Distributions](gallery/statistics.md)       # 统计展示：Violin, Boxplot, Jitter, Beeswarm, Density
+- [Box & Violin Combinations](gallery/box_violin_charts.md) # 组合展示：Raincloud, Split, Overlay
 - [Temporal Analysis](gallery/temporal.md)                 # 时间维度：走势图、甘特图、日历图
 - [Relationships & Matrices](gallery/matrices.md)          # 多维关系：热力图、散点矩阵、径向图
 - [Specialized Views](gallery/special.md)                  # 进阶图表：地理地图、自定义绘图逻辑

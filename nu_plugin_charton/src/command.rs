@@ -8,8 +8,9 @@ use charton::error::ChartonError;
 use charton::prelude::{
     BandwidthType, Chart, ColorMap, ColorPalette, CoordSystem, Dataset, DensityTransform,
     Expansion, FacetSpec, IntoLayered, KernelType, LabelFormat, LayeredChart, MarkArea, MarkBar,
-    MarkBoxplot, MarkErrorBar, MarkLine, MarkPoint, MarkRect, MarkRule, MarkText, MarkTick, Scale,
-    ThemeMode, WindowFieldDef, WindowOnlyOp, WindowTransform, alt, geojson_to_dataset,
+    MarkBoxplot, MarkErrorBar, MarkGeoPath, MarkLine, MarkPoint, MarkRect, MarkRule, MarkText,
+    MarkTick, Position, Scale, ThemeMode, ViolinTransform, WindowFieldDef, WindowOnlyOp,
+    WindowTransform, alt, geojson_to_dataset,
 };
 use nu_plugin::{EngineInterface, EvaluatedCall, PluginCommand};
 use nu_protocol::{
@@ -39,7 +40,7 @@ impl PluginCommand for Charton {
             .named(
                 "geom",
                 SyntaxShape::String,
-                "Mark type: point | line | area | bar | boxplot | errorbar | rule | tick | text | rect | hist | beeswarm | geo",
+                "Mark type: point | line | area | bar | boxplot | violin | errorbar | rule | tick | text | rect | hist | beeswarm | geo",
                 Some('g'),
             )
             .named("x", SyntaxShape::String, "Column mapped to the x axis", Some('x'))
@@ -1036,6 +1037,22 @@ fn style_rect(mut m: MarkRect, s: &Style) -> MarkRect {
     m
 }
 
+fn style_polygon(mut m: MarkGeoPath, s: &Style) -> MarkGeoPath {
+    if let Some(c) = &s.color {
+        m = m.with_fill(c.as_str());
+    }
+    if let Some(o) = s.opacity {
+        m = m.with_opacity(o);
+    }
+    if let Some(c) = &s.stroke {
+        m = m.with_stroke(c.as_str());
+    }
+    if let Some(w) = s.stroke_width {
+        m = m.with_stroke_width(w);
+    }
+    m
+}
+
 fn style_boxplot(mut m: MarkBoxplot, s: &Style) -> MarkBoxplot {
     if let Some(c) = &s.color {
         m = m.with_color(c.as_str());
@@ -1367,6 +1384,62 @@ fn build_layer(
                 .map_err(|e| chart_err(span, e))?
                 .configure_boxplot(|m| style_boxplot(m, style));
             enc_xy_color!(c).into()
+        }
+        "violin" | "violinplot" => {
+            let x = x.ok_or_else(|| missing(geom, "--x (the category column)", span))?;
+            let y = y.ok_or_else(|| missing(geom, "--y (the value column)", span))?;
+
+            // A violin is a composition, not a mark: a density outline plus an
+            // inner inter-quartile box. Both layers run the same statistics, so
+            // the box always sits over its violin. `--color` dodges one violin
+            // per group; without it there is one violin per category.
+            let mut params = ViolinTransform::new(y).with_category(x);
+            if let Some(group) = color {
+                params = params.with_group(group).with_position(Position::dodge());
+            }
+
+            let outline = Chart::build(dataset.clone())
+                .map_err(|e| chart_err(span, e))?
+                .transform_violin(params.clone())
+                .map_err(|e| chart_err(span, e))?
+                .mark_polygon()
+                .map_err(|e| chart_err(span, e))?
+                .configure_geoshape(|m| style_polygon(m, style));
+            let outline = match color {
+                Some(c) => outline.encode((
+                    alt::x("x").with_category_labels(x),
+                    make_y("y"),
+                    alt::path_group("violin_id"),
+                    alt::color(c),
+                )),
+                None => outline.encode((
+                    alt::x("x").with_category_labels(x),
+                    make_y("y"),
+                    alt::path_group("violin_id"),
+                )),
+            }
+            .map_err(|e| chart_err(span, e))?;
+
+            let inner_box = Chart::build(dataset)
+                .map_err(|e| chart_err(span, e))?
+                .transform_violin_box(params)
+                .map_err(|e| chart_err(span, e))?
+                .mark_polygon()
+                .map_err(|e| chart_err(span, e))?
+                .configure_geoshape(|m| {
+                    m.with_fill("white")
+                        .with_stroke("black")
+                        .with_stroke_width(1.0)
+                });
+            let inner_box = inner_box
+                .encode((
+                    alt::x("x").with_category_labels(x),
+                    make_y("y"),
+                    alt::path_group("violin_id"),
+                ))
+                .map_err(|e| chart_err(span, e))?;
+
+            outline.and(inner_box)
         }
         "tick" => {
             let c = Chart::build(dataset)
@@ -2125,6 +2198,17 @@ mod tests {
     #[test]
     fn boxplot_returns_svg() -> Result<(), ShellError> {
         let out = run("charton -g boxplot -x species -y petal_length")?;
+        assert!(out.as_str()?.contains("<svg"));
+        Ok(())
+    }
+
+    #[test]
+    fn violin_returns_svg() -> Result<(), ShellError> {
+        // One violin per category.
+        let out = run("charton -g violin -x species -y petal_length")?;
+        assert!(out.as_str()?.contains("<svg"));
+        // Grouped (dodged) violins, one per `grp`.
+        let out = run("charton -g violin -x species -y petal_length -c grp")?;
         assert!(out.as_str()?.contains("<svg"));
         Ok(())
     }

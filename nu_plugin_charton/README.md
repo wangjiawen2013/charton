@@ -90,6 +90,11 @@ open assets/sales.csv | charton -g bar -x region -y revenue --aggregate mean
 open assets/data.csv | charton -g density -x score -c group --opacity 0.5
 open assets/data.csv | charton -g line -x t -y v --loess
 
+# Violin: a density outline with an inner quartile box. Add -c to dodge one
+# violin per group; the group width matches -g boxplot and -g point.
+open assets/data.csv | charton -g violin -x category -y score -o violin.svg
+open assets/data.csv | charton -g violin -x category -y score -c group --opacity 0.6
+
 # Pie / donut (bar mark in polar coordinates; omit -x so y becomes the slices)
 open assets/data.csv | charton -g bar -y amount -c category --coord polar
 open assets/data.csv | charton -g bar -y amount -c category --coord polar --inner-radius 0.5
@@ -129,15 +134,16 @@ Flags are grouped by what you want to do. `[]` in the type column marks a list.
 
 | Flag | Meaning |
 |---|---|
-| `-g, --geom` | Chart type: `point` (default) \| `line` \| `area` \| `bar` \| `boxplot` \| `errorbar` \| `rule` \| `tick` \| `text` \| `rect`/`heatmap` \| `hist` \| `density`/`kde` \| `ecdf` \| `beeswarm` \| `geo` |
-| `-x, --x` | Column for the x axis (the value column for `-g density`/`-g ecdf`) |
-| `-y, --y` | Column for the y axis (`hist` uses a generated `count`; `density` uses a generated `density`) |
+| `-g, --geom` | Chart type: `point` (default) \| `line` \| `area` \| `bar` \| `boxplot` \| `violin` \| `errorbar` \| `rule` \| `tick` \| `text` \| `rect`/`heatmap` \| `hist` \| `density`/`kde` \| `ecdf` \| `beeswarm` \| `geo` |
+| `-x, --x` | Column for the x axis (the value column for `-g density`/`-g ecdf`; the category column for `-g violin`) |
+| `-y, --y` | Column for the y axis (`hist` uses a generated `count`; `density` uses a generated `density`; the value column for `-g violin`) |
 | `-c, --color` | Column mapped to color / grouping (required for `rect`; the group column for `density`/`ecdf`) |
 | `--y2` | Upper-bound column for `errorbar`/`rule` (errorbar aggregates mean ± std when omitted) |
 | `--text` | Label column for `-g text` |
 | `--geojson` | GeoJSON file to render with `-g geo` |
 
 `beeswarm` is the `point` mark with a beeswarm layout, not a separate mark.
+`violin` is a composition too: a density outline plus an inner quartile box.
 `scatter`, `box`, `label`, `heatmap`, `histogram`, and `geoshape` are aliases.
 
 ### Encodings
@@ -368,7 +374,7 @@ delete those yourself if you no longer want them.
 
 - [x] `Value` table → charton `Dataset` converter (per-column type inference
       over all rows; int/float/string/bool/datetime, null-aware)
-- [x] all charton marks: `point`, `line`, `area`, `bar`, `boxplot`,
+- [x] all charton marks: `point`, `line`, `area`, `bar`, `boxplot`, `violin`,
       `errorbar`, `rule`, `tick`, `text`, `rect`/`heatmap`, `hist`,
       `density`/`kde`, `ecdf`, `beeswarm`, `geo`
 - [x] multi-layer overlays, faceting, polar and geographic coordinates
