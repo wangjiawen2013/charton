@@ -39,3 +39,47 @@ pub(crate) mod lane_layout;
 pub(crate) mod point_transform;
 pub(crate) mod rect_transform;
 pub(crate) mod window_transform;
+
+use crate::error::ChartonError;
+use ahash::AHashSet;
+
+/// Fails if a transform would write the same output column name more than once.
+///
+/// Column names are how transforms talk to the encoding, and `add_column`
+/// overwrites on a clash. A transform that emits the same name twice would
+/// therefore drop one of the two columns with no warning at all — most easily
+/// when a caller's category or group column already happens to be named `x`,
+/// `y` or `path_group`. There is never a legitimate reason to overwrite one of
+/// a transform's own outputs, so this turns that mistake into a clear error
+/// instead of a quietly wrong chart.
+///
+/// The composable transforms (`transform_density`, `transform_density_2d`,
+/// `transform_contour`, `transform_band`, `transform_quantile_box`) collect
+/// their full output-name list and check it here before touching the dataset.
+pub(crate) fn ensure_distinct_columns(names: &[&str]) -> Result<(), ChartonError> {
+    let mut seen: AHashSet<&str> = AHashSet::new();
+    for name in names {
+        if !seen.insert(name) {
+            return Err(ChartonError::Data(format!(
+                "transform writes the column '{name}' more than once; rename one of its \
+                 outputs with `with_as(...)`, or choose a different input column"
+            )));
+        }
+    }
+    Ok(())
+}
+
+#[cfg(test)]
+mod tests {
+    use super::ensure_distinct_columns;
+
+    #[test]
+    fn distinct_output_names_are_accepted() {
+        assert!(ensure_distinct_columns(&["x", "y", "path_group"]).is_ok());
+    }
+
+    #[test]
+    fn a_repeated_output_name_is_rejected() {
+        assert!(ensure_distinct_columns(&["x", "y", "x"]).is_err());
+    }
+}

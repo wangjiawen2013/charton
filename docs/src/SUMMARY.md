@@ -27,6 +27,7 @@
 - [Encodings & Channels](grammar/encodings.md)
 - [Scales & Domains](grammar/scales.md)
 - [Marks & Geometries](grammar/marks.md)
+- [Transforms & Columns](grammar/transforms.md)       # transform 读哪些列、产出哪些列
 - [Coordinate Systems](grammar/coordinates.md)
 
 # Composition & Layout
