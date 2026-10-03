@@ -46,12 +46,40 @@ pub use facet_wrap::FacetWrapImpl;
 /// The names are physical, not logical: `axis_left` is the width of the **y**
 /// axis (the one drawn on the left), and `axis_bottom` is the height of the
 /// **x** axis (the one drawn on the bottom), regardless of `coord_flip`.
-#[derive(Debug, Clone, Copy, Default)]
+#[derive(Debug, Clone, Default)]
 pub struct FacetMetrics {
-    /// Width reserved to the left of a panel that draws a y axis.
+    /// Width reserved to the left of a panel that draws a y axis. Used for any
+    /// column without a more specific value in `per_column_left`.
     pub axis_left: f64,
-    /// Height reserved below a panel that draws an x axis.
+    /// Height reserved below a panel that draws an x axis. Used for any row
+    /// without a more specific value in `per_row_bottom`.
     pub axis_bottom: f64,
+    /// Width of the y-axis track for each panel column. Free scales fill this
+    /// with the widest y axis in that column, so a column with short labels does
+    /// not reserve space it does not need. An empty vector means "use
+    /// `axis_left` everywhere".
+    pub per_column_left: Vec<f64>,
+    /// Height of the x-axis track for each panel row. An empty vector means
+    /// "use `axis_bottom` everywhere".
+    pub per_row_bottom: Vec<f64>,
+}
+
+impl FacetMetrics {
+    /// The left-axis width to reserve for panel column `col`.
+    pub(crate) fn left(&self, col: usize) -> f64 {
+        self.per_column_left
+            .get(col)
+            .copied()
+            .unwrap_or(self.axis_left)
+    }
+
+    /// The bottom-axis height to reserve for panel row `row`.
+    pub(crate) fn bottom(&self, row: usize) -> f64 {
+        self.per_row_bottom
+            .get(row)
+            .copied()
+            .unwrap_or(self.axis_bottom)
+    }
 }
 
 // ============== Core Facet Trait ==============
@@ -161,10 +189,21 @@ impl FacetGridGeometry {
         let spacing = theme.facet_spacing;
         let header_h = theme.facet_label_size * 1.5 + theme.facet_strip_padding * 2.0;
 
-        // How many axis tracks of each kind are actually present. `Fixed` says 1
-        // and 1; `Free` says `cols` and `rows`.
-        let left_tracks = has_left_axis.iter().filter(|flag| **flag).count() as f64;
-        let bottom_tracks = has_bottom_axis.iter().filter(|flag| **flag).count() as f64;
+        // How much room the axis tracks take in total. A `Fixed` grid has one
+        // left track and one bottom track; a `Free` grid has one per column and
+        // one per row, each sized for that column/row.
+        let total_left: f64 = has_left_axis
+            .iter()
+            .enumerate()
+            .filter(|(_, flag)| **flag)
+            .map(|(c, _)| metrics.left(c))
+            .sum();
+        let total_bottom: f64 = has_bottom_axis
+            .iter()
+            .enumerate()
+            .filter(|(_, flag)| **flag)
+            .map(|(r, _)| metrics.bottom(r))
+            .sum();
 
         // --- Step 1: solve the panel size ------------------------------------
         //
@@ -176,11 +215,9 @@ impl FacetGridGeometry {
         // so it loses one header *per row* plus `bottom_tracks` axis tracks plus
         // the gaps between rows. What is left is split evenly, because all panels
         // share a single width and a single height.
-        let panel_area_w = container.width
-            - left_tracks * metrics.axis_left
-            - cols.saturating_sub(1) as f64 * spacing;
+        let panel_area_w = container.width - total_left - cols.saturating_sub(1) as f64 * spacing;
         let panel_area_h = container.height
-            - bottom_tracks * metrics.axis_bottom
+            - total_bottom
             - rows as f64 * header_h
             - rows.saturating_sub(1) as f64 * spacing;
 
@@ -203,7 +240,7 @@ impl FacetGridGeometry {
         let mut consumed = 0.0;
         for c in 0..cols {
             if has_left_axis.get(c).copied().unwrap_or(false) {
-                consumed += metrics.axis_left;
+                consumed += metrics.left(c);
             }
             col_x.push(container.x + consumed + c as f64 * (plot_w + spacing));
         }
@@ -220,7 +257,7 @@ impl FacetGridGeometry {
         for r in 0..rows {
             header_y.push(container.y + consumed + r as f64 * (header_h + plot_h + spacing));
             if has_bottom_axis.get(r).copied().unwrap_or(false) {
-                consumed += metrics.axis_bottom;
+                consumed += metrics.bottom(r);
             }
         }
 
@@ -465,6 +502,7 @@ mod tests {
         FacetMetrics {
             axis_left: 50.0,
             axis_bottom: 40.0,
+            ..Default::default()
         }
     }
 
@@ -545,8 +583,42 @@ mod tests {
         assert!((panels[0].rect.x - (container.x + m.axis_left)).abs() < 1e-9);
     }
 
-    /// A free grid draws an axis around every panel, so every column/row keeps
-    /// its track and the panels stay equal nonetheless.
+    /// Free scales give every column its own y-axis track, so a column with
+    /// wider labels reserves more room instead of forcing the whole grid to use
+    /// the widest one.
+    #[test]
+    fn free_metrics_size_axis_tracks_per_column() {
+        let container = Rect::new(0.0, 0.0, 1200.0, 800.0);
+        let theme = Theme::default();
+        let grid = FacetSpec::wrap("c")
+            .with_columns(2)
+            .with_strategy("free")
+            .into_facet();
+
+        let metrics = FacetMetrics {
+            axis_left: 0.0,
+            axis_bottom: 0.0,
+            per_column_left: vec![30.0, 90.0],
+            per_row_bottom: vec![25.0],
+        };
+
+        let panels = grid.compute_panels(
+            &[vec!["a".to_string(), "b".to_string()]],
+            &container,
+            &metrics,
+            &theme,
+        );
+
+        // Row-major: "a" is (0,0), "b" is (0,1).
+        // Column 0 reserves 30px for its y axis ...
+        assert!((panels[0].rect.x - (container.x + 30.0)).abs() < 1e-9);
+        // ... and column 1 reserves its own 90px track after column 0's panel.
+        let gap = panels[1].rect.x - (panels[0].rect.x + panels[0].rect.width);
+        assert!((gap - (theme.facet_spacing + 90.0)).abs() < 1e-9);
+    }
+
+    /// A free grid labels every panel, so the left track is present on each
+    /// column and the bottom track on each row.
     #[test]
     fn free_grid_reserves_axis_tracks_everywhere() {
         let container = Rect::new(0.0, 0.0, 1000.0, 800.0);

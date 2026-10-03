@@ -13,7 +13,7 @@ fn test_palette_1() -> Result<(), Box<dyn Error>> {
             alt::color("gear").with_scale(Scale::Discrete),
         ))?
         .configure_theme(|t| t.with_palette(["#333", "#6fc481", "red"]))
-        .save("./tests/palette1.svg")?;
+        .save("./target/test-output/palette1.svg")?;
 
     Ok(())
 }
@@ -32,7 +32,7 @@ fn test_palette_2() -> Result<(), Box<dyn Error>> {
         .configure_theme(|t| {
             t.with_palette(vec!["#ff0000", "rgba(0,0,255,1.0)", "rgb(100, 100, 100)"])
         })
-        .save("./tests/palette2.svg")?;
+        .save("./target/test-output/palette2.svg")?;
 
     Ok(())
 }
@@ -49,7 +49,7 @@ fn test_palette_3() -> Result<(), Box<dyn Error>> {
             alt::color("gear").with_scale(Scale::Discrete),
         ))?
         .configure_theme(|t| t.with_palette(vec![SingleColor::none(), SingleColor::new("red")]))
-        .save("./tests/palette3.svg")?;
+        .save("./target/test-output/palette3.svg")?;
 
     Ok(())
 }

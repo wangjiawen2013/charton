@@ -15,7 +15,7 @@ fn main() -> Result<(), Box<dyn Error>> {
         .with_title("Nightingale wind rose")
         .with_grid(true)
         .with_coord(CoordSystem::Polar)
-        .save("nightingale_gpu.png")?;
+        .save("target/example-output/nightingale_gpu.png")?;
 
     Ok(())
 }

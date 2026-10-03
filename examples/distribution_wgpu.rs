@@ -35,7 +35,7 @@ fn main() -> Result<(), Box<dyn Error>> {
         .with_title("Cumulative Density Estimation")
         .with_x_label("IMDB Rating")
         .with_y_label("Cumulative Density")
-        .save("distribution_gpu.png")?;
+        .save("target/example-output/distribution_gpu.png")?;
 
     Ok(())
 }

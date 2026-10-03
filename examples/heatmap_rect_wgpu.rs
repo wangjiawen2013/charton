@@ -1,0 +1,23 @@
+//! The continuous heatmap rendered through the GPU (wgpu) backend to a PNG.
+//!
+//! Same chart as `heatmap_rect.rs`; only the output backend differs.
+
+use charton::prelude::*;
+use std::error::Error;
+
+fn main() -> Result<(), Box<dyn Error>> {
+    // Sample data for heatmap with continuous variables
+    let x = [1.1, 1.2, 1.3, 1.4, 1.5, 1.6, 1.8, 2.05, 2.2, 2.5, 2.6, 2.7];
+    let y = [1.2, 1.3, 1.4, 1.5, 1.8, 1.83, 2.0, 1.9, 2.2, 2.3, 2.4, 2.5];
+    let value = [
+        1.0, 2.0, 3.0, 4.0, 5.0, 6.0, 7.0, 8.0, 9.0, 10.0, 11.0, 12.0,
+    ];
+    // Create heatmap chart
+    chart!(x, y, value)?
+        .mark_rect()?
+        .encode((alt::x("x"), alt::y("y"), alt::color("value")))?
+        .configure_theme(|t| t.with_color_map(ColorMap::GnBu))
+        .save("target/example-output/heatmap_rect_gpu.png")?;
+
+    Ok(())
+}

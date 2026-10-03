@@ -31,7 +31,7 @@ fn test_transform_calculate_1() -> Result<(), Box<dyn Error>> {
         .with_size(500, 400)
         .with_title("Error Bar Chart with Mean and Std Dev")
         .coord_flip()
-        .save("./tests/transform_calculate_1.svg")?;
+        .save("./target/test-output/transform_calculate_1.svg")?;
 
     Ok(())
 }

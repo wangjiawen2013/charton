@@ -25,6 +25,17 @@ The system performs a Union of all local domains:
 - Continuous Scales: It finds the "Global Min" and "Global Max" across all layers.
 - Discrete Scales: It creates a deduplicated set of all categories (e.g., if Layer A has `["A", "B"]` and Layer B has `["B", "C"]`, the global domain becomes `["A", "B", "C"]`).
 
+This is the default, called *fixed* scales: every panel shares one domain. A
+faceted chart can instead train a scale inside each panel with
+`with_strategy("free")` (or `"free_x"` / `"free_y"`). It then arbitrates once
+per panel, over that panel's layers only, and sizes each column/row's axis track
+from the result.
+
+Statistics sit below arbitration and are always computed **per panel and per
+group**, never across panels. A stacked area or a density curve in one panel is
+therefore never shifted by another panel's data; see
+[The Layer Pipeline](grammar_pipeline.md).
+
 ### Expansion & Padding
 
 Once the global raw domain is found, Charton applies Expansion Rules. By default, it adds a $5\%$ padding to continuous scales to prevent data marks from clipping against the chart edges.

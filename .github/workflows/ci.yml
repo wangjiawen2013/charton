@@ -32,6 +32,24 @@ jobs:
       - name: Check formatting
         run: cargo fmt --all -- --check
 
+      - name: Check docs images are referenced
+        # Guarantees every committed image in docs/src/images is used by the
+        # book; generated-but-unreferenced output goes to target/ instead.
+        run: |
+          status=0
+          for file in docs/src/images/*; do
+            [ -e "$file" ] || continue
+            base=$(basename "$file")
+            if ! grep -rqs --include='*.md' -- "$base" .; then
+              echo "error: docs image is not referenced by any Markdown file: $file" >&2
+              status=1
+            fi
+          done
+          if [ "$status" -ne 0 ]; then
+            echo "Reference the image from a .md file, or delete it and point its generator at target/ instead." >&2
+            exit 1
+          fi
+
       - name: Build Library
         # Adding --lib ensures we only build the core library first, 
         # avoiding the heavy linking of examples.

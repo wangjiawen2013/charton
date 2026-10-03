@@ -93,6 +93,18 @@ impl Encoding {
         }
     }
 
+    /// Returns the column that supplies the categories for a position channel,
+    /// if the user mapped numeric positions and asked for labelled categories.
+    ///
+    /// See [`crate::encode::x::X::with_category_labels`].
+    pub fn get_category_field_by_channel(&self, channel: Channel) -> Option<&str> {
+        match channel {
+            Channel::X => self.x.as_ref().and_then(|v| v.category_field.as_deref()),
+            Channel::Y => self.y.as_ref().and_then(|v| v.category_field.as_deref()),
+            _ => None,
+        }
+    }
+
     /// Retrieves the user-defined scale type (e.g., Linear, Log, Time) for a channel.
     pub fn get_scale_by_channel(&self, channel: Channel) -> Option<Scale> {
         match channel {

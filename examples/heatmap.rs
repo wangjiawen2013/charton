@@ -1,3 +1,8 @@
+//! Heatmap over two **categorical** axes.
+//!
+//! Each `(x, y)` pair is one cell, coloured by its value. Continuous axes use
+//! the same mark with automatic binning — see `heatmap_rect.rs`.
+
 use charton::prelude::*;
 use std::error::Error;
 

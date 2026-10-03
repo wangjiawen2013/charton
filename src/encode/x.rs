@@ -15,6 +15,14 @@ pub struct X {
     /// The name of the data column to be mapped to the X-axis.
     pub(crate) field: String,
 
+    /// Optional column that supplies the axis *categories* while `field` holds
+    /// numeric positions.
+    ///
+    /// This powers a discrete position axis: the encoded column carries numbers
+    /// (`category index + dodge offset`) and this column supplies the integer
+    /// ticks and their labels.
+    pub(crate) category_field: Option<String>,
+
     /// The desired scale transformation (e.g., Linear, Log, Discrete).
     /// If `None`, the engine will infer the type from the column's data type.
     pub(crate) scale_type: Option<Scale>,
@@ -43,6 +51,7 @@ impl X {
     pub fn new(field: &str) -> Self {
         Self {
             field: field.to_string(),
+            category_field: None,
             scale_type: None,
             domain: None,
             expansion: None,
@@ -55,6 +64,17 @@ impl X {
     /// Sets the preferred scale type (e.g., `Scale::Linear`, `Scale::Log`).
     pub const fn with_scale(mut self, scale_type: Scale) -> Self {
         self.scale_type = Some(scale_type);
+        self
+    }
+
+    /// Reads the axis categories from `category_field` while keeping the encoded
+    /// field as a numeric position.
+    ///
+    /// The encoded field should hold an integer category index plus an optional
+    /// fractional offset (for example a dodged violin's `category + dodge`). The
+    /// axis then shows one integer tick per category, labelled from this column.
+    pub fn with_category_labels(mut self, category_field: impl Into<String>) -> Self {
+        self.category_field = Some(category_field.into());
         self
     }
 

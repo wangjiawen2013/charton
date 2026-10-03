@@ -5,6 +5,7 @@ use crate::core::context::PanelContext;
 use crate::core::layer::{CircleConfig, LineConfig, MarkRenderer, RenderBackend};
 use crate::error::ChartonError;
 use crate::mark::errorbar::MarkErrorBar;
+use crate::position::Position;
 use crate::visual::color::SingleColor;
 
 // ============================================================================
@@ -168,12 +169,14 @@ impl Chart<MarkErrorBar> {
         backend: &mut dyn RenderBackend,
     ) {
         // --- 1. Calculate Dodge Offset ---
+        // The side-by-side layout is owned by `Position`; this only converts the
+        // resulting category-step shift into pixels.
+        let position = Position::Dodge {
+            spacing: mark_config.spacing,
+        };
         let offset_norm = if n_groups > 1.0 {
-            let actual_width =
-                mark_config.span / (n_groups + (n_groups - 1.0) * mark_config.spacing);
-            let width_norm = actual_width.min(mark_config.width) * unit_step_norm;
-            let spacing_norm = width_norm * mark_config.spacing;
-            (sub_idx - (n_groups - 1.0) / 2.0) * (width_norm + spacing_norm)
+            let item_width = position.item_width(n_groups, mark_config.span, mark_config.width);
+            position.offset(sub_idx, n_groups, item_width) * unit_step_norm
         } else {
             0.0
         };

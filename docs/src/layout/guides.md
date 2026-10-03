@@ -48,7 +48,7 @@ LayoutEngine::pack_guides()         measure + wrap (two levels)      -> LegendLa
 LegendRenderer::render_legend()     add plan offsets to the origin   -> pixels
 ```
 
-The renderer is deliberately "dumb": the plan already carries the final position of every block, every entry and every gradient bar, so the renderer only adds `origin + offset`. Re-deriving layout at draw time is exactly what used to let the measured size and the drawn size drift apart.
+The renderer is deliberately "dumb": the plan already carries the final position of every block, every entry and every gradient bar, so the renderer only adds `origin + offset`. Re-deriving layout at draw time is exactly how the measured size and the drawn size drift apart.
 
 ## Legend Layout Anatomy
 

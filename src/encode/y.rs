@@ -13,6 +13,13 @@ pub enum StackMode {
     Normalize,
     /// Center mode - stacked areas centered around zero baseline (streamgraph).
     Center,
+    /// Mirror mode - each series is drawn symmetrically around zero, from
+    /// `-value / 2` to `+value / 2`, independently of the other series.
+    ///
+    /// This is the Vega-Lite `stack: "center"` idea applied per series, and it
+    /// is what turns a density curve into a symmetric violin outline when a
+    /// facet (or colour) keeps one series per panel.
+    Mirror,
 }
 
 impl From<&str> for StackMode {
@@ -21,6 +28,7 @@ impl From<&str> for StackMode {
             "stacked" => StackMode::Stacked,
             "normalize" => StackMode::Normalize,
             "center" => StackMode::Center,
+            "mirror" => StackMode::Mirror,
             _ => StackMode::None,
         }
     }
@@ -42,6 +50,10 @@ pub struct Y {
     // --- User Configuration (Intent/Inputs) ---
     /// The name of the data column to be mapped to the vertical position.
     pub(crate) field: String,
+
+    /// Optional column that supplies the axis *categories* while `field` holds
+    /// numeric positions. See [`X::with_category_labels`](crate::encode::x::X::with_category_labels).
+    pub(crate) category_field: Option<String>,
 
     /// Statistical operation to apply to the data (e.g., Sum, Mean).
     /// Defaults to `AggregateOp::Sum`.
@@ -81,6 +93,7 @@ impl Y {
     pub fn new(field: &str) -> Self {
         Self {
             field: field.to_string(),
+            category_field: None,
             aggregate: AggregateOp::default(), // Defaults to Sum
             scale_type: None,
             domain: None,
@@ -110,6 +123,13 @@ impl Y {
     /// Sets the desired scale type (e.g., `Scale::Linear`, `Scale::Log`).
     pub const fn with_scale(mut self, scale_type: Scale) -> Self {
         self.scale_type = Some(scale_type);
+        self
+    }
+
+    /// Reads the axis categories from `category_field` while keeping the encoded
+    /// field as a numeric position.
+    pub fn with_category_labels(mut self, category_field: impl Into<String>) -> Self {
+        self.category_field = Some(category_field.into());
         self
     }
 

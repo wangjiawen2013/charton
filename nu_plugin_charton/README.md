@@ -16,8 +16,12 @@ That one line reads the table, infers the column types, builds the chart and
 draws it in the terminal. The Nushell command is `charton` (the plugin is
 registered under the name without the `nu_plugin_` prefix).
 
+Two flags get you a chart: **`-g` picks the chart type** and **`-x` / `-y` name
+the columns to plot**. Everything else — colour, stacking, faceting, themes — is
+optional.
+
 > **Compatibility:** `nu_plugin_charton` targets **Nushell 0.116** and shares
-> the `charton` version number (both `0.7.x`), so one release covers the
+> the `charton` version number (both `0.8.x`), so one release covers the
 > matching pair. See [Compatibility](#compatibility).
 
 ## Install
@@ -70,28 +74,47 @@ instead.
 
 ## Quick start
 
+`-g` picks the chart type and `-x` / `-y` name the columns. That is the whole
+essentials:
+
 ```nu
-# Inline in the terminal (Kitty / iTerm2 / Sixel / truecolor half-blocks)
+# Draw inline in the terminal (Kitty / iTerm2 / Sixel / truecolor half-blocks)
 ls | charton -g bar -x name -y size
 
-# Save to a file — format comes from the extension (.svg or .png)
+# Or save instead — the format follows the file extension (.svg or .png)
 open assets/data.csv | charton -g line -x date -y value -o chart.svg
 open assets/data.csv | charton -g beeswarm -x group -y score -o chart.png
 
-# Return the image to the pipeline instead of drawing it
+# Or return the image to the pipeline instead of drawing it
 open assets/data.csv | charton -g point -x a -y b --raw | save chart.svg
 open assets/data.csv | charton -g point -x a -y b --raw --png | save chart.png
+```
 
-# Group by a column with color, stack, and aggregate
+Everything else is optional. More recipes to copy from:
+
+```nu
+# Colour / group, stack, and aggregate
 open assets/sales.csv | charton -g bar -x region -y revenue -c quarter --stack stacked
 open assets/sales.csv | charton -g bar -x region -y revenue --aggregate mean
 
-# Distribution and trend (--opacity keeps overlapping density curves visible)
+# Distributions and trends (--opacity keeps overlapping density curves visible)
 open assets/data.csv | charton -g density -x score -c group --opacity 0.5
 open assets/data.csv | charton -g line -x t -y v --loess
 
-# Pie / donut (bar mark in polar coordinates; omit -x so y becomes the slices)
-open assets/data.csv | charton -g bar -y amount -c category --coord polar
+# Violin: a density outline with an inner quartile box. Add -c to dodge one
+# violin per group; the group width matches -g boxplot and -g point.
+open assets/data.csv | charton -g violin -x category -y score -o violin.svg
+open assets/data.csv | charton -g violin -x category -y score -c group --opacity 0.6
+
+# Contour: iso-lines of a scalar grid. --z is the value column; --bins sets the
+# number of levels, and --stroke gives a single-colour contour. Without --z a
+# 2D density is estimated from the x/y points first (the classic density contour).
+open assets/grid.csv | charton -g contour -x x -y y --z z -o contour.svg
+open assets/grid.csv | charton -g contour -x x -y y --z z --stroke black -o contour_mono.svg
+open assets/data.csv | charton -g contour -x a -y b -o density_contour.svg
+
+# Pie / donut (bar mark in polar coordinates; omit -x so y becomes the slices;
+# add --inner-radius for a donut)
 open assets/data.csv | charton -g bar -y amount -c category --coord polar --inner-radius 0.5
 
 # Rose / Nightingale (x maps to the angle, y to the radius)
@@ -99,11 +122,18 @@ open assets/data.csv | charton -g bar -x category -y amount -c category --coord 
 
 # Geographic choropleth from a GeoJSON file
 charton -g geo --geojson assets/world.geojson -c POP_EST -o world.png
+
+# Composition: overlay more geoms, or split the chart into facet panels.
+# A --layer is a record (or list of records); only `geom` is required and the
+# other fields fall back to the primary layer's encodings.
+open assets/data.csv | charton -g line -x t -y v --layer {geom: point}
+open assets/data.csv | charton -g point -x a -y b --facet-wrap group
 ```
 
 The examples read the small sample files shipped in `assets/`: `data.csv` has
 columns `date,value,group,score,a,b,t,v,category,amount`, `sales.csv` has
-`region,quarter,revenue`, and `world.geojson` is a Natural Earth country map.
+`region,quarter,revenue`, `grid.csv` is an `x,y,z` scalar grid for `-g contour`,
+and `world.geojson` is a Natural Earth country map.
 Run the commands from the `nu_plugin_charton/` directory (or prefix `assets/`
 with its path), and swap in your own file and column names to chart your data.
 
@@ -129,15 +159,21 @@ Flags are grouped by what you want to do. `[]` in the type column marks a list.
 
 | Flag | Meaning |
 |---|---|
-| `-g, --geom` | Chart type: `point` (default) \| `line` \| `area` \| `bar` \| `boxplot` \| `errorbar` \| `rule` \| `tick` \| `text` \| `rect`/`heatmap` \| `hist` \| `density`/`kde` \| `ecdf` \| `beeswarm` \| `geo` |
-| `-x, --x` | Column for the x axis (the value column for `-g density`/`-g ecdf`) |
-| `-y, --y` | Column for the y axis (`hist` uses a generated `count`; `density` uses a generated `density`) |
+| `-g, --geom` | Chart type: `point` (default) \| `line` \| `area` \| `bar` \| `boxplot` \| `violin` \| `errorbar` \| `rule` \| `tick` \| `text` \| `rect`/`heatmap` \| `hist` \| `density`/`kde` \| `ecdf` \| `contour` \| `beeswarm` \| `geo` |
+| `-x, --x` | Column for the x axis (the value column for `-g density`/`-g ecdf`; the category column for `-g violin`; the grid's x for `-g contour`) |
+| `-y, --y` | Column for the y axis (`hist` uses a generated `count`; `density` uses a generated `density`; the value column for `-g violin`; the grid's y for `-g contour`) |
+| `--z` | Value (scalar) column for `-g contour`; the grid is regular in `x` and `y`. Omit it to estimate a 2D density from `x`/`y` first (a density contour) |
 | `-c, --color` | Column mapped to color / grouping (required for `rect`; the group column for `density`/`ecdf`) |
 | `--y2` | Upper-bound column for `errorbar`/`rule` (errorbar aggregates mean ± std when omitted) |
 | `--text` | Label column for `-g text` |
 | `--geojson` | GeoJSON file to render with `-g geo` |
 
+`-g contour` colours its lines by level. Pass `--stroke <color>` for a
+single-colour contour instead.
+
 `beeswarm` is the `point` mark with a beeswarm layout, not a separate mark.
+`violin` is a composition too: a density outline plus an inner quartile box,
+and `contour` is a marching-squares iso-line stat plus the open `path` geometry.
 `scatter`, `box`, `label`, `heatmap`, `histogram`, and `geoshape` are aliases.
 
 ### Encodings
@@ -335,7 +371,7 @@ Nushell, install the matching plugin release (or rebuild) and re-run
 `plugin add`.
 
 `nu_plugin_charton` shares its version number with the `charton` library it
-depends on, so `charton 0.7.1` and `nu_plugin_charton 0.7.1` ship as a pair.
+depends on, so `charton 0.8.0` and `nu_plugin_charton 0.8.0` ship as a pair.
 The Nushell target is stated here and in the release notes.
 
 ## Uninstall
@@ -363,25 +399,6 @@ delete those yourself if you no longer want them.
   — process model, inline protocols, resolution fitting.
 - [charton library docs](https://docs.rs/charton) — the plotting engine behind
   this plugin.
-
-## Status
-
-- [x] `Value` table → charton `Dataset` converter (per-column type inference
-      over all rows; int/float/string/bool/datetime, null-aware)
-- [x] all charton marks: `point`, `line`, `area`, `bar`, `boxplot`,
-      `errorbar`, `rule`, `tick`, `text`, `rect`/`heatmap`, `hist`,
-      `density`/`kde`, `ecdf`, `beeswarm`, `geo`
-- [x] multi-layer overlays, faceting, polar and geographic coordinates
-- [x] stacking, aggregation, binning, LOESS, KDE
-- [x] axis scales, domains, explicit ticks, label formatting, light/dark themes
-- [x] `size`/`shape` encoding channels
-- [x] inline terminal rendering: Kitty / iTerm2 / Sixel / half-block
-- [x] SVG / PNG export and `--raw` piping
-- [x] configuration via `$env.config.plugins.charton`
-- [x] unit tests via `nu-plugin-test-support`
-
-Planned: companion label/annotation marks, a native ANSI terminal backend that
-draws with braille and text rather than a raster image.
 
 ## Development
 

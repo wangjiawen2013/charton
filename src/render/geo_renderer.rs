@@ -56,16 +56,23 @@ impl MarkRenderer for Chart<MarkGeoPath> {
             .normalize_column(y_scale, ds.column(&y_enc.field)?);
 
         // --- STEP 4: Resolve color mapping ---
-        let color_norms = if let Some(ref color_map) = context.spec.aesthetics.color {
-            Some(
-                color_map
-                    .scale_impl
-                    .scale_type()
-                    .normalize_column(color_map.scale_impl.as_ref(), ds.column(&color_map.field)?),
-            )
-        } else {
-            None
-        };
+        // Only follow the shared color scale when *this* layer actually mapped
+        // a colour. Without this check a layer that did not ask for colour (for
+        // example the inner box of a violin) would be painted with whatever
+        // field another layer happened to use for colour.
+        let color_norms =
+            if self.encoding.color.is_some() {
+                if let Some(ref color_map) = context.spec.aesthetics.color {
+                    Some(color_map.scale_impl.scale_type().normalize_column(
+                        color_map.scale_impl.as_ref(),
+                        ds.column(&color_map.field)?,
+                    ))
+                } else {
+                    None
+                }
+            } else {
+                None
+            };
 
         // --- STEP 5: Group rows by PathGroup ---
         let grouped_data = ds.group_by(group_field);
@@ -93,8 +100,9 @@ impl MarkRenderer for Chart<MarkGeoPath> {
                     return None;
                 }
 
-                // 6.2 Transform through coordinate system
-                let pixel_points = context.transform_path(&norm_points, true);
+                // 6.2 Transform through coordinate system. A closed path is
+                //     joined back to its first vertex; an open path is not.
+                let pixel_points = context.transform_path(&norm_points, mark_config.closed);
 
                 let render_points: Vec<(Precision, Precision)> = pixel_points
                     .into_iter()
@@ -115,27 +123,50 @@ impl MarkRenderer for Chart<MarkGeoPath> {
             .collect();
 
         // --- STEP 7: Dispatch to render backend ---
-        for (points, fill_color) in geo_render_data {
-            backend.draw_path(PathConfig {
-                points: points.clone(),
-                fill: fill_color,
-                stroke: mark_config.stroke,
-                stroke_width: mark_config.stroke_width as Precision,
-                opacity: mark_config.opacity as Precision,
-                dash: vec![],
-                topology: PathTopology::Complex,
-            });
-
-            if mark_config.stroke_width > 0.0 && mark_config.stroke != SingleColor::none() {
+        for (points, group_color) in geo_render_data {
+            if mark_config.closed {
+                // A closed path is filled, then outlined.
                 backend.draw_path(PathConfig {
-                    points,
-                    fill: SingleColor::none(),
+                    points: points.clone(),
+                    fill: group_color,
                     stroke: mark_config.stroke,
                     stroke_width: mark_config.stroke_width as Precision,
-                    opacity: 1.0,
+                    opacity: mark_config.opacity as Precision,
                     dash: vec![],
-                    topology: PathTopology::Simple,
+                    topology: PathTopology::Complex,
                 });
+
+                if mark_config.stroke_width > 0.0 && mark_config.stroke != SingleColor::none() {
+                    backend.draw_path(PathConfig {
+                        points,
+                        fill: SingleColor::none(),
+                        stroke: mark_config.stroke,
+                        stroke_width: mark_config.stroke_width as Precision,
+                        opacity: 1.0,
+                        dash: vec![],
+                        topology: PathTopology::Simple,
+                    });
+                }
+            } else {
+                // An open path has no fill, so its colour channel drives the
+                // stroke. That is what colours contour lines by their level.
+                let stroke = if self.encoding.color.is_some() {
+                    group_color
+                } else {
+                    mark_config.stroke
+                };
+
+                if mark_config.stroke_width > 0.0 && stroke != SingleColor::none() {
+                    backend.draw_path(PathConfig {
+                        points,
+                        fill: SingleColor::none(),
+                        stroke,
+                        stroke_width: mark_config.stroke_width as Precision,
+                        opacity: mark_config.opacity as Precision,
+                        dash: vec![],
+                        topology: PathTopology::Simple,
+                    });
+                }
             }
         }
 

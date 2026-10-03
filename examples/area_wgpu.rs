@@ -32,7 +32,7 @@ fn main() -> Result<(), Box<dyn Error>> {
         .with_title("Electricity Generation")
         .with_x_label("Depth")
         .with_y_label("Net Generation")
-        .save("area_gpu.png")?;
+        .save("target/example-output/area_gpu.png")?;
 
     Ok(())
 }

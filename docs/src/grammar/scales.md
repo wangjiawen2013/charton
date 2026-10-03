@@ -33,6 +33,15 @@ Used for categorical or ranked data. Unlike continuous scales, it partitions the
 * Best for: Country names, product categories, or ratings (e.g., Poor/Fair/Good).
 * Stability: The system uses stable sorting for categories to ensure that the order of items remains consistent across multiple renders.
 
+#### Discrete position scales
+
+A discrete axis normally maps category *names* to integer slots. A dodged violin
+instead needs *numbers* — an integer category plus a fractional offset. Charton
+supports both on the same scale: `alt::x("x").with_category_labels("Sex")` reads
+the positions numerically while drawing one integer tick per category, labelled
+from `"Sex"`. A value that matches a known label still maps by label, so
+existing categorical axes are unchanged.
+
 ### Temporal Scale
 
 Specifically designed for dates and times. It understands the irregular spans of days, hours, and minutes, and automatically generates human-readable axis ticks (e.g., showing months instead of raw timestamps).
@@ -51,6 +60,12 @@ In a multi-layered chart, Scales act as a "Single Source of Truth." When differe
 1. Scanning: The engine identifies the "Global Union" of all data domains across all layers.
 2. Unification: A single, unified scale is created that is large enough to encompass the data from every layer.
 3. Distribution: This unified scale is injected back into each layer, ensuring that they are all drawn within the same mathematical coordinate system.
+
+This is the default *fixed* behaviour. A faceted chart may opt out with
+`with_strategy("free")` (or `"free_x"` / `"free_y"`): each panel then trains its
+own positional scale from that panel's layers. Statistics are always computed
+per panel, so a cumulative summary (for example a stacked area) is never mixed
+across panels.
 
 ## Manual Overrides
 

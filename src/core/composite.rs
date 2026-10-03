@@ -9,7 +9,7 @@ use crate::core::guide::GuideSpec;
 use crate::core::layer::{Layer, RectConfig, RenderBackend, TextConfig};
 use crate::encode::Channel;
 use crate::error::ChartonError;
-use crate::facets::{FacetMetrics, FacetPanel, FacetPanelInfo, FacetSpec};
+use crate::facets::{FacetMetrics, FacetPanel, FacetPanelInfo, FacetSpec, FacetStrategy};
 use crate::scale::{
     Expansion, ExplicitTick, Scale, ScaleDomain, create_scale, formatter::LabelFormat,
     mapper::VisualMapper,
@@ -219,6 +219,19 @@ impl LayeredChart {
         &self,
         channel: Channel,
     ) -> Result<Option<ResolvedSpec>, ChartonError> {
+        self.resolve_scale_spec_from(channel, &self.layers)
+    }
+
+    /// Same as [`Self::resolve_scale_spec`], but consolidates only the given
+    /// layers.
+    ///
+    /// A faceted chart with free scales uses this to train a scale from a single
+    /// panel's layers, so each panel gets its own domain.
+    pub fn resolve_scale_spec_from(
+        &self,
+        channel: Channel,
+        layers: &[Arc<dyn Layer>],
+    ) -> Result<Option<ResolvedSpec>, ChartonError> {
         // --- Accumulators for Data Inference ---
         let mut inferred_field: Option<String> = None;
         let mut inferred_type: Option<Scale> = None;
@@ -236,7 +249,7 @@ impl LayeredChart {
         let mut has_expansion_info = false;
 
         // --- Step 1: Scan Layers ---
-        for (i, layer) in self.layers.iter().enumerate() {
+        for (i, layer) in layers.iter().enumerate() {
             let (field, current_type) = match (layer.get_field(channel), layer.get_scale(channel)) {
                 (Some(f), Some(t)) => (f, t),
                 _ => continue, // Layer does not participate in this channel
@@ -386,6 +399,50 @@ impl LayeredChart {
             domain,
             expand,
         }))
+    }
+
+    /// Builds a coordinate system from a pair of resolved positional scales.
+    ///
+    /// The scene builds one global coordinate system this way. A faceted chart
+    /// with free scales builds one per panel, reusing the same coordinate
+    /// settings (flip, polar parameters, ...) with the panel's own scales.
+    fn build_coord(
+        &self,
+        x_scale: Arc<dyn crate::scale::ScaleTrait>,
+        y_scale: Arc<dyn crate::scale::ScaleTrait>,
+        x_title: String,
+        y_title: String,
+    ) -> Arc<dyn CoordinateTrait> {
+        match self.coord_system {
+            CoordSystem::Cartesian2D => Arc::new(crate::coordinate::cartesian::Cartesian2D::new(
+                x_scale,
+                y_scale,
+                x_title,
+                y_title,
+                self.flipped,
+            )),
+            CoordSystem::Polar => {
+                // Resolve parameters by prioritizing User Overrides > Theme Defaults.
+                let start_angle = self
+                    .polar_start_angle
+                    .unwrap_or(self.theme.polar_start_angle);
+                let end_angle = self.polar_end_angle.unwrap_or(self.theme.polar_end_angle);
+                let inner_radius = self
+                    .polar_inner_radius
+                    .unwrap_or(self.theme.polar_inner_radius);
+
+                let mut polar =
+                    crate::coordinate::polar::Polar::new(x_scale, y_scale, x_title, y_title);
+                polar.start_angle = start_angle;
+                polar.end_angle = end_angle;
+                polar.inner_radius = inner_radius;
+
+                Arc::new(polar)
+            }
+            CoordSystem::Geo => Arc::new(crate::coordinate::geo::Geo::new(
+                x_scale, y_scale, x_title, y_title,
+            )),
+        }
     }
 
     /// Extracts unique facet values from all layers for the configured facet specification.
@@ -644,48 +701,7 @@ impl LayeredChart {
         let x_title = self.x_label.clone().unwrap_or_else(|| x_spec.field.clone());
         let y_title = self.y_label.clone().unwrap_or_else(|| y_spec.field.clone());
 
-        let final_coord: Arc<dyn CoordinateTrait> = match self.coord_system {
-            CoordSystem::Cartesian2D => Arc::new(crate::coordinate::cartesian::Cartesian2D::new(
-                x_scale,
-                y_scale,
-                x_title.clone(),
-                y_title.clone(),
-                self.flipped,
-            )),
-            CoordSystem::Polar => {
-                // 1. Resolve parameters by prioritizing User Overrides > Theme Defaults.
-                // This 'Late Binding' ensures the chart remains responsive to theme changes
-                // unless the user explicitly locks a value.
-                let start_angle = self
-                    .polar_start_angle
-                    .unwrap_or(self.theme.polar_start_angle);
-                let end_angle = self.polar_end_angle.unwrap_or(self.theme.polar_end_angle);
-                let inner_radius = self
-                    .polar_inner_radius
-                    .unwrap_or(self.theme.polar_inner_radius);
-
-                // 2. Initialize the Polar coordinate system with resolved scales and data fields.
-                let mut polar = crate::coordinate::polar::Polar::new(
-                    x_scale,
-                    y_scale,
-                    x_title.clone(),
-                    y_title.clone(),
-                );
-
-                // 3. Inject the finalized geometric parameters into the execution instance.
-                polar.start_angle = start_angle;
-                polar.end_angle = end_angle;
-                polar.inner_radius = inner_radius;
-
-                Arc::new(polar)
-            }
-            CoordSystem::Geo => Arc::new(crate::coordinate::geo::Geo::new(
-                x_scale,
-                y_scale,
-                x_title.clone(),
-                y_title.clone(),
-            )),
-        };
+        let final_coord = self.build_coord(x_scale, y_scale, x_title.clone(), y_title.clone());
 
         // --- STEP 3: GUIDE GENERATION ---
         let guide_specs = crate::core::guide::GuideManager::collect_guides(&aesthetics);
@@ -729,9 +745,9 @@ impl LayeredChart {
         // the left/bottom and the axes live in the gap. A faceted chart cannot do
         // that, because its axes live *inside* the grid, on specific columns and
         // rows -- reserving them on the border as well is exactly the double
-        // reservation that used to leave a dead band at the left and bottom
-        // edges. So the measured extents are still computed below (the grid needs
-        // their size), but they are only added to the border when `!is_faceted`.
+        // reservation that leaves a dead band at the left and bottom edges. So
+        // the measured extents are still computed below (the grid needs their
+        // size), but they are only added to the border when `!is_faceted`.
         let is_faceted = self.facet.is_some();
 
         // The area inside the outer margins. Everything the chart needs to show
@@ -895,14 +911,17 @@ impl LayeredChart {
         let aesthetics = scene.aesthetics;
         let guide_specs = scene.guides;
         let legend_plan = scene.legend_plan;
-        // Hand the measured axis extents to the facet layout, where they become
-        // the axis tracks. `resolve_panels` ignores this for a non-faceted chart,
-        // whose single panel already had the axes taken out of it in
-        // `resolve_scene`.
-        let facet_metrics = FacetMetrics {
-            axis_left: scene.axis_constraints.left,
-            axis_bottom: scene.axis_constraints.bottom,
-        };
+
+        // A chart with no facets never re-runs a statistic per panel, so each
+        // layer's pre-statistic snapshot is pure memory. Scale training is done
+        // (it only reads the post-statistic data), so drop the snapshots before
+        // drawing. This matters for charts kept alive across frames (a GUI
+        // canvas, for example); a one-shot `save` frees them on drop.
+        if self.facet.is_none() {
+            for layer in self.layers.iter_mut() {
+                *layer = layer.without_source_data();
+            }
+        }
 
         // --- STEP 2: GLOBAL SPECIFICATION SETUP ---
         let spec = ChartSpec {
@@ -915,9 +934,7 @@ impl LayeredChart {
             layer.inject_resolved_scales(coord.clone(), &aesthetics);
         }
 
-        // --- STEP 4: RESOLVE PANELS ---
-        let panels = self.resolve_panels(&panel, &facet_metrics)?;
-
+        // --- STEP 4: FACET PARTITIONS ---
         // Split every layer by the facet fields once, then reuse the result for
         // all panels: each panel looks its own rows up in the partition. A layer
         // that cannot be partitioned (e.g. an annotation) yields `None` and is
@@ -936,26 +953,118 @@ impl LayeredChart {
                 .collect::<Result<Vec<_>, _>>()?
         };
 
+        // --- STEP 5: RESOLVE PANELS ---
+        //
+        // Free scales (Free / FreeX / FreeY) train a positional scale inside each
+        // panel, and their axis tracks are sized per column/row. The layout needs
+        // a first pass to learn the panel cells before those axes can be
+        // measured, so free charts run the layout twice.
+        let strategy = self
+            .facet
+            .as_ref()
+            .map(|spec| spec.clone().into_facet().strategy())
+            .unwrap_or(FacetStrategy::Fixed);
+        let free_x = matches!(strategy, FacetStrategy::Free | FacetStrategy::FreeX);
+        let free_y = matches!(strategy, FacetStrategy::Free | FacetStrategy::FreeY);
+        let wants_axes = self.theme.show_axes && self.layers.iter().any(|l| l.requires_axes());
+
+        // Provisional layout with one shared axis size.
+        let uniform_metrics = FacetMetrics {
+            axis_left: scene.axis_constraints.left,
+            axis_bottom: scene.axis_constraints.bottom,
+            per_column_left: Vec::new(),
+            per_row_bottom: Vec::new(),
+        };
+        let mut panels = self.resolve_panels(&panel, &uniform_metrics)?;
+
+        // A panel's coordinate system does not depend on its rectangle, so the
+        // materialised layers and their scales survive the second layout pass.
+        let mut panel_cache: Option<Vec<(Vec<Arc<dyn Layer>>, Arc<dyn CoordinateTrait>)>> = None;
+
+        if (free_x || free_y) && panels.len() > 1 {
+            let cols = panels.iter().map(|p| p.info.col).max().unwrap_or(0) + 1;
+            let rows = panels.iter().map(|p| p.info.row).max().unwrap_or(0) + 1;
+            let mut per_column_left = vec![0.0_f64; cols];
+            let mut per_row_bottom = vec![0.0_f64; rows];
+            let mut cache = Vec::with_capacity(panels.len());
+
+            for p in &panels {
+                let layers = self.effective_layers_for_panel(p, &facet_partitions)?;
+                let panel_coord = self.build_panel_coord(&layers, &coord, free_x, free_y)?;
+                for layer in &layers {
+                    layer.inject_resolved_scales(panel_coord.clone(), &aesthetics);
+                }
+
+                if wants_axes {
+                    // Measure this panel's axes against its provisional size.
+                    let measured = crate::core::layout::LayoutEngine::calculate_axis_constraints(
+                        &PanelContext::new(&spec, panel_coord.clone(), p.rect),
+                        &self.theme,
+                        p.rect.width,
+                        p.rect.height,
+                    );
+                    if p.info.show_y_axis {
+                        per_column_left[p.info.col] =
+                            per_column_left[p.info.col].max(measured.left);
+                    }
+                    if p.info.show_x_axis {
+                        per_row_bottom[p.info.row] =
+                            per_row_bottom[p.info.row].max(measured.bottom);
+                    }
+                }
+
+                cache.push((layers, panel_coord));
+            }
+
+            // Rebuild the grid with one axis track per column and per row.
+            let measured_metrics = FacetMetrics {
+                axis_left: scene.axis_constraints.left,
+                axis_bottom: scene.axis_constraints.bottom,
+                per_column_left,
+                per_row_bottom,
+            };
+            panels = self.resolve_panels(&panel, &measured_metrics)?;
+            panel_cache = Some(cache);
+        }
+
         let should_show_grid = self
             .show_grid
             .unwrap_or(self.theme.show_grid || panels.len() > 1);
 
-        // --- STEP 5: RENDER TITLE (once, centered over the entire chart) ---
+        // --- STEP 6: RENDER TITLE (once, centered over the entire chart) ---
         self.render_title(backend, title_rect)?;
 
-        // --- STEP 6: RENDER ALL PANELS ---
-        for panel in &panels {
+        // --- STEP 7: RENDER ALL PANELS ---
+        for (index, p) in panels.iter().enumerate() {
+            let (effective_layers, panel_coord) = match &panel_cache {
+                Some(cache) => cache[index].clone(),
+                None => {
+                    // Materialise this panel's layers: the facet subset, with
+                    // each layer's statistic re-run on those rows.
+                    let layers = self.effective_layers_for_panel(p, &facet_partitions)?;
+                    let panel_coord = if free_x || free_y {
+                        self.build_panel_coord(&layers, &coord, free_x, free_y)?
+                    } else {
+                        coord.clone()
+                    };
+                    for layer in &layers {
+                        layer.inject_resolved_scales(panel_coord.clone(), &aesthetics);
+                    }
+                    (layers, panel_coord)
+                }
+            };
+
             self.render_single_panel(
                 backend,
-                panel,
+                p,
                 &spec,
-                &coord,
+                &panel_coord,
                 should_show_grid,
-                &facet_partitions,
+                &effective_layers,
             )?;
         }
 
-        // --- STEP 7: RENDER UNIFIED LEGENDS (once, after all panels) ---
+        // --- STEP 8: RENDER UNIFIED LEGENDS (once, after all panels) ---
         if self.theme.show_legend
             && let Some(legend_rect) = legend_rect
         {
@@ -1019,6 +1128,93 @@ impl LayeredChart {
     ///
     /// This is the unified rendering core that handles both faceted and
     /// non-faceted charts with identical logic.
+    /// Materialises one panel's layers: each layer is subset to the panel's rows
+    /// and its statistic is re-run on that subset.
+    fn effective_layers_for_panel(
+        &self,
+        panel: &FacetPanel,
+        facet_partitions: &[Option<FacetPartition>],
+    ) -> Result<Vec<Arc<dyn Layer>>, ChartonError> {
+        let empty: [usize; 0] = [];
+        let mut layers = Vec::with_capacity(self.layers.len());
+
+        for (layer, partition) in self.layers.iter().zip(facet_partitions.iter()) {
+            let effective = match partition {
+                Some(partition) => {
+                    let rows = partition
+                        .row_indices(&panel.info.facet_filter)
+                        .unwrap_or(&empty);
+                    match layer.subset_rows(rows)? {
+                        Some(subset) => subset,
+                        None => layer.clone(),
+                    }
+                }
+                // A layer without a partition (e.g. an annotation) is drawn
+                // unchanged on every panel.
+                None => layer.clone(),
+            };
+            layers.push(effective);
+        }
+
+        Ok(layers)
+    }
+
+    /// Builds the coordinate system for one panel under free scales.
+    ///
+    /// Only the channels allowed to vary are rebuilt from the panel's layers;
+    /// the others reuse the global scale, which is what `FreeX` / `FreeY` mean.
+    fn build_panel_coord(
+        &self,
+        layers: &[Arc<dyn Layer>],
+        global: &Arc<dyn CoordinateTrait>,
+        free_x: bool,
+        free_y: bool,
+    ) -> Result<Arc<dyn CoordinateTrait>, ChartonError> {
+        let x_scale = if free_x {
+            self.panel_scale(Channel::X, layers)?
+                .unwrap_or_else(|| global.get_x_arc())
+        } else {
+            global.get_x_arc()
+        };
+
+        let y_scale = if free_y {
+            self.panel_scale(Channel::Y, layers)?
+                .unwrap_or_else(|| global.get_y_arc())
+        } else {
+            global.get_y_arc()
+        };
+
+        Ok(self.build_coord(
+            x_scale,
+            y_scale,
+            global.get_x_label().to_string(),
+            global.get_y_label().to_string(),
+        ))
+    }
+
+    /// Trains one positional scale from a panel's layers.
+    ///
+    /// Returns `None` when the panel has no data for that channel, so the caller
+    /// can fall back to the global scale.
+    fn panel_scale(
+        &self,
+        channel: Channel,
+        layers: &[Arc<dyn Layer>],
+    ) -> Result<Option<Arc<dyn crate::scale::ScaleTrait>>, ChartonError> {
+        let Some(spec) = self.resolve_scale_spec_from(channel, layers)? else {
+            return Ok(None);
+        };
+
+        let scale = create_scale(&spec.scale_type, spec.domain, spec.expand, None)?;
+        let format = match channel {
+            Channel::X => self.x_format.as_ref(),
+            Channel::Y => self.y_format.as_ref(),
+            _ => None,
+        };
+
+        Ok(Some(crate::scale::formatter::format_scale(scale, format)))
+    }
+
     fn render_single_panel<B: RenderBackend>(
         &self,
         backend: &mut B,
@@ -1026,7 +1222,7 @@ impl LayeredChart {
         spec: &ChartSpec<'_>,
         coord: &Arc<dyn CoordinateTrait>,
         should_show_grid: bool,
-        facet_partitions: &[Option<FacetPartition>],
+        effective_layers: &[Arc<dyn Layer>],
     ) -> Result<(), ChartonError> {
         // 1. Create a localized panel context
         let panel_ctx = PanelContext::new(spec, coord.clone(), panel.rect);
@@ -1047,26 +1243,11 @@ impl LayeredChart {
             )?;
         }
 
-        // 4. Render marks with clipping AND facet subsetting.
-        //    For a faceted chart, each layer is replaced by the subset of rows
-        //    belonging to this panel, found through the layer's facet partition.
-        //    Layers without a partition hold no data and are drawn as-is.
+        // 4. Render marks with clipping. The caller already materialised this
+        //    panel's layers (facet subset + per-panel statistic).
         backend.begin_clip_scope(&panel.rect);
-        for (layer, partition) in self.layers.iter().zip(facet_partitions.iter()) {
-            let effective_layer: Arc<dyn Layer> = match partition {
-                Some(partition) => {
-                    let empty: [usize; 0] = [];
-                    let rows = partition
-                        .row_indices(&panel.info.facet_filter)
-                        .unwrap_or(&empty);
-                    match layer.subset_rows(rows)? {
-                        Some(subset) => subset,
-                        None => layer.clone(),
-                    }
-                }
-                None => layer.clone(),
-            };
-            effective_layer.render_marks(backend, &panel_ctx)?;
+        for layer in effective_layers {
+            layer.render_marks(backend, &panel_ctx)?;
         }
         backend.end_clip_scope();
 
