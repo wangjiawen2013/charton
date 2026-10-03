@@ -127,6 +127,10 @@ Labelled ticks remain available when you prefer to set the labels by hand:
 | coordinate | `coord_flip`, `with_coord`, `CoordSystem` | `src/coordinate/*` |
 | layer | `chart!`, `.mark_*()`, `.encode(...)`, `.and(...)`, `.facet(...)` | `src/chart.rs`, `src/core/composite.rs` |
 
+A stat **replaces the table**, so `encode` must refer to the columns it emitted,
+not the originals. [Transforms & Columns](../grammar/transforms.md) lists exactly
+what each transform reads and writes, and how to rename the outputs.
+
 A `Mark` is a *configuration* type (for example `MarkArea`, `MarkBoxplot`); its
 `MarkRenderer` turns the already-placed coordinates into backend primitives. The
 backend only ever sees circles, rectangles, lines and paths — never a "violin"

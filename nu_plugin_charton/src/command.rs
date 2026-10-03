@@ -1462,16 +1462,32 @@ fn build_layer(
             // colour group) followed by the general `transform_band` geometry.
             // `--color` dodges one violin per group; without it there is one
             // violin per category.
+            // The composition generates intermediate columns. They are
+            // namespaced so they can never collide with the user's own columns,
+            // which are passed straight through as transform inputs — a
+            // category column is very often literally called `x`.
+            const VALUE: &str = "__charton_violin_value";
+            const WIDTH: &str = "__charton_violin_width";
+            const BAND_X: &str = "__charton_violin_x";
+            const BAND_Y: &str = "__charton_violin_y";
+            const BAND_PATH: &str = "__charton_violin_path";
+            const BOX_X: &str = "__charton_violin_box_x";
+            const BOX_Y: &str = "__charton_violin_box_y";
+            const BOX_PATH: &str = "__charton_violin_box_path";
+
             let mut density = DensityTransform::new(y)
-                .with_as(y, "density")
+                .with_as(VALUE, WIDTH)
                 .with_groupbys([x])
                 // A violin ends at the data (ggplot2 `trim = TRUE`), unlike a
                 // density plot, which keeps its smooth tails.
                 .with_trim(true);
-            let mut band = BandTransform::new(y, "density")
+            let mut band = BandTransform::new(VALUE, WIDTH)
                 .with_center(x)
+                .with_as(BAND_X, BAND_Y, BAND_PATH)
                 .with_scale(BandScale::PerGroup);
-            let mut quantile_box = QuantileBoxTransform::new(y).with_category(x);
+            let mut quantile_box = QuantileBoxTransform::new(y)
+                .with_category(x)
+                .with_as(BOX_X, BOX_Y, BOX_PATH);
             if let Some(group) = color {
                 density = density.with_groupbys([x, group]);
                 band = band.with_group(group).with_position(Position::dodge());
@@ -1491,15 +1507,15 @@ fn build_layer(
                 .configure_geoshape(|m| style_polygon(m, style));
             let outline = match color {
                 Some(c) => outline.encode((
-                    alt::x("x").with_category_labels(x),
-                    make_y("y"),
-                    alt::path_group("path_group"),
+                    alt::x(BAND_X).with_category_labels(x),
+                    make_y(BAND_Y),
+                    alt::path_group(BAND_PATH),
                     alt::color(c),
                 )),
                 None => outline.encode((
-                    alt::x("x").with_category_labels(x),
-                    make_y("y"),
-                    alt::path_group("path_group"),
+                    alt::x(BAND_X).with_category_labels(x),
+                    make_y(BAND_Y),
+                    alt::path_group(BAND_PATH),
                 )),
             }
             .map_err(|e| chart_err(span, e))?;
@@ -1517,13 +1533,16 @@ fn build_layer(
                 });
             let inner_box = inner_box
                 .encode((
-                    alt::x("x").with_category_labels(x),
-                    make_y("y"),
-                    alt::path_group("path_group"),
+                    alt::x(BOX_X).with_category_labels(x),
+                    make_y(BOX_Y),
+                    alt::path_group(BOX_PATH),
                 ))
                 .map_err(|e| chart_err(span, e))?;
 
-            outline.and(inner_box)
+            // The generated columns are namespaced, so default the axis titles
+            // to the user's own column names. Explicit `--x-label` / `--y-label`
+            // still win; they are applied later.
+            outline.and(inner_box).with_x_label(x).with_y_label(y)
         }
         "tick" => {
             let c = Chart::build(dataset)
@@ -2382,6 +2401,33 @@ mod tests {
         assert!(out.as_str()?.contains("<svg"));
         // Grouped (dodged) violins, one per `grp`.
         let out = run("charton -g violin -x species -y petal_length -c grp")?;
+        assert!(out.as_str()?.contains("<svg"));
+        Ok(())
+    }
+
+    #[test]
+    fn violin_accepts_columns_named_x_and_y() -> Result<(), ShellError> {
+        // The composition's intermediate columns are namespaced, so a category
+        // column literally called `x` (and a value column called `y`) is fine.
+        let table = Value::test_list(vec![
+            Value::test_record(record! {
+                "x" => Value::test_string("a"),
+                "y" => Value::test_float(1.0),
+            }),
+            Value::test_record(record! {
+                "x" => Value::test_string("a"),
+                "y" => Value::test_float(2.0),
+            }),
+            Value::test_record(record! {
+                "x" => Value::test_string("b"),
+                "y" => Value::test_float(3.0),
+            }),
+            Value::test_record(record! {
+                "x" => Value::test_string("b"),
+                "y" => Value::test_float(4.0),
+            }),
+        ]);
+        let out = run_on(table, "charton -g violin -x x -y y")?;
         assert!(out.as_str()?.contains("<svg"));
         Ok(())
     }

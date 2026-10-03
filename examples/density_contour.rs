@@ -8,6 +8,17 @@
 //! ```text
 //! scatter  →  2D density grid  →  iso-lines  →  path
 //! ```
+//!
+//! Each step **replaces the table**, so here is the column contract — read it,
+//! then wire the emitted columns to channels in `encode`:
+//!
+//! | step | reads | emits |
+//! |---|---|---|
+//! | `transform_density_2d` | `sepal_length`, `petal_length` | `x`, `y`, `density` |
+//! | `transform_contour` | `x`, `y`, `density` | `x`, `y`, `path_group`, `level` |
+//!
+//! `density` is consumed by the contour step (so it is not encoded); `path_group`
+//! groups the vertices of one line and `level` gives it its value.
 
 use charton::prelude::*;
 use std::error::Error;

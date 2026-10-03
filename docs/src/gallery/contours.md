@@ -19,9 +19,30 @@ and `mark_path` draws any ordered polyline.
 {{#include ../../../examples/contour.rs}}
 ```
 
-The transform writes four columns: `x`, `y`, `path_group` (one per extracted
-polyline) and `level`. `mark_path` connects each `path_group` in row order and
-strokes it with the colour mapped from `level`.
+## What the transforms produce
+
+Both steps **replace the table**, so to wire them together you need to know the
+columns each one emits. A transform is just a function that reads some columns
+and writes others:
+
+| Call | Reads | Emits |
+|---|---|---|
+| `transform_density_2d(x, y)` | two numeric columns | `x`, `y`, `density` |
+| `transform_contour(x, y, z)` | the grid (`x`, `y`, `z`) | `x`, `y`, `path_group`, `level` |
+
+- **`density`** is the value the lines are computed on. It is *consumed* by
+  `transform_contour`, so it never appears in `encode` — its effect shows up as
+  `level`.
+- **`path_group`** is not built in: it is an ordinary data column, and
+  `mark_path` connects the rows that share it, in row order. You wire it to the
+  `path_group` channel with `alt::path_group("path_group")`.
+- **`level`** is each line's value. Map it to `color` to colour the lines, or
+  drop the colour encoding for a single-colour contour.
+
+Every name above is only a **default output name**. Rename them with
+`Density2DTransform::with_as`, `ContourTransform::with_as` and
+`ContourTransform::with_level_as`, then use the new names downstream — see the
+[transforms reference](../grammar/transforms.md).
 
 ## How the pieces fit
 

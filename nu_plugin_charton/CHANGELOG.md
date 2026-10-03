@@ -10,6 +10,10 @@ stated in the README and in each release.
 
 ### Fixed
 
+- `-g violin` now works when the user's columns are named `x`, `y` or
+  `path_group`: the composition builds its intermediate density/band/box columns
+  under private names, so they can no longer collide with — or silently
+  overwrite — the source columns.
 - The `--help` text for `-g/--geom` now lists every chart type the command
   accepts (it was missing `density`/`kde` and `ecdf`), and `--interpolation` no
   longer advertises a `monotone` option that does not exist.

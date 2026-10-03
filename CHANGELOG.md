@@ -105,6 +105,10 @@ predate this file.
 
 ### Fixed
 
+- **A transform never silently overwrites its own output.** When a generated
+  column name would clash with a copied-back category/group column (for example
+  a category column already called `x`), the transform now returns a clear error
+  instead of overwriting the computed column.
 - **A mirrored or centered area no longer sits flush against the axis.** A
   violin built as `mark_area` with `stack: "mirror"` / `"center"` is symmetric
   about zero, but it was given the asymmetric "grows from a baseline" padding,
@@ -126,9 +130,13 @@ predate this file.
   code block is a real, compiled `examples/*.rs` pulled in with `{{#include}}`,
   so the book cannot drift from the API.
 - **Curated gallery images.** Smoke-test examples moved into `tests/`, and tests
-  and dev demos now write to `target/` instead of the repository. The new
-  `scripts/check-doc-images.sh` (wired into CI) fails if a committed image is not
-  referenced by a Markdown page.
+  and dev demos now write to `target/` instead of the repository. CI now fails
+  if a committed image under `docs/src/images/` is not referenced by a Markdown
+  page.
+- **New *Transforms & Columns* reference.** Every transform's input and output
+  columns are now documented in one place
+  (`docs/src/grammar/transforms.md`), so a composed pipeline never relies on a
+  hidden column name (`density`, `path_group`, `level`).
 
 [0.8.0]: https://github.com/wangjiawen2013/charton/releases/tag/v0.8.0
 
