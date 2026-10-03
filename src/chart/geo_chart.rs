@@ -26,4 +26,15 @@ impl Chart<MarkGeoPath> {
         self.mark = Some(f(mark));
         self
     }
+
+    /// Configures an open path built with [`Chart::mark_path`].
+    ///
+    /// A thin, domain-neutral alias of [`Chart::configure_geoshape`]; the mark
+    /// is the same general path/polygon geometry.
+    pub fn configure_path<F>(self, f: F) -> Self
+    where
+        F: FnOnce(MarkGeoPath) -> MarkGeoPath,
+    {
+        self.configure_geoshape(f)
+    }
 }

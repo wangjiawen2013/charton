@@ -1,3 +1,15 @@
+//! The box plot mark's own statistic (internal).
+//!
+//! This is not a user-facing transform. It is the step that `mark_boxplot`
+//! runs on its own data: per `(x, colour)` group it computes the five-number
+//! summary, fills the gaps between missing category combinations so dodged
+//! boxes stay aligned, and injects boundary rows so the y scale covers the
+//! whiskers. It has no public name because the user asks for a box plot by
+//! choosing the mark, not by calling a transform.
+//!
+//! The composable counterpart — quartiles emitted as ordinary polygons so they
+//! can be layered on a raincloud — lives in [`crate::transform::box_transform`].
+
 use crate::TEMP_SUFFIX;
 use crate::chart::Chart;
 use crate::core::data::{ColumnVector, Dataset, get_quantile};

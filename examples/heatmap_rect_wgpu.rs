@@ -1,3 +1,7 @@
+//! The continuous heatmap rendered through the GPU (wgpu) backend to a PNG.
+//!
+//! Same chart as `heatmap_rect.rs`; only the output backend differs.
+
 use charton::prelude::*;
 use std::error::Error;
 
@@ -13,7 +17,7 @@ fn main() -> Result<(), Box<dyn Error>> {
         .mark_rect()?
         .encode((alt::x("x"), alt::y("y"), alt::color("value")))?
         .configure_theme(|t| t.with_color_map(ColorMap::GnBu))
-        .save("docs/src/images/2d_density.svg")?;
+        .save("heatmap_rect_gpu.png")?;
 
     Ok(())
 }

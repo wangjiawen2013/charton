@@ -24,7 +24,7 @@ chart!(&iris)?
     .transform_density(
         DensityTransform::new("sepal_length")
             .with_as("sepal_length", "density")
-            .with_groupby("species"),
+            .with_groupbys(["species"]),
     )?
     .mark_area()?
     .configure_area(|a| a.with_opacity(0.7).with_stroke("black"))
@@ -43,24 +43,29 @@ series*: each density curve is drawn from `-density / 2` to `+density / 2`. With
 one curve per panel (thanks to the facet) the result is a violin. The single
 violin is the same picture without the facet.
 
-### `transform_violin` (ggplot2 `stat_ydensity` recipe)
+### Dodged and split violins (ggplot2 `stat_ydensity` recipe)
 
-A **dodged** violin — several violins side by side inside one category — cannot
-use the recipe above: the density transform puts the *measured value* on x and
-can only group by a single field, while dodging needs the *category* on x and a
-two-field `(category, group)` grouping. `transform_violin` fills exactly that
-gap. It mirrors the curve and applies a `Position`, then emits a polygon:
+A **dodged** violin — several violins side by side inside one category — needs
+the *category* on x and a two-field `(category, group)` grouping. That is exactly
+what the density transform's multi-field `with_groupbys([...])` provides. The
+curve then becomes a polygon through the general band geometry, with a
+`Position` deciding the lanes:
 
 ```rust
 let penguins = load_dataset("penguins")?;
 
 chart!(&penguins)?
-    .transform_violin(
-        ViolinTransform::new("Body Mass (g)")
-            .with_category("Sex")   // x position
-            .with_group("Species")  // one curve per species
+    .transform_density(
+        DensityTransform::new("Body Mass (g)")
+            .with_as("Body Mass (g)", "density")
+            .with_groupbys(["Sex", "Species"]), // (category, group)
+    )?
+    .transform_band(
+        BandTransform::new("Body Mass (g)", "density")
+            .with_center("Sex")   // x position
+            .with_group("Species") // one band per species
             .with_position(Position::dodge())
-            .with_scale(ViolinScale::Width),
+            .with_scale(BandScale::PerGroup),
     )?
     .mark_polygon()?
     .configure_geoshape(|mark| mark.with_fill("#d6eaf8").with_stroke("#2c3e50"))
@@ -68,53 +73,60 @@ chart!(&penguins)?
         // Numeric positions, but the axis shows the "Sex" categories.
         alt::x("x").with_category_labels("Sex"),
         alt::y("y"),
-        alt::path_group("violin_id"),
+        alt::path_group("path_group"),
         alt::color("Species"),
     ))?
     .save("grouped_violin.svg")?;
 ```
 
-Both recipes reuse the same `stats::kde` core, so they produce the same
-statistics.
+Both recipes share the same `stats::kde` core, so no statistics are duplicated.
+Add `.with_split(true)` to `BandTransform` and the two groups become the two
+halves of one violin.
 
 ### Tuning the shape
 
+Density (statistics) and band (geometry/placement) are configured separately:
+
 | Method | Meaning |
 |---|---|
-| `.with_scale(ViolinScale::Width)` | every violin has the same maximum width |
-| `.with_scale(ViolinScale::Area)` | every violin encloses the same area (default) |
-| `.with_scale(ViolinScale::Count)` | wider violins for larger samples |
-| `.with_width(0.5)` | maximum width of a single violin (matches the box plot) |
+| `BandTransform::with_scale(BandScale::PerGroup)` | every band has the same maximum width (default) |
+| `.with_scale(BandScale::Global)` | bands share one scale, so a denser group looks wider |
+| `.with_scale(BandScale::Raw)` | use the width column as it stands |
+| `BandTransform::with_width(0.5)` | maximum width of a single band (matches the box plot) |
 | `.with_span(0.7)` | total width of a category's group (matches the box plot and point marks) |
-| `.with_bandwidth(BandwidthType::Silverman)` | smoothing rule |
+| `BandTransform::with_split(true)` | draw two groups as one split violin |
+| `DensityTransform::with_bandwidth(BandwidthType::Silverman)` | smoothing rule |
 | `.with_kernel(KernelType::Epanechnikov)` | smoothing kernel |
-| `.with_steps(200)` | points per side; larger is smoother |
-| `.with_trim(false)` | extend the tails a little |
 
 ## Inner box and median
 
-`transform_violin_box` produces the inner inter-quartile box and the median line
-as a second polygon layer. It runs the same statistics and lane layout as
-`transform_violin`, so the box always sits exactly over its violin:
+`transform_quantile_box` produces the inner inter-quartile box and the median
+line as a second polygon layer. It uses the same `Position` lane layout as
+`transform_band`, so the box always sits exactly over its violin:
 
 ```rust
 let outline = chart!(&penguins)?
-    .transform_violin(params.clone())?
+    .transform_density(
+        DensityTransform::new("Body Mass (g)")
+            .with_as("Body Mass (g)", "density")
+            .with_groupbys(["Species"]),
+    )?
+    .transform_band(BandTransform::new("Body Mass (g)", "density").with_center("Species"))?
     .mark_polygon()?
-    .encode((alt::x("x"), alt::y("y"), alt::path_group("violin_id")))?
+    .encode((alt::x("x"), alt::y("y"), alt::path_group("path_group")))?
     .configure_geoshape(|m| m.with_fill("#d6eaf8"))?;
 
 let box = chart!(&penguins)?
-    .transform_violin_box(params)?
+    .transform_quantile_box(QuantileBoxTransform::new("Body Mass (g)").with_category("Species"))?
     .mark_polygon()?
     .configure_geoshape(|m| m.with_fill("white").with_stroke("black"))?
-    .encode((alt::x("x"), alt::y("y"), alt::path_group("violin_id")))?;
+    .encode((alt::x("x"), alt::y("y"), alt::path_group("path_group")))?;
 
 outline.and(box).save("violin_with_box.svg")?;
 ```
 
-The transform also writes `y_q1`, `y_median` and `y_q3` columns, so other
-overlays can use them directly.
+The transform emits a `box_part` column (`"box"` / `"median"`) so the two
+polygons can be styled differently if you want.
 
 ## Box plot
 

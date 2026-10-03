@@ -6,15 +6,17 @@ use std::path::Path;
 
 use charton::error::ChartonError;
 use charton::prelude::{
-    BandwidthType, Chart, ColorMap, ColorPalette, CoordSystem, Dataset, DensityTransform,
-    Expansion, FacetSpec, IntoLayered, KernelType, LabelFormat, LayeredChart, MarkArea, MarkBar,
-    MarkBoxplot, MarkErrorBar, MarkGeoPath, MarkLine, MarkPoint, MarkRect, MarkRule, MarkText,
-    MarkTick, Position, Scale, ThemeMode, ViolinTransform, WindowFieldDef, WindowOnlyOp,
-    WindowTransform, alt, geojson_to_dataset,
+    BandScale, BandTransform, BandwidthType, Chart, ColorMap, ColorPalette, ContourTransform,
+    CoordSystem, Dataset, Density2DTransform, DensityTransform, Expansion, FacetSpec, IntoLayered,
+    KernelType, LabelFormat, LayeredChart, MarkArea, MarkBar, MarkBoxplot, MarkErrorBar,
+    MarkGeoPath, MarkLine, MarkPoint, MarkRect, MarkRule, MarkText, MarkTick, Position,
+    QuantileBoxTransform, Scale, ThemeMode, WindowFieldDef, WindowOnlyOp, WindowTransform, alt,
+    geojson_to_dataset,
 };
 use nu_plugin::{EngineInterface, EvaluatedCall, PluginCommand};
 use nu_protocol::{
-    IntoPipelineData, LabeledError, PipelineData, Record, Signature, Span, SyntaxShape, Type, Value,
+    Example, IntoPipelineData, LabeledError, PipelineData, Record, Signature, Span, SyntaxShape,
+    Type, Value,
 };
 
 use crate::ChartonPlugin;
@@ -40,11 +42,17 @@ impl PluginCommand for Charton {
             .named(
                 "geom",
                 SyntaxShape::String,
-                "Mark type: point | line | area | bar | boxplot | violin | errorbar | rule | tick | text | rect | hist | beeswarm | geo",
+                "Mark type: point | line | area | bar | boxplot | violin | errorbar | rule | tick | text | rect | hist | contour | beeswarm | geo",
                 Some('g'),
             )
             .named("x", SyntaxShape::String, "Column mapped to the x axis", Some('x'))
             .named("y", SyntaxShape::String, "Column mapped to the y axis", Some('y'))
+            .named(
+                "z",
+                SyntaxShape::String,
+                "Value column for -g contour; omit it to estimate a 2D density first",
+                None,
+            )
             .named(
                 "color",
                 SyntaxShape::String,
@@ -406,6 +414,60 @@ impl PluginCommand for Charton {
             .input_output_type(Type::Any, Type::Any)
     }
 
+    fn search_terms(&self) -> Vec<&str> {
+        vec![
+            "plot",
+            "chart",
+            "graph",
+            "visualize",
+            "svg",
+            "png",
+            "charton",
+        ]
+    }
+
+    fn extra_description(&self) -> &str {
+        "\
+Turns any pipeline table into a chart. The columns named by the flags drive the \
+plot; everything else is set by options.
+
+`point` is the default geom. Use `-c` to colour and group, `--stack` to stack, \
+`--aggregate` to summarise, `--facet-wrap` / `--facet-row` / `--facet-col` to \
+split the chart into panels, and `--layer` to overlay another geom. The result \
+is drawn inline in an image-capable terminal, or written to a file with \
+`-o chart.svg` or `-o chart.png`.
+
+A few chart types are compositions rather than single marks: `violin` is a \
+density outline plus an inner quartile box, `beeswarm` is `point` with a swarm \
+layout, and `contour` is marching-squares iso-lines. The README has one runnable \
+line per geom."
+    }
+
+    fn examples(&self) -> Vec<Example<'_>> {
+        vec![
+            Example {
+                description: "Scatter plot of two columns",
+                example: "[[x y]; [1 2] [2 3] [3 5]] | charton -g point -x x -y y",
+                result: None,
+            },
+            Example {
+                description: "Save a line chart to an SVG file",
+                example: "open assets/data.csv | charton -g line -x date -y value -o chart.svg",
+                result: None,
+            },
+            Example {
+                description: "A violin per category, dodged by a group",
+                example: "open assets/data.csv | charton -g violin -x category -y score -c group",
+                result: None,
+            },
+            Example {
+                description: "Iso-lines of a scalar x/y/z grid",
+                example: "open assets/grid.csv | charton -g contour -x x -y y --z z -o contour.svg",
+                result: None,
+            },
+        ]
+    }
+
     fn run(
         &self,
         _plugin: &ChartonPlugin,
@@ -424,6 +486,7 @@ impl PluginCommand for Charton {
             .to_lowercase();
         let x: Option<String> = call.get_flag("x")?;
         let y: Option<String> = call.get_flag("y")?;
+        let z: Option<String> = call.get_flag("z")?;
         let color: Option<String> = call.get_flag("color")?;
         let y2: Option<String> = call.get_flag("y2")?;
         let text: Option<String> = call.get_flag("text")?;
@@ -630,6 +693,7 @@ impl PluginCommand for Charton {
             geom: geom.clone(),
             x: x.clone(),
             y: y.clone(),
+            z: z.clone(),
             y2: y2.clone(),
             color: color.clone(),
             text: text.clone(),
@@ -840,6 +904,8 @@ struct LayerOpts {
     geom: String,
     x: Option<String>,
     y: Option<String>,
+    /// Scalar field for `-g contour`.
+    z: Option<String>,
     y2: Option<String>,
     color: Option<String>,
     text: Option<String>,
@@ -1237,6 +1303,7 @@ fn build_layer(
 ) -> Result<LayeredChart, LabeledError> {
     let geom = layer.geom.as_str();
     let (x, y, y2) = (layer.x.as_deref(), layer.y.as_deref(), layer.y2.as_deref());
+    let z = layer.z.as_deref();
     let color = layer.color.as_deref();
     let style = &layer.style;
     let (x_scale, y_scale) = (layer.x_scale, layer.y_scale);
@@ -1390,17 +1457,31 @@ fn build_layer(
             let y = y.ok_or_else(|| missing(geom, "--y (the value column)", span))?;
 
             // A violin is a composition, not a mark: a density outline plus an
-            // inner inter-quartile box. Both layers run the same statistics, so
-            // the box always sits over its violin. `--color` dodges one violin
-            // per group; without it there is one violin per category.
-            let mut params = ViolinTransform::new(y).with_category(x);
+            // inner inter-quartile box. The outline is the general recipe —
+            // `transform_density` (grouped by category, optionally also by the
+            // colour group) followed by the general `transform_band` geometry.
+            // `--color` dodges one violin per group; without it there is one
+            // violin per category.
+            let mut density = DensityTransform::new(y)
+                .with_as(y, "density")
+                .with_groupbys([x]);
+            let mut band = BandTransform::new(y, "density")
+                .with_center(x)
+                .with_scale(BandScale::PerGroup);
+            let mut quantile_box = QuantileBoxTransform::new(y).with_category(x);
             if let Some(group) = color {
-                params = params.with_group(group).with_position(Position::dodge());
+                density = density.with_groupbys([x, group]);
+                band = band.with_group(group).with_position(Position::dodge());
+                quantile_box = quantile_box
+                    .with_group(group)
+                    .with_position(Position::dodge());
             }
 
             let outline = Chart::build(dataset.clone())
                 .map_err(|e| chart_err(span, e))?
-                .transform_violin(params.clone())
+                .transform_density(density)
+                .map_err(|e| chart_err(span, e))?
+                .transform_band(band)
                 .map_err(|e| chart_err(span, e))?
                 .mark_polygon()
                 .map_err(|e| chart_err(span, e))?
@@ -1409,20 +1490,20 @@ fn build_layer(
                 Some(c) => outline.encode((
                     alt::x("x").with_category_labels(x),
                     make_y("y"),
-                    alt::path_group("violin_id"),
+                    alt::path_group("path_group"),
                     alt::color(c),
                 )),
                 None => outline.encode((
                     alt::x("x").with_category_labels(x),
                     make_y("y"),
-                    alt::path_group("violin_id"),
+                    alt::path_group("path_group"),
                 )),
             }
             .map_err(|e| chart_err(span, e))?;
 
             let inner_box = Chart::build(dataset)
                 .map_err(|e| chart_err(span, e))?
-                .transform_violin_box(params)
+                .transform_quantile_box(quantile_box)
                 .map_err(|e| chart_err(span, e))?
                 .mark_polygon()
                 .map_err(|e| chart_err(span, e))?
@@ -1435,7 +1516,7 @@ fn build_layer(
                 .encode((
                     alt::x("x").with_category_labels(x),
                     make_y("y"),
-                    alt::path_group("violin_id"),
+                    alt::path_group("path_group"),
                 ))
                 .map_err(|e| chart_err(span, e))?;
 
@@ -1528,7 +1609,7 @@ fn build_layer(
                 .with_cumulative(layer.density_cumulative)
                 .with_counts(layer.density_counts);
             if let Some(group) = color {
-                dt = dt.with_groupby(group);
+                dt = dt.with_groupbys([group]);
             }
             if let Some(kernel) = layer.density_kernel {
                 dt = dt.with_kernel(kernel);
@@ -1557,7 +1638,7 @@ fn build_layer(
             let field = WindowFieldDef::new(x, WindowOnlyOp::CumeDist, "ecdf");
             let mut wt = WindowTransform::new(field);
             if let Some(group) = color {
-                wt = wt.with_groupby(group);
+                wt = wt.with_groupbys([group]);
             }
             let c = Chart::build(dataset)
                 .map_err(|e| chart_err(span, e))?
@@ -1587,11 +1668,59 @@ fn build_layer(
                 .map_err(|e| chart_err(span, e))?
                 .into()
         }
+        "contour" | "isoline" => {
+            let x = x.ok_or_else(|| missing(geom, "--x", span))?;
+            let y = y.ok_or_else(|| missing(geom, "--y", span))?;
+            let levels = bins.unwrap_or(10);
+
+            // Two forms, both ending in the same iso-line table:
+            //   * with `--z`: contours of that scalar grid;
+            //   * without `--z`: a 2D density is estimated from the x/y points
+            //     first, so the classic scatter → density contour works.
+            let contours = match z {
+                Some(z) => Chart::build(dataset)
+                    .map_err(|e| chart_err(span, e))?
+                    .transform_contour(ContourTransform::new(x, y, z).with_levels(levels))
+                    .map_err(|e| chart_err(span, e))?,
+                None => Chart::build(dataset)
+                    .map_err(|e| chart_err(span, e))?
+                    .transform_density_2d(Density2DTransform::new(x, y))
+                    .map_err(|e| chart_err(span, e))?
+                    .transform_contour(
+                        ContourTransform::new("x", "y", "density").with_levels(levels),
+                    )
+                    .map_err(|e| chart_err(span, e))?,
+            };
+
+            let c = contours
+                .mark_path()
+                .map_err(|e| chart_err(span, e))?
+                .configure_path(|m| style_polygon(m, style));
+
+            // By default the lines are coloured by their level. A single-colour
+            // contour is requested with `--stroke`, which drops the colour
+            // channel so the mark's own stroke shows through.
+            if style.stroke.is_some() {
+                c.encode((make_x("x"), make_y("y"), alt::path_group("path_group")))
+                    .map_err(|e| chart_err(span, e))?
+                    .into()
+            } else {
+                c.encode((
+                    make_x("x"),
+                    make_y("y"),
+                    alt::path_group("path_group"),
+                    alt::color("level"),
+                ))
+                .map_err(|e| chart_err(span, e))?
+                .into()
+            }
+        }
         other => {
             return Err(LabeledError::new("Unknown geom").with_label(
                 format!(
                     "'{other}' is not supported; try point, line, area, bar, boxplot, \
-                     errorbar, rule, tick, text, rect, hist, density, ecdf, beeswarm, or geo"
+                     violin, errorbar, rule, tick, text, rect, hist, density, ecdf, \
+                     contour, beeswarm, or geo"
                 ),
                 span,
             ));
@@ -1655,6 +1784,7 @@ fn parse_layers(
             geom: geom.to_lowercase(),
             x: field("x").or_else(|| primary.x.clone()),
             y: field("y").or_else(|| primary.y.clone()),
+            z: field("z").or_else(|| primary.z.clone()),
             y2: field("y2").or_else(|| primary.y2.clone()),
             color: field("color").or_else(|| primary.color.clone()),
             text: field("text").or_else(|| primary.text.clone()),
@@ -2147,6 +2277,30 @@ mod tests {
             .into_value(Span::test_data())
     }
 
+    /// A regular `x`/`y`/`z` grid, for the contour test.
+    fn grid() -> Value {
+        let mut rows = Vec::new();
+        for i in 0..5 {
+            for j in 0..5 {
+                let x = i as f64;
+                let y = j as f64;
+                let z = ((x - 2.0).powi(2) + (y - 2.0).powi(2)).sqrt();
+                rows.push(Value::test_record(record! {
+                    "x" => Value::test_float(x),
+                    "y" => Value::test_float(y),
+                    "z" => Value::test_float(z),
+                }));
+            }
+        }
+        Value::test_list(rows)
+    }
+
+    fn run_on(table: Value, src: &str) -> Result<Value, ShellError> {
+        PluginTest::new("charton", crate::ChartonPlugin.into())?
+            .eval_with(src, table.into_pipeline_data())?
+            .into_value(Span::test_data())
+    }
+
     #[test]
     fn bar_returns_svg() -> Result<(), ShellError> {
         let out = run("charton -g bar -x species -y petal_length")?;
@@ -2198,6 +2352,22 @@ mod tests {
     #[test]
     fn boxplot_returns_svg() -> Result<(), ShellError> {
         let out = run("charton -g boxplot -x species -y petal_length")?;
+        assert!(out.as_str()?.contains("<svg"));
+        Ok(())
+    }
+
+    #[test]
+    fn contour_returns_svg() -> Result<(), ShellError> {
+        let out = run_on(grid(), "charton -g contour -x x -y y --z z")?;
+        assert!(out.as_str()?.contains("<svg"));
+        // `--bins` sets the number of iso-levels.
+        let out = run_on(grid(), "charton -g contour -x x -y y --z z --bins 4")?;
+        assert!(out.as_str()?.contains("<svg"));
+        // `--stroke` gives a single-colour contour instead of a level colormap.
+        let out = run_on(grid(), "charton -g contour -x x -y y --z z --stroke black")?;
+        assert!(out.as_str()?.contains("<svg"));
+        // Without `--z`, a 2D density is estimated first (density contour).
+        let out = run_on(grid(), "charton -g contour -x x -y y")?;
         assert!(out.as_str()?.contains("<svg"));
         Ok(())
     }

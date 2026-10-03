@@ -12,6 +12,10 @@ stated in the README and in each release.
   quartile box. Use `-x` for the category and `-y` for the value; add `-c` to
   dodge one violin per group. The group width matches `-g boxplot` and
   `-g point`.
+- `-g contour` with `--z`: iso-lines of a regular `x`/`y`/`z` scalar grid, drawn
+  as open paths and coloured by level. `--bins` sets the number of levels,
+  `--stroke <color>` draws a single-colour contour instead, and omitting `--z`
+  estimates a 2D density first (a density contour).
 
 ## [0.7.1]
 

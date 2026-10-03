@@ -95,6 +95,13 @@ open assets/data.csv | charton -g line -x t -y v --loess
 open assets/data.csv | charton -g violin -x category -y score -o violin.svg
 open assets/data.csv | charton -g violin -x category -y score -c group --opacity 0.6
 
+# Contour: iso-lines of a scalar grid. --z is the value column; --bins sets the
+# number of levels, and --stroke gives a single-colour contour. Without --z a
+# 2D density is estimated from the x/y points first (the classic density contour).
+open assets/grid.csv | charton -g contour -x x -y y --z z -o contour.svg
+open assets/grid.csv | charton -g contour -x x -y y --z z --stroke black -o contour_mono.svg
+open assets/data.csv | charton -g contour -x a -y b -o density_contour.svg
+
 # Pie / donut (bar mark in polar coordinates; omit -x so y becomes the slices)
 open assets/data.csv | charton -g bar -y amount -c category --coord polar
 open assets/data.csv | charton -g bar -y amount -c category --coord polar --inner-radius 0.5
@@ -104,11 +111,18 @@ open assets/data.csv | charton -g bar -x category -y amount -c category --coord 
 
 # Geographic choropleth from a GeoJSON file
 charton -g geo --geojson assets/world.geojson -c POP_EST -o world.png
+
+# Composition: overlay more geoms, or split the chart into facet panels.
+# A --layer is a record (or list of records); only `geom` is required and the
+# other fields fall back to the primary layer's encodings.
+open assets/data.csv | charton -g line -x t -y v --layer {geom: point}
+open assets/data.csv | charton -g point -x a -y b --facet-wrap group
 ```
 
 The examples read the small sample files shipped in `assets/`: `data.csv` has
 columns `date,value,group,score,a,b,t,v,category,amount`, `sales.csv` has
-`region,quarter,revenue`, and `world.geojson` is a Natural Earth country map.
+`region,quarter,revenue`, `grid.csv` is an `x,y,z` scalar grid for `-g contour`,
+and `world.geojson` is a Natural Earth country map.
 Run the commands from the `nu_plugin_charton/` directory (or prefix `assets/`
 with its path), and swap in your own file and column names to chart your data.
 
@@ -134,16 +148,21 @@ Flags are grouped by what you want to do. `[]` in the type column marks a list.
 
 | Flag | Meaning |
 |---|---|
-| `-g, --geom` | Chart type: `point` (default) \| `line` \| `area` \| `bar` \| `boxplot` \| `violin` \| `errorbar` \| `rule` \| `tick` \| `text` \| `rect`/`heatmap` \| `hist` \| `density`/`kde` \| `ecdf` \| `beeswarm` \| `geo` |
-| `-x, --x` | Column for the x axis (the value column for `-g density`/`-g ecdf`; the category column for `-g violin`) |
-| `-y, --y` | Column for the y axis (`hist` uses a generated `count`; `density` uses a generated `density`; the value column for `-g violin`) |
+| `-g, --geom` | Chart type: `point` (default) \| `line` \| `area` \| `bar` \| `boxplot` \| `violin` \| `errorbar` \| `rule` \| `tick` \| `text` \| `rect`/`heatmap` \| `hist` \| `density`/`kde` \| `ecdf` \| `contour` \| `beeswarm` \| `geo` |
+| `-x, --x` | Column for the x axis (the value column for `-g density`/`-g ecdf`; the category column for `-g violin`; the grid's x for `-g contour`) |
+| `-y, --y` | Column for the y axis (`hist` uses a generated `count`; `density` uses a generated `density`; the value column for `-g violin`; the grid's y for `-g contour`) |
+| `--z` | Value (scalar) column for `-g contour`; the grid is regular in `x` and `y`. Omit it to estimate a 2D density from `x`/`y` first (a density contour) |
 | `-c, --color` | Column mapped to color / grouping (required for `rect`; the group column for `density`/`ecdf`) |
 | `--y2` | Upper-bound column for `errorbar`/`rule` (errorbar aggregates mean ± std when omitted) |
 | `--text` | Label column for `-g text` |
 | `--geojson` | GeoJSON file to render with `-g geo` |
 
+`-g contour` colours its lines by level. Pass `--stroke <color>` for a
+single-colour contour instead.
+
 `beeswarm` is the `point` mark with a beeswarm layout, not a separate mark.
-`violin` is a composition too: a density outline plus an inner quartile box.
+`violin` is a composition too: a density outline plus an inner quartile box,
+and `contour` is a marching-squares iso-line stat plus the open `path` geometry.
 `scatter`, `box`, `label`, `heatmap`, `histogram`, and `geoshape` are aliases.
 
 ### Encodings
@@ -376,9 +395,9 @@ delete those yourself if you no longer want them.
       over all rows; int/float/string/bool/datetime, null-aware)
 - [x] all charton marks: `point`, `line`, `area`, `bar`, `boxplot`, `violin`,
       `errorbar`, `rule`, `tick`, `text`, `rect`/`heatmap`, `hist`,
-      `density`/`kde`, `ecdf`, `beeswarm`, `geo`
+      `density`/`kde`, `ecdf`, `contour`, `beeswarm`, `geo`
 - [x] multi-layer overlays, faceting, polar and geographic coordinates
-- [x] stacking, aggregation, binning, LOESS, KDE
+- [x] stacking, aggregation, binning, LOESS, KDE, iso-lines
 - [x] axis scales, domains, explicit ticks, label formatting, light/dark themes
 - [x] `size`/`shape` encoding channels
 - [x] inline terminal rendering: Kitty / iTerm2 / Sixel / half-block

@@ -75,8 +75,8 @@ pub(crate) struct GuideBlockLayout {
     /// Pre-computed top-left corner of every entry, relative to this block.
     ///
     /// Renderers must draw these offsets verbatim instead of wrapping again:
-    /// duplicated wrapping logic is what used to let the measured size and the
-    /// drawn size drift apart.
+    /// duplicated wrapping logic is how the measured size and the drawn size
+    /// drift apart.
     pub(crate) entries: Vec<EntryOffset>,
     /// Resolved gradient geometry, for colour bars. Also drawn verbatim.
     pub(crate) colorbar: Option<ColorBarGeometry>,
@@ -625,7 +625,7 @@ impl LayoutEngine {
         let tick_line_len = 6.0;
         let title_gap = 5.0; // Distance between labels and the title text
         // Small safety margin only; the theme's canvas margins provide the real
-        // breathing room, so this no longer needs to reserve a wide band.
+        // breathing room, so it does not need to reserve a wide band.
         let edge_buffer = 4.0;
         let angle_rad = angle_deg.to_radians();
 

@@ -115,6 +115,12 @@ impl Chart<NoMark> {
     }
 
     /// Transitions the base chart into a Line chart.
+    ///
+    /// A line is one connected curve **per colour group**, with the points
+    /// sorted by x. That is the right shape for a time series whose rows may be
+    /// out of order. When the row order itself is the curve — a trajectory, a
+    /// contour line, a network edge — use [`Chart::mark_path`] instead, which
+    /// does not sort and groups by `path_group` rather than colour.
     pub fn mark_line(self) -> Result<Chart<MarkLine>, ChartonError> {
         let chart = Chart::<MarkLine> {
             data: self.data,
@@ -259,6 +265,11 @@ impl Chart<NoMark> {
     }
 
     /// Transitions the base chart into a Geographic Path chart.
+    ///
+    /// This is the closed, filled form — the geographic name of
+    /// [`Chart::mark_polygon`]. Rows sharing a `path_group` are connected in
+    /// row order, the loop is closed and the interior is filled. For an **open**
+    /// line use [`Chart::mark_path`].
     pub fn mark_geoshape(self) -> Result<Chart<MarkGeoPath>, ChartonError> {
         let chart = Chart::<MarkGeoPath> {
             data: self.data,
@@ -277,11 +288,48 @@ impl Chart<NoMark> {
     /// Transitions the base chart into a polygon chart.
     ///
     /// A polygon is defined by grouping rows with the same `path_group` value
-    /// and connecting them in order. This is the geometry behind violins,
-    /// custom shapes, region maps and any other closed outline. It is the same
-    /// renderer as [`Chart::mark_geoshape`], exposed under a domain-neutral name.
+    /// and connecting them in order. The shape is then **closed** (an extra edge
+    /// from the last point back to the first) and **filled**. This is the
+    /// geometry behind violin outlines, custom shapes, region maps and filled
+    /// contour bands. It is the same renderer as [`Chart::mark_geoshape`], under
+    /// a domain-neutral name.
+    ///
+    /// Its open counterpart is [`Chart::mark_path`]: same grouping, but it stops
+    /// at the last point and strokes instead of filling. The difference is
+    /// exactly the `closed` flag.
     pub fn mark_polygon(self) -> Result<Chart<MarkGeoPath>, ChartonError> {
         self.mark_geoshape()
+    }
+
+    /// Transitions the base chart into an **open** path (a polyline).
+    ///
+    /// Rows sharing a `path_group` are connected in **row order** — no sorting,
+    /// no inserted points — and the shape is **not** closed and **not** filled.
+    /// This is a line, not a region: trajectories, contour lines, network edges,
+    /// parallel coordinates.
+    ///
+    /// Compare [`Chart::mark_polygon`]: same grouping, but it joins the last
+    /// point back to the first and paints the interior. "Trajectory" and
+    /// "outline" differ by exactly that.
+    pub fn mark_path(self) -> Result<Chart<MarkGeoPath>, ChartonError> {
+        let chart = Chart::<MarkGeoPath> {
+            data: self.data,
+            encoding: self.encoding,
+            mark: Some(
+                MarkGeoPath::new()
+                    .with_closed(false)
+                    .with_fill("none")
+                    .with_stroke("black")
+                    .with_stroke_width(1.0),
+            ),
+            source_data: self.source_data,
+        };
+
+        if !chart.encoding.is_empty() {
+            return chart.validate_and_transform();
+        }
+
+        Ok(chart)
     }
 
     /// Transitions the base chart into a Tick chart.
@@ -375,9 +423,9 @@ impl<T: Mark> Chart<T> {
         // Injects inferred or user-defined Scales into self.encoding
         self.resolve_semantic_types()?;
 
-        // --- Step 4: Scale-to-Mark Validation (NEW LOGIC) ---
-        // Replace the old field-based check with Scale-based check.
-        // This validates if the Mark (e.g., "bar") can work with the Scale (e.g., "Discrete").
+        // --- Step 4: Scale-to-Mark Validation ---
+        // Checks that the mark (for example a bar or a violin) can work with the
+        // resolved scale on each channel (for example a discrete x axis).
         self.validate_scale_compatibility(&mark_type)?;
 
         // --- Step 5: Statistical Transformations ---

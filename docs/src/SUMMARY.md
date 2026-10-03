@@ -44,6 +44,7 @@
 # Chart Gallery
 - [Basic Marks](gallery/basic_marks.md)                    # 基础图表：点、线、柱、面积图
 - [Statistical Distributions](gallery/statistics.md)       # 统计展示：Violin, Boxplot, Jitter, Beeswarm, Density
+- [Contour Plots](gallery/contours.md)                      # 等值线：iso-line + open path
 - [Box & Violin Combinations](gallery/box_violin_charts.md) # 组合展示：Raincloud, Split, Overlay
 - [Temporal Analysis](gallery/temporal.md)                 # 时间维度：走势图、甘特图、日历图
 - [Relationships & Matrices](gallery/matrices.md)          # 多维关系：热力图、散点矩阵、径向图

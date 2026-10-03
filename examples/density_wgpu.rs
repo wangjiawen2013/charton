@@ -7,7 +7,7 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
         .transform_density(
             DensityTransform::new("sepal_length")
                 .with_as("sepal_length", "density")
-                .with_groupby("species"),
+                .with_groupbys(["species"]),
         )?
         .mark_area()?
         .configure_area(|a| a.with_opacity(0.5))

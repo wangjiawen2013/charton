@@ -28,14 +28,17 @@ the combination of the discrete aesthetics (colour, facet, and so on). In code:
 
 ```rust
 chart!(iris)?
-    .transform_violin(ViolinTransform::new("sepal_length"))? // stat
-    .mark_polygon()?                                         // geom
-    .encode((alt::x("x"), alt::y("y"), alt::path_group("violin_id")))?
+    .transform_density(                                              // stat
+        DensityTransform::new("sepal_length").with_as("sepal_length", "density"))?
+    .transform_band(BandTransform::new("sepal_length", "density"))?  // geometry
+    .mark_polygon()?                                                 // mark
+    .encode((alt::x("x"), alt::y("y"), alt::path_group("path_group")))?
 ```
 
-`transform_violin` writes three columns — `x`, `y` and a `path_group` id per
-violin. It does **not** know or care that a polygon will be drawn; it only
-produces a table.
+`transform_density` writes the curve (`sepal_length`, `density`); the general
+band geometry then turns it into `x`, `y` and a `path_group` id per violin.
+Neither step knows or cares that a polygon will be drawn; each only produces a
+table.
 
 ## 2. Position — decide where marks sit
 
@@ -50,9 +53,9 @@ full slot). It never touches pixels, so every geometry — bars, boxes, points,
 error bars, violins — can reuse the same layout:
 
 ```rust
-ViolinTransform::new("Body Mass (g)")
-    .with_category("Sex")     // x position
-    .with_group("Species")    // one curve per species
+BandTransform::new("Body Mass (g)", "density") // value, half-width
+    .with_center("Sex")     // x position
+    .with_group("Species")  // one band per species
     .with_position(Position::dodge())
 ```
 
@@ -115,7 +118,7 @@ Labelled ticks remain available when you prefer to set the labels by hand:
 
 | Stage | Public API | Implementation |
 |---|---|---|
-| stat | `transform_density`, `transform_violin`, a box plot's built-in summary | `src/transform/*`, `src/stats/*` |
+| stat | `transform_density`, `transform_density_2d`, `transform_contour`, `transform_quantile_box`, a box plot's built-in summary | `src/transform/*`, `src/stats/*` |
 | position | `Position::{Identity, Dodge}`, `with_stack(...)` | `src/position.rs`, `src/encode/y.rs` |
 | geometry | `mark_polygon`, `mark_area`, `mark_point`, ... | `src/mark/*`, `src/render/*_renderer.rs` |
 | scale | `Scale`, `with_scale`, `with_category_labels` | `src/scale/*` |
@@ -146,7 +149,7 @@ only a faceted chart keeps it.
 The payoff is visible with the pure Vega-Lite violin recipe:
 
 ```rust
-.transform_density(DensityTransform::new("sepal_length").with_groupby("species"))?
+.transform_density(DensityTransform::new("sepal_length").with_groupbys(["species"]))?
 .mark_area()?
 .encode((alt::x("sepal_length"),
          alt::y("density").with_stack("center"),
@@ -173,8 +176,8 @@ its own range instead of being flattened by the others. Aesthetic scales
 
 Free scales also size their axis tracks per panel: each column reserves as much
 room on the left as its widest y axis needs, and each row as much room below as
-its tallest x axis needs. A panel with short labels therefore no longer reserves
-space that only another panel's labels require.
+its tallest x axis needs. A panel with short labels therefore does not pay for a
+neighbour's long ones.
 
 ## Worked example: violin plots
 
@@ -186,18 +189,18 @@ layout.
 |---|---|---|---|
 | single | `transform_density` (reused) | identity + `stack: "mirror"` | `mark_area` |
 | faceted | `transform_density(group)` (reused) + `facet` | identity + `stack: "mirror"` | `mark_area` |
-| dodged | `transform_violin(value, category, group)` | `Position::Dodge` | `mark_polygon` |
-| split | `transform_violin(..., split: true)` | identity | `mark_polygon` |
-| raincloud | `transform_violin` + `transform_violin_box` | identity | `mark_polygon` + `mark_point` |
+| dodged | `transform_density` (grouped by `[category, group]`) + `transform_band` | `Position::Dodge` | `mark_polygon` |
+| split | `transform_density` (grouped by `[category, group]`) + `transform_band(split: true)` | identity | `mark_polygon` |
+| raincloud | `transform_density` + `transform_band` + `transform_quantile_box` | identity | `mark_polygon` + `mark_point` |
 
 The first two rows are the Vega-Lite / Altair recipe: the ordinary density
 transform plus an area mark whose values are mirrored around the centre. The
 `"mirror"` stack mode is what makes the area symmetric per series.
 
-The third row is the ggplot2 recipe (`stat_ydensity`). It is needed because a
-dodged violin puts the category on x and groups by two fields at once, which the
-density transform cannot express. The new stat still reuses the shared KDE core,
-so no statistics are duplicated.
+The third row is the ggplot2 recipe (`stat_ydensity`), expressed purely with
+reusable parts: the density transform groups by **two** fields at once
+(`["Sex", "Species"]`), and the general band geometry places each curve. No
+statistic is duplicated, and no violin-specific transform exists.
 
 ### When do you need a new stat?
 
@@ -210,26 +213,35 @@ Raincloud, split violins and beeswarms are further combinations of the same
 parts (a density stat, a position, and one or more geometries layered with
 `.and(…)`). No new "chart type" is required.
 
-## Design notes: what this refactor changed
+## Extending the grammar
 
-Charton used to hide each chart type inside its own layer: a bar layer computed
-its own dodge, a box plot layer its own, and so on. Building the violin made the
-stages explicit. The changes that matter to a reader of the code:
+A new chart type should not add a layer that knows its name. It should be a new
+**combination** of the same stages, with a new primitive only when the existing
+ones genuinely cannot express it:
 
-- **Dodge has one implementation.** `Position::item_width` / `Position::offset`
-  own the side-by-side arithmetic, and the bar, box plot, error bar and point
-  renderers call them instead of each re-deriving the same formula.
-- **Statistics run per panel.** A layer keeps its pre-statistic rows (shared, not
-  copied) and a faceted chart re-runs the statistic on each panel's subset, so
-  stacking, normalisation and density never leak across panels.
-- **Discrete position scales carry numbers.** `with_category_labels` lets a
-  numeric position column display a categorical axis, so a dodged violin can be
-  placed numerically while the axis still shows names.
-- **Facets can share or free their scales.** `with_strategy("free")` (or
-  `"free_x"` / `"free_y"`) trains a positional scale inside each panel.
-- **Violin is composed, never special-cased.** There is deliberately no
-  `MarkViolin`. A violin is a density stat, a position and the shared polygon;
-  rainclouds and split violins are more layers on the same parts.
+* add a **stat** only when no existing stat produces the columns you need —
+  density, binning, quartiles and iso-lines are reusable facts about data;
+* add a **geometry** only for a new *shape* (a point, an area, an open path, a
+  closed region), never for a new *chart type*;
+* express grouping with a **position** and with the **facet** / **coordinate**
+  stages, not inside the stat or the geometry.
 
-New chart types should follow the same recipe: add a stat if the data needs
-summarising, express grouping as a position, and reuse an existing geometry.
+Following that rule, the violin family and contour plots are just compositions:
+
+| Chart | Stat | Position | Geometry |
+|---|---|---|---|
+| violin (faceted) | `transform_density` | `stack: "center"` | `mark_area` |
+| violin (dodged) | `transform_density` + `transform_band` | `Position::dodge` | `mark_polygon` |
+| split violin | `transform_density` + `transform_band` (split) | identity | `mark_polygon` |
+| raincloud | `transform_density` + `transform_band` + `transform_quantile_box` | identity | `mark_polygon` + `mark_point` |
+| contour | `transform_contour` | identity | `mark_path` |
+
+`transform_contour` extracts iso-**lines** only. Filling the region between
+two levels (an iso-band) would need a separate polygon-clipping step, so it is
+deliberately absent.
+
+No stat decides placement: `transform_density` only summarises, `transform_band`
+only draws, and `Position` only places. The same three pieces cover the single,
+faceted, dodged, split and raincloud violins — the shape every future chart type
+should aim for: a stat that only summarises, a position that only places, a
+geometry that only draws.

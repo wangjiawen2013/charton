@@ -12,7 +12,7 @@ fn tests_transform_window_1() -> Result<(), Box<dyn Error>> {
                 WindowOnlyOp::CumeDist,
                 "ecdf", // This will be the output column name
             ))
-            .with_groupby("species")
+            .with_groupbys(["species"])
             .with_normalize(false), // Normalize to [0,1] range
         )?
         .mark_line()?

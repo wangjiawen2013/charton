@@ -1,20 +1,30 @@
+//! One-dimensional kernel density estimation.
+//!
+//! `transform_density` turns a numeric column into a smooth density curve: a
+//! new table with a row for every evaluation point and the estimated density
+//! there. It is the statistical half of a density plot, a violin or a ridgeline.
+//!
+//! The transform only writes numbers; it never draws. Turning the curve into a
+//! shape is the geometry's job: `mark_area` with a mirror stack for a smooth
+//! density plot, or `transform_band` for a violin.
+
 use crate::chart::Chart;
 use crate::core::data::{ColumnVector, Dataset};
 use crate::error::ChartonError;
 use crate::mark::Mark;
 use crate::stats::kde::Kde;
-use ahash::AHashMap;
+use ahash::{AHashMap, AHashSet};
 
 // The density options and the estimator live in the statistics module so that
 // the density transform and the point layouts share one implementation. They
 // are imported here to sit next to the transform that uses them.
 pub use crate::stats::kde::{BandwidthType, KernelType};
 
-/// Configuration parameters for kernel density estimation transformation
+/// Settings for [`Chart::transform_density`].
 ///
-/// This struct encapsulates all the settings needed to perform a kernel density
-/// estimation on data, including the input field, output field names, bandwidth
-/// selection method, kernel function, and various options for output formatting.
+/// The defaults describe a single density curve of the whole column. Chain
+/// [`with_groupbys`](Self::with_groupbys) for one curve per group, and
+/// [`with_as`](Self::with_as) to rename the two output columns.
 #[derive(Debug, Clone)]
 pub struct DensityTransform {
     // The name of the input column containing the data to perform density estimation on
@@ -27,26 +37,18 @@ pub struct DensityTransform {
     pub(crate) counts: bool,
     // A boolean flag indicating whether to produce density estimates (false) or cumulative density estimates (true)
     pub(crate) cumulative: bool,
-    // The data fields to group by
-    pub(crate) groupby: Option<String>,
+    // The data fields to group by. Empty means "one global density curve".
+    pub(crate) groupby: Vec<String>,
     // The kernel function to use for density estimation
     pub(crate) kernel: KernelType,
 }
 
 impl DensityTransform {
-    /// Creates a new `DensityTransform` instance with default parameters
+    /// Estimates the density of the `density_field` column.
     ///
-    /// # Parameters
-    /// * `density_field` - The name of the column containing the data to perform density estimation on
-    ///
-    /// # Returns
-    /// A new `DensityTransform` instance with the following defaults:
-    /// - Output field names: ["value", "density"]
-    /// - Bandwidth selection: Scott's rule
-    /// - Counts: false (outputs probability densities)
-    /// - Cumulative: false (outputs density estimates)
-    /// - No grouping
-    /// - Kernel function: Normal (Gaussian)
+    /// Defaults: output columns `["value", "density"]`, Scott's rule for the
+    /// bandwidth, a Gaussian kernel, probability densities (not counts) and no
+    /// grouping.
     pub fn new(density_field: impl Into<String>) -> Self {
         Self {
             density: density_field.into(),
@@ -54,25 +56,14 @@ impl DensityTransform {
             bandwidth: BandwidthType::Scott, // Default to use Scott's rule
             counts: false,
             cumulative: false,
-            groupby: None,
+            groupby: Vec::new(),
             kernel: KernelType::Normal,
         }
     }
 
-    /// Sets the output column names for the density transformation
+    /// Renames the two output columns: the evaluation points and the density.
     ///
-    /// # Parameters
-    /// * `value_field` - The name for the column that will contain the x-axis values (evaluation points)
-    /// * `density_field` - The name for the column that will contain the computed density values
-    ///
-    /// # Returns
-    /// The modified `DensityTransform` instance with updated output column names
-    ///
-    /// # Example
-    /// ```rust,ignore
-    /// let transform = DensityTransform::new("data")
-    ///     .with_as("x_values", "y_density");
-    /// ```
+    /// Defaults to `["value", "density"]`.
     pub fn with_as(
         mut self,
         value_field: impl Into<String>,
@@ -82,91 +73,45 @@ impl DensityTransform {
         self
     }
 
-    /// Sets the bandwidth selection method for the kernel density estimation
-    ///
-    /// # Parameters
-    /// * `bandwidth` - The bandwidth selection method to use, which controls the smoothness of the density curve
-    ///
-    /// # Returns
-    /// The modified `DensityTransform` instance with the updated bandwidth setting
-    ///
-    /// # Example
-    /// ```rust,ignore
-    /// let transform = DensityTransform::new("data")
-    ///     .with_bandwidth(BandwidthType::Silverman);
-    /// ```
+    /// Chooses how the smoothing width is picked — Scott's rule, Silverman's
+    /// rule, or a fixed value. A wider bandwidth gives a smoother curve.
     pub const fn with_bandwidth(mut self, bandwidth: BandwidthType) -> Self {
         self.bandwidth = bandwidth;
         self
     }
 
-    /// Sets whether the output values should be probability estimates or smoothed counts
-    ///
-    /// # Parameters
-    /// * `counts` - If true, outputs smoothed counts; if false, outputs probability density estimates
-    ///
-    /// # Returns
-    /// The modified `DensityTransform` instance with the updated counts setting
-    ///
-    /// # Example
-    /// ```rust,ignore
-    /// let transform = DensityTransform::new("data")
-    ///     .with_counts(true); // Output smoothed counts instead of probabilities
-    /// ```
+    /// Emits smoothed *counts* instead of a probability density, by scaling
+    /// each curve by the number of observations in its group.
     pub const fn with_counts(mut self, counts: bool) -> Self {
         self.counts = counts;
         self
     }
 
-    /// Sets whether to produce density estimates or cumulative density estimates
-    ///
-    /// # Parameters
-    /// * `cumulative` - If true, produces cumulative density estimates; if false, produces regular density estimates
-    ///
-    /// # Returns
-    /// The modified `DensityTransform` instance with the updated cumulative setting
-    ///
-    /// # Example
-    /// ```rust,ignore
-    /// let transform = DensityTransform::new("data")
-    ///     .with_cumulative(true); // Output cumulative density instead of regular density
-    /// ```
+    /// Emits the cumulative density (an ECDF-like rising curve) instead of the
+    /// density itself.
     pub const fn with_cumulative(mut self, cumulative: bool) -> Self {
         self.cumulative = cumulative;
         self
     }
 
-    /// Sets the field to group by for separate density estimations
+    /// Groups the estimate by one or more fields, for example `["species"]` or
+    /// `["Sex", "Species"]`.
     ///
-    /// # Parameters
-    /// * `groupby` - The name of the column to group by, with separate density curves computed for each group
-    ///
-    /// # Returns
-    /// The modified `DensityTransform` instance with the updated groupby setting
-    ///
-    /// # Example
-    /// ```rust,ignore
-    /// let transform = DensityTransform::new("data")
-    ///     .with_groupby("category"); // Compute separate density curves for each category
-    /// ```
-    pub fn with_groupby(mut self, groupby: &str) -> Self {
-        self.groupby = Some(groupby.into());
+    /// Each distinct combination of the fields becomes its own density curve.
+    /// Grouping by a single field is the ordinary "one curve per category"
+    /// case; grouping by two fields at once is what a dodged or split violin
+    /// needs, where the first is the position on the discrete axis and the
+    /// second is the lane inside it.
+    pub fn with_groupbys<I, S>(mut self, groupbys: I) -> Self
+    where
+        I: IntoIterator<Item = S>,
+        S: Into<String>,
+    {
+        self.groupby = groupbys.into_iter().map(Into::into).collect();
         self
     }
 
-    /// Sets the kernel function to use for density estimation
-    ///
-    /// # Parameters
-    /// * `kernel` - The kernel function to use, which determines the shape of the distribution used for estimating density
-    ///
-    /// # Returns
-    /// The modified `DensityTransform` instance with the updated kernel setting
-    ///
-    /// # Example
-    /// ```rust,ignore
-    /// let transform = DensityTransform::new("data")
-    ///     .with_kernel(KernelType::Epanechnikov); // Use Epanechnikov kernel instead of default Normal
-    /// ```
+    /// Chooses the smoothing kernel (the bump shape). Gaussian by default.
     pub fn with_kernel(mut self, kernel: impl Into<KernelType>) -> Self {
         self.kernel = kernel.into();
         self
@@ -174,9 +119,12 @@ impl DensityTransform {
 }
 
 impl<T: Mark> Chart<T> {
-    /// Transform data by performing kernel density estimation (KDE).
-    /// Uses ColumnVector::unique_values() to ensure deterministic group ordering
-    /// and consistent null-filtering behavior.
+    /// Estimates a density curve from a numeric column.
+    ///
+    /// The dataset is replaced by a table of evaluation points and densities.
+    /// Group it with [`DensityTransform::with_groupbys`] to get one curve per
+    /// group, then draw it with `mark_area` (a mirror stack) or
+    /// `transform_band`.
     pub fn transform_density(mut self, params: DensityTransform) -> Result<Self, ChartonError> {
         let density_field = &params.density;
         let density_col = self.data.column(density_field)?;
@@ -209,29 +157,43 @@ impl<T: Mark> Chart<T> {
         let x_axis_values = eval_points.clone();
 
         // --- STEP 2: Establish Deterministic Order ---
-        // We use unique_values() to ensure the order of density curves matches
-        // the legend and other transforms (First Appearance).
-        let group_order: Vec<Option<String>> = if let Some(ref g_field) = params.groupby {
-            self.data
-                .column(g_field)?
-                .unique_values()
-                .into_iter()
-                .map(Some)
-                .collect()
+        // The keys are the tuples of the groupby fields, in first-appearance
+        // order, so curves line up with the legend. With no groupby there is a
+        // single, empty key.
+        let group_columns: Vec<&ColumnVector> = params
+            .groupby
+            .iter()
+            .map(|field| self.data.column(field))
+            .collect::<Result<Vec<_>, _>>()?;
+
+        let group_order: Vec<Vec<String>> = if params.groupby.is_empty() {
+            vec![Vec::new()]
         } else {
-            // Use None as a placeholder for the global (no-groupby) case.
-            vec![None]
+            let mut seen = AHashSet::new();
+            let mut order = Vec::new();
+            for i in 0..self.data.height() {
+                let key: Vec<String> = group_columns
+                    .iter()
+                    .map(|col| col.get(i).to_string().unwrap_or_else(|| "null".to_string()))
+                    .collect();
+                if seen.insert(key.clone()) {
+                    order.push(key);
+                }
+            }
+            order
         };
 
         // --- STEP 3: Aggregate Observations by Group ---
-        let mut groups: AHashMap<Option<String>, Vec<f64>> = AHashMap::new();
+        let mut groups: AHashMap<Vec<String>, Vec<f64>> = AHashMap::new();
         let row_count = self.data.height();
 
-        if let Some(ref g_field) = params.groupby {
-            let group_col = self.data.column(g_field)?;
+        if !params.groupby.is_empty() {
             for i in 0..row_count {
                 if let Some(val) = density_col.get(i).to_f64() {
-                    let key = group_col.get(i).to_string();
+                    let key: Vec<String> = group_columns
+                        .iter()
+                        .map(|col| col.get(i).to_string().unwrap_or_else(|| "null".to_string()))
+                        .collect();
                     groups.entry(key).or_default().push(val);
                 }
             }
@@ -243,21 +205,20 @@ impl<T: Mark> Chart<T> {
                     all_obs.push(val);
                 }
             }
-            groups.insert(None, all_obs);
+            groups.insert(Vec::new(), all_obs);
         }
 
         // --- STEP 4: Compute KDE per Group ---
         let mut final_x = Vec::new();
         let mut final_y = Vec::new();
-        let mut final_group = Vec::new();
+        // One output column per groupby field.
+        let mut final_groups: Vec<Vec<String>> = vec![Vec::new(); params.groupby.len()];
 
         for key in group_order {
             let observations = match groups.get(&key) {
                 Some(obs) if !obs.is_empty() => obs,
                 _ => continue,
             };
-
-            let group_label = key.as_deref().unwrap_or("all").to_string();
 
             // Build one estimate for this group and read it at the fixed
             // evaluation points that make up the density curve.
@@ -278,10 +239,8 @@ impl<T: Mark> Chart<T> {
             final_y.extend(processed_y);
             final_x.extend(x_axis_values.clone());
 
-            if params.groupby.is_some() {
-                for _ in 0..steps {
-                    final_group.push(group_label.clone());
-                }
+            for (field_index, label) in key.iter().enumerate() {
+                final_groups[field_index].extend(std::iter::repeat_n(label.clone(), steps));
             }
         }
 
@@ -324,11 +283,11 @@ impl<T: Mark> Chart<T> {
             },
         )?;
 
-        if let Some(ref g_field) = params.groupby {
+        for (field_index, field) in params.groupby.iter().enumerate() {
             new_ds.add_column(
-                g_field,
+                field,
                 ColumnVector::String {
-                    data: final_group,
+                    data: std::mem::take(&mut final_groups[field_index]),
                     validity: None,
                 },
             )?;
