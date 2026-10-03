@@ -56,16 +56,23 @@ impl MarkRenderer for Chart<MarkGeoPath> {
             .normalize_column(y_scale, ds.column(&y_enc.field)?);
 
         // --- STEP 4: Resolve color mapping ---
-        let color_norms = if let Some(ref color_map) = context.spec.aesthetics.color {
-            Some(
-                color_map
-                    .scale_impl
-                    .scale_type()
-                    .normalize_column(color_map.scale_impl.as_ref(), ds.column(&color_map.field)?),
-            )
-        } else {
-            None
-        };
+        // Only follow the shared color scale when *this* layer actually mapped
+        // a colour. Without this check a layer that did not ask for colour (for
+        // example the inner box of a violin) would be painted with whatever
+        // field another layer happened to use for colour.
+        let color_norms =
+            if self.encoding.color.is_some() {
+                if let Some(ref color_map) = context.spec.aesthetics.color {
+                    Some(color_map.scale_impl.scale_type().normalize_column(
+                        color_map.scale_impl.as_ref(),
+                        ds.column(&color_map.field)?,
+                    ))
+                } else {
+                    None
+                }
+            } else {
+                None
+            };
 
         // --- STEP 5: Group rows by PathGroup ---
         let grouped_data = ds.group_by(group_field);

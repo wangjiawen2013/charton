@@ -15,6 +15,20 @@ Chart::build(&df)?
     ))?
 ```
 
+## The Layer Pipeline
+
+Every layer answers four questions, in order:
+
+1. **stat** — what do the data mean? (density, binning, quartiles)
+2. **position** — where does each mark go? (identity, side by side)
+3. **geometry** — what shape is drawn? (point, bar, polygon)
+4. **scale** + **coordinate** — how does a value become a pixel?
+
+Keeping the four apart is what lets a handful of basic parts describe almost any
+chart. A violin plot, for example, is a density statistic, a position and a
+polygon — there is deliberately no violin mark. See
+[The Layer Pipeline](grammar_pipeline.md) for the full model.
+
 ## The Orchestrator: LayeredChart
 
 The `LayeredChart` is the central orchestrator of the system. It is not just a container; it is a State Machine that manages the visualization lifecycle through three key roles:
@@ -26,7 +40,7 @@ The `LayeredChart` is the central orchestrator of the system. It is not just a c
 ## Scale Arbitration & Global Aesthetics
 
 A core challenge in multi-layer charts is visual consistency. Charton solves this through Scale Arbitration:
-* Unified Domains: Charton scans every layer to calculate a global `ScaleDomain`. If Layer A ranges from $[0, 10]$ and Layer B from $[5, 15]$, the `LayeredChart` automatically aligns the axis to $[0, 15]$.
+* Unified Domains: Charton scans every layer to calculate a shared `ScaleDomain` (the default, *fixed* behaviour). A faceted chart can instead train a scale inside each panel with `with_strategy("free")`. Statistics are computed per panel, so a cumulative summary never mixes data across panels.
 * Aesthetic Consistency: The system maintains a unified visual language. If multiple layers map the "origin" column to `Color`, Charton ensures they share the exact same palette and legend, preventing conflicting visual cues.
 
 ## Space and Layout: From Logic to Physical

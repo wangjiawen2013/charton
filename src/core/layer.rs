@@ -187,10 +187,14 @@ pub trait MarkRenderer {
 /// with the actual rendering logic.
 ///
 /// The lifecycle of a Layer during the rendering pipeline is:
-/// 1. **Discovery**: `LayeredChart` queries `get_data_bounds` to understand data ranges.
-/// 2. **Training**: The engine aggregates bounds from all layers to build global scales.
-/// 3. **Injection**: The engine calls `inject_resolved_scales` to "back-fill" the final scales into the layer.
-/// 4. **Rendering**: The engine calls `render_marks` to produce the final geometry.
+/// 1. **Statistics**: the mark's own summary (binning, stacking, density) is
+///    applied to the dataset, per group. A faceted chart re-runs it per panel.
+/// 2. **Discovery**: `LayeredChart` queries `get_data_bounds` to understand data ranges.
+/// 3. **Training**: the engine aggregates those bounds into a scale. By default
+///    one scale is shared by every layer and panel (*fixed*); a faceted chart
+///    may instead train one per panel (`Free` / `FreeX` / `FreeY`).
+/// 4. **Injection**: the engine calls `inject_resolved_scales` to "back-fill" the final scales into the layer.
+/// 5. **Rendering**: the engine calls `render_marks` to produce the final geometry.
 pub trait Layer: MarkRenderer + Send + Sync {
     // --- Metadata Discovery Phase ---
 
@@ -203,8 +207,9 @@ pub trait Layer: MarkRenderer + Send + Sync {
 
     /// Returns a reference to the underlying Dataset.
     ///
-    /// This provides direct access to the layer's data for faceting operations,
-    /// such as extracting unique facet values and filtering data by panel.
+    /// For faceting this is the data from *before* the mark's statistic, because
+    /// a statistic may drop or reshape the very columns the facet is keyed on.
+    /// See [`Layer::facet_partition`] and [`Layer::subset_rows`].
     fn get_dataset(&self) -> &Dataset;
 
     /// Returns the preferred scale type (e.g., Linear, Log, Discrete) for a channel.
@@ -216,19 +221,25 @@ pub trait Layer: MarkRenderer + Send + Sync {
     /// Calculates the raw data boundaries (Min/Max for continuous, unique labels for discrete)
     /// contained within this specific layer's dataset.
     ///
-    /// This is the primary input for the "Training" phase where unified global scales are resolved.
+    /// This is the primary input for the "Training" phase, where scales are
+    /// resolved — one shared scale for the chart, or one per panel under free
+    /// scales.
     fn get_data_bounds(&self, channel: Channel) -> Result<ScaleDomain, ChartonError>;
 
     // --- State Resolution (The "Back-filling" Phase) ---
 
-    /// Injects the resolved global state (Coordinate system and Aesthetic mappings) into the layer.
+    /// Injects the resolved state (Coordinate system and Aesthetic mappings) into the layer.
     ///
-    /// This ensures the layer has access to the final, unified scales before rendering starts.
+    /// This ensures the layer has access to the final scales before rendering
+    /// starts. The coordinate system is shared for a fixed chart and rebuilt per
+    /// panel under free scales; the aesthetic mappings are always shared, so the
+    /// legend stays unified.
+    ///
     /// We use `&self` here; implementations typically use interior mutability (e.g., `OnceLock`
     /// or `RwLock`) to cache these values safely.
     ///
     /// # Arguments
-    /// * `coord`: The shared coordinate system (containing X and Y scales).
+    /// * `coord`: The coordinate system for this layer's panel (containing X and Y scales).
     /// * `aesthetics`: The shared global aesthetics (containing Color, Shape, and Size scales).
     fn inject_resolved_scales(
         &self,
@@ -265,4 +276,16 @@ pub trait Layer: MarkRenderer + Send + Sync {
         let _ = rows;
         Ok(None)
     }
+
+    /// Returns a copy of this layer with its pre-statistic snapshot released.
+    ///
+    /// A statistic may keep the rows from before it ran so a faceted chart can
+    /// re-run it per panel (see [`Layer::subset_rows`]). A chart with no facets
+    /// never does that, so the snapshot is pure memory. The engine drops it from
+    /// the mutable render path once it knows there are no facets.
+    ///
+    /// Layers that keep no snapshot may return `self` unchanged; they cannot be
+    /// cloned through this trait, so `Chart<T>` is the only implementor and
+    /// builds its copy directly.
+    fn without_source_data(&self) -> Arc<dyn Layer>;
 }

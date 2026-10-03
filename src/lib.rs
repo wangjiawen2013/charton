@@ -17,6 +17,7 @@ pub mod encode;
 pub mod error;
 pub mod facets;
 pub mod mark;
+pub mod position;
 pub mod render;
 pub mod scale;
 pub mod stats;
@@ -93,12 +94,14 @@ pub mod prelude {
         geo_path::MarkGeoPath, line::MarkLine, point::MarkPoint, rect::MarkRect, rule::MarkRule,
         text::MarkText, tick::MarkTick,
     };
+    pub use crate::position::Position;
     pub use crate::render::line_renderer::PathInterpolation;
     pub use crate::scale::formatter::{Abbreviation, LabelFormat};
     pub use crate::scale::{Expansion, Scale};
     pub use crate::theme::{Theme, ThemeMode, TitleAnchor, TitleFrame};
     pub use crate::transform::{
         density_transform::{BandwidthType, DensityTransform, KernelType},
+        violin_transform::{ViolinScale, ViolinTransform},
         window_transform::{WindowFieldDef, WindowOnlyOp, WindowTransform},
     };
     pub use crate::visual::color::{ColorMap, ColorPalette, SingleColor};

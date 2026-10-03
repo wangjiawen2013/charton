@@ -4,6 +4,15 @@ All notable changes to `nu_plugin_charton` are documented here. The crate
 shares the `charton` version number, and the Nushell release it targets is
 stated in the README and in each release.
 
+## [Unreleased]
+
+### Added
+
+- `-g violin`: a violin plot, composed from a density outline and an inner
+  quartile box. Use `-x` for the category and `-y` for the value; add `-c` to
+  dodge one violin per group. The group width matches `-g boxplot` and
+  `-g point`.
+
 ## [0.7.1]
 
 ### Added

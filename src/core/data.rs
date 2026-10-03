@@ -229,6 +229,48 @@ impl<'a> AnyValue<'a> {
 }
 
 impl ColumnVector {
+    /// Returns a data-free copy that keeps only the physical-type metadata a
+    /// transform needs to restore its output column.
+    ///
+    /// Transforms often start from an input column and must write their result
+    /// back with the *same* physical type (a date stays a date, a categorical
+    /// column keeps its dictionary). Cloning the whole column just to read its
+    /// type would copy every row; this helper copies only the small metadata
+    /// (a timezone string or a category dictionary) and drops the row data.
+    ///
+    /// Any type without restorable metadata falls back to an empty `Float64`
+    /// prototype, which the transforms treat as "use the default output type".
+    pub(crate) fn type_prototype(&self) -> Self {
+        match self {
+            Self::Datetime { timezone, .. } => Self::Datetime {
+                data: Vec::new(),
+                validity: None,
+                timezone: timezone.clone(),
+            },
+            Self::Categorical { values, .. } => Self::Categorical {
+                keys: Vec::new(),
+                values: values.clone(),
+                validity: None,
+            },
+            Self::Date { .. } => Self::Date {
+                data: Vec::new(),
+                validity: None,
+            },
+            Self::Duration { .. } => Self::Duration {
+                data: Vec::new(),
+                validity: None,
+            },
+            Self::Time { .. } => Self::Time {
+                data: Vec::new(),
+                validity: None,
+            },
+            _ => Self::Float64 {
+                data: Vec::new(),
+                validity: None,
+            },
+        }
+    }
+
     /// Creates a Categorical column from pre-encoded keys and a dictionary.
     ///
     /// This is the preferred method for bridges (like Polars) where data is
@@ -2353,6 +2395,19 @@ impl Dataset {
         Ok(&self.columns[*index])
     }
 
+    /// Returns a cheap, shared handle to a column.
+    ///
+    /// [`Dataset::column`] borrows the column so a caller can read it. When a
+    /// caller needs to keep a handle while the dataset is replaced, this returns
+    /// an `Arc` clone — a reference-count bump, not a copy of every row.
+    pub fn column_arc(&self, name: &str) -> Result<Arc<ColumnVector>, ChartonError> {
+        let index = self
+            .schema
+            .get(name)
+            .ok_or_else(|| ChartonError::Data(format!("Column '{}' not found", name)))?;
+        Ok(self.columns[*index].clone())
+    }
+
     /// High-performance: Returns a reference to the underlying physical data slice.
     ///
     /// ### Warning:
@@ -2506,6 +2561,12 @@ impl Dataset {
                     idx, h
                 )));
             }
+        }
+
+        // Taking every row in order is a no-op: share the existing columns
+        // instead of rebuilding identical copies of all of them.
+        if new_len == h && indices.iter().enumerate().all(|(i, &idx)| i == idx) {
+            return Ok(self.clone());
         }
 
         // 2. Prepare the new containers with pre-allocated capacity.
@@ -3253,6 +3314,63 @@ pub fn get_quantile(sorted_data: &[f64], q: f64) -> f64 {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    /// Cloning a dataset must share its columns, not copy the row data. This is
+    /// what keeps the per-panel statistic snapshot cheap.
+    #[test]
+    fn dataset_clone_shares_columns() {
+        let ds = Dataset::new()
+            .with_column("x", vec![1.0, 2.0, 3.0])
+            .unwrap();
+
+        let handle = ds.column_arc("x").unwrap();
+        assert_eq!(Arc::strong_count(&handle), 2, "dataset + handle");
+
+        let clone = ds.clone();
+        assert_eq!(
+            Arc::strong_count(&handle),
+            3,
+            "clone shares the same column"
+        );
+        assert_eq!(clone.row_count, 3);
+        assert_eq!(clone.height(), 3);
+    }
+
+    /// `type_prototype` keeps the metadata a transform restores and drops the
+    /// row data, so restoring a type never copies the whole column.
+    #[test]
+    fn type_prototype_keeps_metadata_and_drops_data() {
+        let categorical = ColumnVector::from_categorical(
+            vec![0, 1],
+            vec!["a".to_string(), "b".to_string()],
+            None,
+        );
+
+        match categorical.type_prototype() {
+            ColumnVector::Categorical { keys, values, .. } => {
+                assert!(keys.is_empty(), "row data must be dropped");
+                assert_eq!(values, vec!["a".to_string(), "b".to_string()]);
+            }
+            other => panic!("expected a categorical prototype, got {other:?}"),
+        }
+    }
+
+    /// Taking every row in order can share the existing columns.
+    #[test]
+    fn take_rows_identity_shares_columns() {
+        let ds = Dataset::new()
+            .with_column("x", vec![1.0, 2.0, 3.0])
+            .unwrap();
+        let handle = ds.column_arc("x").unwrap();
+
+        let same = ds.take_rows(&[0, 1, 2]).unwrap();
+        assert_eq!(
+            Arc::strong_count(&handle),
+            3,
+            "identity take shares columns"
+        );
+        assert_eq!(same.height(), 3);
+    }
 
     #[test]
     fn test_partition_by_matches_facet_keys() {

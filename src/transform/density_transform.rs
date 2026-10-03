@@ -288,7 +288,7 @@ impl<T: Mark> Chart<T> {
         // --- STEP 5: Build Final Dataset ---
         let mut new_ds = Dataset::new();
 
-        let x_prototype = density_col.clone(); // density_col is X axis
+        let x_prototype = density_col.type_prototype(); // density_col is X axis
         let restored_x = match x_prototype {
             ColumnVector::Datetime { timezone, .. } => ColumnVector::Datetime {
                 data: final_x.into_iter().map(|v| v.round() as i64).collect(),

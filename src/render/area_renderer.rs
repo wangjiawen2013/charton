@@ -49,7 +49,7 @@ impl MarkRenderer for Chart<MarkArea> {
 
         let use_stacked = matches!(
             y_enc.stack,
-            StackMode::Stacked | StackMode::Normalize | StackMode::Center
+            StackMode::Stacked | StackMode::Normalize | StackMode::Center | StackMode::Mirror
         );
 
         // --- STEP 2: Render Zero Baseline ---

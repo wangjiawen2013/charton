@@ -71,7 +71,25 @@ One of Charton's advanced features is how Marks handle Stacking and Grouping.
 As seen in the `MarkBar` implementation, when multiple series exist on the same X-coordinate:
 
 - Stacked: The `Y` value of the second mark starts at the `Y` end-point of the first.
-- Grouped (Side-by-Side): The `X` position is offset by a fraction of the "Slot width," ensuring bars are placed next to each other without manual coordinate calculation.
+- Grouped (Side-by-Side): Marks are offset by a fraction of the category slot so they sit next to each other without manual coordinate calculation. The arithmetic lives in [Position](../concepts/grammar_pipeline.md), shared by bars, boxes, error bars, points and violins.
+
+## Marks are primitives; charts are compositions
+
+A mark draws the data it is given. It does not know about statistics or
+grouping — those belong to earlier stages. Complex chart types are therefore
+*compositions*, not new marks. A violin plot is a density statistic plus the
+shared polygon geometry:
+
+```rust
+chart!(iris)?
+    .transform_violin(ViolinTransform::new("sepal_length"))?
+    .mark_polygon()?
+    .encode((alt::x("x"), alt::y("y"), alt::path_group("violin_id")))?
+```
+
+Rainclouds and split violins stack more layers (`.and(…)`) on the same parts.
+See [The Layer Pipeline](../concepts/grammar_pipeline.md) and
+[Box & Violin Combinations](../gallery/box_violin_charts.md).
 
 ## Visual Consistency (The Mark Trait)
 
