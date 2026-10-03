@@ -400,25 +400,6 @@ delete those yourself if you no longer want them.
 - [charton library docs](https://docs.rs/charton) — the plotting engine behind
   this plugin.
 
-## Status
-
-- [x] `Value` table → charton `Dataset` converter (per-column type inference
-      over all rows; int/float/string/bool/datetime, null-aware)
-- [x] all charton marks: `point`, `line`, `area`, `bar`, `boxplot`, `violin`,
-      `errorbar`, `rule`, `tick`, `text`, `rect`/`heatmap`, `hist`,
-      `density`/`kde`, `ecdf`, `contour`, `beeswarm`, `geo`
-- [x] multi-layer overlays, faceting, polar and geographic coordinates
-- [x] stacking, aggregation, binning, LOESS, KDE, iso-lines
-- [x] axis scales, domains, explicit ticks, label formatting, light/dark themes
-- [x] `size`/`shape` encoding channels
-- [x] inline terminal rendering: Kitty / iTerm2 / Sixel / half-block
-- [x] SVG / PNG export and `--raw` piping
-- [x] configuration via `$env.config.plugins.charton`
-- [x] unit tests via `nu-plugin-test-support`
-
-Planned: companion label/annotation marks, a native ANSI terminal backend that
-draws with braille and text rather than a raster image.
-
 ## Development
 
 This crate is a member of the `charton` workspace. `default-members = ["."]`, so
