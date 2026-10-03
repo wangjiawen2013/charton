@@ -26,7 +26,7 @@ fn tests_transform_window_1() -> Result<(), Box<dyn Error>> {
     chart
         .with_size(600, 400)
         .with_title("Empirical Cumulative Distribution")
-        .save("./tests/transform_window_1.svg")?;
+        .save("./target/test-output/transform_window_1.svg")?;
 
     Ok(())
 }

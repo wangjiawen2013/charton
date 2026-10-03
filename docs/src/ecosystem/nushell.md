@@ -103,9 +103,9 @@ charton -g geo --geojson world.geojson -c POP_EST -o world.png
 
 The `-g` names cover every Charton mark (`point`, `line`, `area`, `bar`,
 `boxplot`, `errorbar`, `rule`, `tick`, `text`, `rect`/`heatmap`, `hist`,
-`geo`) plus three compositions (`beeswarm`, `violin`, `contour`); aliases such
-as `scatter`, `label`, and `heatmap` map onto the marks. The full flag table is
-in the plugin README.
+`density`/`kde`, `ecdf`, `geo`) plus three compositions (`beeswarm`, `violin`,
+`contour`); aliases such as `scatter`, `label`, and `heatmap` map onto the
+marks. The full flag table is in the plugin README.
 
 ## Configuration
 

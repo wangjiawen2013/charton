@@ -4,6 +4,10 @@ This chapter shows how to summarise a numeric column. Charton builds these plots
 from ordinary parts — see [The Layer Pipeline](../concepts/grammar_pipeline.md)
 for the underlying model (data → stat → position → geom).
 
+> Looking for ready-made recipes? The [Violin cookbook page](violin.md) collects
+every variant — single, grouped, faceted, split and raincloud — as complete,
+compiled examples. This chapter explains the machinery underneath them.
+
 ## Violin plot
 
 A violin shows the **density** of a numeric column as a symmetric outline. There
@@ -13,31 +17,9 @@ are two idiomatic ways to build one, matching the two industry recipes.
 
 For a single or faceted violin, no violin-specific transform is needed. Estimate
 the density, draw it as an area, and ask the stack to **mirror** the values
-symmetrically around zero:
-
-```rust
-use charton::prelude::*;
-
-let iris = load_dataset("iris")?;
-
-chart!(&iris)?
-    .transform_density(
-        DensityTransform::new("sepal_length")
-            .with_as("sepal_length", "density")
-            .with_groupbys(["species"])
-            .with_trim(true),
-    )?
-    .mark_area()?
-    .configure_area(|a| a.with_opacity(0.7).with_stroke("black"))
-    .encode((
-        alt::x("sepal_length"),
-        alt::y("density").with_stack("mirror"), // symmetric band
-        alt::color("species"),
-    ))?
-    .facet(FacetSpec::wrap("species"))
-    .coord_flip()
-    .save("violin.svg")?;
-```
+symmetrically around zero — the complete, compiled recipe is on the
+[Violin page](violin.md#violin-single), with its
+[faceted section](violin.md#grouped-and-faceted-violins).
 
 `"mirror"` is Charton's name for Vega-Lite's `stack: "center"` applied *per
 series*: each density curve is drawn from `-density / 2` to `+density / 2`. With
@@ -50,36 +32,9 @@ A **dodged** violin — several violins side by side inside one category — nee
 the *category* on x and a two-field `(category, group)` grouping. That is exactly
 what the density transform's multi-field `with_groupbys([...])` provides. The
 curve then becomes a polygon through the general band geometry, with a
-`Position` deciding the lanes:
-
-```rust
-let penguins = load_dataset("penguins")?;
-
-chart!(&penguins)?
-    .transform_density(
-        DensityTransform::new("Body Mass (g)")
-            .with_as("Body Mass (g)", "density")
-            .with_groupbys(["Sex", "Species"]) // (category, group)
-            .with_trim(true),
-    )?
-    .transform_band(
-        BandTransform::new("Body Mass (g)", "density")
-            .with_center("Sex")   // x position
-            .with_group("Species") // one band per species
-            .with_position(Position::dodge())
-            .with_scale(BandScale::PerGroup),
-    )?
-    .mark_polygon()?
-    .configure_geoshape(|mark| mark.with_fill("#d6eaf8").with_stroke("#2c3e50"))
-    .encode((
-        // Numeric positions, but the axis shows the "Sex" categories.
-        alt::x("x").with_category_labels("Sex"),
-        alt::y("y"),
-        alt::path_group("path_group"),
-        alt::color("Species"),
-    ))?
-    .save("grouped_violin.svg")?;
-```
+`Position` deciding the lanes — see
+[Grouped and faceted violins](violin.md#grouped-and-faceted-violins) and
+[Split violin](violin.md#split-violin) for the compiled recipes.
 
 Both recipes share the same `stats::kde` core, so no statistics are duplicated.
 Add `.with_split(true)` to `BandTransform` and the two groups become the two
@@ -106,26 +61,10 @@ Density (statistics) and band (geometry/placement) are configured separately:
 line as a second polygon layer. It uses the same `Position` lane layout as
 `transform_band`, so the box always sits exactly over its violin:
 
+<img src="../images/violin_box.svg" width="500">
+
 ```rust
-let outline = chart!(&penguins)?
-    .transform_density(
-        DensityTransform::new("Body Mass (g)")
-            .with_as("Body Mass (g)", "density")
-            .with_groupbys(["Species"])
-            .with_trim(true),
-    )?
-    .transform_band(BandTransform::new("Body Mass (g)", "density").with_center("Species"))?
-    .mark_polygon()?
-    .encode((alt::x("x"), alt::y("y"), alt::path_group("path_group")))?
-    .configure_geoshape(|m| m.with_fill("#d6eaf8"))?;
-
-let box = chart!(&penguins)?
-    .transform_quantile_box(QuantileBoxTransform::new("Body Mass (g)").with_category("Species"))?
-    .mark_polygon()?
-    .configure_geoshape(|m| m.with_fill("white").with_stroke("black"))?
-    .encode((alt::x("x"), alt::y("y"), alt::path_group("path_group")))?;
-
-outline.and(box).save("violin_with_box.svg")?;
+{{#include ../../../examples/violin_box.rs}}
 ```
 
 The transform emits a `box_part` column (`"box"` / `"median"`) so the two
@@ -136,15 +75,58 @@ polygons can be styled differently if you want.
 The box plot is the five-number summary drawn directly. It carries its own
 statistics, so no transform is needed:
 
+<img src="../images/grouped_boxplot.svg" width="500">
+
 ```rust
-chart!(&penguins)?
-    .mark_boxplot()?
-    .encode((
-        alt::x("Sex"),
-        alt::y("Body Mass (g)"),
-        alt::color("Species"),
-    ))?
-    .save("grouped_boxplot.svg")?;
+{{#include ../../../examples/grouped_boxplot.rs}}
+```
+
+## Density plot
+
+The density curve on its own, as a smooth area. Unlike a violin it should fade
+out, so the tails are kept (`trim = false`, the default).
+
+<img src="../images/density.svg" width="500">
+
+```rust
+{{#include ../../../examples/density.rs}}
+```
+
+## Cumulative density
+
+The same estimator with `.with_cumulative(true)` gives an ECDF-like rising
+curve.
+
+<img src="../images/distribution.svg" width="500">
+
+```rust
+{{#include ../../../examples/distribution.rs}}
+```
+
+## Histogram
+
+`mark_hist` bins a numeric column for you; the bin count follows from the data
+unless you set `alt::x(...).with_bins(n)`.
+
+<img src="../images/histogram.svg" width="500">
+
+```rust
+{{#include ../../../examples/histogram.rs}}
+```
+
+## Beeswarm and quasirandom
+
+Two point layouts that show every observation without overplotting.
+
+<img src="../images/beeswarm.svg" width="500">
+<img src="../images/quasirandom.svg" width="500">
+
+```rust
+{{#include ../../../examples/beeswarm.rs}}
+```
+
+```rust
+{{#include ../../../examples/quasirandom.rs}}
 ```
 
 ## Choosing between violin, box and swarm

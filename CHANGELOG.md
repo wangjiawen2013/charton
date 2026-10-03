@@ -6,6 +6,8 @@ predate this file.
 
 ## [Unreleased]
 
+## [0.8.0] - 2026-10-03
+
 ### Breaking changes
 
 - `FacetMetrics` gained `per_column_left` and `per_row_bottom` (both `Vec<f64>`)
@@ -118,6 +120,17 @@ predate this file.
   the *Statistical Distributions* and *Box & Violin Combinations* gallery pages
   rewritten around it. See `examples/violin.rs`, `grouped_violin.rs`,
   `split_violin.rs` and `raincloud.rs`.
+- **New Cookbook section.** A [recipe index](docs/src/gallery/index.md) plus one
+  page per chart family — Violin, Distributions, Bars & Error Bars, Line, Area,
+  Strip/Rug, Circular, Heatmaps, Scatter, Contours, Faceting, Geospatial. Every
+  code block is a real, compiled `examples/*.rs` pulled in with `{{#include}}`,
+  so the book cannot drift from the API.
+- **Curated gallery images.** Smoke-test examples moved into `tests/`, and tests
+  and dev demos now write to `target/` instead of the repository. The new
+  `scripts/check-doc-images.sh` (wired into CI) fails if a committed image is not
+  referenced by a Markdown page.
+
+[0.8.0]: https://github.com/wangjiawen2013/charton/releases/tag/v0.8.0
 
 ## [0.7.1]
 

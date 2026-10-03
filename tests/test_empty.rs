@@ -20,7 +20,7 @@ fn test_empty_1() -> Result<(), Box<dyn Error>> {
         ))?
         .with_size(500, 400)
         .coord_flip()
-        .save("./tests/empty_1.svg")?;
+        .save("./target/test-output/empty_1.svg")?;
 
     Ok(())
 }
@@ -58,7 +58,7 @@ fn test_empty_2() -> Result<(), Box<dyn Error>> {
     point_chart
         .and(empty_chart)
         .with_size(500, 300)
-        .save("./tests/empty_2.svg")?;
+        .save("./target/test-output/empty_2.svg")?;
 
     Ok(())
 }

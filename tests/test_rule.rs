@@ -18,7 +18,7 @@ fn test_rule_1() -> Result<(), Box<dyn Error>> {
         .with_y_label("Y Values");
 
     // Save to SVG file
-    chart.save("tests/rule_1.svg")?;
+    chart.save("./target/test-output/rule_1.svg")?;
 
     Ok(())
 }

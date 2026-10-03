@@ -60,7 +60,7 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
             alt::y("outcomes"),
             alt::color("treatments"),
         ))?
-        .save("docs/src/images/quasirandom_pseudorandom.svg")?;
+        .save("target/example-output/quasirandom_pseudorandom.svg")?;
 
     Ok(())
 }

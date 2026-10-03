@@ -12,7 +12,7 @@ fn main() -> Result<(), Box<dyn Error>> {
             alt::y("Body Mass (g)"),
             alt::color("Species"),
         ))?
-        .save("grouped_boxplot_gpu.png")?;
+        .save("target/example-output/grouped_boxplot_gpu.png")?;
 
     Ok(())
 }

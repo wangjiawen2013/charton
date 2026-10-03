@@ -21,9 +21,9 @@ fn test_quasirandom_1() -> Result<(), Box<dyn Error>> {
         .configure_point(|m| m.with_layout("quasirandom").with_size(1.5))
         .encode((alt::x("cohort"), alt::y("value"), alt::color("treatment")))?
         .with_size(600, 400)
-        .save("./tests/quasirandom_1.svg")?;
+        .save("./target/test-output/quasirandom_1.svg")?;
 
-    let svg = std::fs::read_to_string("./tests/quasirandom_1.svg")?;
+    let svg = std::fs::read_to_string("./target/test-output/quasirandom_1.svg")?;
     assert!(
         svg.contains("<circle"),
         "quasirandom layout should emit point markers"
@@ -48,9 +48,9 @@ fn test_quasirandom_2() -> Result<(), Box<dyn Error>> {
         .encode((alt::x("cohort"), alt::y("value")))?
         .with_size(600, 400)
         .coord_flip()
-        .save("./tests/quasirandom_2.svg")?;
+        .save("./target/test-output/quasirandom_2.svg")?;
 
-    let svg = std::fs::read_to_string("./tests/quasirandom_2.svg")?;
+    let svg = std::fs::read_to_string("./target/test-output/quasirandom_2.svg")?;
     assert!(
         svg.contains("<circle"),
         "flipped quasirandom layout should emit point markers"

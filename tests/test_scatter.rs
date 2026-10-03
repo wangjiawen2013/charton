@@ -24,7 +24,7 @@ fn test_scatter_1() -> Result<(), Box<dyn Error>> {
     point_chart
         .with_size(500, 400)
         .coord_flip()
-        .save("./tests/scatter_1.svg")?;
+        .save("./target/test-output/scatter_1.svg")?;
 
     Ok(())
 }
@@ -48,7 +48,7 @@ fn test_scatter_2() -> Result<(), Box<dyn Error>> {
         .mark_point()?
         .encode((alt::x("a"), alt::y("b"), alt::shape("category")))?
         .with_size(500, 300)
-        .save("./tests/scatter_2.svg")?;
+        .save("./target/test-output/scatter_2.svg")?;
 
     Ok(())
 }
@@ -66,7 +66,7 @@ fn test_scatter_3() -> Result<(), Box<dyn Error>> {
         .with_title("Data")
         .with_x_label("A")
         .with_y_label("B")
-        .save("./tests/scatter_3.svg")?;
+        .save("./target/test-output/scatter_3.svg")?;
 
     Ok(())
 }
@@ -83,7 +83,7 @@ fn test_scatter_4() -> Result<(), Box<dyn Error>> {
         .with_size(500, 300)
         .with_title("Car Data")
         .configure_theme(|t| t.with_title_size(20.0).with_title_color("#333"))
-        .save("./tests/scatter_4.svg")?;
+        .save("./target/test-output/scatter_4.svg")?;
 
     Ok(())
 }
@@ -110,7 +110,7 @@ fn test_scatter_5() -> Result<(), Box<dyn Error>> {
                 .with_label_size(36.0)
         })
         .coord_flip()
-        .save("./tests/scatter_5.svg")?;
+        .save("./target/test-output/scatter_5.svg")?;
 
     Ok(())
 }
@@ -132,7 +132,7 @@ fn test_scatter_6() -> Result<(), Box<dyn Error>> {
         .with_title("Standard Chart: A vs B")
         .with_x_label("A")
         .with_y_label("B")
-        .save("./tests/scatter_6.svg")?;
+        .save("./target/test-output/scatter_6.svg")?;
 
     Ok(())
 }
@@ -150,7 +150,7 @@ fn test_scatter_7() -> Result<(), Box<dyn Error>> {
         .encode((alt::x("a"), alt::y("b"), alt::color("category")))?
         .with_size(500, 300)
         .with_title("visualization")
-        .save("./tests/scatter_7.svg")?;
+        .save("./target/test-output/scatter_7.svg")?;
 
     Ok(())
 }
@@ -169,7 +169,7 @@ fn test_scatter_8() -> Result<(), Box<dyn Error>> {
             alt::y("gdp").with_scale(Scale::Log), // Use logarithmic scale for GDP
         ))?
         .with_size(500, 400)
-        .save("./tests/scatter_8.svg")?;
+        .save("./target/test-output/scatter_8.svg")?;
 
     Ok(())
 }
@@ -196,7 +196,7 @@ fn test_scatter_9() -> Result<(), Box<dyn Error>> {
         .encode((alt::x("department"), alt::y("salary")))?
         .with_size(600, 400)
         .with_title("Salary by Department")
-        .save("./tests/scatter_9.svg")?;
+        .save("./target/test-output/scatter_9.svg")?;
 
     Ok(())
 }
@@ -219,7 +219,7 @@ fn test_scatter_10() -> Result<(), Box<dyn Error>> {
     chart
         .with_size(500, 300)
         .with_title("Chart with Colorbar")
-        .save("./tests/scatter_10.svg")?;
+        .save("./target/test-output/scatter_10.svg")?;
 
     Ok(())
 }
@@ -243,7 +243,7 @@ fn test_scatter_11() -> Result<(), Box<dyn Error>> {
         ))?
         .with_size(500, 300)
         .with_title("Chart with Shape Legend")
-        .save("./tests/scatter_11.svg")?;
+        .save("./target/test-output/scatter_11.svg")?;
 
     Ok(())
 }
@@ -259,7 +259,7 @@ fn test_scatter_12() -> Result<(), Box<dyn Error>> {
         .mark_point()?
         .encode((alt::x("a"), alt::y("b"), alt::color("category")))?
         .with_size(500, 300)
-        .save("./tests/scatter_12.svg")?;
+        .save("./target/test-output/scatter_12.svg")?;
 
     Ok(())
 }
@@ -278,7 +278,7 @@ fn test_scatter_13() -> Result<(), Box<dyn Error>> {
         .with_title("Chart with Explicit Tick Values")
         .with_x_label("Catergory")
         .with_y_label("B Values")
-        .save("./tests/scatter_13.svg")?;
+        .save("./target/test-output/scatter_13.svg")?;
 
     Ok(())
 }
@@ -292,7 +292,7 @@ fn test_scatter_14() -> Result<(), Box<dyn Error>> {
     chart!(a, b, origin)?
         .mark_point()?
         .encode((alt::x("a"), alt::y("b"), alt::color("origin")))?
-        .save("./tests/scatter_14.svg")?;
+        .save("./target/test-output/scatter_14.svg")?;
 
     Ok(())
 }
@@ -345,7 +345,28 @@ fn test_scatter_15() -> Result<(), Box<dyn Error>> {
             alt::y("outcomes"),
             alt::color("treatments"),
         ))?
-        .save("./tests/scatter_15.svg")?;
+        .save("./target/test-output/scatter_15.svg")?;
+
+    Ok(())
+}
+
+/// Shape + size + colour on a flipped axis (was `examples/scatter.rs`).
+#[test]
+fn test_scatter_16() -> Result<(), Box<dyn Error>> {
+    let ds = load_dataset("mtcars")?;
+
+    Chart::build(ds)?
+        .mark_point()?
+        .encode((
+            alt::x("wt"),
+            alt::y("mpg"),
+            alt::color("gear").with_scale(Scale::Discrete),
+            alt::shape("gear").with_scale(Scale::Discrete),
+            alt::size("mpg"),
+        ))?
+        .coord_flip()
+        .configure_theme(|t| t.with_x_tick_label_angle(-45.0))
+        .save("./target/test-output/scatter_16.svg")?;
 
     Ok(())
 }

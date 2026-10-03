@@ -17,7 +17,7 @@ fn main() -> Result<(), Box<dyn Error>> {
         .with_y_label("Y Values");
 
     // Save to SVG file
-    chart.save("./rule_gpu.png")?;
+    chart.save("target/example-output/rule_gpu.png")?;
 
     Ok(())
 }

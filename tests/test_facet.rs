@@ -221,7 +221,7 @@ fn test_facet_free_scales() -> Result<(), Box<dyn Error>> {
                 .with_columns(3)
                 .with_strategy("free_y"),
         )
-        .save("./tests/facet_free_1.svg")?;
+        .save("./target/test-output/facet_free_1.svg")?;
 
     Ok(())
 }

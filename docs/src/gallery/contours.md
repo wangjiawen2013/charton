@@ -13,33 +13,10 @@ and `mark_path` draws any ordered polyline.
 
 ## Iso-lines of a grid
 
+<img src="../images/contour.svg" width="500">
+
 ```rust
-use charton::prelude::*;
-
-// Sample z = sin(x) * cos(y) on a regular grid.
-let n = 41;
-let (mut x, mut y, mut z) = (Vec::new(), Vec::new(), Vec::new());
-for i in 0..n {
-    for j in 0..n {
-        let xv = -3.0 + 6.0 * i as f64 / (n as f64 - 1.0);
-        let yv = -3.0 + 6.0 * j as f64 / (n as f64 - 1.0);
-        x.push(xv);
-        y.push(yv);
-        z.push(xv.sin() * yv.cos());
-    }
-}
-
-chart!(x, y, z)?
-    .transform_contour(ContourTransform::new("x", "y", "z").with_levels(10))?
-    .mark_path()?
-    .configure_path(|m| m.with_stroke_width(1.5))
-    .encode((
-        alt::x("x"),
-        alt::y("y"),
-        alt::path_group("path_group"),
-        alt::color("level"),
-    ))?
-    .save("contour.svg")?;
+{{#include ../../../examples/contour.rs}}
 ```
 
 The transform writes four columns: `x`, `y`, `path_group` (one per extracted
@@ -67,13 +44,10 @@ dots](../grammar/marks.md#connecting-the-dots-line-path-and-polygon).
 Colouring the lines by `level` is optional. Drop the colour encoding and the
 path is drawn with the mark's own stroke instead — a single-colour contour:
 
+<img src="../images/contour_single.svg" width="500">
+
 ```rust
-// Single-colour contour: no colour channel, the path's stroke is used.
-chart!(x, y, z)?
-    .transform_contour(ContourTransform::new("x", "y", "z").with_levels(10))?
-    .mark_path()?
-    .configure_path(|m| m.with_stroke("black").with_stroke_width(1.0))
-    .encode((alt::x("x"), alt::y("y"), alt::path_group("path_group")))?;
+{{#include ../../../examples/contour_single.rs}}
 ```
 
 ## Density contours
@@ -82,16 +56,10 @@ A density contour is the same picture with a bivariate density as the field.
 `transform_density_2d` estimates that density onto a grid, and the same contour
 transform draws it — the familiar `kdeplot` / `geom_density_2d` picture:
 
+<img src="../images/density_contour.svg" width="500">
+
 ```rust
-chart!(iris)?
-    .transform_density_2d(
-        Density2DTransform::new("sepal_length", "petal_length").with_grid_size(60),
-    )?
-    .transform_contour(ContourTransform::new("x", "y", "density").with_levels(8))?
-    .mark_path()?
-    .encode((alt::x("x"), alt::y("y"),
-             alt::path_group("path_group"), alt::color("level")))?
-    .save("density_contour.svg")?;
+{{#include ../../../examples/density_contour.rs}}
 ```
 
 So a density contour is three general pieces in a row:

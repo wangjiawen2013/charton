@@ -6,6 +6,14 @@ stated in the README and in each release.
 
 ## [Unreleased]
 
+## [0.8.0] - 2026-10-03
+
+### Fixed
+
+- The `--help` text for `-g/--geom` now lists every chart type the command
+  accepts (it was missing `density`/`kde` and `ecdf`), and `--interpolation` no
+  longer advertises a `monotone` option that does not exist.
+
 ### Added
 
 - `-g violin`: a violin plot, composed from a density outline and an inner
@@ -41,6 +49,8 @@ stated in the README and in each release.
   produces a pie, or a donut with `--inner-radius`; keeping `-x` maps it to the
   angle for a rose / Nightingale chart. Previously every polar bar chart was a
   rose.
+
+[0.8.0]: https://github.com/wangjiawen2013/charton/releases/tag/v0.8.0
 
 [0.7.1]: https://github.com/wangjiawen2013/charton/releases/tag/v0.7.1
 

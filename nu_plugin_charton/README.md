@@ -16,8 +16,12 @@ That one line reads the table, infers the column types, builds the chart and
 draws it in the terminal. The Nushell command is `charton` (the plugin is
 registered under the name without the `nu_plugin_` prefix).
 
+Two flags get you a chart: **`-g` picks the chart type** and **`-x` / `-y` name
+the columns to plot**. Everything else — colour, stacking, faceting, themes — is
+optional.
+
 > **Compatibility:** `nu_plugin_charton` targets **Nushell 0.116** and shares
-> the `charton` version number (both `0.7.x`), so one release covers the
+> the `charton` version number (both `0.8.x`), so one release covers the
 > matching pair. See [Compatibility](#compatibility).
 
 ## Install
@@ -70,23 +74,30 @@ instead.
 
 ## Quick start
 
+`-g` picks the chart type and `-x` / `-y` name the columns. That is the whole
+essentials:
+
 ```nu
-# Inline in the terminal (Kitty / iTerm2 / Sixel / truecolor half-blocks)
+# Draw inline in the terminal (Kitty / iTerm2 / Sixel / truecolor half-blocks)
 ls | charton -g bar -x name -y size
 
-# Save to a file — format comes from the extension (.svg or .png)
+# Or save instead — the format follows the file extension (.svg or .png)
 open assets/data.csv | charton -g line -x date -y value -o chart.svg
 open assets/data.csv | charton -g beeswarm -x group -y score -o chart.png
 
-# Return the image to the pipeline instead of drawing it
+# Or return the image to the pipeline instead of drawing it
 open assets/data.csv | charton -g point -x a -y b --raw | save chart.svg
 open assets/data.csv | charton -g point -x a -y b --raw --png | save chart.png
+```
 
-# Group by a column with color, stack, and aggregate
+Everything else is optional. More recipes to copy from:
+
+```nu
+# Colour / group, stack, and aggregate
 open assets/sales.csv | charton -g bar -x region -y revenue -c quarter --stack stacked
 open assets/sales.csv | charton -g bar -x region -y revenue --aggregate mean
 
-# Distribution and trend (--opacity keeps overlapping density curves visible)
+# Distributions and trends (--opacity keeps overlapping density curves visible)
 open assets/data.csv | charton -g density -x score -c group --opacity 0.5
 open assets/data.csv | charton -g line -x t -y v --loess
 
@@ -102,8 +113,8 @@ open assets/grid.csv | charton -g contour -x x -y y --z z -o contour.svg
 open assets/grid.csv | charton -g contour -x x -y y --z z --stroke black -o contour_mono.svg
 open assets/data.csv | charton -g contour -x a -y b -o density_contour.svg
 
-# Pie / donut (bar mark in polar coordinates; omit -x so y becomes the slices)
-open assets/data.csv | charton -g bar -y amount -c category --coord polar
+# Pie / donut (bar mark in polar coordinates; omit -x so y becomes the slices;
+# add --inner-radius for a donut)
 open assets/data.csv | charton -g bar -y amount -c category --coord polar --inner-radius 0.5
 
 # Rose / Nightingale (x maps to the angle, y to the radius)
@@ -360,7 +371,7 @@ Nushell, install the matching plugin release (or rebuild) and re-run
 `plugin add`.
 
 `nu_plugin_charton` shares its version number with the `charton` library it
-depends on, so `charton 0.7.1` and `nu_plugin_charton 0.7.1` ship as a pair.
+depends on, so `charton 0.8.0` and `nu_plugin_charton 0.8.0` ship as a pair.
 The Nushell target is stated here and in the release notes.
 
 ## Uninstall

@@ -51,12 +51,14 @@ Charton 是一款高性能 Rust 绘图库，其声明式 API 灵感源自 [Altai
     <tr>
         <td><img src="docs/src/images/quasirandom.svg" alt="Quasirandom" /><p align="center">Quasirandom</p></td>
         <td><img src="docs/src/images/grouped_violin.svg" alt="Grouped Violin" /><p align="center">Grouped Violin</p></td>
+        <td><img src="docs/src/images/density_contour.svg" alt="Density Contour" /><p align="center">Density Contour</p></td>
+    </tr>
+    <tr>
         <td><img src="docs/src/images/violin.svg" alt="Violin" /><p align="center">Violin</p></td>
         <td><img src="docs/src/images/faceted_violin.svg" alt="Faceted Violin" /><p align="center">Faceted Violin</p></td>
         <td><img src="docs/src/images/split_violin.svg" alt="Split Violin" /><p align="center">Split Violin</p></td>
         <td><img src="docs/src/images/raincloud.svg" alt="Raincloud" /><p align="center">Raincloud</p></td>
         <td><img src="docs/src/images/contour.svg" alt="Contour" /><p align="center">Contour</p></td>
-        <td><img src="docs/src/images/density_contour.svg" alt="Density Contour" /><p align="center">Density Contour</p></td>
     </tr>
 </table>
 
@@ -65,13 +67,13 @@ Charton 是一款高性能 Rust 绘图库，其声明式 API 灵感源自 [Altai
 
 ```toml
 [dependencies]
-charton = "0.7"                                            # 标准版 (单线程 + SVG 导出)
-charton = { version = "0.7", features = ["png"] }          # 纯后端光栅化渲染（仅 CPU 模式）
-charton = { version = "0.7", features = ["pdf"] }          # PDF 格式图表导出
-charton = { version = "0.7", features = ["wgpu", "png"] }  # 本地桌面端（GPU 加速 + PNG 导出）
-charton = { version = "0.7", features = ["wgpu"] }         # 网页浏览器（WebAssembly/Wasm 目标平台）
-charton = { version = "0.7", features = ["parallel"] }     # 多线程数据处理（基于 Rayon）
-charton = { version = "0.7", features = ["geo"] }          # 地理坐标支持
+charton = "0.8"                                            # 标准版 (单线程 + SVG 导出)
+charton = { version = "0.8", features = ["png"] }          # 纯后端光栅化渲染（仅 CPU 模式）
+charton = { version = "0.8", features = ["pdf"] }          # PDF 格式图表导出
+charton = { version = "0.8", features = ["wgpu", "png"] }  # 本地桌面端（GPU 加速 + PNG 导出）
+charton = { version = "0.8", features = ["wgpu"] }         # 网页浏览器（WebAssembly/Wasm 目标平台）
+charton = { version = "0.8", features = ["parallel"] }     # 多线程数据处理（基于 Rayon）
+charton = { version = "0.8", features = ["geo"] }          # 地理坐标支持
 ```
 
 ## 快速上手
