@@ -39,7 +39,7 @@ panel rows, constraint 1 (equal panels) holds by construction, and constraint 2
 
 The obvious alternative is to divide the container into `rows × cols` equal
 cells and inset each panel by a fixed padding for the axis, the way a single
-chart might. That is what Charton used to do, and it fails in two ways:
+chart might. That approach fails in two ways:
 
 * the axis padding is charged to **every** cell, including cells that draw no
   axis, so it silently becomes part of the gap between neighbouring panels;

@@ -745,9 +745,9 @@ impl LayeredChart {
         // the left/bottom and the axes live in the gap. A faceted chart cannot do
         // that, because its axes live *inside* the grid, on specific columns and
         // rows -- reserving them on the border as well is exactly the double
-        // reservation that used to leave a dead band at the left and bottom
-        // edges. So the measured extents are still computed below (the grid needs
-        // their size), but they are only added to the border when `!is_faceted`.
+        // reservation that leaves a dead band at the left and bottom edges. So
+        // the measured extents are still computed below (the grid needs their
+        // size), but they are only added to the border when `!is_faceted`.
         let is_faceted = self.facet.is_some();
 
         // The area inside the outer margins. Everything the chart needs to show

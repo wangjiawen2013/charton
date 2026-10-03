@@ -16,31 +16,35 @@ use charton::prelude::*;
 
 let penguins = load_dataset("penguins")?;
 
-// The statistics are shared between the outline and the box.
-let params = ViolinTransform::new("Body Mass (g)")
-    .with_category("Species")
-    .with_scale(ViolinScale::Width);
-
-// 1. The cloud: the density outline.
+// 1. The cloud: the density outline (stat + general band geometry).
 let violin = chart!(&penguins)?
-    .transform_violin(params.clone())?
+    .transform_density(
+        DensityTransform::new("Body Mass (g)")
+            .with_as("Body Mass (g)", "density")
+            .with_groupbys(["Species"]),
+    )?
+    .transform_band(
+        BandTransform::new("Body Mass (g)", "density").with_center("Species"),
+    )?
     .mark_polygon()?
     .configure_geoshape(|m| m.with_fill("#d6eaf8").with_stroke("#2c3e50"))
     .encode((
         alt::x("x").with_category_labels("Species"),
         alt::y("y"),
-        alt::path_group("violin_id"),
+        alt::path_group("path_group"),
     ))?;
 
-// 2. The box: quartiles + median, from the same statistics.
+// 2. The box: quartiles + median, from the same observations.
 let inner_box = chart!(&penguins)?
-    .transform_violin_box(params)?
+    .transform_quantile_box(
+        QuantileBoxTransform::new("Body Mass (g)").with_category("Species"),
+    )?
     .mark_polygon()?
     .configure_geoshape(|m| m.with_fill("white").with_stroke("black"))
     .encode((
         alt::x("x").with_category_labels("Species"),
         alt::y("y"),
-        alt::path_group("violin_id"),
+        alt::path_group("path_group"),
     ))?;
 
 // 3. The rain: every observation, jittered inside the violin.
@@ -55,25 +59,30 @@ violin.and(inner_box).and(rain).save("raincloud.svg")?;
 ## Split violin
 
 A split violin contrasts two groups inside one outline: the first group grows to
-the right of the category centre, the second to the left. Ask the transform for
-`with_split(true)` and colour the result by group — the two halves then read as a
-single violin split down the middle.
+the right of the category centre, the second to the left. Density groups by the
+two fields, and the band geometry is asked for `with_split(true)`; colour the
+result by group and the two halves read as a single violin split down the
+middle.
 
 ```rust
 chart!(&penguins)?
-    .transform_violin(
-        ViolinTransform::new("Body Mass (g)")
-            .with_category("Species")
+    .transform_density(
+        DensityTransform::new("Body Mass (g)")
+            .with_as("Body Mass (g)", "density")
+            .with_groupbys(["Species", "Sex"]),
+    )?
+    .transform_band(
+        BandTransform::new("Body Mass (g)", "density")
+            .with_center("Species")
             .with_group("Sex")
-            .with_split(true)
-            .with_scale(ViolinScale::Width),
+            .with_split(true),
     )?
     .mark_polygon()?
     .configure_geoshape(|m| m.with_fill("#95a5a6").with_stroke("#2c3e50"))
     .encode((
         alt::x("x").with_category_labels("Species"),
         alt::y("y"),
-        alt::path_group("violin_id"),
+        alt::path_group("path_group"),
         alt::color("Sex"),
     ))?
     .save("split_violin.svg")?;
@@ -81,10 +90,10 @@ chart!(&penguins)?
 
 ## Overlaying a box on a normally-dodged violin
 
-`transform_violin` also writes `y_q1`, `y_median` and `y_q3` columns, so any
-overlay can read them directly. For a dodged (side-by-side) violin, layer
-`transform_violin_box` on top exactly as in the raincloud, but keep the
-`Position::Dodge` on both transforms so the boxes follow their violins.
+`transform_quantile_box` computes the quartiles per `(category, group)` cell, so
+any overlay can read them directly. For a dodged (side-by-side) violin, layer it
+on top exactly as in the raincloud, but keep the same `Position::Dodge` on the
+band and on the box so the boxes follow their violins.
 
 ## Why this is better than a dedicated "violin mark"
 

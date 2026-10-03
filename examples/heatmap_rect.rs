@@ -1,3 +1,9 @@
+//! Heatmap over two **continuous** columns.
+//!
+//! `mark_rect` slices the x and y axes into a grid and paints each cell with the
+//! colour of the value that falls in it. This is the "2D density heatmap" shape;
+//! for the iso-lines of a density instead, see `density_contour.rs`.
+
 use charton::prelude::*;
 use std::error::Error;
 
@@ -13,7 +19,7 @@ fn main() -> Result<(), Box<dyn Error>> {
         .mark_rect()?
         .encode((alt::x("x"), alt::y("y"), alt::color("value")))?
         .configure_theme(|t| t.with_color_map(ColorMap::GnBu))
-        .save("2d_density_gpu.png")?;
+        .save("docs/src/images/heatmap_rect.svg")?;
 
     Ok(())
 }

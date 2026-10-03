@@ -1,16 +1,20 @@
 use charton::prelude::*;
 use std::error::Error;
 
-/// A single violin is a closed, symmetric polygon.
+/// A single violin is a closed, symmetric polygon built from a density curve
+/// and the general band geometry.
 #[test]
 fn test_violin_1() -> Result<(), Box<dyn Error>> {
     let iris = load_dataset("iris")?;
 
     chart!(iris)?
-        .transform_violin(ViolinTransform::new("sepal_length"))?
+        .transform_density(
+            DensityTransform::new("sepal_length").with_as("sepal_length", "density"),
+        )?
+        .transform_band(BandTransform::new("sepal_length", "density"))?
         .mark_polygon()?
         .configure_geoshape(|mark| mark.with_fill("#7fb3d5").with_stroke("#2c3e50"))
-        .encode((alt::x("x"), alt::y("y"), alt::path_group("violin_id")))?
+        .encode((alt::x("x"), alt::y("y"), alt::path_group("path_group")))?
         .save("./tests/violin_1.svg")?;
 
     Ok(())
@@ -22,9 +26,14 @@ fn test_violin_2() -> Result<(), Box<dyn Error>> {
     let penguins = load_dataset("penguins")?;
 
     chart!(&penguins)?
-        .transform_violin(
-            ViolinTransform::new("Body Mass (g)")
-                .with_category("Sex")
+        .transform_density(
+            DensityTransform::new("Body Mass (g)")
+                .with_as("Body Mass (g)", "density")
+                .with_groupbys(["Sex", "Species"]),
+        )?
+        .transform_band(
+            BandTransform::new("Body Mass (g)", "density")
+                .with_center("Sex")
                 .with_group("Species")
                 .with_position(Position::dodge()),
         )?
@@ -33,7 +42,7 @@ fn test_violin_2() -> Result<(), Box<dyn Error>> {
         .encode((
             alt::x("x").with_category_labels("Sex"),
             alt::y("y"),
-            alt::path_group("violin_id"),
+            alt::path_group("path_group"),
             alt::color("Species"),
         ))?
         .save("./tests/violin_2.svg")?;
@@ -51,7 +60,7 @@ fn test_violin_3() -> Result<(), Box<dyn Error>> {
         .transform_density(
             DensityTransform::new("Body Mass (g)")
                 .with_as("Body Mass (g)", "density")
-                .with_groupby("Species"),
+                .with_groupbys(["Species"]),
         )?
         .mark_area()?
         .configure_area(|a| a.with_opacity(0.7).with_stroke("#7e5109"))
@@ -67,36 +76,46 @@ fn test_violin_3() -> Result<(), Box<dyn Error>> {
     Ok(())
 }
 
-/// The inner box is a second polygon layer that shares the violin's geometry.
+/// The inner box is a second polygon layer built from the same observations.
 #[test]
 fn test_violin_4() -> Result<(), Box<dyn Error>> {
     let penguins = load_dataset("penguins")?;
 
-    let params = ViolinTransform::new("Body Mass (g)")
-        .with_category("Sex")
-        .with_group("Species")
-        .with_position(Position::dodge())
-        .with_scale(ViolinScale::Width);
-
     let outline = chart!(&penguins)?
-        .transform_violin(params.clone())?
+        .transform_density(
+            DensityTransform::new("Body Mass (g)")
+                .with_as("Body Mass (g)", "density")
+                .with_groupbys(["Sex", "Species"]),
+        )?
+        .transform_band(
+            BandTransform::new("Body Mass (g)", "density")
+                .with_center("Sex")
+                .with_group("Species")
+                .with_position(Position::dodge())
+                .with_scale(BandScale::PerGroup),
+        )?
         .mark_polygon()?
         .configure_geoshape(|mark| mark.with_fill("#d6eaf8").with_stroke("#2c3e50"))
         .encode((
             alt::x("x").with_category_labels("Sex"),
             alt::y("y"),
-            alt::path_group("violin_id"),
+            alt::path_group("path_group"),
             alt::color("Species"),
         ))?;
 
     let inner_box = chart!(&penguins)?
-        .transform_violin_box(params)?
+        .transform_quantile_box(
+            QuantileBoxTransform::new("Body Mass (g)")
+                .with_category("Sex")
+                .with_group("Species")
+                .with_position(Position::dodge()),
+        )?
         .mark_polygon()?
         .configure_geoshape(|mark| mark.with_fill("white").with_stroke("black"))
         .encode((
             alt::x("x").with_category_labels("Sex"),
             alt::y("y"),
-            alt::path_group("violin_id"),
+            alt::path_group("path_group"),
         ))?;
 
     outline.and(inner_box).save("./tests/violin_4.svg")?;
@@ -115,7 +134,7 @@ fn test_violin_5() -> Result<(), Box<dyn Error>> {
         .transform_density(
             DensityTransform::new("sepal_length")
                 .with_as("sepal_length", "density")
-                .with_groupby("species"),
+                .with_groupbys(["species"]),
         )?
         .mark_area()?
         .configure_area(|a| a.with_opacity(0.7).with_stroke("black"))
@@ -137,19 +156,24 @@ fn test_violin_split() -> Result<(), Box<dyn Error>> {
     let penguins = load_dataset("penguins")?;
 
     chart!(&penguins)?
-        .transform_violin(
-            ViolinTransform::new("Body Mass (g)")
-                .with_category("Species")
+        .transform_density(
+            DensityTransform::new("Body Mass (g)")
+                .with_as("Body Mass (g)", "density")
+                .with_groupbys(["Species", "Sex"]),
+        )?
+        .transform_band(
+            BandTransform::new("Body Mass (g)", "density")
+                .with_center("Species")
                 .with_group("Sex")
                 .with_split(true)
-                .with_scale(ViolinScale::Width),
+                .with_scale(BandScale::PerGroup),
         )?
         .mark_polygon()?
         .configure_geoshape(|mark| mark.with_fill("#95a5a6").with_stroke("#2c3e50"))
         .encode((
             alt::x("x").with_category_labels("Species"),
             alt::y("y"),
-            alt::path_group("violin_id"),
+            alt::path_group("path_group"),
             alt::color("Sex"),
         ))?
         .save("./tests/violin_6.svg")?;
@@ -162,28 +186,35 @@ fn test_violin_split() -> Result<(), Box<dyn Error>> {
 fn test_violin_raincloud() -> Result<(), Box<dyn Error>> {
     let penguins = load_dataset("penguins")?;
 
-    let params = ViolinTransform::new("Body Mass (g)")
-        .with_category("Species")
-        .with_scale(ViolinScale::Width);
-
     let violin = chart!(&penguins)?
-        .transform_violin(params.clone())?
+        .transform_density(
+            DensityTransform::new("Body Mass (g)")
+                .with_as("Body Mass (g)", "density")
+                .with_groupbys(["Species"]),
+        )?
+        .transform_band(
+            BandTransform::new("Body Mass (g)", "density")
+                .with_center("Species")
+                .with_scale(BandScale::PerGroup),
+        )?
         .mark_polygon()?
         .configure_geoshape(|mark| mark.with_fill("#d6eaf8").with_stroke("#2c3e50"))
         .encode((
             alt::x("x").with_category_labels("Species"),
             alt::y("y"),
-            alt::path_group("violin_id"),
+            alt::path_group("path_group"),
         ))?;
 
     let inner_box = chart!(&penguins)?
-        .transform_violin_box(params)?
+        .transform_quantile_box(
+            QuantileBoxTransform::new("Body Mass (g)").with_category("Species"),
+        )?
         .mark_polygon()?
         .configure_geoshape(|mark| mark.with_fill("white").with_stroke("black"))
         .encode((
             alt::x("x").with_category_labels("Species"),
             alt::y("y"),
-            alt::path_group("violin_id"),
+            alt::path_group("path_group"),
         ))?;
 
     let rain = chart!(&penguins)?

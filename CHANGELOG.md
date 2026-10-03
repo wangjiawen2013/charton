@@ -17,22 +17,47 @@ predate this file.
 
 ### Added
 
+- **Contour plots from general parts.** Two orthogonal primitives, not a
+  contour-specific mark or transform:
+  - `mark_path` — the general *open* polyline geometry. It connects the rows
+    that share a `path_group` in row order (no sorting, no closing) and strokes
+    them with the colour channel. `mark_polygon`/`mark_geoshape` are the closed,
+    filled form of the same geometry.
+  - `transform_contour` — marches squares over a regular `x`/`y`/`z` grid and
+    emits `(x, y, path_group, level)` iso-lines.
+  - `transform_density_2d` — estimates a bivariate kernel density onto a grid,
+    so scattered points become a density field. It feeds the same contour
+    transform: `scatter → density_2d → contour → mark_path` is the classic
+    density contour (`kdeplot` / `geom_density_2d`).
+
+  A contour plot is `transform_contour` + `mark_path`; the same pieces draw
+  custom curves and parallel coordinates.
 - **Violin plots, composed from basic parts.** There is deliberately no violin
-  mark. Two recipes cover every layout:
+  mark and no violin-specific transform. Two recipes cover every layout:
 
   - *Reuse* (Vega-Lite / Altair style): `transform_density` + `mark_area` with
     `StackMode::Mirror` (`with_stack("mirror")`) draws single and faceted
     violins with no violin-specific code.
-  - *Dedicated stat* (ggplot2 `stat_ydensity` style): `transform_violin` handles
-    dodged grouped and split violins, which need the category on x and a
-    two-field grouping; `transform_violin_box` adds the inner inter-quartile box
-    and median as a second polygon layer. Both reuse the shared KDE core.
+  - *Geometry* (ggplot2 `stat_ydensity` style): `DensityTransform::with_groupbys`
+    groups by `[category, group]` at once; `transform_band` is the general band
+    geometry that draws the symmetric outline and applies a `Position`;
+    `transform_quantile_box` adds the inner inter-quartile box and median as a
+    second polygon layer. All reuse the shared KDE core.
 
   `mark_polygon` (an alias of the shared polygon renderer) is the geometry.
+- **General band and box geometry.** `transform_band` turns a value axis and a
+  half-width column into a symmetric `centre ± width` polygon, with a `Position`
+  for dodging and a `split` mode for two-sided bands. `transform_quantile_box`
+  computes per-group quartiles and emits the inter-quartile box and median as
+  polygons. Neither is violin-specific: they are the reusable geometry behind
+  violins, rainclouds and any placed ribbon.
 - `Position`, a data-space position adjustment (`Identity` / `Dodge`). Offsets
   are measured in category steps, so every geometry can share one layout.
-- `ViolinTransform::with_split` draws two groups as the left and right halves of
-  one violin.
+- `BandTransform::with_split` draws two groups as the left and right halves of
+  one band.
+- `DensityTransform::with_groupbys` groups a density estimate by several fields
+  at once (for example `["Sex", "Species"]`), which is what dodged and split
+  violins need.
 - `StackMode::Mirror` / `with_stack("mirror")`: draws each series symmetrically
   around zero (`-value/2 .. +value/2`), independently of the others. This is the
   Vega-Lite `stack: "center"` behaviour applied per series.

@@ -6,6 +6,23 @@
 //! By seamlessly integrating with [evcxr_jupyter](https://github.com/evcxr/evcxr), Charton
 //! facilitates the creation of informative and aesthetically pleasing visualizations interactively,
 //! making it especially well-suited for exploratory data analysis.
+//!
+//! # How a chart is built
+//!
+//! Every chart is a small pipeline of independent steps:
+//!
+//! * a **transform** summarises the data — `transform_density` estimates a
+//!   smooth curve, `transform_contour` extracts iso-lines, `transform_band`
+//!   turns a curve into a placed polygon;
+//! * a **position** decides where marks sit when several share a category
+//!   (`Position::dodge`);
+//! * a **mark** draws a shape (`mark_polygon`, `mark_line`, `mark_point`, ...).
+//!
+//! Because the steps are independent they can be recombined. A violin is a
+//! density transform plus a band plus a polygon; a contour plot is a density
+//! grid plus an iso-line transform plus an open path. There is no "violin mark"
+//! or "contour mark" to learn. See `docs/src/concepts/grammar_pipeline.md` for
+//! the full model.
 
 #![warn(clippy::missing_const_for_fn)]
 
@@ -100,8 +117,11 @@ pub mod prelude {
     pub use crate::scale::{Expansion, Scale};
     pub use crate::theme::{Theme, ThemeMode, TitleAnchor, TitleFrame};
     pub use crate::transform::{
+        band_transform::{BandScale, BandTransform},
+        box_transform::QuantileBoxTransform,
+        contour_transform::{ContourLevels, ContourTransform},
+        density_2d_transform::Density2DTransform,
         density_transform::{BandwidthType, DensityTransform, KernelType},
-        violin_transform::{ViolinScale, ViolinTransform},
         window_transform::{WindowFieldDef, WindowOnlyOp, WindowTransform},
     };
     pub use crate::visual::color::{ColorMap, ColorPalette, SingleColor};

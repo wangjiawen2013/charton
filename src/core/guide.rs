@@ -42,8 +42,8 @@ pub(crate) struct EntryMetrics {
 /// Resolved geometry of a continuous gradient bar.
 ///
 /// The bar is measured once, here, and then drawn verbatim. Renderers must not
-/// recompute its size from the space available to them: doing so is what used to
-/// make a colour bar a fixed 150px long regardless of the panel it belonged to.
+/// recompute its size from the space available to them: that is how a colour bar
+/// ends up a fixed 150px long regardless of the panel it belongs to.
 #[derive(Debug, Clone, Copy)]
 pub(crate) struct ColorBarGeometry {
     /// Length along the bar, i.e. the axis the gradient runs down.
@@ -78,7 +78,7 @@ pub(crate) struct EntryOffset {
 ///
 /// Measuring and placing happen here, once. Renderers consume [`Self::entries`]
 /// verbatim instead of re-running the wrapping themselves -- duplicated wrapping
-/// logic is exactly what used to let the measured and the drawn layout disagree.
+/// logic is exactly how the measured and the drawn layout drift apart.
 #[derive(Debug, Clone)]
 pub(crate) struct MeasuredGuide {
     pub(crate) size: GuideSize,

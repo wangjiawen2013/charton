@@ -1,3 +1,15 @@
+//! Window functions: rank, row number and cumulative distributions.
+//!
+//! A window function computes a value from a row's position within an ordered
+//! group instead of collapsing the rows. `transform_window` supports the
+//! cumulative distribution (`CumeDist`, an ECDF step curve), `RowNumber` and
+//! `Rank`, and partitions the table by one or more fields with
+//! [`WindowTransform::with_groupbys`].
+//!
+//! `CumeDist` changes the row count: each group is padded with a start and an
+//! end row so the step curve reaches the edges of the axis. The ranking
+//! operations keep the original rows and leave null inputs as null.
+
 use crate::chart::Chart;
 use crate::core::data::{ColumnVector, Dataset};
 use crate::error::ChartonError;
@@ -110,8 +122,9 @@ pub struct WindowTransform {
     pub window: WindowFieldDef,
     /// A frame specification as a two-element array indicating how the sliding window should proceed
     pub frame: [Option<f64>; 2],
-    /// The data fields for partitioning the data objects into separate windows
-    pub groupby: Option<String>,
+    /// The data fields for partitioning the data objects into separate windows.
+    /// Empty means "one window over the whole table".
+    pub groupby: Vec<String>,
     /// Indicates if the sliding window frame should ignore peer values
     pub ignore_peers: bool,
     /// If true, normalize the cumulative frequency to the range [0,1] in each group
@@ -140,7 +153,7 @@ impl WindowTransform {
         Self {
             window,
             frame: [None, Some(0.0)], // Default value: [null, 0]
-            groupby: None,
+            groupby: Vec::new(),
             ignore_peers: false,
             normalize: false,
         }
@@ -164,20 +177,17 @@ impl WindowTransform {
         self
     }
 
-    /// Set the groupby field
+    /// Partitions the rows by one or more fields, one window per combination.
     ///
-    /// # Parameters
-    /// * `groupby` - The name of the column to group by, with separate window calculations for each group
-    ///
-    /// # Returns
-    /// The modified `WindowTransform` instance with the updated groupby setting
-    ///
-    /// # Example
-    /// ```rust,ignore
-    /// let window_transform = window_transform.with_groupby("category");
-    /// ```
-    pub fn with_groupby(mut self, groupby: &str) -> Self {
-        self.groupby = Some(groupby.into());
+    /// Each distinct combination of the fields is evaluated on its own. With
+    /// no fields the whole table is one window, which is what `Rank`,
+    /// `RowNumber` and the ECDF do for an ungrouped column.
+    pub fn with_groupbys<I, S>(mut self, groupbys: I) -> Self
+    where
+        I: IntoIterator<Item = S>,
+        S: Into<String>,
+    {
+        self.groupby = groupbys.into_iter().map(Into::into).collect();
         self
     }
 
@@ -233,31 +243,31 @@ impl<T: Mark> Chart<T> {
         let output_name = &params.window.as_;
         let target_col = self.data.column(field_name)?;
 
-        // --- PHASE 1: UNIFIED GROUPING ---
-        let mut groups: AHashMap<Option<String>, Vec<usize>> = AHashMap::new();
-        if let Some(ref group_field) = params.groupby {
-            let group_col = self.data.column(group_field)?;
-            for i in 0..n {
-                groups
-                    .entry(group_col.get(i).to_string())
-                    .or_default()
-                    .push(i);
-            }
-        } else {
-            // If no groupby is specified, treat the entire dataset as a single group
-            groups.insert(None, (0..n).collect());
-        }
+        // --- PHASE 1: GROUPING (with stable first-appearance order) ---
+        let group_columns: Vec<&ColumnVector> = params
+            .groupby
+            .iter()
+            .map(|field| self.data.column(field))
+            .collect::<Result<Vec<_>, _>>()?;
 
-        // --- PHASE 2: STABLE ORDER DETERMINATION ---
-        let group_order: Vec<Option<String>> = if let Some(ref group_field) = params.groupby {
-            self.data
-                .column(group_field)?
-                .unique_values()
-                .into_iter()
-                .map(Some)
-                .collect()
+        let mut groups: AHashMap<Vec<String>, Vec<usize>> = AHashMap::new();
+        let group_order: Vec<Vec<String>> = if params.groupby.is_empty() {
+            // No groupby: the whole table is a single window.
+            groups.insert(Vec::new(), (0..n).collect());
+            vec![Vec::new()]
         } else {
-            vec![None]
+            let mut order: Vec<Vec<String>> = Vec::new();
+            for i in 0..n {
+                let key: Vec<String> = group_columns
+                    .iter()
+                    .map(|col| col.get(i).to_string().unwrap_or_else(|| "null".to_string()))
+                    .collect();
+                if !groups.contains_key(&key) {
+                    order.push(key.clone());
+                }
+                groups.entry(key).or_default().push(i);
+            }
+            order
         };
 
         // --- PHASE 3: OPERATION MATCHING ---
@@ -342,8 +352,8 @@ impl<T: Mark> Chart<T> {
     /// Internal helper to handle ECDF logic with Domain Expansion (Padding).
     fn apply_ecdf_with_padding(
         &self,
-        mut groups: AHashMap<Option<String>, Vec<usize>>,
-        group_order: Vec<Option<String>>,
+        mut groups: AHashMap<Vec<String>, Vec<usize>>,
+        group_order: Vec<Vec<String>>,
         params: &WindowTransform,
     ) -> Result<Dataset, ChartonError> {
         let field_name = &params.window.field;
@@ -374,10 +384,11 @@ impl<T: Mark> Chart<T> {
         // --- STEP 2: EXPAND ROWS ---
         let mut expanded_x = Vec::new();
         let mut expanded_y = Vec::new();
-        let mut expanded_groups = Vec::new();
+        // One output column per groupby field.
+        let mut expanded_groups: Vec<Vec<String>> = vec![Vec::new(); params.groupby.len()];
 
-        for key in group_order {
-            if let Some(indices) = groups.remove(&key) {
+        for group_key in group_order {
+            if let Some(indices) = groups.remove(&group_key) {
                 let mut valid_indices: Vec<usize> = indices
                     .into_iter()
                     .filter(|&idx| target_col.get(idx).to_f64().is_some())
@@ -396,13 +407,17 @@ impl<T: Mark> Chart<T> {
                 });
 
                 let group_size = valid_indices.len() as f64;
-                let group_label = key.as_deref().unwrap_or("all").to_string();
+                let push_group = |groups: &mut Vec<Vec<String>>| {
+                    for (field_index, label) in group_key.iter().enumerate() {
+                        groups[field_index].push(label.clone());
+                    }
+                };
 
                 // A. Start Padding
                 expanded_x.push(global_min);
                 expanded_y.push(0.0);
-                if params.groupby.is_some() {
-                    expanded_groups.push(group_label.clone());
+                if !params.groupby.is_empty() {
+                    push_group(&mut expanded_groups);
                 }
 
                 // B. Actual Cumulative Points
@@ -417,16 +432,16 @@ impl<T: Mark> Chart<T> {
 
                     expanded_x.push(x_val);
                     expanded_y.push(y_val);
-                    if params.groupby.is_some() {
-                        expanded_groups.push(group_label.clone());
+                    if !params.groupby.is_empty() {
+                        push_group(&mut expanded_groups);
                     }
                 }
 
                 // C. End Padding
                 expanded_x.push(global_max);
                 expanded_y.push(if params.normalize { 1.0 } else { group_size });
-                if params.groupby.is_some() {
-                    expanded_groups.push(group_label);
+                if !params.groupby.is_empty() {
+                    push_group(&mut expanded_groups);
                 }
             }
         }
@@ -449,11 +464,11 @@ impl<T: Mark> Chart<T> {
             },
         )?;
 
-        if let Some(ref g_name) = params.groupby {
+        for (field_index, g_name) in params.groupby.iter().enumerate() {
             new_ds.add_column(
                 g_name,
                 ColumnVector::String {
-                    data: expanded_groups,
+                    data: std::mem::take(&mut expanded_groups[field_index]),
                     validity: None,
                 },
             )?;

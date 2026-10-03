@@ -28,7 +28,7 @@ Charton 是一款高性能 Rust 绘图库，其声明式 API 灵感源自 [Altai
         <td><img src="docs/src/images/histogram.svg" alt="Histogram" /><p align="center">Histogram</p></td>
     </tr>
     <tr>
-        <td><img src="docs/src/images/2d_density.svg" alt="2d Density" /><p align="center">2d Density Chart</p></td>
+        <td><img src="docs/src/images/heatmap_rect.svg" alt="Heatmap (continuous)" /><p align="center">连续热力图</p></td>
         <td><img src="docs/src/images/heatmap.svg" alt="Heatmap" /><p align="center">Heatmap</p></td>
         <td><img src="docs/src/images/grouped_boxplot.svg" alt="Grouped Boxplot" /><p align="center">Grouped Boxplot</p></td>
         <td><img src="docs/src/images/cumulative_frequency.svg" alt="Cumulative Frequency" /><p align="center">Cumulative Frequency</p></td>
@@ -51,6 +51,12 @@ Charton 是一款高性能 Rust 绘图库，其声明式 API 灵感源自 [Altai
     <tr>
         <td><img src="docs/src/images/quasirandom.svg" alt="Quasirandom" /><p align="center">Quasirandom</p></td>
         <td><img src="docs/src/images/grouped_violin.svg" alt="Grouped Violin" /><p align="center">Grouped Violin</p></td>
+        <td><img src="docs/src/images/violin.svg" alt="Violin" /><p align="center">Violin</p></td>
+        <td><img src="docs/src/images/faceted_violin.svg" alt="Faceted Violin" /><p align="center">Faceted Violin</p></td>
+        <td><img src="docs/src/images/split_violin.svg" alt="Split Violin" /><p align="center">Split Violin</p></td>
+        <td><img src="docs/src/images/raincloud.svg" alt="Raincloud" /><p align="center">Raincloud</p></td>
+        <td><img src="docs/src/images/contour.svg" alt="Contour" /><p align="center">Contour</p></td>
+        <td><img src="docs/src/images/density_contour.svg" alt="Density Contour" /><p align="center">Density Contour</p></td>
     </tr>
 </table>
 

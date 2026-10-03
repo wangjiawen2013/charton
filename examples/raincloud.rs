@@ -1,11 +1,12 @@
 //! Raincloud — a violin outline, an inner box and the raw observations.
 //!
 //! The raincloud is the clearest demonstration of the layer model: three views
-//! of the same distribution, each an ordinary layer, stacked with `.and(…)`.
+//! of the same distribution, each an ordinary composition, stacked with
+//! `.and(…)`.
 //!
-//! * `transform_violin`      → the density outline
-//! * `transform_violin_box`  → the inter-quartile box and median
-//! * `mark_point` + jitter   → every observation
+//! * `transform_density` + `transform_band`  → the density outline
+//! * `transform_quantile_box`                → the inter-quartile box and median
+//! * `mark_point` + jitter                   → every observation
 //!
 //! All three share the same x and y scales, so they line up automatically.
 
@@ -15,13 +16,18 @@ use std::error::Error;
 fn main() -> Result<(), Box<dyn Error>> {
     let penguins = load_dataset("penguins")?;
 
-    let params = ViolinTransform::new("Body Mass (g)")
-        .with_category("Species")
-        .with_scale(ViolinScale::Width);
-
     // 1. The cloud: a density outline per species.
     let violin = chart!(&penguins)?
-        .transform_violin(params.clone())?
+        .transform_density(
+            DensityTransform::new("Body Mass (g)")
+                .with_as("Body Mass (g)", "density")
+                .with_groupbys(["Species"]),
+        )?
+        .transform_band(
+            BandTransform::new("Body Mass (g)", "density")
+                .with_center("Species")
+                .with_scale(BandScale::PerGroup),
+        )?
         .mark_polygon()?
         .configure_geoshape(|mark| {
             mark.with_fill("#d6eaf8")
@@ -31,12 +37,14 @@ fn main() -> Result<(), Box<dyn Error>> {
         .encode((
             alt::x("x").with_category_labels("Species"),
             alt::y("y"),
-            alt::path_group("violin_id"),
+            alt::path_group("path_group"),
         ))?;
 
-    // 2. The box: the quartiles, drawn from the same statistics.
+    // 2. The box: the quartiles, drawn from the same raw observations.
     let inner_box = chart!(&penguins)?
-        .transform_violin_box(params)?
+        .transform_quantile_box(
+            QuantileBoxTransform::new("Body Mass (g)").with_category("Species"),
+        )?
         .mark_polygon()?
         .configure_geoshape(|mark| {
             mark.with_fill("white")
@@ -46,7 +54,7 @@ fn main() -> Result<(), Box<dyn Error>> {
         .encode((
             alt::x("x").with_category_labels("Species"),
             alt::y("y"),
-            alt::path_group("violin_id"),
+            alt::path_group("path_group"),
         ))?;
 
     // 3. The rain: every observation, jittered inside the violin.
