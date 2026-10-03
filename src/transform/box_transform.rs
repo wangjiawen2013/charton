@@ -21,7 +21,7 @@
 //! layout is shared with [`crate::transform::band_transform`], so a box always
 //! stays centred over its band.
 
-use super::lane_layout::build_lane_layout;
+use super::lane_layout::{LaneLayoutOptions, build_lane_layout};
 use crate::chart::Chart;
 use crate::core::data::{ColumnVector, Dataset, get_quantile};
 use crate::error::ChartonError;
@@ -152,10 +152,12 @@ impl<T: Mark> Chart<T> {
             &self.data,
             params.category.as_deref(),
             params.group.as_deref(),
-            &params.position,
-            params.span,
-            params.max_width,
-            false,
+            LaneLayoutOptions {
+                position: &params.position,
+                span: params.span,
+                max_width: params.max_width,
+                split: false,
+            },
             |i| {
                 let value = value_col.get(i).to_f64()?;
                 value.is_finite().then_some(value)
