@@ -21,7 +21,11 @@ fn main() -> Result<(), Box<dyn Error>> {
     chart!(iris)?
         // 1. Estimate the density of sepal length.
         .transform_density(
-            DensityTransform::new("sepal_length").with_as("sepal_length", "density"),
+            DensityTransform::new("sepal_length")
+                .with_as("sepal_length", "density")
+                // Trim to the observed range: a violin ends at the data, it does
+                // not fade out into a thin tail (ggplot2 `trim = TRUE`).
+                .with_trim(true),
         )?
         // 2. Draw it as an area, mirrored around zero.
         .mark_area()?

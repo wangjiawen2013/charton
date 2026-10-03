@@ -772,6 +772,14 @@ impl<T: Mark> Chart<T> {
             // PIE MODE DETECTION: An empty X field implies a radial projection of the Y axis.
             let is_pie_mode = x_enc.field.is_empty();
 
+            // A mirrored (violin) or centered (streamgraph) area is symmetric
+            // about the baseline rather than a magnitude that grows away from
+            // it. Its domain is trained from the stacked bounds (which reach
+            // below zero), so it needs padding on *both* ends: otherwise the
+            // mark sits flush against the axis, as a lone violin does.
+            let is_symmetric_stack =
+                mt == "area" && matches!(y_enc.stack, StackMode::Mirror | StackMode::Center);
+
             // Calculate directional expansion based on data bounds.
             if let Ok(y_col) = self.data.column(&y_enc.field) {
                 let (y_min, y_max) = y_col.min_max();
@@ -783,6 +791,9 @@ impl<T: Mark> Chart<T> {
                             mult: (0.0, 0.0),
                             add: (0.0, 0.0),
                         }
+                    } else if is_symmetric_stack {
+                        // Symmetric buffer on both ends for mirrored bands.
+                        Expansion::default()
                     } else if y_min >= 0.0 {
                         // Buffer at the top for positive distributions (5% mult).
                         Expansion {

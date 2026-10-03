@@ -29,7 +29,9 @@ the combination of the discrete aesthetics (colour, facet, and so on). In code:
 ```rust
 chart!(iris)?
     .transform_density(                                              // stat
-        DensityTransform::new("sepal_length").with_as("sepal_length", "density"))?
+        DensityTransform::new("sepal_length")
+            .with_as("sepal_length", "density")
+            .with_trim(true))?
     .transform_band(BandTransform::new("sepal_length", "density"))?  // geometry
     .mark_polygon()?                                                 // mark
     .encode((alt::x("x"), alt::y("y"), alt::path_group("path_group")))?
@@ -149,7 +151,8 @@ only a faceted chart keeps it.
 The payoff is visible with the pure Vega-Lite violin recipe:
 
 ```rust
-.transform_density(DensityTransform::new("sepal_length").with_groupbys(["species"]))?
+.transform_density(
+    DensityTransform::new("sepal_length").with_groupbys(["species"]).with_trim(true))?
 .mark_area()?
 .encode((alt::x("sepal_length"),
          alt::y("density").with_stack("center"),

@@ -66,6 +66,12 @@ predate this file.
 - `ExplicitTick::Labeled` and `IntoExplicitTicks` for `Vec<(f64, &str)>` /
   `Vec<(f64, String)>`, for hand-labelled numeric ticks.
 - `Dataset::column_arc`: a shared (`Arc`) handle to a column.
+- **`DensityTransform::with_trim`.** Optional per-group trimming: with
+  `with_trim(true)` each group is evaluated over its own observed `[min, max]`
+  (matching ggplot2 `geom_violin`, `trim = TRUE`, and Altair's violin), so
+  violins of different spread get different heights and no near-zero tails.
+  The default stays `false`, so a density plot keeps its shared, 30 % extended
+  tails (`geom_density`). The violin examples opt in.
 
 ### Changed
 
@@ -97,6 +103,11 @@ predate this file.
 
 ### Fixed
 
+- **A mirrored or centered area no longer sits flush against the axis.** A
+  violin built as `mark_area` with `stack: "mirror"` / `"center"` is symmetric
+  about zero, but it was given the asymmetric "grows from a baseline" padding,
+  so its lower half touched the axis (a lone violin had no gap at all, unlike a
+  box plot). It now gets the same 5 % padding on both ends.
 - The polygon renderer no longer applies the shared colour scale to layers that
   did not map a colour (a violin's inner box used to inherit the outline's
   colours).

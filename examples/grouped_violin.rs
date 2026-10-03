@@ -22,7 +22,8 @@ fn main() -> Result<(), Box<dyn Error>> {
         .transform_density(
             DensityTransform::new("Body Mass (g)")
                 .with_as("Body Mass (g)", "density")
-                .with_groupbys(["Species"]),
+                .with_groupbys(["Species"])
+                .with_trim(true),
         )?
         .mark_area()?
         .configure_area(|a| a.with_opacity(0.7).with_stroke("#7e5109"))
@@ -44,7 +45,8 @@ fn main() -> Result<(), Box<dyn Error>> {
         .transform_density(
             DensityTransform::new("Body Mass (g)")
                 .with_as("Body Mass (g)", "density")
-                .with_groupbys(["Sex", "Species"]),
+                .with_groupbys(["Sex", "Species"])
+                .with_trim(true),
         )?
         // Draw each curve as a symmetric band, dodged inside each Sex.
         .transform_band(
