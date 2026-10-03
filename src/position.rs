@@ -73,8 +73,7 @@
 //! `+0.3176`, and the outermost mark's edge reaches `±0.45` — exactly the span.
 
 /// Describes how items that share the same category are arranged.
-#[derive(Debug, Clone, Copy, PartialEq)]
-#[derive(Default)]
+#[derive(Debug, Clone, Copy, PartialEq, Default)]
 pub enum Position {
     /// Every item is placed on the category centre, so they overlap.
     ///
@@ -195,7 +194,6 @@ impl Position {
         }
     }
 }
-
 
 impl From<&str> for Position {
     /// Lets users write `"identity"` or `"dodge"` where a [`Position`] is expected.
