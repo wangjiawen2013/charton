@@ -9,7 +9,9 @@ fn test_violin_1() -> Result<(), Box<dyn Error>> {
 
     chart!(iris)?
         .transform_density(
-            DensityTransform::new("sepal_length").with_as("sepal_length", "density"),
+            DensityTransform::new("sepal_length")
+                .with_as("sepal_length", "density")
+                .with_trim(true),
         )?
         .transform_band(BandTransform::new("sepal_length", "density"))?
         .mark_polygon()?
@@ -29,7 +31,8 @@ fn test_violin_2() -> Result<(), Box<dyn Error>> {
         .transform_density(
             DensityTransform::new("Body Mass (g)")
                 .with_as("Body Mass (g)", "density")
-                .with_groupbys(["Sex", "Species"]),
+                .with_groupbys(["Sex", "Species"])
+                .with_trim(true),
         )?
         .transform_band(
             BandTransform::new("Body Mass (g)", "density")
@@ -60,7 +63,8 @@ fn test_violin_3() -> Result<(), Box<dyn Error>> {
         .transform_density(
             DensityTransform::new("Body Mass (g)")
                 .with_as("Body Mass (g)", "density")
-                .with_groupbys(["Species"]),
+                .with_groupbys(["Species"])
+                .with_trim(true),
         )?
         .mark_area()?
         .configure_area(|a| a.with_opacity(0.7).with_stroke("#7e5109"))
@@ -85,7 +89,8 @@ fn test_violin_4() -> Result<(), Box<dyn Error>> {
         .transform_density(
             DensityTransform::new("Body Mass (g)")
                 .with_as("Body Mass (g)", "density")
-                .with_groupbys(["Sex", "Species"]),
+                .with_groupbys(["Sex", "Species"])
+                .with_trim(true),
         )?
         .transform_band(
             BandTransform::new("Body Mass (g)", "density")
@@ -134,7 +139,8 @@ fn test_violin_5() -> Result<(), Box<dyn Error>> {
         .transform_density(
             DensityTransform::new("sepal_length")
                 .with_as("sepal_length", "density")
-                .with_groupbys(["species"]),
+                .with_groupbys(["species"])
+                .with_trim(true),
         )?
         .mark_area()?
         .configure_area(|a| a.with_opacity(0.7).with_stroke("black"))
@@ -159,7 +165,8 @@ fn test_violin_split() -> Result<(), Box<dyn Error>> {
         .transform_density(
             DensityTransform::new("Body Mass (g)")
                 .with_as("Body Mass (g)", "density")
-                .with_groupbys(["Species", "Sex"]),
+                .with_groupbys(["Species", "Sex"])
+                .with_trim(true),
         )?
         .transform_band(
             BandTransform::new("Body Mass (g)", "density")
@@ -190,7 +197,8 @@ fn test_violin_raincloud() -> Result<(), Box<dyn Error>> {
         .transform_density(
             DensityTransform::new("Body Mass (g)")
                 .with_as("Body Mass (g)", "density")
-                .with_groupbys(["Species"]),
+                .with_groupbys(["Species"])
+                .with_trim(true),
         )?
         .transform_band(
             BandTransform::new("Body Mass (g)", "density")

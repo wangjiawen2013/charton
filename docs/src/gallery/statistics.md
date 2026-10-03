@@ -24,7 +24,8 @@ chart!(&iris)?
     .transform_density(
         DensityTransform::new("sepal_length")
             .with_as("sepal_length", "density")
-            .with_groupbys(["species"]),
+            .with_groupbys(["species"])
+            .with_trim(true),
     )?
     .mark_area()?
     .configure_area(|a| a.with_opacity(0.7).with_stroke("black"))
@@ -58,7 +59,8 @@ chart!(&penguins)?
     .transform_density(
         DensityTransform::new("Body Mass (g)")
             .with_as("Body Mass (g)", "density")
-            .with_groupbys(["Sex", "Species"]), // (category, group)
+            .with_groupbys(["Sex", "Species"]) // (category, group)
+            .with_trim(true),
     )?
     .transform_band(
         BandTransform::new("Body Mass (g)", "density")
@@ -109,7 +111,8 @@ let outline = chart!(&penguins)?
     .transform_density(
         DensityTransform::new("Body Mass (g)")
             .with_as("Body Mass (g)", "density")
-            .with_groupbys(["Species"]),
+            .with_groupbys(["Species"])
+            .with_trim(true),
     )?
     .transform_band(BandTransform::new("Body Mass (g)", "density").with_center("Species"))?
     .mark_polygon()?

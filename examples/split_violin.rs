@@ -17,7 +17,8 @@ fn main() -> Result<(), Box<dyn Error>> {
         .transform_density(
             DensityTransform::new("Body Mass (g)")
                 .with_as("Body Mass (g)", "density")
-                .with_groupbys(["Species", "Sex"]),
+                .with_groupbys(["Species", "Sex"])
+                .with_trim(true),
         )?
         // Draw each curve as a half-band around its Species centre.
         .transform_band(

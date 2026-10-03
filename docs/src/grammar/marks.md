@@ -152,7 +152,9 @@ band geometry and the shared polygon mark:
 ```rust
 chart!(iris)?
     .transform_density(
-        DensityTransform::new("sepal_length").with_as("sepal_length", "density"),
+        DensityTransform::new("sepal_length")
+            .with_as("sepal_length", "density")
+            .with_trim(true),
     )?
     .transform_band(BandTransform::new("sepal_length", "density"))?
     .mark_polygon()?

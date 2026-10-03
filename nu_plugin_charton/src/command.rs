@@ -1464,7 +1464,10 @@ fn build_layer(
             // violin per category.
             let mut density = DensityTransform::new(y)
                 .with_as(y, "density")
-                .with_groupbys([x]);
+                .with_groupbys([x])
+                // A violin ends at the data (ggplot2 `trim = TRUE`), unlike a
+                // density plot, which keeps its smooth tails.
+                .with_trim(true);
             let mut band = BandTransform::new(y, "density")
                 .with_center(x)
                 .with_scale(BandScale::PerGroup);

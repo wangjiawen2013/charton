@@ -21,7 +21,8 @@ let violin = chart!(&penguins)?
     .transform_density(
         DensityTransform::new("Body Mass (g)")
             .with_as("Body Mass (g)", "density")
-            .with_groupbys(["Species"]),
+            .with_groupbys(["Species"])
+            .with_trim(true),
     )?
     .transform_band(
         BandTransform::new("Body Mass (g)", "density").with_center("Species"),
@@ -69,7 +70,8 @@ chart!(&penguins)?
     .transform_density(
         DensityTransform::new("Body Mass (g)")
             .with_as("Body Mass (g)", "density")
-            .with_groupbys(["Species", "Sex"]),
+            .with_groupbys(["Species", "Sex"])
+            .with_trim(true),
     )?
     .transform_band(
         BandTransform::new("Body Mass (g)", "density")
