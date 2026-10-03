@@ -172,7 +172,7 @@ impl<T: Mark> Chart<T> {
             .fold((f64::INFINITY, f64::NEG_INFINITY), |(lo, hi), &v| {
                 (lo.min(v), hi.max(v))
             });
-        if !min.is_finite() || !max.is_finite() || (max - min) < f64::EPSILON {
+        if !min.is_finite() || !max.is_finite() || (max - min).abs() < f64::EPSILON {
             // A flat (or empty) field has no contour to draw.
             self.data = Dataset::new();
             return Ok(self);

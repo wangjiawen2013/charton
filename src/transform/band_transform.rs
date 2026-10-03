@@ -52,7 +52,7 @@
 //! separate polygons that share the centre line — the left and right halves of
 //! a split violin, coloured by group.
 
-use super::lane_layout::build_lane_layout;
+use super::lane_layout::{LaneLayoutOptions, build_lane_layout};
 use crate::chart::Chart;
 use crate::core::data::{ColumnVector, Dataset};
 use crate::error::ChartonError;
@@ -241,10 +241,12 @@ impl<T: Mark> Chart<T> {
             &self.data,
             params.center.as_deref(),
             params.group.as_deref(),
-            &params.position,
-            params.span,
-            params.max_width,
-            params.split,
+            LaneLayoutOptions {
+                position: &params.position,
+                span: params.span,
+                max_width: params.max_width,
+                split: params.split,
+            },
             |i| {
                 let value = value_col.get(i).to_f64()?;
                 let width = width_col.get(i).to_f64()?;

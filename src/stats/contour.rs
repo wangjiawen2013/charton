@@ -27,6 +27,9 @@ pub(crate) struct ContourLine {
 /// us join segments without an epsilon.
 type PointKey = (u64, u64);
 
+/// One cell's contribution at a given level: the two crossing points joined.
+type Segment = ((f64, f64), (f64, f64));
+
 const fn key(p: (f64, f64)) -> PointKey {
     (p.0.to_bits(), p.1.to_bits())
 }
@@ -49,7 +52,7 @@ pub(crate) fn contours(xs: &[f64], ys: &[f64], z: &[f64], levels: &[f64]) -> Vec
     }
 
     for &level in levels {
-        let mut segments: Vec<((f64, f64), (f64, f64))> = Vec::new();
+        let mut segments: Vec<Segment> = Vec::new();
 
         for j in 0..ny - 1 {
             for i in 0..nx - 1 {
@@ -83,12 +86,7 @@ pub(crate) fn contours(xs: &[f64], ys: &[f64], z: &[f64], levels: &[f64]) -> Vec
 ///
 /// `edges` are indexed 0..3 as `c0-c1`, `c1-c2`, `c2-c3`, `c3-c0`; the returned
 /// segment connects the two edges the level crosses.
-fn march_cell(
-    level: f64,
-    z: [f64; 4],
-    p: [(f64, f64); 4],
-    segments: &mut Vec<((f64, f64), (f64, f64))>,
-) {
+fn march_cell(level: f64, z: [f64; 4], p: [(f64, f64); 4], segments: &mut Vec<Segment>) {
     let mut case = 0u8;
     for (k, &zk) in z.iter().enumerate() {
         if zk >= level {
@@ -155,7 +153,7 @@ fn interpolate(a: (f64, f64), b: (f64, f64), za: f64, zb: f64, level: f64) -> (f
 /// Segments are walked end to end; a chain ends at a free end or when it closes
 /// on itself. The result is a small number of long polylines instead of one
 /// two-point path per cell.
-fn chain(level: f64, segments: Vec<((f64, f64), (f64, f64))>, out: &mut Vec<ContourLine>) {
+fn chain(level: f64, segments: Vec<Segment>, out: &mut Vec<ContourLine>) {
     if segments.is_empty() {
         return;
     }
