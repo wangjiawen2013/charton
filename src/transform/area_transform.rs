@@ -46,7 +46,7 @@ impl<T: Mark> Chart<T> {
         let x_col = self.data.column(x_field)?;
 
         // We clone the column header/metadata to restore physical types in Step 5
-        let x_prototype = x_col.clone();
+        let x_prototype = x_col.type_prototype();
 
         let x_ticks_str = if !is_continuous {
             x_col.unique_values()
@@ -158,10 +158,15 @@ impl<T: Mark> Chart<T> {
                             }
                         }
                         StackMode::Center => (current_y + offset, current_y + val + offset),
+                        // Mirror: symmetric band around zero, independent per series.
+                        StackMode::Mirror => (-val / 2.0, val / 2.0),
                     };
 
                     tick_data.push((out_f, out_s.clone(), c_name.clone(), y0, y1));
-                    if !matches!(mode, StackMode::None) {
+                    if matches!(
+                        mode,
+                        StackMode::Stacked | StackMode::Normalize | StackMode::Center
+                    ) {
                         current_y += val;
                     }
                 }

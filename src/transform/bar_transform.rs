@@ -39,14 +39,15 @@ impl<T: Mark> Chart<T> {
             false
         };
 
-        // Capture prototypes for categorical restoration
+        // Capture prototypes for categorical restoration. Only the type metadata
+        // is copied, never the row data.
         let x_col_proto = if !is_pie {
-            Some(self.data.column(&x_field)?.clone())
+            Some(self.data.column(&x_field)?.type_prototype())
         } else {
             None
         };
         let c_col_proto = if has_grouping_color {
-            Some(self.data.column(color_field.unwrap())?.clone())
+            Some(self.data.column(color_field.unwrap())?.type_prototype())
         } else {
             None
         };

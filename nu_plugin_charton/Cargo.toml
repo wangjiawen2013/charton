@@ -1,6 +1,6 @@
 [package]
 name = "nu_plugin_charton"
-version = "0.7.1"
+version = "0.8.0"
 edition = "2024"
 license = "Apache-2.0"
 repository = "https://github.com/wangjiawen2013/charton"
@@ -13,7 +13,7 @@ categories = ["command-line-utilities", "visualization"]
 
 [dependencies]
 # Path + version so the crate stays publishable; enable png for terminal raster.
-charton = { path = "..", version = "0.7", features = ["png", "geo"] }
+charton = { path = "..", version = "0.8", features = ["png", "geo"] }
 # Protocol version MUST match the installed Nushell (0.116).
 nu-plugin = "=0.116"
 nu-protocol = "=0.116"

@@ -1,10 +1,41 @@
+//! Transforms: the data-processing steps that run before a mark is drawn.
+//!
+//! A transform reads the current `Dataset`, computes something new from it and
+//! replaces it. Because every transform has the same shape, they chain freely:
+//! the output of one is the input of the next, and the final table is what the
+//! mark encodes.
+//!
+//! They come in two families, and keeping them apart is the whole trick behind
+//! charton's composition model:
+//!
+//! * **Statistics** summarise the rows: `transform_density` estimates a smooth
+//!   curve, `transform_density_2d` a density grid, `transform_contour`
+//!   iso-lines of any grid, and `transform_quantile_box` the quartiles of each
+//!   group. The per-mark statistics (histogram bins, box plot quartiles, error
+//!   bars) live with their marks.
+//! * **Geometry** turns a summary into the columns a mark draws:
+//!   `transform_band` is the general symmetric `centre ± width` polygon, and
+//!   `transform_quantile_box` emits the box and median polygons alongside its
+//!   quartiles.
+//!
+//! A violin, for instance, is `transform_density` (statistics) followed by
+//! `transform_band` (geometry) and then `mark_polygon`. No step knows the word
+//! "violin"; each only does its own job. See
+//! `docs/src/concepts/grammar_pipeline.md` for the full stat → position →
+//! geometry model.
+
 pub(crate) mod area_transform;
+pub(crate) mod band_transform;
 pub(crate) mod bar_transform;
-pub(crate) mod box_tranform;
+pub(crate) mod box_transform;
+pub(crate) mod boxplot_transform;
 pub(crate) mod calculate_transform;
+pub(crate) mod contour_transform;
+pub(crate) mod density_2d_transform;
 pub(crate) mod density_transform;
 pub(crate) mod errorbar_transform;
 pub(crate) mod hist_transform;
+pub(crate) mod lane_layout;
 pub(crate) mod point_transform;
 pub(crate) mod rect_transform;
 pub(crate) mod window_transform;

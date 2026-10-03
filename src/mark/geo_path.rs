@@ -1,20 +1,34 @@
 use crate::mark::Mark;
 use crate::visual::color::SingleColor;
 
-/// Mark type for geographic path (polygon) charts.
+/// Mark type for path and polygon charts — the general "connect the dots"
+/// geometry.
 ///
-/// `MarkGeoPath` renders closed polygons suitable for map boundaries,
-/// administrative regions, and any spatial area data in long-form format.
+/// Rows that share a `path_group` value form one shape. The renderer connects
+/// them **in row order**: it never sorts and never inserts points. The one flag
+/// that changes the geometry is `closed`:
 ///
-/// Each polygon is defined by a group of (longitude, latitude) vertices
-/// sharing the same `PathGroup` value. The renderer connects them in
-/// row order and closes the path automatically.
+/// * `closed = true` (used by `mark_polygon` / `mark_geoshape`) draws
+///   `M p0 L p1 ... Z` — the `Z` adds the edge back to the first point and the
+///   interior is filled. This is a region: a violin outline, a map polygon, a
+///   filled contour band.
+/// * `closed = false` (used by `mark_path`) draws `M p0 L p1 ...` and stops at
+///   the last point. There is no closing edge and no fill. This is a line:
+///   a trajectory, a contour line, a network edge.
+///
+/// The two are not interchangeable. Feeding an **open** curve to the closed form
+/// adds a spurious edge from the last point back to the first; feeding a line
+/// loop (for example a closed contour) to the closed form would fill it,
+/// whereas you usually want just the stroke. The closed flag *is* the
+/// difference between "outline" and "trajectory".
 #[derive(Clone, Debug)]
 pub struct MarkGeoPath {
     pub(crate) fill: SingleColor,
     pub(crate) opacity: f64,
     pub(crate) stroke: SingleColor,
     pub(crate) stroke_width: f64,
+    /// `true` closes the vertex loop and fills it; `false` draws an open line.
+    pub(crate) closed: bool,
 }
 
 impl MarkGeoPath {
@@ -24,7 +38,17 @@ impl MarkGeoPath {
             opacity: 1.0,
             stroke: SingleColor::new("#333333"),
             stroke_width: 0.5,
+            closed: true,
         }
+    }
+
+    /// Closes (`true`) or opens (`false`) the vertex loop.
+    ///
+    /// A closed path is filled; an open path is stroked only. `mark_path` sets
+    /// this to `false`, `mark_polygon` to `true`.
+    pub const fn with_closed(mut self, closed: bool) -> Self {
+        self.closed = closed;
+        self
     }
 
     /// Sets the fill color of the geographic region.

@@ -23,7 +23,7 @@ fn main() -> Result<(), Box<dyn Error>> {
         })
         .with_title("Car Performance")
         .with_grid(true)
-        .save("scatter_gpu.png")?;
+        .save("target/example-output/scatter_gpu.png")?;
 
     println!("Success! Scatter plot saved as 'scatter_gpu.png' using wgpu.");
     Ok(())

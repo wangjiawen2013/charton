@@ -27,7 +27,7 @@ fn test_base() -> Result<(), Box<dyn Error>> {
     let chart = line.and(scatter);
 
     // 6. Export the final visualization
-    chart.save("./tests/base.svg")?;
+    chart.save("./target/test-output/base.svg")?;
 
     Ok(())
 }

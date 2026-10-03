@@ -60,6 +60,13 @@ pub enum ExplicitTick {
     /// For linear or logarithmic scales (e.g., price, temperature, generic f64).
     Continuous(f64),
 
+    /// A position on a continuous axis with a hand-written label.
+    ///
+    /// This is what allows a numeric axis to *look* categorical: the violin
+    /// transform places each category on an integer position (0, 1, 2, ...),
+    /// and this variant attaches the real category name to that position.
+    Labeled(f64, String),
+
     /// For categorical or ordinal scales (e.g., "Product A", "Category B").
     Discrete(String),
 
@@ -95,6 +102,24 @@ impl IntoExplicitTicks for Vec<f64> {
 impl<const N: usize> IntoExplicitTicks for [f64; N] {
     fn into_explicit_ticks(self) -> Vec<ExplicitTick> {
         self.into_iter().map(ExplicitTick::Continuous).collect()
+    }
+}
+
+/// Implementation for labelled positions on a continuous axis.
+impl IntoExplicitTicks for Vec<(f64, &str)> {
+    fn into_explicit_ticks(self) -> Vec<ExplicitTick> {
+        self.into_iter()
+            .map(|(value, label)| ExplicitTick::Labeled(value, label.to_string()))
+            .collect()
+    }
+}
+
+/// Owned-string variant of the labelled positions above.
+impl IntoExplicitTicks for Vec<(f64, String)> {
+    fn into_explicit_ticks(self) -> Vec<ExplicitTick> {
+        self.into_iter()
+            .map(|(value, label)| ExplicitTick::Labeled(value, label))
+            .collect()
     }
 }
 
@@ -157,11 +182,21 @@ impl Scale {
             .maybe_into_par_iter()
             .map(|i| {
                 match self {
-                    // Discrete scale: Force everything to string and normalize.
-                    Scale::Discrete => column
-                        .get(i)
-                        .to_string()
-                        .map(|s| scale_trait.normalize_string(&s)),
+                    // Discrete scale.
+                    //
+                    // Prefer matching the value as a category label. When it is
+                    // not a known label, fall back to reading it as a numeric
+                    // position (an integer category plus a fractional offset).
+                    // This is what lets a discrete axis carry dodged positions
+                    // such as `1.25` while keeping integer categories.
+                    Scale::Discrete => {
+                        let value = column.get(i);
+                        let by_label = value
+                            .to_string()
+                            .map(|s| scale_trait.normalize_string(&s))
+                            .filter(|x| x.is_finite());
+                        by_label.or_else(|| value.to_f64().map(|f| scale_trait.normalize(f)))
+                    }
 
                     // Continuous scales (Linear/Log): Use the numerical interface.
                     Scale::Linear | Scale::Log => {

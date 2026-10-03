@@ -16,7 +16,7 @@ fn test_pie() -> Result<(), Box<dyn Error>> {
             alt::color("category"), // color encoding for different segments
         ))?
         .with_coord(CoordSystem::Polar)
-        .save("./tests/pie.svg")?;
+        .save("./target/test-output/pie.svg")?;
 
     Ok(())
 }
@@ -37,7 +37,7 @@ fn test_donut() -> Result<(), Box<dyn Error>> {
         ))?
         .with_coord(CoordSystem::Polar)
         .with_inner_radius(0.5) // Creates a donut chart
-        .save("./tests/donut.svg")?;
+        .save("./target/test-output/donut.svg")?;
 
     Ok(())
 }
@@ -53,7 +53,7 @@ fn test_rose() -> Result<(), Box<dyn Error>> {
         .encode((alt::x("type1"), alt::y("value"), alt::color("type1")))?
         .with_y_label("value")
         .with_coord(CoordSystem::Polar)
-        .save("./tests/rose.svg")?;
+        .save("./target/test-output/rose.svg")?;
 
     Ok(())
 }
@@ -83,7 +83,7 @@ fn test_nightingale() -> Result<(), Box<dyn Error>> {
         ))?
         .with_title("Colored Bar Chart Example")
         .with_coord(CoordSystem::Polar)
-        .save("./tests/nightingale.svg")?;
+        .save("./target/test-output/nightingale.svg")?;
 
     Ok(())
 }

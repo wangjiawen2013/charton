@@ -39,7 +39,7 @@ panel rows, constraint 1 (equal panels) holds by construction, and constraint 2
 
 The obvious alternative is to divide the container into `rows × cols` equal
 cells and inset each panel by a fixed padding for the axis, the way a single
-chart might. That is what Charton used to do, and it fails in two ways:
+chart might. That approach fails in two ways:
 
 * the axis padding is charged to **every** cell, including cells that draw no
   axis, so it silently becomes part of the gap between neighbouring panels;
@@ -56,8 +56,8 @@ Let
 
 * `W`, `H` be the container (the area left after margins, legend and any outer
   chrome),
-* `A_x` be the width of one y-axis track, `A_y` the height of one x-axis track,
-* `n_x`, `n_y` the number of columns/rows that need such a track,
+* `A_left[c]` the width of column `c`'s y-axis track (0 if it draws none),
+* `A_bottom[r]` the height of row `r`'s x-axis track (0 if it draws none),
 * `hdr` the header-strip height,
 * `s = theme.facet_spacing`.
 
@@ -66,14 +66,17 @@ axis track, and adjacent tracks are separated by `s`. What remains is the panel
 area, shared equally:
 
 ```text
-                         W - A_x * n_x - (cols - 1) * s
-    panel_width   =  ---------------------------------------
+                         W - Σ_c A_left[c] - (cols - 1) * s
+    panel_width   =  -----------------------------------------
                                       cols
 
-                         H - A_y * n_y - rows * hdr - (rows - 1) * s
-    panel_height  =  ----------------------------------------------------
+                         H - Σ_r A_bottom[r] - rows * hdr - (rows - 1) * s
+    panel_height  =  ----------------------------------------------------------
                                           rows
 ```
+
+A `Fixed` grid gives every non-zero track the same size, which recovers the
+simpler `A_x * n_x` form.
 
 The two axes are deliberately asymmetric: a header sits **above** each row and
 is counted once per row, while a gap is only counted **between** tracks.
@@ -83,12 +86,12 @@ is counted once per row, while a gap is only counted **between** tracks.
 Once the panel size is known, each track position is a cumulative sum. For
 column `c`, the x of its panel is the container origin plus
 
-* every y-axis track up to and including this column, plus
+* every y-axis track up to and including this column (`Σ_{i≤c} A_left[i]`), plus
 * the panels and gaps of all the columns before it.
 
 For row `r`, the y of its header is the container origin plus
 
-* every x-axis track of the rows **above** it, plus
+* every x-axis track of the rows **above** it (`Σ_{j<r} A_bottom[j]`), plus
 * the headers, panels and gaps of all the rows above it.
 
 `FacetGridGeometry` owns exactly these two sums; `panel_rect` and `header_rect`
@@ -166,18 +169,45 @@ aligned even though only one column draws the axis.
 
 The track sizes are not hard-coded. A fixed padding cannot know how wide a
 tick label such as `1.0000E7` will be, so it either clips long labels or wastes
-space on short ones. Instead the surrounding layout measures the axes once with
-the same code a single chart uses (`LayoutEngine::calculate_axis_constraints`)
-and passes the result down as [`FacetMetrics`]:
+space on short ones. Instead the surrounding layout measures the axes with the
+same code a single chart uses (`LayoutEngine::calculate_axis_constraints`) and
+passes the result down as `FacetMetrics`:
 
 ```text
-FacetMetrics { axis_left, axis_bottom }
+FacetMetrics { axis_left, axis_bottom, per_column_left[], per_row_bottom[] }
 ```
+
+`axis_left` / `axis_bottom` are the fallbacks. A `Fixed` chart leaves the
+per-column/row vectors empty, so every track uses the fallback. A chart with free
+scales fills them: each column gets the widest y axis among its own cells, each
+row the tallest x axis among its own cells.
 
 `FacetMetrics` is deliberately only an input to `compute_panels`: the facet
 implementation decides where the tracks go, and the measurement only says how
 big they are. This keeps the "what does an axis need" question in one place and
 the "where does an axis go" question in another.
+
+### Measuring free scales
+
+A fixed chart measures its axes once, before the grid is built. Free scales
+cannot: the axis size depends on the scale, which depends on the panel's data,
+which depends on which cell the panel occupies. So a free chart runs the layout
+twice:
+
+1. build the grid once with the uniform fallback extents — enough to learn every
+   panel's row, column and facet filter;
+2. for each panel, train its scales, measure its axes, and keep the widest value
+   per column and per row;
+3. rebuild the grid with those per-column/row extents.
+
+Panel coordinates do not depend on the panel rectangle, so the materialised
+panels are kept between the two passes.
+
+Free tracks are chosen **per column and per row, not per cell**. That is
+deliberate: a per-cell track would let two panels in the same column start at
+different x, breaking the alignment the reader relies on. Taking the maximum
+keeps every panel aligned and never clips a label; the cost is a little unused
+room in a panel whose neighbour needs wider labels.
 
 ## Axis Reservation for Faceted Charts
 

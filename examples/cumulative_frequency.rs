@@ -11,7 +11,7 @@ fn main() -> Result<(), Box<dyn Error>> {
                 WindowOnlyOp::CumeDist,
                 "ecdf", // This will be the output column name
             ))
-            .with_groupby("species")
+            .with_groupbys(["species"])
             .with_normalize(false),
         )?
         .mark_line()?

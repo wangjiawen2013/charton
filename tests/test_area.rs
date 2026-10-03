@@ -31,7 +31,7 @@ fn test_area_1() -> Result<(), Box<dyn Error>> {
         .with_title("Iowa Electricity Generation")
         .with_x_label("Year")
         .with_y_label("Net Generation")
-        .save("./tests/area_1.svg")?;
+        .save("./target/test-output/area_1.svg")?;
 
     Ok(())
 }
@@ -72,7 +72,7 @@ fn test_area_2() -> Result<(), Box<dyn Error>> {
         .with_title("Cumulative Density Estimation")
         .with_x_label("IMDB Rating")
         .with_y_label("Cumulative Density")
-        .save("./tests/area_2.svg")?;
+        .save("./target/test-output/area_2.svg")?;
 
     Ok(())
 }

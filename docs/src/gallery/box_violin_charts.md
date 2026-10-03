@@ -1,62 +1,62 @@
-use charton::prelude::*;
+# Box & Violin Combinations
 
-fn main() -> Result<(), Box<dyn std::error::Error>> {
-    let mut categories = Vec::new();
-    let mut outcomes = Vec::new();
-    let mut treatments = Vec::new();
+The violin chapter built a single violin from a density stat, a position and a
+polygon. Because those parts are independent, they can be rearranged and stacked
+into the richer pictures researchers commonly need. Nothing below adds a new
+mark — every picture is a stack of ordinary layers.
 
-    let configs = [
-        ("Cohort A", 45.0, 12.0),
-        ("Cohort B", 70.0, 6.0),
-        ("Cohort C", 35.0, 18.0),
-    ];
+> For the complete, compiled recipes (single → grouped → faceted → split →
+raincloud) start at the [Violin cookbook page](violin.md). This page goes deeper
+on stacking a violin with a box.
 
-    let treatment_types = ["Placebo", "Active"];
+## Raincloud: violin + box + points
 
-    // Use a simple deterministic counter to simulate "randomness"
-    let mut seed: u32 = 42;
+A *raincloud* shows the same distribution three ways: a density outline, a box
+plot for the quartiles, and the raw observations. Each view is a layer, and all
+of them share one scale so they line up automatically.
 
-    for (label, mean, std_dev) in configs {
-        for i in 0..150 {
-            categories.push(label.to_string());
+<img src="../images/raincloud.svg" width="500">
 
-            // 1. Deterministic Pseudo-random using LCG
-            seed = seed.wrapping_mul(1103515245).wrapping_add(12345);
-            let raw_rand = (seed & 0x7FFFFFFF) as f64 / 2147483647.0;
+```rust
+{{#include ../../../examples/raincloud.rs}}
+```
 
-            // 2. Simple Box-Muller transform to simulate Normal Distribution
-            // This creates the "cluster" effect needed to show off Beeswarm
-            let u1 = raw_rand;
-            let u2 = ((i as f64 * 0.1).sin() + 1.0) / 2.0; // Another "random" seed
-            let z0 = (-2.0 * u1.ln().max(-10.0)).sqrt() * (2.0 * std::f64::consts::PI * u2).cos();
+## Split violin
 
-            outcomes.push(mean + z0 * std_dev);
+A split violin contrasts two groups inside one outline: the first group grows to
+the right of the category centre, the second to the left. Density groups by the
+two fields, and the band geometry is asked for `with_split(true)`; colour the
+result by group and the two halves read as a single violin split down the
+middle.
 
-            // 3. Deterministic sub-group assignment
-            let sub_idx = (i % 2) as usize;
-            treatments.push(treatment_types[sub_idx].to_string());
-        }
-    }
+<img src="../images/split_violin.svg" width="500">
 
-    // 2. Render the Chart
-    let beeswarm = chart!(categories, outcomes, treatments)?
-        .mark_point()?
-        .configure_point(|m| m.with_layout("beeswarm").with_size(2.5))
-        .encode((
-            alt::x("categories"),
-            alt::y("outcomes"),
-            alt::color("treatments"),
-        ))?;
-    
-    let boxplot = chart!(categories, outcomes, treatments)?
-        .mark_boxplot()?.configure_boxplot(|b| b.with_outliers(false).with_opacity(0.0).with_stroke_width(1.5))
-        .encode((
-            alt::x("categories"),
-            alt::y("outcomes"),
-            alt::color("treatments"),
-        ))?;
-    
-    beeswarm.and(boxplot).save("docs/src/images/beeswarm.svg")?;
+```rust
+{{#include ../../../examples/split_violin.rs}}
+```
 
-    Ok(())
-}
+## Overlaying a box on a normally-dodged violin
+
+`transform_quantile_box` computes the quartiles per `(category, group)` cell, so
+any overlay can read them directly. For a dodged (side-by-side) violin, layer it
+on top exactly as in the raincloud, but keep the same `Position::Dodge` on the
+band and on the box so the boxes follow their violins.
+
+## Why this is better than a dedicated "violin mark"
+
+Every combination above — raincloud, split, overlay, grouped, faceted — would
+need bespoke branching inside a single `MarkViolin`. Building from a density
+stat plus a polygon instead means:
+
+* the polygon renderer is shared with maps and custom shapes;
+* new combinations are new layers, not new renderers;
+* every rendering backend (SVG, PNG, PDF, GPU) already knows how to draw the
+  parts.
+
+## See also
+
+* [Statistical Distributions](statistics.md) — the basic violin and box plots.
+* [The Layer Pipeline](../concepts/grammar_pipeline.md) — the stat/position/geom
+  model behind these examples.
+* `examples/raincloud.rs`, `examples/split_violin.rs`, `examples/violin.rs`,
+  `examples/grouped_violin.rs`.

@@ -8,6 +8,7 @@ use crate::core::layer::{
 use crate::core::utils::IntoParallelizable;
 use crate::error::ChartonError;
 use crate::mark::point::{MarkPoint, PointLayout, QuasirandomMethod};
+use crate::position::Position;
 use crate::stats::kde::{BandwidthType, density_profile};
 use crate::visual::color::SingleColor;
 use crate::visual::shape::PointShape;
@@ -139,15 +140,18 @@ impl MarkRenderer for Chart<MarkPoint> {
                             let total_groups = cnt_col.get(i).to_f64().unwrap_or(1.0);
                             let sub_idx = sub_col.get(i).to_f64().unwrap_or(0.0);
 
-                            let box_width_data = mark_config.width.min(
-                                mark_config.span
-                                    / (total_groups + (total_groups - 1.0) * mark_config.spacing),
+                            let position = Position::Dodge {
+                                spacing: mark_config.spacing,
+                            };
+                            let box_width_data = position.item_width(
+                                total_groups,
+                                mark_config.span,
+                                mark_config.width,
                             );
                             let box_width_norm = box_width_data * unit_step_norm;
-                            let spacing_norm = box_width_norm * mark_config.spacing;
 
-                            x_final_n += (sub_idx - (total_groups - 1.0) / 2.0)
-                                * (box_width_norm + spacing_norm);
+                            x_final_n += position.offset(sub_idx, total_groups, box_width_data)
+                                * unit_step_norm;
                             lane_width_norm = box_width_norm;
                         }
 
@@ -328,14 +332,15 @@ impl Chart<MarkPoint> {
                 let sub_idx = sub_col.get(i).to_f64().unwrap_or(0.0);
                 lane_id = sub_idx as usize;
 
-                let box_width_data = mark_config.width.min(
-                    mark_config.span / (total_groups + (total_groups - 1.0) * mark_config.spacing),
-                );
+                let position = Position::Dodge {
+                    spacing: mark_config.spacing,
+                };
+                let box_width_data =
+                    position.item_width(total_groups, mark_config.span, mark_config.width);
                 let box_width_norm = box_width_data * unit_step_norm;
-                let spacing_norm = box_width_norm * mark_config.spacing;
 
                 x_final_n +=
-                    (sub_idx - (total_groups - 1.0) / 2.0) * (box_width_norm + spacing_norm);
+                    position.offset(sub_idx, total_groups, box_width_data) * unit_step_norm;
 
                 lane_px_width = if is_flipped {
                     box_width_norm * context.panel.height
@@ -575,13 +580,14 @@ impl Chart<MarkPoint> {
                 let total_groups = cnt_col.get(i).to_f64().unwrap_or(1.0);
                 let sub_idx = sub_col.get(i).to_f64().unwrap_or(0.0);
 
-                let box_width_data = mark_config.width.min(
-                    mark_config.span / (total_groups + (total_groups - 1.0) * mark_config.spacing),
-                );
+                let position = Position::Dodge {
+                    spacing: mark_config.spacing,
+                };
+                let box_width_data =
+                    position.item_width(total_groups, mark_config.span, mark_config.width);
                 let box_width_norm = box_width_data * unit_step_norm;
-                let spacing_norm = box_width_norm * mark_config.spacing;
                 let center =
-                    x_n + (sub_idx - (total_groups - 1.0) / 2.0) * (box_width_norm + spacing_norm);
+                    x_n + position.offset(sub_idx, total_groups, box_width_data) * unit_step_norm;
 
                 (center, box_width_norm)
             }

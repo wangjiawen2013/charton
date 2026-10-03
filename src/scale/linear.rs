@@ -155,28 +155,39 @@ impl ScaleTrait for LinearScale {
         let mut type_mismatch = 0;
         let mut out_of_domain = 0;
 
-        let valid_values: Vec<f64> = explicit
-            .iter()
-            .filter_map(|tick| {
-                match tick {
-                    ExplicitTick::Continuous(val) => {
-                        // Logic: Only allow values within [min, max] (with float tolerance)
-                        if *val >= min - tolerance && *val <= max + tolerance {
-                            // Clean up near-zero values for cleaner labels
-                            Some(if val.abs() < 1e-12 { 0.0 } else { *val })
-                        } else {
-                            out_of_domain += 1;
-                            None
-                        }
-                    }
-                    // Count mismatches for a single bulk warning later
-                    _ => {
-                        type_mismatch += 1;
-                        None
+        // Plain numeric ticks are formatted automatically after the loop; ticks
+        // that carry a label are kept with that label untouched.
+        let mut continuous_values: Vec<f64> = Vec::new();
+        let mut labeled_ticks: Vec<Tick> = Vec::new();
+
+        for tick in explicit {
+            match tick {
+                ExplicitTick::Continuous(val) => {
+                    // Logic: Only allow values within [min, max] (with float tolerance)
+                    if *val >= min - tolerance && *val <= max + tolerance {
+                        // Clean up near-zero values for cleaner labels
+                        continuous_values.push(if val.abs() < 1e-12 { 0.0 } else { *val });
+                    } else {
+                        out_of_domain += 1;
                     }
                 }
-            })
-            .collect();
+                ExplicitTick::Labeled(val, label) => {
+                    // A labelled tick is a normal position plus a custom name.
+                    if *val >= min - tolerance && *val <= max + tolerance {
+                        labeled_ticks.push(Tick {
+                            value: *val,
+                            label: label.clone(),
+                        });
+                    } else {
+                        out_of_domain += 1;
+                    }
+                }
+                // Count mismatches for a single bulk warning later
+                _ => {
+                    type_mismatch += 1;
+                }
+            }
+        }
 
         // High-Performance Logging: Bulk report issues after the hot loop
         if type_mismatch > 0 || out_of_domain > 0 {
@@ -190,8 +201,16 @@ impl ScaleTrait for LinearScale {
             );
         }
 
-        // Delegate to the shared formatting logic
-        super::format_ticks(&valid_values)
+        // Delegate to the shared formatting logic for the numeric ticks, then
+        // add the hand-labelled ones and keep everything in axis order.
+        let mut ticks = super::format_ticks(&continuous_values);
+        ticks.extend(labeled_ticks);
+        ticks.sort_by(|a, b| {
+            a.value
+                .partial_cmp(&b.value)
+                .unwrap_or(std::cmp::Ordering::Equal)
+        });
+        ticks
     }
 
     /// Returns the domain specification for chart guide and legend logic.

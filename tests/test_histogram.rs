@@ -44,7 +44,7 @@ fn test_histogram_1() -> Result<(), Box<dyn Error>> {
         .with_y_label("Frequency")
         .configure_theme(|t| t.with_palette(ColorPalette::Tab10))
         .coord_flip()
-        .save("./tests/histogram_1.svg")?;
+        .save("./target/test-output/histogram_1.svg")?;
 
     Ok(())
 }

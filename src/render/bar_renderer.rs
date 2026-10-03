@@ -6,6 +6,7 @@ use crate::core::layer::{MarkRenderer, PathConfig, PathTopology, RenderBackend, 
 use crate::encode::y::StackMode;
 use crate::error::ChartonError;
 use crate::mark::bar::MarkBar;
+use crate::position::Position;
 use crate::visual::color::SingleColor;
 use ahash::AHashMap;
 
@@ -125,20 +126,24 @@ impl MarkRenderer for Chart<MarkBar> {
             };
 
             // B: Resolve X-Position using Helper Columns
+            let position = Position::Dodge {
+                spacing: eff_spacing,
+            };
             let bar_width_data = if is_stacked || n_groups <= 1.0 {
                 eff_width.min(eff_span)
             } else {
-                eff_span / (n_groups + (n_groups - 1.0) * eff_spacing)
+                // The position stage owns the side-by-side layout. Bars do not
+                // cap their dodged width, so `max_width` is unbounded here.
+                position.item_width(n_groups, eff_span, f64::INFINITY)
             };
 
             let bar_width_norm = bar_width_data * unit_step_norm;
-            let spacing_norm = bar_width_norm * eff_spacing;
 
             let (offset_norm, final_bar_width_norm) = if is_polar && !is_pie_mode && !is_stacked {
                 (0.0, eff_span * unit_step_norm) // Rose overlay mode
             } else if !is_stacked && n_groups > 1.0 {
-                // Simplified Dodge Calculation using sub_idx helper
-                let offset = (sub_idx - (n_groups - 1.0) / 2.0) * (bar_width_norm + spacing_norm);
+                // Category-step shift converted to pixels.
+                let offset = position.offset(sub_idx, n_groups, bar_width_data) * unit_step_norm;
                 (offset, bar_width_norm)
             } else {
                 (0.0, bar_width_norm)

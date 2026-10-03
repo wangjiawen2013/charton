@@ -303,6 +303,10 @@ fn generate_explicit_ticks(
                 let norm = scale.normalize(*v);
                 (norm, format!("{:.1}", v))
             }
+            ExplicitTick::Labeled(v, label) => {
+                let norm = scale.normalize(*v);
+                (norm, label.clone())
+            }
             ExplicitTick::Discrete(label) => {
                 let norm = scale.normalize_string(label);
                 (norm, label.clone())

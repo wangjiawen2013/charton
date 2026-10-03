@@ -1,20 +1,30 @@
+//! One-dimensional kernel density estimation.
+//!
+//! `transform_density` turns a numeric column into a smooth density curve: a
+//! new table with a row for every evaluation point and the estimated density
+//! there. It is the statistical half of a density plot, a violin or a ridgeline.
+//!
+//! The transform only writes numbers; it never draws. Turning the curve into a
+//! shape is the geometry's job: `mark_area` with a mirror stack for a smooth
+//! density plot, or `transform_band` for a violin.
+
 use crate::chart::Chart;
 use crate::core::data::{ColumnVector, Dataset};
 use crate::error::ChartonError;
 use crate::mark::Mark;
 use crate::stats::kde::Kde;
-use ahash::AHashMap;
+use ahash::{AHashMap, AHashSet};
 
 // The density options and the estimator live in the statistics module so that
 // the density transform and the point layouts share one implementation. They
 // are imported here to sit next to the transform that uses them.
 pub use crate::stats::kde::{BandwidthType, KernelType};
 
-/// Configuration parameters for kernel density estimation transformation
+/// Settings for [`Chart::transform_density`].
 ///
-/// This struct encapsulates all the settings needed to perform a kernel density
-/// estimation on data, including the input field, output field names, bandwidth
-/// selection method, kernel function, and various options for output formatting.
+/// The defaults describe a single density curve of the whole column. Chain
+/// [`with_groupbys`](Self::with_groupbys) for one curve per group, and
+/// [`with_as`](Self::with_as) to rename the two output columns.
 #[derive(Debug, Clone)]
 pub struct DensityTransform {
     // The name of the input column containing the data to perform density estimation on
@@ -27,26 +37,22 @@ pub struct DensityTransform {
     pub(crate) counts: bool,
     // A boolean flag indicating whether to produce density estimates (false) or cumulative density estimates (true)
     pub(crate) cumulative: bool,
-    // The data fields to group by
-    pub(crate) groupby: Option<String>,
+    // The data fields to group by. Empty means "one global density curve".
+    pub(crate) groupby: Vec<String>,
     // The kernel function to use for density estimation
     pub(crate) kernel: KernelType,
+    // When true, evaluate the density only over each group's observed range,
+    // so a violin ends at its own min/max. Off by default, which keeps the
+    // smooth tails of a density plot (ggplot2 `geom_density`).
+    pub(crate) trim: bool,
 }
 
 impl DensityTransform {
-    /// Creates a new `DensityTransform` instance with default parameters
+    /// Estimates the density of the `density_field` column.
     ///
-    /// # Parameters
-    /// * `density_field` - The name of the column containing the data to perform density estimation on
-    ///
-    /// # Returns
-    /// A new `DensityTransform` instance with the following defaults:
-    /// - Output field names: ["value", "density"]
-    /// - Bandwidth selection: Scott's rule
-    /// - Counts: false (outputs probability densities)
-    /// - Cumulative: false (outputs density estimates)
-    /// - No grouping
-    /// - Kernel function: Normal (Gaussian)
+    /// Defaults: output columns `["value", "density"]`, Scott's rule for the
+    /// bandwidth, a Gaussian kernel, probability densities (not counts) and no
+    /// grouping.
     pub fn new(density_field: impl Into<String>) -> Self {
         Self {
             density: density_field.into(),
@@ -54,25 +60,15 @@ impl DensityTransform {
             bandwidth: BandwidthType::Scott, // Default to use Scott's rule
             counts: false,
             cumulative: false,
-            groupby: None,
+            groupby: Vec::new(),
             kernel: KernelType::Normal,
+            trim: false,
         }
     }
 
-    /// Sets the output column names for the density transformation
+    /// Renames the two output columns: the evaluation points and the density.
     ///
-    /// # Parameters
-    /// * `value_field` - The name for the column that will contain the x-axis values (evaluation points)
-    /// * `density_field` - The name for the column that will contain the computed density values
-    ///
-    /// # Returns
-    /// The modified `DensityTransform` instance with updated output column names
-    ///
-    /// # Example
-    /// ```rust,ignore
-    /// let transform = DensityTransform::new("data")
-    ///     .with_as("x_values", "y_density");
-    /// ```
+    /// Defaults to `["value", "density"]`.
     pub fn with_as(
         mut self,
         value_field: impl Into<String>,
@@ -82,91 +78,58 @@ impl DensityTransform {
         self
     }
 
-    /// Sets the bandwidth selection method for the kernel density estimation
-    ///
-    /// # Parameters
-    /// * `bandwidth` - The bandwidth selection method to use, which controls the smoothness of the density curve
-    ///
-    /// # Returns
-    /// The modified `DensityTransform` instance with the updated bandwidth setting
-    ///
-    /// # Example
-    /// ```rust,ignore
-    /// let transform = DensityTransform::new("data")
-    ///     .with_bandwidth(BandwidthType::Silverman);
-    /// ```
+    /// Chooses how the smoothing width is picked — Scott's rule, Silverman's
+    /// rule, or a fixed value. A wider bandwidth gives a smoother curve.
     pub const fn with_bandwidth(mut self, bandwidth: BandwidthType) -> Self {
         self.bandwidth = bandwidth;
         self
     }
 
-    /// Sets whether the output values should be probability estimates or smoothed counts
-    ///
-    /// # Parameters
-    /// * `counts` - If true, outputs smoothed counts; if false, outputs probability density estimates
-    ///
-    /// # Returns
-    /// The modified `DensityTransform` instance with the updated counts setting
-    ///
-    /// # Example
-    /// ```rust,ignore
-    /// let transform = DensityTransform::new("data")
-    ///     .with_counts(true); // Output smoothed counts instead of probabilities
-    /// ```
+    /// Emits smoothed *counts* instead of a probability density, by scaling
+    /// each curve by the number of observations in its group.
     pub const fn with_counts(mut self, counts: bool) -> Self {
         self.counts = counts;
         self
     }
 
-    /// Sets whether to produce density estimates or cumulative density estimates
-    ///
-    /// # Parameters
-    /// * `cumulative` - If true, produces cumulative density estimates; if false, produces regular density estimates
-    ///
-    /// # Returns
-    /// The modified `DensityTransform` instance with the updated cumulative setting
-    ///
-    /// # Example
-    /// ```rust,ignore
-    /// let transform = DensityTransform::new("data")
-    ///     .with_cumulative(true); // Output cumulative density instead of regular density
-    /// ```
+    /// Emits the cumulative density (an ECDF-like rising curve) instead of the
+    /// density itself.
     pub const fn with_cumulative(mut self, cumulative: bool) -> Self {
         self.cumulative = cumulative;
         self
     }
 
-    /// Sets the field to group by for separate density estimations
+    /// Trims the curve to the observed range of each group.
     ///
-    /// # Parameters
-    /// * `groupby` - The name of the column to group by, with separate density curves computed for each group
-    ///
-    /// # Returns
-    /// The modified `DensityTransform` instance with the updated groupby setting
-    ///
-    /// # Example
-    /// ```rust,ignore
-    /// let transform = DensityTransform::new("data")
-    ///     .with_groupby("category"); // Compute separate density curves for each category
-    /// ```
-    pub fn with_groupby(mut self, groupby: &str) -> Self {
-        self.groupby = Some(groupby.into());
+    /// `false` (the default) evaluates every group on one shared range extended
+    /// by 30% on each side, so the smooth tails stay visible — the density-plot
+    /// convention (`geom_density`). `true` matches ggplot2's violin
+    /// (`trim = TRUE`) and Altair's violin: each group ends at its own smallest
+    /// and largest observation, so groups with different spread get different
+    /// heights and no near-zero tails. The violin examples set this to `true`.
+    pub const fn with_trim(mut self, trim: bool) -> Self {
+        self.trim = trim;
         self
     }
 
-    /// Sets the kernel function to use for density estimation
+    /// Groups the estimate by one or more fields, for example `["species"]` or
+    /// `["Sex", "Species"]`.
     ///
-    /// # Parameters
-    /// * `kernel` - The kernel function to use, which determines the shape of the distribution used for estimating density
-    ///
-    /// # Returns
-    /// The modified `DensityTransform` instance with the updated kernel setting
-    ///
-    /// # Example
-    /// ```rust,ignore
-    /// let transform = DensityTransform::new("data")
-    ///     .with_kernel(KernelType::Epanechnikov); // Use Epanechnikov kernel instead of default Normal
-    /// ```
+    /// Each distinct combination of the fields becomes its own density curve.
+    /// Grouping by a single field is the ordinary "one curve per category"
+    /// case; grouping by two fields at once is what a dodged or split violin
+    /// needs, where the first is the position on the discrete axis and the
+    /// second is the lane inside it.
+    pub fn with_groupbys<I, S>(mut self, groupbys: I) -> Self
+    where
+        I: IntoIterator<Item = S>,
+        S: Into<String>,
+    {
+        self.groupby = groupbys.into_iter().map(Into::into).collect();
+        self
+    }
+
+    /// Chooses the smoothing kernel (the bump shape). Gaussian by default.
     pub fn with_kernel(mut self, kernel: impl Into<KernelType>) -> Self {
         self.kernel = kernel.into();
         self
@@ -174,64 +137,83 @@ impl DensityTransform {
 }
 
 impl<T: Mark> Chart<T> {
-    /// Transform data by performing kernel density estimation (KDE).
-    /// Uses ColumnVector::unique_values() to ensure deterministic group ordering
-    /// and consistent null-filtering behavior.
+    /// Estimates a density curve from a numeric column.
+    ///
+    /// The dataset is replaced by a table of evaluation points and densities.
+    /// Group it with [`DensityTransform::with_groupbys`] to get one curve per
+    /// group, then draw it with `mark_area` (a mirror stack) or
+    /// `transform_band`.
+    ///
+    /// By default every group shares one range extended by 30%, so the smooth
+    /// tails of a density plot stay visible. Set
+    /// [`with_trim(true)`](DensityTransform::with_trim) for violins, where each
+    /// group is evaluated over its own observed range instead.
     pub fn transform_density(mut self, params: DensityTransform) -> Result<Self, ChartonError> {
         let density_field = &params.density;
         let density_col = self.data.column(density_field)?;
 
-        // --- STEP 1: Calculate Global Range (Ignoring Nulls) ---
-        let (min_val, max_val) = density_col.min_max();
+        // 200 points keeps a curve smooth without being expensive.
+        const STEPS: usize = 200;
 
-        // Extend range by 30% to capture distribution tails (standard visualization practice).
-        let mut extended_min = 1.3 * min_val - 0.3 * max_val;
-        let mut extended_max = 1.3 * max_val - 0.3 * min_val;
-
-        // Handle edge case where all values are identical or constant.
-        if (extended_max - extended_min).abs() < 1e-12 {
-            let offset = if extended_min == 0.0 {
-                1.0
-            } else {
-                extended_min.abs() * 0.1
-            };
-            extended_min -= offset;
-            extended_max += offset;
-        }
-
-        // Generate 200 evaluation points for a smooth curve.
-        let steps = 200;
-        let step_size = (extended_max - extended_min) / (steps as f64);
-        let eval_points: Vec<f64> = (0..steps)
-            .map(|i| extended_min + (i as f64) * step_size)
-            .collect();
-
-        let x_axis_values = eval_points.clone();
-
-        // --- STEP 2: Establish Deterministic Order ---
-        // We use unique_values() to ensure the order of density curves matches
-        // the legend and other transforms (First Appearance).
-        let group_order: Vec<Option<String>> = if let Some(ref g_field) = params.groupby {
-            self.data
-                .column(g_field)?
-                .unique_values()
-                .into_iter()
-                .map(Some)
-                .collect()
+        // --- STEP 0: Untrimmed (shared) evaluation grid ---
+        // The default density plot evaluates every group on one range covering
+        // all rows, extended by 30% so the tails fade out rather than being cut
+        // at the last observation. This is the behaviour `geom_density` has.
+        let untrimmed_grid: Option<Vec<f64>> = if params.trim {
+            None
         } else {
-            // Use None as a placeholder for the global (no-groupby) case.
-            vec![None]
+            let (min_val, max_val) = density_col.min_max();
+            let mut lo = 1.3 * min_val - 0.3 * max_val;
+            let mut hi = 1.3 * max_val - 0.3 * min_val;
+            // A constant column has no spread; give it a small window so the
+            // estimator produces a finite spike rather than NaNs.
+            if (hi - lo).abs() < 1e-12 {
+                let offset = if lo == 0.0 { 1.0 } else { lo.abs() * 0.1 };
+                lo -= offset;
+                hi += offset;
+            }
+            let step = (hi - lo) / (STEPS as f64);
+            Some((0..STEPS).map(|i| lo + (i as f64) * step).collect())
         };
 
-        // --- STEP 3: Aggregate Observations by Group ---
-        let mut groups: AHashMap<Option<String>, Vec<f64>> = AHashMap::new();
+        // --- STEP 1: Establish Deterministic Order ---
+        // The keys are the tuples of the groupby fields, in first-appearance
+        // order, so curves line up with the legend. With no groupby there is a
+        // single, empty key.
+        let group_columns: Vec<&ColumnVector> = params
+            .groupby
+            .iter()
+            .map(|field| self.data.column(field))
+            .collect::<Result<Vec<_>, _>>()?;
+
+        let group_order: Vec<Vec<String>> = if params.groupby.is_empty() {
+            vec![Vec::new()]
+        } else {
+            let mut seen = AHashSet::new();
+            let mut order = Vec::new();
+            for i in 0..self.data.height() {
+                let key: Vec<String> = group_columns
+                    .iter()
+                    .map(|col| col.get(i).to_string().unwrap_or_else(|| "null".to_string()))
+                    .collect();
+                if seen.insert(key.clone()) {
+                    order.push(key);
+                }
+            }
+            order
+        };
+
+        // --- STEP 2: Aggregate Observations by Group ---
+        let mut groups: AHashMap<Vec<String>, Vec<f64>> = AHashMap::new();
         let row_count = self.data.height();
 
-        if let Some(ref g_field) = params.groupby {
-            let group_col = self.data.column(g_field)?;
+        if !params.groupby.is_empty() {
             for i in 0..row_count {
                 if let Some(val) = density_col.get(i).to_f64() {
-                    let key = group_col.get(i).to_string();
+                    let key: Vec<String> = group_columns
+                        .iter()
+                        .map(|col| col.get(i).to_string().unwrap_or_else(|| "null".to_string()))
+                        .collect();
                     groups.entry(key).or_default().push(val);
                 }
             }
@@ -243,13 +225,14 @@ impl<T: Mark> Chart<T> {
                     all_obs.push(val);
                 }
             }
-            groups.insert(None, all_obs);
+            groups.insert(Vec::new(), all_obs);
         }
 
-        // --- STEP 4: Compute KDE per Group ---
+        // --- STEP 3: Compute KDE per Group ---
         let mut final_x = Vec::new();
         let mut final_y = Vec::new();
-        let mut final_group = Vec::new();
+        // One output column per groupby field.
+        let mut final_groups: Vec<Vec<String>> = vec![Vec::new(); params.groupby.len()];
 
         for key in group_order {
             let observations = match groups.get(&key) {
@@ -257,10 +240,33 @@ impl<T: Mark> Chart<T> {
                 _ => continue,
             };
 
-            let group_label = key.as_deref().unwrap_or("all").to_string();
+            // Trimmed mode evaluates each group over its own observed range, so
+            // two groups never share a grid and a violin ends at the data
+            // extremes instead of drawing a thin near-zero tail. Untrimmed mode
+            // reuses the one shared grid computed in STEP 0.
+            let eval_points: Vec<f64> = match &untrimmed_grid {
+                Some(grid) => grid.clone(),
+                None => {
+                    let (min_val, max_val) = observations
+                        .iter()
+                        .fold((f64::INFINITY, f64::NEG_INFINITY), |(lo, hi), &v| {
+                            (lo.min(v), hi.max(v))
+                        });
+                    let (mut lo, mut hi) = (min_val, max_val);
+                    // A constant group has no spread; give it a small symmetric
+                    // window so the estimator produces a finite spike.
+                    if (hi - lo).abs() < 1e-12 {
+                        let offset = if lo == 0.0 { 1.0 } else { lo.abs() * 0.1 };
+                        lo -= offset;
+                        hi += offset;
+                    }
+                    (0..STEPS)
+                        .map(|i| lo + (hi - lo) * (i as f64) / ((STEPS - 1) as f64))
+                        .collect()
+                }
+            };
 
-            // Build one estimate for this group and read it at the fixed
-            // evaluation points that make up the density curve.
+            // Build one estimate for this group and read it at its own points.
             let kde = Kde::new(observations.clone(), params.bandwidth, params.kernel);
             let density_values: Vec<f64> = if params.cumulative {
                 kde.cdf(&eval_points)
@@ -276,19 +282,17 @@ impl<T: Mark> Chart<T> {
             };
 
             final_y.extend(processed_y);
-            final_x.extend(x_axis_values.clone());
+            final_x.extend(eval_points);
 
-            if params.groupby.is_some() {
-                for _ in 0..steps {
-                    final_group.push(group_label.clone());
-                }
+            for (field_index, label) in key.iter().enumerate() {
+                final_groups[field_index].extend(std::iter::repeat_n(label.clone(), STEPS));
             }
         }
 
-        // --- STEP 5: Build Final Dataset ---
+        // --- STEP 4: Build Final Dataset ---
         let mut new_ds = Dataset::new();
 
-        let x_prototype = density_col.clone(); // density_col is X axis
+        let x_prototype = density_col.type_prototype(); // density_col is X axis
         let restored_x = match x_prototype {
             ColumnVector::Datetime { timezone, .. } => ColumnVector::Datetime {
                 data: final_x.into_iter().map(|v| v.round() as i64).collect(),
@@ -324,11 +328,11 @@ impl<T: Mark> Chart<T> {
             },
         )?;
 
-        if let Some(ref g_field) = params.groupby {
+        for (field_index, field) in params.groupby.iter().enumerate() {
             new_ds.add_column(
-                g_field,
+                field,
                 ColumnVector::String {
-                    data: final_group,
+                    data: std::mem::take(&mut final_groups[field_index]),
                     validity: None,
                 },
             )?;
@@ -337,5 +341,86 @@ impl<T: Mark> Chart<T> {
         // Replace chart data with the newly generated density dataset.
         self.data = new_ds;
         Ok(self)
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use crate::chart::Chart;
+    use crate::core::data::{ColumnVector, Dataset};
+    use crate::mark::no_mark::NoMark;
+
+    fn chart(values: Vec<f64>, groups: Vec<&str>) -> Chart<NoMark> {
+        let mut ds = Dataset::new();
+        ds.add_column(
+            "value",
+            ColumnVector::Float64 {
+                data: values,
+                validity: None,
+            },
+        )
+        .unwrap();
+        ds.add_column(
+            "grp",
+            ColumnVector::String {
+                data: groups.into_iter().map(str::to_string).collect(),
+                validity: None,
+            },
+        )
+        .unwrap();
+        Chart::<NoMark>::build(ds).unwrap()
+    }
+
+    fn range_of(chart: &Chart<NoMark>, group: &str) -> (f64, f64) {
+        let x = chart.data.column("value").unwrap().to_f64_vec();
+        let groups = chart.data.column("grp").unwrap();
+        x.iter()
+            .enumerate()
+            .filter(|(i, _)| groups.get(*i).to_string().as_deref() == Some(group))
+            .fold((f64::INFINITY, f64::NEG_INFINITY), |(lo, hi), (_, v)| {
+                (lo.min(*v), hi.max(*v))
+            })
+    }
+
+    /// With `trim`, each group owns its evaluation grid, so two groups of
+    /// different spread produce curves of different height.
+    #[test]
+    fn trimmed_groups_get_their_own_range() {
+        let chart = chart(vec![0.0, 10.0, 100.0, 110.0], vec!["A", "A", "B", "B"])
+            .transform_density(
+                DensityTransform::new("value")
+                    .with_groupbys(["grp"])
+                    .with_trim(true),
+            )
+            .unwrap();
+
+        let a = range_of(&chart, "A");
+        let b = range_of(&chart, "B");
+        assert!(
+            (a.0 - 0.0).abs() < 1e-9 && (a.1 - 10.0).abs() < 1e-9,
+            "A={a:?}"
+        );
+        assert!(
+            (b.0 - 100.0).abs() < 1e-9 && (b.1 - 110.0).abs() < 1e-9,
+            "B={b:?}"
+        );
+    }
+
+    /// The default (untrimmed) keeps one shared, extended grid for every group,
+    /// which is what a density plot expects.
+    #[test]
+    fn untrimmed_groups_share_one_extended_range() {
+        let chart = chart(vec![0.0, 10.0, 100.0, 110.0], vec!["A", "A", "B", "B"])
+            .transform_density(DensityTransform::new("value").with_groupbys(["grp"]))
+            .unwrap();
+
+        let a = range_of(&chart, "A");
+        let b = range_of(&chart, "B");
+        assert!(
+            (a.0 - b.0).abs() < 1e-9 && (a.1 - b.1).abs() < 1e-9,
+            "A={a:?} B={b:?}"
+        );
+        assert!(a.0 < 0.0 && a.1 > 110.0, "range=({}, {})", a.0, a.1);
     }
 }
