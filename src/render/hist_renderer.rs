@@ -82,7 +82,7 @@ impl MarkRenderer for Chart<MarkHist> {
 
                         // Resolve color using unified logic
                         let fill = self.resolve_color_from_value(
-                            color_norms.as_ref().and_then(|n| n[idx]),
+                            color_norms.as_ref().map(|n| n[idx].unwrap_or(f64::NAN)),
                             context,
                             &mark_config.color,
                         );
@@ -195,15 +195,6 @@ impl Chart<MarkHist> {
         context: &PanelContext,
         fallback: &SingleColor,
     ) -> SingleColor {
-        if let (Some(v), Some(mapping)) = (val, &context.spec.aesthetics.color) {
-            let s_trait = mapping.scale_impl.as_ref();
-            s_trait
-                .mapper()
-                .as_ref()
-                .map(|m| m.map_to_color(v, s_trait.logical_max()))
-                .unwrap_or(*fallback)
-        } else {
-            *fallback
-        }
+        crate::render::resolve_color(val, context, fallback)
     }
 }

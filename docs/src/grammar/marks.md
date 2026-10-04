@@ -34,7 +34,7 @@ The simplest mark, representing each data row as an individual geometric shape.
 
 Connects data points in a specific order (usually by the X-axis) to show trends.
 
-- Connectivity: Unlike points, the Line mark treats a sequence of rows as a single continuous path.
+- Connectivity: Unlike points, the Line mark treats a sequence of rows as a single continuous path. A missing `x` or `y` breaks the path, so a hole in the data shows as a gap rather than a line drawn across it. See [Missing Values & Gaps](../concepts/missing_values.md).
 - Visuals: Focuses on `stroke_width` and `color`.
 
 ### Path Mark (`mark_path`)
@@ -65,6 +65,7 @@ Represents data as rectangles extending from a baseline.
 Similar to a line but filled between a baseline (Y2) and the data value (Y).
 
 - Topology: Highlighting the volume between two series or between a series and the zero-axis.
+- Gaps: A missing `x` or `y` opens the area at that point instead of bridging it. See [Missing Values & Gaps](../concepts/missing_values.md).
 
 ### Specialized Marks
 

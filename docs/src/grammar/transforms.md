@@ -128,6 +128,15 @@ name with `with_as(...)`, or read the original in an earlier layer.
 (`transform_density_2d` and `transform_contour` never copy external columns back
 in, so they only ever replace.)
 
+## Missing values
+
+A transform that groups rows (a density, a box, a window) records a missing
+group value as the reserved `NA` level rather than dropping it. Whether that row
+survives is then decided by how the column is used: a positional `center` or `x`
+drops it, a non-positional `group` or `color` keeps it (drawn grey). A missing
+*value* being summarised is simply skipped. See
+[Missing Values & Gaps](../concepts/missing_values.md).
+
 ## See also
 
 - [The Layer Pipeline: Data → Stat → Position → Geom](../concepts/grammar_pipeline.md)

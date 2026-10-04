@@ -7,6 +7,16 @@
 //! The transform only writes numbers; it never draws. Turning the curve into a
 //! shape is the geometry's job: `mark_area` with a mirror stack for a smooth
 //! density plot, or `transform_band` for a violin.
+//!
+//! # Missing values
+//!
+//! A row whose density value is missing is skipped. A missing value in a
+//! `groupby` column is recorded as the reserved [`MISSING_CATEGORY`] level
+//! rather than dropped: whether it survives is then decided by how that column
+//! is used downstream — a positional `center` drops it, a non-positional
+//! `group` or `color` keeps it. See `MISSING_CATEGORY` for the full policy.
+//!
+//! [`MISSING_CATEGORY`]: crate::core::data::MISSING_CATEGORY
 
 use crate::chart::Chart;
 use crate::core::data::{ColumnVector, Dataset};
@@ -192,16 +202,24 @@ impl<T: Mark> Chart<T> {
             .map(|field| self.data.column(field))
             .collect::<Result<Vec<_>, _>>()?;
 
+        // A missing value in a groupby column becomes the reserved "NA" level.
+        // Whether it survives depends on how the field is used downstream:
+        // `lane_layout` drops it for a positional `category` but keeps it for a
+        // non-positional `group`, and colour keeps it (grey).
+        let group_key = |i: usize| -> Vec<String> {
+            group_columns
+                .iter()
+                .map(|col| col.label_with_missing(i))
+                .collect()
+        };
+
         let group_order: Vec<Vec<String>> = if params.groupby.is_empty() {
             vec![Vec::new()]
         } else {
             let mut seen = AHashSet::new();
             let mut order = Vec::new();
             for i in 0..self.data.height() {
-                let key: Vec<String> = group_columns
-                    .iter()
-                    .map(|col| col.get(i).to_string().unwrap_or_else(|| "null".to_string()))
-                    .collect();
+                let key = group_key(i);
                 if seen.insert(key.clone()) {
                     order.push(key);
                 }
@@ -215,13 +233,11 @@ impl<T: Mark> Chart<T> {
 
         if !params.groupby.is_empty() {
             for i in 0..row_count {
-                if let Some(val) = density_col.get(i).to_f64() {
-                    let key: Vec<String> = group_columns
-                        .iter()
-                        .map(|col| col.get(i).to_string().unwrap_or_else(|| "null".to_string()))
-                        .collect();
-                    groups.entry(key).or_default().push(val);
-                }
+                let Some(val) = density_col.get(i).to_f64() else {
+                    continue;
+                };
+                let key = group_key(i);
+                groups.entry(key).or_default().push(val);
             }
         } else {
             // Optimized path for global density calculation.
@@ -428,5 +444,46 @@ mod tests {
             "A={a:?} B={b:?}"
         );
         assert!(a.0 < 0.0 && a.1 > 110.0, "range=({}, {})", a.0, a.1);
+    }
+
+    /// A null groupby value becomes the reserved `"NA"` level instead of being
+    /// dropped, so a valid observation is not lost.
+    #[test]
+    fn null_groups_become_the_missing_level() {
+        let mut ds = Dataset::new();
+        ds.add_column(
+            "value",
+            ColumnVector::Float64 {
+                data: vec![1.0, 2.0, 3.0, 4.0],
+                validity: None,
+            },
+        )
+        .unwrap();
+        // grp: ["a", null, "a", "b"]
+        ds.add_column(
+            "grp",
+            ColumnVector::String {
+                data: vec!["a".into(), "ignored".into(), "a".into(), "b".into()],
+                validity: Some(vec![0b1101]),
+            },
+        )
+        .unwrap();
+
+        let chart = Chart::<NoMark>::build(ds)
+            .unwrap()
+            .transform_density(
+                DensityTransform::new("value")
+                    .with_groupbys(["grp"])
+                    .with_trim(true),
+            )
+            .unwrap();
+
+        // `labels_with_missing` is what the colour domain uses: NA is present
+        // and placed last, the two real groups keep their order.
+        let groups = chart.data.column("grp").unwrap().labels_with_missing();
+        assert_eq!(
+            groups,
+            vec!["a".to_string(), "b".to_string(), "NA".to_string()]
+        );
     }
 }

@@ -67,6 +67,11 @@ impl<T: Mark> Chart<T> {
         let mut seen_coords = AHashSet::new();
 
         for i in 0..row_count {
+            // A missing x or y coordinate drops the cell (Vega-Lite/ggplot2),
+            // rather than landing in the first bin or a "null" level.
+            if x_col.is_null(i) || y_col.is_null(i) {
+                continue;
+            }
             // Resolve X coordinate identifier
             let x_key = match x_bin_params {
                 Some((min, n, width)) => {

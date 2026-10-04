@@ -12,7 +12,7 @@
 
 use crate::TEMP_SUFFIX;
 use crate::chart::Chart;
-use crate::core::data::{ColumnVector, Dataset, get_quantile};
+use crate::core::data::{ColumnVector, Dataset, MISSING_CATEGORY, get_quantile};
 use crate::error::ChartonError;
 use crate::mark::Mark;
 use ahash::AHashMap;
@@ -56,7 +56,7 @@ impl<T: Mark> Chart<T> {
         if let Some(color_enc) = &self.encoding.color {
             let cf = color_enc.field.clone();
             let c_col = self.data.column(&cf)?;
-            color_order = c_col.unique_values();
+            color_order = c_col.labels_with_missing();
             color_col_proto = Some(c_col.clone());
             color_field_name = Some(cf);
         }
@@ -70,15 +70,16 @@ impl<T: Mark> Chart<T> {
         // --- STEP 3: Grouping phase ---
         let mut group_map: AHashMap<(String, Option<String>), Vec<usize>> = AHashMap::new();
         for i in 0..row_count {
-            let x_val = x_col
-                .get(i)
-                .to_string()
-                .unwrap_or_else(|| "null".to_string());
+            // Positional x drops a missing row; colour keeps it as the reserved
+            // grey "NA" level so no valid observation is lost.
+            let Some(x_val) = x_col.get(i).to_string() else {
+                continue;
+            };
             let c_val = color_field_name.as_ref().map(|f| {
                 self.data
                     .get(f, i)
                     .to_string()
-                    .unwrap_or_else(|| "null".to_string())
+                    .unwrap_or_else(|| MISSING_CATEGORY.to_string())
             });
             group_map.entry((x_val, c_val)).or_default().push(i);
         }

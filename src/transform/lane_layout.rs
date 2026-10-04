@@ -6,8 +6,19 @@
 //! lookup and the [`Position`] lane solve — so the two transforms cannot drift
 //! apart. Callers only contribute what is genuinely different: how to pull a
 //! numeric payload out of a row, and what shape to draw from the result.
+//!
+//! # Missing values
+//!
+//! The `category` is a *position*, so a row whose category is missing is
+//! dropped — there is no lane to put it in. The `group` only selects a lane
+//! inside an otherwise valid category, so a missing group is kept under the
+//! reserved [`MISSING_CATEGORY`] label and drawn as one extra lane. Because the
+//! band and the box share this function, a violin outline and its inner box
+//! always agree on which rows exist and where they sit, holes included.
+//!
+//! [`MISSING_CATEGORY`]: crate::core::data::MISSING_CATEGORY
 
-use crate::core::data::Dataset;
+use crate::core::data::{Dataset, MISSING_CATEGORY};
 use crate::error::ChartonError;
 use crate::position::Position;
 use ahash::AHashMap;
@@ -76,7 +87,9 @@ where
         split,
     } = options;
     // The order the categories and lanes first appear keeps colours and facets
-    // stable from run to run.
+    // stable from run to run. Categories use the positional list (no missing
+    // level); groups use the non-positional list, which hides any missing group
+    // behind the reserved label placed last.
     let category_order: Vec<Option<String>> = match category {
         Some(field) => data
             .column(field)?
@@ -89,7 +102,7 @@ where
     let group_order: Vec<Option<String>> = match group {
         Some(field) => data
             .column(field)?
-            .unique_values()
+            .labels_with_missing()
             .into_iter()
             .map(Some)
             .collect(),
@@ -117,15 +130,26 @@ where
         let Some(value) = extract(i) else {
             continue;
         };
-        let category_label = category.map(|field| {
-            data.get(field, i)
-                .to_string()
-                .unwrap_or_else(|| "null".to_string())
-        });
+        // `category` is positional: a missing value drops the row. `group` is
+        // non-positional (a lane/colour): a missing value becomes the reserved
+        // "NA" lane, so the observation is kept.
+        let category_label = match category {
+            Some(field) => {
+                let label = data
+                    .get(field, i)
+                    .to_string()
+                    .unwrap_or_else(|| MISSING_CATEGORY.to_string());
+                if label == MISSING_CATEGORY {
+                    continue;
+                }
+                Some(label)
+            }
+            None => None,
+        };
         let group_label = group.map(|field| {
             data.get(field, i)
                 .to_string()
-                .unwrap_or_else(|| "null".to_string())
+                .unwrap_or_else(|| MISSING_CATEGORY.to_string())
         });
         let (Some(&ci), Some(&gi)) = (
             category_index.get(&category_label),
