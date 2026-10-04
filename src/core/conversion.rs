@@ -57,7 +57,7 @@ pub trait IntoLayered: Into<LayeredChart> + Clone {
     /// Provides a closure to modify the existing facet specification fluently.
     ///
     /// If faceting has already been configured on the chart (e.g. via `.facet(...)`),
-    /// this method takes the current [FacetSpec], applies the closure to mutate it,
+    /// this method takes the current [`FacetSpec`](crate::facets::FacetSpec), applies the closure to mutate it,
     /// and saves it back.
     fn configure_facet<F>(self, f: F) -> LayeredChart
     where
@@ -341,7 +341,7 @@ where
     ///
     /// This method creates a new [LayeredChart] with default settings and adds the input
     /// chart as its first layer. The resulting [LayeredChart] can then accept additional
-    /// layers via the [LayeredChart::add_layer] method.
+    /// layers via the `LayeredChart::add_layer` method.
     ///
     /// # Arguments
     /// * `val` - The source [Chart] to convert into a [LayeredChart]

@@ -1,21 +1,14 @@
-//! Grouped violin plot — the two industrial layouts.
+//! Grouped violins — the two industrial layouts, with `mark_violin`.
 //!
-//! Charton follows the usual grammar recipes for this, with **no violin-specific
-//! transform**:
-//!
-//! * **Faceted** (Vega-Lite / Altair style): the ordinary density transform
-//!   plus an area mark, stacking the density symmetrically with `"mirror"`.
-//!   One violin per panel.
-//! * **Dodged** (ggplot2 style): the same density transform, now grouped by
-//!   `(Sex, Species)`, followed by the general `transform_band` geometry and a
-//!   `Position::dodge`. The inner box is the same composition with
-//!   `transform_quantile_box`.
+//! * **Faceted** (Vega-Lite / Altair style): one violin per panel.
+//! * **Dodged** (ggplot2 style): the violins sit side by side inside each
+//!   category, and an ordinary `transform_quantile_box` layer draws the inner
+//!   box.
 //!
 //! The penguins `Sex` column has a couple of missing values. `Sex` is the
 //! *positional* category here, so those rows are dropped, exactly as ggplot2 and
 //! Altair would — no stray `null` violin appears, and the outline and its inner
-//! box always agree because both use the shared lane layout. A missing value in
-//! the *group* lane would instead be kept as a grey `NA` group.
+//! box always agree because both use the shared lane layout.
 
 use charton::prelude::*;
 use std::error::Error;
@@ -23,55 +16,26 @@ use std::error::Error;
 fn main() -> Result<(), Box<dyn Error>> {
     let penguins = load_dataset("penguins")?;
 
-    // === 1. Faceted: density + area + mirror ================================
+    // === 1. Faceted: one violin per panel ==================================
     chart!(&penguins)?
-        .transform_density(
-            DensityTransform::new("Body Mass (g)")
-                .with_as("Body Mass (g)", "density")
-                .with_groupbys(["Species"])
-                .with_trim(true),
-        )?
-        .mark_area()?
-        .configure_area(|a| a.with_opacity(0.7).with_stroke("#7e5109"))
-        .encode((
-            alt::x("Body Mass (g)"),
-            alt::y("density").with_stack("mirror"),
-            alt::color("Species"),
-        ))?
+        .mark_violin()?
+        .configure_violin(|violin| violin.with_opacity(0.7).with_stroke("#7e5109"))
+        .encode(alt::y("Body Mass (g)"))?
         .facet(FacetSpec::wrap("Species").with_columns(3))
-        .coord_flip()
         .with_title("Body mass by species")
         .with_x_label("Density")
         .with_y_label("Body mass (g)")
         .save("docs/src/images/faceted_violin.svg")?;
 
-    // === 2. Dodged: density + band + Position, plus a quantile box ==========
+    // === 2. Dodged: side by side inside each Sex, with an inner box ========
     let outline = chart!(&penguins)?
-        // One density curve per (Sex, Species) cell.
-        .transform_density(
-            DensityTransform::new("Body Mass (g)")
-                .with_as("Body Mass (g)", "density")
-                .with_groupbys(["Sex", "Species"])
-                .with_trim(true),
-        )?
-        // Draw each curve as a symmetric band, dodged inside each Sex.
-        .transform_band(
-            BandTransform::new("Body Mass (g)", "density")
-                .with_center("Sex")
-                .with_group("Species")
-                .with_position(Position::dodge())
-                .with_scale(BandScale::PerGroup),
-        )?
-        .mark_polygon()?
-        .configure_geoshape(|mark| {
-            mark.with_fill("#d6eaf8")
-                .with_stroke("#2c3e50")
-                .with_stroke_width(1.0)
+        .mark_violin()?
+        .configure_violin(|violin| {
+            violin.with_color("#d6eaf8").with_stroke("#2c3e50")
         })
         .encode((
-            alt::x("x").with_category_labels("Sex"),
-            alt::y("y"),
-            alt::path_group("path_group"),
+            alt::x("Sex"),
+            alt::y("Body Mass (g)"),
             alt::color("Species"),
         ))?;
 
@@ -84,9 +48,7 @@ fn main() -> Result<(), Box<dyn Error>> {
         )?
         .mark_polygon()?
         .configure_geoshape(|mark| {
-            mark.with_fill("white")
-                .with_stroke("black")
-                .with_stroke_width(1.0)
+            mark.with_fill("white").with_stroke("black")
         })
         .encode((
             alt::x("x").with_category_labels("Sex"),

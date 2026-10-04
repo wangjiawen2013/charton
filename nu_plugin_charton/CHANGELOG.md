@@ -6,6 +6,13 @@ stated in the README and in each release.
 
 ## [Unreleased]
 
+### Added
+
+- `-g density_2d`: a 2D kernel density drawn as a heatmap. `-x` and `-y` are
+  the two columns whose joint density is estimated, and `--bins` sets the grid
+  size per axis (the heatmap cells are matched to the grid). It is the filled
+  counterpart of the `-g contour` density form.
+
 ## [0.8.0] - 2026-10-03
 
 ### Fixed

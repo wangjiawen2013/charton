@@ -25,7 +25,7 @@ Below is the formal definition of each primitive, its semantic role, performance
 1. `draw_circle(&mut self, config: CircleConfig)`
 - Semantics: Renders a perfect circle defined by a center point and radius.
 - Implementation:
-    - Vector: Native <circle> primitive.
+    - Vector: Native `<circle>` primitive.
     - CPU Raster: Path-built vector circles rendered via anti-aliased scan-conversion.
     - GPU Raster (WGPU): Instanced SDF (Signed Distance Field) shader evaluated on a single quad.
 

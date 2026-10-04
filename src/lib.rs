@@ -20,9 +20,11 @@
 //!
 //! Because the steps are independent they can be recombined. A violin is a
 //! density transform plus a band plus a polygon; a contour plot is a density
-//! grid plus an iso-line transform plus an open path. There is no "violin mark"
-//! or "contour mark" to learn. See `docs/src/concepts/grammar_pipeline.md` for
-//! the full model.
+//! grid plus an iso-line transform plus an open path. The convenience marks
+//! (`mark_violin`, `mark_density`, `mark_contour`, `mark_density_2d`) are just
+//! names for those recipes: each expands back into these same steps, so the
+//! composition is always available. See `docs/src/concepts/grammar_pipeline.md`
+//! for the full model.
 
 #![warn(clippy::missing_const_for_fn)]
 
@@ -107,9 +109,10 @@ pub mod prelude {
     pub use crate::datasets::load_dataset;
     pub use crate::facets::FacetSpec;
     pub use crate::mark::{
-        area::MarkArea, bar::MarkBar, boxplot::MarkBoxplot, errorbar::MarkErrorBar,
+        area::MarkArea, bar::MarkBar, boxplot::MarkBoxplot, contour::MarkContour,
+        density::MarkDensity, density_2d::MarkDensity2D, errorbar::MarkErrorBar,
         geo_path::MarkGeoPath, line::MarkLine, point::MarkPoint, rect::MarkRect, rule::MarkRule,
-        text::MarkText, tick::MarkTick,
+        text::MarkText, tick::MarkTick, violin::MarkViolin,
     };
     pub use crate::position::Position;
     pub use crate::render::line_renderer::PathInterpolation;

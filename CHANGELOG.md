@@ -14,6 +14,29 @@ predate this file.
   geometry renderer previously hard-coded an empty dash, so a dashed contour
   (or a dashed polygon outline) was impossible on any backend. It now works on
   SVG, raster, PDF and WGPU.
+- **Convenience composite marks: `mark_violin`, `mark_density`, `mark_contour`
+  and `mark_density_2d`.** Each is a *thin recipe* over the existing public
+  transforms and renderers — there is no new statistic and no new drawing path:
+
+  | Mark | Expands into |
+  |---|---|
+  | `mark_violin` | `transform_density` + `transform_band` → polygon renderer |
+  | `mark_density` | `transform_density` + area prep → area renderer |
+  | `mark_contour` | `transform_contour` → open-path renderer |
+  | `mark_density_2d` | `transform_density_2d` + rect prep → rect renderer |
+
+  Inputs come from the encodings, so e.g. `mark_violin` reads the value from
+  `y`, the category from `x` and the lanes from `color`. A faceted chart re-runs
+  the statistic per panel. Each mark is covered by a test proving it renders
+  byte-for-byte identically to the hand-written composition, and can be tuned
+  with `configure_violin` / `configure_density` / `configure_contour` /
+  `configure_density_2d`.
+- **Per-channel display labels.** The `X`, `Y`, `Color`, `Shape` and `Size`
+  encodings gained `with_label(…)`. Axis and legend titles now resolve in the
+  order: explicit chart label (`with_x_label` / `with_color_label` / …), then the
+  channel label, then the field name. The composite marks use this to keep the
+  original column names on the axes and legends after they rewrite the encoding
+  to generated columns (`x`, `y`, `density`, `level`, …).
 
 ### Fixed
 

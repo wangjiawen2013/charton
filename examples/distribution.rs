@@ -1,3 +1,10 @@
+//! Cumulative density — the convenience `mark_density` with `with_cumulative`.
+//!
+//! A cumulative density is the integral of a density curve: the share of the
+//! data at or below each value. It rises from 0 to 1 and reads like an empirical
+//! CDF, but is smoothed by the same kernel used for the 1-D density. For the
+//! composition written out by hand, see `distribution_manual.rs`.
+
 use charton::prelude::*;
 use std::error::Error;
 
@@ -21,17 +28,15 @@ fn main() -> Result<(), Box<dyn Error>> {
         2015, 2014, 2013, 2012, 2011, 2010, 2018, 2017, 2016, 2015,
     ];
 
-    let chart = chart!(imdb_rating, genre, year)?
-        .transform_density(
-            DensityTransform::new("imdb_rating")
-                .with_as("imdb_rating", "cumulative_density")
-                .with_cumulative(true),
-        )?
-        .mark_area()?
-        .configure_area(|a| a.with_color("purple").with_opacity(0.3))
-        .encode((alt::x("imdb_rating"), alt::y("cumulative_density")))?;
-
-    chart
+    chart!(imdb_rating, genre, year)?
+        .mark_density()?
+        .configure_density(|density| {
+            density
+                .with_cumulative(true)
+                .with_color("purple")
+                .with_opacity(0.3)
+        })
+        .encode(alt::x("imdb_rating"))?
         .with_title("Cumulative Density Estimation")
         .with_x_label("IMDB Rating")
         .with_y_label("Cumulative Density")

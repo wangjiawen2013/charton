@@ -30,14 +30,18 @@ pub(crate) mod bar_transform;
 pub(crate) mod box_transform;
 pub(crate) mod boxplot_transform;
 pub(crate) mod calculate_transform;
+pub(crate) mod contour_mark_transform;
 pub(crate) mod contour_transform;
 pub(crate) mod density_2d_transform;
+pub(crate) mod density_2d_mark_transform;
+pub(crate) mod density_mark_transform;
 pub(crate) mod density_transform;
 pub(crate) mod errorbar_transform;
 pub(crate) mod hist_transform;
 pub(crate) mod lane_layout;
 pub(crate) mod point_transform;
 pub(crate) mod rect_transform;
+pub(crate) mod violin_transform;
 pub(crate) mod window_transform;
 
 use crate::error::ChartonError;
