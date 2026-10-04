@@ -6,6 +6,24 @@ predate this file.
 
 ## [Unreleased]
 
+### Added
+
+- **Dashed paths and polygons.** `mark_path` / `mark_polygon` (`MarkGeoPath`)
+  gained `with_dash([dash, gap])`. The pattern follows the SVG
+  `stroke-dasharray` rules and is measured along the path's arc length. The
+  geometry renderer previously hard-coded an empty dash, so a dashed contour
+  (or a dashed polygon outline) was impossible on any backend. It now works on
+  SVG, raster, PDF and WGPU.
+
+### Fixed
+
+- **WGPU closed-polygon outlines no longer drop their closing edge.** A `Complex`
+  path is a closed region, which the SVG/raster/PDF backends close with `Z`; the
+  WGPU path shader extrups one quad per consecutive pair and never wrapped, so a
+  violin, box or custom polygon outline was left open on the GPU backend.
+- **WGPU path strokes now honour the dash pattern.** Dashed contours and area
+  outlines render dashed on the GPU backend instead of solid.
+
 ### Changed
 
 - **Missing values follow the ggplot2 / Vega-Lite rule, consistently across

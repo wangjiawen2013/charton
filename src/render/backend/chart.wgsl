@@ -111,6 +111,9 @@ struct GradientRectData {
 struct PathPointData {
     x: f32,
     y: f32,
+    // Cumulative arc length from the path start. The dashed stroke measures
+    // the dash pattern against this, so dashes stay even across segments.
+    len: f32,
 };
 
 struct PathStyle {
@@ -119,9 +122,10 @@ struct PathStyle {
     b: f32,
     a: f32,
     thickness: f32,
-    _pad0: f32,
-    _pad1: f32,
-    _pad2: f32,
+    // Slice of `dash_pattern` for this path; dash_len == 0 is a solid stroke.
+    dash_start: f32,
+    dash_len: f32,
+    dash_offset: f32,
 };
 
 struct PathArgs {
@@ -134,6 +138,7 @@ struct PathArgs {
 @group(1) @binding(0) var<storage, read> path_points: array<PathPointData>;
 @group(1) @binding(1) var<storage, read> path_styles: array<PathStyle>;
 @group(1) @binding(2) var<storage, read> path_args: array<PathArgs>;
+@group(1) @binding(3) var<storage, read> dash_pattern: array<f32>;
 
 
 // ============================================================================
@@ -175,6 +180,11 @@ struct PathOutput {
     @location(0) color: vec4<f32>,
     @location(1) v_offset: f32,
     @location(2) half_width: f32,
+    // Arc length at this vertex, interpolated along the segment.
+    @location(3) v_len: f32,
+    @location(4) @interpolate(flat) dash_start: f32,
+    @location(5) @interpolate(flat) dash_len: f32,
+    @location(6) @interpolate(flat) dash_offset: f32,
 };
 
 
@@ -500,6 +510,13 @@ fn path_simple_vs(
         default: {}
     }
 
+    // Arc length at this vertex; interpolates linearly along the segment.
+    let v_len = select(
+        p0.len,
+        p1.len,
+        local_vertex_idx == 2u || local_vertex_idx == 3u || local_vertex_idx == 5u,
+    );
+
     let scale = uniforms.scale_factor;
     
     // Screen-space over-extrusion for anti-aliasing
@@ -523,6 +540,10 @@ fn path_simple_vs(
     // Pass offset and actual target width to fragment shader for SDF clipping
     out.v_offset = total_extruding * extrusion_side; 
     out.half_width = actual_half_width;
+    out.v_len = v_len;
+    out.dash_start = path_style.dash_start;
+    out.dash_len = path_style.dash_len;
+    out.dash_offset = path_style.dash_offset;
     return out;
 }
 
@@ -537,6 +558,32 @@ fn path_simple_fs(in: PathOutput) -> @location(0) vec4<f32> {
     
     // Discard fully transparent redundant pixels
     if (alpha <= 0.01) { discard; }
+
+    // Dashed stroke: walk the dash pattern and drop the pixels that land in a
+    // gap. The pattern alternates dash/gap and repeats every `period`.
+    if (in.dash_len > 0.5) {
+        let count = u32(in.dash_len);
+        let base = u32(in.dash_start);
+        var period = 0.0;
+        for (var i = 0u; i < count; i = i + 1u) {
+            period = period + dash_pattern[base + i];
+        }
+        if (period > 0.0) {
+            let shifted = in.v_len + in.dash_offset;
+            let t = shifted - floor(shifted / period) * period;
+            var acc = 0.0;
+            var visible = true;
+            for (var i = 0u; i < count; i = i + 1u) {
+                let segment = dash_pattern[base + i];
+                if (t < acc + segment) {
+                    visible = (i % 2u) == 0u;
+                    break;
+                }
+                acc = acc + segment;
+            }
+            if (!visible) { discard; }
+        }
+    }
     
     return vec4<f32>(in.color.r, in.color.g, in.color.b, in.color.a * alpha);
 }

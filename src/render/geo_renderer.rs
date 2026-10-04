@@ -123,6 +123,9 @@ impl MarkRenderer for Chart<MarkGeoPath> {
             .collect();
 
         // --- STEP 7: Dispatch to render backend ---
+        // The dash pattern is shared by every outline in the layer.
+        let dash: Vec<Precision> = mark_config.dash.iter().map(|&d| d as Precision).collect();
+
         for (points, group_color) in geo_render_data {
             if mark_config.closed {
                 // A closed path is filled, then outlined.
@@ -132,7 +135,7 @@ impl MarkRenderer for Chart<MarkGeoPath> {
                     stroke: mark_config.stroke,
                     stroke_width: mark_config.stroke_width as Precision,
                     opacity: mark_config.opacity as Precision,
-                    dash: vec![],
+                    dash: dash.clone(),
                     topology: PathTopology::Complex,
                 });
 
@@ -143,7 +146,7 @@ impl MarkRenderer for Chart<MarkGeoPath> {
                         stroke: mark_config.stroke,
                         stroke_width: mark_config.stroke_width as Precision,
                         opacity: 1.0,
-                        dash: vec![],
+                        dash: dash.clone(),
                         topology: PathTopology::Simple,
                     });
                 }
@@ -163,7 +166,7 @@ impl MarkRenderer for Chart<MarkGeoPath> {
                         stroke,
                         stroke_width: mark_config.stroke_width as Precision,
                         opacity: mark_config.opacity as Precision,
-                        dash: vec![],
+                        dash: dash.clone(),
                         topology: PathTopology::Simple,
                     });
                 }

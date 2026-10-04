@@ -101,6 +101,9 @@ pub struct GpuGradientRect {
 pub struct GpuPathPoint {
     pub x: f32,
     pub y: f32,
+    /// Cumulative arc length from the start of the path, in logical units.
+    /// The dashed stroke measures the dash pattern against this.
+    pub len: f32,
 }
 
 #[repr(C)]
@@ -111,9 +114,11 @@ pub struct GpuPathStyle {
     pub b: f32,
     pub a: f32,
     pub thickness: f32,
-    pub _pad0: f32,
-    pub _pad1: f32,
-    pub _pad2: f32,
+    /// Offset into the shared dash-pattern buffer, and its length. `dash_len`
+    /// of `0` means a solid stroke.
+    pub dash_start: f32,
+    pub dash_len: f32,
+    pub dash_offset: f32,
 }
 
 #[repr(C)]
@@ -248,6 +253,9 @@ pub struct WgpuBackend {
     pending_path_points: Vec<GpuPathPoint>,
     pending_path_styles: Vec<GpuPathStyle>,
     pending_path_args: Vec<GpuPathArgs>,
+    /// Flattened dash patterns shared by all paths in the frame. Each path
+    /// references a slice via `GpuPathStyle::dash_start` / `dash_len`.
+    pending_path_dash: Vec<f32>,
 
     pub(crate) collected_texts: Vec<TextConfig>,
     // A tuple containing the batch and its associated scissor state.
@@ -359,6 +367,18 @@ impl WgpuBackend {
                     wgpu::BindGroupLayoutEntry {
                         binding: 2,
                         visibility: wgpu::ShaderStages::VERTEX,
+                        ty: wgpu::BindingType::Buffer {
+                            ty: wgpu::BufferBindingType::Storage { read_only: true },
+                            has_dynamic_offset: false,
+                            min_binding_size: None,
+                        },
+                        count: None,
+                    },
+                    // Dash patterns are read in the fragment stage, where the
+                    // dash/gap decision is made.
+                    wgpu::BindGroupLayoutEntry {
+                        binding: 3,
+                        visibility: wgpu::ShaderStages::FRAGMENT,
                         ty: wgpu::BindingType::Buffer {
                             ty: wgpu::BufferBindingType::Storage { read_only: true },
                             has_dynamic_offset: false,
@@ -658,6 +678,7 @@ impl WgpuBackend {
             pending_path_points: Vec::with_capacity(100_000),
             pending_path_styles: Vec::with_capacity(1024),
             pending_path_args: Vec::with_capacity(1024),
+            pending_path_dash: Vec::with_capacity(256),
 
             collected_texts: Vec::new(),
             batches: Vec::with_capacity(1024),
@@ -776,6 +797,7 @@ impl WgpuBackend {
         self.pending_path_points.clear();
         self.pending_path_styles.clear();
         self.pending_path_args.clear();
+        self.pending_path_dash.clear();
 
         self.uploaded_circle_count = 0;
         self.uploaded_rect_count = 0;
@@ -1108,14 +1130,43 @@ impl WgpuBackend {
             return;
         }
 
+        // A `Complex` path is a closed region (SVG/raster add a `Z`), but this
+        // shader extrudes one quad per consecutive pair and never wraps. Append
+        // the first point once so the closing edge is actually stroked; without
+        // this a polygon outline (violin, box, custom shape) is left open.
+        let close_loop = config.closes_stroke();
+
         let start_point_idx = self.pending_path_points.len() as u32;
-        let point_count = config.points.len() as u32;
+        let point_count = config.points.len() as u32 + u32::from(close_loop);
         let style_idx = self.pending_path_styles.len() as u32;
         let path_idx = self.pending_path_args.len() as u32;
 
+        // Push the points while accumulating the arc length the dashed stroke
+        // measures against. The closing point's length includes the last edge.
+        let mut arc_len = 0.0f32;
+        let mut previous: Option<(f32, f32)> = None;
         for &(x, y) in &config.points {
-            self.pending_path_points.push(GpuPathPoint { x, y });
+            if let Some((px, py)) = previous {
+                arc_len += ((x - px).powi(2) + (y - py).powi(2)).sqrt();
+            }
+            self.pending_path_points
+                .push(GpuPathPoint { x, y, len: arc_len });
+            previous = Some((x, y));
         }
+        if close_loop {
+            let (x, y) = config.points[0];
+            let (px, py) = previous.expect("at least two points");
+            arc_len += ((x - px).powi(2) + (y - py).powi(2)).sqrt();
+            self.pending_path_points
+                .push(GpuPathPoint { x, y, len: arc_len });
+        }
+
+        // A dash pattern is shared across paths through one flat buffer; this
+        // path only stores the slice it owns. An empty/zero pattern stays solid.
+        let dash = config.normalized_dash();
+        let dash_start = self.pending_path_dash.len() as f32;
+        let dash_len = dash.len() as f32;
+        self.pending_path_dash.extend_from_slice(&dash);
 
         let stroke_color = config.stroke.rgba();
         self.pending_path_styles.push(GpuPathStyle {
@@ -1124,9 +1175,9 @@ impl WgpuBackend {
             b: stroke_color[2],
             a: stroke_color[3] * config.opacity,
             thickness: config.stroke_width,
-            _pad0: 0.0,
-            _pad1: 0.0,
-            _pad2: 0.0,
+            dash_start,
+            dash_len,
+            dash_offset: 0.0,
         });
 
         self.pending_path_args.push(GpuPathArgs {
@@ -1293,6 +1344,14 @@ impl WgpuBackend {
             let points_buf = self.create_buffer(&self.pending_path_points);
             let styles_buf = self.create_buffer(&self.pending_path_styles);
             let args_buf = self.create_buffer(&self.pending_path_args);
+            // A storage binding must not be empty, so solid-only frames bind a
+            // one-element dummy; no style references it (`dash_len == 0`).
+            let dash_values: Vec<f32> = if self.pending_path_dash.is_empty() {
+                vec![0.0]
+            } else {
+                std::mem::take(&mut self.pending_path_dash)
+            };
+            let dash_buf = self.create_buffer(&dash_values);
 
             Some(self.device.create_bind_group(&wgpu::BindGroupDescriptor {
                 label: Some("Path Bind Group 1"),
@@ -1314,6 +1373,12 @@ impl WgpuBackend {
                         binding: 2,
                         resource: wgpu::BindingResource::Buffer(
                             args_buf.as_entire_buffer_binding(),
+                        ),
+                    },
+                    wgpu::BindGroupEntry {
+                        binding: 3,
+                        resource: wgpu::BindingResource::Buffer(
+                            dash_buf.as_entire_buffer_binding(),
                         ),
                     },
                 ],

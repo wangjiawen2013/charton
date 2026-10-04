@@ -12,18 +12,22 @@ below it — and to the primitives it is built from.
 
 | Recipe | Also known as | Built from |
 | --- | --- | --- |
+| [Density plot](density_1d.md#density-plot) | KDE | `transform_density` + `mark_area` |
+| [Density heatmap](density_2d.md#density-heatmap) | 2-D KDE | `transform_density_2d` + `mark_rect` |
+| [Density contour](density_2d.md#density-contours) | 2-D KDE iso-lines | `transform_density_2d` + `transform_contour` + `mark_path` |
+| [Cumulative density](cumulative_density.md#cumulative-density-curve) | KDE integral | `transform_density` (`cumulative`) |
+| [Empirical CDF](cumulative_density.md#empirical-cdf-cumulative-frequency) | cumulative frequency | `transform_window` (`CumeDist`) |
 | [Violin](violin.md#violin-single) | density outline, upright | `transform_density` + `mark_area` (mirror) + `coord_flip` |
 | [Grouped violin](violin.md#grouped-and-faceted-violins) | dodged violin | `transform_density` + `transform_band` + `Position::dodge` |
 | [Faceted violin](violin.md#grouped-and-faceted-violins) | small multiples | violin + `facet` |
 | [Split violin](violin.md#split-violin) | | `transform_band` (split) |
 | [Raincloud](violin.md#raincloud) | | violin + `transform_quantile_box` + jittered points |
-| [Violin with inner box](statistics.md#inner-box-and-median) | | violin + `transform_quantile_box` |
-| [Box plot](statistics.md#box-plot) | box & whiskers | `mark_boxplot` |
-| [Density plot](statistics.md#density-plot) | KDE | `transform_density` + `mark_area` |
-| [Cumulative density](statistics.md#cumulative-density) | ECDF | `transform_density` (`cumulative`) |
-| [Histogram](statistics.md#histogram) | | `mark_hist` |
-| [Beeswarm](statistics.md#beeswarm-and-quasirandom) | swarm | `mark_point` + layout |
-| [Quasirandom](statistics.md#beeswarm-and-quasirandom) | dot plot | `mark_point` + layout |
+| [Violin with inner box](box_plot.md#the-composable-quantile-box) | | violin + `transform_quantile_box` |
+| [Box plot](box_plot.md#box-plot) | box & whiskers | `mark_boxplot` |
+| [Histogram](histogram.md) | | `mark_hist` |
+| [Scatter](point_charts.md) | | `mark_point` + shape/size/color |
+| [Beeswarm](point_charts.md#beeswarm) | swarm | `mark_point` + layout |
+| [Quasirandom](point_charts.md#quasirandom) | dot plot | `mark_point` + layout |
 | [Strip plot](tick_chart.md#strip-plot) | rug | `mark_tick` |
 | [Styled strip](tick_chart.md#strip-plot) | | `mark_tick` + `configure_tick` |
 
@@ -76,9 +80,21 @@ below it — and to the primitives it is built from.
 | [Facet grid](faceting.md#grid-faceting-two-dimensions) | small multiples | `facet` |
 | [World map](geospatial.md#world-map) | choropleth | `mark_geoshape` + `CoordSystem::Geo` |
 
+## Choosing a distribution view
+
+- **Histogram** — a first, honest look at the shape.
+- **Density** — the same shape, smoothed; good when the distribution is
+  interesting.
+- **Box plot** — compact and precise about quartiles, hides the shape.
+- **Violin** — the shape with quartiles available as an inner box.
+- **Beeswarm / strip** — every observation; good for small samples.
+
+See [Missing Values & Gaps](../concepts/missing_values.md) for how each view
+handles nulls and gaps.
+
 ## Going deeper
 
-- [Statistical Distributions](statistics.md) and
-  [Box & Violin Combinations](box_violin_charts.md) — the density/band/box
-  machinery under the distribution recipes.
-- [Contour Plots](contours.md) — the marching-squares and 2-D density parts.
+- [Contour Plots](contours.md) — the marching-squares machinery and the general
+  scalar-grid contour.
+- [Transforms & Columns](../grammar/transforms.md) — the column contract of
+  every transform used by these recipes.
