@@ -258,9 +258,11 @@ impl<T: Mark> Chart<T> {
         } else {
             let mut order: Vec<Vec<String>> = Vec::new();
             for i in 0..n {
+                // `groupby` is non-positional: a missing value becomes the
+                // reserved "NA" group, keeping the row in its own window.
                 let key: Vec<String> = group_columns
                     .iter()
-                    .map(|col| col.get(i).to_string().unwrap_or_else(|| "null".to_string()))
+                    .map(|col| col.label_with_missing(i))
                     .collect();
                 if !groups.contains_key(&key) {
                     order.push(key.clone());

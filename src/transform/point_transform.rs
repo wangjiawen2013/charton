@@ -56,7 +56,9 @@ impl<T: Mark> Chart<T> {
         let color_col = self.data.column(color_field)?;
 
         // Determine unique groups to establish deterministic slot ordering.
-        let color_uniques = color_col.unique_values();
+        // Colour is non-positional: a missing value becomes the reserved "NA"
+        // lane so it is not lumped into the first group or dropped.
+        let color_uniques = color_col.labels_with_missing();
         let color_map: AHashMap<String, usize> = color_uniques
             .iter()
             .enumerate()
@@ -80,10 +82,7 @@ impl<T: Mark> Chart<T> {
                 .get(i)
                 .to_string()
                 .unwrap_or_else(|| "null".to_string());
-            let c_val = color_col
-                .get(i)
-                .to_string()
-                .unwrap_or_else(|| "null".to_string());
+            let c_val = color_col.label_with_missing(i);
 
             // A. sub_idx: Maps the point to its specific dodge-lane.
             let c_idx = *color_map.get(&c_val).unwrap_or(&0);

@@ -191,10 +191,15 @@ impl Scale {
                     // such as `1.25` while keeping integer categories.
                     Scale::Discrete => {
                         let value = column.get(i);
-                        let by_label = value
+                        // A missing value joins the reserved `MISSING_CATEGORY`
+                        // level. A positional scale does not list that level, so
+                        // `normalize_string` returns NaN and the `to_f64` fallback
+                        // yields `None` — the row is dropped, as intended.
+                        let label = value
                             .to_string()
-                            .map(|s| scale_trait.normalize_string(&s))
-                            .filter(|x| x.is_finite());
+                            .unwrap_or_else(|| crate::core::data::MISSING_CATEGORY.to_string());
+                        let norm = scale_trait.normalize_string(&label);
+                        let by_label = norm.is_finite().then_some(norm);
                         by_label.or_else(|| value.to_f64().map(|f| scale_trait.normalize(f)))
                     }
 

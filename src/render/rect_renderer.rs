@@ -87,7 +87,7 @@ impl MarkRenderer for Chart<MarkRect> {
 
                 // 2. Aesthetic Resolution: Resolve fill color from scale or fallback
                 let fill = self.resolve_color_from_value(
-                    color_norms.as_ref().and_then(|n| n[i]),
+                    color_norms.as_ref().map(|n| n[i].unwrap_or(f64::NAN)),
                     context,
                     &mark_config.color,
                 );
@@ -141,15 +141,6 @@ impl Chart<MarkRect> {
         context: &PanelContext,
         fallback: &SingleColor,
     ) -> SingleColor {
-        if let (Some(v), Some(mapping)) = (val, &context.spec.aesthetics.color) {
-            let s_trait = mapping.scale_impl.as_ref();
-            s_trait
-                .mapper()
-                .as_ref()
-                .map(|m| m.map_to_color(v, s_trait.logical_max()))
-                .unwrap_or(*fallback)
-        } else {
-            *fallback
-        }
+        crate::render::resolve_color(val, context, fallback)
     }
 }

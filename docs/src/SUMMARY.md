@@ -11,6 +11,7 @@
 - [System Architecture](concepts/architecture.md)
 - [From Data to Pixels](concepts/chart_life.md)
 - [Scale Arbitration](concepts/scale_arbitration.md)
+- [Missing Values & Gaps](concepts/missing_values.md)
 - [Rendering Backends](concepts/rendering.md)
 - [Gpu Architecture](concepts/gpu.md)
 - [The WgpuRenderer Internals](concepts/wgpu_renderer.md)

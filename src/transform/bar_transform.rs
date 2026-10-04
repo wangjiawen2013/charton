@@ -1,6 +1,6 @@
 use crate::TEMP_SUFFIX;
 use crate::chart::Chart;
-use crate::core::data::{ColumnVector, Dataset};
+use crate::core::data::{ColumnVector, Dataset, MISSING_CATEGORY};
 use crate::encode::y::StackMode;
 use crate::error::ChartonError;
 use crate::mark::Mark;
@@ -57,20 +57,24 @@ impl<T: Mark> Chart<T> {
         let row_count = self.data.height();
 
         for i in 0..row_count {
+            // Positional x drops a missing row; colour keeps it as the reserved
+            // grey "NA" level so no valid observation is lost.
             let x_val = if is_pie {
                 "all".to_string()
             } else {
-                self.data
-                    .get(&x_field, i)
-                    .to_string()
-                    .unwrap_or_else(|| "null".to_string())
+                match self.data.get(&x_field, i).to_string() {
+                    Some(value) => value,
+                    None => continue,
+                }
             };
             let c_val = if has_grouping_color {
-                color_field.map(|cf| {
-                    self.data
+                Some(match color_field {
+                    Some(cf) => self
+                        .data
                         .get(cf, i)
                         .to_string()
-                        .unwrap_or_else(|| "null".to_string())
+                        .unwrap_or_else(|| MISSING_CATEGORY.to_string()),
+                    None => MISSING_CATEGORY.to_string(),
                 })
             } else {
                 None
@@ -104,7 +108,9 @@ impl<T: Mark> Chart<T> {
         };
 
         let c_uniques = if has_grouping_color {
-            self.data.column(color_field.unwrap())?.unique_values()
+            self.data
+                .column(color_field.unwrap())?
+                .labels_with_missing()
         } else {
             vec![]
         };

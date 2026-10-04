@@ -1,3 +1,11 @@
+//! Line geometry: group rows by colour, order them along x, and connect them.
+//!
+//! A group is drawn as one or more open paths. Rows are taken in the order they
+//! appear, so a missing `x` or `y` splits the group into *segments*: the line is
+//! interrupted instead of bridging the hole. That makes an outage in a time
+//! series visible at a glance. Each segment is then sorted along x, optionally
+//! smoothed, and projected independently.
+
 use crate::Precision;
 use crate::chart::Chart;
 use crate::core::context::PanelContext;
@@ -115,78 +123,102 @@ impl MarkRenderer for Chart<MarkLine> {
             .filter_map(|(_group_key, row_indices)| {
                 let first_idx = *row_indices.first()?;
 
-                // 3.1 Data Extraction: Filter out rows with missing X or Y values
-                let mut points: Vec<(f64, f64)> = row_indices
-                    .iter()
-                    .filter_map(|&idx| match (x_norms[idx], y_norms[idx]) {
-                        (Some(xn), Some(yn)) => Some((xn, yn)),
-                        _ => None,
-                    })
-                    .collect();
-
-                if points.is_empty() {
+                // 3.1 Split into contiguous segments at missing x/y values. A
+                // gap in the data breaks the line rather than being bridged, so
+                // e.g. a failed sensor interval is visible at a glance.
+                let mut segments: Vec<Vec<(f64, f64)>> = Vec::new();
+                let mut current: Vec<(f64, f64)> = Vec::new();
+                for &idx in row_indices {
+                    match (x_norms[idx], y_norms[idx]) {
+                        (Some(xn), Some(yn)) => current.push((xn, yn)),
+                        _ if !current.is_empty() => {
+                            segments.push(std::mem::take(&mut current));
+                        }
+                        _ => {}
+                    }
+                }
+                if !current.is_empty() {
+                    segments.push(current);
+                }
+                if segments.is_empty() {
                     return None;
                 }
 
-                // 3.2 Sorting: Ensure line monotonicity along the X-axis
-                points.sort_by(|a, b| a.0.partial_cmp(&b.0).unwrap_or(std::cmp::Ordering::Equal));
-
-                // 3.3 Statistical Smoothing: Optional LOESS processing
-                let proc_points = if mark_config.loess {
-                    let xs: Vec<f64> = points.iter().map(|p| p.0).collect();
-                    let ys: Vec<f64> = points.iter().map(|p| p.1).collect();
-                    let (lx, ly) =
-                        crate::stats::stat_loess::loess(&xs, &ys, mark_config.loess_bandwidth);
-                    lx.into_iter().zip(ly).collect()
-                } else {
-                    points
-                };
-
-                // 3.4 Projection: Convert normalized coordinates to pixel space
-                let projected: Vec<(f64, f64)> = proc_points
-                    .into_iter()
-                    .map(|(xn, yn)| context.coord.transform(xn, yn, &context.panel))
-                    .collect();
-
-                // 3.5 Interpolation: Expand points for Step-before/after paths
-                let expanded = match mark_config.interpolation {
-                    PathInterpolation::Linear => projected,
-                    PathInterpolation::StepAfter => self.expand_step_after(projected),
-                    PathInterpolation::StepBefore => self.expand_step_before(projected),
-                };
-
-                // 3.6 Unified Aesthetic Resolution:
+                // 3.2 Unified Aesthetic Resolution:
                 // We resolve the color based on the first point's normalized value.
                 // This ensures symmetry with PointMark behavior.
                 let final_color = self.resolve_color_from_value(
-                    color_norms.as_ref().and_then(|n| n[first_idx]),
+                    color_norms
+                        .as_ref()
+                        .map(|n| n[first_idx].unwrap_or(f64::NAN)),
                     context,
                     &mark_config.color,
                 );
 
-                Some((expanded, final_color))
+                // 3.3 Per-segment sort, smoothing, projection and interpolation.
+                let segments: Vec<Vec<(f64, f64)>> = segments
+                    .into_iter()
+                    .map(|mut points| {
+                        // Sorting: Ensure line monotonicity along the X-axis
+                        points.sort_by(|a, b| {
+                            a.0.partial_cmp(&b.0).unwrap_or(std::cmp::Ordering::Equal)
+                        });
+
+                        // Statistical Smoothing: Optional LOESS processing
+                        let proc_points = if mark_config.loess {
+                            let xs: Vec<f64> = points.iter().map(|p| p.0).collect();
+                            let ys: Vec<f64> = points.iter().map(|p| p.1).collect();
+                            let (lx, ly) = crate::stats::stat_loess::loess(
+                                &xs,
+                                &ys,
+                                mark_config.loess_bandwidth,
+                            );
+                            lx.into_iter().zip(ly).collect()
+                        } else {
+                            points
+                        };
+
+                        // Projection: Convert normalized coordinates to pixel space
+                        let projected: Vec<(f64, f64)> = proc_points
+                            .into_iter()
+                            .map(|(xn, yn)| context.coord.transform(xn, yn, &context.panel))
+                            .collect();
+
+                        // Interpolation: Expand points for Step-before/after paths
+                        match mark_config.interpolation {
+                            PathInterpolation::Linear => projected,
+                            PathInterpolation::StepAfter => self.expand_step_after(projected),
+                            PathInterpolation::StepBefore => self.expand_step_before(projected),
+                        }
+                    })
+                    .collect();
+
+                Some((segments, final_color))
             })
             .collect();
 
         // --- STEP 4: SEQUENTIAL DRAW DISPATCH ---
         // Lines are drawn in sequence to respect the Z-order established by grouping.
-        for (points, color) in line_render_data {
-            if points.is_empty() {
-                continue;
-            }
+        // Each data gap is its own path, so the line is visibly interrupted.
+        for (segments, color) in line_render_data {
+            for points in segments {
+                if points.is_empty() {
+                    continue;
+                }
 
-            backend.draw_path(PathConfig {
-                points: points
-                    .into_iter()
-                    .map(|(px, py)| (px as Precision, py as Precision))
-                    .collect(),
-                fill: "none".into(),
-                stroke: color,
-                stroke_width: mark_config.stroke_width as Precision,
-                opacity: mark_config.opacity as Precision,
-                dash: mark_config.dash.iter().map(|&d| d as Precision).collect(),
-                topology: PathTopology::Simple,
-            });
+                backend.draw_path(PathConfig {
+                    points: points
+                        .into_iter()
+                        .map(|(px, py)| (px as Precision, py as Precision))
+                        .collect(),
+                    fill: "none".into(),
+                    stroke: color,
+                    stroke_width: mark_config.stroke_width as Precision,
+                    opacity: mark_config.opacity as Precision,
+                    dash: mark_config.dash.iter().map(|&d| d as Precision).collect(),
+                    topology: PathTopology::Simple,
+                });
+            }
         }
 
         Ok(())
@@ -226,33 +258,13 @@ impl Chart<MarkLine> {
         expanded
     }
 
-    /// Optimized color resolution that maps a normalized value directly to a color.
-    ///
-    /// # Arguments
-    /// * `val` - A normalized value in the range [0.0, 1.0].
-    ///   For discrete data, this is the relative index of the category.
-    /// * `context` - The current rendering context containing scale mappings.
-    /// * `fallback` - Default color to use if no mapping is found or the value is null.
+    /// Resolves this mark's colour; see [`crate::render::resolve_color`].
     fn resolve_color_from_value(
         &self,
         val: Option<f64>,
         context: &PanelContext,
         fallback: &SingleColor,
     ) -> SingleColor {
-        // Only apply data-driven coloring if both a value and a mapping exist
-        if let (Some(v), Some(mapping)) = (val, &context.spec.aesthetics.color) {
-            let s_trait = mapping.scale_impl.as_ref();
-
-            // Note: 'v' is already normalized by the Scale, so we don't call normalize() again.
-            // We directly pass the normalized value to the mapper.
-            s_trait
-                .mapper()
-                .as_ref()
-                .map(|m| m.map_to_color(v, s_trait.logical_max()))
-                .unwrap_or(*fallback)
-        } else {
-            // Return static color from Mark configuration
-            *fallback
-        }
+        crate::render::resolve_color(val, context, fallback)
     }
 }

@@ -1,6 +1,6 @@
 use crate::TEMP_SUFFIX;
 use crate::chart::Chart;
-use crate::core::data::{ColumnVector, Dataset};
+use crate::core::data::{ColumnVector, Dataset, MISSING_CATEGORY};
 use crate::core::utils::IntoParallelizable;
 use crate::error::ChartonError;
 use crate::mark::Mark;
@@ -36,16 +36,17 @@ impl<T: Mark> Chart<T> {
 
         let row_count = self.data.height();
         for i in 0..row_count {
-            let x_val = x_col
-                .get(i)
-                .to_string()
-                .unwrap_or_else(|| "null".to_string());
+            // Positional x drops a missing row; colour keeps it as the reserved
+            // grey "NA" level so no valid observation is lost.
+            let Some(x_val) = x_col.get(i).to_string() else {
+                continue;
+            };
             let c_val = if group_by_color {
                 color_field.map(|cf| {
                     self.data
                         .get(cf, i)
                         .to_string()
-                        .unwrap_or_else(|| "null".to_string())
+                        .unwrap_or_else(|| MISSING_CATEGORY.to_string())
                 })
             } else {
                 None
@@ -96,7 +97,9 @@ impl<T: Mark> Chart<T> {
 
         let x_uniques = self.data.column(x_field)?.unique_values();
         let c_uniques = if group_by_color {
-            self.data.column(color_field.unwrap())?.unique_values()
+            self.data
+                .column(color_field.unwrap())?
+                .labels_with_missing()
         } else {
             vec![]
         };

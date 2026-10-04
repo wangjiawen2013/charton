@@ -1,3 +1,10 @@
+//! Area geometry: the region between a line and its baseline.
+//!
+//! Rows are grouped by colour and split into *segments* wherever `x` or `y` is
+//! missing, so a hole in the data opens the area instead of being bridged. Each
+//! segment becomes one closed polygon (an upper boundary and the baseline run
+//! back) plus, in overlay mode, an independent top stroke.
+
 use crate::Precision;
 use crate::TEMP_SUFFIX;
 use crate::chart::Chart;
@@ -115,98 +122,127 @@ impl MarkRenderer for Chart<MarkArea> {
                     return None;
                 }
 
-                // 4.1 Extract and sort points by normalized X
-                // Sorting ensures the polygon vertices are monotonic, supporting both linear and ordinal axes
-                let mut points: Vec<AreaInternalPoint> = row_indices
-                    .iter()
-                    .filter_map(|&idx| {
-                        let xn = x_norms[idx]?;
-                        if use_stacked {
-                            Some(AreaInternalPoint {
-                                xn,
-                                yn: y1_norms.as_ref()?[idx]?,
-                                y0n: y0_norms.as_ref()?[idx]?,
-                            })
-                        } else {
-                            Some(AreaInternalPoint {
-                                xn,
-                                yn: y_norms[idx]?,
-                                y0n: 0.0, // Default baseline is 0.0 in normalized space for unstacked areas
-                            })
-                        }
-                    })
-                    .collect();
+                let build_point = |idx: usize| -> Option<AreaInternalPoint> {
+                    let xn = x_norms[idx]?;
+                    if use_stacked {
+                        Some(AreaInternalPoint {
+                            xn,
+                            yn: y1_norms.as_ref()?[idx]?,
+                            y0n: y0_norms.as_ref()?[idx]?,
+                        })
+                    } else {
+                        Some(AreaInternalPoint {
+                            xn,
+                            yn: y_norms[idx]?,
+                            y0n: 0.0, // Default baseline is 0.0 in normalized space for unstacked areas
+                        })
+                    }
+                };
 
-                if points.is_empty() {
+                // 4.1 Split into contiguous segments at missing x/y values,
+                // so a data gap breaks the area instead of bridging it.
+                let mut segments: Vec<Vec<AreaInternalPoint>> = Vec::new();
+                let mut current: Vec<AreaInternalPoint> = Vec::new();
+                for &idx in row_indices {
+                    match build_point(idx) {
+                        Some(point) => current.push(point),
+                        None if !current.is_empty() => {
+                            segments.push(std::mem::take(&mut current));
+                        }
+                        None => {}
+                    }
+                }
+                if !current.is_empty() {
+                    segments.push(current);
+                }
+                if segments.is_empty() {
                     return None;
                 }
 
-                // Critical sort to prevent self-intersecting polygon rendering
-                points.sort_by(|a, b| a.xn.partial_cmp(&b.xn).unwrap_or(std::cmp::Ordering::Equal));
-
-                // 4.2 Project to screen coordinates
-                let mut fill_pts: Vec<(Precision, Precision)> =
-                    Vec::with_capacity(points.len() * 2);
-                let mut stroke_pts: Vec<(Precision, Precision)> = Vec::with_capacity(points.len());
-
-                // Build Upper Boundary Path (y1)
-                for p in &points {
-                    let (px, py) = context.coord.transform(p.xn, p.yn, &context.panel);
-                    let pt = (px as Precision, py as Precision);
-                    fill_pts.push(pt);
-                    stroke_pts.push(pt);
-                }
-
-                // Reverse build Lower Boundary Path (y0) to close the polygon
-                for p in points.iter().rev() {
-                    let (px, py_base) = context.coord.transform(p.xn, p.y0n, &context.panel);
-                    fill_pts.push((px as Precision, py_base as Precision));
-                }
-
-                // 4.3 Resolve group color using shared logic
+                // 4.2 Resolve group color using shared logic
                 let first_idx = row_indices[0];
-                let color_val = color_norms.as_ref().and_then(|cn| cn[first_idx]);
+                // A present-but-null value is `Some(NaN)`: the shared resolver
+                // paints it grey, while a layer without colour stays fallback.
+                let color_val = color_norms
+                    .as_ref()
+                    .map(|cn| cn[first_idx].unwrap_or(f64::NAN));
                 let group_color =
                     self.resolve_color_from_value(color_val, context, &mark_config.color);
 
-                Some((fill_pts, stroke_pts, group_color))
+                // 4.3 Sort, project and close each segment into a polygon. Sorting
+                // keeps the polygon vertices monotonic for linear and ordinal axes.
+                let segments: Vec<ProjectedSegment> = segments
+                    .into_iter()
+                    .map(|mut points| {
+                        // Critical sort to prevent self-intersecting polygon rendering
+                        points.sort_by(|a, b| {
+                            a.xn.partial_cmp(&b.xn).unwrap_or(std::cmp::Ordering::Equal)
+                        });
+
+                        let mut fill_pts: Vec<(Precision, Precision)> =
+                            Vec::with_capacity(points.len() * 2);
+                        let mut stroke_pts: Vec<(Precision, Precision)> =
+                            Vec::with_capacity(points.len());
+
+                        // Build Upper Boundary Path (y1)
+                        for p in &points {
+                            let (px, py) = context.coord.transform(p.xn, p.yn, &context.panel);
+                            let pt = (px as Precision, py as Precision);
+                            fill_pts.push(pt);
+                            stroke_pts.push(pt);
+                        }
+
+                        // Reverse build Lower Boundary Path (y0) to close the polygon
+                        for p in points.iter().rev() {
+                            let (px, py_base) =
+                                context.coord.transform(p.xn, p.y0n, &context.panel);
+                            fill_pts.push((px as Precision, py_base as Precision));
+                        }
+
+                        (fill_pts, stroke_pts)
+                    })
+                    .collect();
+
+                Some((segments, group_color))
             })
             .collect();
 
         // --- STEP 5: Final Dispatch to Backend ---
-        for (fill_pts, stroke_pts, group_color) in area_render_data {
-            // Layer 1: Area Fill (Unified concave polygon fill)
-            // Completely replaces the deprecated `draw_polygon` approach for areas.
-            // Using `draw_path` with `PathTopology::Complex` instructs the WGPU backend
-            // to automatically route this to the Stencil-Then-Cover pipeline.
-            // Meanwhile, SVG/PNG backends will render this as a standard closed
-            // vector path with perfect anti-aliasing.
-            backend.draw_path(PathConfig {
-                points: fill_pts,
-                fill: group_color,
-                stroke: SingleColor::none(),
-                stroke_width: 0.0,
-                opacity: mark_config.opacity as Precision,
-                dash: vec![],
-                topology: PathTopology::Complex,
-            });
-
-            // Layer 2: Top Boundary Path (Independent top stroke/polyline)
-            // Note: Stacked modes usually omit strokes to prevent edge artifacts in streamgraphs
-            if matches!(y_enc.stack, StackMode::None) {
+        for (segments, group_color) in area_render_data {
+            for (fill_pts, stroke_pts) in segments {
+                // Layer 1: Area Fill (Unified concave polygon fill)
+                // Completely replaces the deprecated `draw_polygon` approach for areas.
+                // Using `draw_path` with `PathTopology::Complex` instructs the WGPU backend
+                // to automatically route this to the Stencil-Then-Cover pipeline.
+                // Meanwhile, SVG/PNG backends will render this as a standard closed
+                // vector path with perfect anti-aliasing.
                 backend.draw_path(PathConfig {
-                    points: stroke_pts,
-                    fill: SingleColor::none(),
-                    stroke: group_color,
-                    stroke_width: mark_config.stroke_width as Precision,
-                    // Stroke opacity is usually kept at 1.0 to highlight the boundary,
-                    // or explicitly defined by external styles.
-                    opacity: 1.0,
-                    dash: mark_config.dash.iter().map(|&d| d as Precision).collect(),
-                    // Explicitly providing the Simple topology ensures this routes
-                    // to the high-performance normal extrusion pipeline.
-                    topology: PathTopology::Simple,
+                    points: fill_pts,
+                    fill: group_color,
+                    stroke: SingleColor::none(),
+                    stroke_width: 0.0,
+                    opacity: mark_config.opacity as Precision,
+                    dash: vec![],
+                    topology: PathTopology::Complex,
                 });
+
+                // Layer 2: Top Boundary Path (Independent top stroke/polyline)
+                // Note: Stacked modes usually omit strokes to prevent edge artifacts in streamgraphs
+                if matches!(y_enc.stack, StackMode::None) {
+                    backend.draw_path(PathConfig {
+                        points: stroke_pts,
+                        fill: SingleColor::none(),
+                        stroke: group_color,
+                        stroke_width: mark_config.stroke_width as Precision,
+                        // Stroke opacity is usually kept at 1.0 to highlight the boundary,
+                        // or explicitly defined by external styles.
+                        opacity: 1.0,
+                        dash: mark_config.dash.iter().map(|&d| d as Precision).collect(),
+                        // Explicitly providing the Simple topology ensures this routes
+                        // to the high-performance normal extrusion pipeline.
+                        topology: PathTopology::Simple,
+                    });
+                }
             }
         }
 
@@ -215,6 +251,9 @@ impl MarkRenderer for Chart<MarkArea> {
 }
 
 // --- Internal Helper Structure ---
+
+/// One closed area segment: the upper+lower fill polygon and its top stroke.
+type ProjectedSegment = (Vec<(Precision, Precision)>, Vec<(Precision, Precision)>);
 
 struct AreaInternalPoint {
     xn: f64,  // Normalized X
@@ -248,27 +287,13 @@ impl Chart<MarkArea> {
         }
     }
 
-    /// Optimized color resolution that maps a normalized value directly to a color.
-    ///
-    /// # Arguments
-    /// * `val` - A normalized value in the range [0.0, 1.0].
-    /// * `context` - The current rendering context containing scale mappings.
-    /// * `fallback` - Default color to use if no mapping is found or the value is null.
+    /// Resolves this mark's colour; see [`crate::render::resolve_color`].
     fn resolve_color_from_value(
         &self,
         val: Option<f64>,
         context: &PanelContext,
         fallback: &SingleColor,
     ) -> SingleColor {
-        if let (Some(v), Some(mapping)) = (val, &context.spec.aesthetics.color) {
-            let s_trait = mapping.scale_impl.as_ref();
-            s_trait
-                .mapper()
-                .as_ref()
-                .map(|m| m.map_to_color(v, s_trait.logical_max()))
-                .unwrap_or(*fallback)
-        } else {
-            *fallback
-        }
+        crate::render::resolve_color(val, context, fallback)
     }
 }

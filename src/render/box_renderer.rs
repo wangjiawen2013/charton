@@ -115,7 +115,11 @@ impl MarkRenderer for Chart<MarkBoxplot> {
 
                 // --- RESOLVE COLOR ---
                 let fill = if let Some(ref norms) = color_norms {
-                    self.resolve_color_from_value(norms[i], context, &mark_config.color)
+                    self.resolve_color_from_value(
+                        Some(norms[i].unwrap_or(f64::NAN)),
+                        context,
+                        &mark_config.color,
+                    )
                 } else {
                     mark_config.color
                 };
@@ -262,15 +266,6 @@ impl Chart<MarkBoxplot> {
         context: &PanelContext,
         fallback: &SingleColor,
     ) -> SingleColor {
-        if let (Some(v), Some(mapping)) = (val, &context.spec.aesthetics.color) {
-            let s_trait = mapping.scale_impl.as_ref();
-            s_trait
-                .mapper()
-                .as_ref()
-                .map(|m| m.map_to_color(v, s_trait.logical_max()))
-                .unwrap_or(*fallback)
-        } else {
-            *fallback
-        }
+        crate::render::resolve_color(val, context, fallback)
     }
 }

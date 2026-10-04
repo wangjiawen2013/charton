@@ -6,7 +6,11 @@ At the heart of Charton's performance lies the `ColumnVector`. While most visual
 A `ColumnVector` is a specialized enum that encapsulates data types relevant to data science and visualization. Every variant (except for those with intrinsic null representation) follows a dual-structure:
 
 1. Data Buffer: A `Vec<T>` containing the raw physical values.
-2. `Validity Bitmask: An `Option<Vec<u8>>` where each bit represents whether a row is "Valid" (1) or "Null" (0).
+2. `Validity Bitmask: An `Option<Vec<u8>>` where each bit represents whether a row is "Valid" (1) or "Null" (0). A floating-point `NaN` is also treated as null.
+
+What a chart *does* with those nulls — drop them, keep them grey, or break a
+line — is a separate, deliberate policy. See
+[Missing Values & Gaps](../concepts/missing_values.md).
 
 ## The Categorical Advantage
 

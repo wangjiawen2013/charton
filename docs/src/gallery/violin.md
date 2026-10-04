@@ -41,6 +41,11 @@ Two industry layouts from the same density transform:
 {{#include ../../../examples/grouped_violin.rs}}
 ```
 
+When a category used for **position** is missing (the penguins `Sex` column has a
+few), that row is dropped, exactly as ggplot2 and Altair would — no `null` violin
+appears. A missing **group** (the colour/lane) behaves differently: it is kept as
+a grey `NA` lane. See [Missing Values & Gaps](../concepts/missing_values.md).
+
 ## Split violin
 
 <img src="../images/split_violin.svg" width="500">

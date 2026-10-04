@@ -10,6 +10,12 @@
 //!   `(Sex, Species)`, followed by the general `transform_band` geometry and a
 //!   `Position::dodge`. The inner box is the same composition with
 //!   `transform_quantile_box`.
+//!
+//! The penguins `Sex` column has a couple of missing values. `Sex` is the
+//! *positional* category here, so those rows are dropped, exactly as ggplot2 and
+//! Altair would — no stray `null` violin appears, and the outline and its inner
+//! box always agree because both use the shared lane layout. A missing value in
+//! the *group* lane would instead be kept as a grey `NA` group.
 
 use charton::prelude::*;
 use std::error::Error;
