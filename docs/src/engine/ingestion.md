@@ -58,3 +58,6 @@ Charton ensures strict metadata alignment during conversion. The following table
 | `Duration(unit)` | `Duration` | Normalized to i64 nanoseconds. |
 
 *Note: Categorical does not appear to be a primitive type in rust Polars.*
+
+Nulls survive ingestion untouched; how the chart renders them is decided later.
+See [Missing Values & Gaps](../concepts/missing_values.md).

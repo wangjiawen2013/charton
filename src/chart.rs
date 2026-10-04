@@ -360,8 +360,13 @@ impl<T: Mark> Chart<T> {
     /// method will immediately trigger the validation pipeline, including:
     /// 1. Mandatory channel checks (e.g., Bar charts need X and Y).
     /// 2. Semantic type validation (e.g., Histogram X must be continuous).
-    /// 3. Data cleaning (dropping nulls from active encoding columns).
-    /// 4. Statistical transformations (binning, aggregation for Boxplots, etc.).
+    /// 3. Statistical transformations for the mark (binning, aggregation for
+    ///    box plots, dodging lanes for points, ...).
+    ///
+    /// Missing values are not removed here: a null is handled per channel when
+    /// scales and marks resolve it, so a missing position drops its row while a
+    /// missing colour is kept as the reserved
+    /// [`MISSING_CATEGORY`](crate::core::data::MISSING_CATEGORY) level.
     ///
     /// # Arguments
     ///
@@ -932,7 +937,15 @@ where
             // --- DISCRETE DOMAIN ---
             // Triggered if Scale is Discrete (even if data is numeric).
             Scale::Discrete => {
-                let mut labels = primary_series.unique_values();
+                // Colour is non-positional: a missing value is kept as the
+                // reserved grey level (placed last) instead of being dropped.
+                // Positional channels drop missing values, so they use the
+                // plain list.
+                let mut labels = if channel == Channel::Color {
+                    primary_series.labels_with_missing()
+                } else {
+                    primary_series.unique_values()
+                };
                 // Define the exact internal tags used during data transformation for boxplot.
                 let boundary_tag = format!("{}_boundary", TEMP_SUFFIX);
                 let default_tag = format!("{}_default", TEMP_SUFFIX);

@@ -12,7 +12,12 @@ pub enum VisualMapper {
     /// Continuous color mapping for numerical data (Gradients).
     ContinuousColor { map: ColorMap },
     /// Discrete color mapping for categorical data (Palettes).
-    DiscreteColor { palette: ColorPalette },
+    DiscreteColor {
+        palette: ColorPalette,
+        /// Index of the reserved missing category in the domain, when present.
+        /// That slot is painted neutral grey instead of a palette colour.
+        na_index: Option<usize>,
+    },
     /// Geometric shape mapping for categorical data.
     Shape {
         /// Optional list of shapes. If None, defaults to `PointShape::LEGEND_SHAPES`.
@@ -33,6 +38,7 @@ impl VisualMapper {
         match scale_type {
             Scale::Discrete => VisualMapper::DiscreteColor {
                 palette: theme.palette.clone(),
+                na_index: None,
             },
             _ => VisualMapper::ContinuousColor {
                 map: theme.color_map,
@@ -66,14 +72,28 @@ impl VisualMapper {
                 // Interpolates within the continuous gradient
                 map.get_color(norm)
             }
-            VisualMapper::DiscreteColor { palette } => {
+            VisualMapper::DiscreteColor { palette, na_index } => {
                 // Maps the 0-1 norm back to a specific palette index
                 let index = (norm * logical_max).round() as usize;
+                if Some(index) == *na_index {
+                    // ggplot2's `na.value`: a neutral grey so a missing
+                    // observation stays visible but does not read as data.
+                    return SingleColor::from_rgba(0.5, 0.5, 0.5, 1.0);
+                }
                 palette.get_color(index)
             }
             // Fallback: Returns Opaque Black if color mapping is called on a non-color mapper
             _ => SingleColor::default(),
         }
+    }
+
+    /// Marks one domain slot as the reserved missing category, so it is drawn
+    /// grey rather than with a palette colour. Non-colour mappers ignore it.
+    pub const fn with_na_index(mut self, index: Option<usize>) -> Self {
+        if let VisualMapper::DiscreteColor { na_index, .. } = &mut self {
+            *na_index = index;
+        }
+        self
     }
 
     /// Maps a normalized value to a `PointShape`.

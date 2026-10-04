@@ -625,7 +625,19 @@ impl LayeredChart {
         let legend_format = self.legend_format.as_ref();
 
         let color_mapping = if let Some(spec) = self.resolve_scale_spec(Channel::Color)? {
-            let mapper = VisualMapper::new_color_default(&spec.scale_type, &self.theme);
+            // When the merged discrete domain ends with the reserved missing
+            // category, mark that slot so the mapper paints it neutral grey.
+            let na_index = match &spec.domain {
+                crate::scale::ScaleDomain::Discrete(labels)
+                    if labels.last().map(String::as_str)
+                        == Some(crate::core::data::MISSING_CATEGORY) =>
+                {
+                    Some(labels.len() - 1)
+                }
+                _ => None,
+            };
+            let mapper = VisualMapper::new_color_default(&spec.scale_type, &self.theme)
+                .with_na_index(na_index);
             let scale_impl = create_scale(
                 &spec.scale_type,
                 spec.domain,

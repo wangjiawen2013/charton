@@ -1,6 +1,6 @@
 use crate::TEMP_SUFFIX;
 use crate::chart::Chart;
-use crate::core::data::{ColumnVector, Dataset};
+use crate::core::data::{ColumnVector, Dataset, MISSING_CATEGORY};
 use crate::error::ChartonError;
 use crate::mark::Mark;
 use ahash::AHashMap;
@@ -43,7 +43,7 @@ impl<T: Mark> Chart<T> {
 
         // --- STEP 3: Establish Deterministic Order for Color ---
         let color_list: Vec<String> = if let Some(c_enc) = color_enc {
-            self.data.column(&c_enc.field)?.unique_values()
+            self.data.column(&c_enc.field)?.labels_with_missing()
         } else {
             vec![format!("{}_default", TEMP_SUFFIX)]
         };
@@ -53,14 +53,21 @@ impl<T: Mark> Chart<T> {
         let row_count = self.data.height();
 
         for i in 0..row_count {
+            // Missing values in the binned value or the colour group drop the
+            // row (Vega-Lite/ggplot2).
+            if x_col.is_null(i) {
+                continue;
+            }
             let val = x_col.get(i).to_f64().unwrap_or(min_val);
             let bin_idx = (((val - min_val) / bin_width).floor() as usize).min(n_bins - 1);
 
+            // Colour is non-positional: a missing value is kept as the reserved
+            // grey "NA" series rather than dropping a valid observation.
             let color_label = if let Some(c_enc) = color_enc {
                 self.data
                     .get(&c_enc.field, i)
                     .to_string()
-                    .unwrap_or_else(|| "null".to_string())
+                    .unwrap_or_else(|| MISSING_CATEGORY.to_string())
             } else {
                 format!("{}_default", TEMP_SUFFIX)
             };

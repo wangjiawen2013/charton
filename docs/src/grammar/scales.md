@@ -32,6 +32,7 @@ Used for categorical or ranked data. Unlike continuous scales, it partitions the
 
 * Best for: Country names, product categories, or ratings (e.g., Poor/Fair/Good).
 * Stability: The system uses stable sorting for categories to ensure that the order of items remains consistent across multiple renders.
+* Missing values: positional domains omit them; non-positional (colour) domains keep them as a reserved grey `NA` level. See [Missing Values & Gaps](../concepts/missing_values.md).
 
 #### Discrete position scales
 
@@ -41,6 +42,14 @@ supports both on the same scale: `alt::x("x").with_category_labels("Sex")` reads
 the positions numerically while drawing one integer tick per category, labelled
 from `"Sex"`. A value that matches a known label still maps by label, so
 existing categorical axes are unchanged.
+
+#### Missing values
+
+A discrete *position* scale never invents a level for a missing value: those
+rows are dropped, because there is no slot to place them in. A discrete *colour*
+scale is the opposite — it reserves one grey `NA` slot, listed last, so an
+observation with no category is still drawn. See
+[Missing Values & Gaps](../concepts/missing_values.md).
 
 ### Temporal Scale
 
