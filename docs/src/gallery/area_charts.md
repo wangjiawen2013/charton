@@ -11,6 +11,11 @@ stacks the series; changing the stack baseline yields the streamgraph.
 {{#include ../../../examples/area.rs}}
 ```
 
+## Gaps
+
+A missing `x` or `y` opens the area at that point instead of bridging it. See
+[Missing Values & Gaps](../concepts/missing_values.md).
+
 ## Simple Stacked Area Chart
 Adding a color field to area chart creates stacked area chart by default. For example, here we split the area chart by country by setting `stack` to `"stacked"`.
 

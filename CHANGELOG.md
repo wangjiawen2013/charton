@@ -6,6 +6,43 @@ predate this file.
 
 ## [Unreleased]
 
+### Added
+
+- **Dashed paths and polygons.** `mark_path` / `mark_polygon` (`MarkGeoPath`)
+  gained `with_dash([dash, gap])`. The pattern follows the SVG
+  `stroke-dasharray` rules and is measured along the path's arc length. The
+  geometry renderer previously hard-coded an empty dash, so a dashed contour
+  (or a dashed polygon outline) was impossible on any backend. It now works on
+  SVG, raster, PDF and WGPU.
+
+### Fixed
+
+- **WGPU closed-polygon outlines no longer drop their closing edge.** A `Complex`
+  path is a closed region, which the SVG/raster/PDF backends close with `Z`; the
+  WGPU path shader extrups one quad per consecutive pair and never wrapped, so a
+  violin, box or custom polygon outline was left open on the GPU backend.
+- **WGPU path strokes now honour the dash pattern.** Dashed contours and area
+  outlines render dashed on the GPU backend instead of solid.
+
+### Changed
+
+- **Missing values follow the ggplot2 / Vega-Lite rule, consistently across
+  every mark.** What happens to a null (or `NaN`) now depends only on the
+  channel it appears in:
+  - `x` / `y` — the row is dropped, since there is no position to draw it at.
+    On `mark_line` / `mark_area` this breaks the path, so an outage in a time
+    series shows as a visible gap.
+  - `color` — the row is kept and drawn as a reserved grey `NA` level, listed
+    last in the legend. Works for discrete and continuous colour scales.
+  - a transform's non-positional grouping (a violin's `group`, a window's
+    `groupby`) — kept as an `NA` group.
+  - `shape` / `size` — the row is kept and falls back to the default.
+
+  `ColumnVector::unique_values` remains the positional category list (no missing
+  values). The new `ColumnVector::labels_with_missing`, `label_with_missing` and
+  `has_null` provide the non-positional list and its per-row labels. See
+  [Missing Values & Gaps](docs/src/concepts/missing_values.md).
+
 ## [0.8.0] - 2026-10-03
 
 ### Breaking changes

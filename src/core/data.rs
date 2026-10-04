@@ -4,6 +4,28 @@ use std::fmt;
 use std::sync::Arc;
 use time::{Date, Duration, OffsetDateTime, Time};
 
+/// The reserved label for a missing value on a **non-positional** aesthetic
+/// (colour, shape, size) and for a transform's non-positional grouping.
+///
+/// Charton follows Vega-Lite and ggplot2, whose shared rule is simple: a missing
+/// value never becomes a fabricated *position*, but a mark that still has a
+/// valid position is not thrown away just because one of its aesthetics is
+/// missing. Concretely:
+///
+/// * **Position (`x` / `y`)** — a row with a missing coordinate cannot be
+///   placed, so it is dropped. On `mark_line` / `mark_area` that leaves a
+///   visible gap, the honest rendering of an outage in a time series.
+/// * **Non-position (colour, shape, size, and the `group` of a lane layout)** —
+///   the coordinate is still valid, so the row is kept and its missing value is
+///   keyed under this label. A colour scale paints it neutral grey and lists it
+///   last in the legend; a lane layout treats it as one extra group.
+///
+/// This is why [`ColumnVector::unique_values`] never reports it: that list is
+/// the *positional* domain, which drops missing values. Use
+/// [`ColumnVector::labels_with_missing`] for the category list a non-positional
+/// aesthetic should show.
+pub const MISSING_CATEGORY: &str = "NA";
+
 /// Encapsulates a single column of data with a high-performance memory layout.
 ///
 /// Naming and structure are designed to be "Polars-friendly", allowing near
@@ -779,6 +801,11 @@ impl ColumnVector {
         Some(new_mask)
     }
 
+    /// Returns true if any row is null (validity bitmask or `NaN`).
+    pub fn has_null(&self) -> bool {
+        (0..self.len()).any(|i| self.is_null(i))
+    }
+
     /// Returns true if the value at the given row is considered "null".
     ///
     /// This method is the "source of truth" for data presence. It checks:
@@ -980,6 +1007,41 @@ impl ColumnVector {
             ColumnVector::Duration { data, validity, .. } => serial_unique_impl!(data, validity),
             ColumnVector::Time { data, validity, .. } => serial_unique_impl!(data, validity),
         }
+    }
+
+    /// The label of one row for a non-positional aesthetic: the cell's string,
+    /// or [`MISSING_CATEGORY`] when the cell is null (validity bit or `NaN`).
+    ///
+    /// This is the per-row counterpart of [`labels_with_missing`], so a row's
+    /// label always appears in the list that list returns.
+    ///
+    /// [`labels_with_missing`]: Self::labels_with_missing
+    pub fn label_with_missing(&self, row: usize) -> String {
+        self.get(row)
+            .to_string()
+            .unwrap_or_else(|| MISSING_CATEGORY.to_string())
+    }
+
+    /// The category list a non-positional aesthetic should show.
+    ///
+    /// It is [`unique_values`](Self::unique_values) with one addition: if the
+    /// column has any missing value, the reserved [`MISSING_CATEGORY`] label is
+    /// appended last (a literal `"NA"` in the data is moved to that slot rather
+    /// than duplicated).
+    ///
+    /// Use this for colour/shape/size domains so observations with a missing
+    /// aesthetic are kept and listed; use [`unique_values`](Self::unique_values)
+    /// for positional domains, which drop missing values.
+    pub fn labels_with_missing(&self) -> Vec<String> {
+        let mut labels = self.unique_values();
+        let missing_position = labels.iter().position(|label| label == MISSING_CATEGORY);
+        if let Some(position) = missing_position {
+            labels.remove(position);
+        }
+        if missing_position.is_some() || self.has_null() {
+            labels.push(MISSING_CATEGORY.to_string());
+        }
+        labels
     }
 
     /// Returns a stable, unique list of values as Strings for Discrete scales.
@@ -3334,6 +3396,38 @@ mod tests {
         );
         assert_eq!(clone.row_count, 3);
         assert_eq!(clone.height(), 3);
+    }
+
+    /// `labels_with_missing` keeps observations with a missing non-positional
+    /// value by adding one `"NA"` level, always placed last, and the per-row
+    /// `label_with_missing` agrees with it.
+    #[test]
+    fn labels_with_missing_appends_na_last() {
+        // Rows: b, null, a.
+        let with_null = ColumnVector::String {
+            data: vec!["b".into(), "ignored".into(), "a".into()],
+            validity: Some(vec![0b101]),
+        };
+        assert!(with_null.has_null());
+        assert_eq!(with_null.labels_with_missing(), vec!["b", "a", "NA"]);
+
+        // No nulls: unchanged, and the helper reports no missing values.
+        let clean = ColumnVector::String {
+            data: vec!["b".into(), "a".into()],
+            validity: None,
+        };
+        assert!(!clean.has_null());
+        assert_eq!(clean.labels_with_missing(), vec!["b", "a"]);
+
+        // A literal "NA" value is moved to the last slot, not duplicated.
+        let literal = ColumnVector::String {
+            data: vec!["NA".into(), "a".into()],
+            validity: None,
+        };
+        assert_eq!(literal.labels_with_missing(), vec!["a", "NA"]);
+
+        // `label_with_missing` agrees with the label set.
+        assert_eq!(with_null.label_with_missing(1), "NA");
     }
 
     /// `type_prototype` keeps the metadata a transform restores and drops the

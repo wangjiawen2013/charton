@@ -21,12 +21,18 @@ use crate::visual::color::SingleColor;
 /// loop (for example a closed contour) to the closed form would fill it,
 /// whereas you usually want just the stroke. The closed flag *is* the
 /// difference between "outline" and "trajectory".
+///
+/// Both forms take an optional dash pattern through `with_dash`. It is measured
+/// along the path's arc length, so a dashed contour or a dashed polygon outline
+/// stays even across segments on every backend, CPU and GPU alike.
 #[derive(Clone, Debug)]
 pub struct MarkGeoPath {
     pub(crate) fill: SingleColor,
     pub(crate) opacity: f64,
     pub(crate) stroke: SingleColor,
     pub(crate) stroke_width: f64,
+    /// SVG-style dash pattern for the outline; empty draws a solid stroke.
+    pub(crate) dash: Vec<f64>,
     /// `true` closes the vertex loop and fills it; `false` draws an open line.
     pub(crate) closed: bool,
 }
@@ -38,6 +44,7 @@ impl MarkGeoPath {
             opacity: 1.0,
             stroke: SingleColor::new("#333333"),
             stroke_width: 0.5,
+            dash: vec![],
             closed: true,
         }
     }
@@ -72,6 +79,18 @@ impl MarkGeoPath {
     /// Sets the stroke width for polygon boundaries.
     pub const fn with_stroke_width(mut self, width: f64) -> Self {
         self.stroke_width = width;
+        self
+    }
+
+    /// Sets the outline dash pattern using the standard SVG
+    /// `stroke-dasharray` rules.
+    ///
+    /// An empty pattern (the default) draws a solid outline. `[dash, gap]`
+    /// alternates a dash and a gap of the given lengths; an odd number of
+    /// entries is repeated once so the pattern always alternates. Lengths are
+    /// measured along the path, so a dashed contour reads as a broken line.
+    pub fn with_dash(mut self, dash: impl Into<Vec<f64>>) -> Self {
+        self.dash = dash.into();
         self
     }
 }

@@ -1,7 +1,7 @@
 # Scatter
 
-`mark_point` is the base point geometry; shape, size and colour are ordinary
-channels.
+`mark_point` is the base point geometry: shape, size and colour are ordinary
+channels, and a layout can spread overlapping observations.
 
 ## Shape, size and a reference grid
 
@@ -16,8 +16,45 @@ any chart.
 
 ## Point layouts
 
-When points overlap, a layout spreads them without changing their x position:
+When points overlap — usually because one axis is categorical — a layout spreads
+them **without changing their x position**, so every observation stays visible:
 
-- **Jitter** — small random offsets; `tests/test_scatter.rs`.
-- **Beeswarm / quasirandom** — deterministic packing; see
-  [Distributions](statistics.md#beeswarm-and-quasirandom).
+- **Jitter** — small random offsets; good when you only need to break ties.
+- **Beeswarm** — deterministic packing, so no two points overlap; best for small
+  groups.
+- **Quasirandom** — a low-discrepancy sequence that spreads points evenly and
+  traces the outline of the distribution; best for large groups.
+
+The layout is a property of the point mark:
+
+```rust
+.configure_point(|m| m.with_layout("beeswarm").with_size(1.5))
+```
+
+### Beeswarm
+
+<img src="../images/beeswarm.svg" width="500">
+
+```rust
+{{#include ../../../examples/beeswarm.rs}}
+```
+
+### Quasirandom
+
+<img src="../images/quasirandom.svg" width="500">
+
+```rust
+{{#include ../../../examples/quasirandom.rs}}
+```
+
+The quasirandom pairing can be changed with
+`with_quasirandom_method("pseudorandom")`.
+
+A **strip / rug** plot is the same idea with `mark_tick` instead of `mark_point`:
+see [Strip & Rug Plots](tick_chart.md).
+
+## See also
+
+- [Marks & Geometries](../grammar/marks.md) — the point mark and its layouts.
+- [Histogram](histogram.md) and [1-D Density](density_1d.md) — the summarised
+  views of the same observations.

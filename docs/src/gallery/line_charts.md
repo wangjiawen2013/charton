@@ -14,6 +14,12 @@ data is noisy.
 {{#include ../../../examples/line.rs}}
 ```
 
+## Gaps
+
+A missing `x` or `y` breaks the line instead of drawing across it, so an outage
+in a time series reads as a gap in the curve. See
+[Missing Values & Gaps](../concepts/missing_values.md).
+
 ## Cumulative frequency
 
 <img src="../images/cumulative_frequency.svg" width="500">

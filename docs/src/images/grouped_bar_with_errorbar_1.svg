@@ -2,30 +2,39 @@
 <text x="290.900" y="20.800" font-size="18.0" font-family="Inter, -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, 'PingFang SC', 'Microsoft YaHei', Ubuntu, Cantarell, 'Noto Sans', sans-serif" fill="rgba(51,51,51,1.000)" fill-opacity="1.000" text-anchor="middle" font-weight="bold" dominant-baseline="middle" transform="rotate(0 290.900 20.800)">Grouped Error Bars with Mean &amp; Std Dev</text>
 <defs><clipPath id="plot-clip-area-0"><rect x="81.600" y="37.600" width="418.600" height="299.400" /></clipPath></defs>
 <g clip-path="url(#plot-clip-area-0)">
-<line x1="126.948" y1="155.199" x2="126.948" y2="121.087" stroke="rgba(0,0,0,1.000)" stroke-width="1.000" stroke-opacity="1.000" />
-<line x1="123.948" y1="155.199" x2="129.948" y2="155.199" stroke="rgba(0,0,0,1.000)" stroke-width="1.000" stroke-opacity="1.000" />
-<line x1="123.948" y1="121.087" x2="129.948" y2="121.087" stroke="rgba(0,0,0,1.000)" stroke-width="1.000" stroke-opacity="1.000" />
-<line x1="175.785" y1="184.570" x2="175.785" y2="158.074" stroke="rgba(0,0,0,1.000)" stroke-width="1.000" stroke-opacity="1.000" />
-<line x1="172.785" y1="184.570" x2="178.785" y2="184.570" stroke="rgba(0,0,0,1.000)" stroke-width="1.000" stroke-opacity="1.000" />
-<line x1="172.785" y1="158.074" x2="178.785" y2="158.074" stroke="rgba(0,0,0,1.000)" stroke-width="1.000" stroke-opacity="1.000" />
-<line x1="266.482" y1="161.093" x2="266.482" y2="125.473" stroke="rgba(0,0,0,1.000)" stroke-width="1.000" stroke-opacity="1.000" />
-<line x1="263.482" y1="161.093" x2="269.482" y2="161.093" stroke="rgba(0,0,0,1.000)" stroke-width="1.000" stroke-opacity="1.000" />
-<line x1="263.482" y1="125.473" x2="269.482" y2="125.473" stroke="rgba(0,0,0,1.000)" stroke-width="1.000" stroke-opacity="1.000" />
-<line x1="315.318" y1="177.566" x2="315.318" y2="149.501" stroke="rgba(0,0,0,1.000)" stroke-width="1.000" stroke-opacity="1.000" />
-<line x1="312.318" y1="177.566" x2="318.318" y2="177.566" stroke="rgba(0,0,0,1.000)" stroke-width="1.000" stroke-opacity="1.000" />
-<line x1="312.318" y1="149.501" x2="318.318" y2="149.501" stroke="rgba(0,0,0,1.000)" stroke-width="1.000" stroke-opacity="1.000" />
-<line x1="406.015" y1="82.659" x2="406.015" y2="51.857" stroke="rgba(0,0,0,1.000)" stroke-width="1.000" stroke-opacity="1.000" />
-<line x1="403.015" y1="82.659" x2="409.015" y2="82.659" stroke="rgba(0,0,0,1.000)" stroke-width="1.000" stroke-opacity="1.000" />
-<line x1="403.015" y1="51.857" x2="409.015" y2="51.857" stroke="rgba(0,0,0,1.000)" stroke-width="1.000" stroke-opacity="1.000" />
-<line x1="454.852" y1="120.700" x2="454.852" y2="93.004" stroke="rgba(0,0,0,1.000)" stroke-width="1.000" stroke-opacity="1.000" />
-<line x1="451.852" y1="120.700" x2="457.852" y2="120.700" stroke="rgba(0,0,0,1.000)" stroke-width="1.000" stroke-opacity="1.000" />
-<line x1="451.852" y1="93.004" x2="457.852" y2="93.004" stroke="rgba(0,0,0,1.000)" stroke-width="1.000" stroke-opacity="1.000" />
-<path d="M 102.530 337.000 L 102.530 138.143 L 151.367 138.143 L 151.367 337.000 Z" fill="rgba(31,119,180,1.000)" fill-opacity="1.000" stroke="rgba(0,0,0,1.000)" stroke-width="1.000" stroke-opacity="1.000" stroke-linejoin="round" stroke-linecap="round" />
-<path d="M 151.367 337.000 L 151.367 171.322 L 200.203 171.322 L 200.203 337.000 Z" fill="rgba(255,127,14,1.000)" fill-opacity="1.000" stroke="rgba(0,0,0,1.000)" stroke-width="1.000" stroke-opacity="1.000" stroke-linejoin="round" stroke-linecap="round" />
-<path d="M 242.063 337.000 L 242.063 143.283 L 290.900 143.283 L 290.900 337.000 Z" fill="rgba(31,119,180,1.000)" fill-opacity="1.000" stroke="rgba(0,0,0,1.000)" stroke-width="1.000" stroke-opacity="1.000" stroke-linejoin="round" stroke-linecap="round" />
-<path d="M 290.900 337.000 L 290.900 163.534 L 339.737 163.534 L 339.737 337.000 Z" fill="rgba(255,127,14,1.000)" fill-opacity="1.000" stroke="rgba(0,0,0,1.000)" stroke-width="1.000" stroke-opacity="1.000" stroke-linejoin="round" stroke-linecap="round" />
-<path d="M 381.597 337.000 L 381.597 67.258 L 430.433 67.258 L 430.433 337.000 Z" fill="rgba(31,119,180,1.000)" fill-opacity="1.000" stroke="rgba(0,0,0,1.000)" stroke-width="1.000" stroke-opacity="1.000" stroke-linejoin="round" stroke-linecap="round" />
-<path d="M 430.433 337.000 L 430.433 106.852 L 479.270 106.852 L 479.270 337.000 Z" fill="rgba(255,127,14,1.000)" fill-opacity="1.000" stroke="rgba(0,0,0,1.000)" stroke-width="1.000" stroke-opacity="1.000" stroke-linejoin="round" stroke-linecap="round" />
+<line x1="118.809" y1="155.199" x2="118.809" y2="121.087" stroke="rgba(0,0,0,1.000)" stroke-width="1.000" stroke-opacity="1.000" />
+<line x1="115.809" y1="155.199" x2="121.809" y2="155.199" stroke="rgba(0,0,0,1.000)" stroke-width="1.000" stroke-opacity="1.000" />
+<line x1="115.809" y1="121.087" x2="121.809" y2="121.087" stroke="rgba(0,0,0,1.000)" stroke-width="1.000" stroke-opacity="1.000" />
+<line x1="151.367" y1="184.570" x2="151.367" y2="158.074" stroke="rgba(0,0,0,1.000)" stroke-width="1.000" stroke-opacity="1.000" />
+<line x1="148.367" y1="184.570" x2="154.367" y2="184.570" stroke="rgba(0,0,0,1.000)" stroke-width="1.000" stroke-opacity="1.000" />
+<line x1="148.367" y1="158.074" x2="154.367" y2="158.074" stroke="rgba(0,0,0,1.000)" stroke-width="1.000" stroke-opacity="1.000" />
+<line x1="183.924" y1="186.371" x2="183.924" y2="139.438" stroke="rgba(0,0,0,1.000)" stroke-width="1.000" stroke-opacity="1.000" />
+<line x1="180.924" y1="186.371" x2="186.924" y2="186.371" stroke="rgba(0,0,0,1.000)" stroke-width="1.000" stroke-opacity="1.000" />
+<line x1="180.924" y1="139.438" x2="186.924" y2="139.438" stroke="rgba(0,0,0,1.000)" stroke-width="1.000" stroke-opacity="1.000" />
+<line x1="258.342" y1="161.093" x2="258.342" y2="125.473" stroke="rgba(0,0,0,1.000)" stroke-width="1.000" stroke-opacity="1.000" />
+<line x1="255.342" y1="161.093" x2="261.342" y2="161.093" stroke="rgba(0,0,0,1.000)" stroke-width="1.000" stroke-opacity="1.000" />
+<line x1="255.342" y1="125.473" x2="261.342" y2="125.473" stroke="rgba(0,0,0,1.000)" stroke-width="1.000" stroke-opacity="1.000" />
+<line x1="290.900" y1="177.566" x2="290.900" y2="149.501" stroke="rgba(0,0,0,1.000)" stroke-width="1.000" stroke-opacity="1.000" />
+<line x1="287.900" y1="177.566" x2="293.900" y2="177.566" stroke="rgba(0,0,0,1.000)" stroke-width="1.000" stroke-opacity="1.000" />
+<line x1="287.900" y1="149.501" x2="293.900" y2="149.501" stroke="rgba(0,0,0,1.000)" stroke-width="1.000" stroke-opacity="1.000" />
+<line x1="397.876" y1="82.659" x2="397.876" y2="51.857" stroke="rgba(0,0,0,1.000)" stroke-width="1.000" stroke-opacity="1.000" />
+<line x1="394.876" y1="82.659" x2="400.876" y2="82.659" stroke="rgba(0,0,0,1.000)" stroke-width="1.000" stroke-opacity="1.000" />
+<line x1="394.876" y1="51.857" x2="400.876" y2="51.857" stroke="rgba(0,0,0,1.000)" stroke-width="1.000" stroke-opacity="1.000" />
+<line x1="430.433" y1="120.700" x2="430.433" y2="93.004" stroke="rgba(0,0,0,1.000)" stroke-width="1.000" stroke-opacity="1.000" />
+<line x1="427.433" y1="120.700" x2="433.433" y2="120.700" stroke="rgba(0,0,0,1.000)" stroke-width="1.000" stroke-opacity="1.000" />
+<line x1="427.433" y1="93.004" x2="433.433" y2="93.004" stroke="rgba(0,0,0,1.000)" stroke-width="1.000" stroke-opacity="1.000" />
+<line x1="462.991" y1="128.021" x2="462.991" y2="94.757" stroke="rgba(0,0,0,1.000)" stroke-width="1.000" stroke-opacity="1.000" />
+<line x1="459.991" y1="128.021" x2="465.991" y2="128.021" stroke="rgba(0,0,0,1.000)" stroke-width="1.000" stroke-opacity="1.000" />
+<line x1="459.991" y1="94.757" x2="465.991" y2="94.757" stroke="rgba(0,0,0,1.000)" stroke-width="1.000" stroke-opacity="1.000" />
+<path d="M 102.530 337.000 L 102.530 138.143 L 135.088 138.143 L 135.088 337.000 Z" fill="rgba(31,119,180,1.000)" fill-opacity="1.000" stroke="rgba(0,0,0,1.000)" stroke-width="1.000" stroke-opacity="1.000" stroke-linejoin="round" stroke-linecap="round" />
+<path d="M 135.088 337.000 L 135.088 171.322 L 167.646 171.322 L 167.646 337.000 Z" fill="rgba(255,127,14,1.000)" fill-opacity="1.000" stroke="rgba(0,0,0,1.000)" stroke-width="1.000" stroke-opacity="1.000" stroke-linejoin="round" stroke-linecap="round" />
+<path d="M 167.646 337.000 L 167.646 162.904 L 200.203 162.904 L 200.203 337.000 Z" fill="rgba(128,128,128,1.000)" fill-opacity="1.000" stroke="rgba(0,0,0,1.000)" stroke-width="1.000" stroke-opacity="1.000" stroke-linejoin="round" stroke-linecap="round" />
+<path d="M 242.063 337.000 L 242.063 143.283 L 274.621 143.283 L 274.621 337.000 Z" fill="rgba(31,119,180,1.000)" fill-opacity="1.000" stroke="rgba(0,0,0,1.000)" stroke-width="1.000" stroke-opacity="1.000" stroke-linejoin="round" stroke-linecap="round" />
+<path d="M 274.621 337.000 L 274.621 163.534 L 307.179 163.534 L 307.179 337.000 Z" fill="rgba(255,127,14,1.000)" fill-opacity="1.000" stroke="rgba(0,0,0,1.000)" stroke-width="1.000" stroke-opacity="1.000" stroke-linejoin="round" stroke-linecap="round" />
+<path d="M 307.179 337.000 L 307.179 337.000 L 339.737 337.000 L 339.737 337.000 Z" fill="rgba(128,128,128,1.000)" fill-opacity="1.000" stroke="rgba(0,0,0,1.000)" stroke-width="1.000" stroke-opacity="1.000" stroke-linejoin="round" stroke-linecap="round" />
+<path d="M 381.597 337.000 L 381.597 67.258 L 414.154 67.258 L 414.154 337.000 Z" fill="rgba(31,119,180,1.000)" fill-opacity="1.000" stroke="rgba(0,0,0,1.000)" stroke-width="1.000" stroke-opacity="1.000" stroke-linejoin="round" stroke-linecap="round" />
+<path d="M 414.154 337.000 L 414.154 106.852 L 446.712 106.852 L 446.712 337.000 Z" fill="rgba(255,127,14,1.000)" fill-opacity="1.000" stroke="rgba(0,0,0,1.000)" stroke-width="1.000" stroke-opacity="1.000" stroke-linejoin="round" stroke-linecap="round" />
+<path d="M 446.712 337.000 L 446.712 111.389 L 479.270 111.389 L 479.270 337.000 Z" fill="rgba(128,128,128,1.000)" fill-opacity="1.000" stroke="rgba(0,0,0,1.000)" stroke-width="1.000" stroke-opacity="1.000" stroke-linejoin="round" stroke-linecap="round" />
 </g>
 <path d="M 81.600 337.000 L 500.200 337.000" fill="none" stroke="rgba(0,0,0,1.000)" stroke-width="1.000" stroke-opacity="1.000" stroke-linejoin="round" stroke-linecap="round" />
 <path d="M 151.367 337.000 L 151.367 343.000" fill="none" stroke="rgba(0,0,0,1.000)" stroke-width="1.000" stroke-opacity="1.000" stroke-linejoin="round" stroke-linecap="round" />
@@ -58,5 +67,7 @@
 <text x="541.200" y="66.800" font-size="12.0" font-family="Inter, -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, 'PingFang SC', 'Microsoft YaHei', Ubuntu, Cantarell, 'Noto Sans', sans-serif" fill="rgba(51,51,51,1.000)" fill-opacity="1.000" text-anchor="start" font-weight="normal" dominant-baseline="central" transform="rotate(0 541.200 66.800)">MALE</text>
 <circle cx="524.200" cy="87.800" r="5.000" fill="rgba(255,127,14,1.000)" stroke="none" stroke-width="0.000" fill-opacity="1.000" stroke-opacity="1.000" />
 <text x="541.200" y="87.800" font-size="12.0" font-family="Inter, -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, 'PingFang SC', 'Microsoft YaHei', Ubuntu, Cantarell, 'Noto Sans', sans-serif" fill="rgba(51,51,51,1.000)" fill-opacity="1.000" text-anchor="start" font-weight="normal" dominant-baseline="central" transform="rotate(0 541.200 87.800)">FEMALE</text>
+<circle cx="524.200" cy="108.800" r="5.000" fill="rgba(128,128,128,1.000)" stroke="none" stroke-width="0.000" fill-opacity="1.000" stroke-opacity="1.000" />
+<text x="541.200" y="108.800" font-size="12.0" font-family="Inter, -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, 'PingFang SC', 'Microsoft YaHei', Ubuntu, Cantarell, 'Noto Sans', sans-serif" fill="rgba(51,51,51,1.000)" fill-opacity="1.000" text-anchor="start" font-weight="normal" dominant-baseline="central" transform="rotate(0 541.200 108.800)">NA</text>
 </g>
 </svg>

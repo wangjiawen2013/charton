@@ -189,7 +189,7 @@ impl MarkRenderer for Chart<MarkBar> {
             };
 
             // D: Drawing
-            let color_val = color_norms.as_ref().and_then(|cn| cn[idx]);
+            let color_val = color_norms.as_ref().map(|cn| cn[idx].unwrap_or(f64::NAN));
             let final_color = self.resolve_color_from_value(color_val, context, &mark_config.color);
 
             backend.draw_path(PathConfig {
@@ -233,16 +233,7 @@ impl Chart<MarkBar> {
         context: &PanelContext,
         fallback: &SingleColor,
     ) -> SingleColor {
-        if let (Some(v), Some(mapping)) = (val, &context.spec.aesthetics.color) {
-            let s_trait = mapping.scale_impl.as_ref();
-            s_trait
-                .mapper()
-                .as_ref()
-                .map(|m| m.map_to_color(v, s_trait.logical_max()))
-                .unwrap_or(*fallback)
-        } else {
-            *fallback
-        }
+        crate::render::resolve_color(val, context, fallback)
     }
 
     #[allow(clippy::too_many_arguments)]

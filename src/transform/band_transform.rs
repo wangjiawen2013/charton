@@ -555,6 +555,62 @@ mod tests {
         }
     }
 
+    /// A null *category* (position) is dropped, while a null *group*
+    /// (non-positional lane) becomes the reserved `"NA"` lane. This is the
+    /// Plan-A split: position drops, non-position keeps.
+    #[test]
+    fn null_category_drops_but_null_group_becomes_missing_lane() {
+        let mut ds = Dataset::new();
+        ds.add_column(
+            "value",
+            ColumnVector::Float64 {
+                data: vec![1.0, 2.0, 3.0, 4.0],
+                validity: None,
+            },
+        )
+        .unwrap();
+        // cat: ["A", null, "A", null]
+        ds.add_column(
+            "cat",
+            ColumnVector::String {
+                data: vec!["A".into(), "ignored".into(), "A".into(), "ignored".into()],
+                validity: Some(vec![0b0101]),
+            },
+        )
+        .unwrap();
+        // grp: [null, "g", null, "g"]
+        ds.add_column(
+            "grp",
+            ColumnVector::String {
+                data: vec!["ignored".into(), "g".into(), "ignored".into(), "g".into()],
+                validity: Some(vec![0b1010]),
+            },
+        )
+        .unwrap();
+
+        let layout = build_lane_layout(
+            &ds,
+            Some("cat"),
+            Some("grp"),
+            LaneLayoutOptions {
+                position: &Position::Identity,
+                span: 0.7,
+                max_width: 0.5,
+                split: false,
+            },
+            |i| ds.column("value").unwrap().get(i).to_f64(),
+        )
+        .unwrap();
+
+        // Rows (A, null), (null, g), (A, null), (null, g): the two position-null
+        // rows are dropped, the two group-null rows share one (A, "NA") cell.
+        assert_eq!(layout.cells.len(), 1, "unexpected cells");
+        let cell = &layout.cells[0];
+        assert_eq!(cell.category_label, "A");
+        assert_eq!(cell.group_label, "NA");
+        assert_eq!(cell.values, vec![1.0, 3.0]);
+    }
+
     /// A category column that already carries a generated output name must be
     /// rejected, not silently overwritten.
     #[test]

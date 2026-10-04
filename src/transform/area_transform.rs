@@ -1,6 +1,6 @@
 use crate::TEMP_SUFFIX;
 use crate::chart::Chart;
-use crate::core::data::{ColumnVector, Dataset};
+use crate::core::data::{ColumnVector, Dataset, MISSING_CATEGORY};
 use crate::core::utils::IntoParallelizable;
 use crate::encode::y::StackMode;
 use crate::error::ChartonError;
@@ -55,7 +55,7 @@ impl<T: Mark> Chart<T> {
         };
 
         let color_series = if let Some(cf) = color_field {
-            self.data.column(cf)?.unique_values()
+            self.data.column(cf)?.labels_with_missing()
         } else {
             vec![format!("{}_default", TEMP_SUFFIX)]
         };
@@ -68,6 +68,11 @@ impl<T: Mark> Chart<T> {
         let y_col = self.data.column(y_field)?;
 
         for i in 0..row_count {
+            // Missing values in a positional or colour field drop the row
+            // (Vega-Lite/ggplot2).
+            if x_col.is_null(i) {
+                continue;
+            }
             let x_key = if is_continuous {
                 // get_f64 automatically maps all numeric/temporal types to a double precision float
                 let v = x_col.get(i).to_f64().unwrap_or(0.0);
@@ -76,25 +81,31 @@ impl<T: Mark> Chart<T> {
                 }
                 v.to_bits()
             } else {
-                let s = x_col
-                    .get(i)
-                    .to_string()
-                    .unwrap_or_else(|| "null".to_string());
+                let s = x_col.get(i).to_string().unwrap_or_default();
                 let mut hasher = ahash::AHasher::default();
                 s.hash(&mut hasher);
                 hasher.finish()
             };
 
-            let c_val = color_field
-                .map(|cf| {
-                    self.data
-                        .get(cf, i)
-                        .to_string()
-                        .unwrap_or_else(|| format!("{}_default", TEMP_SUFFIX))
-                })
-                .unwrap_or_else(|| format!("{}_default", TEMP_SUFFIX));
+            // Colour is non-positional: a missing value is kept as the reserved
+            // grey "NA" series rather than dropping a valid observation.
+            let c_val = match color_field {
+                Some(cf) => self
+                    .data
+                    .get(cf, i)
+                    .to_string()
+                    .unwrap_or_else(|| MISSING_CATEGORY.to_string()),
+                None => format!("{}_default", TEMP_SUFFIX),
+            };
 
-            let y_val = y_col.get(i).to_f64().unwrap_or(0.0);
+            // In overlay mode a missing y stays `NaN`, so the renderer can break
+            // the area at that x (a visible gap). Stacked/normalised modes keep
+            // treating it as 0 so the stack stays well defined.
+            let y_val = match y_col.get(i).to_f64() {
+                Some(value) => value,
+                None if matches!(mode, StackMode::None) => f64::NAN,
+                None => 0.0,
+            };
             grid.entry(x_key).or_default().insert(c_val, y_val);
         }
 
