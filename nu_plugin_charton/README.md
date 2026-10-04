@@ -113,6 +113,10 @@ open assets/grid.csv | charton -g contour -x x -y y --z z -o contour.svg
 open assets/grid.csv | charton -g contour -x x -y y --z z --stroke black -o contour_mono.svg
 open assets/data.csv | charton -g contour -x a -y b -o density_contour.svg
 
+# 2D density heatmap: the joint kernel density of two columns drawn as a grid
+# of cells. --bins sets the grid size per axis.
+open assets/data.csv | charton -g density_2d -x a -y b -o density_2d.svg
+
 # Pie / donut (bar mark in polar coordinates; omit -x so y becomes the slices;
 # add --inner-radius for a donut)
 open assets/data.csv | charton -g bar -y amount -c category --coord polar --inner-radius 0.5
@@ -159,7 +163,7 @@ Flags are grouped by what you want to do. `[]` in the type column marks a list.
 
 | Flag | Meaning |
 |---|---|
-| `-g, --geom` | Chart type: `point` (default) \| `line` \| `area` \| `bar` \| `boxplot` \| `violin` \| `errorbar` \| `rule` \| `tick` \| `text` \| `rect`/`heatmap` \| `hist` \| `density`/`kde` \| `ecdf` \| `contour` \| `beeswarm` \| `geo` |
+| `-g, --geom` | Chart type: `point` (default) \| `line` \| `area` \| `bar` \| `boxplot` \| `violin` \| `errorbar` \| `rule` \| `tick` \| `text` \| `rect`/`heatmap` \| `hist` \| `density`/`kde` \| `density_2d` \| `ecdf` \| `contour` \| `beeswarm` \| `geo` |
 | `-x, --x` | Column for the x axis (the value column for `-g density`/`-g ecdf`; the category column for `-g violin`; the grid's x for `-g contour`) |
 | `-y, --y` | Column for the y axis (`hist` uses a generated `count`; `density` uses a generated `density`; the value column for `-g violin`; the grid's y for `-g contour`) |
 | `--z` | Value (scalar) column for `-g contour`; the grid is regular in `x` and `y`. Omit it to estimate a 2D density from `x`/`y` first (a density contour) |
@@ -174,6 +178,8 @@ single-colour contour instead.
 `beeswarm` is the `point` mark with a beeswarm layout, not a separate mark.
 `violin` is a composition too: a density outline plus an inner quartile box,
 and `contour` is a marching-squares iso-line stat plus the open `path` geometry.
+`density_2d` is a 2D kernel density drawn as a heatmap: the filled counterpart
+of the contour's `--z` form.
 `scatter`, `box`, `label`, `heatmap`, `histogram`, and `geoshape` are aliases.
 
 ### Encodings

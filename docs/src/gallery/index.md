@@ -4,25 +4,28 @@ Named, copy-paste recipes for the charts people ask for by name. Each links to a
 complete, compiled example — the image you see is the output of the code right
 below it — and to the primitives it is built from.
 
-> A chart type is a *composition*, not a feature. If yours is missing, build it
-> from the [Marks & Geometries](../grammar/marks.md) vocabulary and the
+> The convenience marks (`mark_violin`, `mark_density`, `mark_contour`,
+> `mark_density_2d`, …) are just names for common compositions, so every entry's
+> "Built from" column shows both the mark and the primitives it expands into.
+> If your chart is missing, build it from the
+> [Marks & Geometries](../grammar/marks.md) vocabulary and the
 > [layer pipeline](../concepts/grammar_pipeline.md), then add it here.
 
 ## Distributions
 
 | Recipe | Also known as | Built from |
 | --- | --- | --- |
-| [Density plot](density_1d.md#density-plot) | KDE | `transform_density` + `mark_area` |
-| [Density heatmap](density_2d.md#density-heatmap) | 2-D KDE | `transform_density_2d` + `mark_rect` |
-| [Density contour](density_2d.md#density-contours) | 2-D KDE iso-lines | `transform_density_2d` + `transform_contour` + `mark_path` |
-| [Cumulative density](cumulative_density.md#cumulative-density-curve) | KDE integral | `transform_density` (`cumulative`) |
+| [Density plot](density_1d.md#density-plot) | KDE | `mark_density` (`transform_density` + `mark_area`) |
+| [Density heatmap](density_2d.md#density-heatmap) | 2-D KDE | `mark_density_2d` (`transform_density_2d` + `mark_rect`) |
+| [Density contour](density_2d.md#density-contours) | 2-D KDE iso-lines | `mark_contour` over `transform_density_2d` |
+| [Cumulative density](cumulative_density.md#cumulative-density-curve) | KDE integral | `mark_density` (`cumulative`) |
 | [Empirical CDF](cumulative_density.md#empirical-cdf-cumulative-frequency) | cumulative frequency | `transform_window` (`CumeDist`) |
-| [Violin](violin.md#violin-single) | density outline, upright | `transform_density` + `mark_area` (mirror) + `coord_flip` |
-| [Grouped violin](violin.md#grouped-and-faceted-violins) | dodged violin | `transform_density` + `transform_band` + `Position::dodge` |
-| [Faceted violin](violin.md#grouped-and-faceted-violins) | small multiples | violin + `facet` |
-| [Split violin](violin.md#split-violin) | | `transform_band` (split) |
-| [Raincloud](violin.md#raincloud) | | violin + `transform_quantile_box` + jittered points |
-| [Violin with inner box](box_plot.md#the-composable-quantile-box) | | violin + `transform_quantile_box` |
+| [Violin](violin.md#violin-single) | density outline, upright | `mark_violin` |
+| [Grouped violin](violin.md#grouped-and-faceted-violins) | dodged violin | `mark_violin` (`x` + `color`, dodge) |
+| [Faceted violin](violin.md#grouped-and-faceted-violins) | small multiples | `mark_violin` + `facet` |
+| [Split violin](violin.md#split-violin) | | `mark_violin` (`split`) |
+| [Raincloud](violin.md#raincloud) | | `mark_violin` + `transform_quantile_box` + jittered points |
+| [Violin with inner box](box_plot.md#the-composable-quantile-box) | | `mark_violin` + `transform_quantile_box` |
 | [Box plot](box_plot.md#box-plot) | box & whiskers | `mark_boxplot` |
 | [Histogram](histogram.md) | | `mark_hist` |
 | [Scatter](point_charts.md) | | `mark_point` + shape/size/color |
@@ -60,9 +63,9 @@ below it — and to the primitives it is built from.
 | [Scatter](point_charts.md#shape-size-and-a-reference-grid) | | `mark_point` + shape/size/color |
 | [Categorical heatmap](heatmaps.md#categorical-heatmap) | | `mark_rect` |
 | [Continuous heatmap](heatmaps.md#continuous-heatmap-2-d-binning) | 2-D histogram | `mark_rect` + binning |
-| [Iso-lines of a grid](contours.md#iso-lines-of-a-grid) | contour plot | `transform_contour` + `mark_path` |
-| [Single-colour contour](contours.md#iso-lines-of-a-grid) | | contour without a colour channel |
-| [Density contours](contours.md#density-contours) | 2-D KDE | `transform_density_2d` + `transform_contour` + `mark_path` |
+| [Iso-lines of a grid](contours.md#iso-lines-of-a-grid) | contour plot | `mark_contour` (`transform_contour` + `mark_path`) |
+| [Single-colour contour](contours.md#how-the-pieces-fit) | | `mark_contour` without colour-by-level |
+| [Density contours](contours.md#from-scattered-points) | 2-D KDE | `mark_contour` over `transform_density_2d` |
 
 ## Circular
 

@@ -17,6 +17,13 @@ pub struct Color {
     /// The name of the data column used for color encoding.
     pub(crate) field: String,
 
+    /// Display name for the legend, when it differs from `field`.
+    ///
+    /// Composite marks use this to keep the original column's name on the
+    /// legend after rewriting the channel. A `with_color_label` on the finished
+    /// chart still takes priority.
+    pub(crate) label: Option<String>,
+
     /// Statistical operation to apply to the data (e.g., Sum, Mean).
     /// Defaults to `AggregateOp::Sum`.
     pub(crate) aggregate: AggregateOp,
@@ -41,12 +48,23 @@ impl Color {
     pub fn new(field: &str) -> Self {
         Self {
             field: field.to_string(),
+            label: None,
             aggregate: AggregateOp::default(), // Defaults to Sum
             scale_type: None,
             domain: None,
             expansion: None,
             resolved_scale: ResolvedScale::none(),
         }
+    }
+
+    /// Overrides the legend title for this channel.
+    ///
+    /// By default the legend is titled with the data field name; this sets a
+    /// display name instead. A `with_color_label` on the finished chart has the
+    /// final say.
+    pub fn with_label(mut self, label: impl Into<String>) -> Self {
+        self.label = Some(label.into());
+        self
     }
 
     pub fn with_aggregate<A: Into<AggregateOp>>(mut self, op: A) -> Self {

@@ -59,7 +59,7 @@ Nushell Value (list<record>)
 Type inference is done over **all rows**, not just the first: a column that
 starts with integers but contains a decimal later is promoted to float, and a
 column containing nulls/`NaN`s stays null-aware. This mirrors the integrity
-rules described in [Validation & Integrity](../engine/integrity.md).
+rules described in [The Dataset Struct](../engine/dataset_core.md).
 
 ## Quick start
 
@@ -103,9 +103,9 @@ charton -g geo --geojson world.geojson -c POP_EST -o world.png
 
 The `-g` names cover every Charton mark (`point`, `line`, `area`, `bar`,
 `boxplot`, `errorbar`, `rule`, `tick`, `text`, `rect`/`heatmap`, `hist`,
-`density`/`kde`, `ecdf`, `geo`) plus three compositions (`beeswarm`, `violin`,
-`contour`); aliases such as `scatter`, `label`, and `heatmap` map onto the
-marks. The full flag table is in the plugin README.
+`density`/`kde`, `density_2d`, `ecdf`, `geo`) plus the layout/composition names
+`beeswarm`, `violin`, and `contour`; aliases such as `scatter`, `label`, and
+`heatmap` map onto the marks. The full flag table is in the plugin README.
 
 ## Configuration
 

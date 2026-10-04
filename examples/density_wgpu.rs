@@ -4,18 +4,9 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
     let ds = load_dataset("iris")?;
 
     chart!(ds)?
-        .transform_density(
-            DensityTransform::new("sepal_length")
-                .with_as("sepal_length", "density")
-                .with_groupbys(["species"]),
-        )?
-        .mark_area()?
-        .configure_area(|a| a.with_opacity(0.5))
-        .encode((
-            alt::x("sepal_length"),
-            alt::y("density"),
-            alt::color("species"),
-        ))?
+        .mark_density()?
+        .configure_density(|density| density.with_opacity(0.5))
+        .encode((alt::x("sepal_length"), alt::color("species")))?
         .save("target/example-output/density_gpu.png")?;
 
     Ok(())

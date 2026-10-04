@@ -153,7 +153,7 @@ pub struct TextConfig {
 /// # Fields
 /// * `stops` - A slice of tuples containing (offset, color), where offset is 0.0 to 1.0.
 /// * `is_vertical` - If true, gradient runs from top to bottom; otherwise, left to right.
-/// * `id_suffix` - A unique identifier used to define the gradient ID in the backend (e.g., SVG <defs>).
+/// * `id_suffix` - A unique identifier used to define the gradient ID in the backend (e.g., SVG `<defs>`).
 pub struct GradientRectConfig {
     pub x: Precision,
     pub y: Precision,
@@ -248,6 +248,14 @@ pub trait Layer: MarkRenderer + Send + Sync {
 
     /// Returns the data field name mapped to a specific visual channel (e.g., "horsepower" -> Color).
     fn get_field(&self, channel: Channel) -> Option<String>;
+
+    /// Returns a display label for a channel, when the encoding set one.
+    ///
+    /// Used for axis and legend titles; layers without labels return `None`.
+    fn get_label(&self, channel: Channel) -> Option<String> {
+        let _ = channel;
+        None
+    }
 
     /// Returns a reference to the underlying Dataset.
     ///

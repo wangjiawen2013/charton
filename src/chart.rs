@@ -1,6 +1,9 @@
 pub mod area_chart;
 pub mod bar_chart;
 pub mod box_chart;
+pub mod contour_chart;
+pub mod density_chart;
+pub mod density_2d_chart;
 pub mod errorbar_chart;
 pub mod geo_chart;
 pub mod hist_chart;
@@ -10,6 +13,7 @@ pub mod rect_chart;
 pub mod rule_chart;
 pub mod text_chart;
 pub mod tick_chart;
+pub mod violin_chart;
 
 use crate::TEMP_SUFFIX;
 use crate::coordinate::CoordinateTrait;
@@ -19,9 +23,11 @@ use crate::core::layer::{Layer, MarkRenderer};
 use crate::encode::{Channel, Encoding, IntoEncoding, y::StackMode};
 use crate::error::ChartonError;
 use crate::mark::{
-    Mark, area::MarkArea, bar::MarkBar, boxplot::MarkBoxplot, errorbar::MarkErrorBar,
-    geo_path::MarkGeoPath, histogram::MarkHist, line::MarkLine, no_mark::NoMark, point::MarkPoint,
-    rect::MarkRect, rule::MarkRule, text::MarkText, tick::MarkTick,
+    Mark, area::MarkArea, bar::MarkBar, boxplot::MarkBoxplot, contour::MarkContour,
+    density::MarkDensity, density_2d::MarkDensity2D, errorbar::MarkErrorBar,
+    geo_path::MarkGeoPath, histogram::MarkHist, line::MarkLine, no_mark::NoMark,
+    point::MarkPoint, rect::MarkRect, rule::MarkRule, text::MarkText, tick::MarkTick,
+    violin::MarkViolin,
 };
 use crate::scale::{Expansion, Scale, ScaleDomain};
 use ahash::AHashMap;
@@ -29,20 +35,20 @@ use std::sync::Arc;
 
 /// Generic Chart structure representing a single visualization layer.
 ///
-/// This struct acts as a state machine. It begins in the [NoMark] state where
+/// This struct acts as a state machine. It begins in the `NoMark` state where
 /// data and visual encodings are defined. It can then be transitioned into a
 /// specific chart type (like `Chart<MarkPoint>`) or a faceted view.
 ///
 /// # Type Parameters
 ///
-/// * `T` - The mark type implementing the [Mark] trait. Defaults to [NoMark],
+/// * `T` - The mark type implementing the [Mark] trait. Defaults to `NoMark`,
 ///   enabling the "Base Chart" pattern similar to Altair.
 ///
 /// # Fields
 ///
 /// * `data` - The underlying data source.
 /// * `encoding` - Mapping between data fields and visual channels (x, y, color, etc.).
-/// * `mark` - The specific visual mark configuration. Is `None` when `T` is [NoMark].
+/// * `mark` - The specific visual mark configuration. Is `None` when `T` is `NoMark`.
 #[derive(Clone)]
 pub struct Chart<T: Mark = NoMark> {
     pub(crate) data: Dataset,
@@ -65,7 +71,8 @@ pub struct Chart<T: Mark = NoMark> {
 fn mark_has_stat(mark_type: &str) -> bool {
     matches!(
         mark_type,
-        "point" | "boxplot" | "errorbar" | "rect" | "bar" | "hist" | "area"
+        "point" | "boxplot" | "errorbar" | "rect" | "bar" | "hist" | "area" | "violin"
+            | "contour" | "density" | "density_2d"
     )
 }
 
@@ -96,7 +103,7 @@ impl Chart<NoMark> {
 
     /// Transitions the base chart into a Point chart.
     ///
-    /// This consumes the NoMark chart and returns a Chart<MarkPoint>.
+    /// This consumes the NoMark chart and returns a `Chart<MarkPoint>`.
     pub fn mark_point(self) -> Result<Chart<MarkPoint>, ChartonError> {
         let chart = Chart::<MarkPoint> {
             data: self.data,
@@ -206,6 +213,115 @@ impl Chart<NoMark> {
             data: self.data,
             encoding: self.encoding,
             mark: Some(MarkBoxplot::default()),
+            source_data: self.source_data,
+        };
+
+        if !chart.encoding.is_empty() {
+            return chart.validate_and_transform();
+        }
+
+        Ok(chart)
+    }
+
+    /// Transitions the base chart into a Violin chart.
+    ///
+    /// Draws the density of a numeric column as a symmetric outline. `y` is the
+    /// value (required), `x` an optional category, and `color` an optional group
+    /// that splits a category into side-by-side lanes (dodge) or, with
+    /// `configure_violin(..).with_split(true)`, the two halves of one violin.
+    ///
+    /// ```rust,ignore
+    /// chart!(penguins)?
+    ///     .mark_violin()?
+    ///     .encode((alt::x("Sex"), alt::y("Body Mass (g)"), alt::color("Species")))?;
+    /// ```
+    pub fn mark_violin(self) -> Result<Chart<MarkViolin>, ChartonError> {
+        let chart = Chart::<MarkViolin> {
+            data: self.data,
+            encoding: self.encoding,
+            mark: Some(MarkViolin::default()),
+            source_data: self.source_data,
+        };
+
+        if !chart.encoding.is_empty() {
+            return chart.validate_and_transform();
+        }
+
+        Ok(chart)
+    }
+
+    /// Transitions the base chart into a Contour chart.
+    ///
+    /// Draws iso-lines of the scalar field `z` on the regular grid given by the
+    /// `x` and `y` encodings. `z` is named explicitly because the crate has no
+    /// `z` channel; it may be a raw column or the `density` column produced by
+    /// `transform_density_2d`. The lines are coloured by their level by default;
+    /// use `configure_contour(..).with_color_by_level(false)` for one colour.
+    ///
+    /// ```rust,ignore
+    /// chart!(x, y, z)?
+    ///     .mark_contour("z")?
+    ///     .encode((alt::x("x"), alt::y("y")))?;
+    /// ```
+    pub fn mark_contour(
+        self,
+        z: impl Into<String>,
+    ) -> Result<Chart<MarkContour>, ChartonError> {
+        let chart = Chart::<MarkContour> {
+            data: self.data,
+            encoding: self.encoding,
+            mark: Some(MarkContour::new(z)),
+            source_data: self.source_data,
+        };
+
+        if !chart.encoding.is_empty() {
+            return chart.validate_and_transform();
+        }
+
+        Ok(chart)
+    }
+
+    /// Transitions the base chart into a Density chart.
+    ///
+    /// Draws the kernel density of the numeric `x` column as a smooth area, with
+    /// one curve per `color` group. The estimate is written to the `y` axis.
+    ///
+    /// ```rust,ignore
+    /// chart!(iris)?
+    ///     .mark_density()?
+    ///     .encode((alt::x("sepal_length"), alt::color("species")))?;
+    /// ```
+    pub fn mark_density(self) -> Result<Chart<MarkDensity>, ChartonError> {
+        let chart = Chart::<MarkDensity> {
+            data: self.data,
+            encoding: self.encoding,
+            mark: Some(MarkDensity::default()),
+            source_data: self.source_data,
+        };
+
+        if !chart.encoding.is_empty() {
+            return chart.validate_and_transform();
+        }
+
+        Ok(chart)
+    }
+
+    /// Transitions the base chart into a 2-D density heatmap.
+    ///
+    /// Estimates the joint density of the `x` and `y` columns and paints the
+    /// grid as heatmap cells, coloured by density. The bin count is set to the
+    /// grid size automatically.
+    ///
+    /// ```rust,ignore
+    /// chart!(iris)?
+    ///     .mark_density_2d()?
+    ///     .encode((alt::x("sepal_length"), alt::y("petal_length")))?;
+    /// ```
+    pub fn mark_density_2d(self) -> Result<Chart<MarkDensity2D>, ChartonError> {
+        let chart = Chart::<MarkDensity2D> {
+            data: self.data,
+            encoding: self.encoding,
+            mark: Some(MarkDensity2D::default()),
             source_data: self.source_data,
         };
 
@@ -353,7 +469,7 @@ impl<T: Mark> Chart<T> {
     /// Apply encoding mappings to the chart.
     ///
     /// This method defines how data fields map to visual properties (channels).
-    /// If the chart is in the [NoMark] state, mappings are stored without immediate
+    /// If the chart is in the `NoMark` state, mappings are stored without immediate
     /// validation to allow for late-binding of the mark type.
     ///
     /// If a specific mark type is already assigned (e.g., `Chart<MarkPoint>`), this
@@ -439,6 +555,10 @@ impl<T: Mark> Chart<T> {
         match mark_type.as_str() {
             "point" => self = self.transform_point_data()?,
             "boxplot" => self = self.transform_boxplot_data()?,
+            "violin" => self = self.transform_violin_data()?,
+            "contour" => self = self.transform_contour_data()?,
+            "density" => self = self.transform_density_data()?,
+            "density_2d" => self = self.transform_density_2d_data()?,
             "errorbar" if self.encoding.y2.is_none() => {
                 self = self.transform_errorbar_data()?;
             }
@@ -472,7 +592,7 @@ impl<T: Mark> Chart<T> {
     fn validate_mandatory_encodings(&self, mark_type: &str) -> Result<(), ChartonError> {
         match mark_type {
             "errorbar" | "bar" | "hist" | "line" | "point" | "area" | "boxplot" | "text"
-            | "rule" | "tick" | "geo_path" => {
+            | "rule" | "tick" | "geo_path" | "contour" => {
                 if self.encoding.x.is_none() || self.encoding.y.is_none() {
                     return Err(ChartonError::Encoding(format!(
                         "{} chart requires both x and y encodings",
@@ -491,6 +611,31 @@ impl<T: Mark> Chart<T> {
                 }
             }
             "none" => {}
+            "violin" => {
+                // Only the value column is required; the category and group are
+                // optional. x is generated by the recipe.
+                if self.encoding.y.is_none() {
+                    return Err(ChartonError::Encoding(
+                        "violin chart requires a y encoding (the value column)".into(),
+                    ));
+                }
+            }
+            "density" => {
+                // The value column is required; the density is generated onto y.
+                if self.encoding.x.is_none() {
+                    return Err(ChartonError::Encoding(
+                        "density chart requires an x encoding (the value column)".into(),
+                    ));
+                }
+            }
+            "density_2d" => {
+                // Both axes are required; the density is generated as colour.
+                if self.encoding.x.is_none() || self.encoding.y.is_none() {
+                    return Err(ChartonError::Encoding(
+                        "density_2d chart requires both x and y encodings".into(),
+                    ));
+                }
+            }
             _ => {
                 return Err(ChartonError::Mark(format!(
                     "Unknown mark type: {}",
@@ -677,7 +822,7 @@ impl<T: Mark> Chart<T> {
                     vec![Scale::Linear, Scale::Discrete, Scale::Temporal],
                 );
             }
-            "geo_path" => {
+            "geo_path" | "violin" => {
                 // Geo paths: X and Y are continuous by default (longitude/latitude).
                 // X also accepts a discrete position axis so a polygon can carry
                 // integer categories (used by violin plots).
@@ -690,6 +835,35 @@ impl<T: Mark> Chart<T> {
                 expected.insert(
                     Channel::Color,
                     vec![Scale::Linear, Scale::Log, Scale::Discrete],
+                );
+            }
+            "contour" => {
+                // The contour grid is numeric on both axes.
+                expected.insert(
+                    Channel::X,
+                    vec![Scale::Linear, Scale::Log, Scale::Temporal],
+                );
+                expected.insert(
+                    Channel::Y,
+                    vec![Scale::Linear, Scale::Log, Scale::Temporal],
+                );
+            }
+            "density" => {
+                // The value column must be quantitative to estimate a density.
+                expected.insert(
+                    Channel::X,
+                    vec![Scale::Linear, Scale::Log, Scale::Temporal],
+                );
+            }
+            "density_2d" => {
+                // Both axes must be quantitative to estimate a joint density.
+                expected.insert(
+                    Channel::X,
+                    vec![Scale::Linear, Scale::Log, Scale::Temporal],
+                );
+                expected.insert(
+                    Channel::Y,
+                    vec![Scale::Linear, Scale::Log, Scale::Temporal],
                 );
             }
             _ => {}
@@ -768,7 +942,7 @@ impl<T: Mark> Chart<T> {
 
         // --- 1. STATISTICAL INTEGRITY & MAGNITUDE BASELINES ---
         // Marks representing magnitude (Bar, Area, Hist) should generally start at zero.
-        if y_enc.scale_type == Some(Scale::Linear) && ["area", "bar", "hist"].contains(&mt) {
+        if y_enc.scale_type == Some(Scale::Linear) && ["area", "bar", "hist", "density"].contains(&mt) {
             // Force zero baseline unless the user explicitly disabled it.
             if y_enc.zero.is_none() {
                 y_enc.zero = Some(true);
@@ -822,7 +996,7 @@ impl<T: Mark> Chart<T> {
         // --- 2. HALF-STEP PADDING FOR DISCRETE AXES ---
         // Categorical marks with thickness (Bar, Boxplot, Rect) need 0.5 units of padding
         // to center the marks and prevent them from clipping against axis lines.
-        let needs_discrete_padding = ["bar", "boxplot", "rect", "geo_path"].contains(&mt);
+        let needs_discrete_padding = ["bar", "boxplot", "rect", "geo_path", "violin"].contains(&mt);
         if needs_discrete_padding {
             if x_enc.scale_type == Some(Scale::Discrete) && x_enc.expansion.is_none() {
                 x_enc.expansion = Some(Expansion {
@@ -840,7 +1014,7 @@ impl<T: Mark> Chart<T> {
 
         // --- 3. FLUSH CONTINUOUS RECTANGLES (HEATMAPS) ---
         // Heatmaps on continuous scales should touch the edges of the plotting area.
-        if mt == "rect" {
+        if mt == "rect" || mt == "density_2d" {
             if x_enc.scale_type != Some(Scale::Discrete) && x_enc.expansion.is_none() {
                 x_enc.expansion = Some(Expansion {
                     mult: (0.0, 0.0),
@@ -877,6 +1051,14 @@ where
     fn get_field(&self, channel: Channel) -> Option<String> {
         self.encoding
             .get_field_by_channel(channel)
+            .map(|s| s.to_string())
+    }
+
+    /// Retrieves the display label for a specific channel, if the encoding set
+    /// one.
+    fn get_label(&self, channel: Channel) -> Option<String> {
+        self.encoding
+            .get_label_by_channel(channel)
             .map(|s| s.to_string())
     }
 
@@ -1143,7 +1325,7 @@ where
 
     /// Partitions this chart's dataset by the given facet `fields`.
     ///
-    /// See [`Layer::facet_partition`](crate::core::layer::Layer::facet_partition).
+    /// See [`Layer::facet_partition`].
     /// A field missing from the dataset is reported as an error.
     fn facet_partition(&self, fields: &[&str]) -> Result<Option<FacetPartition>, ChartonError> {
         // Partition the rows *before* the statistic, so the panel subset can be
@@ -1168,7 +1350,7 @@ where
     /// and encodings so the subset renders with the same resolved scales as the
     /// full layer.
     ///
-    /// See [`Layer::subset_rows`](crate::core::layer::Layer::subset_rows).
+    /// See [`Layer::subset_rows`].
     fn subset_rows(&self, rows: &[usize]) -> Result<Option<Arc<dyn Layer>>, ChartonError> {
         // When a statistic was applied, the panel must see the rows *before*
         // that statistic and re-run it. Otherwise a cumulative stat (stacking,
@@ -1197,7 +1379,7 @@ where
 
     /// Returns this layer with its pre-statistic snapshot released.
     ///
-    /// See [`Layer::without_source_data`](crate::core::layer::Layer::without_source_data).
+    /// See [`Layer::without_source_data`].
     fn without_source_data(&self) -> Arc<dyn Layer> {
         let mut released = self.clone();
         released.source_data = None;

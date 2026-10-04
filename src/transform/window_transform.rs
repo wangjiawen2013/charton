@@ -127,7 +127,7 @@ pub struct WindowTransform {
     pub groupby: Vec<String>,
     /// Indicates if the sliding window frame should ignore peer values
     pub ignore_peers: bool,
-    /// If true, normalize the cumulative frequency to the range [0,1] in each group
+    /// If true, normalize the cumulative frequency to the range `[0, 1]` in each group
     pub normalize: bool,
 }
 
@@ -211,7 +211,7 @@ impl WindowTransform {
     /// Set the normalize flag
     ///
     /// # Parameters
-    /// * `normalize` - If true, normalize the cumulative frequency to the range [0,1] in each group
+    /// * `normalize` - If true, normalize the cumulative frequency to the range `[0, 1]` in each group
     ///
     /// # Returns
     /// The modified `WindowTransform` instance with the updated normalize setting

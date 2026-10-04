@@ -1,9 +1,11 @@
-//! Density heatmap — a bivariate kernel density drawn as a grid of cells.
+//! Density heatmap — a bivariate kernel density drawn as a grid of cells, with
+//! `mark_density_2d`.
 //!
-//! `transform_density_2d` estimates the joint density of two numeric columns
-//! onto a regular grid; `mark_rect` then paints each cell with its density.
-//! This is the filled counterpart of the density contour in
-//! `density_contour.rs`: same grid, cells instead of iso-lines.
+//! `mark_density_2d` is a **composite** mark: it expands into the public
+//! `transform_density_2d` and the shared rectangle geometry. It sets the heatmap
+//! bin count to the grid size automatically, so the caller does not have to know
+//! that `mark_rect` bins a second time. This is the filled counterpart of the
+//! density contour.
 
 use charton::prelude::*;
 use std::error::Error;
@@ -12,20 +14,9 @@ fn main() -> Result<(), Box<dyn Error>> {
     let iris = load_dataset("iris")?;
 
     chart!(iris)?
-        // 1. Estimate the joint density on a regular grid.
-        .transform_density_2d(
-            Density2DTransform::new("sepal_length", "petal_length")
-                .with_grid_size(60)
-                .with_padding(0.2),
-        )?
-        // 2. Paint one cell per grid node. Match the bin count to the grid so
-        //    the cells are not merged back together.
-        .mark_rect()?
-        .encode((
-            alt::x("x").with_bins(60),
-            alt::y("y").with_bins(60),
-            alt::color("density"),
-        ))?
+        .mark_density_2d()?
+        .configure_density_2d(|density| density.with_grid_size(60).with_padding(0.2))
+        .encode((alt::x("sepal_length"), alt::y("petal_length")))?
         .configure_theme(|t| t.with_color_map(ColorMap::Viridis))
         .with_title("Density heatmap")
         .with_x_label("Sepal length (cm)")

@@ -17,6 +17,11 @@ pub struct Shape {
     /// The name of the data column used for shape mapping.
     pub(crate) field: String,
 
+    /// Display name for the legend, when it differs from `field`.
+    ///
+    /// See [`Color::with_label`](crate::encode::color::Color::with_label).
+    pub(crate) label: Option<String>,
+
     /// The desired scale transformation. For shapes, this is almost always `Scale::Discrete`.
     pub(crate) scale_type: Option<Scale>,
 
@@ -37,12 +42,21 @@ impl Shape {
     pub fn new(field: &str) -> Self {
         Self {
             field: field.to_string(),
+            label: None,
             // Shapes default to a Discrete scale logic.
             scale_type: Some(Scale::Discrete),
             domain: None,
             expansion: None,
             resolved_scale: ResolvedScale::none(),
         }
+    }
+
+    /// Overrides the legend title for this channel.
+    ///
+    /// See [`Color::with_label`](crate::encode::color::Color::with_label).
+    pub fn with_label(mut self, label: impl Into<String>) -> Self {
+        self.label = Some(label.into());
+        self
     }
 
     /// Sets the desired scale type. Usually kept as Discrete for shapes.

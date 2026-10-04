@@ -51,6 +51,11 @@ pub struct Y {
     /// The name of the data column to be mapped to the vertical position.
     pub(crate) field: String,
 
+    /// Display name for the axis, when it differs from `field`.
+    ///
+    /// See [`X::with_label`](crate::encode::x::X::with_label).
+    pub(crate) label: Option<String>,
+
     /// Optional column that supplies the axis *categories* while `field` holds
     /// numeric positions. See [`X::with_category_labels`](crate::encode::x::X::with_category_labels).
     pub(crate) category_field: Option<String>,
@@ -93,6 +98,7 @@ impl Y {
     pub fn new(field: &str) -> Self {
         Self {
             field: field.to_string(),
+            label: None,
             category_field: None,
             aggregate: AggregateOp::default(), // Defaults to Sum
             scale_type: None,
@@ -104,6 +110,16 @@ impl Y {
             stack: StackMode::None,
             resolved_scale: ResolvedScale::none(),
         }
+    }
+
+    /// Overrides the axis title for this channel.
+    ///
+    /// By default the axis is titled with the data field name; this sets a
+    /// display name instead. A `with_y_label` on the finished chart has the
+    /// final say.
+    pub fn with_label(mut self, label: impl Into<String>) -> Self {
+        self.label = Some(label.into());
+        self
     }
 
     /// Sets the statistical aggregation operation.

@@ -1,10 +1,7 @@
-//! Single-colour contour.
+//! Single-colour density contour, with `mark_contour`.
 //!
-//! The same iso-lines as `contour.rs`, but with no colour channel: the path's
-//! own stroke is used, so every line is one colour.
-//!
-//! `transform_contour` still emits `x`, `y`, `path_group` and `level`; we simply
-//! do not map `level` to a colour, and `mark_path` strokes everything the same.
+//! The same iso-lines as `density_contour.rs`, but with the marks'
+//! colour-by-level turned off, so every line uses the outline colour instead.
 
 use charton::prelude::*;
 use std::error::Error;
@@ -12,7 +9,7 @@ use std::error::Error;
 fn main() -> Result<(), Box<dyn Error>> {
     let iris = load_dataset("iris")?;
 
-    chart!(iris)?
+    chart!(&iris)?
         .transform_density_2d(
             // Pad the estimation grid so the outer iso-lines close before its
             // edge instead of being clipped by it.
@@ -20,10 +17,15 @@ fn main() -> Result<(), Box<dyn Error>> {
                 .with_grid_size(60)
                 .with_padding(0.3),
         )?
-        .transform_contour(ContourTransform::new("x", "y", "density").with_levels(10))?
-        .mark_path()?
-        .configure_path(|m| m.with_stroke("black").with_stroke_width(1.0))
-        .encode((alt::x("x"), alt::y("y"), alt::path_group("path_group")))?
+        .mark_contour("density")?
+        .configure_contour(|contour| {
+            contour
+                .with_levels(10)
+                .with_color_by_level(false)
+                .with_stroke("black")
+                .with_stroke_width(1.0)
+        })
+        .encode((alt::x("x"), alt::y("y")))?
         .with_title("Single-colour density contour")
         .with_x_label("Sepal length (cm)")
         .with_y_label("Petal length (cm)")

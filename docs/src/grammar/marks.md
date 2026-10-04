@@ -2,6 +2,8 @@
 
 While Encodings and Scales define the mathematical relationship between data and space, the Mark is the physical manifestation of that relationship. A Mark is the geometric primitive used to represent a data point or a set of data points.
 
+For the rules that classify marks into tiers and define *statistical atoms* and *composite marks*, see [Design Rules: Marks, Tiers & Statistical Atoms](../concepts/design_rules.md).
+
 ## The Role of a Mark
 
 In Charton, a Mark is not just a drawing instruction; it is a Template that knows how to interpret resolved aesthetic values (pixels, hex codes, shapes) into final geometry.

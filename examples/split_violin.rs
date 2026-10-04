@@ -1,10 +1,10 @@
-//! Split violin — two groups as the left and right halves of one violin.
+//! Split violin — two groups as the left and right halves of one violin, with
+//! `mark_violin`.
 //!
-//! A split violin keeps one centre line per category and grows the first group
-//! to the right and the second to the left. It is the ordinary density transform
-//! followed by the general band geometry in `split` mode; each half is an
-//! ordinary polygon, so colouring by group turns the two halves into a single
-//! violin split down the middle. No violin-specific transform is involved.
+//! Set `with_split(true)` and colour by the group: the first group grows to the
+//! right of each centre and the second to the left. The mark expands this into
+//! the ordinary density transform plus the general band geometry in `split`
+//! mode, so each half is an ordinary polygon.
 
 use charton::prelude::*;
 use std::error::Error;
@@ -13,31 +13,16 @@ fn main() -> Result<(), Box<dyn Error>> {
     let penguins = load_dataset("penguins")?;
 
     chart!(&penguins)?
-        // One density curve per (Species, Sex) cell.
-        .transform_density(
-            DensityTransform::new("Body Mass (g)")
-                .with_as("Body Mass (g)", "density")
-                .with_groupbys(["Species", "Sex"])
-                .with_trim(true),
-        )?
-        // Draw each curve as a half-band around its Species centre.
-        .transform_band(
-            BandTransform::new("Body Mass (g)", "density")
-                .with_center("Species")
-                .with_group("Sex")
+        .mark_violin()?
+        .configure_violin(|violin| {
+            violin
                 .with_split(true)
-                .with_scale(BandScale::PerGroup),
-        )?
-        .mark_polygon()?
-        .configure_geoshape(|mark| {
-            mark.with_fill("#95a5a6")
+                .with_color("#95a5a6")
                 .with_stroke("#2c3e50")
-                .with_stroke_width(1.0)
         })
         .encode((
-            alt::x("x").with_category_labels("Species"),
-            alt::y("y"),
-            alt::path_group("path_group"),
+            alt::x("Species"),
+            alt::y("Body Mass (g)"),
             alt::color("Sex"),
         ))?
         .with_title("Body mass by species and sex (split)")

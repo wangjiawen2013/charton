@@ -17,6 +17,11 @@ pub struct Size {
     /// The name of the data column used for size mapping.
     pub(crate) field: String,
 
+    /// Display name for the legend, when it differs from `field`.
+    ///
+    /// See [`Color::with_label`](crate::encode::color::Color::with_label).
+    pub(crate) label: Option<String>,
+
     /// The scale type for size mapping (e.g., Linear, Log).
     /// Defaults to `Scale::Linear`. Note: `Scale::Discrete` is typically disallowed.
     pub(crate) scale_type: Option<Scale>,
@@ -38,11 +43,20 @@ impl Size {
     pub fn new(field: &str) -> Self {
         Self {
             field: field.to_string(),
+            label: None,
             scale_type: Some(Scale::Linear),
             domain: None,
             expansion: None,
             resolved_scale: ResolvedScale::none(),
         }
+    }
+
+    /// Overrides the legend title for this channel.
+    ///
+    /// See [`Color::with_label`](crate::encode::color::Color::with_label).
+    pub fn with_label(mut self, label: impl Into<String>) -> Self {
+        self.label = Some(label.into());
+        self
     }
 
     /// Sets the scale type for the size encoding (e.g., Linear, Log, Sqrt).

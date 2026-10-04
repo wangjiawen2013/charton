@@ -6,5 +6,7 @@ description = "A comprehensive guide to the Charton visualization library."
 src = "src"
 
 [output.html]
+git-repository-url = "https://github.com/wangjiawen2013/charton"
+edit-url-template = "https://github.com/wangjiawen2013/charton/edit/main/docs/{path}"
 
 [preprocessor.links]
