@@ -91,6 +91,50 @@ pub struct PathConfig {
     pub topology: PathTopology,
 }
 
+impl PathConfig {
+    /// Whether a *stroking* backend must append the first point to close the
+    /// loop.
+    ///
+    /// A [`PathTopology::Complex`] path is a closed region: the SVG, PDF and
+    /// raster backends close it with `Z` / `close()`. A backend that extrudes
+    /// one quad per consecutive pair of points (the WGPU path shader) receives
+    /// no such command, so without re-appending the first point its stroke
+    /// would silently drop the closing edge.
+    ///
+    /// Returns `false` for an open ([`PathTopology::Simple`]) path, for fewer
+    /// than two points, and for a sequence that already ends where it started.
+    ///
+    /// Only the WGPU backend needs this, so it reads as dead code without that
+    /// feature (the unit test still exercises it).
+    #[cfg_attr(not(any(feature = "wgpu", test)), allow(dead_code))]
+    pub(crate) fn closes_stroke(&self) -> bool {
+        matches!(self.topology, PathTopology::Complex)
+            && self.points.len() >= 2
+            && self.points.first() != self.points.last()
+    }
+
+    /// The outline dash pattern, flattened for a GPU shader.
+    ///
+    /// It follows the SVG `stroke-dasharray` rules: negative lengths are
+    /// clamped to zero, an odd number of entries is repeated once so the
+    /// pattern always alternates dash/gap, and a pattern with no positive entry
+    /// is returned empty (a solid stroke). SVG and the raster backend apply
+    /// these rules themselves, so this exists for the WGPU path shader.
+    #[cfg_attr(not(any(feature = "wgpu", test)), allow(dead_code))]
+    pub(crate) fn normalized_dash(&self) -> Vec<f32> {
+        let values: Vec<f32> = self.dash.iter().map(|&d| d.max(0.0)).collect();
+        if values.iter().all(|&v| v <= 0.0) {
+            return Vec::new();
+        }
+        if values.len() % 2 == 1 {
+            let mut doubled = values.clone();
+            doubled.extend_from_slice(&values);
+            return doubled;
+        }
+        values
+    }
+}
+
 pub struct TextConfig {
     pub x: Precision,
     pub y: Precision,
@@ -288,4 +332,59 @@ pub trait Layer: MarkRenderer + Send + Sync {
     /// cloned through this trait, so `Chart<T>` is the only implementor and
     /// builds its copy directly.
     fn without_source_data(&self) -> Arc<dyn Layer>;
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    fn path(points: Vec<(Precision, Precision)>, topology: PathTopology) -> PathConfig {
+        PathConfig {
+            points,
+            fill: SingleColor::none(),
+            stroke: SingleColor::new("black"),
+            stroke_width: 1.0,
+            opacity: 1.0,
+            dash: vec![],
+            topology,
+        }
+    }
+
+    /// The GPU dash pattern follows the SVG rules: an odd pattern is repeated
+    /// to alternate, non-positive entries clamp to zero, and a pattern with no
+    /// positive entry collapses to a solid stroke (empty).
+    #[test]
+    fn normalized_dash_follows_svg_rules() {
+        assert_eq!(
+            path(vec![], PathTopology::Simple).normalized_dash(),
+            Vec::<f32>::new()
+        );
+
+        let mut even = path(vec![], PathTopology::Simple);
+        even.dash = vec![6.0, 4.0];
+        assert_eq!(even.normalized_dash(), vec![6.0, 4.0]);
+
+        let mut odd = path(vec![], PathTopology::Simple);
+        odd.dash = vec![6.0, 4.0, 2.0];
+        assert_eq!(odd.normalized_dash(), vec![6.0, 4.0, 2.0, 6.0, 4.0, 2.0]);
+
+        let mut zero = path(vec![], PathTopology::Simple);
+        zero.dash = vec![0.0, 0.0];
+        assert!(zero.normalized_dash().is_empty());
+    }
+
+    /// A closed (`Complex`) path must have its first point re-appended for a
+    /// segment-extruding backend, an open path must not, and an already-closed
+    /// vertex loop must not get a duplicate.
+    #[test]
+    fn complex_path_stroke_closes_the_loop() {
+        let open = vec![(0.0, 0.0), (1.0, 0.0), (0.5, 1.0)];
+        assert!(path(open.clone(), PathTopology::Complex).closes_stroke());
+        assert!(!path(open, PathTopology::Simple).closes_stroke());
+
+        let closed = vec![(0.0, 0.0), (1.0, 0.0), (0.5, 1.0), (0.0, 0.0)];
+        assert!(!path(closed, PathTopology::Complex).closes_stroke());
+
+        assert!(!path(vec![(0.0, 0.0)], PathTopology::Complex).closes_stroke());
+    }
 }

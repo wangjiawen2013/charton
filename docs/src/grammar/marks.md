@@ -45,13 +45,18 @@ contour lines, network edges, parallel coordinates. See
 [Connecting the dots](#connecting-the-dots-line-path-and-polygon) for how it
 differs from `mark_line` and `mark_polygon`.
 
+`.with_dash([dash, gap])` draws the outline as a dashed line (an empty pattern,
+the default, is solid). Dashes are measured along the path, so a dashed contour
+reads as a broken line on every backend, CPU and GPU alike.
+
 ### Polygon Mark (`mark_polygon`)
 
 The closed, filled form of the same geometry: rows sharing a `path_group` are
 connected in order, the loop is closed and the interior is painted. Violin
 outlines, map regions and hand-built filled ribbons use it (`mark_geoshape` is
 the geographic name). It fills the polygon you give it; it does not extract the
-region between two contour levels.
+region between two contour levels. `.with_dash([dash, gap])` dashes the outline
+(the fill stays solid).
 
 ### Bar Mark (`mark_bar`)
 
@@ -164,7 +169,7 @@ chart!(iris)?
 
 Rainclouds and split violins stack more layers (`.and(…)`) on the same parts.
 See [The Layer Pipeline](../concepts/grammar_pipeline.md) and
-[Box & Violin Combinations](../gallery/box_violin_charts.md).
+[Violin](../gallery/violin.md).
 
 ## Visual Consistency (The Mark Trait)
 

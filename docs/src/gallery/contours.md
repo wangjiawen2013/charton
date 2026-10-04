@@ -8,7 +8,7 @@ contour = iso-line stat (marching squares)  +  open-path geometry
 ```
 
 Nothing here is contour-specific. `transform_contour` works on any regular grid
-of `x`, `y` and `z` — a bivariate density, an elevation map, a pressure field —
+of `x`, `y` and `z` — an elevation map, a pressure field, a bivariate density —
 and `mark_path` draws any ordered polyline.
 
 ## Iso-lines of a grid
@@ -27,12 +27,9 @@ and writes others:
 
 | Call | Reads | Emits |
 |---|---|---|
-| `transform_density_2d(x, y)` | two numeric columns | `x`, `y`, `density` |
 | `transform_contour(x, y, z)` | the grid (`x`, `y`, `z`) | `x`, `y`, `path_group`, `level` |
+| `transform_density_2d(x, y)` | two numeric columns | `x`, `y`, `density` |
 
-- **`density`** is the value the lines are computed on. It is *consumed* by
-  `transform_contour`, so it never appears in `encode` — its effect shows up as
-  `level`.
 - **`path_group`** is not built in: it is an ordinary data column, and
   `mark_path` connects the rows that share it, in row order. You wire it to the
   `path_group` channel with `alt::path_group("path_group")`.
@@ -40,16 +37,16 @@ and writes others:
   drop the colour encoding for a single-colour contour.
 
 Every name above is only a **default output name**. Rename them with
-`Density2DTransform::with_as`, `ContourTransform::with_as` and
-`ContourTransform::with_level_as`, then use the new names downstream — see the
+`ContourTransform::with_as` and `ContourTransform::with_level_as`, then use the
+new names downstream — see the
 [transforms reference](../grammar/transforms.md).
 
 ## How the pieces fit
 
 | Piece | What it does | Reused by |
 |---|---|---|
+| `transform_contour` | marching squares over a regular grid → iso-lines | contours of any scalar field, density contours |
 | `transform_density_2d` | bivariate kernel density over a grid | density contours, density heatmaps |
-| `transform_contour` | marching squares over a regular grid → iso-lines | contours of any scalar field |
 | `mark_path` | connects a `path_group` in row order, open, stroked | contour lines, custom curves, parallel coordinates |
 | `mark_polygon` | the closed, filled form of the same geometry | violin outlines, maps, filled ribbons |
 
@@ -71,19 +68,12 @@ path is drawn with the mark's own stroke instead — a single-colour contour:
 {{#include ../../../examples/contour_single.rs}}
 ```
 
-## Density contours
+## From scattered points
 
-A density contour is the same picture with a bivariate density as the field.
-`transform_density_2d` estimates that density onto a grid, and the same contour
-transform draws it — the familiar `kdeplot` / `geom_density_2d` picture:
-
-<img src="../images/density_contour.svg" width="500">
-
-```rust
-{{#include ../../../examples/density_contour.rs}}
-```
-
-So a density contour is three general pieces in a row:
+A bivariate density is just another scalar grid, so
+`transform_density_2d` feeds the same contour transform — the familiar
+`kdeplot` / `geom_density_2d` picture. The grid can also be drawn filled instead
+of as lines. Both are on the [2-D Density](density_2d.md) page:
 
 ```text
 scatter  →  transform_density_2d  →  transform_contour  →  mark_path
@@ -91,7 +81,8 @@ scatter  →  transform_density_2d  →  transform_contour  →  mark_path
 
 ## See also
 
-* [Statistical Distributions](statistics.md) — violin and box plots.
-* [The Layer Pipeline](../concepts/grammar_pipeline.md) — the stat/position/geom
+- [2-D Density](density_2d.md) — density contours and density heatmaps.
+- [Heatmaps](heatmaps.md) — `mark_rect` over binned data.
+- [The Layer Pipeline](../concepts/grammar_pipeline.md) — the stat/position/geom
   model behind all of this.
-* `examples/contour.rs`.
+- `examples/contour.rs`, `examples/contour_single.rs`, `examples/density_contour.rs`.
