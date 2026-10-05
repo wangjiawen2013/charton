@@ -118,7 +118,7 @@ impl MarkPoint {
     ///
     /// The renderer still decides whether the *axis* is categorical; a dodge is
     /// only meaningful there.
-    pub(crate) fn dodge_position(&self) -> crate::position::Position {
+    pub(crate) const fn dodge_position(&self) -> crate::position::Position {
         if self.dodge {
             crate::position::Position::Dodge {
                 spacing: self.spacing,
