@@ -211,11 +211,9 @@ impl MarkRenderer for Chart<MarkArea> {
         for (segments, group_color) in area_render_data {
             for (fill_pts, stroke_pts) in segments {
                 // Layer 1: Area Fill (Unified concave polygon fill)
-                // Completely replaces the deprecated `draw_polygon` approach for areas.
-                // Using `draw_path` with `PathTopology::Complex` instructs the WGPU backend
-                // to automatically route this to the Stencil-Then-Cover pipeline.
-                // Meanwhile, SVG/PNG backends will render this as a standard closed
-                // vector path with perfect anti-aliasing.
+                // One closed path. `draw_path` with `PathTopology::Complex`
+                // routes to the WGPU stencil-then-cover pipeline; SVG/PNG render
+                // it as a standard closed vector path with anti-aliasing.
                 backend.draw_path(PathConfig {
                     points: fill_pts,
                     fill: group_color,

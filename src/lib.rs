@@ -136,7 +136,10 @@ pub mod prelude {
     pub use crate::core::utils::geojson_to_dataset;
 }
 
-/// Temporary column name used internally by Polars to avoid naming conflicts.
+/// Prefix for the private column names transforms generate.
+///
+/// The prefix is unusual enough that it cannot clash with a user's column, so a
+/// transform can name its intermediates without a rename step.
 pub(crate) const TEMP_SUFFIX: &str = "__charton_temp_n9jh3z8";
 
 /// Represents the floating-point precision used specifically for the rendering stage.

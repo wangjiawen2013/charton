@@ -164,8 +164,8 @@ Flags are grouped by what you want to do. `[]` in the type column marks a list.
 | Flag | Meaning |
 |---|---|
 | `-g, --geom` | Chart type: `point` (default) \| `line` \| `area` \| `bar` \| `boxplot` \| `violin` \| `errorbar` \| `rule` \| `tick` \| `text` \| `rect`/`heatmap` \| `hist` \| `density`/`kde` \| `density_2d` \| `ecdf` \| `contour` \| `beeswarm` \| `geo` |
-| `-x, --x` | Column for the x axis (the value column for `-g density`/`-g ecdf`; the category column for `-g violin`; the grid's x for `-g contour`) |
-| `-y, --y` | Column for the y axis (`hist` uses a generated `count`; `density` uses a generated `density`; the value column for `-g violin`; the grid's y for `-g contour`) |
+| `-x, --x` | Column for the x axis (the value column for `-g density`/`-g ecdf`; the category column for `-g violin`; the grid's x for `-g contour`; the first sampled column for `-g density_2d`) |
+| `-y, --y` | Column for the y axis (`hist` uses a generated `count`; `density` uses a generated `density`; the value column for `-g violin`; the grid's y for `-g contour`; the second sampled column for `-g density_2d`) |
 | `--z` | Value (scalar) column for `-g contour`; the grid is regular in `x` and `y`. Omit it to estimate a 2D density from `x`/`y` first (a density contour) |
 | `-c, --color` | Column mapped to color / grouping (required for `rect`; the group column for `density`/`ecdf`) |
 | `--y2` | Upper-bound column for `errorbar`/`rule` (errorbar aggregates mean ± std when omitted) |
@@ -202,7 +202,7 @@ of the contour's `--z` form.
 | `--x-label`, `--y-label`, `--color-label` | Axis and legend titles |
 | `--x-angle` | X tick label angle in degrees |
 | `--flip` | Swap the x and y axes |
-| `--bins` | Number of bins for a continuous x axis |
+| `--bins` | Bins for histograms/heatmaps, iso-levels for `contour`, or the grid size for `density_2d` |
 | `--aggregate` | Aggregate y per x group: `sum` \| `mean` \| `median` \| `min` \| `max` \| `count` |
 
 ### Data transforms
@@ -236,7 +236,7 @@ of the contour's `--z` form.
 | `-t, --title` | Chart title |
 | `--theme` | Color theme: `auto` (default) \| `light` \| `dark` |
 | `--background` | Chart background color (overrides `--theme`) |
-| `--color-map` | Continuous color map for `rect`/heatmap, e.g. `viridis`, `magma`, `ylgnbu` |
+| `--color-map` | Continuous color map for `rect`/heatmap/`density_2d`, e.g. `viridis`, `magma`, `ylgnbu` |
 | `--legend` | Legend position: `left` \| `right` \| `top` \| `bottom` \| `none` |
 | `--grid`, `--no-grid` | Force grid lines on / off |
 | `--width`, `--height` | Pixel canvas size (default 800×600) |

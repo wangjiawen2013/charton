@@ -30,9 +30,7 @@ fn main() -> Result<(), Box<dyn Error>> {
     // === 2. Dodged: side by side inside each Sex, with an inner box ========
     let outline = chart!(&penguins)?
         .mark_violin()?
-        .configure_violin(|violin| {
-            violin.with_color("#d6eaf8").with_stroke("#2c3e50")
-        })
+        .configure_violin(|violin| violin.with_color("#d6eaf8").with_stroke("#2c3e50"))
         .encode((
             alt::x("Sex"),
             alt::y("Body Mass (g)"),
@@ -47,9 +45,7 @@ fn main() -> Result<(), Box<dyn Error>> {
                 .with_position(Position::dodge()),
         )?
         .mark_polygon()?
-        .configure_geoshape(|mark| {
-            mark.with_fill("white").with_stroke("black")
-        })
+        .configure_geoshape(|mark| mark.with_fill("white").with_stroke("black"))
         .encode((
             alt::x("x").with_category_labels("Sex"),
             alt::y("y"),

@@ -13,8 +13,7 @@ use crate::transform::density_transform::DensityTransform;
 impl<T: Mark> Chart<T> {
     /// Expands the density mark into the density transform + area geometry.
     pub(crate) fn transform_density_data(mut self) -> Result<Self, ChartonError> {
-        let missing =
-            || ChartonError::Mark("density mark configuration is missing".to_string());
+        let missing = || ChartonError::Mark("density mark configuration is missing".to_string());
 
         // --- Step 1: Resolve the input columns exactly once -----------------
         let resolved = self
