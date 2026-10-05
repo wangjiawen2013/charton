@@ -32,6 +32,9 @@ pub(crate) mod backend;
 pub(crate) mod bar_renderer;
 pub(crate) mod box_renderer;
 pub(crate) mod cartesian2d_axis_renderer;
+pub(crate) mod contour_renderer;
+pub(crate) mod density_2d_renderer;
+pub(crate) mod density_renderer;
 pub(crate) mod errorbar_renderer;
 pub(crate) mod geo_axis_renderer;
 pub(crate) mod geo_renderer;
@@ -44,6 +47,7 @@ pub(crate) mod rect_renderer;
 pub(crate) mod rule_renderer;
 pub(crate) mod text_renderer;
 pub(crate) mod tick_renderer;
+pub(crate) mod violin_renderer;
 pub mod wgpu_renderer;
 
 // Re-export the wgpubackend and rasterbackend so `render_to_surface` can be used from extern

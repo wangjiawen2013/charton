@@ -181,8 +181,9 @@ impl Position {
     /// The centre shift of item `index` (0-based) out of `count` items, in
     /// category steps, given the resolved `item_width`.
     ///
-    /// This is the single place the "side by side" arithmetic lives, so every
-    /// renderer (bar, box, error bar, point layouts) produces identical lanes.
+    /// The only dodge formula in the crate: the renderers call it per row and
+    /// `build_lane_layout` bakes its result into the `x` column, so a dodged
+    /// bar, box, error bar, point or violin always lines up.
     pub fn offset(&self, index: f64, count: f64, item_width: f64) -> f64 {
         match self {
             Self::Identity => 0.0,

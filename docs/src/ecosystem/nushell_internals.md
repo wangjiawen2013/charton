@@ -86,10 +86,9 @@ Because the terminal path is raster, the quality question is entirely about
 
 ### The symptom
 
-The first generation of the plugin always rendered an 800×600 logical canvas at
-`scale = 2.0`, i.e. a **1600×1200 PNG**, and asked the terminal to draw it into
-the character grid. The terminal then had to shrink it by a large,
-non-integer factor — in one measured case ≈ 2.7×. That produced the two
+A naive fit renders an 800×600 logical canvas at `scale = 2.0` (a **1600×1200
+PNG**) and asks the terminal to shrink it into the character grid — often by a
+large, non-integer factor (≈ 2.7× in one measured case). That produces the two
 classic complaints:
 
 - **Blurry text** — glyphs rendered at 24 px and resampled down to ~9 px.
@@ -121,10 +120,10 @@ display box has the image's aspect ratio and the terminal does not stretch it.
 ### The cell size is the crux
 
 The single most important input is the terminal cell size, and it **cannot be
-assumed**. The original default of `8×16` was wrong for a real WezTerm setup
-using JetBrains Mono 11 pt, whose cells are `9×20`. The result was that the
-terminal *upscaled* the image by 1.125× — and upscaling is always blurrier than
-downscaling. The default is now `9×20`; tune it if your font/DPI differ.
+assumed**. A default of `8×16`, for example, is too small for WezTerm with
+JetBrains Mono 11 pt, whose cells are `9×20`: the terminal then *upscales* by
+1.125× — and upscaling is always blurrier than downscaling. The plugin defaults
+to `9×20`; tune it if your font/DPI differ.
 
 Measure it exactly. WezTerm reports the window in pixels *and* in cells via its
 CLI:

@@ -8,7 +8,7 @@
 //! A faceted chart is a single visual object, so its panels must all be the same
 //! size and must line up on shared row/column lines. Both invariants are met by
 //! laying the grid out on **tracks** rather than on equally divided cells:
-//! [`FacetGridGeometry`] owns one width per column and one height per row (axes
+//! `FacetGridGeometry` owns one width per column and one height per row (axes
 //! and headers included), and every panel is placed at the intersection of a
 //! panel row and a panel column.
 //!
@@ -35,7 +35,7 @@ pub use facet_wrap::FacetWrapImpl;
 /// grid cannot do that: the space an axis needs depends on which panel it belongs
 /// to, and it must only be reserved on the columns/rows that actually draw one.
 /// The measured extents are therefore handed down here and expanded into tracks
-/// by [`FacetGridGeometry`].
+/// by `FacetGridGeometry`.
 ///
 /// This type answers *how big* an axis is, never *where* it goes: it carries no
 /// positions. Deciding placement is the facet implementation's job, so the two
@@ -100,7 +100,7 @@ pub trait Facet: Send + Sync {
     /// Implementations must satisfy the two invariants a facet is judged on:
     /// every returned panel has the **same size**, and panels sharing a row or a
     /// column share its start coordinate. Both follow naturally from laying the
-    /// grid out on tracks; see [`FacetGridGeometry`].
+    /// grid out on tracks; see `FacetGridGeometry`.
     ///
     /// # Arguments
     /// * `factors` - The unique values from the data fields, in the same order

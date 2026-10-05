@@ -4,6 +4,9 @@ A cumulative density is the integral of a density curve: the share of the data
 at or below each value. It rises from 0 to 1 and reads the same as an empirical
 CDF, but is smoothed by the same kernel used for the [1-D density](density_1d.md).
 
+`mark_density` draws it with `configure_density(…).with_cumulative(true)`; behind
+the scenes that is still the ordinary recipe
+
 ```text
 transform_density(cumulative = true)   //  →  (value, cumulative density)
   → mark_area
@@ -17,8 +20,14 @@ transform_density(cumulative = true)   //  →  (value, cumulative density)
 {{#include ../../../examples/distribution.rs}}
 ```
 
-Set `.with_cumulative(true)` on `DensityTransform`; everything else is the same
-as the 1-D density recipe.
+### Built from the primitives
+
+The same picture without `mark_density`: set `.with_cumulative(true)` on
+`DensityTransform` and draw the curve with `mark_area`.
+
+```rust
+{{#include ../../../examples/distribution_manual.rs}}
+```
 
 ## Empirical CDF (cumulative frequency)
 
@@ -34,7 +43,7 @@ step.
 
 Both pictures answer "what fraction is below x?", one smooth and one as a step
 function. Use `transform_window(WindowOnlyOp::CumeDist)` for the exact ECDF,
-`transform_density(...).with_cumulative(true)` for the kernel-smoothed curve.
+`mark_density` with `with_cumulative(true)` for the kernel-smoothed curve.
 
 ## See also
 

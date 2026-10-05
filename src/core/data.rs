@@ -2114,7 +2114,7 @@ where
     }
 }
 
-/// Bridge for slices: &[Item] -> ColumnVector.
+/// Bridge for slices: `&[Item]` -> `ColumnVector`.
 impl<Item> From<&[Item]> for ColumnVector
 where
     Vec<Item>: Into<ColumnVector>,
@@ -2125,7 +2125,7 @@ where
     }
 }
 
-/// Bridge for Vec references: &Vec<Item> -> ColumnVector.
+/// Bridge for Vec references: `&Vec<Item>` -> `ColumnVector`.
 impl<Item> From<&Vec<Item>> for ColumnVector
 where
     Vec<Item>: Into<ColumnVector>,

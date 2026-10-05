@@ -26,4 +26,4 @@ The same mark with automatic binning on both axes — a "2-D histogram" heatmap.
 ## See also
 
 - [Contour Plots](contours.md) — the smooth, iso-line alternative to a binned
-  heatmap, including [density contours](contours.md#density-contours).
+  heatmap, including [density contours](density_2d.md#density-contours).

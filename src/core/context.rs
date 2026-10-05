@@ -39,7 +39,7 @@ impl<'a> PanelContext<'a> {
 
     /// Maps normalized data values ([0.0, 1.0]) to absolute screen pixels.
     ///
-    /// # Performance Note: #[inline]
+    /// # Performance Note: `#[inline]`
     /// We use `#[inline]` here because this method is called inside tight loops
     /// (e.g., rendering 10,000+ scatter points). Inlining allows the compiler
     /// to eliminate the function call overhead by embedding the transformation

@@ -93,6 +93,20 @@ impl Encoding {
         }
     }
 
+    /// Returns the display label associated with a channel, if one was set.
+    ///
+    /// A label lets an axis or legend show a name other than the field name.
+    pub fn get_label_by_channel(&self, channel: Channel) -> Option<&str> {
+        match channel {
+            Channel::X => self.x.as_ref().and_then(|v| v.label.as_deref()),
+            Channel::Y => self.y.as_ref().and_then(|v| v.label.as_deref()),
+            Channel::Color => self.color.as_ref().and_then(|v| v.label.as_deref()),
+            Channel::Shape => self.shape.as_ref().and_then(|v| v.label.as_deref()),
+            Channel::Size => self.size.as_ref().and_then(|v| v.label.as_deref()),
+            _ => None,
+        }
+    }
+
     /// Returns the column that supplies the categories for a position channel,
     /// if the user mapped numeric positions and asked for labelled categories.
     ///

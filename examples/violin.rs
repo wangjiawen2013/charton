@@ -1,18 +1,15 @@
-//! Violin plot — the basic, single-distribution form, built by composition.
+//! Violin plot — the convenience `mark_violin`.
 //!
-//! A violin draws the *density* of a numeric column as a symmetric outline.
-//! There is no violin mark and no violin-specific transform: the picture is the
-//! same recipe Vega-Lite and Altair use, from three ordinary pieces:
+//! `mark_violin` is a **composite** mark: it expands into the ordinary public
+//! recipe `transform_density` → `transform_band` → the shared polygon renderer.
+//! For power users who want to build it themselves, `violin_manual.rs` writes the
+//! same picture out of those primitives.
 //!
-//! 1. `transform_density` estimates the density curve (the statistical part).
-//! 2. `mark_area` with `stack: "center"` draws it mirrored around the centre
-//!    (the geometric part).
-//! 3. `coord_flip` stands the value axis upright.
+//! The inputs come from the encodings:
 //!
-//! Grouping is a separate concern: add `alt::color` and a `facet` for one panel
-//! per group, a `Position::dodge` for side-by-side violins (both in
-//! `grouped_violin.rs`), or `transform_band(…).with_split(true)` for a split
-//! violin (see `split_violin.rs`).
+//! * `y` — the numeric value whose density is drawn (required);
+//! * `x` — an optional category each violin sits on;
+//! * `color` — an optional group that splits a category into lanes.
 
 use charton::prelude::*;
 use std::error::Error;
@@ -21,27 +18,14 @@ fn main() -> Result<(), Box<dyn Error>> {
     let iris = load_dataset("iris")?;
 
     chart!(iris)?
-        // 1. Estimate the density of sepal length.
-        .transform_density(
-            DensityTransform::new("sepal_length")
-                .with_as("sepal_length", "density")
-                // Trim to the observed range: a violin ends at the data, it does
-                // not fade out into a thin tail (ggplot2 `trim = TRUE`).
-                .with_trim(true),
-        )?
-        // 2. Draw it as an area, mirrored around zero.
-        .mark_area()?
-        .configure_area(|a| {
-            a.with_color("#7fb3d5")
+        .mark_violin()?
+        .configure_violin(|violin| {
+            violin
+                .with_color("#7fb3d5")
                 .with_opacity(0.6)
                 .with_stroke("#2c3e50")
         })
-        .encode((
-            alt::x("sepal_length"),
-            alt::y("density").with_stack("center"),
-        ))?
-        // 3. Value on the vertical axis, density on the horizontal one.
-        .coord_flip()
+        .encode(alt::y("sepal_length"))?
         .with_title("Sepal length")
         .with_x_label("Density")
         .with_y_label("Sepal length (cm)")

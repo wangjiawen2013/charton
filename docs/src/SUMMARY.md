@@ -8,13 +8,13 @@
 # Concepts & Philosophy
 - [The Charton Mental Model](concepts/mental_model.md)
 - [The Layer Pipeline](concepts/grammar_pipeline.md)
+- [Design Rules: Marks, Tiers & Statistical Atoms](concepts/design_rules.md)
 - [System Architecture](concepts/architecture.md)
 - [From Data to Pixels](concepts/chart_life.md)
 - [Scale Arbitration](concepts/scale_arbitration.md)
 - [Missing Values & Gaps](concepts/missing_values.md)
 - [Rendering Backends](concepts/rendering.md)
-- [Gpu Architecture](concepts/gpu.md)
-- [The WgpuRenderer Internals](concepts/wgpu_renderer.md)
+- [GPU Architecture & the WgpuRenderer](concepts/gpu.md)
 
 # The Core Engine: Dataset
 - [The Atomic Unit: ColumnVector](engine/column_vector.md)
@@ -28,7 +28,7 @@
 - [Encodings & Channels](grammar/encodings.md)
 - [Scales & Domains](grammar/scales.md)
 - [Marks & Geometries](grammar/marks.md)
-- [Transforms & Columns](grammar/transforms.md)       # transform 读哪些列、产出哪些列
+- [Transforms & Columns](grammar/transforms.md)
 - [Coordinate Systems](grammar/coordinates.md)
 
 # Composition & Layout
@@ -64,10 +64,11 @@
 
 # Case Studies
 - [Biomedicine (NEJM Study)](case_studies/biomedicine.md)
-- [Data Science & ML](case_studies/data_science.md)
-- [Finance & Economics](case_studies/finance.md) 
+- [Feature Analysis for Classification (Iris)](case_studies/data_science.md)
+- [Risk Dashboard for an Equity Index](case_studies/finance.md)
 - [Economist-Style Highlights](case_studies/economist_style.md)
 - [Lorenz Attractor](case_studies/lorenz_attractor.md)
+- [System Monitor (egui Dashboard)](case_studies/system_monitor.md)
 
 # WebAssembly & Vega-Lite JSON
 - [Vega-Lite Schema Export](web/vegalite_json.md)

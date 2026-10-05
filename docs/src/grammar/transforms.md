@@ -19,6 +19,32 @@ Named columns are what let one transform feed many geometries: the same density
 grid can become a heatmap, a contour, or a layer on another chart, so the library
 cannot hard-code what the next step wants. You wire it explicitly.
 
+## Three kinds of transform
+
+`transform_*` splits into three groups, and knowing which is which tells you who
+calls it.
+
+| Kind | Called by | Examples |
+|---|---|---|
+| **Public** — a reusable step you call by hand | your code, via `.transform_density(...)` | `transform_density`, `transform_density_2d`, `transform_contour`, `transform_band`, `transform_quantile_box`, `transform_calculate`, `transform_window` |
+| **Mark-implied** — a mark's own statistics and prep | the engine, when it builds that mark | `mark_hist` bins and counts; `mark_boxplot` reduces to five numbers; `mark_area`/`mark_bar` stack; `mark_rect` bins; `mark_errorbar` summarises |
+| **Composite recipe** — expands a convenience mark into the public steps | the engine, when it builds that mark | `mark_violin` → `transform_density` + `transform_band`; `mark_density` → `transform_density` + area prep; `mark_contour` → `transform_contour`; `mark_density_2d` → `transform_density_2d` + rect prep |
+
+- **Public** transforms are the grammar's building blocks. They take a
+  configuration struct (`DensityTransform`, `ContourTransform`, …) and are
+  exported in the prelude; the tables below describe what they emit.
+- **Mark-implied** transforms are private. They read the mark's configuration and
+  the encodings and add the columns that mark needs; you never call them, you
+  just choose the mark.
+- **Composite recipes** are private too, but they contain no statistics of their
+  own — they only assemble public transforms (plus the mark-implied prep) and
+  point the encoding at the generated columns. That is why `mark_violin` and a
+  hand-written `transform_density` + `transform_band` draw the same picture.
+
+To recombine the pieces yourself, use the **public** transforms: the convenience
+marks are just names for common combinations of them. See
+[Design Rules: Marks, Tiers & Statistical Atoms](../concepts/design_rules.md).
+
 ## Transforms that replace the table
 
 | Transform | Reads | Emits | One row per |

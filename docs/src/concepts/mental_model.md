@@ -26,7 +26,8 @@ Every layer answers four questions, in order:
 
 Keeping the four apart is what lets a handful of basic parts describe almost any
 chart. A violin plot, for example, is a density statistic, a position and a
-polygon — there is deliberately no violin mark. See
+polygon; the convenience mark `mark_violin` is just a name for that composition,
+not a separate implementation. See
 [The Layer Pipeline](grammar_pipeline.md) for the full model.
 
 ## The Orchestrator: LayeredChart

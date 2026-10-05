@@ -1,10 +1,11 @@
 //! Rendering helpers: charton chart → SVG / PNG, and PNG → inline terminal art.
 //!
-//! Three inline tiers are supported, highest fidelity first:
+//! Four inline tiers are supported, highest fidelity first:
 //!
-//! 1. **Kitty graphics protocol** — Kitty, Ghostty, foot, recent WezTerm.
+//! 1. **Kitty graphics protocol** — Kitty, Ghostty, recent WezTerm.
 //! 2. **iTerm2 inline images** (`OSC 1337`) — iTerm2, WezTerm, many others.
-//! 3. **Truecolor half-blocks** (`▀`) — universal fallback, works everywhere.
+//! 3. **Sixel** — xterm, foot, mlterm, recent Windows Terminal.
+//! 4. **Truecolor half-blocks** (`▀`) — universal fallback, works everywhere.
 //!
 //! The style is auto-detected from the environment but can be overridden.
 

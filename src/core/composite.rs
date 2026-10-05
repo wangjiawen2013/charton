@@ -20,6 +20,8 @@ use std::sync::Arc;
 /// A complete specification for a visual channel before the final Scale object is created.
 pub struct ResolvedSpec {
     pub field: String,
+    /// Optional display label carried by the encoding (see `Encoding::get_label_by_channel`).
+    pub label: Option<String>,
     pub scale_type: Scale,
     pub domain: ScaleDomain,
     pub expand: Expansion,
@@ -234,6 +236,7 @@ impl LayeredChart {
     ) -> Result<Option<ResolvedSpec>, ChartonError> {
         // --- Accumulators for Data Inference ---
         let mut inferred_field: Option<String> = None;
+        let mut inferred_label: Option<String> = None;
         let mut inferred_type: Option<Scale> = None;
 
         // Domain accumulators
@@ -266,6 +269,11 @@ impl LayeredChart {
             } else {
                 inferred_field = Some(field);
                 inferred_type = Some(current_type);
+            }
+
+            // Prefer the first display label any participating layer set.
+            if inferred_label.is_none() {
+                inferred_label = layer.get_label(channel);
             }
 
             // Consolidate Domain Data
@@ -395,6 +403,7 @@ impl LayeredChart {
 
         Ok(Some(ResolvedSpec {
             field,
+            label: inferred_label,
             scale_type,
             domain,
             expand,
@@ -646,7 +655,7 @@ impl LayeredChart {
             )?;
             Some(AestheticMapping {
                 field: spec.field,
-                title: self.color_label.clone(),
+                title: self.color_label.clone().or(spec.label),
                 scale_impl: crate::scale::formatter::format_scale(scale_impl, legend_format),
             })
         } else {
@@ -663,7 +672,7 @@ impl LayeredChart {
             )?;
             Some(AestheticMapping {
                 field: spec.field,
-                title: self.shape_label.clone(),
+                title: self.shape_label.clone().or(spec.label),
                 scale_impl: crate::scale::formatter::format_scale(scale_impl, legend_format),
             })
         } else {
@@ -680,7 +689,7 @@ impl LayeredChart {
             )?;
             Some(AestheticMapping {
                 field: spec.field,
-                title: self.size_label.clone(),
+                title: self.size_label.clone().or(spec.label),
                 scale_impl: crate::scale::formatter::format_scale(scale_impl, legend_format),
             })
         } else {
@@ -708,10 +717,18 @@ impl LayeredChart {
         let x_scale = crate::scale::formatter::format_scale(x_scale, self.x_format.as_ref());
         let y_scale = crate::scale::formatter::format_scale(y_scale, self.y_format.as_ref());
 
-        // Axis titles default to the data field names; `with_x_label` and
-        // `with_y_label` replace them.
-        let x_title = self.x_label.clone().unwrap_or_else(|| x_spec.field.clone());
-        let y_title = self.y_label.clone().unwrap_or_else(|| y_spec.field.clone());
+        // Axis titles prefer an explicit chart label, then the channel's display
+        // label, then the data field name.
+        let x_title = self
+            .x_label
+            .clone()
+            .or_else(|| x_spec.label.clone())
+            .unwrap_or_else(|| x_spec.field.clone());
+        let y_title = self
+            .y_label
+            .clone()
+            .or_else(|| y_spec.label.clone())
+            .unwrap_or_else(|| y_spec.field.clone());
 
         let final_coord = self.build_coord(x_scale, y_scale, x_title.clone(), y_title.clone());
 

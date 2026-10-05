@@ -15,6 +15,14 @@ pub struct X {
     /// The name of the data column to be mapped to the X-axis.
     pub(crate) field: String,
 
+    /// Display name for the axis, when it differs from `field`.
+    ///
+    /// Composite marks (violin, contour, ...) rewrite the encoding to point at
+    /// generated columns such as `x`/`y`. This label carries the original data
+    /// column's name through so the axis stays meaningful. A user-facing
+    /// `with_x_label` still takes priority.
+    pub(crate) label: Option<String>,
+
     /// Optional column that supplies the axis *categories* while `field` holds
     /// numeric positions.
     ///
@@ -51,6 +59,7 @@ impl X {
     pub fn new(field: &str) -> Self {
         Self {
             field: field.to_string(),
+            label: None,
             category_field: None,
             scale_type: None,
             domain: None,
@@ -59,6 +68,16 @@ impl X {
             bins: None,
             resolved_scale: ResolvedScale::none(),
         }
+    }
+
+    /// Overrides the axis title for this channel.
+    ///
+    /// By default the axis is titled with the data field name; this sets a
+    /// display name instead. A `with_x_label` on the finished chart has the
+    /// final say.
+    pub fn with_label(mut self, label: impl Into<String>) -> Self {
+        self.label = Some(label.into());
+        self
     }
 
     /// Sets the preferred scale type (e.g., `Scale::Linear`, `Scale::Log`).

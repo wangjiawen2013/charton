@@ -12,8 +12,13 @@ independent questions, in this order:
 
 Keeping the four stages apart is the whole point of a grammar of graphics: a
 handful of basic parts can then describe almost any chart. This chapter explains
-each stage and shows how a violin plot is nothing more than the composition
-`density estimate + dodge + polygon`.
+each stage, using a violin plot — the composition `density estimate + dodge +
+polygon` — as the running example. The composite marks such as `mark_violin` are
+convenient names for exactly that composition, not a separate implementation.
+
+For the rules that decide what becomes a mark — the tiers, the statistic
+contract and the thin-recipe rule — see
+[Design Rules: Marks, Tiers & Statistical Atoms](design_rules.md).
 
 ## 1. Stat — summarise the data
 

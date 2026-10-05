@@ -1,45 +1,59 @@
 # Violin
 
-A violin shows the **density** of a numeric value as a symmetric outline. There
-is no violin mark and no violin-specific transform — it is a short recipe over
-the primitives:
+A violin shows the **density** of a numeric value as a symmetric outline.
+
+`mark_violin` is the convenient way to draw one. It is a **composite** mark:
+behind the scenes it expands into the ordinary recipe
 
 ```text
 transform_density(trim = true)        // one curve per category (and group)
-  → a symmetric outline               // mark_area stack "center"/"mirror", or transform_band
-  → coord_flip                        // stand the value axis upright
+  → a symmetric outline               // transform_band polygon
+  → the shared polygon renderer
 ```
 
-Every variant on this page is that same core with **one thing changed**: a
-grouping, a facet, a split, or an extra layer. Read the first recipe, then diff
-the rest — that is the grammar in action. The curve itself (bandwidth, kernel,
-trim) is described in [1-D Density](density_1d.md).
+so nothing is hidden that you cannot write yourself. Each section below first
+shows the mark, then — for anyone who wants to recombine the pieces — how the
+same picture is built from the primitives. Read the first recipe, then diff the
+rest: that is the grammar in action. The curve itself (bandwidth, kernel, trim)
+is described in [1-D Density](density_1d.md).
 
 ## Violin (single)
 
 <img src="../images/violin.svg" width="500">
 
-Estimate the density, draw it mirrored around zero, and stand the value axis up.
+Read the value from `y`; the mark estimates its density and draws the symmetric
+outline.
 
 ```rust
 {{#include ../../../examples/violin.rs}}
 ```
 
-`"mirror"` is Charton's name for Vega-Lite's `stack: "center"` applied *per
-series*: each density curve is drawn from `-density / 2` to `+density / 2`.
+### Built from the primitives
+
+The same picture without `mark_violin`: estimate the density, mirror it around
+zero, and stand the value axis up.
+
+```rust
+{{#include ../../../examples/violin_manual.rs}}
+```
+
+`"center"` is Charton's name for Vega-Lite's `stack: "center"`: each density curve
+is drawn from `-density / 2` to `+density / 2`. `mark_violin` instead uses the
+general `transform_band` geometry, which bakes the same mirrored outline — and its
+lane placement — into a polygon.
 
 ## Grouped and faceted violins
 
 <img src="../images/grouped_violin.svg" width="500">
 <img src="../images/faceted_violin.svg" width="500">
 
-Two industry layouts from the same density transform:
+Two industry layouts, both one call to `mark_violin` plus the encodings:
 
-- **Faceted** (Vega-Lite / Altair style): draw the mirrored area and let `facet`
-  give each group its own panel.
-- **Dodged** (ggplot2 style): group the density by `(category, group)`, turn the
-  curve into a symmetric `transform_band` polygon, and let a `Position` dodge the
-  lanes side by side.
+- **Faceted** (Vega-Lite / Altair style): read only `y` and `facet` by the group,
+  so each panel gets its own violin.
+- **Dodged** (ggplot2 style): map `x` to the category and `color` to the group;
+  the mark dodges the lanes side by side. The inner box is an ordinary
+  `transform_quantile_box` layer, drawn on top with `.and(…)`.
 
 ```rust
 {{#include ../../../examples/grouped_violin.rs}}
@@ -55,12 +69,15 @@ a grey `NA` lane. See [Missing Values & Gaps](../concepts/missing_values.md).
 <img src="../images/split_violin.svg" width="500">
 
 One centre line per category, the first group growing right and the second left:
-`transform_band(…).with_split(true)`. Colour the result by group and the two
-halves read as a single violin split down the middle.
+`mark_violin` with `configure_violin(…).with_split(true)`. Colour the result by
+group and the two halves read as a single violin split down the middle.
 
 ```rust
 {{#include ../../../examples/split_violin.rs}}
 ```
+
+This is the general `transform_band(…).with_split(true)` geometry underneath: the
+two groups share the centre line instead of sitting in separate lanes.
 
 ## Raincloud
 
@@ -74,38 +91,35 @@ observation as a jittered point layer.
 {{#include ../../../examples/raincloud.rs}}
 ```
 
-## Tuning band placement
+## Tuning the violin
 
-Density (statistics) and band (geometry/placement) are configured separately.
-The shape options live in [1-D Density](density_1d.md); these control the lanes:
+Shape options live in [1-D Density](density_1d.md); these control the mark and
+its lanes:
 
 | Method | Meaning |
 |---|---|
-| `BandTransform::with_scale(BandScale::PerGroup)` | every band has the same maximum width (default) |
+| `configure_violin(…).with_bandwidth(BandwidthType::Silverman)` | smoothing rule (Scott by default) |
+| `.with_trim(true)` | stop each curve at its own data range (the default for violins) |
+| `.with_split(true)` | draw two groups as one split violin |
+| `.with_scale(BandScale::PerGroup)` | every band has the same maximum width (default) |
 | `.with_scale(BandScale::Global)` | bands share one scale, so a denser group looks wider |
 | `.with_scale(BandScale::Raw)` | use the width column as it stands |
-| `BandTransform::with_width(0.5)` | maximum width of a single band (matches the box plot) |
+| `.with_width(0.5)` | maximum width of a single band (matches the box plot) |
 | `.with_span(0.7)` | total width of a category's group (matches the box plot and point marks) |
-| `BandTransform::with_split(true)` | draw two groups as one split violin |
+| `.with_color(…)`, `.with_opacity(…)`, `.with_stroke(…)` | the outline's visual style |
 
-## Overlaying a box on a dodged violin
+## How `mark_violin` is built
 
-`transform_quantile_box` computes the quartiles per `(category, group)` cell, so
-any overlay can read them directly. For a dodged (side-by-side) violin, layer it
-on top exactly as in the raincloud, but keep the same `Position::dodge()` on the
-band and on the box so each box follows its own violin. The box is described in
-[Box Plots](box_plot.md).
-
-## Why not a dedicated violin mark?
-
-Every combination above — raincloud, split, overlay, grouped, faceted — would
-need bespoke branching inside a single `MarkViolin`. Building from a density stat
-plus a polygon instead means:
+A dedicated mark makes the common case one line, while the grammar keeps the hard
+cases expressible. Because the mark expands into ordinary parts:
 
 * the polygon renderer is shared with maps and custom shapes;
 * new combinations are new layers, not new renderers;
 * every rendering backend (SVG, PNG, PDF, GPU) already knows how to draw the
   parts.
+
+Anything the mark does not expose is still reachable with `transform_density`,
+`transform_band` / `transform_quantile_box`, and the basic marks.
 
 ## Choosing a layout
 
