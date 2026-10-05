@@ -44,8 +44,8 @@ fn main() -> Result<(), Box<dyn Error>> {
         .with_title("Sepal length")
         .with_x_label("Density")
         .with_y_label("Sepal length (cm)")
-        .save("docs/src/images/violin_manual.svg")?;
+        .save("target/example-output/violin_manual.svg")?;
 
-    println!("Saved docs/src/images/violin_manual.svg");
+    println!("Saved target/example-output/violin_manual.svg");
     Ok(())
 }

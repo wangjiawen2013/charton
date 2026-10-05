@@ -20,7 +20,6 @@ exclude = [
 ]
 
 [features]
-# Default features enabled for standard desktop builds.
 default = []
 
 # Enables multi-threaded data processing via Rayon for massive datasets.

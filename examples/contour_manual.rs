@@ -49,8 +49,8 @@ fn main() -> Result<(), Box<dyn Error>> {
         .with_title("Contour plot")
         .with_x_label("x")
         .with_y_label("y")
-        .save("docs/src/images/contour_manual.svg")?;
+        .save("target/example-output/contour_manual.svg")?;
 
-    println!("Saved docs/src/images/contour_manual.svg");
+    println!("Saved target/example-output/contour_manual.svg");
     Ok(())
 }
