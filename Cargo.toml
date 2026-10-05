@@ -6,18 +6,30 @@ default-members = ["."]
 
 [package]
 name = "charton"
-version = "0.8.1"
+version = "0.8.2"
 edition = "2024"
-description = "A high-performance, layered charting system for Rust, featuring a flexible data core and multi-backend rendering."
+description = "Altair-style declarative plotting library for Rust. High-performance, Polars-friendly, with SVG/PNG/PDF export and Wasm support."
 license = "Apache-2.0"
 repository = "https://github.com/wangjiawen2013/charton"
+homepage = "https://wangjiawen2013.github.io/charton"
+documentation = "https://docs.rs/charton"
+readme = "README.md"
 authors = ["Jiawen Wang <wangjiawen2013@163.com>"]
+keywords = ["plotting", "charts", "visualization", "polars", "grammar-of-graphics"]
+categories = ["visualization", "science", "graphics", "wasm"]
 
 # Exclude heavy files when uploading to crates.io
 exclude = [
     "assets/wasm.gif",
     "nu_plugin_charton",
 ]
+
+# Build docs.rs with the optional-feature APIs visible (PNG/PDF/Geo/Arrow/parallel).
+# NOTE: `wgpu` is intentionally omitted — its heavy dependency tree can time out
+# the docs.rs builder, which would break the whole docs build. Add it here only
+# after a local `cargo doc --all-features` proves it builds in time.
+[package.metadata.docs.rs]
+features = ["png", "pdf", "geo", "arrow", "parallel"]
 
 [features]
 default = []

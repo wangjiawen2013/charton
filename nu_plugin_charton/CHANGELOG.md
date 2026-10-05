@@ -6,6 +6,14 @@ stated in the README and in each release.
 
 ## [Unreleased]
 
+## [0.8.2] - 2026-10-05
+
+### Changed
+
+- Version bumped in lockstep with `charton` 0.8.2 so the pair keeps a single
+  version number (see the library changelog for the metadata/docs.rs changes).
+  No functional changes; the plugin still targets Nushell 0.116.
+
 ## [0.8.1] - 2026-10-05
 
 ### Added

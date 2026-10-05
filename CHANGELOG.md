@@ -6,6 +6,30 @@ predate this file.
 
 ## [Unreleased]
 
+## [0.8.2] - 2026-10-05
+
+Packaging and discoverability release. There are no API changes; charts render
+identically to 0.8.1.
+
+### Changed
+
+- **Crate metadata.** `Cargo.toml` now declares `keywords` (`plotting`,
+  `charts`, `visualization`, `polars`, `grammar-of-graphics`), `categories`
+  (`visualization`, `science`, `graphics`, `wasm`), `homepage`, `documentation`
+  and `readme`. The `description` now names the distinguishing features
+  (Altair-style declarative plotting, Polars, SVG/PNG/PDF, Wasm) instead of
+  internal architecture. This affects placement and ranking on crates.io and
+  lib.rs only.
+
+### Documentation
+
+- **docs.rs builds with optional features enabled.** A new
+  `[package.metadata.docs.rs]` section selects `png`, `pdf`, `geo`, `arrow` and
+  `parallel`, so the APIs behind those features are visible on docs.rs — they
+  were previously hidden because docs.rs built with no features. `wgpu` is
+  intentionally excluded to keep the docs.rs build within its time budget, and
+  will be added once a local `cargo doc --all-features` proves it fits.
+
 ## [0.8.1] - 2026-10-05
 
 ### Added
