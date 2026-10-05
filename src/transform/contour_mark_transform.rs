@@ -13,8 +13,7 @@ use crate::transform::contour_transform::{ContourLevels, ContourTransform};
 impl<T: Mark> Chart<T> {
     /// Expands the contour mark into the iso-line transform + path geometry.
     pub(crate) fn transform_contour_data(mut self) -> Result<Self, ChartonError> {
-        let missing =
-            || ChartonError::Mark("contour mark configuration is missing".to_string());
+        let missing = || ChartonError::Mark("contour mark configuration is missing".to_string());
 
         // --- Step 1: Resolve the input columns exactly once -----------------
         let resolved = self
@@ -78,10 +77,8 @@ impl<T: Mark> Chart<T> {
             ContourLevels::Count(n) => {
                 ContourTransform::new(x.clone(), y.clone(), z.clone()).with_levels(*n)
             }
-            ContourLevels::Values(values) => {
-                ContourTransform::new(x.clone(), y.clone(), z.clone())
-                    .with_levels_values(values.clone())
-            }
+            ContourLevels::Values(values) => ContourTransform::new(x.clone(), y.clone(), z.clone())
+                .with_levels_values(values.clone()),
         };
         self = self.transform_contour(contour)?;
 
@@ -102,8 +99,7 @@ impl<T: Mark> Chart<T> {
         if color_by_level && self.encoding.color.is_none() {
             // The colour represents the scalar field, so title the legend with
             // the original `z` column rather than the generated `level`.
-            self.encoding.color =
-                Some(crate::encode::color::color("level").with_label(z));
+            self.encoding.color = Some(crate::encode::color::color("level").with_label(z));
         }
 
         Ok(self)

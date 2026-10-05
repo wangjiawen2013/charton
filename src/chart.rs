@@ -2,8 +2,8 @@ pub mod area_chart;
 pub mod bar_chart;
 pub mod box_chart;
 pub mod contour_chart;
-pub mod density_chart;
 pub mod density_2d_chart;
+pub mod density_chart;
 pub mod errorbar_chart;
 pub mod geo_chart;
 pub mod hist_chart;
@@ -24,10 +24,9 @@ use crate::encode::{Channel, Encoding, IntoEncoding, y::StackMode};
 use crate::error::ChartonError;
 use crate::mark::{
     Mark, area::MarkArea, bar::MarkBar, boxplot::MarkBoxplot, contour::MarkContour,
-    density::MarkDensity, density_2d::MarkDensity2D, errorbar::MarkErrorBar,
-    geo_path::MarkGeoPath, histogram::MarkHist, line::MarkLine, no_mark::NoMark,
-    point::MarkPoint, rect::MarkRect, rule::MarkRule, text::MarkText, tick::MarkTick,
-    violin::MarkViolin,
+    density::MarkDensity, density_2d::MarkDensity2D, errorbar::MarkErrorBar, geo_path::MarkGeoPath,
+    histogram::MarkHist, line::MarkLine, no_mark::NoMark, point::MarkPoint, rect::MarkRect,
+    rule::MarkRule, text::MarkText, tick::MarkTick, violin::MarkViolin,
 };
 use crate::scale::{Expansion, Scale, ScaleDomain};
 use ahash::AHashMap;
@@ -71,8 +70,17 @@ pub struct Chart<T: Mark = NoMark> {
 fn mark_has_stat(mark_type: &str) -> bool {
     matches!(
         mark_type,
-        "point" | "boxplot" | "errorbar" | "rect" | "bar" | "hist" | "area" | "violin"
-            | "contour" | "density" | "density_2d"
+        "point"
+            | "boxplot"
+            | "errorbar"
+            | "rect"
+            | "bar"
+            | "hist"
+            | "area"
+            | "violin"
+            | "contour"
+            | "density"
+            | "density_2d"
     )
 }
 
@@ -263,10 +271,7 @@ impl Chart<NoMark> {
     ///     .mark_contour("z")?
     ///     .encode((alt::x("x"), alt::y("y")))?;
     /// ```
-    pub fn mark_contour(
-        self,
-        z: impl Into<String>,
-    ) -> Result<Chart<MarkContour>, ChartonError> {
+    pub fn mark_contour(self, z: impl Into<String>) -> Result<Chart<MarkContour>, ChartonError> {
         let chart = Chart::<MarkContour> {
             data: self.data,
             encoding: self.encoding,
@@ -839,32 +844,17 @@ impl<T: Mark> Chart<T> {
             }
             "contour" => {
                 // The contour grid is numeric on both axes.
-                expected.insert(
-                    Channel::X,
-                    vec![Scale::Linear, Scale::Log, Scale::Temporal],
-                );
-                expected.insert(
-                    Channel::Y,
-                    vec![Scale::Linear, Scale::Log, Scale::Temporal],
-                );
+                expected.insert(Channel::X, vec![Scale::Linear, Scale::Log, Scale::Temporal]);
+                expected.insert(Channel::Y, vec![Scale::Linear, Scale::Log, Scale::Temporal]);
             }
             "density" => {
                 // The value column must be quantitative to estimate a density.
-                expected.insert(
-                    Channel::X,
-                    vec![Scale::Linear, Scale::Log, Scale::Temporal],
-                );
+                expected.insert(Channel::X, vec![Scale::Linear, Scale::Log, Scale::Temporal]);
             }
             "density_2d" => {
                 // Both axes must be quantitative to estimate a joint density.
-                expected.insert(
-                    Channel::X,
-                    vec![Scale::Linear, Scale::Log, Scale::Temporal],
-                );
-                expected.insert(
-                    Channel::Y,
-                    vec![Scale::Linear, Scale::Log, Scale::Temporal],
-                );
+                expected.insert(Channel::X, vec![Scale::Linear, Scale::Log, Scale::Temporal]);
+                expected.insert(Channel::Y, vec![Scale::Linear, Scale::Log, Scale::Temporal]);
             }
             _ => {}
         }
@@ -942,7 +932,9 @@ impl<T: Mark> Chart<T> {
 
         // --- 1. STATISTICAL INTEGRITY & MAGNITUDE BASELINES ---
         // Marks representing magnitude (Bar, Area, Hist) should generally start at zero.
-        if y_enc.scale_type == Some(Scale::Linear) && ["area", "bar", "hist", "density"].contains(&mt) {
+        if y_enc.scale_type == Some(Scale::Linear)
+            && ["area", "bar", "hist", "density"].contains(&mt)
+        {
             // Force zero baseline unless the user explicitly disabled it.
             if y_enc.zero.is_none() {
                 y_enc.zero = Some(true);

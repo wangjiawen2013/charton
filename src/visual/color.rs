@@ -42,7 +42,7 @@ pub enum ColorMap {
     YlOrBr, // Yellow-Orange-Brown
     YlOrRd, // Yellow-Orange-Red
 
-    // Specialized / Legacy
+    // Specialized
     Rainbow,
     Jet,
     Hot,

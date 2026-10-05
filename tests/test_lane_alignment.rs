@@ -15,7 +15,10 @@ use std::fs;
 fn rect_centres(svg: &str) -> Vec<f64> {
     let mut out = Vec::new();
     for seg in svg.split("<rect ").skip(1) {
-        let end = seg.find("/>").or_else(|| seg.find('>')).unwrap_or(seg.len());
+        let end = seg
+            .find("/>")
+            .or_else(|| seg.find('>'))
+            .unwrap_or(seg.len());
         let tag = &seg[..end];
         let attr = |key: &str| -> Option<f64> {
             let pat = format!("{key}=\"");

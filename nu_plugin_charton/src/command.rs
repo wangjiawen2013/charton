@@ -1456,12 +1456,11 @@ fn build_layer(
             let x = x.ok_or_else(|| missing(geom, "--x (the category column)", span))?;
             let y = y.ok_or_else(|| missing(geom, "--y (the value column)", span))?;
 
-            // A violin is a composition, not a mark: a density outline plus an
-            // inner inter-quartile box. The outline is the general recipe —
-            // `transform_density` (grouped by category, optionally also by the
-            // colour group) followed by the general `transform_band` geometry.
-            // `--color` dodges one violin per group; without it there is one
-            // violin per category.
+            // A violin is a density outline plus an inner inter-quartile box.
+            // The outline is built here from `transform_density` (grouped by
+            // category, optionally also by the colour group) and
+            // `transform_band`; `--color` dodges one violin per group, without
+            // it there is one violin per category.
             // The composition generates intermediate columns. They are
             // namespaced so they can never collide with the user's own columns,
             // which are passed straight through as transform inputs — a

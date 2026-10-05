@@ -20,9 +20,7 @@ impl<T: Mark> Chart<T> {
     /// Runs the density estimate and band geometry, and rewrites the encoding
     /// to the generated columns.
     pub(crate) fn transform_violin_data(mut self) -> Result<Self, ChartonError> {
-        let missing = || {
-            ChartonError::Mark("violin mark configuration is missing".to_string())
-        };
+        let missing = || ChartonError::Mark("violin mark configuration is missing".to_string());
 
         // --- Step 1: Resolve the input columns exactly once -----------------
         // On a faceted re-run `inputs_resolved` is already `true`, so the
@@ -62,17 +60,7 @@ impl<T: Mark> Chart<T> {
         }
 
         // --- Step 2: Read back the resolved parameters ----------------------
-        let (
-            value,
-            center,
-            group,
-            bandwidth,
-            trim,
-            split,
-            band_scale,
-            width,
-            span,
-        ) = {
+        let (value, center, group, bandwidth, trim, split, band_scale, width, span) = {
             let v = self
                 .mark
                 .as_ref()

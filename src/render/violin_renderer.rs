@@ -16,9 +16,10 @@ impl MarkRenderer for Chart<MarkViolin> {
         backend: &mut dyn RenderBackend,
         context: &PanelContext,
     ) -> Result<(), ChartonError> {
-        let mark = self.mark.as_ref().ok_or_else(|| {
-            ChartonError::Mark("MarkViolin configuration is missing".to_string())
-        })?;
+        let mark = self
+            .mark
+            .as_ref()
+            .ok_or_else(|| ChartonError::Mark("MarkViolin configuration is missing".to_string()))?;
 
         let polygon = MarkGeoPath::new()
             .with_closed(true)

@@ -13,8 +13,7 @@ use crate::transform::density_2d_transform::Density2DTransform;
 impl<T: Mark> Chart<T> {
     /// Expands the 2-D density mark into density + rectangle geometry.
     pub(crate) fn transform_density_2d_data(mut self) -> Result<Self, ChartonError> {
-        let missing =
-            || ChartonError::Mark("density_2d mark configuration is missing".to_string());
+        let missing = || ChartonError::Mark("density_2d mark configuration is missing".to_string());
 
         // --- Step 1: Resolve the input columns exactly once -----------------
         let resolved = self
