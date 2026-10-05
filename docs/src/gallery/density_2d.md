@@ -53,7 +53,9 @@ know the columns each one emits:
 
 `density` is consumed by the contour step, so it never appears in `encode`.
 Rename the outputs with `Density2DTransform::with_as` and
-`ContourTransform::with_as` / `with_level_as`.
+`ContourTransform::with_as` / `with_level_as`. This is the canonical list for
+both transforms; the hand-written wire-up is on the
+[Contour Plots](contours.md#built-from-the-primitives) page.
 
 ## Tuning the estimate
 
@@ -73,4 +75,5 @@ For a contour, a dashed line is
 
 - [Contour Plots](contours.md) — the general marching-squares contour, for any scalar grid.
 - [Heatmaps](heatmaps.md) — `mark_rect` over binned data.
+- [Composing Your Own](primitives.md) — recombining the primitives into new pictures.
 - [Transforms & Columns](../grammar/transforms.md).

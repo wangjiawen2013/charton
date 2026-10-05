@@ -25,24 +25,12 @@ from the encodings. The lines are coloured by their level by default.
 {{#include ../../../examples/contour.rs}}
 ```
 
-### Built from the primitives
-
-The same picture without `mark_contour`:
-
-```rust
-{{#include ../../../examples/contour_manual.rs}}
-```
-
 ## What the transforms produce
 
 Both steps **replace the table**, so to wire them together by hand you need to
-know the columns each one emits. A transform is just a function that reads some
-columns and writes others:
-
-| Call | Reads | Emits |
-|---|---|---|
-| `transform_contour(x, y, z)` | the grid (`x`, `y`, `z`) | `x`, `y`, `path_group`, `level` |
-| `transform_density_2d(x, y)` | two numeric columns | `x`, `y`, `density` |
+know the columns each one emits. The full contract is in the
+[transforms reference](../grammar/transforms.md); for a contour the two names
+that matter are:
 
 - **`path_group`** is not built in: it is an ordinary data column, and
   `mark_path` connects the rows that share it, in row order. You wire it to the
@@ -51,7 +39,7 @@ columns and writes others:
   drop the colour encoding for a single-colour contour. `mark_contour` does this
   colour mapping for you by default.
 
-Every name above is only a **default output name**. Rename them with
+Every emitted name is only a **default output name**. Rename it with
 `ContourTransform::with_as` and `ContourTransform::with_level_as`, then use the
 new names downstream — see the
 [transforms reference](../grammar/transforms.md).
@@ -97,11 +85,22 @@ The grid can also be drawn filled instead of as lines. Both are on the
 scatter  →  transform_density_2d  →  mark_contour
 ```
 
+## Built from the primitives
+
+The same picture without `mark_contour`: `transform_contour` turns the grid into
+polylines and `mark_path` draws them, coloured by `level`.
+
+```rust
+{{#include ../../../examples/contour_manual.rs}}
+```
+
 ## See also
 
 - [2-D Density](density_2d.md) — density contours and density heatmaps.
 - [Heatmaps](heatmaps.md) — `mark_rect` over binned data.
 - [The Layer Pipeline](../concepts/grammar_pipeline.md) — the stat/position/geom
   model behind all of this.
+- [Composing Your Own](primitives.md) — recombining the primitives into new
+  pictures the marks do not cover.
 - `examples/contour.rs`, `examples/contour_manual.rs`, `examples/contour_single.rs`,
   `examples/density_contour.rs`.

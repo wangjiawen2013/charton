@@ -61,6 +61,7 @@
 - [Circular Charts](gallery/circular_charts.md)
 - [Faceting](gallery/faceting.md)
 - [Geospatial](gallery/geospatial.md)
+- [Composing Your Own](gallery/primitives.md)
 
 # Case Studies
 - [Biomedicine (NEJM Study)](case_studies/biomedicine.md)
