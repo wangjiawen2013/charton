@@ -145,6 +145,15 @@ impl Encoding {
         }
     }
 
+    /// Whether the channel asked for a reversed axis.
+    pub fn get_reverse_by_channel(&self, channel: Channel) -> bool {
+        match channel {
+            Channel::X => self.x.as_ref().is_some_and(|v| v.reverse),
+            Channel::Y => self.y.as_ref().is_some_and(|v| v.reverse),
+            _ => false,
+        }
+    }
+
     /// Checks if the channel is explicitly configured to include zero in its axis range.
     pub fn get_zero_by_channel(&self, channel: Channel) -> bool {
         match channel {

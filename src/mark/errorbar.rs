@@ -28,7 +28,8 @@ impl MarkErrorBar {
             stroke_width: 1.0,
             cap_length: 3.0,
             show_center: false,
-            // Default layout values synced with MarkBar for seamless layering
+            // Synced with MarkBar so an error bar sits on its bar: fill/interval
+            // marks tile with no gap.
             width: 0.5,
             spacing: 0.0,
             span: 0.7,

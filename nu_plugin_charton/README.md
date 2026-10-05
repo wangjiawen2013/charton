@@ -132,11 +132,30 @@ charton -g geo --geojson assets/world.geojson -c POP_EST -o world.png
 # other fields fall back to the primary layer's encodings.
 open assets/data.csv | charton -g line -x t -y v --layer {geom: point}
 open assets/data.csv | charton -g point -x a -y b --facet-wrap group
+
+# Cookbook recipes, all compositions of the marks above (no new marks):
+#   ridge     value on x, one overlapping density per category (one-sided violin)
+#   dumbbell  two values per category joined by a rule (needs --y2)
+#   lollipop  a rule from 0 to the value, capped with a dot
+#   range     a rule between --y and --y2
+#   slope     two periods joined per --color series
+#   bump      a ranking over time; rank 1 sits at the top (reversed axis)
+#   waterfall a running total drawn as floating bars
+#   candlestick OHLC: a low--high wick plus an open--close floating bar
+open assets/data.csv | charton -g ridge -x category -y score -o ridge.svg
+open assets/data.csv | charton -g dumbbell -x category -y a --y2 b -o dumbbell.svg
+open assets/data.csv | charton -g lollipop -x category -y amount -o lollipop.svg
+open assets/data.csv | charton -g range -x category -y a --y2 b -o range.svg
+open assets/data.csv | charton -g slope -x t -y v -c group -o slope.svg
+open assets/data.csv | charton -g bump -x t -y v -c group -o bump.svg
+open assets/data.csv | charton -g waterfall -x category -y amount -o waterfall.svg
+open assets/ohlc.csv | charton -g candlestick -x date -y open --y2 close --low low --high high -o candles.svg
 ```
 
 The examples read the small sample files shipped in `assets/`: `data.csv` has
 columns `date,value,group,score,a,b,t,v,category,amount`, `sales.csv` has
 `region,quarter,revenue`, `grid.csv` is an `x,y,z` scalar grid for `-g contour`,
+`ohlc.csv` is a `date,open,high,low,close` price series for `-g candlestick`,
 and `world.geojson` is a Natural Earth country map.
 Run the commands from the `nu_plugin_charton/` directory (or prefix `assets/`
 with its path), and swap in your own file and column names to chart your data.
@@ -163,12 +182,13 @@ Flags are grouped by what you want to do. `[]` in the type column marks a list.
 
 | Flag | Meaning |
 |---|---|
-| `-g, --geom` | Chart type: `point` (default) \| `line` \| `area` \| `bar` \| `boxplot` \| `violin` \| `errorbar` \| `rule` \| `tick` \| `text` \| `rect`/`heatmap` \| `hist` \| `density`/`kde` \| `density_2d` \| `ecdf` \| `contour` \| `beeswarm` \| `geo` |
+| `-g, --geom` | Chart type: `point` (default) \| `line` \| `area` \| `bar` \| `boxplot` \| `violin` \| `ridge` \| `errorbar` \| `rule` \| `tick` \| `text` \| `rect`/`heatmap` \| `hist` \| `density`/`kde` \| `density_2d` \| `ecdf` \| `contour` \| `beeswarm` \| `dumbbell` \| `lollipop` \| `range` \| `slope` \| `bump` \| `waterfall` \| `candlestick` \| `geo` |
 | `-x, --x` | Column for the x axis (the value column for `-g density`/`-g ecdf`; the category column for `-g violin`; the grid's x for `-g contour`; the first sampled column for `-g density_2d`) |
 | `-y, --y` | Column for the y axis (`hist` uses a generated `count`; `density` uses a generated `density`; the value column for `-g violin`; the grid's y for `-g contour`; the second sampled column for `-g density_2d`) |
 | `--z` | Value (scalar) column for `-g contour`; the grid is regular in `x` and `y`. Omit it to estimate a 2D density from `x`/`y` first (a density contour) |
 | `-c, --color` | Column mapped to color / grouping (required for `rect`; the group column for `density`/`ecdf`) |
-| `--y2` | Upper-bound column for `errorbar`/`rule` (errorbar aggregates mean ± std when omitted) |
+| `--y2` | Upper bound for `errorbar`/`rule`; the second value for `dumbbell`; the high for `range`/`candlestick`'s close (errorbar aggregates mean ± std when omitted) |
+| `--low`, `--high` | Wick columns for `-g candlestick` |
 | `--text` | Label column for `-g text` |
 | `--geojson` | GeoJSON file to render with `-g geo` |
 
@@ -180,6 +200,17 @@ single-colour contour instead.
 and `contour` is a marching-squares iso-line stat plus the open `path` geometry.
 `density_2d` is a 2D kernel density drawn as a heatmap: the filled counterpart
 of the contour's `--z` form.
+
+`ridge`, `dumbbell`, `lollipop`, `range`, `slope`, `bump`, `waterfall` and
+`candlestick` are **compositions** of the existing pieces, exactly as in the
+[cookbook](../docs/src/gallery/primitives.md): a ridge is the one-sided violin,
+a dumbbell is a rule with two dots, a bump ranks with `transform_window` and
+reverses the axis, a waterfall floats bars on a running total, and a candlestick
+is a rule plus a floating bar. None of them adds a new mark.
+
+`slope`, `bump` and `candlestick` read a `-c` series (slope/bump) or a candle
+axis. Like `-g bar`, a candlestick's `-x` must be a **discrete** column — a
+date string such as `2024-07-01`, not a raw datetime.
 `scatter`, `box`, `label`, `heatmap`, `histogram`, and `geoshape` are aliases.
 
 ### Encodings

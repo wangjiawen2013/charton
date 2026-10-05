@@ -27,6 +27,18 @@ pub struct ResolvedSpec {
     pub expand: Expansion,
 }
 
+/// Flips a trained domain so its axis runs the other way.
+fn reversed_domain(domain: ScaleDomain) -> ScaleDomain {
+    match domain {
+        ScaleDomain::Continuous(a, b) => ScaleDomain::Continuous(b, a),
+        ScaleDomain::Temporal(a, b) => ScaleDomain::Temporal(b, a),
+        ScaleDomain::Discrete(mut labels) => {
+            labels.reverse();
+            ScaleDomain::Discrete(labels)
+        }
+    }
+}
+
 struct ResolvedScene {
     coord: Arc<dyn CoordinateTrait>,
     panel: Rect,
@@ -251,6 +263,9 @@ impl LayeredChart {
         let mut max_add = (0.0f64, 0.0f64);
         let mut has_expansion_info = false;
 
+        // Any layer asking for a reversed axis reverses the shared one.
+        let mut reverse = false;
+
         // --- Step 1: Scan Layers ---
         for (i, layer) in layers.iter().enumerate() {
             let (field, current_type) = match (layer.get_field(channel), layer.get_scale(channel)) {
@@ -303,6 +318,8 @@ impl LayeredChart {
                 max_add.1 = max_add.1.max(layer_expand.add.1);
                 has_expansion_info = true;
             }
+
+            reverse |= layer.get_reverse(channel);
         }
 
         // --- Step 2: Retrieve User Overrides ---
@@ -399,6 +416,14 @@ impl LayeredChart {
                     _ => Expansion::default(),
                 },
             }
+        };
+
+        // A reversed axis is just the trained domain flipped; the scale layer
+        // already expands and ticks a reversed domain correctly.
+        let domain = if reverse {
+            reversed_domain(domain)
+        } else {
+            domain
         };
 
         Ok(Some(ResolvedSpec {

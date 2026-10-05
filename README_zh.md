@@ -54,6 +54,13 @@ Charton 是一款高性能 Rust 绘图库，其声明式 API 灵感源自 [Altai
         <td><img src="docs/src/images/density_contour.svg" alt="Density Contour" /><p align="center">Density Contour</p></td>
         <td><img src="docs/src/images/density_heatmap.svg" alt="Density Heatmap" /><p align="center">Density Heatmap</p></td>
     </tr>
+    <tr>
+        <td><img src="docs/src/images/ridge.svg" alt="Ridgeline" /><p align="center">Ridgeline</p></td>
+        <td><img src="docs/src/images/dumbbell.svg" alt="Dumbbell" /><p align="center">Dumbbell</p></td>
+        <td><img src="docs/src/images/lollipop.svg" alt="Lollipop" /><p align="center">Lollipop</p></td>
+        <td><img src="docs/src/images/waterfall.svg" alt="Waterfall" /><p align="center">Waterfall</p></td>
+        <td><img src="docs/src/images/candlestick.svg" alt="Candlestick" /><p align="center">Candlestick</p></td>
+    </tr>
 </table>
 
 ## 安装

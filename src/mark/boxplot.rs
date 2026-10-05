@@ -32,8 +32,8 @@ impl MarkBoxplot {
             outlier_size: 3.0,
             show_outliers: true,
             // span = width + spacing
-            width: 0.5,   // This means the width of all boxes in a position is 0.5
-            spacing: 0.2, // Gap(spacing*width) between dodged box elements in a group. 0.0-0.5 usually gives a beautiful layout.
+            width: 0.5, // This means the width of all boxes in a position is 0.5
+            spacing: crate::position::Position::DEFAULT_DODGE_SPACING,
             span: 0.7, // The total width of boxes and gaps in a position. 0.5-1.0 usually gives a beautiful layout.
         }
     }

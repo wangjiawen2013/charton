@@ -120,7 +120,7 @@ pub mod prelude {
     pub use crate::scale::{Expansion, Scale};
     pub use crate::theme::{Theme, ThemeMode, TitleAnchor, TitleFrame};
     pub use crate::transform::{
-        band_transform::{BandScale, BandTransform},
+        band_transform::{BandScale, BandSide, BandTransform},
         box_transform::QuantileBoxTransform,
         contour_transform::{ContourLevels, ContourTransform},
         density_2d_transform::Density2DTransform,

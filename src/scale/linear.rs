@@ -8,6 +8,10 @@ use super::{ExplicitTick, Scale, ScaleDomain, ScaleTrait, Tick, mapper::VisualMa
 ///
 /// In Charton's architecture, a `LinearScale` is often shared via `Arc` across
 /// multiple layers to ensure they all use the same data-to-visual mapping.
+///
+/// The domain may run either way: a **reversed** domain (`min > max`) flips the
+/// axis, which is how a rank axis puts rank 1 at the top. Padding and ticks
+/// still work — they are applied to the numeric span, not to the direction.
 #[derive(Debug, Clone)]
 pub struct LinearScale {
     /// The input data boundaries: (min_value, max_value).
@@ -36,7 +40,8 @@ impl LinearScale {
     /// optimal power-of-ten interval.
     fn calculate_nice_step(&self, count: usize) -> f64 {
         let (min, max) = self.domain;
-        let range = max - min;
+        // `abs` so a reversed domain (min > max) still gets a sensible step.
+        let range = (max - min).abs();
 
         // Safety check for single-point domains or identical boundaries.
         if range.abs() < 1e-12 {
@@ -119,12 +124,15 @@ impl ScaleTrait for LinearScale {
         let step = self.calculate_nice_step(count);
         let tolerance = step * 1e-9;
 
-        let start = (min / step).ceil() * step;
+        // Generate the values ascending over the numeric range; the axis places
+        // them with `normalize`, which already honours a reversed domain.
+        let (lo, hi) = if min <= max { (min, max) } else { (max, min) };
+        let start = (lo / step).ceil() * step;
         let mut values = Vec::new();
         let mut curr = start;
 
         let mut iterations = 0;
-        while curr <= max + tolerance && iterations < count * 2 {
+        while curr <= hi + tolerance && iterations < count * 2 {
             let clean_val = if curr.abs() < 1e-12 { 0.0 } else { curr };
             values.push(clean_val);
 
@@ -144,8 +152,11 @@ impl ScaleTrait for LinearScale {
     /// 3. Formats the valid values into strings using the shared formatting logic.
     fn create_explicit_ticks(&self, explicit: &[ExplicitTick]) -> Vec<Tick> {
         let (min, max) = self.domain;
+        // A reversed domain still has the same numeric span; only the direction
+        // of the axis changes.
+        let (lo, hi) = if min <= max { (min, max) } else { (max, min) };
         // Pre-calculate tolerance once to avoid repeating in the loop
-        let range = (max - min).abs();
+        let range = hi - lo;
         let tolerance = if range < f64::EPSILON {
             1e-10
         } else {
@@ -163,8 +174,9 @@ impl ScaleTrait for LinearScale {
         for tick in explicit {
             match tick {
                 ExplicitTick::Continuous(val) => {
-                    // Logic: Only allow values within [min, max] (with float tolerance)
-                    if *val >= min - tolerance && *val <= max + tolerance {
+                    // Logic: Only allow values within the numeric range, in either
+                    // direction.
+                    if *val >= lo - tolerance && *val <= hi + tolerance {
                         // Clean up near-zero values for cleaner labels
                         continuous_values.push(if val.abs() < 1e-12 { 0.0 } else { *val });
                     } else {
@@ -173,7 +185,7 @@ impl ScaleTrait for LinearScale {
                 }
                 ExplicitTick::Labeled(val, label) => {
                     // A labelled tick is a normal position plus a custom name.
-                    if *val >= min - tolerance && *val <= max + tolerance {
+                    if *val >= lo - tolerance && *val <= hi + tolerance {
                         labeled_ticks.push(Tick {
                             value: *val,
                             label: label.clone(),
@@ -245,5 +257,38 @@ impl ScaleTrait for LinearScale {
             .collect();
 
         super::format_ticks(&values)
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    /// A reversed domain (min > max) maps low values high and still produces
+    /// usable ticks — this is what lets a rank axis put rank 1 at the top.
+    #[test]
+    fn reversed_domain_normalizes_and_ticks() {
+        let scale = LinearScale::new((7.5, 0.5), None);
+
+        assert!(scale.normalize(1.0) > 0.8, "rank 1 should sit near the top");
+        assert!(
+            scale.normalize(7.0) < 0.2,
+            "rank 7 should sit near the bottom"
+        );
+
+        let ticks = scale.suggest_ticks(7);
+        assert!(!ticks.is_empty(), "a reversed domain must still tick");
+        assert!(
+            ticks.iter().all(|t| (0.5..=7.5).contains(&t.value)),
+            "ticks must stay inside the numeric range"
+        );
+    }
+
+    /// An ascending domain must be untouched by the reversal support.
+    #[test]
+    fn ascending_domain_still_normalizes_upward() {
+        let scale = LinearScale::new((0.0, 10.0), None);
+        assert!((scale.normalize(2.0) - 0.2).abs() < 1e-12);
+        assert!((scale.normalize(8.0) - 0.8).abs() < 1e-12);
     }
 }

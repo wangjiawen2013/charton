@@ -50,3 +50,61 @@ The interval geometry by itself, without a bar:
 ```rust
 {{#include ../../../examples/errorbar.rs}}
 ```
+
+## Dumbbell (connected dot)
+
+<img src="../images/dumbbell.svg" width="500">
+
+A **dumbbell** compares two values for each category — a before/after, an A/B, a
+min/max. Each row gets a dot at both values and a segment between them: the dot
+position shows the level, and the segment length shows how much changed.
+
+It is a recipe, not a mark. `mark_rule` draws the connector from two wide columns
+(`y` and `y2`); the dots come from a tidy table so the period can drive the
+colour and produce a legend. `coord_flip` stands the categories up so the
+segments run horizontally, and `with_dodge(false)` keeps the two ends on the
+segment — a colour channel is otherwise a *lane*, which would push the periods
+apart into two columns.
+
+```rust
+{{#include ../../../examples/dumbbell.rs}}
+```
+
+A **lollipop** is the same idea with one end at the baseline; a **range plot**
+uses the rule alone.
+
+## Lollipop and range
+
+<img src="../images/lollipop.svg" width="500">
+
+A bar with the fill thrown away: `mark_rule` draws the stem and `mark_point`
+caps it. A **range plot** is the same rule with both ends away from the
+baseline, and the dumbbell above is a range plot with two dots.
+
+```rust
+{{#include ../../../examples/lollipop.rs}}
+```
+
+## Waterfall
+
+<img src="../images/waterfall.svg" width="500">
+
+A running total as floating bars. `transform_window` with
+`WindowOnlyOp::CumulativeSum` carries the total, and a `y2` bound floats each
+bar between the total *before* and *after* its step; colour splits increases
+from decreases.
+
+```rust
+{{#include ../../../examples/waterfall.rs}}
+```
+
+## Candlestick
+
+<img src="../images/candlestick.svg" width="500">
+
+OHLC bars: `mark_rule` draws the high–low wick and a floating `mark_bar` (its
+`y2` bound) draws the open–close body, coloured by direction.
+
+```rust
+{{#include ../../../examples/candlestick.rs}}
+```
