@@ -139,7 +139,8 @@ impl CoordinateTrait for Cartesian2D {
             // Bars occupy 50% of the available slot width by default.
             default_bar_width: 0.5,
 
-            // Provides a 0% gap between bars within the same group (dodge).
+            // Bars tile their group with no gap; the outline/point marks
+            // (box, violin, point) use `Position::DEFAULT_DODGE_SPACING` instead.
             default_bar_spacing: 0.0,
 
             // The entire group covers 70% of the categorical band.

@@ -47,6 +47,14 @@ impl<T> LaneLayout<T> {
     pub fn center(&self, cell: &LaneCell<T>) -> f64 {
         cell.category_index as f64 + self.lane_offsets[cell.group_index]
     }
+
+    /// How many lanes a centre may have (the number of distinct groups).
+    ///
+    /// `1` means there is nothing to sit side by side or to split, so a
+    /// `with_split` request has no effect.
+    pub const fn lane_count(&self) -> usize {
+        self.lane_offsets.len()
+    }
 }
 
 /// The lane-placement options shared by the band and box geometries.

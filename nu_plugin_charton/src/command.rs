@@ -6,12 +6,12 @@ use std::path::Path;
 
 use charton::error::ChartonError;
 use charton::prelude::{
-    BandScale, BandTransform, BandwidthType, Chart, ColorMap, ColorPalette, ContourTransform,
-    CoordSystem, Dataset, Density2DTransform, DensityTransform, Expansion, FacetSpec, IntoLayered,
-    KernelType, LabelFormat, LayeredChart, MarkArea, MarkBar, MarkBoxplot, MarkErrorBar,
-    MarkGeoPath, MarkLine, MarkPoint, MarkRect, MarkRule, MarkText, MarkTick, Position,
-    QuantileBoxTransform, Scale, ThemeMode, WindowFieldDef, WindowOnlyOp, WindowTransform, alt,
-    geojson_to_dataset,
+    BandScale, BandSide, BandTransform, BandwidthType, Chart, ColorMap, ColorPalette,
+    ContourTransform, CoordSystem, Dataset, Density2DTransform, DensityTransform, Expansion,
+    FacetSpec, IntoLayered, KernelType, LabelFormat, LayeredChart, MarkArea, MarkBar, MarkBoxplot,
+    MarkErrorBar, MarkGeoPath, MarkLine, MarkPoint, MarkRect, MarkRule, MarkText, MarkTick,
+    Position, QuantileBoxTransform, Scale, ThemeMode, WindowFieldDef, WindowOnlyOp,
+    WindowTransform, alt, geojson_to_dataset,
 };
 use nu_plugin::{EngineInterface, EvaluatedCall, PluginCommand};
 use nu_protocol::{
@@ -42,7 +42,7 @@ impl PluginCommand for Charton {
             .named(
                 "geom",
                 SyntaxShape::String,
-                "Mark type: point | line | area | bar | boxplot | violin | errorbar | rule | tick | text | rect | hist | density | density_2d | ecdf | contour | beeswarm | geo",
+                "Mark type: point | line | area | bar | boxplot | violin | ridge | errorbar | rule | tick | text | rect | hist | density | density_2d | ecdf | contour | beeswarm | dumbbell | lollipop | range | slope | bump | waterfall | candlestick | geo",
                 Some('g'),
             )
             .named("x", SyntaxShape::String, "Column mapped to the x axis", Some('x'))
@@ -354,7 +354,19 @@ impl PluginCommand for Charton {
             .named(
                 "y2",
                 SyntaxShape::String,
-                "Upper bound column for -g errorbar/-g rule (errorbar aggregates mean +/- std without it)",
+                "Upper bound column for -g errorbar/-g rule; second value for -g dumbbell; close for -g candlestick",
+                None,
+            )
+            .named(
+                "low",
+                SyntaxShape::String,
+                "Low column for -g candlestick (the wick's bottom)",
+                None,
+            )
+            .named(
+                "high",
+                SyntaxShape::String,
+                "High column for -g candlestick (the wick's top)",
                 None,
             )
             .named(
@@ -489,6 +501,8 @@ line per geom."
         let z: Option<String> = call.get_flag("z")?;
         let color: Option<String> = call.get_flag("color")?;
         let y2: Option<String> = call.get_flag("y2")?;
+        let low: Option<String> = call.get_flag("low")?;
+        let high: Option<String> = call.get_flag("high")?;
         let text: Option<String> = call.get_flag("text")?;
         let geojson: Option<String> = call.get_flag("geojson")?;
         let output: Option<String> = call.get_flag("output")?;
@@ -695,6 +709,8 @@ line per geom."
             y: y.clone(),
             z: z.clone(),
             y2: y2.clone(),
+            low: low.clone(),
+            high: high.clone(),
             color: color.clone(),
             text: text.clone(),
             style: style.clone(),
@@ -907,6 +923,9 @@ struct LayerOpts {
     /// Scalar field for `-g contour`.
     z: Option<String>,
     y2: Option<String>,
+    /// Low/high columns for `-g candlestick`.
+    low: Option<String>,
+    high: Option<String>,
     color: Option<String>,
     text: Option<String>,
     /// Style for this layer. Extra layers inherit the primary's unless the
@@ -1303,6 +1322,7 @@ fn build_layer(
 ) -> Result<LayeredChart, LabeledError> {
     let geom = layer.geom.as_str();
     let (x, y, y2) = (layer.x.as_deref(), layer.y.as_deref(), layer.y2.as_deref());
+    let (low, high) = (layer.low.as_deref(), layer.high.as_deref());
     let z = layer.z.as_deref();
     let color = layer.color.as_deref();
     let style = &layer.style;
@@ -1763,12 +1783,283 @@ fn build_layer(
             .with_x_label(x)
             .with_y_label(y)
         }
+        // --- Distributions: the ridge is the one-sided, overlapping violin ---
+        "ridge" | "ridgeline" => {
+            let x = x.ok_or_else(|| missing(geom, "--x (the category column)", span))?;
+            let y = y.ok_or_else(|| missing(geom, "--y (the value column)", span))?;
+            const RIDGE_VALUE: &str = "__charton_ridge_value";
+            const RIDGE_WIDTH: &str = "__charton_ridge_width";
+            const RIDGE_X: &str = "__charton_ridge_x";
+            const RIDGE_Y: &str = "__charton_ridge_y";
+            const RIDGE_PATH: &str = "__charton_ridge_path";
+
+            let density = DensityTransform::new(y)
+                .with_as(RIDGE_VALUE, RIDGE_WIDTH)
+                .with_groupbys([x])
+                .with_trim(true);
+            // One bank of the band, grown past its lane so it overlaps the
+            // category above: exactly the ridge recipe from the cookbook.
+            let band = BandTransform::new(RIDGE_VALUE, RIDGE_WIDTH)
+                .with_center(x)
+                .with_as(RIDGE_X, RIDGE_Y, RIDGE_PATH)
+                .with_scale(BandScale::PerGroup)
+                .with_side(BandSide::Right)
+                .with_width(1.0)
+                .with_overlap(2.5);
+
+            let c = Chart::build(dataset)
+                .map_err(|e| chart_err(span, e))?
+                .transform_density(density)
+                .map_err(|e| chart_err(span, e))?
+                .transform_band(band)
+                .map_err(|e| chart_err(span, e))?
+                .mark_polygon()
+                .map_err(|e| chart_err(span, e))?
+                .configure_geoshape(|m| style_polygon(m, style));
+            let c = c
+                .encode((
+                    // The ridges grow past their lane, so the category axis
+                    // needs headroom above the top one to avoid clipping.
+                    alt::x(RIDGE_X)
+                        .with_category_labels(x)
+                        .with_expansion(Expansion {
+                            mult: (0.0, 0.0),
+                            add: (0.4, 1.5),
+                        }),
+                    make_y(RIDGE_Y),
+                    alt::path_group(RIDGE_PATH),
+                    alt::color(x),
+                ))
+                .map_err(|e| chart_err(span, e))?;
+            let lc: LayeredChart = c.into();
+            // Value on the horizontal axis, one ridge per category stacked up.
+            lc.with_x_label(y).with_y_label(x).coord_flip()
+        }
+
+        // --- Comparisons: two values joined by a rule ------------------------------------
+        "dumbbell" | "connected-dot" => {
+            let x = x.ok_or_else(|| missing(geom, "--x (the category column)", span))?;
+            let y = y.ok_or_else(|| missing(geom, "--y (the first value)", span))?;
+            let y2 = y2.ok_or_else(|| missing(geom, "--y2 (the second value)", span))?;
+
+            let connector = Chart::build(dataset.clone())
+                .map_err(|e| chart_err(span, e))?
+                .mark_rule()
+                .map_err(|e| chart_err(span, e))?
+                .configure_rule(|m| style_rule(m.with_stroke_width(2.0), style));
+            let connector = match color {
+                Some(c) => connector.encode((make_x(x), make_y(y), alt::y2(y2), alt::color(c))),
+                None => connector.encode((make_x(x), make_y(y), alt::y2(y2))),
+            }
+            .map_err(|e| chart_err(span, e))?;
+
+            let end = |field: &str| -> Result<LayeredChart, LabeledError> {
+                let c = Chart::build(dataset.clone())
+                    .map_err(|e| chart_err(span, e))?
+                    .mark_point()
+                    .map_err(|e| chart_err(span, e))?
+                    // No dodge: both ends must sit on the shared segment, so a
+                    // `-c` colour is an attribute, not a lane.
+                    .configure_point(|m| style_point(m.with_size(8.0).with_dodge(false), style));
+                let c = match color {
+                    Some(col) => c.encode((make_x(x), make_y(field), alt::color(col))),
+                    None => c.encode((make_x(x), make_y(field))),
+                }
+                .map_err(|e| chart_err(span, e))?;
+                Ok(c.into())
+            };
+
+            connector
+                .and(end(y)?)
+                .and(end(y2)?)
+                .with_x_label(x)
+                .with_y_label(y)
+        }
+        "lollipop" => {
+            let x = x.ok_or_else(|| missing(geom, "--x (the category column)", span))?;
+            let y = y.ok_or_else(|| missing(geom, "--y (the value column)", span))?;
+            const LOLLIPOP_BASE: &str = "__charton_lollipop_base";
+
+            let stems = Chart::build(dataset.clone())
+                .map_err(|e| chart_err(span, e))?
+                .mark_rule()
+                .map_err(|e| chart_err(span, e))?
+                .configure_rule(|m| style_rule(m.with_stroke_width(2.0), style))
+                .transform_calculate(LOLLIPOP_BASE, |_| Some(0.0))
+                .map_err(|e| chart_err(span, e))?;
+            let stems = match color {
+                Some(c) => {
+                    stems.encode((make_x(x), alt::y(LOLLIPOP_BASE), alt::y2(y), alt::color(c)))
+                }
+                None => stems.encode((make_x(x), alt::y(LOLLIPOP_BASE), alt::y2(y))),
+            }
+            .map_err(|e| chart_err(span, e))?;
+
+            let caps = Chart::build(dataset)
+                .map_err(|e| chart_err(span, e))?
+                .mark_point()
+                .map_err(|e| chart_err(span, e))?
+                .configure_point(|m| style_point(m.with_size(8.0), style));
+            let caps = match color {
+                Some(c) => caps.encode((make_x(x), make_y(y), alt::color(c))),
+                None => caps.encode((make_x(x), make_y(y))),
+            }
+            .map_err(|e| chart_err(span, e))?;
+
+            stems.and(caps).with_x_label(x).with_y_label(y)
+        }
+        "range" => {
+            let x = x.ok_or_else(|| missing(geom, "--x (the category column)", span))?;
+            let y = y.ok_or_else(|| missing(geom, "--y (the low value)", span))?;
+            let y2 = y2.ok_or_else(|| missing(geom, "--y2 (the high value)", span))?;
+            let c = Chart::build(dataset)
+                .map_err(|e| chart_err(span, e))?
+                .mark_rule()
+                .map_err(|e| chart_err(span, e))?
+                .configure_rule(|m| style_rule(m, style));
+            let c = match color {
+                Some(col) => c.encode((make_x(x), make_y(y), alt::y2(y2), alt::color(col))),
+                None => c.encode((make_x(x), make_y(y), alt::y2(y2))),
+            }
+            .map_err(|e| chart_err(span, e))?;
+            let lc: LayeredChart = c.into();
+            lc.with_x_label(x).with_y_label(y)
+        }
+
+        // --- Trends: two periods (slope) and a ranking over time (bump) ---------
+        "slope" => {
+            let x = x.ok_or_else(|| missing(geom, "--x (the period column)", span))?;
+            let y = y.ok_or_else(|| missing(geom, "--y (the value column)", span))?;
+            let c = color.ok_or_else(|| missing(geom, "--color (the series column)", span))?;
+            let lines = Chart::build(dataset.clone())
+                .map_err(|e| chart_err(span, e))?
+                .mark_line()
+                .map_err(|e| chart_err(span, e))?
+                .configure_line(|m| style_line(m.with_stroke_width(2.0), style))
+                .encode((make_x(x), make_y(y), alt::color(c)))
+                .map_err(|e| chart_err(span, e))?;
+            let dots = Chart::build(dataset)
+                .map_err(|e| chart_err(span, e))?
+                .mark_point()
+                .map_err(|e| chart_err(span, e))?
+                .configure_point(|m| style_point(m.with_size(7.0), style))
+                .encode((make_x(x), make_y(y), alt::color(c)))
+                .map_err(|e| chart_err(span, e))?;
+            lines.and(dots).with_x_label(x).with_y_label(y)
+        }
+        "bump" => {
+            let x = x.ok_or_else(|| missing(geom, "--x (the time column)", span))?;
+            let y = y.ok_or_else(|| missing(geom, "--y (the value column)", span))?;
+            let c = color.ok_or_else(|| missing(geom, "--color (the series column)", span))?;
+            const BUMP_RANK: &str = "__charton_rank";
+            let rank = || {
+                WindowTransform::new(WindowFieldDef::new(y, WindowOnlyOp::Rank, BUMP_RANK))
+                    .with_groupbys([x])
+            };
+            let lines = Chart::build(dataset.clone())
+                .map_err(|e| chart_err(span, e))?
+                .mark_line()
+                .map_err(|e| chart_err(span, e))?
+                .configure_line(|m| style_line(m.with_stroke_width(2.5), style))
+                .transform_window(rank())
+                .map_err(|e| chart_err(span, e))?;
+            let lines = lines
+                .encode((
+                    make_x(x),
+                    alt::y(BUMP_RANK).with_reverse(true),
+                    alt::color(c),
+                ))
+                .map_err(|e| chart_err(span, e))?;
+            let dots = Chart::build(dataset)
+                .map_err(|e| chart_err(span, e))?
+                .mark_point()
+                .map_err(|e| chart_err(span, e))?
+                .configure_point(|m| style_point(m.with_size(7.0), style))
+                .transform_window(rank())
+                .map_err(|e| chart_err(span, e))?;
+            let dots = dots
+                .encode((
+                    make_x(x),
+                    alt::y(BUMP_RANK).with_reverse(true),
+                    alt::color(c),
+                ))
+                .map_err(|e| chart_err(span, e))?;
+            lines.and(dots).with_x_label(x).with_y_label("Rank")
+        }
+
+        // --- Financial: a running total (waterfall) and OHLC bars (candlestick) ---
+        "waterfall" => {
+            let x = x.ok_or_else(|| missing(geom, "--x (the step column)", span))?;
+            let y = y.ok_or_else(|| missing(geom, "--y (the delta column)", span))?;
+            const WATERFALL_TOTAL: &str = "__charton_total";
+            const WATERFALL_BASE: &str = "__charton_base";
+
+            let bars = Chart::build(dataset)
+                .map_err(|e| chart_err(span, e))?
+                .transform_window(WindowTransform::new(WindowFieldDef::new(
+                    y,
+                    WindowOnlyOp::CumulativeSum,
+                    WATERFALL_TOTAL,
+                )))
+                .map_err(|e| chart_err(span, e))?
+                .transform_calculate(WATERFALL_BASE, |row| {
+                    Some(row.val(WATERFALL_TOTAL)? - row.val(y)?)
+                })
+                .map_err(|e| chart_err(span, e))?
+                .mark_bar()
+                .map_err(|e| chart_err(span, e))?
+                .configure_bar(|m| style_bar(m.with_width(0.6), style));
+            let bars = match color {
+                Some(c) => bars.encode((
+                    make_x(x),
+                    alt::y(WATERFALL_BASE),
+                    alt::y2(WATERFALL_TOTAL),
+                    alt::color(c),
+                )),
+                None => bars.encode((make_x(x), alt::y(WATERFALL_BASE), alt::y2(WATERFALL_TOTAL))),
+            }
+            .map_err(|e| chart_err(span, e))?;
+            let lc: LayeredChart = bars.into();
+            lc.with_x_label(x).with_y_label(y)
+        }
+        "candlestick" | "ohlc" => {
+            let x = x.ok_or_else(|| missing(geom, "--x (the time column)", span))?;
+            let open = y.ok_or_else(|| missing(geom, "--y (the open column)", span))?;
+            let close = y2.ok_or_else(|| missing(geom, "--y2 (the close column)", span))?;
+            let low = low.ok_or_else(|| missing(geom, "--low (the low column)", span))?;
+            let high = high.ok_or_else(|| missing(geom, "--high (the high column)", span))?;
+
+            let wick = Chart::build(dataset.clone())
+                .map_err(|e| chart_err(span, e))?
+                .mark_rule()
+                .map_err(|e| chart_err(span, e))?
+                .configure_rule(|m| style_rule(m.with_stroke_width(1.0), style));
+            let wick = match color {
+                Some(c) => wick.encode((make_x(x), make_y(low), alt::y2(high), alt::color(c))),
+                None => wick.encode((make_x(x), make_y(low), alt::y2(high))),
+            }
+            .map_err(|e| chart_err(span, e))?;
+
+            let body = Chart::build(dataset)
+                .map_err(|e| chart_err(span, e))?
+                .mark_bar()
+                .map_err(|e| chart_err(span, e))?
+                .configure_bar(|m| style_bar(m.with_width(0.5), style));
+            let body = match color {
+                Some(c) => body.encode((make_x(x), alt::y(open), alt::y2(close), alt::color(c))),
+                None => body.encode((make_x(x), alt::y(open), alt::y2(close))),
+            }
+            .map_err(|e| chart_err(span, e))?;
+
+            wick.and(body).with_x_label(x).with_y_label("Price")
+        }
         other => {
             return Err(LabeledError::new("Unknown geom").with_label(
                 format!(
                     "'{other}' is not supported; try point, line, area, bar, boxplot, \
-                     violin, errorbar, rule, tick, text, rect, hist, density, density_2d, \
-                     ecdf, contour, beeswarm, or geo"
+                     violin, ridge, errorbar, rule, tick, text, rect, hist, density, \
+                     density_2d, ecdf, contour, beeswarm, dumbbell, lollipop, range, \
+                     slope, bump, waterfall, candlestick, or geo"
                 ),
                 span,
             ));
@@ -1834,6 +2125,8 @@ fn parse_layers(
             y: field("y").or_else(|| primary.y.clone()),
             z: field("z").or_else(|| primary.z.clone()),
             y2: field("y2").or_else(|| primary.y2.clone()),
+            low: field("low").or_else(|| primary.low.clone()),
+            high: field("high").or_else(|| primary.high.clone()),
             color: field("color").or_else(|| primary.color.clone()),
             text: field("text").or_else(|| primary.text.clone()),
             style,
@@ -2830,5 +3123,36 @@ mod tests {
         assert!(run("charton -g point -x t -y petal_length --margins 1,2,3").is_err());
         assert!(run("charton -g point -x t -y petal_length --y-ticks a").is_err());
         Ok(())
+    }
+
+    /// Every recipe added with the cookbook renders to SVG through the plugin.
+    #[test]
+    fn recipe_geoms_render_svg() -> Result<(), ShellError> {
+        for src in [
+            "charton -g ridge -x species -y petal_length",
+            "charton -g dumbbell -x species -y lo --y2 hi",
+            "charton -g lollipop -x species -y petal_length",
+            "charton -g range -x species -y lo --y2 hi",
+            "charton -g slope -x t -y petal_length -c grp",
+            "charton -g bump -x t -y petal_length -c grp",
+            "charton -g waterfall -x species -y petal_length",
+            // A bar needs a discrete x, so the candle axis is a category (a
+            // date string), not a raw datetime column.
+            "charton -g candlestick -x species -y petal_length --y2 hi --low lo --high hi",
+        ] {
+            let out = run(src)?;
+            assert!(out.as_str()?.contains("<svg"), "no SVG for `{src}`");
+        }
+        Ok(())
+    }
+
+    #[test]
+    fn recipe_geoms_require_their_columns() {
+        // dumbbell needs a second value; a slope/bump needs a series.
+        assert!(run("charton -g dumbbell -x species -y lo").is_err());
+        assert!(run("charton -g slope -x t -y petal_length").is_err());
+        assert!(run("charton -g bump -x t -y petal_length").is_err());
+        // candlestick needs a close (`--y2`) and a high/low wick.
+        assert!(run("charton -g candlestick -x species -y lo --y2 hi").is_err());
     }
 }

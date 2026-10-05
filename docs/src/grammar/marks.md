@@ -62,10 +62,19 @@ region between two contour levels. `.with_dash([dash, gap])` dashes the outline
 
 ### Bar Mark (`mark_bar`)
 
-Represents data as rectangles extending from a baseline.
+Represents data as rectangles with a **width** (the category dimension) and a
+**span** (the value dimension).
 
-- Physicality: Bars have "width." Charton calculates this width based on the `CoordLayout` (Chapter 1.4) to ensure bars don't overlap unless intended.
-- Intervals: Uses `X`, `Y` (height), and sometimes `Y2` (for ranged bars).
+- Baseline bars read `X` and `Y`: the rectangle grows from zero to `Y`.
+- Floating bars add `Y2`: the rectangle spans `Y` to `Y2` instead. This is the
+  geometry behind a candlestick body and a waterfall step. With `Y2` present,
+  `color` is an attribute rather than a lane (no dodging layout), and the value
+  axis is **not** forced to include zero — the interval keeps the axis to
+  itself.
+- Width and lanes come from the shared layout (`CoordLayout` + [`Position`]),
+  so grouped bars sit side by side without manual offsets. Fill/interval marks
+  tile (no gap); outline/point marks keep a small gap. See
+  [The position rules](../concepts/design_rules.md#5-the-position-rules-车道规则).
 
 ### Area Mark (`mark_area`)
 

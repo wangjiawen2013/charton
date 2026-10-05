@@ -1,3 +1,18 @@
+//! Bar layout: aggregate the rows, then decide each bar's lane and span.
+//!
+//! `transform_bar_data` prepares the table the bar renderer draws. It:
+//!
+//! 1. aggregates `y` per `(x, colour)` cell (a sum by default);
+//! 2. solves the side-by-side lanes — how many bars share a category and which
+//!    lane each row occupies — into the `sub_idx` / `groups_count` columns;
+//! 3. carries a secondary `y2` measure through, so a bar can *float* between
+//!    `y` and `y2` (a candlestick body, a waterfall step) instead of growing
+//!    from zero. With `y2` present, colour is an attribute, not a lane: there is
+//!    no Cartesian product and no dodging.
+//!
+//! The lane *arithmetic* lives in [`crate::position::Position`]; this transform
+//! only decides which lane each row belongs to.
+
 use crate::TEMP_SUFFIX;
 use crate::chart::Chart;
 use crate::core::data::{ColumnVector, Dataset, MISSING_CATEGORY};
@@ -7,6 +22,7 @@ use crate::mark::Mark;
 use ahash::AHashMap;
 
 impl<T: Mark> Chart<T> {
+    /// Aggregates, lays out the lanes and carries the floating `y2` bound.
     pub(crate) fn transform_bar_data(mut self) -> Result<Self, ChartonError> {
         // --- STEP 1: Context Extraction ---
         let y_enc = self
@@ -24,6 +40,10 @@ impl<T: Mark> Chart<T> {
 
         let mut x_field = x_enc.field.clone();
         let y_field = y_enc.field.clone();
+        // A secondary measure turns the bar into a *floating* bar spanning
+        // `y → y2` (a candlestick body, a waterfall step) instead of growing
+        // from the baseline.
+        let y2_field = self.encoding.y2.as_ref().map(|e| e.field.clone());
 
         // Check for Pie mode (empty X field)
         let is_pie = x_field.is_empty();
@@ -84,9 +104,23 @@ impl<T: Mark> Chart<T> {
 
         let y_col = self.data.column(&y_field)?;
         let mut lookup: AHashMap<(String, Option<String>), f64> = group_map
-            .into_iter()
-            .map(|(key, indices)| (key, agg_op.aggregate_by_index(y_col, &indices)))
+            .iter()
+            .map(|(key, indices)| (key.clone(), agg_op.aggregate_by_index(y_col, indices)))
             .collect();
+
+        // Aggregate the secondary measure over the same cells, without the
+        // stacking/normalisation that applies to the primary one.
+        let y2_lookup = if let Some(field) = &y2_field {
+            let col = self.data.column(field)?;
+            Some(
+                group_map
+                    .iter()
+                    .map(|(key, indices)| (key.clone(), agg_op.aggregate_by_index(col, indices)))
+                    .collect::<AHashMap<_, _>>(),
+            )
+        } else {
+            None
+        };
 
         // --- STEP 3: Normalization ---
         if y_enc.normalize || y_enc.stack == StackMode::Normalize {
@@ -117,34 +151,71 @@ impl<T: Mark> Chart<T> {
 
         let mut final_x = Vec::new();
         let mut final_y = Vec::new();
+        let mut final_y2 = Vec::new();
         let mut final_color = Vec::new();
+        // Lane helpers. A normal grouped bar dodges inside its category; a
+        // floating bar is alone, so it always reports one lane.
+        let mut f_groups_count = Vec::new();
+        let mut f_sub_idx = Vec::new();
 
-        for x in &x_uniques {
-            if has_grouping_color {
-                for c in &c_uniques {
-                    let val = lookup
-                        .get(&(x.clone(), Some(c.clone())))
-                        .cloned()
-                        .unwrap_or(0.0);
+        let floating = y2_field.is_some();
+        // Read the secondary measure for a cell, when one is configured.
+        let y2_of = |key: &(String, Option<String>)| match &y2_lookup {
+            Some(map) => map.get(key).copied().unwrap_or(f64::NAN),
+            None => f64::NAN,
+        };
+
+        if floating {
+            // A floating bar reads `y → y2` from one row, so `color` is an
+            // attribute rather than a lane: no Cartesian product, no dodging,
+            // only the cells that actually exist.
+            let colors: Vec<Option<String>> = if has_grouping_color {
+                c_uniques.iter().cloned().map(Some).collect()
+            } else {
+                vec![None]
+            };
+            for x in &x_uniques {
+                for c in &colors {
+                    let key = (x.clone(), c.clone());
+                    if let Some(val) = lookup.get(&key).copied() {
+                        final_x.push(x.clone());
+                        final_y.push(val);
+                        final_y2.push(y2_of(&key));
+                        if has_grouping_color {
+                            final_color.push(c.clone().unwrap_or_default());
+                        }
+                        f_groups_count.push(1.0);
+                        f_sub_idx.push(0.0);
+                    }
+                }
+            }
+        } else if has_grouping_color {
+            for x in &x_uniques {
+                for (j, c) in c_uniques.iter().enumerate() {
+                    let key = (x.clone(), Some(c.clone()));
+                    let val = lookup.get(&key).cloned().unwrap_or(0.0);
                     final_x.push(x.clone());
                     final_color.push(c.clone());
                     final_y.push(val);
+                    final_y2.push(y2_of(&key));
+                    f_groups_count.push(c_uniques.len() as f64);
+                    f_sub_idx.push(j as f64);
                 }
-            } else {
-                let val = lookup.get(&(x.clone(), None)).cloned().unwrap_or(0.0);
+            }
+        } else {
+            for x in &x_uniques {
+                let key = (x.clone(), None);
+                let val = lookup.get(&key).cloned().unwrap_or(0.0);
                 final_x.push(x.clone());
                 final_y.push(val);
+                final_y2.push(y2_of(&key));
+                f_groups_count.push(1.0);
+                f_sub_idx.push(0.0);
             }
         }
 
         // --- STEP 5: Rebuild Dataset with Type Awareness ---
         let mut new_ds = Dataset::new();
-        let total_c = if has_grouping_color {
-            c_uniques.len()
-        } else {
-            1
-        };
-        let total_rows = final_x.len();
 
         // 1. Restore X Axis (Categorical support)
         if is_pie {
@@ -217,17 +288,18 @@ impl<T: Mark> Chart<T> {
             },
         )?;
 
-        // 4. Layout Helpers (consistent with new Float64 variant)
-        let mut f_groups_count = Vec::with_capacity(total_rows);
-        let mut f_sub_idx = Vec::with_capacity(total_rows);
-
-        for _ in &x_uniques {
-            for j in 0..total_c {
-                f_groups_count.push(total_c as f64);
-                f_sub_idx.push(j as f64);
-            }
+        // A floating bar keeps its secondary bound so the renderer can span it.
+        if let Some(field) = &y2_field {
+            new_ds.add_column(
+                field,
+                ColumnVector::Float64 {
+                    data: final_y2,
+                    validity: None,
+                },
+            )?;
         }
 
+        // 4. Layout Helpers (consistent with new Float64 variant)
         new_ds.add_column(
             format!("{}_groups_count", TEMP_SUFFIX),
             ColumnVector::Float64 {

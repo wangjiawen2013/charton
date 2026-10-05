@@ -75,3 +75,19 @@ fn swapped_axes() -> Result<(), Box<dyn Error>> {
 
     Ok(())
 }
+
+/// Passing the y-domain backwards reverses the axis: a rank of 1 is drawn at
+/// the top. This is the general scale feature a bump chart is built on.
+#[test]
+fn reversed_y_domain() -> Result<(), Box<dyn Error>> {
+    let country = ["A", "B", "C", "D"];
+    let rank = [1.0, 2.0, 3.0, 4.0];
+
+    chart!(country, rank)?
+        .mark_point()?
+        .encode((alt::x("country"), alt::y("rank").with_reverse(true)))?
+        .with_size(400, 300)
+        .save("./target/test-output/reversed_y.svg")?;
+
+    Ok(())
+}

@@ -97,15 +97,25 @@ open grid.csv | charton -g contour -x x -y y --z z -o contour.svg
 open data.csv | charton -g line -x t -y v -c series \
     --layer {geom: point}
 
+# cookbook recipes, all compositions of the marks above
+open data.csv | charton -g ridge -x category -y score -o ridge.svg
+open data.csv | charton -g dumbbell -x category -y a --y2 b -o dumbbell.svg
+open data.csv | charton -g waterfall -x category -y amount -o waterfall.svg
+open ohlc.csv | charton -g candlestick -x date -y open --y2 close \
+    --low low --high high -o candles.svg
+
 # geographic choropleth from GeoJSON
 charton -g geo --geojson world.geojson -c POP_EST -o world.png
 ```
 
 The `-g` names cover every Charton mark (`point`, `line`, `area`, `bar`,
 `boxplot`, `errorbar`, `rule`, `tick`, `text`, `rect`/`heatmap`, `hist`,
-`density`/`kde`, `density_2d`, `ecdf`, `geo`) plus the layout/composition names
-`beeswarm`, `violin`, and `contour`; aliases such as `scatter`, `label`, and
-`heatmap` map onto the marks. The full flag table is in the plugin README.
+`density`/`kde`, `density_2d`, `ecdf`, `geo`) plus the composition names
+`beeswarm`, `violin`, `contour`, `ridge`, `dumbbell`, `lollipop`, `range`,
+`slope`, `bump`, `waterfall`, and `candlestick`; aliases such as `scatter`,
+`label`, and `heatmap` map onto the marks. The recipes are the same
+compositions as the [cookbook](../gallery/primitives.md) — no new marks. The
+full flag table is in the plugin README.
 
 ## Configuration
 

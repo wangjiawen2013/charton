@@ -46,11 +46,24 @@
 //! scatter. `transform_band` resolves the lanes once and bakes the offsets into
 //! the polygon, so the renderer needs no special case.
 //!
-//! # Split bands
+//! # Side and split
 //!
-//! With [`with_split(true)`](BandTransform::with_split) the two sides become
-//! separate polygons that share the centre line — the left and right halves of
-//! a split violin, coloured by group.
+//! [`with_side`](BandTransform::with_side) chooses which bank of the river a
+//! band occupies: `Both` (the symmetric violin), or `Left` / `Right` for a
+//! one-sided band whose flat edge is the centre line. This is a geometry flag,
+//! independent of lanes and scale.
+//!
+//! [`with_split(true)`](BandTransform::with_split) is the two-group split
+//! violin: the first group takes the right bank, the second the left, sharing
+//! the centre line. It only applies when two groups exist; a single group stays
+//! symmetric, so use `with_side` for a genuinely one-sided band.
+//!
+//! # Overlap
+//!
+//! By default a band stays inside its lane.
+//! [`with_overlap`](BandTransform::with_overlap) multiplies its width so it can
+//! grow past the lane and overlap its neighbour — overlapping violins, and the
+//! stacked look of a ridgeline when combined with a one-sided `with_side`.
 
 use super::ensure_distinct_columns;
 use super::lane_layout::{LaneLayoutOptions, build_lane_layout};
@@ -83,6 +96,23 @@ impl From<&str> for BandScale {
             _ => Self::PerGroup,
         }
     }
+}
+
+/// Which bank(s) of the river a band is drawn on.
+///
+/// A band is mirror-symmetric around its centre, so the natural shape is
+/// [`Both`](BandSide::Both) — a violin. Keeping only one side gives a
+/// one-sided shape; with one band per category on a flipped axis this is the
+/// ridgeline (`with_side(BandSide::Right)`).
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Default)]
+pub enum BandSide {
+    /// Symmetric: `centre - width` to `centre + width`. The default.
+    #[default]
+    Both,
+    /// One-sided, growing to the right: `centre` to `centre + width`.
+    Right,
+    /// One-sided, growing to the left: `centre - width` to `centre`.
+    Left,
 }
 
 /// Configuration for [`Chart::transform_band`].
@@ -118,6 +148,13 @@ pub struct BandTransform {
     /// The widest a single band may be, in category steps.
     pub(crate) max_width: f64,
 
+    /// Extra width factor. `1.0` keeps a band inside its lane; larger values let
+    /// it grow past the lane so neighbouring bands overlap (a ridgeline).
+    pub(crate) overlap: f64,
+
+    /// Which side(s) of the centre line a band occupies (see [`BandSide`]).
+    pub(crate) side: BandSide,
+
     /// Width scaling rule (see [`BandScale`]).
     pub(crate) scale: BandScale,
 
@@ -141,6 +178,8 @@ impl BandTransform {
             position: Position::Identity,
             span: 0.7,
             max_width: 0.5,
+            overlap: 1.0,
+            side: BandSide::Both,
             scale: BandScale::PerGroup,
             split: false,
         }
@@ -189,6 +228,28 @@ impl BandTransform {
         self
     }
 
+    /// Grows a band past its lane, so neighbouring bands overlap.
+    ///
+    /// The value multiplies the band's width after scaling. `1.0` (the default)
+    /// keeps every band inside its lane; values above `1.0` let a band spill
+    /// into the category above it — overlapping violins, or the stacked look of
+    /// a ridgeline when combined with [`with_side`](Self::with_side).
+    pub const fn with_overlap(mut self, overlap: f64) -> Self {
+        self.overlap = if overlap > 0.0 { overlap } else { 1.0 };
+        self
+    }
+
+    /// Chooses which bank(s) of the river the band occupies.
+    ///
+    /// [`BandSide::Both`] (the default) is the symmetric violin;
+    /// [`BandSide::Right`] / [`BandSide::Left`] keep one side, so the flat edge
+    /// is the centre line. One of these on the value axis of a flipped chart is
+    /// the one-sided shape a ridgeline is built from.
+    pub const fn with_side(mut self, side: BandSide) -> Self {
+        self.side = side;
+        self
+    }
+
     /// Chooses the width scaling rule.
     pub const fn with_scale(mut self, scale: BandScale) -> Self {
         self.scale = scale;
@@ -198,7 +259,9 @@ impl BandTransform {
     /// Draws two groups as the left and right halves of one band.
     ///
     /// The first group grows to the right of the centre and the second to the
-    /// left. Colour the result by group to make both halves visible.
+    /// left; colour by group to see both halves. This needs **two** groups: with
+    /// a single group both banks are kept and the band stays symmetric, so use
+    /// [`with_side`](Self::with_side) for a genuinely one-sided band.
     pub const fn with_split(mut self, split: bool) -> Self {
         self.split = split;
         self
@@ -286,23 +349,24 @@ impl<T: Mark> Chart<T> {
                 .iter()
                 .map(|&(_, width)| width)
                 .fold(0.0_f64, f64::max);
-            let factor = match params.scale {
-                BandScale::PerGroup => {
-                    if peak > 0.0 {
-                        layout.slot / 2.0 / peak
-                    } else {
-                        0.0
+            let factor = params.overlap
+                * match params.scale {
+                    BandScale::PerGroup => {
+                        if peak > 0.0 {
+                            layout.slot / 2.0 / peak
+                        } else {
+                            0.0
+                        }
                     }
-                }
-                BandScale::Global => {
-                    if global_peak > 0.0 {
-                        layout.slot / 2.0 / global_peak
-                    } else {
-                        0.0
+                    BandScale::Global => {
+                        if global_peak > 0.0 {
+                            layout.slot / 2.0 / global_peak
+                        } else {
+                            0.0
+                        }
                     }
-                }
-                BandScale::Raw => 1.0,
-            };
+                    BandScale::Raw => 1.0,
+                };
 
             let mut push = |x: f64, y: f64| {
                 out_x.push(x);
@@ -312,26 +376,43 @@ impl<T: Mark> Chart<T> {
                 out_group.push(cell.group_label.clone());
             };
 
-            if params.split {
-                // One half per group, both sharing the centre line: the first
-                // group grows right, the second left.
-                let side = if cell.group_index % 2 == 0 { 1.0 } else { -1.0 };
-                let (Some(first), Some(last)) = (cell.values.first(), cell.values.last()) else {
-                    continue;
-                };
-                push(center, first.0);
-                for &(value, width) in &cell.values {
-                    push(center + side * width * factor, value);
+            // A split band only means something when two groups share the
+            // centre; a lone group has nothing to split against, so it falls
+            // back to the requested side (both, by default).
+            let side = if params.split && layout.lane_count() > 1 {
+                if cell.group_index % 2 == 0 {
+                    BandSide::Right
+                } else {
+                    BandSide::Left
                 }
-                push(center, last.0);
             } else {
-                // Full band: the right side runs up, the left side walks back
-                // down, closing the polygon symmetrically.
-                for &(value, width) in &cell.values {
-                    push(center + width * factor, value);
+                params.side
+            };
+
+            match side {
+                // Symmetric: the right side runs up, the left side walks back
+                // down, closing the polygon around the centre.
+                BandSide::Both => {
+                    for &(value, width) in &cell.values {
+                        push(center + width * factor, value);
+                    }
+                    for &(value, width) in cell.values.iter().rev() {
+                        push(center - width * factor, value);
+                    }
                 }
-                for &(value, width) in cell.values.iter().rev() {
-                    push(center - width * factor, value);
+                // One-sided: the flat edge runs along the centre line and the
+                // other side bulges out by `width`.
+                BandSide::Right | BandSide::Left => {
+                    let sign = if side == BandSide::Right { 1.0 } else { -1.0 };
+                    let (Some(first), Some(last)) = (cell.values.first(), cell.values.last())
+                    else {
+                        continue;
+                    };
+                    push(center, first.0);
+                    for &(value, width) in &cell.values {
+                        push(center + sign * width * factor, value);
+                    }
+                    push(center, last.0);
                 }
             }
         }
@@ -505,6 +586,51 @@ mod tests {
 
         let xs = banded.data.column("x").unwrap().to_f64_vec();
         let max = xs.iter().copied().fold(f64::MIN, f64::max);
+        assert!((max - 0.25).abs() < 1e-12, "max half-width {max}");
+    }
+
+    #[test]
+    fn overlap_grows_the_band_past_its_lane() {
+        // The default half-lane is 0.25; an overlap of 2.0 doubles it to 0.5,
+        // which is what lets a ridgeline spill into the category above.
+        let banded = chart(vec![0.0, 1.0, 2.0], vec![1.0, 2.0, 1.0])
+            .transform_band(BandTransform::new("value", "width").with_overlap(2.0))
+            .unwrap();
+
+        let xs = banded.data.column("x").unwrap().to_f64_vec();
+        let max = xs.iter().copied().fold(f64::MIN, f64::max);
+        assert!((max - 0.5).abs() < 1e-12, "max half-width {max}");
+    }
+
+    #[test]
+    fn side_right_keeps_only_one_bank() {
+        // A one-sided band keeps the centre line flat and bulges to the right,
+        // so every vertex is at or past the centre.
+        let banded = chart(vec![0.0, 1.0, 2.0], vec![1.0, 2.0, 1.0])
+            .transform_band(BandTransform::new("value", "width").with_side(BandSide::Right))
+            .unwrap();
+
+        let xs = banded.data.column("x").unwrap().to_f64_vec();
+        assert!(
+            xs.iter().all(|&x| x >= 0.0),
+            "right-side x went negative: {xs:?}"
+        );
+        let max = xs.iter().copied().fold(f64::MIN, f64::max);
+        assert!((max - 0.25).abs() < 1e-12, "max half-width {max}");
+    }
+
+    #[test]
+    fn split_without_a_group_stays_symmetric() {
+        // `split` needs two groups to split against; a lone group must not
+        // silently become one-sided — that is what `with_side` is for.
+        let banded = chart(vec![0.0, 1.0, 2.0], vec![1.0, 2.0, 1.0])
+            .transform_band(BandTransform::new("value", "width").with_split(true))
+            .unwrap();
+
+        let xs = banded.data.column("x").unwrap().to_f64_vec();
+        let min = xs.iter().copied().fold(f64::MAX, f64::min);
+        let max = xs.iter().copied().fold(f64::MIN, f64::max);
+        assert!((min + 0.25).abs() < 1e-12, "min half-width {min}");
         assert!((max - 0.25).abs() < 1e-12, "max half-width {max}");
     }
 

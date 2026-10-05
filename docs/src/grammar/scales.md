@@ -82,6 +82,9 @@ While Charton automates most scaling logic, you retain full control through expl
 
 - Force Zero: Ensure an axis starts at $0$ even if the minimum data point is much higher.
 - Fixed Intervals: Fix a percentage axis strictly between $[0, 1]$ to prevent it from auto-scaling based on a subset of data.
+- Reverse: `alt::y("rank").with_reverse(true)` draws the axis backwards, so low
+  values sit high (a ranking, a depth, a latitude). It is a scale concern, not a
+  per-chart trick — expansion and tick generation follow automatically.
 
 ## Key Takeaways
 

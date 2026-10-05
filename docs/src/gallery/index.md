@@ -25,6 +25,7 @@ below it — and to the primitives it is built from.
 | [Faceted violin](violin.md#grouped-and-faceted-violins) | small multiples | `mark_violin` + `facet` |
 | [Split violin](violin.md#split-violin) | | `mark_violin` (`split`) |
 | [Raincloud](violin.md#raincloud) | | `mark_violin` + `transform_quantile_box` + jittered points |
+| [Ridgeline](primitives.md#a-ridgeline-from-a-half-band) | joyplot | `transform_density` + `transform_band` (`split`) + `mark_polygon` |
 | [Violin with inner box](box_plot.md#the-composable-quantile-box) | | `mark_violin` + `transform_quantile_box` |
 | [Box plot](box_plot.md#box-plot) | box & whiskers | `mark_boxplot` |
 | [Histogram](histogram.md) | | `mark_hist` |
@@ -42,6 +43,11 @@ below it — and to the primitives it is built from.
 | [Grouped bar with error bars](uncertainties_and_trends.md#grouped-bar-with-errorbar) | | `mark_bar` + `mark_errorbar` + `Position::dodge` |
 | [Stacked bar](uncertainties_and_trends.md#stacked-bar) | | `mark_bar` + `stack` |
 | [Error bar](uncertainties_and_trends.md#error-bar-on-its-own) | | `mark_errorbar` |
+| [Dumbbell](uncertainties_and_trends.md#dumbbell-connected-dot) | connected dot | `mark_rule` + `mark_point` |
+| [Lollipop](uncertainties_and_trends.md#lollipop-and-range) | | `mark_rule` + `mark_point` |
+| [Range plot](uncertainties_and_trends.md#lollipop-and-range) | intervals | `mark_rule` (`y` + `y2`) |
+| [Waterfall](uncertainties_and_trends.md#waterfall) | running total | `mark_bar` (`y2`) + `transform_window` (`CumulativeSum`) |
+| [Candlestick](uncertainties_and_trends.md#candlestick) | OHLC | `mark_rule` + `mark_bar` (`y2`) |
 
 ## Trends & time
 
@@ -51,6 +57,8 @@ below it — and to the primitives it is built from.
 | [Cumulative frequency](line_charts.md#cumulative-frequency) | | `mark_line` |
 | [Multi-series with error bars](line_charts.md#multi-series-with-error-bars) | | `mark_line` + `mark_errorbar` + `mark_point` |
 | [Formatted axis labels](line_charts.md#formatted-axis-labels-economist-style) | `$20B`-style | `with_y_label_format` |
+| [Slope chart](line_charts.md#slope-chart) | | `mark_line` + `mark_point` |
+| [Bump chart](line_charts.md#bump-chart) | ranking | `transform_window` (`Rank`) + reversed axis |
 | [Area chart](area_charts.md#area-chart) | | `mark_area` |
 | [Simple stacked area](area_charts.md#simple-stacked-area-chart) | | `mark_area` + `stack: stacked` |
 | [Normalized stacked area](area_charts.md#normalized-stacked-area-chart) | 100% area | `mark_area` + `stack: normalize` |
@@ -90,6 +98,7 @@ below it — and to the primitives it is built from.
   interesting.
 - **Box plot** — compact and precise about quartiles, hides the shape.
 - **Violin** — the shape with quartiles available as an inner box.
+- **Ridgeline** — many distributions compared at once, one density per category.
 - **Beeswarm / strip** — every observation; good for small samples.
 
 See [Missing Values & Gaps](../concepts/missing_values.md) for how each view

@@ -16,5 +16,5 @@ Add a `color` field to overlay several columns in one frame, and
 ## See also
 
 - [1-D Density](density_1d.md) — the smoothed version of the same picture.
-- [Bars & Error Bars](uncertainties_and_trends.md) — `mark_bar` when you already
+- [Bars, Ranges & Comparisons](uncertainties_and_trends.md) — `mark_bar` when you already
   have the counts.

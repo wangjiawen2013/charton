@@ -1,14 +1,21 @@
-//! Window functions: rank, row number and cumulative distributions.
+//! Window functions: rank, row number, cumulative distribution and running totals.
 //!
-//! A window function computes a value from a row's position within an ordered
-//! group instead of collapsing the rows. `transform_window` supports the
-//! cumulative distribution (`CumeDist`, an ECDF step curve), `RowNumber` and
-//! `Rank`, and partitions the table by one or more fields with
-//! [`WindowTransform::with_groupbys`].
+//! A window function reads a row's position inside a group and adds a column,
+//! instead of collapsing the rows. `transform_window` partitions the table by
+//! one or more fields with [`WindowTransform::with_groupbys`] and supports:
 //!
-//! `CumeDist` changes the row count: each group is padded with a start and an
-//! end row so the step curve reaches the edges of the axis. The ranking
-//! operations keep the original rows and leave null inputs as null.
+//! * `Rank` / `RowNumber` — position in the sorted order;
+//! * `CumeDist` — the cumulative distribution (an ECDF step curve);
+//! * `CumulativeSum` — a running total.
+//!
+//! `Rank`, `RowNumber` and `CumeDist` sort each group by the field's value;
+//! `CumulativeSum` does **not**, it accumulates in the group's row order. Sort
+//! the data first when a particular order matters (a waterfall's steps, a
+//! running balance).
+//!
+//! `CumeDist` is the one operation that changes the row count: each group gains
+//! a start and an end row so the step curve reaches the axis edges. The others
+//! keep the original rows and leave null inputs as null.
 
 use crate::chart::Chart;
 use crate::core::data::{ColumnVector, Dataset};
@@ -35,6 +42,12 @@ pub enum WindowOnlyOp {
     PercentRank,
     /// Calculates the cumulative distribution of data objects within a group
     CumeDist,
+    /// Running total of the field, accumulated in the group's row order.
+    ///
+    /// Unlike `Rank`/`CumeDist`, this does **not** sort: the result is the
+    /// cumulative sum of the rows as they appear. Sort the data first when a
+    /// particular order is required (a waterfall's steps, a running balance).
+    CumulativeSum,
     /// Divides data objects into N buckets based on their sorted order
     Ntile(u32), // With parameter
     /// Returns the value of the data object that is at a specified offset prior to the current object
@@ -57,6 +70,7 @@ impl WindowOnlyOp {
             WindowOnlyOp::DenseRank => "dense_rank",
             WindowOnlyOp::PercentRank => "percent_rank",
             WindowOnlyOp::CumeDist => "cume_dist",
+            WindowOnlyOp::CumulativeSum => "cumulative_sum",
             WindowOnlyOp::Ntile(_) => "ntile",
             WindowOnlyOp::Lag(_) => "lag",
             WindowOnlyOp::Lead(_) => "lead",
@@ -277,6 +291,28 @@ impl<T: Mark> Chart<T> {
             WindowOnlyOp::CumeDist => {
                 // ECDF generates a new Dataset (row count changes due to padding)
                 self.data = self.apply_ecdf_with_padding(groups, group_order, &params)?;
+            }
+            WindowOnlyOp::CumulativeSum => {
+                // Same row count as the input; accumulate in row order per group.
+                let mut results = vec![f64::NAN; n];
+                for key in group_order {
+                    if let Some(indices) = groups.remove(&key) {
+                        let mut acc = 0.0;
+                        for idx in indices {
+                            if let Some(v) = target_col.get(idx).to_f64() {
+                                acc += v;
+                                results[idx] = acc;
+                            }
+                        }
+                    }
+                }
+                self.data.add_column(
+                    output_name,
+                    ColumnVector::Float64 {
+                        data: results,
+                        validity: None,
+                    },
+                )?;
             }
             WindowOnlyOp::RowNumber | WindowOnlyOp::Rank => {
                 // Ranking operations maintain original row count.

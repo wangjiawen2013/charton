@@ -270,6 +270,14 @@ pub trait Layer: MarkRenderer + Send + Sync {
     /// Returns the expansion rules (padding/margins) requested by this layer for a channel.
     fn get_expand(&self, channel: Channel) -> Option<Expansion>;
 
+    /// Whether this layer asked for a reversed positional axis.
+    ///
+    /// Defaults to `false` so non-positional layers ignore it.
+    fn get_reverse(&self, channel: Channel) -> bool {
+        let _ = channel;
+        false
+    }
+
     /// Calculates the raw data boundaries (Min/Max for continuous, unique labels for discrete)
     /// contained within this specific layer's dataset.
     ///
