@@ -16,8 +16,8 @@ That one line reads the table, infers the column types, builds the chart and
 draws it in the terminal. The Nushell command is `charton` (the plugin is
 registered under the name without the `nu_plugin_` prefix).
 
-Two flags get you a chart: **`-g` picks the chart type** and **`-x` / `-y` name
-the columns to plot**. Everything else — colour, stacking, faceting, themes — is
+Two flags get you a chart: `-g` picks the chart type and `-x` / `-y` name
+the columns to plot. Everything else — colour, stacking, faceting, themes — is
 optional.
 
 > **Compatibility:** `nu_plugin_charton` targets **Nushell 0.116** and shares
