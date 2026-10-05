@@ -2,20 +2,26 @@
 //!
 //! The value is read from `y`, an optional category from `x`, and an optional
 //! group from `color`. The mark runs `transform_density` (one curve per group)
-//! and draws each curve as a symmetric `transform_band` polygon.
+//! and draws each curve as a `transform_band` polygon, so the outline and its
+//! lane placement are the ordinary public pieces.
+//!
+//! The shape is a symmetric violin by default. `with_split` shares one centre
+//! line between two groups, `with_side` keeps a single bank (a half violin, or
+//! the ridgeline's one-sided ridge), and `with_overlap` lets a band grow past
+//! its lane so neighbours overlap.
 //!
 //! # Example
 //!
 //! ```rust,ignore
 //! chart!(penguins)?
 //!     .mark_violin()?
-//!     .configure_violin(|v| v.with_split(false))
+//!     .configure_violin(|v| v.with_split(false).with_opacity(0.7))
 //!     .encode((alt::x("Sex"), alt::y("Body Mass (g)"), alt::color("Species")))?
 //!     .save("violin.svg")?;
 //! ```
 
 use crate::mark::Mark;
-use crate::transform::band_transform::BandScale;
+use crate::transform::band_transform::{BandScale, BandSide};
 use crate::transform::density_transform::BandwidthType;
 use crate::visual::color::SingleColor;
 
@@ -36,9 +42,11 @@ pub struct MarkViolin {
     pub(crate) bandwidth: BandwidthType,
     pub(crate) trim: bool,
     pub(crate) split: bool,
+    pub(crate) side: BandSide,
     pub(crate) scale: BandScale,
     pub(crate) width: f64,
     pub(crate) span: f64,
+    pub(crate) overlap: f64,
 
     // --- Resolved input columns ---
     //
@@ -63,9 +71,11 @@ impl MarkViolin {
             bandwidth: BandwidthType::Scott,
             trim: true,
             split: false,
+            side: BandSide::Both,
             scale: BandScale::PerGroup,
             width: 0.5,
             span: 0.7,
+            overlap: 1.0,
 
             inputs_resolved: false,
             value_field: None,
@@ -118,9 +128,20 @@ impl MarkViolin {
     /// Draws two groups as the left and right halves of one violin.
     ///
     /// Requires a `color` encoding; the first group grows right, the second
-    /// left. Without a colour group this has no effect.
+    /// left. Without a colour group there is nothing to split, so the violin
+    /// stays symmetric — use [`with_side`](Self::with_side) for a one-sided
+    /// violin.
     pub const fn with_split(mut self, split: bool) -> Self {
         self.split = split;
+        self
+    }
+
+    /// Keeps only one bank of the violin ([`BandSide::Right`] / `Left`).
+    ///
+    /// The flat edge becomes the centre line. With one violin per category on a
+    /// flipped axis this is a one-sided ridgeline.
+    pub const fn with_side(mut self, side: BandSide) -> Self {
+        self.side = side;
         self
     }
 
@@ -140,6 +161,16 @@ impl MarkViolin {
     /// Sets the total width of a category's violin group, in category steps.
     pub const fn with_span(mut self, span: f64) -> Self {
         self.span = span.clamp(0.0, 1.0);
+        self
+    }
+
+    /// Grows each violin past its lane so neighbouring violins overlap.
+    ///
+    /// The value multiplies the half-width after scaling. `1.0` (the default)
+    /// keeps every violin inside its lane; values above `1.0` let it spill into
+    /// the next lane or category, the overlapping look of a ridgeline.
+    pub const fn with_overlap(mut self, overlap: f64) -> Self {
+        self.overlap = if overlap > 0.0 { overlap } else { 1.0 };
         self
     }
 }

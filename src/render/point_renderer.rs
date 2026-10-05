@@ -9,12 +9,26 @@ use crate::core::utils::IntoParallelizable;
 use crate::error::ChartonError;
 use crate::mark::point::{MarkPoint, PointLayout, QuasirandomMethod};
 use crate::position::Position;
+use crate::scale::Scale;
 use crate::stats::kde::{BandwidthType, density_profile};
 use crate::visual::color::SingleColor;
 use crate::visual::shape::PointShape;
 
 #[cfg(feature = "parallel")]
 use rayon::prelude::*;
+
+/// The lane adjustment for a grouped point.
+///
+/// Dodge is a *category* concept: it only applies when the x axis is discrete.
+/// On a continuous axis the point stays on its own x (so it lines up with a
+/// rule, line or area through the same value), whatever the mark asks for.
+const fn lane_position(mark: &MarkPoint, categorical_x: bool) -> Position {
+    if categorical_x {
+        mark.dodge_position()
+    } else {
+        Position::Identity
+    }
+}
 
 /// Small extra gap kept between two markers in a swarm, expressed as a
 /// multiplier on their combined radius. It stops markers from looking glued
@@ -59,6 +73,14 @@ impl MarkRenderer for Chart<MarkPoint> {
         let is_flipped = context.coord.is_flipped();
 
         let unit_step_norm = (x_scale.normalize(1.0) - x_scale.normalize(0.0)).abs();
+
+        // A dodge is a *category* lane, so it only applies on a discrete x axis.
+        // On a continuous axis `unit_step_norm` is just "one data unit", not a
+        // category step, so offsetting by it would be arbitrary (and could be a
+        // large share of the panel for a narrow range); the points stay on
+        // their own x instead, so a rule, line or area drawn through them lines
+        // up. `with_dodge(false)` also turns the lane off on a discrete axis.
+        let categorical_x = matches!(x_scale.scale_type(), Scale::Discrete);
 
         let x_norms = x_scale
             .scale_type()
@@ -106,6 +128,7 @@ impl MarkRenderer for Chart<MarkPoint> {
                     unit_step_norm,
                     context,
                     mark_config,
+                    categorical_x,
                 )
             }
             PointLayout::Quasirandom => {
@@ -122,6 +145,7 @@ impl MarkRenderer for Chart<MarkPoint> {
                     unit_step_norm,
                     context,
                     mark_config,
+                    categorical_x,
                 )
             }
             _ => {
@@ -140,9 +164,7 @@ impl MarkRenderer for Chart<MarkPoint> {
                             let total_groups = cnt_col.get(i).to_f64().unwrap_or(1.0);
                             let sub_idx = sub_col.get(i).to_f64().unwrap_or(0.0);
 
-                            let position = Position::Dodge {
-                                spacing: mark_config.spacing,
-                            };
+                            let position = lane_position(mark_config, categorical_x);
                             let box_width_data = position.item_width(
                                 total_groups,
                                 mark_config.span,
@@ -273,6 +295,7 @@ impl Chart<MarkPoint> {
         unit_step_norm: f64,
         context: &PanelContext,
         mark_config: &MarkPoint,
+        categorical_x: bool,
     ) -> Vec<(usize, PointElementConfig)> {
         let mut configs = Vec::with_capacity(row_count);
         let mut occupancy: std::collections::HashMap<(usize, usize), Vec<(f64, f64, f64)>> =
@@ -332,9 +355,7 @@ impl Chart<MarkPoint> {
                 let sub_idx = sub_col.get(i).to_f64().unwrap_or(0.0);
                 lane_id = sub_idx as usize;
 
-                let position = Position::Dodge {
-                    spacing: mark_config.spacing,
-                };
+                let position = lane_position(mark_config, categorical_x);
                 let box_width_data =
                     position.item_width(total_groups, mark_config.span, mark_config.width);
                 let box_width_norm = box_width_data * unit_step_norm;
@@ -473,6 +494,7 @@ impl Chart<MarkPoint> {
         unit_step_norm: f64,
         context: &PanelContext,
         mark_config: &MarkPoint,
+        categorical_x: bool,
     ) -> Vec<(usize, PointElementConfig)> {
         // Group the points into lanes. Each lane gets its own density estimate
         // so that one group cannot flatten the shape of another.
@@ -534,6 +556,7 @@ impl Chart<MarkPoint> {
                     groups_count_col,
                     unit_step_norm,
                     mark_config,
+                    categorical_x,
                 );
 
                 let offset_n = 0.5 * lane_width_norm * density[slot] * sides[rank];
@@ -574,15 +597,14 @@ impl Chart<MarkPoint> {
         groups_count_col: Option<&crate::core::data::ColumnVector>,
         unit_step_norm: f64,
         mark_config: &MarkPoint,
+        categorical_x: bool,
     ) -> (f64, f64) {
         match (sub_idx_col, groups_count_col) {
             (Some(sub_col), Some(cnt_col)) => {
                 let total_groups = cnt_col.get(i).to_f64().unwrap_or(1.0);
                 let sub_idx = sub_col.get(i).to_f64().unwrap_or(0.0);
 
-                let position = Position::Dodge {
-                    spacing: mark_config.spacing,
-                };
+                let position = lane_position(mark_config, categorical_x);
                 let box_width_data =
                     position.item_width(total_groups, mark_config.span, mark_config.width);
                 let box_width_norm = box_width_data * unit_step_norm;

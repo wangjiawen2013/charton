@@ -1,3 +1,12 @@
+//! Bar geometry: one rectangle per row, from a baseline or a floating span.
+//!
+//! Each row becomes a rectangle in data space. Normally it grows from zero
+//! (`y` is the top); when the encoding carries a `y2` bound the rectangle
+//! *floats* between the two values instead — how a candlestick body and a
+//! waterfall step are drawn. The side-by-side offset comes from
+//! [`Position`], using the `sub_idx` / `groups_count` columns prepared by
+//! [`Chart::transform_bar_data`](crate::chart::Chart).
+
 use crate::Precision;
 use crate::TEMP_SUFFIX;
 use crate::chart::Chart;
@@ -42,7 +51,8 @@ impl MarkRenderer for Chart<MarkBar> {
         let x_scale = context.coord.get_x_scale();
         let y_scale = context.coord.get_y_scale();
 
-        let is_stacked = y_enc.stack != StackMode::None;
+        // A secondary `y2` makes the bar float between two values; it cannot be
+        // stacked on top of its neighbours at the same time.
         let is_pie_mode = x_enc.field.is_empty();
         let hints = context.coord.layout_hints();
         let is_polar = hints.needs_interpolation;
@@ -55,6 +65,13 @@ impl MarkRenderer for Chart<MarkBar> {
             .column(&format!("{}_groups_count", TEMP_SUFFIX))?
             .to_f64_vec();
         let y_values = ds.column(&y_enc.field)?.to_f64_vec();
+        let y2_values = self
+            .encoding
+            .y2
+            .as_ref()
+            .map(|e| ds.column(&e.field).map(|c| c.to_f64_vec()))
+            .transpose()?;
+        let is_stacked = y_enc.stack != StackMode::None && y2_values.is_none();
         let x_norms = x_scale
             .scale_type()
             .normalize_column(x_scale, ds.column(&x_enc.field)?);
@@ -99,7 +116,12 @@ impl MarkRenderer for Chart<MarkBar> {
             let n_groups = group_counts[idx];
 
             // A: Resolve Y-Bounds
-            let (y_low_n, y_high_n) = if is_stacked {
+            let (y_low_n, y_high_n) = if let Some(y2_vals) = &y2_values {
+                // Floating bar: span the two bounds (in either order).
+                let a = y_scale.normalize(y_val);
+                let b = y_scale.normalize(y2_vals[idx]);
+                (a.min(b), a.max(b))
+            } else if is_stacked {
                 let x_pos = *x_idx_map.get(x_str.as_str()).unwrap_or(&0);
                 let start = stack_acc[x_pos];
                 let end = start + y_val;

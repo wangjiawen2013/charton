@@ -370,3 +370,116 @@ fn test_scatter_16() -> Result<(), Box<dyn Error>> {
 
     Ok(())
 }
+
+/// `with_dodge(false)` keeps colour-grouped points on the category centre — the
+/// opt-out a dumbbell needs so both ends stay on the shared segment.
+#[test]
+fn point_dodge_can_be_disabled() -> Result<(), Box<dyn Error>> {
+    let cat = ["A", "A", "B", "B"];
+    let val = [1.0, 2.0, 1.0, 2.0];
+    let grp = ["x", "y", "x", "y"];
+
+    chart!(cat, val, grp)?
+        .mark_point()?
+        .configure_point(|p| p.with_dodge(false))
+        .encode((alt::x("cat"), alt::y("val"), alt::color("grp")))?
+        .configure_theme(|t| t.with_show_legend(false))
+        .save("./target/test-output/point_no_dodge.svg")?;
+
+    let svg = std::fs::read_to_string("./target/test-output/point_no_dodge.svg")?;
+    let xs: Vec<f64> = svg
+        .split("<circle ")
+        .skip(1)
+        .filter_map(|seg| {
+            let s = seg.find("cx=\"")? + 4;
+            let e = seg[s..].find('"')? + s;
+            seg[s..e].parse().ok()
+        })
+        .collect();
+
+    assert_eq!(xs.len(), 4, "expected four points, got {xs:?}");
+
+    // The four points collapse onto exactly two x positions (one per category),
+    // each shared by the two colour groups — so nothing dodged.
+    let mut sorted = xs.clone();
+    sorted.sort_by(f64::total_cmp);
+    assert!((sorted[0] - sorted[1]).abs() < 0.5, "groups dodged: {xs:?}");
+    assert!((sorted[2] - sorted[3]).abs() < 0.5, "groups dodged: {xs:?}");
+    assert!(
+        (sorted[1] - sorted[2]).abs() > 1.0,
+        "categories collapsed: {xs:?}"
+    );
+    Ok(())
+}
+
+/// x positions of every drawn point (legend is off in these tests).
+fn circle_cx(svg: &str) -> Vec<f64> {
+    svg.split("<circle ")
+        .skip(1)
+        .filter_map(|seg| {
+            let s = seg.find("cx=\"")? + 4;
+            let e = seg[s..].find('"')? + s;
+            seg[s..e].parse().ok()
+        })
+        .collect()
+}
+
+fn distinct_count(mut xs: Vec<f64>) -> usize {
+    xs.sort_by(f64::total_cmp);
+    let mut n = 0;
+    let mut last = f64::NEG_INFINITY;
+    for x in xs {
+        if (x - last).abs() > 0.5 {
+            n += 1;
+            last = x;
+        }
+    }
+    n
+}
+
+/// On a categorical x a colour grouping still dodges: the two series sit side
+/// by side, giving four distinct x positions over two categories.
+#[test]
+fn categorical_axis_points_dodge() -> Result<(), Box<dyn Error>> {
+    let cat = ["A", "A", "B", "B"];
+    let val = [1.0, 2.0, 1.0, 2.0];
+    let grp = ["x", "y", "x", "y"];
+
+    chart!(cat, val, grp)?
+        .mark_point()?
+        .encode((alt::x("cat"), alt::y("val"), alt::color("grp")))?
+        .configure_theme(|t| t.with_show_legend(false))
+        .save("./target/test-output/point_cat_dodge.svg")?;
+
+    let svg = std::fs::read_to_string("./target/test-output/point_cat_dodge.svg")?;
+    assert_eq!(
+        distinct_count(circle_cx(&svg)),
+        4,
+        "expected two dodged lanes"
+    );
+    Ok(())
+}
+
+/// On a continuous x a colour grouping does NOT dodge — it is an attribute. The
+/// offset would otherwise be scaled by an arbitrary data unit.
+#[test]
+fn continuous_axis_points_do_not_dodge() -> Result<(), Box<dyn Error>> {
+    let x = [0.0, 1.0, 0.0, 1.0];
+    let y = [1.0, 1.0, 2.0, 2.0];
+    let grp = ["a", "a", "b", "b"];
+
+    chart!(x, y, grp)?
+        .mark_point()?
+        .encode((alt::x("x"), alt::y("y"), alt::color("grp")))?
+        .configure_theme(|t| t.with_show_legend(false))
+        .save("./target/test-output/point_cont_no_dodge.svg")?;
+
+    let svg = std::fs::read_to_string("./target/test-output/point_cont_no_dodge.svg")?;
+    // Two x values, each shared by both colour groups.
+    assert_eq!(
+        distinct_count(circle_cx(&svg)),
+        2,
+        "continuous axis must not dodge"
+    );
+    Ok(())
+}

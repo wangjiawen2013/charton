@@ -60,7 +60,7 @@ impl<T: Mark> Chart<T> {
         }
 
         // --- Step 2: Read back the resolved parameters ----------------------
-        let (value, center, group, bandwidth, trim, split, band_scale, width, span) = {
+        let (value, center, group, bandwidth, trim, split, side, band_scale, width, span, overlap) = {
             let v = self
                 .mark
                 .as_ref()
@@ -73,9 +73,11 @@ impl<T: Mark> Chart<T> {
                 v.bandwidth,
                 v.trim,
                 v.split,
+                v.side,
                 v.scale,
                 v.width,
                 v.span,
+                v.overlap,
             )
         };
 
@@ -111,6 +113,8 @@ impl<T: Mark> Chart<T> {
             .with_scale(band_scale)
             .with_width(width)
             .with_span(span)
+            .with_overlap(overlap)
+            .with_side(side)
             .with_split(split);
         if let Some(c) = &center {
             band = band.with_center(c.clone());

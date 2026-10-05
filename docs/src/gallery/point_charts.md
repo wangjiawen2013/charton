@@ -31,6 +31,14 @@ The layout is a property of the point mark:
 .configure_point(|m| m.with_layout("beeswarm").with_size(1.5))
 ```
 
+Separately from the layout, a `color` grouping **dodges** points into
+side-by-side lanes — but only on a *categorical* x axis, where a lane means
+something. On a continuous axis the points stay on their own x, so they line up
+with a rule, line or area drawn through them. `with_dodge(false)` turns the lane
+off even on a categorical axis, so the colour is an attribute rather than a
+group (the [dumbbell](uncertainties_and_trends.md#dumbbell-connected-dot) uses
+it).
+
 ### Beeswarm
 
 <img src="../images/beeswarm.svg" width="500">

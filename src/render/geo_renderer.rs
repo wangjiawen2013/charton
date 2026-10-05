@@ -128,12 +128,10 @@ impl MarkRenderer for Chart<MarkGeoPath> {
 
         for (points, group_color) in geo_render_data {
             if mark_config.closed {
-                // Fill and outline are two independent passes. The fill pass
-                // must not carry the stroke, otherwise every explicit edge is
-                // stroked twice while the closing edge (added only by the
-                // closed fill path) is stroked once, leaving it visibly
-                // lighter. The outline pass is itself closed so the closing
-                // edge is stroked exactly like the rest.
+                // Fill and outline are two independent passes. The fill carries
+                // no stroke, so the anti-aliased fill stays clean, and the
+                // closed outline pass strokes every edge exactly once — the
+                // closing edge included.
                 backend.draw_path(PathConfig {
                     points: points.clone(),
                     fill: group_color,

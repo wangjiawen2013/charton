@@ -51,7 +51,7 @@
 - [Cumulative Density](gallery/cumulative_density.md)
 - [Violin](gallery/violin.md)
 - [Box Plots](gallery/box_plot.md)
-- [Bars & Error Bars](gallery/uncertainties_and_trends.md)
+- [Bars, Ranges & Comparisons](gallery/uncertainties_and_trends.md)
 - [Line Charts](gallery/line_charts.md)
 - [Area Charts](gallery/area_charts.md)
 - [Scatter](gallery/point_charts.md)

@@ -66,6 +66,10 @@ use the new names downstream.
 | `transform_calculate(name, f)` | any column, through `row.val("...")` | `name` |
 | `transform_window(...)` | any column | the window output column |
 
+`transform_window` adds one column per call: `Rank` / `RowNumber` (position),
+`CumeDist` (an ECDF step) and `CumulativeSum` (a running total, accumulated in
+row order). Partition with `with_groupbys([...])`.
+
 These **keep every existing column**, so the encoding can still refer to the
 originals alongside the new one.
 

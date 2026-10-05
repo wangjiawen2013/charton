@@ -30,3 +30,23 @@ fn tests_transform_window_1() -> Result<(), Box<dyn Error>> {
 
     Ok(())
 }
+
+/// Cumulative sum accumulates in row order without sorting. It is the statistic
+/// behind a waterfall's running total.
+#[test]
+fn tests_transform_window_cumulative_sum() -> Result<(), Box<dyn Error>> {
+    let step = ["Start", "Q1", "Q2", "Q3"];
+    let delta = [100.0, 40.0, -25.0, 15.0];
+
+    chart!(step, delta)?
+        .transform_window(WindowTransform::new(WindowFieldDef::new(
+            "delta",
+            WindowOnlyOp::CumulativeSum,
+            "total",
+        )))?
+        .mark_line()?
+        .encode((alt::x("step"), alt::y("total")))?
+        .save("./target/test-output/transform_window_cumsum.svg")?;
+
+    Ok(())
+}

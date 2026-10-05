@@ -52,3 +52,27 @@ as `$20B` instead of raw numbers.
 ```rust
 {{#include ../../../examples/label_format.rs}}
 ```
+
+## Slope chart
+
+<img src="../images/slope.svg" width="500">
+
+Change between two points in time: `mark_line` connects each group's two values
+and `mark_point` marks them. Grouping the line is just `color`.
+
+```rust
+{{#include ../../../examples/slope.rs}}
+```
+
+## Bump chart
+
+<img src="../images/bump.svg" width="500">
+
+How a ranking moves over time. `transform_window` with `WindowOnlyOp::Rank`
+ranks each group inside every period, and ordinary line/point layers draw the
+trajectories. The y-axis is reversed with `with_reverse(true)` so rank 1 sits at
+the top.
+
+```rust
+{{#include ../../../examples/bump.rs}}
+```

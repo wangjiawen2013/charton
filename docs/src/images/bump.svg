@@ -1,0 +1,135 @@
+<svg width="500" height="400" viewBox="0 0 500 400" xmlns="http://www.w3.org/2000/svg"><rect x="0.000" y="0.000" width="500.000" height="400.000" fill="rgba(255,255,255,1.000)" stroke="none" stroke-width="0.000" fill-opacity="1.000" stroke-opacity="1.000" />
+<text x="220.325" y="20.800" font-size="18.0" font-family="Inter, -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, 'PingFang SC', 'Microsoft YaHei', Ubuntu, Cantarell, 'Noto Sans', sans-serif" fill="rgba(51,51,51,1.000)" fill-opacity="1.000" text-anchor="middle" font-weight="bold" dominant-baseline="middle" transform="rotate(0 220.325 20.800)">Unemployment rank by year</text>
+<defs><clipPath id="plot-clip-area-0"><rect x="57.650" y="37.600" width="325.350" height="324.400" /></clipPath></defs>
+<g clip-path="url(#plot-clip-area-0)">
+<path d="M 72.439 52.345 L 101.992 101.497 L 131.626 101.497 L 161.179 150.648 L 190.732 150.648 L 220.285 199.800 L 249.918 199.800 L 279.471 199.800 L 309.024 150.648 L 338.577 199.800 L 368.211 248.952" fill="none" stroke="rgba(31,119,180,1.000)" stroke-width="3.000" stroke-opacity="1.000" stroke-linejoin="round" stroke-linecap="round" />
+<path d="M 72.439 298.103 L 101.992 347.255 L 131.626 298.103 L 161.179 298.103 L 190.732 298.103 L 220.285 298.103 L 249.918 298.103 L 279.471 298.103 L 309.024 248.952 L 338.577 298.103 L 368.211 298.103" fill="none" stroke="rgba(255,127,14,1.000)" stroke-width="3.000" stroke-opacity="1.000" stroke-linejoin="round" stroke-linecap="round" />
+<path d="M 72.439 150.648 L 101.992 52.345 L 131.626 52.345 L 161.179 52.345 L 190.732 52.345 L 220.285 52.345 L 249.918 150.648 L 279.471 150.648 L 309.024 298.103 L 338.577 101.497 L 368.211 150.648" fill="none" stroke="rgba(44,160,44,1.000)" stroke-width="3.000" stroke-opacity="1.000" stroke-linejoin="round" stroke-linecap="round" />
+<path d="M 72.439 101.497 L 101.992 150.648 L 131.626 150.648 L 161.179 101.497 L 190.732 101.497 L 220.285 150.648 L 249.918 101.497 L 279.471 101.497 L 309.024 101.497 L 338.577 150.648 L 368.211 52.345" fill="none" stroke="rgba(214,39,40,1.000)" stroke-width="3.000" stroke-opacity="1.000" stroke-linejoin="round" stroke-linecap="round" />
+<path d="M 72.439 347.255 L 101.992 298.103 L 131.626 347.255 L 161.179 347.255 L 190.732 347.255 L 220.285 347.255 L 249.918 347.255 L 279.471 347.255 L 309.024 347.255 L 338.577 347.255 L 368.211 347.255" fill="none" stroke="rgba(148,103,189,1.000)" stroke-width="3.000" stroke-opacity="1.000" stroke-linejoin="round" stroke-linecap="round" />
+<path d="M 72.439 248.952 L 101.992 248.952 L 131.626 199.800 L 161.179 199.800 L 190.732 199.800 L 220.285 101.497 L 249.918 52.345 L 279.471 52.345 L 309.024 52.345 L 338.577 52.345 L 368.211 101.497" fill="none" stroke="rgba(140,86,75,1.000)" stroke-width="3.000" stroke-opacity="1.000" stroke-linejoin="round" stroke-linecap="round" />
+<path d="M 72.439 199.800 L 101.992 199.800 L 131.626 248.952 L 161.179 248.952 L 190.732 248.952 L 220.285 248.952 L 249.918 248.952 L 279.471 248.952 L 309.024 199.800 L 338.577 248.952 L 368.211 199.800" fill="none" stroke="rgba(227,119,194,1.000)" stroke-width="3.000" stroke-opacity="1.000" stroke-linejoin="round" stroke-linecap="round" />
+<circle cx="72.439" cy="52.345" r="7.000" fill="rgba(31,119,180,1.000)" stroke="none" stroke-width="0.000" fill-opacity="1.000" stroke-opacity="1.000" />
+<circle cx="101.992" cy="101.497" r="7.000" fill="rgba(31,119,180,1.000)" stroke="none" stroke-width="0.000" fill-opacity="1.000" stroke-opacity="1.000" />
+<circle cx="131.626" cy="101.497" r="7.000" fill="rgba(31,119,180,1.000)" stroke="none" stroke-width="0.000" fill-opacity="1.000" stroke-opacity="1.000" />
+<circle cx="161.179" cy="150.648" r="7.000" fill="rgba(31,119,180,1.000)" stroke="none" stroke-width="0.000" fill-opacity="1.000" stroke-opacity="1.000" />
+<circle cx="190.732" cy="150.648" r="7.000" fill="rgba(31,119,180,1.000)" stroke="none" stroke-width="0.000" fill-opacity="1.000" stroke-opacity="1.000" />
+<circle cx="220.285" cy="199.800" r="7.000" fill="rgba(31,119,180,1.000)" stroke="none" stroke-width="0.000" fill-opacity="1.000" stroke-opacity="1.000" />
+<circle cx="249.918" cy="199.800" r="7.000" fill="rgba(31,119,180,1.000)" stroke="none" stroke-width="0.000" fill-opacity="1.000" stroke-opacity="1.000" />
+<circle cx="279.471" cy="199.800" r="7.000" fill="rgba(31,119,180,1.000)" stroke="none" stroke-width="0.000" fill-opacity="1.000" stroke-opacity="1.000" />
+<circle cx="309.024" cy="150.648" r="7.000" fill="rgba(31,119,180,1.000)" stroke="none" stroke-width="0.000" fill-opacity="1.000" stroke-opacity="1.000" />
+<circle cx="338.577" cy="199.800" r="7.000" fill="rgba(31,119,180,1.000)" stroke="none" stroke-width="0.000" fill-opacity="1.000" stroke-opacity="1.000" />
+<circle cx="368.211" cy="248.952" r="7.000" fill="rgba(31,119,180,1.000)" stroke="none" stroke-width="0.000" fill-opacity="1.000" stroke-opacity="1.000" />
+<circle cx="72.439" cy="298.103" r="7.000" fill="rgba(255,127,14,1.000)" stroke="none" stroke-width="0.000" fill-opacity="1.000" stroke-opacity="1.000" />
+<circle cx="101.992" cy="347.255" r="7.000" fill="rgba(255,127,14,1.000)" stroke="none" stroke-width="0.000" fill-opacity="1.000" stroke-opacity="1.000" />
+<circle cx="131.626" cy="298.103" r="7.000" fill="rgba(255,127,14,1.000)" stroke="none" stroke-width="0.000" fill-opacity="1.000" stroke-opacity="1.000" />
+<circle cx="161.179" cy="298.103" r="7.000" fill="rgba(255,127,14,1.000)" stroke="none" stroke-width="0.000" fill-opacity="1.000" stroke-opacity="1.000" />
+<circle cx="190.732" cy="298.103" r="7.000" fill="rgba(255,127,14,1.000)" stroke="none" stroke-width="0.000" fill-opacity="1.000" stroke-opacity="1.000" />
+<circle cx="220.285" cy="298.103" r="7.000" fill="rgba(255,127,14,1.000)" stroke="none" stroke-width="0.000" fill-opacity="1.000" stroke-opacity="1.000" />
+<circle cx="249.918" cy="298.103" r="7.000" fill="rgba(255,127,14,1.000)" stroke="none" stroke-width="0.000" fill-opacity="1.000" stroke-opacity="1.000" />
+<circle cx="279.471" cy="298.103" r="7.000" fill="rgba(255,127,14,1.000)" stroke="none" stroke-width="0.000" fill-opacity="1.000" stroke-opacity="1.000" />
+<circle cx="309.024" cy="248.952" r="7.000" fill="rgba(255,127,14,1.000)" stroke="none" stroke-width="0.000" fill-opacity="1.000" stroke-opacity="1.000" />
+<circle cx="338.577" cy="298.103" r="7.000" fill="rgba(255,127,14,1.000)" stroke="none" stroke-width="0.000" fill-opacity="1.000" stroke-opacity="1.000" />
+<circle cx="368.211" cy="298.103" r="7.000" fill="rgba(255,127,14,1.000)" stroke="none" stroke-width="0.000" fill-opacity="1.000" stroke-opacity="1.000" />
+<circle cx="72.439" cy="150.648" r="7.000" fill="rgba(44,160,44,1.000)" stroke="none" stroke-width="0.000" fill-opacity="1.000" stroke-opacity="1.000" />
+<circle cx="101.992" cy="52.345" r="7.000" fill="rgba(44,160,44,1.000)" stroke="none" stroke-width="0.000" fill-opacity="1.000" stroke-opacity="1.000" />
+<circle cx="131.626" cy="52.345" r="7.000" fill="rgba(44,160,44,1.000)" stroke="none" stroke-width="0.000" fill-opacity="1.000" stroke-opacity="1.000" />
+<circle cx="161.179" cy="52.345" r="7.000" fill="rgba(44,160,44,1.000)" stroke="none" stroke-width="0.000" fill-opacity="1.000" stroke-opacity="1.000" />
+<circle cx="190.732" cy="52.345" r="7.000" fill="rgba(44,160,44,1.000)" stroke="none" stroke-width="0.000" fill-opacity="1.000" stroke-opacity="1.000" />
+<circle cx="220.285" cy="52.345" r="7.000" fill="rgba(44,160,44,1.000)" stroke="none" stroke-width="0.000" fill-opacity="1.000" stroke-opacity="1.000" />
+<circle cx="249.918" cy="150.648" r="7.000" fill="rgba(44,160,44,1.000)" stroke="none" stroke-width="0.000" fill-opacity="1.000" stroke-opacity="1.000" />
+<circle cx="279.471" cy="150.648" r="7.000" fill="rgba(44,160,44,1.000)" stroke="none" stroke-width="0.000" fill-opacity="1.000" stroke-opacity="1.000" />
+<circle cx="309.024" cy="298.103" r="7.000" fill="rgba(44,160,44,1.000)" stroke="none" stroke-width="0.000" fill-opacity="1.000" stroke-opacity="1.000" />
+<circle cx="338.577" cy="101.497" r="7.000" fill="rgba(44,160,44,1.000)" stroke="none" stroke-width="0.000" fill-opacity="1.000" stroke-opacity="1.000" />
+<circle cx="368.211" cy="150.648" r="7.000" fill="rgba(44,160,44,1.000)" stroke="none" stroke-width="0.000" fill-opacity="1.000" stroke-opacity="1.000" />
+<circle cx="72.439" cy="101.497" r="7.000" fill="rgba(214,39,40,1.000)" stroke="none" stroke-width="0.000" fill-opacity="1.000" stroke-opacity="1.000" />
+<circle cx="101.992" cy="150.648" r="7.000" fill="rgba(214,39,40,1.000)" stroke="none" stroke-width="0.000" fill-opacity="1.000" stroke-opacity="1.000" />
+<circle cx="131.626" cy="150.648" r="7.000" fill="rgba(214,39,40,1.000)" stroke="none" stroke-width="0.000" fill-opacity="1.000" stroke-opacity="1.000" />
+<circle cx="161.179" cy="101.497" r="7.000" fill="rgba(214,39,40,1.000)" stroke="none" stroke-width="0.000" fill-opacity="1.000" stroke-opacity="1.000" />
+<circle cx="190.732" cy="101.497" r="7.000" fill="rgba(214,39,40,1.000)" stroke="none" stroke-width="0.000" fill-opacity="1.000" stroke-opacity="1.000" />
+<circle cx="220.285" cy="150.648" r="7.000" fill="rgba(214,39,40,1.000)" stroke="none" stroke-width="0.000" fill-opacity="1.000" stroke-opacity="1.000" />
+<circle cx="249.918" cy="101.497" r="7.000" fill="rgba(214,39,40,1.000)" stroke="none" stroke-width="0.000" fill-opacity="1.000" stroke-opacity="1.000" />
+<circle cx="279.471" cy="101.497" r="7.000" fill="rgba(214,39,40,1.000)" stroke="none" stroke-width="0.000" fill-opacity="1.000" stroke-opacity="1.000" />
+<circle cx="309.024" cy="101.497" r="7.000" fill="rgba(214,39,40,1.000)" stroke="none" stroke-width="0.000" fill-opacity="1.000" stroke-opacity="1.000" />
+<circle cx="338.577" cy="150.648" r="7.000" fill="rgba(214,39,40,1.000)" stroke="none" stroke-width="0.000" fill-opacity="1.000" stroke-opacity="1.000" />
+<circle cx="368.211" cy="52.345" r="7.000" fill="rgba(214,39,40,1.000)" stroke="none" stroke-width="0.000" fill-opacity="1.000" stroke-opacity="1.000" />
+<circle cx="72.439" cy="347.255" r="7.000" fill="rgba(148,103,189,1.000)" stroke="none" stroke-width="0.000" fill-opacity="1.000" stroke-opacity="1.000" />
+<circle cx="101.992" cy="298.103" r="7.000" fill="rgba(148,103,189,1.000)" stroke="none" stroke-width="0.000" fill-opacity="1.000" stroke-opacity="1.000" />
+<circle cx="131.626" cy="347.255" r="7.000" fill="rgba(148,103,189,1.000)" stroke="none" stroke-width="0.000" fill-opacity="1.000" stroke-opacity="1.000" />
+<circle cx="161.179" cy="347.255" r="7.000" fill="rgba(148,103,189,1.000)" stroke="none" stroke-width="0.000" fill-opacity="1.000" stroke-opacity="1.000" />
+<circle cx="190.732" cy="347.255" r="7.000" fill="rgba(148,103,189,1.000)" stroke="none" stroke-width="0.000" fill-opacity="1.000" stroke-opacity="1.000" />
+<circle cx="220.285" cy="347.255" r="7.000" fill="rgba(148,103,189,1.000)" stroke="none" stroke-width="0.000" fill-opacity="1.000" stroke-opacity="1.000" />
+<circle cx="249.918" cy="347.255" r="7.000" fill="rgba(148,103,189,1.000)" stroke="none" stroke-width="0.000" fill-opacity="1.000" stroke-opacity="1.000" />
+<circle cx="279.471" cy="347.255" r="7.000" fill="rgba(148,103,189,1.000)" stroke="none" stroke-width="0.000" fill-opacity="1.000" stroke-opacity="1.000" />
+<circle cx="309.024" cy="347.255" r="7.000" fill="rgba(148,103,189,1.000)" stroke="none" stroke-width="0.000" fill-opacity="1.000" stroke-opacity="1.000" />
+<circle cx="338.577" cy="347.255" r="7.000" fill="rgba(148,103,189,1.000)" stroke="none" stroke-width="0.000" fill-opacity="1.000" stroke-opacity="1.000" />
+<circle cx="368.211" cy="347.255" r="7.000" fill="rgba(148,103,189,1.000)" stroke="none" stroke-width="0.000" fill-opacity="1.000" stroke-opacity="1.000" />
+<circle cx="72.439" cy="248.952" r="7.000" fill="rgba(140,86,75,1.000)" stroke="none" stroke-width="0.000" fill-opacity="1.000" stroke-opacity="1.000" />
+<circle cx="101.992" cy="248.952" r="7.000" fill="rgba(140,86,75,1.000)" stroke="none" stroke-width="0.000" fill-opacity="1.000" stroke-opacity="1.000" />
+<circle cx="131.626" cy="199.800" r="7.000" fill="rgba(140,86,75,1.000)" stroke="none" stroke-width="0.000" fill-opacity="1.000" stroke-opacity="1.000" />
+<circle cx="161.179" cy="199.800" r="7.000" fill="rgba(140,86,75,1.000)" stroke="none" stroke-width="0.000" fill-opacity="1.000" stroke-opacity="1.000" />
+<circle cx="190.732" cy="199.800" r="7.000" fill="rgba(140,86,75,1.000)" stroke="none" stroke-width="0.000" fill-opacity="1.000" stroke-opacity="1.000" />
+<circle cx="220.285" cy="101.497" r="7.000" fill="rgba(140,86,75,1.000)" stroke="none" stroke-width="0.000" fill-opacity="1.000" stroke-opacity="1.000" />
+<circle cx="249.918" cy="52.345" r="7.000" fill="rgba(140,86,75,1.000)" stroke="none" stroke-width="0.000" fill-opacity="1.000" stroke-opacity="1.000" />
+<circle cx="279.471" cy="52.345" r="7.000" fill="rgba(140,86,75,1.000)" stroke="none" stroke-width="0.000" fill-opacity="1.000" stroke-opacity="1.000" />
+<circle cx="309.024" cy="52.345" r="7.000" fill="rgba(140,86,75,1.000)" stroke="none" stroke-width="0.000" fill-opacity="1.000" stroke-opacity="1.000" />
+<circle cx="338.577" cy="52.345" r="7.000" fill="rgba(140,86,75,1.000)" stroke="none" stroke-width="0.000" fill-opacity="1.000" stroke-opacity="1.000" />
+<circle cx="368.211" cy="101.497" r="7.000" fill="rgba(140,86,75,1.000)" stroke="none" stroke-width="0.000" fill-opacity="1.000" stroke-opacity="1.000" />
+<circle cx="72.439" cy="199.800" r="7.000" fill="rgba(227,119,194,1.000)" stroke="none" stroke-width="0.000" fill-opacity="1.000" stroke-opacity="1.000" />
+<circle cx="101.992" cy="199.800" r="7.000" fill="rgba(227,119,194,1.000)" stroke="none" stroke-width="0.000" fill-opacity="1.000" stroke-opacity="1.000" />
+<circle cx="131.626" cy="248.952" r="7.000" fill="rgba(227,119,194,1.000)" stroke="none" stroke-width="0.000" fill-opacity="1.000" stroke-opacity="1.000" />
+<circle cx="161.179" cy="248.952" r="7.000" fill="rgba(227,119,194,1.000)" stroke="none" stroke-width="0.000" fill-opacity="1.000" stroke-opacity="1.000" />
+<circle cx="190.732" cy="248.952" r="7.000" fill="rgba(227,119,194,1.000)" stroke="none" stroke-width="0.000" fill-opacity="1.000" stroke-opacity="1.000" />
+<circle cx="220.285" cy="248.952" r="7.000" fill="rgba(227,119,194,1.000)" stroke="none" stroke-width="0.000" fill-opacity="1.000" stroke-opacity="1.000" />
+<circle cx="249.918" cy="248.952" r="7.000" fill="rgba(227,119,194,1.000)" stroke="none" stroke-width="0.000" fill-opacity="1.000" stroke-opacity="1.000" />
+<circle cx="279.471" cy="248.952" r="7.000" fill="rgba(227,119,194,1.000)" stroke="none" stroke-width="0.000" fill-opacity="1.000" stroke-opacity="1.000" />
+<circle cx="309.024" cy="199.800" r="7.000" fill="rgba(227,119,194,1.000)" stroke="none" stroke-width="0.000" fill-opacity="1.000" stroke-opacity="1.000" />
+<circle cx="338.577" cy="248.952" r="7.000" fill="rgba(227,119,194,1.000)" stroke="none" stroke-width="0.000" fill-opacity="1.000" stroke-opacity="1.000" />
+<circle cx="368.211" cy="199.800" r="7.000" fill="rgba(227,119,194,1.000)" stroke="none" stroke-width="0.000" fill-opacity="1.000" stroke-opacity="1.000" />
+</g>
+<path d="M 57.650 362.000 L 383.000 362.000" fill="none" stroke="rgba(0,0,0,1.000)" stroke-width="1.000" stroke-opacity="1.000" stroke-linejoin="round" stroke-linecap="round" />
+<path d="M 101.992 362.000 L 101.992 368.000" fill="none" stroke="rgba(0,0,0,1.000)" stroke-width="1.000" stroke-opacity="1.000" stroke-linejoin="round" stroke-linecap="round" />
+<text x="101.992" y="371.000" font-size="13.0" font-family="Inter, -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, 'PingFang SC', 'Microsoft YaHei', Ubuntu, Cantarell, 'Noto Sans', sans-serif" fill="rgba(51,51,51,1.000)" fill-opacity="1.000" text-anchor="middle" font-weight="normal" dominant-baseline="hanging" transform="rotate(0 101.992 371.000)">2012</text>
+<path d="M 161.179 362.000 L 161.179 368.000" fill="none" stroke="rgba(0,0,0,1.000)" stroke-width="1.000" stroke-opacity="1.000" stroke-linejoin="round" stroke-linecap="round" />
+<text x="161.179" y="371.000" font-size="13.0" font-family="Inter, -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, 'PingFang SC', 'Microsoft YaHei', Ubuntu, Cantarell, 'Noto Sans', sans-serif" fill="rgba(51,51,51,1.000)" fill-opacity="1.000" text-anchor="middle" font-weight="normal" dominant-baseline="hanging" transform="rotate(0 161.179 371.000)">2014</text>
+<path d="M 220.285 362.000 L 220.285 368.000" fill="none" stroke="rgba(0,0,0,1.000)" stroke-width="1.000" stroke-opacity="1.000" stroke-linejoin="round" stroke-linecap="round" />
+<text x="220.285" y="371.000" font-size="13.0" font-family="Inter, -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, 'PingFang SC', 'Microsoft YaHei', Ubuntu, Cantarell, 'Noto Sans', sans-serif" fill="rgba(51,51,51,1.000)" fill-opacity="1.000" text-anchor="middle" font-weight="normal" dominant-baseline="hanging" transform="rotate(0 220.285 371.000)">2016</text>
+<path d="M 279.471 362.000 L 279.471 368.000" fill="none" stroke="rgba(0,0,0,1.000)" stroke-width="1.000" stroke-opacity="1.000" stroke-linejoin="round" stroke-linecap="round" />
+<text x="279.471" y="371.000" font-size="13.0" font-family="Inter, -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, 'PingFang SC', 'Microsoft YaHei', Ubuntu, Cantarell, 'Noto Sans', sans-serif" fill="rgba(51,51,51,1.000)" fill-opacity="1.000" text-anchor="middle" font-weight="normal" dominant-baseline="hanging" transform="rotate(0 279.471 371.000)">2018</text>
+<path d="M 338.577 362.000 L 338.577 368.000" fill="none" stroke="rgba(0,0,0,1.000)" stroke-width="1.000" stroke-opacity="1.000" stroke-linejoin="round" stroke-linecap="round" />
+<text x="338.577" y="371.000" font-size="13.0" font-family="Inter, -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, 'PingFang SC', 'Microsoft YaHei', Ubuntu, Cantarell, 'Noto Sans', sans-serif" fill="rgba(51,51,51,1.000)" fill-opacity="1.000" text-anchor="middle" font-weight="normal" dominant-baseline="hanging" transform="rotate(0 338.577 371.000)">2020</text>
+<path d="M 57.650 37.600 L 57.650 362.000" fill="none" stroke="rgba(0,0,0,1.000)" stroke-width="1.000" stroke-opacity="1.000" stroke-linejoin="round" stroke-linecap="round" />
+<path d="M 57.650 52.345 L 51.650 52.345" fill="none" stroke="rgba(0,0,0,1.000)" stroke-width="1.000" stroke-opacity="1.000" stroke-linejoin="round" stroke-linecap="round" />
+<text x="47.650" y="52.345" font-size="13.0" font-family="Inter, -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, 'PingFang SC', 'Microsoft YaHei', Ubuntu, Cantarell, 'Noto Sans', sans-serif" fill="rgba(51,51,51,1.000)" fill-opacity="1.000" text-anchor="end" font-weight="normal" dominant-baseline="central" transform="rotate(0 47.650 52.345)">1</text>
+<path d="M 57.650 101.497 L 51.650 101.497" fill="none" stroke="rgba(0,0,0,1.000)" stroke-width="1.000" stroke-opacity="1.000" stroke-linejoin="round" stroke-linecap="round" />
+<text x="47.650" y="101.497" font-size="13.0" font-family="Inter, -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, 'PingFang SC', 'Microsoft YaHei', Ubuntu, Cantarell, 'Noto Sans', sans-serif" fill="rgba(51,51,51,1.000)" fill-opacity="1.000" text-anchor="end" font-weight="normal" dominant-baseline="central" transform="rotate(0 47.650 101.497)">2</text>
+<path d="M 57.650 150.648 L 51.650 150.648" fill="none" stroke="rgba(0,0,0,1.000)" stroke-width="1.000" stroke-opacity="1.000" stroke-linejoin="round" stroke-linecap="round" />
+<text x="47.650" y="150.648" font-size="13.0" font-family="Inter, -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, 'PingFang SC', 'Microsoft YaHei', Ubuntu, Cantarell, 'Noto Sans', sans-serif" fill="rgba(51,51,51,1.000)" fill-opacity="1.000" text-anchor="end" font-weight="normal" dominant-baseline="central" transform="rotate(0 47.650 150.648)">3</text>
+<path d="M 57.650 199.800 L 51.650 199.800" fill="none" stroke="rgba(0,0,0,1.000)" stroke-width="1.000" stroke-opacity="1.000" stroke-linejoin="round" stroke-linecap="round" />
+<text x="47.650" y="199.800" font-size="13.0" font-family="Inter, -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, 'PingFang SC', 'Microsoft YaHei', Ubuntu, Cantarell, 'Noto Sans', sans-serif" fill="rgba(51,51,51,1.000)" fill-opacity="1.000" text-anchor="end" font-weight="normal" dominant-baseline="central" transform="rotate(0 47.650 199.800)">4</text>
+<path d="M 57.650 248.952 L 51.650 248.952" fill="none" stroke="rgba(0,0,0,1.000)" stroke-width="1.000" stroke-opacity="1.000" stroke-linejoin="round" stroke-linecap="round" />
+<text x="47.650" y="248.952" font-size="13.0" font-family="Inter, -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, 'PingFang SC', 'Microsoft YaHei', Ubuntu, Cantarell, 'Noto Sans', sans-serif" fill="rgba(51,51,51,1.000)" fill-opacity="1.000" text-anchor="end" font-weight="normal" dominant-baseline="central" transform="rotate(0 47.650 248.952)">5</text>
+<path d="M 57.650 298.103 L 51.650 298.103" fill="none" stroke="rgba(0,0,0,1.000)" stroke-width="1.000" stroke-opacity="1.000" stroke-linejoin="round" stroke-linecap="round" />
+<text x="47.650" y="298.103" font-size="13.0" font-family="Inter, -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, 'PingFang SC', 'Microsoft YaHei', Ubuntu, Cantarell, 'Noto Sans', sans-serif" fill="rgba(51,51,51,1.000)" fill-opacity="1.000" text-anchor="end" font-weight="normal" dominant-baseline="central" transform="rotate(0 47.650 298.103)">6</text>
+<path d="M 57.650 347.255 L 51.650 347.255" fill="none" stroke="rgba(0,0,0,1.000)" stroke-width="1.000" stroke-opacity="1.000" stroke-linejoin="round" stroke-linecap="round" />
+<text x="47.650" y="347.255" font-size="13.0" font-family="Inter, -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, 'PingFang SC', 'Microsoft YaHei', Ubuntu, Cantarell, 'Noto Sans', sans-serif" fill="rgba(51,51,51,1.000)" fill-opacity="1.000" text-anchor="end" font-weight="normal" dominant-baseline="central" transform="rotate(0 47.650 347.255)">7</text>
+<text x="24.000" y="199.800" font-size="15.0" font-family="Inter, -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, 'PingFang SC', 'Microsoft YaHei', Ubuntu, Cantarell, 'Noto Sans', sans-serif" fill="rgba(51,51,51,1.000)" fill-opacity="1.000" text-anchor="middle" font-weight="bold" dominant-baseline="middle" transform="rotate(-90 24.000 199.800)">Rank</text>
+<defs><clipPath id="plot-clip-area-1"><rect x="383.000" y="0.000" width="117.000" height="400.000" /></clipPath></defs>
+<g clip-path="url(#plot-clip-area-1)">
+<text x="398.000" y="43.600" font-size="13.2" font-family="Inter, -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, 'PingFang SC', 'Microsoft YaHei', Ubuntu, Cantarell, 'Noto Sans', sans-serif" fill="rgba(51,51,51,1.000)" fill-opacity="1.000" text-anchor="start" font-weight="bold" dominant-baseline="central" transform="rotate(0 398.000 43.600)">Country</text>
+<circle cx="407.000" cy="66.800" r="5.000" fill="rgba(31,119,180,1.000)" stroke="none" stroke-width="0.000" fill-opacity="1.000" stroke-opacity="1.000" />
+<text x="424.000" y="66.800" font-size="12.0" font-family="Inter, -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, 'PingFang SC', 'Microsoft YaHei', Ubuntu, Cantarell, 'Noto Sans', sans-serif" fill="rgba(51,51,51,1.000)" fill-opacity="1.000" text-anchor="start" font-weight="normal" dominant-baseline="central" transform="rotate(0 424.000 66.800)">Belarus</text>
+<circle cx="407.000" cy="87.800" r="5.000" fill="rgba(255,127,14,1.000)" stroke="none" stroke-width="0.000" fill-opacity="1.000" stroke-opacity="1.000" />
+<text x="424.000" y="87.800" font-size="12.0" font-family="Inter, -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, 'PingFang SC', 'Microsoft YaHei', Ubuntu, Cantarell, 'Noto Sans', sans-serif" fill="rgba(51,51,51,1.000)" fill-opacity="1.000" text-anchor="start" font-weight="normal" dominant-baseline="central" transform="rotate(0 424.000 87.800)">Ireland</text>
+<circle cx="407.000" cy="108.800" r="5.000" fill="rgba(44,160,44,1.000)" stroke="none" stroke-width="0.000" fill-opacity="1.000" stroke-opacity="1.000" />
+<text x="424.000" y="108.800" font-size="12.0" font-family="Inter, -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, 'PingFang SC', 'Microsoft YaHei', Ubuntu, Cantarell, 'Noto Sans', sans-serif" fill="rgba(51,51,51,1.000)" fill-opacity="1.000" text-anchor="start" font-weight="normal" dominant-baseline="central" transform="rotate(0 424.000 108.800)">Moldova</text>
+<circle cx="407.000" cy="129.800" r="5.000" fill="rgba(214,39,40,1.000)" stroke="none" stroke-width="0.000" fill-opacity="1.000" stroke-opacity="1.000" />
+<text x="424.000" y="129.800" font-size="12.0" font-family="Inter, -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, 'PingFang SC', 'Microsoft YaHei', Ubuntu, Cantarell, 'Noto Sans', sans-serif" fill="rgba(51,51,51,1.000)" fill-opacity="1.000" text-anchor="start" font-weight="normal" dominant-baseline="central" transform="rotate(0 424.000 129.800)">Malta</text>
+<circle cx="407.000" cy="150.800" r="5.000" fill="rgba(148,103,189,1.000)" stroke="none" stroke-width="0.000" fill-opacity="1.000" stroke-opacity="1.000" />
+<text x="424.000" y="150.800" font-size="12.0" font-family="Inter, -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, 'PingFang SC', 'Microsoft YaHei', Ubuntu, Cantarell, 'Noto Sans', sans-serif" fill="rgba(51,51,51,1.000)" fill-opacity="1.000" text-anchor="start" font-weight="normal" dominant-baseline="central" transform="rotate(0 424.000 150.800)">Puerto Rico</text>
+<circle cx="407.000" cy="171.800" r="5.000" fill="rgba(140,86,75,1.000)" stroke="none" stroke-width="0.000" fill-opacity="1.000" stroke-opacity="1.000" />
+<text x="424.000" y="171.800" font-size="12.0" font-family="Inter, -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, 'PingFang SC', 'Microsoft YaHei', Ubuntu, Cantarell, 'Noto Sans', sans-serif" fill="rgba(51,51,51,1.000)" fill-opacity="1.000" text-anchor="start" font-weight="normal" dominant-baseline="central" transform="rotate(0 424.000 171.800)">Senegal</text>
+<circle cx="407.000" cy="192.800" r="5.000" fill="rgba(227,119,194,1.000)" stroke="none" stroke-width="0.000" fill-opacity="1.000" stroke-opacity="1.000" />
+<text x="424.000" y="192.800" font-size="12.0" font-family="Inter, -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, 'PingFang SC', 'Microsoft YaHei', Ubuntu, Cantarell, 'Noto Sans', sans-serif" fill="rgba(51,51,51,1.000)" fill-opacity="1.000" text-anchor="start" font-weight="normal" dominant-baseline="central" transform="rotate(0 424.000 192.800)">Slovenia</text>
+</g>
+</svg>
