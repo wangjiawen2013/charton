@@ -409,7 +409,7 @@ Nushell, install the matching plugin release (or rebuild) and re-run
 `plugin add`.
 
 `nu_plugin_charton` shares its version number with the `charton` library it
-depends on, so `charton 0.8.1` and `nu_plugin_charton 0.8.1` ship as a pair.
+depends on, so `charton 0.8.2` and `nu_plugin_charton 0.8.2` ship as a pair.
 The Nushell target is stated here and in the release notes.
 
 ## Uninstall
