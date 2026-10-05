@@ -113,6 +113,10 @@ open assets/grid.csv | charton -g contour -x x -y y --z z -o contour.svg
 open assets/grid.csv | charton -g contour -x x -y y --z z --stroke black -o contour_mono.svg
 open assets/data.csv | charton -g contour -x a -y b -o density_contour.svg
 
+# 2D density heatmap: the joint kernel density of two columns drawn as a grid
+# of cells. --bins sets the grid size per axis.
+open assets/data.csv | charton -g density_2d -x a -y b -o density_2d.svg
+
 # Pie / donut (bar mark in polar coordinates; omit -x so y becomes the slices;
 # add --inner-radius for a donut)
 open assets/data.csv | charton -g bar -y amount -c category --coord polar --inner-radius 0.5
@@ -159,9 +163,9 @@ Flags are grouped by what you want to do. `[]` in the type column marks a list.
 
 | Flag | Meaning |
 |---|---|
-| `-g, --geom` | Chart type: `point` (default) \| `line` \| `area` \| `bar` \| `boxplot` \| `violin` \| `errorbar` \| `rule` \| `tick` \| `text` \| `rect`/`heatmap` \| `hist` \| `density`/`kde` \| `ecdf` \| `contour` \| `beeswarm` \| `geo` |
-| `-x, --x` | Column for the x axis (the value column for `-g density`/`-g ecdf`; the category column for `-g violin`; the grid's x for `-g contour`) |
-| `-y, --y` | Column for the y axis (`hist` uses a generated `count`; `density` uses a generated `density`; the value column for `-g violin`; the grid's y for `-g contour`) |
+| `-g, --geom` | Chart type: `point` (default) \| `line` \| `area` \| `bar` \| `boxplot` \| `violin` \| `errorbar` \| `rule` \| `tick` \| `text` \| `rect`/`heatmap` \| `hist` \| `density`/`kde` \| `density_2d` \| `ecdf` \| `contour` \| `beeswarm` \| `geo` |
+| `-x, --x` | Column for the x axis (the value column for `-g density`/`-g ecdf`; the category column for `-g violin`; the grid's x for `-g contour`; the first sampled column for `-g density_2d`) |
+| `-y, --y` | Column for the y axis (`hist` uses a generated `count`; `density` uses a generated `density`; the value column for `-g violin`; the grid's y for `-g contour`; the second sampled column for `-g density_2d`) |
 | `--z` | Value (scalar) column for `-g contour`; the grid is regular in `x` and `y`. Omit it to estimate a 2D density from `x`/`y` first (a density contour) |
 | `-c, --color` | Column mapped to color / grouping (required for `rect`; the group column for `density`/`ecdf`) |
 | `--y2` | Upper-bound column for `errorbar`/`rule` (errorbar aggregates mean ± std when omitted) |
@@ -174,6 +178,8 @@ single-colour contour instead.
 `beeswarm` is the `point` mark with a beeswarm layout, not a separate mark.
 `violin` is a composition too: a density outline plus an inner quartile box,
 and `contour` is a marching-squares iso-line stat plus the open `path` geometry.
+`density_2d` is a 2D kernel density drawn as a heatmap: the filled counterpart
+of the contour's `--z` form.
 `scatter`, `box`, `label`, `heatmap`, `histogram`, and `geoshape` are aliases.
 
 ### Encodings
@@ -196,7 +202,7 @@ and `contour` is a marching-squares iso-line stat plus the open `path` geometry.
 | `--x-label`, `--y-label`, `--color-label` | Axis and legend titles |
 | `--x-angle` | X tick label angle in degrees |
 | `--flip` | Swap the x and y axes |
-| `--bins` | Number of bins for a continuous x axis |
+| `--bins` | Bins for histograms/heatmaps, iso-levels for `contour`, or the grid size for `density_2d` |
 | `--aggregate` | Aggregate y per x group: `sum` \| `mean` \| `median` \| `min` \| `max` \| `count` |
 
 ### Data transforms
@@ -230,7 +236,7 @@ and `contour` is a marching-squares iso-line stat plus the open `path` geometry.
 | `-t, --title` | Chart title |
 | `--theme` | Color theme: `auto` (default) \| `light` \| `dark` |
 | `--background` | Chart background color (overrides `--theme`) |
-| `--color-map` | Continuous color map for `rect`/heatmap, e.g. `viridis`, `magma`, `ylgnbu` |
+| `--color-map` | Continuous color map for `rect`/heatmap/`density_2d`, e.g. `viridis`, `magma`, `ylgnbu` |
 | `--legend` | Legend position: `left` \| `right` \| `top` \| `bottom` \| `none` |
 | `--grid`, `--no-grid` | Force grid lines on / off |
 | `--width`, `--height` | Pixel canvas size (default 800×600) |

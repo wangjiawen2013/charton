@@ -1,4 +1,4 @@
-//! Spike command: figure out how Nushell launched this plugin and whether the
+//! Diagnostic command: report how Nushell launched this plugin and whether the
 //! plugin's stdout actually reaches the user's terminal.
 //!
 //! Context: with the `nu-plugin` protocol, stdin/stdout are the protocol

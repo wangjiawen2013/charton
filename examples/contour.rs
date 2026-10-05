@@ -1,18 +1,13 @@
-//! Contour plot — iso-lines of a scalar field.
+//! Contour plot — the convenience `mark_contour`.
 //!
-//! Built from general parts, not a contour-specific mark:
+//! `mark_contour` is a **composite** mark: it expands into the public
+//! `transform_contour` (marching squares over a regular grid) and the shared
+//! open-path renderer. For the composition written out by hand, see
+//! `contour_manual.rs`.
 //!
-//! * `transform_contour` (marching squares) turns a gridded `z` into
-//!   `(x, y, path_group, level)` polylines;
-//! * `mark_path` draws those polylines, coloured by `level`.
-//!
-//! The scalar grid is *your* data, so `transform_contour` reads `x`, `y`, `z`
-//! and replaces the table with `x`, `y`, `path_group`, `level`. In `encode` you
-//! then map those columns to channels: `x`/`y` to the axes, `path_group` groups
-//! the vertices into separate lines, and `level` colours each line.
-//!
-//! The same two transforms draw a contour of a bivariate density, a pressure
-//! field, an elevation map or any other scalar grid.
+//! The scalar field `z` is named explicitly because the crate has no `z`
+//! channel; `x` and `y` come from the encodings. By default the lines are
+//! coloured by their level.
 
 use charton::prelude::*;
 use std::error::Error;
@@ -34,15 +29,9 @@ fn main() -> Result<(), Box<dyn Error>> {
     }
 
     chart!(x, y, z)?
-        .transform_contour(ContourTransform::new("x", "y", "z").with_levels(10))?
-        .mark_path()?
-        .configure_path(|m| m.with_stroke_width(1.5))
-        .encode((
-            alt::x("x"),
-            alt::y("y"),
-            alt::path_group("path_group"),
-            alt::color("level"),
-        ))?
+        .mark_contour("z")?
+        .configure_contour(|contour| contour.with_levels(10).with_stroke_width(1.5))
+        .encode((alt::x("x"), alt::y("y")))?
         .configure_theme(|t| t.with_color_map(ColorMap::Viridis))
         .with_title("Contour plot")
         .with_x_label("x")

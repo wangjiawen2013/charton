@@ -42,7 +42,7 @@ impl PluginCommand for Charton {
             .named(
                 "geom",
                 SyntaxShape::String,
-                "Mark type: point | line | area | bar | boxplot | violin | errorbar | rule | tick | text | rect | hist | density | ecdf | contour | beeswarm | geo",
+                "Mark type: point | line | area | bar | boxplot | violin | errorbar | rule | tick | text | rect | hist | density | density_2d | ecdf | contour | beeswarm | geo",
                 Some('g'),
             )
             .named("x", SyntaxShape::String, "Column mapped to the x axis", Some('x'))
@@ -123,7 +123,7 @@ impl PluginCommand for Charton {
             .named(
                 "bins",
                 SyntaxShape::Int,
-                "Number of bins for a continuous x axis",
+                "Number of bins (histograms/heatmaps), iso-levels (contour), or grid size (density_2d)",
                 None,
             )
             .named(
@@ -1456,12 +1456,11 @@ fn build_layer(
             let x = x.ok_or_else(|| missing(geom, "--x (the category column)", span))?;
             let y = y.ok_or_else(|| missing(geom, "--y (the value column)", span))?;
 
-            // A violin is a composition, not a mark: a density outline plus an
-            // inner inter-quartile box. The outline is the general recipe —
-            // `transform_density` (grouped by category, optionally also by the
-            // colour group) followed by the general `transform_band` geometry.
-            // `--color` dodges one violin per group; without it there is one
-            // violin per category.
+            // A violin is a density outline plus an inner inter-quartile box.
+            // The outline is built here from `transform_density` (grouped by
+            // category, optionally also by the colour group) and
+            // `transform_band`; `--color` dodges one violin per group, without
+            // it there is one violin per category.
             // The composition generates intermediate columns. They are
             // namespaced so they can never collide with the user's own columns,
             // which are passed straight through as transform inputs — a
@@ -1737,12 +1736,39 @@ fn build_layer(
                 .into()
             }
         }
+        "density_2d" | "density2d" | "density-heatmap" => {
+            let x = x.ok_or_else(|| missing(geom, "--x", span))?;
+            let y = y.ok_or_else(|| missing(geom, "--y", span))?;
+            // A 2D kernel density drawn as a grid of cells. `--bins` is the
+            // grid size per axis; the rect bin count is set to match, so each
+            // cell holds exactly one grid node and nothing is merged.
+            let grid = bins.unwrap_or(50);
+            let mut density = Density2DTransform::new(x, y).with_grid_size(grid);
+            if let Some(bw) = layer.density_bandwidth {
+                density = density.with_bandwidth(BandwidthType::Fixed(bw));
+            }
+            let c = Chart::build(dataset)
+                .map_err(|e| chart_err(span, e))?
+                .transform_density_2d(density)
+                .map_err(|e| chart_err(span, e))?
+                .mark_rect()
+                .map_err(|e| chart_err(span, e))?
+                .configure_rect(|m| style_rect(m, style));
+            c.encode((
+                alt::x("x").with_bins(grid),
+                alt::y("y").with_bins(grid),
+                alt::color("density"),
+            ))
+            .map_err(|e| chart_err(span, e))?
+            .with_x_label(x)
+            .with_y_label(y)
+        }
         other => {
             return Err(LabeledError::new("Unknown geom").with_label(
                 format!(
                     "'{other}' is not supported; try point, line, area, bar, boxplot, \
-                     violin, errorbar, rule, tick, text, rect, hist, density, ecdf, \
-                     contour, beeswarm, or geo"
+                     violin, errorbar, rule, tick, text, rect, hist, density, density_2d, \
+                     ecdf, contour, beeswarm, or geo"
                 ),
                 span,
             ));
@@ -2390,6 +2416,17 @@ mod tests {
         assert!(out.as_str()?.contains("<svg"));
         // Without `--z`, a 2D density is estimated first (density contour).
         let out = run_on(grid(), "charton -g contour -x x -y y")?;
+        assert!(out.as_str()?.contains("<svg"));
+        Ok(())
+    }
+
+    #[test]
+    fn density_2d_returns_svg() -> Result<(), ShellError> {
+        // A 2D kernel density drawn as a heatmap.
+        let out = run_on(grid(), "charton -g density_2d -x x -y y")?;
+        assert!(out.as_str()?.contains("<svg"));
+        // `--bins` sets the grid size per axis.
+        let out = run_on(grid(), "charton -g density_2d -x x -y y --bins 20")?;
         assert!(out.as_str()?.contains("<svg"));
         Ok(())
     }

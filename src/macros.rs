@@ -1,4 +1,4 @@
-/// Converts a Polars [`DataFrame`] into a Charton [`Dataset`].
+/// Converts a Polars `DataFrame` into a Charton [`Dataset`](crate::core::data::Dataset).
 ///
 /// This macro bridge facilitates the transition from Polars' analytical ecosystem
 /// to Charton's visualization-ready data structures. It preserves the semantic
@@ -15,7 +15,7 @@
 ///   - `Duration`: i64 nanoseconds.
 ///
 /// # Errors
-/// Returns [`ChartonError::Data`] if a column contains a Polars type not yet
+/// Returns [`ChartonError::Data`](crate::error::ChartonError::Data) if a column contains a Polars type not yet
 /// supported by Charton's core vectors (e.g., List, Struct, or Binary).
 #[macro_export]
 macro_rules! load_polars_df {
@@ -310,13 +310,13 @@ macro_rules! load_polars_df {
     }};
 }
 
-/// A convenience macro to initialize a [`Chart`] with data.
+/// A convenience macro to initialize a [`Chart`](crate::chart::Chart) with data.
 ///
 /// The `chart!` macro supports two primary usage patterns:
 ///
 /// ### 1. Direct Variable Mapping (Auto-Stringify)
 /// Pass one or more local variables. The macro will automatically use the
-/// variable names as column names in the underlying [`Dataset`].
+/// variable names as column names in the underlying [`Dataset`](crate::core::data::Dataset).
 ///
 /// ```ignore
 /// let x = vec![1.0, 2.0, 3.0];
@@ -330,7 +330,7 @@ macro_rules! load_polars_df {
 /// ```
 ///
 /// ### 2. Existing Dataset
-/// Pass a pre-constructed [`Dataset`] directly into the macro.
+/// Pass a pre-constructed [`Dataset`](crate::core::data::Dataset) directly into the macro.
 ///
 /// ```ignore
 /// let ds = get_data_from_source()?;
@@ -341,7 +341,7 @@ macro_rules! load_polars_df {
 /// ```
 ///
 /// # Errors
-/// Returns [`ChartonError::Data`] if the provided variables have inconsistent
+/// Returns [`ChartonError::Data`](crate::error::ChartonError::Data) if the provided variables have inconsistent
 /// row lengths when building a new dataset.
 ///
 /// # Panics
@@ -396,7 +396,7 @@ macro_rules! chart {
     };
 }
 
-/// Converts a Polars [`DataFrame`] into a Charton [`Dataset`] for Polars v0.44-v0.52.
+/// Converts a Polars `DataFrame` into a Charton [`Dataset`](crate::core::data::Dataset) for Polars v0.44-v0.52.
 ///
 /// This macro is specifically designed for older Polars versions (0.44-0.52) where
 /// the API differs from v0.53+. It uses `get_columns()` instead of `columns()` but
@@ -413,7 +413,7 @@ macro_rules! chart {
 ///   - `Duration`: i64 nanoseconds.
 ///
 /// # Errors
-/// Returns [`ChartonError::Data`] if a column contains a Polars type not yet
+/// Returns [`ChartonError::Data`](crate::error::ChartonError::Data) if a column contains a Polars type not yet
 /// supported by Charton's core vectors (e.g., List, Struct, or Binary).
 #[macro_export]
 macro_rules! load_polars_v44_52 {

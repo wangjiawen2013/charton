@@ -1,6 +1,9 @@
 pub(crate) mod area;
 pub(crate) mod bar;
 pub(crate) mod boxplot;
+pub(crate) mod contour;
+pub(crate) mod density;
+pub(crate) mod density_2d;
 pub(crate) mod errorbar;
 pub(crate) mod geo_path;
 pub(crate) mod histogram;
@@ -11,6 +14,7 @@ pub(crate) mod rect;
 pub(crate) mod rule;
 pub(crate) mod text;
 pub(crate) mod tick;
+pub(crate) mod violin;
 
 use crate::prelude::SingleColor;
 /// A trait representing a visual mark in a plot.
@@ -65,5 +69,54 @@ pub trait Mark: Clone + 'static {
     /// Returns the opacity of the mark
     fn opacity(&self) -> f64 {
         1.0 // Default fully opaque
+    }
+
+    /// Returns this mark's violin configuration, when it is a violin.
+    ///
+    /// A composite mark exposes its configuration here so the shared transform
+    /// dispatch can read it. Every other mark returns `None`.
+    fn as_violin(&self) -> Option<&crate::mark::violin::MarkViolin> {
+        None
+    }
+
+    /// Mutable counterpart of [`Mark::as_violin`].
+    fn as_violin_mut(&mut self) -> Option<&mut crate::mark::violin::MarkViolin> {
+        None
+    }
+
+    /// Returns this mark's contour configuration, when it is a contour.
+    ///
+    /// See [`Mark::as_violin`].
+    fn as_contour(&self) -> Option<&crate::mark::contour::MarkContour> {
+        None
+    }
+
+    /// Mutable counterpart of [`Mark::as_contour`].
+    fn as_contour_mut(&mut self) -> Option<&mut crate::mark::contour::MarkContour> {
+        None
+    }
+
+    /// Returns this mark's density configuration, when it is a density.
+    ///
+    /// See [`Mark::as_violin`].
+    fn as_density(&self) -> Option<&crate::mark::density::MarkDensity> {
+        None
+    }
+
+    /// Mutable counterpart of [`Mark::as_density`].
+    fn as_density_mut(&mut self) -> Option<&mut crate::mark::density::MarkDensity> {
+        None
+    }
+
+    /// Returns this mark's 2-D density configuration, when it is one.
+    ///
+    /// See [`Mark::as_violin`].
+    fn as_density_2d(&self) -> Option<&crate::mark::density_2d::MarkDensity2D> {
+        None
+    }
+
+    /// Mutable counterpart of [`Mark::as_density_2d`].
+    fn as_density_2d_mut(&mut self) -> Option<&mut crate::mark::density_2d::MarkDensity2D> {
+        None
     }
 }
