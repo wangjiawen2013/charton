@@ -97,6 +97,8 @@ handles nulls and gaps.
 
 ## Going deeper
 
+- [Composing Your Own](primitives.md) — recombining the primitives into new
+  pictures the marks do not cover.
 - [Contour Plots](contours.md) — the marching-squares machinery and the general
   scalar-grid contour.
 - [Transforms & Columns](../grammar/transforms.md) — the column contract of

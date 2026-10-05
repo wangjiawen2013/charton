@@ -11,8 +11,8 @@ transform_density   // numeric column  →  (value, density)
   → mark_area       // draw the curve
 ```
 
-so you can always drop to the pieces. The section below shows the mark first,
-then the same picture built from the primitives.
+so you can always drop to the pieces. The last section writes the same picture
+out by hand.
 
 ## Density plot
 
@@ -27,15 +27,6 @@ Read the value from `x`; each `color` group gets its own curve.
 By default the estimator keeps the tails (`trim = false`), so the curve fades out
 past the last observation — the `geom_density` look. A violin is the very same
 curve stood upright and mirrored; see [Violin](violin.md).
-
-### Built from the primitives
-
-The same picture without `mark_density`: `transform_density` estimates the curve
-and `mark_area` draws it.
-
-```rust
-{{#include ../../../examples/density_manual.rs}}
-```
 
 ## Tuning the curve
 
@@ -55,8 +46,19 @@ The underlying `transform_density` **replaces the table**: it reads the numeric
 column and emits `(value, density)` plus one column per `groupby` field. See
 [Transforms & Columns](../grammar/transforms.md) for the full column contract.
 
+## Built from the primitives
+
+The same picture without `mark_density`: `transform_density` estimates the curve
+and `mark_area` draws it.
+
+```rust
+{{#include ../../../examples/density_manual.rs}}
+```
+
 ## See also
 
+- [Composing Your Own](primitives.md) — recombining the primitives into new
+  pictures the marks do not cover.
 - [Violin](violin.md) — the upright, mirrored form, and its grouped/split layouts.
 - [2-D Density](density_2d.md) — two columns at once.
 - [Cumulative Density](cumulative_density.md) — the integral of the curve.

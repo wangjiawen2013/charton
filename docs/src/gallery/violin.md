@@ -11,11 +11,10 @@ transform_density(trim = true)        // one curve per category (and group)
   → the shared polygon renderer
 ```
 
-so nothing is hidden that you cannot write yourself. Each section below first
-shows the mark, then — for anyone who wants to recombine the pieces — how the
-same picture is built from the primitives. Read the first recipe, then diff the
-rest: that is the grammar in action. The curve itself (bandwidth, kernel, trim)
-is described in [1-D Density](density_1d.md).
+so nothing is hidden that you cannot write yourself. The recipes below use the
+mark; the last section writes the same picture out of the primitives, for anyone
+who wants to recombine the pieces. The curve itself (bandwidth, kernel, trim) is
+described in [1-D Density](density_1d.md).
 
 ## Violin (single)
 
@@ -27,20 +26,6 @@ outline.
 ```rust
 {{#include ../../../examples/violin.rs}}
 ```
-
-### Built from the primitives
-
-The same picture without `mark_violin`: estimate the density, mirror it around
-zero, and stand the value axis up.
-
-```rust
-{{#include ../../../examples/violin_manual.rs}}
-```
-
-`"center"` is Charton's name for Vega-Lite's `stack: "center"`: each density curve
-is drawn from `-density / 2` to `+density / 2`. `mark_violin` instead uses the
-general `transform_band` geometry, which bakes the same mirrored outline — and its
-lane placement — into a polygon.
 
 ## Grouped and faceted violins
 
@@ -108,6 +93,16 @@ its lanes:
 | `.with_span(0.7)` | total width of a category's group (matches the box plot and point marks) |
 | `.with_color(…)`, `.with_opacity(…)`, `.with_stroke(…)` | the outline's visual style |
 
+## Choosing a layout
+
+| Variant | Use it when |
+| --- | --- |
+| Single violin | one distribution |
+| Faceted | compare a few groups, each with room to breathe |
+| Dodged | compare many groups within one category on a shared axis |
+| Split | exactly two groups, to save horizontal space |
+| Raincloud | the sample is small enough that showing every point matters |
+
 ## How `mark_violin` is built
 
 A dedicated mark makes the common case one line, while the grammar keeps the hard
@@ -121,20 +116,23 @@ cases expressible. Because the mark expands into ordinary parts:
 Anything the mark does not expose is still reachable with `transform_density`,
 `transform_band` / `transform_quantile_box`, and the basic marks.
 
-## Choosing a layout
+### Built from the primitives
 
-| Variant | Use it when |
-| --- | --- |
-| Single violin | one distribution |
-| Faceted | compare a few groups, each with room to breathe |
-| Dodged | compare many groups within one category on a shared axis |
-| Split | exactly two groups, to save horizontal space |
-| Raincloud | the sample is small enough that showing every point matters |
+The same picture without `mark_violin`: estimate the density, mirror it into a
+polygon, then fill and outline it. It renders byte for byte like the mark above,
+which is what makes `mark_violin` a *name* for this recipe rather than a second
+implementation.
+
+```rust
+{{#include ../../../examples/violin_manual.rs}}
+```
 
 ## See also
 
 - [1-D Density](density_1d.md) — the KDE and its tuning (bandwidth, kernel, trim).
 - [Box Plots](box_plot.md) — the inner quantile box and the box-plot mark.
+- [Composing Your Own](primitives.md) — recombining the primitives into new
+  pictures the marks do not cover.
 - [Transforms & Columns](../grammar/transforms.md) — which columns each
   transform reads and emits (`density`, `path_group`, `level`, …).
 - Primitives: `transform_density`, `transform_band`, `transform_quantile_box`,
