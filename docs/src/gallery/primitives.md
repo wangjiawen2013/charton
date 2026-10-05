@@ -58,17 +58,17 @@ horizontal axis and the density bulge on the vertical one.
 ```
 
 The pieces are all public: `transform_density` estimates one curve per category,
-`transform_band` mirrors it into a polygon and `mark_polygon` fills it.
-`with_overlap` turns a stack of separated half-bands into overlapping ridges,
-and `with_side(BandSide::Both)` draws full violins instead.
-
-Because a ridge grows past its lane, the category axis needs headroom above the
-top one — the example gives it `with_expansion(add: (0.4, 1.5))` rather than the
-default `0.4`, so the tallest ridge is not clipped. Neither is a
-ridge-specific hack — a one-sided band is also a half violin, and overlap is
-also how violins overlap. See
+`transform_band` mirrors it into a polygon and `mark_polygon` fills it. None of
+this is ridge-specific: `with_side(BandSide::Both)` is the full violin, a
+one-sided band is a half violin, and `with_overlap` is also how violins overlap.
+See
 [The firewall](../concepts/design_rules.md#the-firewall-a-mark-must-change-a-cell)
 for why a ridgeline is a recipe rather than a mark.
+
+One practical note: because a ridge grows past its lane, the category axis needs
+headroom above the top one. The example sets
+`with_expansion(add: (0.4, 1.5))` rather than the default `0.4`, so the tallest
+ridge is not clipped.
 
 ## Choosing the geometry
 
