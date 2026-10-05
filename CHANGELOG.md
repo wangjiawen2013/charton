@@ -37,6 +37,45 @@ predate this file.
   channel label, then the field name. The composite marks use this to keep the
   original column names on the axes and legends after they rewrite the encoding
   to generated columns (`x`, `y`, `density`, `level`, …).
+- **Floating bars, cumulative sums and reversed axes.** Three general
+  capabilities, one per grammar layer, used by the new comparison and time
+  recipes:
+  - **geometry** — `mark_bar` accepts a `y2` bound, so a bar can *float* between
+    two values (a waterfall step, a candlestick body) instead of growing from
+    zero. With `y2` present, `color` is an attribute rather than a dodging lane
+    (no Cartesian product, no phantom bars), and the y axis is **not** forced to
+    include zero — the interval keeps the axis to itself.
+  - **statistic** — `transform_window` gains `WindowOnlyOp::CumulativeSum`, a
+    running total accumulated in row order (a waterfall's total).
+  - **scale** — `alt::y("rank").with_reverse(true)` flips an axis (`alt::x(…)
+    .with_reverse(true)` for x). A reversed domain still expands and ticks
+    correctly, so a rank axis can put rank 1 at the top. Passing a continuous
+    domain backwards (`with_y_domain(max, min)`) does the same.
+- **`mark_point` can opt out of dodging.** `configure_point(…).with_dodge(false)`
+  keeps colour-grouped points on the category centre, so a colour channel is an
+  *attribute* (a legend entry) rather than a side-by-side lane. A dumbbell uses
+  it to keep both ends on their shared segment.
+- **One named default gap for the outline/point family.**
+  `Position::DEFAULT_DODGE_SPACING` (`0.2`) is now the single default used by
+  `mark_boxplot`, `mark_point` and the band/quantile boxes; fill/interval marks
+  (`mark_bar`, `mark_errorbar`) keep `0.0` so they tile. The dodge arithmetic was
+  already shared via `Position::offset`; `tests/test_lane_alignment.rs` now also
+  locks the layered bar↔error-bar pair.
+- **One-sided and overlapping bands: `BandTransform::with_side` and
+  `with_overlap`.** `with_side(BandSide::{Both, Left, Right})` chooses which bank
+  of the river a band occupies (`Both` is the symmetric violin; `Right` / `Left`
+  keep one side, whose flat edge is the centre line). `with_overlap(f)`
+  multiplies the width so a band can grow past its lane and overlap its
+  neighbour. Both are general geometry/scale options on `transform_band`, and are
+  reached from `mark_violin` too via `configure_violin(…).with_side(…)` /
+  `.with_overlap(…)`. `with_split` is now explicitly a *two-group* option: a lone
+  group stays symmetric instead of silently becoming one-sided. A **ridgeline**
+  is `transform_density` + `transform_band(…).with_side(BandSide::Right)` +
+  `with_overlap(f)` + `coord_flip`; it deliberately stays a recipe rather than a
+  mark — see
+  [Composing Your Own](docs/src/gallery/primitives.md#a-ridgeline-from-a-half-band)
+  and
+  [the mark firewall](docs/src/concepts/design_rules.md#the-firewall-a-mark-must-change-a-cell).
 
 ### Fixed
 

@@ -48,6 +48,9 @@ pub struct X {
 
     pub(crate) bins: Option<usize>, // bins for continuous encoding value in marks like barchart and histogram
 
+    /// Draw the axis backwards (high values on the left).
+    pub(crate) reverse: bool,
+
     // --- System Resolution (Result/Outputs) ---
     /// Stores the resolved scale instance. Using RwLock to support
     /// back-filling updates across multiple render calls.
@@ -66,8 +69,18 @@ impl X {
             expansion: None,
             zero: None,
             bins: None,
+            reverse: false,
             resolved_scale: ResolvedScale::none(),
         }
+    }
+
+    /// Draws the axis backwards.
+    ///
+    /// One general flag, not a per-chart trick: a rank axis puts rank 1 at the
+    /// top, a depth axis puts the surface at the top, and so on.
+    pub const fn with_reverse(mut self, reverse: bool) -> Self {
+        self.reverse = reverse;
+        self
     }
 
     /// Overrides the axis title for this channel.

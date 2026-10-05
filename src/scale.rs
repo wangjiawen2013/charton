@@ -277,6 +277,25 @@ pub trait ScaleTrait: std::fmt::Debug + Send + Sync {
     }
 }
 
+/// Applies a two-sided [`Expansion`] to a possibly **reversed** continuous
+/// domain.
+///
+/// `expansion.mult.0`/`add.0` pad the domain *start* and `mult.1`/`add.1` the
+/// *end*, whichever way the domain runs. Passing the domain backwards
+/// (`min > max`) therefore reverses the axis while still padding it outward, so
+/// a rank axis can put rank 1 at the top just by swapping the bounds.
+fn expand_domain(min: f64, max: f64, expansion: Expansion) -> (f64, f64) {
+    let (lo, hi) = if min <= max { (min, max) } else { (max, min) };
+    let range = hi - lo;
+    let pad_start = range * expansion.mult.0 + expansion.add.0;
+    let pad_end = range * expansion.mult.1 + expansion.add.1;
+    if min <= max {
+        (lo - pad_start, hi + pad_end)
+    } else {
+        (hi + pad_start, lo - pad_end)
+    }
+}
+
 /// Factory function to create a fully initialized scale.
 ///
 /// It resolves the domain expansion and encapsulates the concrete implementation
@@ -290,13 +309,7 @@ pub fn create_scale(
     let scale: Box<dyn ScaleTrait> = match scale_type {
         Scale::Linear => {
             if let ScaleDomain::Continuous(min, max) = domain_data {
-                let range = max - min;
-                let lower_padding = range * expansion.mult.0 + expansion.add.0;
-                let upper_padding = range * expansion.mult.1 + expansion.add.1;
-                Box::new(LinearScale::new(
-                    (min - lower_padding, max + upper_padding),
-                    mapper,
-                ))
+                Box::new(LinearScale::new(expand_domain(min, max, expansion), mapper))
             } else {
                 return Err(ChartonError::Scale(
                     "Linear scale requires Continuous domain".into(),

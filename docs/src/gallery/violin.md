@@ -90,6 +90,8 @@ its lanes:
 | `.with_scale(BandScale::Global)` | bands share one scale, so a denser group looks wider |
 | `.with_scale(BandScale::Raw)` | use the width column as it stands |
 | `.with_width(0.5)` | maximum width of a single band (matches the box plot) |
+| `.with_side(BandSide::Right)` | keep one bank of the violin (a half violin / ridgeline) |
+| `.with_overlap(2.5)` | grow each band past its lane so neighbours overlap |
 | `.with_span(0.7)` | total width of a category's group (matches the box plot and point marks) |
 | `.with_color(…)`, `.with_opacity(…)`, `.with_stroke(…)` | the outline's visual style |
 

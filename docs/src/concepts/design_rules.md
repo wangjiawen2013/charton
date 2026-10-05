@@ -54,8 +54,9 @@ A **statistic** is a transform with the shape `Dataset → Dataset`. The rules:
   overwrite into an error.
 
 Statistics are **bounded**: the canonical ones are count/binning, quantiles,
-confidence intervals, 1-D KDE, 2-D KDE and marching-squares contours. That
-finiteness is what bounds the number of marks (see §6).
+confidence intervals, cumulative aggregation (a running total), 1-D KDE, 2-D KDE
+and marching-squares contours. That finiteness is what bounds the number of
+marks (see §6).
 
 ## 4. The geometry rules (几何规则)
 
@@ -77,10 +78,18 @@ finiteness is what bounds the number of marks (see §6).
 
 - Side-by-side layout is owned by [`Position`], in **data space**, measured in
   category steps. No renderer re-implements it.
-- The dodge arithmetic lives in exactly one place: [`Position::offset`]. Every
-  renderer (bar, box, error bar, point) and every transform
-  (`build_lane_layout`, used by band and quantile boxes) calls it. This is locked
-  by `tests/test_lane_alignment.rs`.
+- The dodge *arithmetic* lives in exactly one place: [`Position::offset`].
+  Every renderer (bar, box, error bar, point) and every transform
+  (`build_lane_layout`, used by band and quantile boxes) calls it.
+- The lane *assignment* is shared too: every transform orders groups with
+  `labels_with_missing` (missing last), so `sub_idx` / `groups_count` mean the
+  same thing in all of them.
+- The default **gap** is a deliberate per-family choice, not a global constant:
+  fill/interval marks tile (`mark_bar`, `mark_errorbar` → `0.0`), while
+  outline/point marks keep a gap (`mark_boxplot`, `mark_point`, and the
+  band/quantile boxes → [`Position::DEFAULT_DODGE_SPACING`], `0.2`). Marks that
+  are layered share a family, so bar↔error-bar and violin↔box always coincide;
+  `tests/test_lane_alignment.rs` locks both pairs.
 - A discrete position scale's `normalize` is affine in the category index, which
   is why "category index + offset" (the transform path) and "normalized category
   + offset·step" (the renderer path) agree exactly.
@@ -131,9 +140,43 @@ lanes.
 A composition stacks several marks into a picture. These are **never** core
 marks; they live as examples/recipes.
 
-> raincloud (violin + quantile box + points), ridge/streamgraph (density/area +
-> facet/position), lollipop/dumbbell (rule + point), nightingale/rose (bar +
-> polar), waterfall (bar + cumulative), marimekko/bullet, …
+> raincloud (violin + quantile box + points), ridge (one-sided KDE band +
+> flip), streamgraph (area + `stack: center`), lollipop/dumbbell/range (rule +
+> point), slope/bump (line + rank), candlestick (rule + floating bar),
+> nightingale/rose (bar + polar), waterfall (bar + cumulative),
+> marimekko/bullet, …
+>
+> A composition may lean on **general** options on the shared parts — a floating
+> `mark_bar` (`y2`), a reversed axis (`with_reverse(true)`), a new window
+> statistic (`CumulativeSum`) — as long as those options are useful beyond the
+> one chart they were added for.
+
+### The firewall: a mark must change a *cell*
+
+The mark list stays finite because a Tier 2 mark has to occupy a **new cell** of
+the `(canonical statistic × Tier-1 geometry)` grid. A new *chart name* that
+reuses a cell is a Tier 3 composition, no matter how common it is:
+
+| Name | stat × geometry | Verdict |
+|---|---|---|
+| Density | 1-D KDE × area | Tier 2 — `mark_density` |
+| Violin | 1-D KDE × polygon | Tier 2 — `mark_violin` |
+| Ridgeline | 1-D KDE × polygon | **Tier 3** — the violin's cell; only the side, overlap and orientation change |
+| Histogram | bin / count × rect | Tier 2 — `mark_hist` |
+| Contour | marching squares × path | Tier 2 — `mark_contour` |
+| Raincloud | KDE + quantile + point | **Tier 3** — a stack of marks |
+| Waterfall | bar + cumulative window | **Tier 3** — a stack of marks |
+
+A ridge is the test case. It introduces no statistic and no geometry — it is a
+KDE polygon with one bank, an overlap and a flip — so it is a recipe. What it
+*does* need belongs to general options on the shared parts: `with_side`
+(one-sided band) and `with_overlap` (spill past the lane) on `transform_band`.
+A capability that only earns its keep for one chart is a smell; a capability
+that several charts share is a grammar feature.
+
+This is also the rule for promotion: a `mark_*` may exist as a *thin recipe*
+over those options, but only when it names a cell that no other mark names.
+Otherwise it is a composition, and it lives in the Cookbook.
 
 ## 7. Promotion checklist: does a chart become a Tier 2 mark?
 
@@ -203,7 +246,7 @@ after the encoding was rewritten to generated columns. This works for `X`, `Y`,
 |---|---|
 | 1 | `point`, `line`, `path`, `polygon`, `geoshape`, `bar`, `area`, `rect`, `rule`, `text`, `tick` |
 | 2 | `hist`, `boxplot`, `errorbar`, `violin`, `density`, `contour`, `density_2d` |
-| 3 | raincloud, ridge, streamgraph, lollipop, dumbbell, nightingale, rose, waterfall, bullet, marimekko, … |
+| 3 | raincloud, ridge, streamgraph, lollipop, dumbbell, range, slope, bump, candlestick, waterfall, nightingale, rose, bullet, marimekko, … |
 
 ## 13. Glossary
 

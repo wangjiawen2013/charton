@@ -931,9 +931,14 @@ impl<T: Mark> Chart<T> {
         let y_enc = self.encoding.y.as_mut().unwrap();
 
         // --- 1. STATISTICAL INTEGRITY & MAGNITUDE BASELINES ---
-        // Marks representing magnitude (Bar, Area, Hist) should generally start at zero.
+        // Marks representing magnitude (Bar, Area, Hist) should generally start
+        // at zero. A *floating* bar does not: with a `y2` bound it spans an
+        // interval (a candlestick body, a waterfall step), and forcing zero
+        // would squash that interval against the axis.
+        let is_floating_bar = mt == "bar" && self.encoding.y2.is_some();
         if y_enc.scale_type == Some(Scale::Linear)
             && ["area", "bar", "hist", "density"].contains(&mt)
+            && !is_floating_bar
         {
             // Force zero baseline unless the user explicitly disabled it.
             if y_enc.zero.is_none() {
@@ -1072,6 +1077,11 @@ where
     /// Retrieves padding/expansion preferences.
     fn get_expand(&self, channel: Channel) -> Option<Expansion> {
         self.encoding.get_expand_by_channel(channel)
+    }
+
+    /// Whether this layer asked for a reversed positional axis.
+    fn get_reverse(&self, channel: Channel) -> bool {
+        self.encoding.get_reverse_by_channel(channel)
     }
 
     /// Calculates the raw data boundaries for any visual channel.

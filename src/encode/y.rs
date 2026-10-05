@@ -81,6 +81,9 @@ pub struct Y {
 
     pub(crate) bins: Option<usize>, // bins for continuous encoding value in marks like barchart and histogram
 
+    /// Draw the axis backwards (high values at the bottom).
+    pub(crate) reverse: bool,
+
     // false = raw counts, true = normalize counts to sum to 1 per-group for histogram/bar chart
     pub(crate) normalize: bool,
 
@@ -106,10 +109,20 @@ impl Y {
             expansion: None,
             zero: None,
             bins: None,
+            reverse: false,
             normalize: false, // Default to false (raw counts)
             stack: StackMode::None,
             resolved_scale: ResolvedScale::none(),
         }
+    }
+
+    /// Draws the axis backwards.
+    ///
+    /// One general flag, not a per-chart trick: a rank axis puts rank 1 at the
+    /// top, a depth axis puts the surface at the top, and so on.
+    pub const fn with_reverse(mut self, reverse: bool) -> Self {
+        self.reverse = reverse;
+        self
     }
 
     /// Overrides the axis title for this channel.

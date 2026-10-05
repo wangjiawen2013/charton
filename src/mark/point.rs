@@ -87,6 +87,12 @@ pub struct MarkPoint {
     pub(crate) spacing: f64,
     /// Total width of all groups combined at the axis position.
     pub(crate) span: f64,
+    /// Whether a colour grouping pushes points into side-by-side lanes.
+    ///
+    /// `true` (the default) dodges, so grouped points sit next to each other.
+    /// `false` keeps every point on its own x — colour is then an *attribute*
+    /// rather than a lane.
+    pub(crate) dodge: bool,
 }
 
 impl MarkPoint {
@@ -101,8 +107,21 @@ impl MarkPoint {
             layout: PointLayout::Standard,
             quasirandom_method: QuasirandomMethod::Tukey,
             width: 0.5,
-            spacing: 0.2,
+            spacing: crate::position::Position::DEFAULT_DODGE_SPACING,
             span: 0.7,
+            dodge: true,
+        }
+    }
+
+    /// The lane layout for a grouped point: `Dodge` normally, or `Identity`
+    /// when the point opted out with [`Self::with_dodge`].
+    pub(crate) fn lane_position(&self) -> crate::position::Position {
+        if self.dodge {
+            crate::position::Position::Dodge {
+                spacing: self.spacing,
+            }
+        } else {
+            crate::position::Position::Identity
         }
     }
 
@@ -173,6 +192,16 @@ impl MarkPoint {
     }
 
     /// Sets the spacing between marks in a grouped layout.
+    /// Enables or disables dodging when the points carry a colour grouping.
+    ///
+    /// With `false`, the points stay on the category centre — the colour is an
+    /// attribute (a legend entry) rather than a side-by-side lane. This is what
+    /// a dumbbell needs so both ends stay on the shared segment.
+    pub const fn with_dodge(mut self, dodge: bool) -> Self {
+        self.dodge = dodge;
+        self
+    }
+
     pub const fn with_spacing(mut self, spacing: f64) -> Self {
         self.spacing = spacing.clamp(0.0, 1.0);
         self

@@ -42,6 +42,34 @@ untrimmed tail rather than the data-bounded violin.
 {{#include ../../../examples/density_mirror.rs}}
 ```
 
+## A ridgeline from a half-band
+
+A **ridgeline** stacks one density per category, each sitting on its baseline and
+overlapping the one above. `mark_violin` uses a *symmetric* band;
+`transform_band(…).with_side(BandSide::Right)` keeps only one bank, so the flat
+edge of the polygon is the baseline. `with_overlap(2.5)` grows each ridge past
+its lane so the densities overlap, and `coord_flip` puts the value on the
+horizontal axis and the density bulge on the vertical one.
+
+<img src="../images/ridge.svg" width="500">
+
+```rust
+{{#include ../../../examples/ridge.rs}}
+```
+
+The pieces are all public: `transform_density` estimates one curve per category,
+`transform_band` mirrors it into a polygon and `mark_polygon` fills it.
+`with_overlap` turns a stack of separated half-bands into overlapping ridges,
+and `with_side(BandSide::Both)` draws full violins instead.
+
+Because a ridge grows past its lane, the category axis needs headroom above the
+top one — the example gives it `with_expansion(add: (0.4, 1.5))` rather than the
+default `0.4`, so the tallest ridge is not clipped. Neither is a
+ridge-specific hack — a one-sided band is also a half violin, and overlap is
+also how violins overlap. See
+[The firewall](../concepts/design_rules.md#the-firewall-a-mark-must-change-a-cell)
+for why a ridgeline is a recipe rather than a mark.
+
 ## Choosing the geometry
 
 For anything that "connects the dots", the geometry differs by exactly two

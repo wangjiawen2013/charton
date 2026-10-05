@@ -8,6 +8,16 @@ stated in the README and in each release.
 
 ### Added
 
+- **Cookbook recipe geoms.** Eight new `-g` names, each a composition of the
+  existing marks (no new mark): `ridge` (a one-sided, overlapping violin),
+  `dumbbell` (`-x`/`-y`/`--y2`, a rule with two dots), `lollipop` (a rule from
+  zero capped with a dot), `range` (a rule between `--y` and `--y2`), `slope`
+  (two periods joined per `-c` series), `bump` (a `Rank` window over time with a
+  reversed axis), `waterfall` (a cumulative sum drawn as floating bars), and
+  `candlestick` (a `--low`/`--high` wick plus an open/close floating bar; the
+  two new flags are `--low` and `--high`). These mirror the cookbook recipes
+  exactly, and inherit the shared lane/gap conventions, so a `candlestick` body
+  lines up with a `-g bar`, and a `ridge` with a `-g violin`.
 - `-g density_2d`: a 2D kernel density drawn as a heatmap. `-x` and `-y` are
   the two columns whose joint density is estimated, and `--bins` sets the grid
   size per axis (the heatmap cells are matched to the grid). It is the filled

@@ -8,7 +8,6 @@ use crate::core::layer::{
 use crate::core::utils::IntoParallelizable;
 use crate::error::ChartonError;
 use crate::mark::point::{MarkPoint, PointLayout, QuasirandomMethod};
-use crate::position::Position;
 use crate::stats::kde::{BandwidthType, density_profile};
 use crate::visual::color::SingleColor;
 use crate::visual::shape::PointShape;
@@ -140,9 +139,7 @@ impl MarkRenderer for Chart<MarkPoint> {
                             let total_groups = cnt_col.get(i).to_f64().unwrap_or(1.0);
                             let sub_idx = sub_col.get(i).to_f64().unwrap_or(0.0);
 
-                            let position = Position::Dodge {
-                                spacing: mark_config.spacing,
-                            };
+                            let position = mark_config.lane_position();
                             let box_width_data = position.item_width(
                                 total_groups,
                                 mark_config.span,
@@ -332,9 +329,7 @@ impl Chart<MarkPoint> {
                 let sub_idx = sub_col.get(i).to_f64().unwrap_or(0.0);
                 lane_id = sub_idx as usize;
 
-                let position = Position::Dodge {
-                    spacing: mark_config.spacing,
-                };
+                let position = mark_config.lane_position();
                 let box_width_data =
                     position.item_width(total_groups, mark_config.span, mark_config.width);
                 let box_width_norm = box_width_data * unit_step_norm;
@@ -580,9 +575,7 @@ impl Chart<MarkPoint> {
                 let total_groups = cnt_col.get(i).to_f64().unwrap_or(1.0);
                 let sub_idx = sub_col.get(i).to_f64().unwrap_or(0.0);
 
-                let position = Position::Dodge {
-                    spacing: mark_config.spacing,
-                };
+                let position = mark_config.lane_position();
                 let box_width_data =
                     position.item_width(total_groups, mark_config.span, mark_config.width);
                 let box_width_norm = box_width_data * unit_step_norm;

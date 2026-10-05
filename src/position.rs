@@ -91,6 +91,16 @@ pub enum Position {
 }
 
 impl Position {
+    /// The gap between side-by-side **outline/point** marks, as a fraction of
+    /// one item's width: box plots, violins and points keep this gap so their
+    /// shapes read apart. Fill/interval marks (**bars**, error bars) tile
+    /// instead, with `spacing = 0.0`.
+    ///
+    /// The *formula* is shared by every dodging mark via [`Position::offset`];
+    /// this constant only single-sources the gap used by the spaced family, so
+    /// their defaults cannot drift apart.
+    pub const DEFAULT_DODGE_SPACING: f64 = 0.2;
+
     /// Returns `true` when items are placed on top of each other.
     pub const fn is_identity(&self) -> bool {
         matches!(self, Self::Identity)
@@ -98,10 +108,12 @@ impl Position {
 
     /// The default side-by-side layout.
     ///
-    /// Uses the same 20 % gap between items that the box plot and point marks
-    /// use, so a dodged violin group lines up with a dodged box or scatter.
+    /// Uses [`Self::DEFAULT_DODGE_SPACING`], the shared gap of the outline/point
+    /// family, so a dodged violin group lines up with a dodged box or scatter.
     pub const fn dodge() -> Self {
-        Self::Dodge { spacing: 0.2 }
+        Self::Dodge {
+            spacing: Self::DEFAULT_DODGE_SPACING,
+        }
     }
 
     /// Solves the layout of `count` items sharing one category.
