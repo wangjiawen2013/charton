@@ -1,6 +1,9 @@
-# Bars & Error Bars
+# Bars, Ranges & Comparisons
 
-This section explores how to visualize data variability, confidence intervals, and statistical trends. By leveraging Charton's Layered Chart system and Polars expressions, you can easily combine summary statistics (like bars or lines) with their associated error ranges.
+This page covers value comparisons: bars and error bars, and the range recipes
+built on the same pieces — a dumbbell, a lollipop, a range plot, a waterfall and
+a candlestick. They are all ordinary layers, so they share one set of scales and
+compose with `.and(…)`.
 
 ## Basic Bar with Error Bars
 Error bars are essential for communicating the precision of your data. This example shows the most common use case: a bar chart where each bar is accompanied by a vertical error bar calculated from pre-defined standard deviation values.
@@ -69,9 +72,6 @@ apart into two columns.
 ```rust
 {{#include ../../../examples/dumbbell.rs}}
 ```
-
-A **lollipop** is the same idea with one end at the baseline; a **range plot**
-uses the rule alone.
 
 ## Lollipop and range
 

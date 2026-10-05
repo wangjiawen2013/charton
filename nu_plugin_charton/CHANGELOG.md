@@ -6,6 +6,8 @@ stated in the README and in each release.
 
 ## [Unreleased]
 
+## [0.8.1] - 2026-10-05
+
 ### Added
 
 - **Cookbook recipe geoms.** Eight new `-g` names, each a composition of the

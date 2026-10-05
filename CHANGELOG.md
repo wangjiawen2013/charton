@@ -6,6 +6,8 @@ predate this file.
 
 ## [Unreleased]
 
+## [0.8.1] - 2026-10-05
+
 ### Added
 
 - **Dashed paths and polygons.** `mark_path` / `mark_polygon` (`MarkGeoPath`)
@@ -51,10 +53,13 @@ predate this file.
     .with_reverse(true)` for x). A reversed domain still expands and ticks
     correctly, so a rank axis can put rank 1 at the top. Passing a continuous
     domain backwards (`with_y_domain(max, min)`) does the same.
-- **`mark_point` can opt out of dodging.** `configure_point(…).with_dodge(false)`
-  keeps colour-grouped points on the category centre, so a colour channel is an
-  *attribute* (a legend entry) rather than a side-by-side lane. A dumbbell uses
-  it to keep both ends on their shared segment.
+- **`mark_point` dodges only on a categorical axis.** Colour-grouped points sit
+  side by side only when the x axis is discrete: dodging is a category concept,
+  and on a continuous axis the offset was scaled by an arbitrary data unit (so a
+  narrow numeric range distorted the chart). On a continuous axis the points now
+  stay on their own x, lining up with a rule, line or area through them.
+  `configure_point(…).with_dodge(false)` still turns the lane off on a
+  categorical axis — a dumbbell uses it to keep both ends on its segment.
 - **One named default gap for the outline/point family.**
   `Position::DEFAULT_DODGE_SPACING` (`0.2`) is now the single default used by
   `mark_boxplot`, `mark_point` and the band/quantile boxes; fill/interval marks

@@ -116,10 +116,11 @@ impl Y {
         }
     }
 
-    /// Draws the axis backwards.
+    /// Draws the axis backwards, high values at the bottom.
     ///
-    /// One general flag, not a per-chart trick: a rank axis puts rank 1 at the
-    /// top, a depth axis puts the surface at the top, and so on.
+    /// A rank axis then shows rank 1 at the top; a depth axis shows the surface
+    /// at the top. Expansion and ticks follow the numeric span, not the
+    /// direction.
     pub const fn with_reverse(mut self, reverse: bool) -> Self {
         self.reverse = reverse;
         self

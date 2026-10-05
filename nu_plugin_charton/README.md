@@ -186,7 +186,7 @@ Flags are grouped by what you want to do. `[]` in the type column marks a list.
 | `-x, --x` | Column for the x axis (the value column for `-g density`/`-g ecdf`; the category column for `-g violin`; the grid's x for `-g contour`; the first sampled column for `-g density_2d`) |
 | `-y, --y` | Column for the y axis (`hist` uses a generated `count`; `density` uses a generated `density`; the value column for `-g violin`; the grid's y for `-g contour`; the second sampled column for `-g density_2d`) |
 | `--z` | Value (scalar) column for `-g contour`; the grid is regular in `x` and `y`. Omit it to estimate a 2D density from `x`/`y` first (a density contour) |
-| `-c, --color` | Column mapped to color / grouping (required for `rect`; the group column for `density`/`ecdf`) |
+| `-c, --color` | Column mapped to colour / grouping (required for `rect`; the group column for `density`/`ecdf`, and the series for `slope`/`bump`; the up/down column for `candlestick`) |
 | `--y2` | Upper bound for `errorbar`/`rule`; the second value for `dumbbell`; the high for `range`/`candlestick`'s close (errorbar aggregates mean ± std when omitted) |
 | `--low`, `--high` | Wick columns for `-g candlestick` |
 | `--text` | Label column for `-g text` |
@@ -208,9 +208,10 @@ a dumbbell is a rule with two dots, a bump ranks with `transform_window` and
 reverses the axis, a waterfall floats bars on a running total, and a candlestick
 is a rule plus a floating bar. None of them adds a new mark.
 
-`slope`, `bump` and `candlestick` read a `-c` series (slope/bump) or a candle
-axis. Like `-g bar`, a candlestick's `-x` must be a **discrete** column — a
-date string such as `2024-07-01`, not a raw datetime.
+`slope` and `bump` need `-c` (the series to connect across periods);
+`candlestick` uses it to colour up days against down days. Like `-g bar`, a
+candlestick's `-x` must be a **discrete** column — a date string such as
+`2024-07-01`, not a raw datetime.
 `scatter`, `box`, `label`, `heatmap`, `histogram`, and `geoshape` are aliases.
 
 ### Encodings
@@ -408,7 +409,7 @@ Nushell, install the matching plugin release (or rebuild) and re-run
 `plugin add`.
 
 `nu_plugin_charton` shares its version number with the `charton` library it
-depends on, so `charton 0.8.0` and `nu_plugin_charton 0.8.0` ship as a pair.
+depends on, so `charton 0.8.1` and `nu_plugin_charton 0.8.1` ship as a pair.
 The Nushell target is stated here and in the release notes.
 
 ## Uninstall

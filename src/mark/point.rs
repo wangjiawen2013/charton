@@ -113,9 +113,12 @@ impl MarkPoint {
         }
     }
 
-    /// The lane layout for a grouped point: `Dodge` normally, or `Identity`
-    /// when the point opted out with [`Self::with_dodge`].
-    pub(crate) fn lane_position(&self) -> crate::position::Position {
+    /// The lane layout this point asks for: `Dodge` normally, or `Identity`
+    /// when it opted out with [`Self::with_dodge`].
+    ///
+    /// The renderer still decides whether the *axis* is categorical; a dodge is
+    /// only meaningful there.
+    pub(crate) fn dodge_position(&self) -> crate::position::Position {
         if self.dodge {
             crate::position::Position::Dodge {
                 spacing: self.spacing,
