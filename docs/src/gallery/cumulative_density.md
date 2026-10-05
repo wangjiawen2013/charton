@@ -20,15 +20,6 @@ transform_density(cumulative = true)   //  →  (value, cumulative density)
 {{#include ../../../examples/distribution.rs}}
 ```
 
-### Built from the primitives
-
-The same picture without `mark_density`: set `.with_cumulative(true)` on
-`DensityTransform` and draw the curve with `mark_area`.
-
-```rust
-{{#include ../../../examples/distribution_manual.rs}}
-```
-
 ## Empirical CDF (cumulative frequency)
 
 When you want the exact, unsmoothed version, use a window `CumeDist` and draw it
@@ -44,6 +35,15 @@ step.
 Both pictures answer "what fraction is below x?", one smooth and one as a step
 function. Use `transform_window(WindowOnlyOp::CumeDist)` for the exact ECDF,
 `mark_density` with `with_cumulative(true)` for the kernel-smoothed curve.
+
+## Built from the primitives
+
+The same picture without `mark_density`: set `.with_cumulative(true)` on
+`DensityTransform` and draw the curve with `mark_area`.
+
+```rust
+{{#include ../../../examples/distribution_manual.rs}}
+```
 
 ## See also
 

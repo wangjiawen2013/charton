@@ -128,14 +128,19 @@ impl MarkRenderer for Chart<MarkGeoPath> {
 
         for (points, group_color) in geo_render_data {
             if mark_config.closed {
-                // A closed path is filled, then outlined.
+                // Fill and outline are two independent passes. The fill pass
+                // must not carry the stroke, otherwise every explicit edge is
+                // stroked twice while the closing edge (added only by the
+                // closed fill path) is stroked once, leaving it visibly
+                // lighter. The outline pass is itself closed so the closing
+                // edge is stroked exactly like the rest.
                 backend.draw_path(PathConfig {
                     points: points.clone(),
                     fill: group_color,
-                    stroke: mark_config.stroke,
-                    stroke_width: mark_config.stroke_width as Precision,
+                    stroke: SingleColor::none(),
+                    stroke_width: 0.0,
                     opacity: mark_config.opacity as Precision,
-                    dash: dash.clone(),
+                    dash: vec![],
                     topology: PathTopology::Complex,
                 });
 
@@ -147,7 +152,7 @@ impl MarkRenderer for Chart<MarkGeoPath> {
                         stroke_width: mark_config.stroke_width as Precision,
                         opacity: 1.0,
                         dash: dash.clone(),
-                        topology: PathTopology::Simple,
+                        topology: PathTopology::Complex,
                     });
                 }
             } else {
