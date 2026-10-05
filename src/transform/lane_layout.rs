@@ -52,7 +52,7 @@ impl<T> LaneLayout<T> {
     ///
     /// `1` means there is nothing to sit side by side or to split, so a
     /// `with_split` request has no effect.
-    pub fn lane_count(&self) -> usize {
+    pub const fn lane_count(&self) -> usize {
         self.lane_offsets.len()
     }
 }

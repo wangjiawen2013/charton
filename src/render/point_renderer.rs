@@ -22,7 +22,7 @@ use rayon::prelude::*;
 /// Dodge is a *category* concept: it only applies when the x axis is discrete.
 /// On a continuous axis the point stays on its own x (so it lines up with a
 /// rule, line or area through the same value), whatever the mark asks for.
-fn lane_position(mark: &MarkPoint, categorical_x: bool) -> Position {
+const fn lane_position(mark: &MarkPoint, categorical_x: bool) -> Position {
     if categorical_x {
         mark.dodge_position()
     } else {
