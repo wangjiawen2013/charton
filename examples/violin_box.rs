@@ -1,8 +1,7 @@
 //! Violin with an inner box.
 //!
-//! The outline is `transform_density` + `transform_band`; the box is
-//! `transform_quantile_box`. They share the same lane layout, so the box always
-//! sits exactly over its violin.
+//! The outline is `mark_violin`; the box is `transform_quantile_box`. They share
+//! the same lane layout, so the box always sits exactly over its violin.
 
 use charton::prelude::*;
 use std::error::Error;
@@ -11,20 +10,14 @@ fn main() -> Result<(), Box<dyn Error>> {
     let penguins = load_dataset("penguins")?;
 
     let outline = chart!(&penguins)?
-        .transform_density(
-            DensityTransform::new("Body Mass (g)")
-                .with_as("Body Mass (g)", "density")
-                .with_groupbys(["Species"])
-                .with_trim(true),
-        )?
-        .transform_band(BandTransform::new("Body Mass (g)", "density").with_center("Species"))?
-        .mark_polygon()?
-        .configure_geoshape(|m| m.with_fill("#d6eaf8").with_stroke("#2c3e50"))
-        .encode((
-            alt::x("x").with_category_labels("Species"),
-            alt::y("y"),
-            alt::path_group("path_group"),
-        ))?;
+        .mark_violin()?
+        .configure_violin(|mark| {
+            mark.with_color("#d6eaf8")
+                .with_opacity(1.0)
+                .with_stroke("#2c3e50")
+                .with_stroke_width(0.5)
+        })
+        .encode((alt::x("Species"), alt::y("Body Mass (g)")))?;
 
     let inner_box = chart!(&penguins)?
         .transform_quantile_box(
