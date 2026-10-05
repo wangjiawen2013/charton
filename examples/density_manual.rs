@@ -28,7 +28,7 @@ fn main() -> Result<(), Box<dyn Error>> {
             alt::y("density"),
             alt::color("species"),
         ))?
-        .save("docs/src/images/density_manual.svg")?;
+        .save("target/example-output/density_manual.svg")?;
 
     Ok(())
 }

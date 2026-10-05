@@ -41,7 +41,7 @@ fn main() -> Result<(), Box<dyn Error>> {
         .with_title("Cumulative Density Estimation")
         .with_x_label("IMDB Rating")
         .with_y_label("Cumulative Density")
-        .save("docs/src/images/distribution_manual.svg")?;
+        .save("target/example-output/distribution_manual.svg")?;
 
     Ok(())
 }
