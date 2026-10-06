@@ -6,6 +6,12 @@ predate this file.
 
 ## [Unreleased]
 
+## [0.8.3] - 2026-10-06
+
+Lockstep version bump so the library and its Nushell plugin keep one version
+number. The library itself is unchanged from 0.8.2; the fixes in this release
+are in `nu_plugin_charton` (see its changelog).
+
 ## [0.8.2] - 2026-10-05
 
 Packaging and discoverability release. There are no API changes; charts render
@@ -300,3 +306,6 @@ No API changes. This release bumps the version to stay in lockstep with
   dark backgrounds.
 
 [0.7.0]: https://github.com/wangjiawen2013/charton/releases/tag/v0.7.0
+[0.8.3]: https://github.com/wangjiawen2013/charton/releases/tag/v0.8.3
+[0.8.2]: https://github.com/wangjiawen2013/charton/releases/tag/v0.8.2
+[0.8.1]: https://github.com/wangjiawen2013/charton/releases/tag/v0.8.1
