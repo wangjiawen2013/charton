@@ -1,0 +1,6 @@
+step,delta,kind
+Start,200,Increase
+Q1,50,Increase
+Q2,30,Increase
+Q3,-20,Decrease
+Q4,-10,Decrease
