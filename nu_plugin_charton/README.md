@@ -133,32 +133,48 @@ charton -g geo --geojson assets/world.geojson -c POP_EST -o world.png
 open assets/data.csv | charton -g line -x t -y v --layer {geom: point}
 open assets/data.csv | charton -g point -x a -y b --facet-wrap group
 
-# Cookbook recipes, all compositions of the marks above (no new marks):
-#   ridge     value on x, one overlapping density per category (one-sided violin)
-#   dumbbell  two values per category joined by a rule (needs --y2)
-#   lollipop  a rule from 0 to the value, capped with a dot
-#   range     a rule between --y and --y2
-#   slope     two periods joined per --color series
-#   bump      a ranking over time; rank 1 sits at the top (reversed axis)
-#   waterfall a running total drawn as floating bars
-#   candlestick OHLC: a low--high wick plus an open--close floating bar
+# Cookbook recipes — each is a composition of the marks above, not a new mark.
+# Every recipe reads a small table from `assets/` whose shape fits the chart:
+#   ridge       a one-sided, overlapping density per category (many rows per category)
+#   dumbbell    two dots per category, joined by a rule (one row per category)
+#   lollipop    a stem from zero, capped with a dot (one row per category)
+#   range       a rule from a low to a high (one row per category)
+#   slope       one series followed across two periods (one row per series per period)
+#   bump        a ranking over time, rank 1 on top (one row per series per period)
+#   waterfall   a running total drawn as floating bars (one row per step)
+#   candlestick a low--high wick plus an open--close bar (one OHLC row per period)
+# `--flip` turns a vertical comparison (dumbbell, lollipop, range) sideways.
 open assets/data.csv | charton -g ridge -x category -y score -o ridge.svg
-open assets/data.csv | charton -g dumbbell -x category -y a --y2 b -o dumbbell.svg
-open assets/data.csv | charton -g lollipop -x category -y amount -o lollipop.svg
-open assets/data.csv | charton -g range -x category -y a --y2 b -o range.svg
-open assets/data.csv | charton -g slope -x t -y v -c group -o slope.svg
-open assets/data.csv | charton -g bump -x t -y v -c group -o bump.svg
-open assets/data.csv | charton -g waterfall -x category -y amount -o waterfall.svg
-open assets/ohlc.csv | charton -g candlestick -x date -y open --y2 close --low low --high high -o candles.svg
+open assets/dumbbell.csv | charton -g dumbbell -x country -y y2011 --y2 y2021 --flip -o dumbbell.svg
+open assets/lollipop.csv | charton -g lollipop -x language -y share --flip -o lollipop.svg
+open assets/range.csv | charton -g range -x month -y low --y2 high --flip -o range.svg
+open assets/slope.csv | charton -g slope -x period -y rate -c country -o slope.svg
+open assets/bump.csv | charton -g bump -x year -y value -c country -o bump.svg
+open assets/waterfall.csv | charton -g waterfall -x step -y delta -c kind -o waterfall.svg
+open assets/ohlc.csv | charton -g candlestick -x date -y open --y2 close --low low --high high -c direction --x-angle -45 -o candles.svg
 ```
 
-The examples read the small sample files shipped in `assets/`: `data.csv` has
-columns `date,value,group,score,a,b,t,v,category,amount`, `sales.csv` has
-`region,quarter,revenue`, `grid.csv` is an `x,y,z` scalar grid for `-g contour`,
-`ohlc.csv` is a `date,open,high,low,close` price series for `-g candlestick`,
-and `world.geojson` is a Natural Earth country map.
-Run the commands from the `nu_plugin_charton/` directory (or prefix `assets/`
-with its path), and swap in your own file and column names to chart your data.
+Every example reads a small CSV from `assets/`, and each table has the shape
+its chart expects:
+
+| File | Columns | Used by |
+|---|---|---|
+| `data.csv` | `date,value,group,score,a,b,t,v,category,amount` | the distribution marks (ridge, violin, density) |
+| `dumbbell.csv` | `country,y2011,y2021` | `dumbbell` |
+| `lollipop.csv` | `language,share` | `lollipop` |
+| `range.csv` | `month,low,high` | `range` |
+| `slope.csv` | `country,period,rate` | `slope` |
+| `bump.csv` | `year,country,value` | `bump` |
+| `waterfall.csv` | `step,delta,kind` | `waterfall` |
+| `ohlc.csv` | `date,open,high,low,close,direction` | `candlestick` |
+| `sales.csv` | `region,quarter,revenue` | grouped and stacked bars |
+| `grid.csv` | `x,y,z` | `contour` |
+| `world.geojson` | — | `geo` |
+
+The `direction` column colours up days against down days in `candlestick`, and
+`world.geojson` is a Natural Earth country map. Run the commands from the
+`nu_plugin_charton/` directory (or prefix `assets/` with its full path), and
+swap in your own file and column names to chart your data.
 
 ## Output modes
 
@@ -202,11 +218,17 @@ and `contour` is a marching-squares iso-line stat plus the open `path` geometry.
 of the contour's `--z` form.
 
 `ridge`, `dumbbell`, `lollipop`, `range`, `slope`, `bump`, `waterfall` and
-`candlestick` are **compositions** of the existing pieces, exactly as in the
-[cookbook](../docs/src/gallery/primitives.md): a ridge is the one-sided violin,
-a dumbbell is a rule with two dots, a bump ranks with `transform_window` and
-reverses the axis, a waterfall floats bars on a running total, and a candlestick
-is a rule plus a floating bar. None of them adds a new mark.
+`candlestick` are **compositions** built from the pieces above — none of them
+adds a new mark. In plain terms:
+
+- **ridge** — the one-sided violin: a density per category that overlaps its neighbour.
+- **dumbbell** — a rule with a dot at each end.
+- **lollipop** — a bar with the fill removed, leaving a stem and a dot.
+- **range** — a single rule from `--y` up to `--y2`.
+- **slope** — a line joining the same series across two periods.
+- **bump** — a ranking over time, with the rank axis reversed so 1 is on top.
+- **waterfall** — floating bars sitting on a running total.
+- **candlestick** — an OHLC wick plus a floating open–close bar.
 
 `slope` and `bump` need `-c` (the series to connect across periods);
 `candlestick` uses it to colour up days against down days. Like `-g bar`, a
@@ -409,7 +431,7 @@ Nushell, install the matching plugin release (or rebuild) and re-run
 `plugin add`.
 
 `nu_plugin_charton` shares its version number with the `charton` library it
-depends on, so `charton 0.8.2` and `nu_plugin_charton 0.8.2` ship as a pair.
+depends on, so `charton 0.8.3` and `nu_plugin_charton 0.8.3` ship as a pair.
 The Nushell target is stated here and in the release notes.
 
 ## Uninstall

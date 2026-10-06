@@ -1,10 +1,8 @@
 //! Convert Nushell pipeline values (a table: list of records) into a charton
 //! [`Dataset`].
 //!
-//! Type inference is done per column by scanning *all* rows, not just the first
-//! value. This matters because the first row of a column may be `null`, while
-//! the rest are numeric — inferring from the first value alone would silently
-//! drop the whole column.
+//! Each column's type is inferred from all of its rows, so a column that starts
+//! with a `null` still becomes numeric when the remaining rows are numbers.
 
 use charton::prelude::{Dataset, ctime};
 use nu_protocol::{LabeledError, Span, Value};
