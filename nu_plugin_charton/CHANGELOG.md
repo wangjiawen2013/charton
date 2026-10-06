@@ -6,6 +6,32 @@ stated in the README and in each release.
 
 ## [Unreleased]
 
+## [0.8.3] - 2026-10-06
+
+### Fixed
+
+- **The cookbook recipes now use the right data shape.** Each example in the
+  README and the book reads a purpose-built table from `assets/` instead of the
+  single `data.csv`, which only suits the distribution marks. With the old
+  shared table the series charts degenerated: `bump` ranked one row per period
+  (every series stuck at rank 1), `waterfall` summed all 150 rows,
+  `dumbbell`/`lollipop`/`range` drew dozens of overlapping marks per category,
+  and `slope` became an ordinary line chart.
+- **`-g slope` and `-g bump` keep their dots on the line.** With a discrete x
+  the dots were dodged into colour lanes while the line was not, so the points
+  and the trajectories did not meet. Colour is now an attribute, not a lane.
+- **`-g candlestick` distinguishes up days from down days.** `assets/ohlc.csv`
+  gained a `direction` (`Up`/`Down`) column, and the recipe passes
+  `-c direction --x-angle -45`, so up and down days get different colours and
+  the date labels no longer overlap.
+
+### Changed
+
+- **`dumbbell`, `lollipop` and `range` recipes add `--flip`**, matching the
+  horizontal layout of the library's cookbook examples.
+- **The README documents the sample data.** A table lists every file in
+  `assets/`, its columns, and the chart that uses it.
+
 ## [0.8.2] - 2026-10-05
 
 ### Changed
@@ -116,3 +142,6 @@ First public release. Targets Nushell 0.116.
 - `charton-probe` diagnostic command behind an off-by-default `probe` feature.
 
 [0.7.0]: https://github.com/wangjiawen2013/charton/releases/tag/v0.7.0
+[0.8.3]: https://github.com/wangjiawen2013/charton/releases/tag/v0.8.3
+[0.8.2]: https://github.com/wangjiawen2013/charton/releases/tag/v0.8.2
+[0.8.1]: https://github.com/wangjiawen2013/charton/releases/tag/v0.8.1
