@@ -1797,8 +1797,8 @@ fn build_layer(
                 .with_as(RIDGE_VALUE, RIDGE_WIDTH)
                 .with_groupbys([x])
                 .with_trim(true);
-            // One bank of the band, grown past its lane so it overlaps the
-            // category above: exactly the ridge recipe from the cookbook.
+            // One bank of the band, widened so each ridge overlaps the
+            // category above it.
             let band = BandTransform::new(RIDGE_VALUE, RIDGE_WIDTH)
                 .with_center(x)
                 .with_as(RIDGE_X, RIDGE_Y, RIDGE_PATH)
@@ -1837,6 +1837,7 @@ fn build_layer(
         }
 
         // --- Comparisons: two values joined by a rule ------------------------------------
+        // Dumbbell: one dot per value, joined by a rule from `-y` to `--y2`.
         "dumbbell" | "connected-dot" => {
             let x = x.ok_or_else(|| missing(geom, "--x (the category column)", span))?;
             let y = y.ok_or_else(|| missing(geom, "--y (the first value)", span))?;
@@ -1858,8 +1859,7 @@ fn build_layer(
                     .map_err(|e| chart_err(span, e))?
                     .mark_point()
                     .map_err(|e| chart_err(span, e))?
-                    // No dodge: both ends must sit on the shared segment, so a
-                    // `-c` colour is an attribute, not a lane.
+                    // Do not offset the dot, so it stays on the connector.
                     .configure_point(|m| style_point(m.with_size(8.0).with_dodge(false), style));
                 let c = match color {
                     Some(col) => c.encode((make_x(x), make_y(field), alt::color(col))),
@@ -1875,6 +1875,7 @@ fn build_layer(
                 .with_x_label(x)
                 .with_y_label(y)
         }
+        // Lollipop: a stem from zero to each value, capped with a dot.
         "lollipop" => {
             let x = x.ok_or_else(|| missing(geom, "--x (the category column)", span))?;
             let y = y.ok_or_else(|| missing(geom, "--y (the value column)", span))?;
@@ -1908,6 +1909,7 @@ fn build_layer(
 
             stems.and(caps).with_x_label(x).with_y_label(y)
         }
+        // Range: one rule per category, from the low (`-y`) to the high (`--y2`).
         "range" => {
             let x = x.ok_or_else(|| missing(geom, "--x (the category column)", span))?;
             let y = y.ok_or_else(|| missing(geom, "--y (the low value)", span))?;
@@ -1927,6 +1929,7 @@ fn build_layer(
         }
 
         // --- Trends: two periods (slope) and a ranking over time (bump) ---------
+        // Slope: a line per `-c` series across the periods, dotted at each value.
         "slope" => {
             let x = x.ok_or_else(|| missing(geom, "--x (the period column)", span))?;
             let y = y.ok_or_else(|| missing(geom, "--y (the value column)", span))?;
@@ -1942,11 +1945,14 @@ fn build_layer(
                 .map_err(|e| chart_err(span, e))?
                 .mark_point()
                 .map_err(|e| chart_err(span, e))?
-                .configure_point(|m| style_point(m.with_size(7.0), style))
+                // Do not offset the dot, so it stays on its line.
+                .configure_point(|m| style_point(m.with_size(7.0).with_dodge(false), style))
                 .encode((make_x(x), make_y(y), alt::color(c)))
                 .map_err(|e| chart_err(span, e))?;
             lines.and(dots).with_x_label(x).with_y_label(y)
         }
+        // Bump: rank each series within every x group and draw the trajectories;
+        // the rank axis is reversed so rank 1 sits at the top.
         "bump" => {
             let x = x.ok_or_else(|| missing(geom, "--x (the time column)", span))?;
             let y = y.ok_or_else(|| missing(geom, "--y (the value column)", span))?;
@@ -1974,7 +1980,8 @@ fn build_layer(
                 .map_err(|e| chart_err(span, e))?
                 .mark_point()
                 .map_err(|e| chart_err(span, e))?
-                .configure_point(|m| style_point(m.with_size(7.0), style))
+                // Do not offset the dot, so it stays on its trajectory.
+                .configure_point(|m| style_point(m.with_size(7.0).with_dodge(false), style))
                 .transform_window(rank())
                 .map_err(|e| chart_err(span, e))?;
             let dots = dots
@@ -1988,6 +1995,8 @@ fn build_layer(
         }
 
         // --- Financial: a running total (waterfall) and OHLC bars (candlestick) ---
+        // Waterfall: each bar floats from the total before a step to the total
+        // after it, so a column of deltas reads as one climbing (or falling) total.
         "waterfall" => {
             let x = x.ok_or_else(|| missing(geom, "--x (the step column)", span))?;
             let y = y.ok_or_else(|| missing(geom, "--y (the delta column)", span))?;
@@ -2022,6 +2031,7 @@ fn build_layer(
             let lc: LayeredChart = bars.into();
             lc.with_x_label(x).with_y_label(y)
         }
+        // Candlestick: a low--high wick plus an open--close floating bar.
         "candlestick" | "ohlc" => {
             let x = x.ok_or_else(|| missing(geom, "--x (the time column)", span))?;
             let open = y.ok_or_else(|| missing(geom, "--y (the open column)", span))?;

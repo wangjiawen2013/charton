@@ -6,7 +6,7 @@ default-members = ["."]
 
 [package]
 name = "charton"
-version = "0.8.2"
+version = "0.8.3"
 edition = "2024"
 description = "Altair-style declarative plotting library for Rust. High-performance, Polars-friendly, with SVG/PNG/PDF export and Wasm support."
 license = "Apache-2.0"

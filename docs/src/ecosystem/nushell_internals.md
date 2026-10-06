@@ -194,7 +194,7 @@ Three consequences:
 
 1. **Only `nu-plugin-protocol`'s version is checked.** The plugin's own
    `version()` (what `plugin list` shows) is pure metadata — the plugin can
-   report `0.8.2` and still load under Nushell `0.116.0`.
+   report `0.8.3` and still load under Nushell `0.116.0`.
 2. **Patch versions are compatible.** For `0.x`, a caret requirement locks the
    minor: `^0.116.0` means `>= 0.116.0, < 0.117.0`. So `0.116.1` and
    `0.116.0` are compatible in either direction, which is exactly why the

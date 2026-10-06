@@ -97,12 +97,17 @@ open grid.csv | charton -g contour -x x -y y --z z -o contour.svg
 open data.csv | charton -g line -x t -y v -c series \
     --layer {geom: point}
 
-# cookbook recipes, all compositions of the marks above
-open data.csv | charton -g ridge -x category -y score -o ridge.svg
-open data.csv | charton -g dumbbell -x category -y a --y2 b -o dumbbell.svg
-open data.csv | charton -g waterfall -x category -y amount -o waterfall.svg
-open ohlc.csv | charton -g candlestick -x date -y open --y2 close \
-    --low low --high high -o candles.svg
+# cookbook recipes: each is a composition of the marks above, and each reads a
+# small table whose row shape fits the chart (see nu_plugin_charton/assets)
+open assets/data.csv | charton -g ridge -x category -y score -o ridge.svg
+open assets/dumbbell.csv | charton -g dumbbell -x country -y y2011 --y2 y2021 --flip -o dumbbell.svg
+open assets/lollipop.csv | charton -g lollipop -x language -y share --flip -o lollipop.svg
+open assets/range.csv | charton -g range -x month -y low --y2 high --flip -o range.svg
+open assets/slope.csv | charton -g slope -x period -y rate -c country -o slope.svg
+open assets/bump.csv | charton -g bump -x year -y value -c country -o bump.svg
+open assets/waterfall.csv | charton -g waterfall -x step -y delta -c kind -o waterfall.svg
+open assets/ohlc.csv | charton -g candlestick -x date -y open --y2 close \
+    --low low --high high -c direction --x-angle -45 -o candles.svg
 
 # geographic choropleth from GeoJSON
 charton -g geo --geojson world.geojson -c POP_EST -o world.png
