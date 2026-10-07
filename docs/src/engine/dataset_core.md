@@ -1,6 +1,6 @@
 # The Dataset: High-Performance Data Container
 
-The `Dataset` is the primary unit of data movement in Charton. It is a column-oriented container designed for high-performance visualization, thread safety, and zero-copy data sharing.
+The `Dataset` is the primary unit of data movement in Charton. It is a column-oriented container designed for high-performance visualization, thread safety, and cheap `Arc`-based data sharing between layers.
 
 ## Internal Architecture
 
@@ -140,12 +140,14 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
 
     * Note: For temporal types, this returns the raw i64 slice.
 
-### Slicing (Zero-Copy)
-Charton uses "Eager Slicing." Because columns are wrapped in `Arc`, these operations are extremely lightweight and do not copy the underlying data buffers.
+### Slicing
+These eager helpers return an owned `Dataset`, so they copy the selected range into fresh column buffers.
 
 * `head(n)`: Returns a new `Dataset` containing the first `n` rows.
 * `tail(n)`: Returns a new Dataset containing the last `n` rows.
 * `slice(offset, len)`: Returns a new `Dataset` starting at `offset` with `len` rows.
+
+For a non-copying, read-only window use `view(offset, len)`, which returns a borrowed `DatasetView` that indexes into the original buffers.
 
 ## Debugging: The Tabular View
 

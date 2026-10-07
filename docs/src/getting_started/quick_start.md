@@ -69,7 +69,7 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
         "weight" => vec![55.0, 62.0, 68.0, 75.0, 82.0]
     ]?;
 
-    // 2. Perform zero-copy / highly efficient conversion into a Charton Dataset 
+    // 2. Convert the DataFrame into a Charton Dataset (one-pass, columnar copy)
     // using the optimized version-specific macro
     let ds = load_polars_df!(df)?;
 
