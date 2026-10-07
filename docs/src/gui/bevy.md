@@ -17,7 +17,7 @@ version = "0.1.0"
 edition = "2024"
 
 [dependencies]
-charton = { version = "0.5", features = ["wgpu", "png"] }
+charton = { version = "0.8", features = ["wgpu", "png"] }
 bevy = "0.18"
 ```
 

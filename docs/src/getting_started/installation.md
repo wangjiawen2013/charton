@@ -9,7 +9,7 @@ To get started with the standard, single-threaded configuration, add Charton to 
 
 ```toml
 [dependencies]
-charton = "0.5"
+charton = "0.8"
 ```
 
 ## Tailoring with Cargo Features
@@ -19,10 +19,10 @@ For production deployments, we strongly recommend enabling specific features to 
 ```toml
 [dependencies]
 # Example 1: Enable multi-threaded data processing for massive Polars DataFrames
-charton = { version = "0.5", features = ["parallel"] }
+charton = { version = "0.8", features = ["parallel"] }
 
 # Example 2: Enable native image and document encoders for direct file exports
-charton = { version = "0.5", features = ["png", "pdf"] }
+charton = { version = "0.8", features = ["png", "pdf"] }
 ```
 
 ## Feature Flag Matrix

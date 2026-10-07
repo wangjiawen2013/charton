@@ -1,11 +1,10 @@
 //! Charton is a powerful plotting library for Rust that provides first-class, native support
 //! for Rust [Polars](https://github.com/pola-rs/polars), and offers an API similar to
 //! Python's [Altair](https://altair-viz.github.io/), making it easy for users familiar with
-//! declarative, instruction-based plotting to migrate. It also allows you to leverage existing
-//! mature visualization ecosystems, such as Altair and [Matplotlib](https://matplotlib.org/).
-//! By seamlessly integrating with [evcxr_jupyter](https://github.com/evcxr/evcxr), Charton
-//! facilitates the creation of informative and aesthetically pleasing visualizations interactively,
-//! making it especially well-suited for exploratory data analysis.
+//! declarative, instruction-based plotting to migrate. By seamlessly integrating with
+//! [evcxr_jupyter](https://github.com/evcxr/evcxr), Charton facilitates the creation of
+//! informative and aesthetically pleasing visualizations interactively, making it especially
+//! well-suited for exploratory data analysis.
 //!
 //! # How a chart is built
 //!
