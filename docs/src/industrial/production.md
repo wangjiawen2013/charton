@@ -18,13 +18,12 @@ Charton is engineered to be a "headless" citizen of the cloud. The core renderin
 
 ## Deployment Strategies
 
-When deploying Charton-powered services, we recommend three distinct patterns depending on the load:
+When deploying Charton-powered services, we recommend two distinct patterns depending on the load:
 
 | Deployment Pattern | Use Case | Implementation Strategy |
 | :--- | :--- | :--- |
 | **Edge Rendering (WASM)** | Interactive UI / Dashboards | Compile the core library to WASM for client-side rendering, minimizing server load. |
 | **Headless Batch Service** | Automated Report Generation | Use a containerized Rust service to consume IPC data, render to SVG/PNG, and pipe to S3. |
-| **Bridge-Integrated API** | Prototyping / Hybrid Apps | Utilize the Python bridge to leverage established libraries (Altair/Matplotlib) while maintaining data integrity via Rust’s polars types. |
 
 ## Semantic Validation in CI
 
