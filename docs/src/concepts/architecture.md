@@ -8,9 +8,9 @@ The following diagram illustrates the flow of information through the system:
 
 ### I. The Input Layer (Data Ingestion)
 
-The Input layer acts as the entry point for all data. Charton is built on the Arrow memory format, allowing for zero-copy integration with high-performance data libraries.
-* Data Sources: Accepts structured dataframes or serialized streams.
-* Bridge System: Provides a language-agnostic interface that allows the core engine to receive data from different environments (e.g., Python) without version conflicts.
+The Input layer acts as the entry point for all data. Charton stores columns in a compact columnar form and speaks Apache Arrow for interoperability with high-performance data libraries.
+* Data Sources: Accepts structured dataframes, plain Rust vectors, or Apache Arrow `RecordBatch`es (e.g. from Parquet, databases, or Arrow Flight).
+* Arrow Interop: The `arrow` feature provides `from_arrow` / `from_record_batches`, while the versioned `load_polars_df!` / `load_polars_v44_52!` macros convert a Polars `DataFrame` without tying the core engine to a specific Polars release.
 
 ### II. The Core Layer (The Specification Engine)
 
@@ -32,8 +32,8 @@ Once the Core layer has resolved the mathematical logic, the Render layer conver
 The final layer translates geometric instructions into a specific file format or display buffer.
 
 * Vector Output: Generates SVG or PDF files for infinite scalability and web integration.
-* Raster Output: Renders high-performance PNG or JPEG images for reports and dashboards.
-* Specification Output: Can export the entire chart state as a JSON specification (compatible with Vega-Lite) for use in frontend applications.
+* Raster Output: Renders high-performance PNG images (via `tiny-skia`) for reports and dashboards.
+* GPU Output: The `wgpu` backend draws geometry directly on the GPU for interactive and large-dataset workloads. Charton does not emit Vega/Vega-Lite specifications.
 
 ## The Visualization Lifecycle
 

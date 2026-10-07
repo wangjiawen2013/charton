@@ -11,10 +11,10 @@ Visual libraries are notoriously difficult to test because the "correct" output 
 
 ## CI/CD Pipeline Integration
 
-Charton is engineered to be a "headless" citizen of the cloud. The bridge system (`matplotlib.rs`, `altair.rs`) and the core rendering pipeline are optimized for containerized environments:
+Charton is engineered to be a "headless" citizen of the cloud. The core rendering pipeline and the `SvgBackend` / `RasterBackend` / `PdfBackend` / `WgpuBackend` implementations are optimized for containerized environments:
 
 - Minimal Footprint: By utilizing high-performance columnar data layouts, Charton ensures that memory overhead remains flat even when processing datasets that would crash standard plotting tools. This makes it ideal for running in restricted-resource container environments (e.g., AWS Lambda, K8s sidecars).
-- Feature Flagging: The `composite.rs` implementation demonstrates how output formats (PNG, PDF, etc.) are controlled via `Cargo` features. This allows production builds to prune unnecessary dependencies, drastically reducing the binary size and attack surface in production environments.
+- Feature Flagging: Output formats (PNG, PDF, etc.) are gated behind `Cargo` features (`png`/`raster`, `pdf`, `wgpu`, `geo`, `arrow`, `parallel`). This allows production builds to prune unnecessary dependencies, drastically reducing the binary size and attack surface in production environments.
 
 ## Deployment Strategies
 

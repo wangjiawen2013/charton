@@ -54,9 +54,9 @@ Charton treats space as a first-class citizen, separating the "logic" of a chart
 
 Charton is engineered for the Rust ecosystem, leveraging its unique strengths:
 
-* Zero-Copy with Polars: By utilizing the Apache Arrow format, Charton processes massive DataFrames with minimal memory overhead.
+* Columnar, JSON-Free Ingestion: Data is converted from Polars/Arrow into contiguous typed buffers — no JSON serialization or row-object overhead. Values are copied once at the boundary; downstream sharing between layers is reference-counted via `Arc`.
 * Thread-Safe Resolution: Resolved scales are stored in `Arc<RwLock<...>>`. This allows the rendering backend to safely access scale metadata across multiple threads, enabling high-performance parallel rendering.
-* The Version Bridge: To solve "dependency hell," the `bridge` module allows passing data as Parquet-serialized bytes. This ensures Charton works seamlessly even if your project uses a version of Polars different from the one Charton was compiled with.
+* Versioned Polars Macros: To solve "dependency hell," the core engine does not depend on `polars` directly. Conversion happens through version-matched macros (`load_polars_df!`, `load_polars_v44_52!`), so Charton keeps working even if your project pins a different Polars release.
 
 ## Summary: The Charton Workflow
 
