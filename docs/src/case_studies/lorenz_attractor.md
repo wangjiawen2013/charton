@@ -1,6 +1,6 @@
 # The 50k-Point Lorenz Attractor (WGPU & Zero-Allocation WASM)
 
-The previous chapter's WGPU implementation (*Chapter WebAssembly & Vega-Lite JSON, Part 2*) was a "naive" port that re-allocated heap memory every frame. To push WebAssembly and your GPU to their limits, we will render a Lorenz Attractor—a complex, non-repeating 3D trajectory—simulating 50,000 dynamic particles at a locked 60 FPS.
+The previous chapter's WGPU implementation (*Chapter WebAssembly, Part 2*) was a "naive" port that re-allocated heap memory every frame. To push WebAssembly and your GPU to their limits, we will render a Lorenz Attractor—a complex, non-repeating 3D trajectory—simulating 50,000 dynamic particles at a locked 60 FPS.
 
 Crucially, we will refactor our WASM boundary to achieve Zero-Allocation (Zero Malloc) during the render loop.
 
