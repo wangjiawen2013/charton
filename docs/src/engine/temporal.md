@@ -21,7 +21,7 @@ Charton "physicalizes" temporal data into primitive integers. This architecture 
 Instead of forcing data into a lossy floating-point representation or a system-defined reference point during loading, Charton treats the user's original values as immutable:
 
 *   **Integer Domain Residency**: Data stays in the `i64/i32` domain as long as possible. This avoids the **Floating-Point Precision Trap**, where `f64` loses nanosecond-level resolution when representing large Unix timestamps (the "big number noise" problem).
-*   **Zero-Copy Potential**: By matching the memory layout of modern data frames, Charton can map raw buffers directly into `ColumnVector` variants with zero re-sampling or multiplication overhead.
+*   **Layout-Friendly Ingestion**: By matching the contiguous layout of modern data frames, Charton converts raw integer buffers into the matching `ColumnVector` variants while keeping values in their native integer domain — no lossy float conversion.
 *   **Maximum Fidelity**: When converting from high-level objects like `time::OffsetDateTime`, Charton automatically extracts nanosecond-level integers, ensuring not a single bit of precision is discarded.
 
 ### 2.2 Late-Binding Projection
@@ -55,7 +55,7 @@ Charton is designed as the visual extension of the modern Rust data ecosystem.
 
 *   **Polars & Arrow**: Direct ingestion of primitive buffers, respecting the `TimeUnit` and `TimeZone` metadata defined in the schema.
 *   **Time Crate Integration**: Native `From` implementations for `OffsetDateTime`, `Date`, and `Time`. 
-*   **Memory Efficiency**: By using `Arc<ColumnVector>` within a `Dataset`, Charton enables zero-copy data sharing across multiple threads, layers, and viewports.
+*   **Memory Efficiency**: By wrapping each column in `Arc<ColumnVector>`, Charton lets multiple threads and layers share the same buffers without duplication — only reference counts are cloned.
 
 ---
 
