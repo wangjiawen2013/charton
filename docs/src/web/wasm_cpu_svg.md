@@ -21,7 +21,7 @@ The goal of this foundational stage is to understand the core Rust-to-WASM compi
     - macOS: usually pre‑installed with Xcode command line tools
 
 > Important compatibility note:
-> `charton` v0.5 depends on `getrandom`, which needs special configuration for `wasm32-unknown-unknown`. This tutorial includes all required settings.
+> `charton` depends on `getrandom`, which needs special configuration for `wasm32-unknown-unknown`. This tutorial includes all required settings.
 
 ## 1) Project Layout
 
@@ -53,7 +53,7 @@ crate-type = ["cdylib"]     # Produces a dynamic library for WASM
 
 [dependencies]
 wasm-bindgen = "0.2"        # JS ↔ Rust bridge
-charton = "0.5"             # Declarative plotting library
+charton = "0.8"             # Declarative plotting library
 
 # getrandom must be explicitly added with the "wasm_js" feature flag
 # for wasm32-unknown-unknown target support.
@@ -71,16 +71,16 @@ panic = "abort"             # Smaller panic handler
 Create a `lib.rs` file in the `src` directory and add the following code: 
 
 ```rust
-//! Charton WASM demo: real-time animated line chart with color gradient.
+//! Charton WASM demo: real-time animated scatter chart with color gradient.
 //!
 //! This module exposes a single function, `draw_wave`, which takes three
 //! numeric arrays and returns an SVG string. The color channel is mapped
-//! directly to the y-value, producing a continuous color gradient along the line.
+//! directly to the y-value, producing a continuous color gradient across the points.
 
 use wasm_bindgen::prelude::*;
 use charton::prelude::*;
 
-/// Generate an SVG line chart with a color gradient.
+/// Generate an SVG scatter chart with a color gradient.
 ///
 /// # Arguments
 /// * `xs` - X-axis values (e.g., time steps)
@@ -107,7 +107,7 @@ pub fn draw_wave(
     // Build a chart using the declarative API
     let chart = Chart::build(ds)
         .map_err(|e| JsValue::from_str(&e.to_string()))?
-        .mark_point()                                       // Use a line mark
+        .mark_point()                                       // Use a point (scatter) mark
         .map_err(|e| JsValue::from_str(&e.to_string()))?
         .encode((                                           // Map columns to visual channels
             alt::x("x"),
@@ -204,7 +204,7 @@ Create `index.html` in the project root. The JavaScript:
 
             const container = document.getElementById('chart');
             const WINDOW_SIZE = 200;          // Show the latest 200 data points
-            const ADD_INTERVAL_MS = 40;       // Add a new point every 50ms
+            const ADD_INTERVAL_MS = 40;       // Add a new point every 40ms
             let xs = [];
             let ys = [];
             let t = 0;                        // Time counter

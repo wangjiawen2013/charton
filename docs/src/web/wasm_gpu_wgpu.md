@@ -44,7 +44,7 @@ crate-type = ["cdylib"]
 [dependencies]
 wasm-bindgen = "0.2"
 wasm-bindgen-futures = "0.4" # Required for awaiting asynchronous GPU adapters
-charton = { version = "0.5", features = ["wgpu"] } # Enable WGPU feature
+charton = { version = "0.8", features = ["wgpu"] } # Enable WGPU feature
 
 # Required for web-native target handling and canvas contexts
 web-sys = { version = "0.3", features = [

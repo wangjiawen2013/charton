@@ -11,7 +11,7 @@ Before initiating plotting routines inside a notebook, ensure the underlying EVC
 Create a fresh cell inside your Jupyter Notebook using the Rust (evcxr) kernel, and input the following configuration:
 
 ```rust
-:dep charton = { version = "0.5" }
+:dep charton = { version = "0.8" }
 :dep polars = { version = "0.53", features = ["lazy"] }
 
 use charton::prelude::*;
