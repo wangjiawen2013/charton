@@ -6,13 +6,13 @@ When a visualization library transitions from an academic prototype to an indust
 
 Charton achieves sub-millisecond execution speeds on large-scale datasets by optimizing three distinct layers: hardware-friendly data ingestion, high-performance associative hashing, and streamlined geometric compilation.
 
-### Zero-Copy Ingestion via Polars-Aligned Memory
+### Columnar Ingestion via Polars-Aligned Memory
 
 Naive visualization tools often store data as rows of object instances, which introduces severe memory fragmentation and continuous pointer chasing. Charton eliminates this overhead by strictly enforcing a contiguous columnar memory layout.
 
 As defined in the core data structures, a dataset is broken down into independent vectors of strongly typed primitives (`ColumnVector` variants such as `Float64`, `Int32`, or `String`). 
 
-* **Polars Optimization**: This layout mirrors the memory alignment used by the `Polars` DataFrame engine. When you ingest a dataset from a Polars source, Charton can perform a near-zero-cost conversion, repurposing the underlying Arrow-backed memory buffers rather than duplicating arrays.
+* **Polars Optimization**: This layout mirrors the memory alignment used by the `Polars` DataFrame engine. Ingestion converts a Polars/Arrow source into these contiguous buffers in a single pass — values are copied, but there is no per-row pointer indirection and no JSON round-trip.
 * **Cache Locality**: By structuring data as contiguous primitive arrays (e.g., `Vec<f64>`), the CPU can efficiently pre-fetch values into its L1/L2 caches during axis scaling and coordinate transformations, maximizing hardware throughput.
 
 ### High-Performance Hashing with `ahash`

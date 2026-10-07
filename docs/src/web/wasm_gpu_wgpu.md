@@ -254,7 +254,7 @@ Create or update `index.html` in your project root:
                 }
 
                 try {
-                    // Direct zero-copy data streaming from JS to WGPU vertex pipelines
+                    // Stream this frame's data from JS into the WGPU vertex pipeline
                     await render_chart_gpu("chart-canvas", xs, ys, colors);
                 } catch (e) {
                     console.error("GPU Rendering Error:", e);
