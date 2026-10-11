@@ -215,33 +215,47 @@ for anything that is "the same rows, several shapes".
 
 ## Level 3 — Transform the table (`--transform`)
 
-When no mark computes the numbers you need, rewrite the table yourself.
-`--transform` runs Charton's public transforms in order **before** the mark
-draws. Each transform **replaces** the table, so the mark's `-x` / `-y` /
-`--path-group` name the columns the transform emits (its `as` names).
+Some numbers are not in your table yet: a smooth density curve, a running
+total, an inter-quartile box. `--transform` computes them first, then the mark
+draws the result.
+
+A transform is a **record** with three kinds of keys:
+
+| Key | Meaning |
+|---|---|
+| `op` | The operation to run. Required; one of the names below. |
+| input keys | The columns to read: `field` (density), `x`/`y` (density-2d), `x`/`y`/`z` (contour), `value`/`width` (band), ... |
+| `as` | What to call the new columns; omit it for the defaults. |
 
 ```nu
-# density curve, written from the primitive pieces
+# read `score`, write the curve columns `value` and `density`
 let curve = {op: density, field: score, as: [value, density]}
 open assets/data.csv | charton area -x value -y density --transform $curve
 ```
 
-The vocabulary is **closed** — these are all the public transforms:
+`--transform` takes one record, or a **list** run in order. Each step
+**replaces** the table, so the mark's `-x` / `-y` / `--path-group` name the
+columns the last step wrote (its `as` names), not the original columns.
 
-| `op` | Reads | Emits (`as`) | One row per |
-|---|---|---|---|
-| `density` | one numeric column | `[value, density]`; grouping kept | evaluation point × group |
-| `density-2d` | `x`, `y` | `[x, y, density]` | grid node |
-| `contour` | `x`, `y`, `z` | `[x, y, path_group]` + `level-as` | polyline vertex |
-| `band` | `value`, `width` (+ `center`, `group`) | `[x, y, path_group]` | polygon vertex |
-| `quantile-box` | `value` (+ `category`, `group`) | `[x, y, path_group]` | polygon vertex |
-| `window` | one column | `as` (a new column; `kind: rank \| cume-dist \| cumulative-sum \| row-number`) | one per row |
-| `calculate` | any column, via the row record | `as` (a new column, from an `expr: {\|row\| ...}` closure) | one per row |
+The vocabulary is **closed** — these are all the transforms:
 
-Options: `density` takes `bandwidth`, `kernel`, `cumulative`, `counts`, `trim`;
-`band` takes `side` (`both` / `left` / `right`), `scale` (`per-group` / `global`
-/ `raw`), `overlap`, `span`, `split`, `position` (`identity` / `dodge`);
-`quantile-box` and `density-2d` take their own layout/size options.
+| `op` | What it computes | Reads | Writes (`as` default) | Example record |
+|---|---|---|---|---|
+| `density` | 1-D kernel density: a smooth curve | `field` | `<field>`, `density` | `{op: density, field: score}` |
+| `density-2d` | 2-D kernel density on a grid | `x`, `y` | `x`, `y`, `density` | `{op: density-2d, x: a, y: b}` |
+| `contour` | Iso-lines of an `x`/`y`/`z` grid | `x`, `y`, `z` | `x`, `y`, `path_group`, `level` | `{op: contour, x: x, y: y, z: z}` |
+| `band` | A ribbon of a given width around a value (half a violin, a ridge) | `value`, `width` | `x`, `y`, `path_group` | `{op: band, value: value, width: density, center: species}` |
+| `quantile-box` | The inter-quartile box outline | `value` | `x`, `y`, `path_group` | `{op: quantile-box, value: score, category: species}` |
+| `window` | A running or ranked statistic: one row in, one row out | `field` | the `kind` name | `{op: window, field: value, kind: rank, group-by: [year]}` |
+| `calculate` | Any Nushell expression, one row at a time | any columns | the `as` name (required) | `{op: calculate, as: ratio, expr: {\|row\| $row.a / $row.b}}` |
+
+The `op` accepts aliases too: `kde` (`density`), `density2d` (`density-2d`),
+`box` (`quantile-box`), and `calc` (`calculate`).
+
+> **Full guide:** [Writing Transforms in the Nushell Plugin](https://wangjiawen2013.github.io/charton/ecosystem/nushell_transforms.html)
+> covers every tuning key (`bandwidth`, `kind`, `side`, ...), the `window`
+> kinds, multi-step pipelines, and worked recipes (density, ECDF, ridgeline,
+> waterfall, raincloud).
 
 > `calculate` runs a Nushell closure for every row, and the row is a record, so
 > the closure can read any column an earlier transform produced. When a value
@@ -251,35 +265,6 @@ Options: `density` takes `bandwidth`, `kernel`, `cumulative`, `counts`, `trim`;
 > ```nu
 > open data.csv | insert ratio {|r| $r.revenue / $r.cost} | charton point -x ratio -y score
 > ```
-
-Recipes that need nothing but transforms:
-
-```nu
-# Ridgeline = density + a one-sided band + polygon (violin's own pieces)
-open assets/data.csv |
-charton polygon -x x -y y --path-group pg -c category --flip --transform [
-  {op: density, field: score, as: [value, density], group-by: [category], trim: true}
-  {op: band, value: value, width: density, center: category,
-    side: right, scale: per-group, overlap: 2.5, as: [x, y, pg]}
-]
-
-# ECDF = the CumeDist window transform + a step line
-let ecdf = {op: window, field: score, kind: cume-dist, as: ecdf, group-by: [group]}
-open assets/data.csv | charton line -x score -y ecdf -c group --interpolation step --transform $ecdf
-```
-
-Charton's waterfall is floating bars from the running total *before* a step to
-the total *after* it, with the opening and closing totals anchored at zero. Two
-transforms do it — a window for the running total, then a `calculate` for the
-bar's lower edge:
-
-```nu
-open assets/waterfall.csv |
-charton bar -x step -y base --y2 total -c kind --mark-width 0.6 --transform [
-  {op: window, field: delta, kind: cumulative-sum, as: total}
-  {op: calculate, as: base, expr: {|row| if $row.kind == 'Total' { 0 } else { $row.total - $row.delta }}
-]
-```
 
 ---
 
@@ -295,15 +280,17 @@ let box = {geom: polygon, x: qx, y: qy, path_group: qpg, color: category,
            transforms: [{op: quantile-box, value: score, category: category, as: [qx, qy, qpg]}]}
 open assets/data.csv | charton violin -x category -y score --layer $box --layer {geom: point, x: category, y: score}
 
-# Bump = a rank window on every layer, drawn as a line with its points
+# Bump = a rank window on every layer, drawn as a line with its points.
+# The point layer omits `transforms`, so it inherits `$rank` from the primary.
 let rank = {op: window, field: value, kind: rank, as: rank, group-by: [year]}
-open assets/bump.csv | charton line -x year -y rank -c country --transform $rank --layer {geom: point, transforms: [$rank]}
+open assets/bump.csv | charton line -x year -y rank -c country --transform $rank --layer point
 ```
 
-A layer with its own `transforms` rewrites the table for that layer; a layer
-with none reads the original rows, which is why the bump's point layer repeats
-the window. That independence is what lets a recipe mix a transformed layer with
-a raw one.
+A layer that states its own `transforms` rewrites the table for that layer; a
+layer that omits them inherits the primary layer's chain (so the bump's point
+layer sees the same `rank` column). Give a layer `transforms: []` when it should
+read the original rows instead — that is how a recipe mixes a transformed layer
+with a raw one.
 
 Because a transform is just a record, the same pieces recombine into new charts
 — and nothing has to be added to the plugin when the next one comes along.
@@ -532,6 +519,8 @@ yourself if you no longer want it.
 
 - [The Nushell Plugin](https://wangjiawen2013.github.io/charton/ecosystem/nushell.html)
   — the conceptual overview.
+- [Writing Transforms in the Nushell Plugin](https://wangjiawen2013.github.io/charton/ecosystem/nushell_transforms.html)
+  — the full `--transform` guide: keys, options, and recipes.
 - [Nushell Plugin Internals](https://wangjiawen2013.github.io/charton/ecosystem/nushell_internals.html)
   — process model, inline protocols, resolution fitting.
 - [Composing Your Own](https://wangjiawen2013.github.io/charton/gallery/primitives.html)

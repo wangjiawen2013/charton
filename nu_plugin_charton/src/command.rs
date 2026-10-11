@@ -3617,6 +3617,76 @@ mod tests {
     }
 
     #[test]
+    fn documented_transform_records_render() -> Result<(), ShellError> {
+        // Spot-check the transform examples in the docs: each must render
+        // using only the default output names (`as` omitted).
+        let out = run(
+            "charton area -x petal_length -y density --transform {op: density, field: petal_length}",
+        )?;
+        assert!(out.as_str()?.contains("<svg"));
+        let out = run_on(
+            grid(),
+            "charton rect -x x -y y -c density --transform {op: density-2d, x: x, y: y}",
+        )?;
+        assert!(out.as_str()?.contains("<svg"));
+        let out = run_on(
+            grid(),
+            "charton path -x x -y y --path-group path_group -c level \
+             --transform {op: contour, x: x, y: y, z: z}",
+        )?;
+        assert!(out.as_str()?.contains("<svg"));
+        let out = run(
+            "charton polygon -x x -y y --path-group path_group \
+             --transform {op: quantile-box, value: petal_length, category: species}",
+        )?;
+        assert!(out.as_str()?.contains("<svg"));
+        // The book's two-step scatter → density-2d → contour pipeline: the
+        // second step reads the first step's default `density` column.
+        let out = run_on(
+            grid(),
+            "charton path -x x -y y --path-group path_group -c level --transform [\
+             {op: density-2d, x: x, y: y}, {op: contour, x: x, y: y, z: density}]",
+        )?;
+        assert!(out.as_str()?.contains("<svg"));
+        Ok(())
+    }
+
+    #[test]
+    fn layer_inherits_the_primary_transform_chain() -> Result<(), ShellError> {
+        // A layer that states no `transforms` reuses the primary's chain, so
+        // an overlay can be added with just `--layer point` even when the
+        // primary rewrites the table (`petal_length` -> `value` / `density`).
+        let out = run(
+            "charton area -x value -y density \
+             --transform {op: density, field: petal_length, as: [value, density]} --layer point",
+        )?;
+        assert!(out.as_str()?.contains("<svg"));
+        // A window keeps the other columns, so `--layer point` draws the same
+        // ranks as the line (the bump recipe).
+        let out = run(
+            "charton line -x t -y rank -c grp \
+             --transform {op: window, field: petal_length, kind: rank, as: rank, group-by: [grp]} \
+             --layer point",
+        )?;
+        assert!(out.as_str()?.contains("<svg"));
+        Ok(())
+    }
+
+    #[test]
+    fn layer_with_empty_transforms_reads_original_rows() -> Result<(), ShellError> {
+        // `transforms: []` replaces the inherited chain, so this point layer
+        // reads the original `t` / `petal_length` columns even though the
+        // primary rewrote the table into `value` / `density`.
+        let out = run(
+            "charton area -x value -y density \
+             --transform {op: density, field: petal_length, as: [value, density]} \
+             --layer {geom: point, x: t, y: petal_length, transforms: []}",
+        )?;
+        assert!(out.as_str()?.contains("<svg"));
+        Ok(())
+    }
+
+    #[test]
     fn layer_style_record_maps_every_field() {
         // A field settable by a CLI flag must be settable from a layer `style`
         // record too, or the two parsing paths drift apart. This covers the
