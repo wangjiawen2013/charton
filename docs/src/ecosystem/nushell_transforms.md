@@ -205,12 +205,19 @@ This is exactly the pieces `charton violin` assembles internally.
 
 ```nu
 open assets/data.csv
-| charton polygon -x x -y y --path-group pg -c category --flip --transform [
-    {op: density, field: score, as: [value, density], group-by: [category], trim: true}
-    {op: band, value: value, width: density, center: category,
-     side: right, scale: per-group, overlap: 2.5, as: [x, y, pg]}
-  ]
+| charton polygon -x x -y y --path-group pg -c category --flip \
+    --x-expand [0.4, 1.5] --opacity 0.85 --stroke '#2c3e50' --stroke-width 1.0 --transform [
+      {op: density, field: score, as: [value, density], group-by: [category]}
+      {op: band, value: value, width: density, center: category,
+       side: right, scale: per-group, overlap: 2.5, band-width: 1.0, as: [x, y, pg]}
+    ]
 ```
+
+A ridge grows past its lane, so the category axis needs headroom above the top
+one. `--x-expand [0.4, 1.5]` pads that axis by 0.4 at the low end and 1.5 at the
+high end (in category units), so the tallest ridge is not clipped. The two
+numbers are `[low, high]`; a single number instead pads both ends by a fraction
+of the range.
 
 ### Waterfall
 
@@ -222,7 +229,7 @@ total, and a `calculate` computes each bar's lower edge:
 open assets/waterfall.csv
 | charton bar -x step -y base --y2 total -c kind --mark-width 0.6 --transform [
     {op: window, field: delta, kind: cumulative-sum, as: total}
-    {op: calculate, as: base, expr: {|row| if $row.kind == 'Total' { 0 } else { $row.total - $row.delta }}
+    {op: calculate, as: base, expr: {|row| if $row.kind == 'Total' { 0 } else { $row.total - $row.delta }}}
   ]
 ```
 
