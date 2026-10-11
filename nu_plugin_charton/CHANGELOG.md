@@ -6,6 +6,40 @@ stated in the README and in each release.
 
 ## [Unreleased]
 
+### Changed
+
+- **Marks are now subcommands.** `charton -g bar ...` becomes `charton bar ...`.
+  Every mark is registered as `charton <mark>` (`charton point`, `charton line`,
+  `charton density`, …), and each one declares only the flags it understands, so
+  `help charton bar` and `charton bar --<TAB>` no longer list density or line
+  options. This is a breaking change; there is no `-g`/`--geom` flag anymore.
+- **The mark list now matches Charton's.** Only the real marks remain
+  (`point`, `line`, `path`, `polygon`, `bar`, `area`, `rect`, `rule`, `text`,
+  `tick`, `hist`, `boxplot`, `violin`, `errorbar`, `density`, `density-2d`,
+  `contour`, `geo`). The Tier-3 recipes are gone as commands.
+- **Recipes are written from the grammar primitives.** The `ridge`, `ecdf`,
+  `candlestick`, `dumbbell`, `lollipop`, `range`, `slope`, `bump`, and
+  `waterfall` subcommands are removed. Use the new `--transform` flag (Charton's
+  public transforms: `density`, `density-2d`, `contour`, `band`,
+  `quantile-box`, `window`) together with `--layer`, `--path-group`, and a
+  floating `bar` (`--y2`). The README and the book show each recipe written out.
+- **`beeswarm` is `charton point --layout beeswarm`**, matching Charton, where
+  the swarm is a point layout rather than a mark.
+- **`path` and `polygon` are available**, with the `--path-group` encoding
+  channel; `bar` supports floating bars via `--y2`.
+- **Flag values autocomplete.** `get_dynamic_completion` now suggests enum
+  values for `--stack`, `--aggregate`, `--coord`, `--density-kernel`, `--shape`,
+  `--interpolation`, `--layout`, `--x-scale`/`--y-scale`, `--legend`, `--theme`,
+  `--inline-style`, `--facet-strategy`, `--color-map`, and others.
+- **`--layer` accepts a bare mark name.** `--layer {geom: point}` can now be
+  written `--layer point`; the layer inherits the primary encoding, and a list
+  may mix names and records.
+
+### Fixed
+
+- **A typo in a column name now reports the available columns** instead of
+  surfacing a low-level `Column 'x' not found` from the renderer.
+
 ## [0.8.3] - 2026-10-06
 
 ### Fixed
