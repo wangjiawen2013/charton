@@ -11,7 +11,7 @@ open data.csv | charton bar -x region -y revenue
 
 # The transform turns `score` into a curve; the mark draws the curve.
 open data.csv | charton area -x value -y density \
-    --transform {op: density, field: score}
+    --transform {op: density, field: score, as: [value, density]}
 ```
 
 This page is the long-form guide. It explains what each key of a transform
@@ -33,21 +33,30 @@ A transform is a Nushell **record**. It has three kinds of keys:
 
 | Key | Meaning |
 |---|---|
-| `op` | The operation to run. Required; one of the names in [the catalogue](#the-transform-catalogue). |
-| input keys | The columns to read. They depend on `op`: `density` reads `field`, `density-2d` reads `x` and `y`, `contour` reads `x`, `y`, `z`, `band` reads `value` and `width`, and so on. |
-| `as` | What to call the new columns, usually a list. Omit it to accept the defaults. |
+| `op` | Which operation to run. Required; one of the names in [the catalogue](#the-transform-catalogue). |
+| **input keys** | The inputs the operation expects. The key name is fixed by the transform; its **value is one of your column names**. A `density` expects `field`, so `field: score` means "read the `score` column". |
+| `as` | The names to give the columns the transform writes. Usually a list, e.g. `as: [value, density]`. Omit it to accept the defaults. |
 
-Every other key (`bandwidth`, `trim`, `kind`, ...) tunes that operation.
+Every other key (`bandwidth`, `trim`, `kind`, ...) tunes that operation. The
+catalogue below lists each operation's input keys under **Reads**; the value you
+give each key is one of your column names.
 
 The density example, key by key:
 
 ```nu
 # op:    compute a density
-# field: from the `score` column
-# as:    name the two new columns `value` and `density`
+# field: read the `score` column
+# as:    name the new columns `value` and `density`
 let curve = {op: density, field: score, as: [value, density]}
 open data.csv | charton area -x value -y density --transform $curve
 ```
+
+| Stage | Columns |
+|---|---|
+| piped in | `score` — one row per observation |
+| the transform reads | `score` |
+| the transform writes | `value`, `density` — one row per curve point |
+| the mark draws | `-x value`, `-y density` |
 
 That one record turns a column of observations into a column of curve points:
 

@@ -219,19 +219,29 @@ Some numbers are not in your table yet: a smooth density curve, a running
 total, an inter-quartile box. `--transform` computes them first, then the mark
 draws the result.
 
-A transform is a **record** with three kinds of keys:
+A transform is a **record**. It has three kinds of keys:
 
 | Key | Meaning |
 |---|---|
-| `op` | The operation to run. Required; one of the names below. |
-| input keys | The columns to read: `field` (density), `x`/`y` (density-2d), `x`/`y`/`z` (contour), `value`/`width` (band), ... |
-| `as` | What to call the new columns; omit it for the defaults. |
+| `op` | Which operation to run. Required; one of the names in the catalogue below. |
+| **input keys** | The inputs the operation expects. The key name is fixed by the transform; its **value is one of your column names**. A `density` expects an input key called `field`, so `field: score` means "read my `score` column". |
+| `as` | The names to give the columns the transform writes. Usually a list, e.g. `as: [value, density]`. Omit it to keep the defaults. |
+
+The catalogue below lists each operation's input keys under **Reads**; the value
+you give each key is one of your column names. The density example, stage by
+stage:
 
 ```nu
-# read `score`, write the curve columns `value` and `density`
 let curve = {op: density, field: score, as: [value, density]}
 open assets/data.csv | charton area -x value -y density --transform $curve
 ```
+
+| Stage | Columns |
+|---|---|
+| piped in | `score` — one row per observation |
+| the transform reads | `score` |
+| the transform writes | `value`, `density` — one row per point on the curve |
+| the mark then draws | `-x value` (the position) and `-y density` (the height there) |
 
 `--transform` takes one record, or a **list** run in order. Each step
 **replaces** the table, so the mark's `-x` / `-y` / `--path-group` name the
