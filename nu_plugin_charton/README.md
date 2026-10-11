@@ -284,8 +284,7 @@ The same pieces spell out the charts people know by name:
 # Ridgeline = density + a one-sided band + polygon (violin's own pieces).
 # `--x-expand [0.4, 1.5]` gives the top ridge headroom so it is not clipped.
 open assets/data.csv |
-charton polygon -x x -y y --path-group pg -c category --flip \
-  --x-expand [0.4, 1.5] --opacity 0.85 --stroke '#2c3e50' --stroke-width 1.0 --transform [
+charton polygon -x x -y y --path-group pg -c category --flip --x-expand [0.4, 1.5] --opacity 0.85 --stroke '#2c3e50' --stroke-width 1.0 --transform [
     {op: density, field: score, as: [value, density], group-by: [category]}
     {op: band, value: value, width: density, center: category,
      side: right, scale: per-group, overlap: 2.5, band-width: 1.0, as: [x, y, pg]}
