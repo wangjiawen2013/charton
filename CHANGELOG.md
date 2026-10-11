@@ -11,6 +11,18 @@ predate this file.
 - **`Theme::with_font_scale(factor)`** multiplies every font size (title, axis
   labels, tick labels, legend, facet labels) in one call. Handy for rendering
   the same chart at a larger text ratio, e.g. when fitting it into a terminal.
+- **`MarkRect::with_cell_padding(padding)`** grows (or shrinks) each heatmap
+  tile on every side, in device pixels. The default is `0.5`.
+- **`RowAccessor::entries()`** returns the current row as `(column name, value)`
+  pairs, so a `transform_calculate` callback can serialise the whole row (for
+  example to hand it to an external expression evaluator).
+
+### Fixed
+
+- **Heatmap tiles no longer show white seams.** The raster backend drew a
+  hairline for a zero-width stroke; it now skips zero-width strokes, matching
+  the SVG backend. `rect` / `density_2d` also overlap their tiles by the default
+  `cell_padding` so anti-aliasing cannot leave a gap between neighbours.
 
 ## [0.8.3] - 2026-10-06
 

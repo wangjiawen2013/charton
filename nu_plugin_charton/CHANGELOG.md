@@ -37,6 +37,10 @@ stated in the README and in each release.
 
 ### Added
 
+- **`--transform {op: calculate, as: <col>, expr: {|row| ...}}`** runs a Nushell
+  closure for every row, matching Charton's `transform_calculate`. The row is a
+  record, so the closure can read columns produced by earlier transforms — this
+  is how the waterfall recipe computes its `base` column, with no `reduce`.
 - **`--font-scale` (and the `font_scale` config key)** multiply every chart
   font. Charts are fitted into the terminal, where Charton's base sizes look
   small, so the default is now **1.5**; pass `1.0` for Charton's original sizes
@@ -47,6 +51,18 @@ stated in the README and in each release.
 
 - **A typo in a column name now reports the available columns** instead of
   surfacing a low-level `Column 'x' not found` from the renderer.
+- **Heatmaps no longer show white seams between cells.** A zero-width stroke is
+  no longer rasterized, and tiles overlap by `--cell-padding` (default 0.5
+  device pixels). Pass a negative `--cell-padding` to open a deliberate gap.
+- **Hand-written violins and ridges share the category axis** with points and
+  boxes. A `band` or `quantile-box` transform now labels the x axis with its
+  `center` / `category` column, so the layers line up instead of conflicting on
+  a linear-vs-discrete scale.
+- **A `--layer` `style` record accepts every styling field.** `mark-width`,
+  `cell-padding`, `cap-length`, `outlier-size`, `loess`, `loess-bandwidth`,
+  and the boolean `center` / `outliers` switches were previously ignored; keys
+  now take kebab- or snake-case, and an unknown key or wrong value type is an
+  error instead of a silent no-op.
 
 ## [0.8.3] - 2026-10-06
 

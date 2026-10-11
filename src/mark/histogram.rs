@@ -20,7 +20,7 @@ impl MarkHist {
             // (0.651, 0.212, 0.012, 1.000), // #a63603
             color: SingleColor::new("black"),
             opacity: 1.0,
-            stroke: SingleColor::new("black"),
+            stroke: SingleColor::none(),
             stroke_width: 0.0,
         }
     }

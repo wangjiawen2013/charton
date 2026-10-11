@@ -3240,6 +3240,22 @@ impl<'a> RowAccessor<'a> {
     pub const fn index(&self) -> usize {
         self.current_row
     }
+
+    /// The current row as `(column name, value)` pairs, in dataset order.
+    ///
+    /// A `transform_calculate` callback is handed a `RowAccessor`, not the
+    /// table, so this is how it reads the *whole* row — for example to forward
+    /// it to an external expression evaluator.
+    pub fn entries(&self) -> Vec<(String, AnyValue<'a>)> {
+        self.ds
+            .get_column_names()
+            .into_iter()
+            .map(|name| {
+                let value = self.ds.get(&name, self.current_row);
+                (name, value)
+            })
+            .collect()
+    }
 }
 
 /// Represents the statistical aggregation operations available for data transformation.

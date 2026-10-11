@@ -94,25 +94,30 @@ open data.csv | charton violin -x category -y score -c group -o violin.svg
 open grid.csv | charton contour -x x -y y --z z -o contour.svg
 
 # group by a column with a color channel, then overlay a second mark
-open data.csv | charton line -x t -y v -c series \
-    --layer point
+open data.csv | charton line -x t -y v -c series --layer point
 
 # recipes are compositions, not marks: --transform runs Charton's public
 # transforms in order and the mark draws the columns they emit
 # ridgeline = density + one-sided band + polygon
-open assets/data.csv | charton polygon -x x -y y --path-group pg -c category --flip \
-    --transform [{op: density, field: score, as: [value, density], group-by: [category], trim: true}, \
-                 {op: band, value: value, width: density, center: category, side: right, scale: per-group, overlap: 2.5, as: [x, y, pg]}] \
-    -o ridge.svg
+let ridge = [
+    {op: density, field: score, as: [value, density], group-by: [category], trim: true}
+    {op: band, value: value, width: density, center: category, side: right,
+     scale: per-group, overlap: 2.5, as: [x, y, pg]}
+]
+open assets/data.csv
+| charton polygon -x x -y y --path-group pg -c category --flip --transform $ridge -o ridge.svg
 # ECDF = the CumeDist window transform + a step line
-open assets/data.csv | charton line -x score -y ecdf -c group --interpolation step \
-    --transform {op: window, field: score, kind: cume-dist, as: ecdf, group-by: [group]} -o ecdf.svg
+let ecdf = {op: window, field: score, kind: cume-dist, as: ecdf, group-by: [group]}
+open assets/data.csv
+| charton line -x score -y ecdf -c group --interpolation step --transform $ecdf -o ecdf.svg
 # candlestick = a low--high rule + a floating bar
-open assets/ohlc.csv | charton rule -x date -y low --y2 high -c direction \
-    --layer {geom: bar, y: open, y2: close} --x-angle -45 -o candles.svg
+let body = {geom: bar, y: open, y2: close}
+open assets/ohlc.csv
+| charton rule -x date -y low --y2 high -c direction --layer $body --x-angle -45 -o candles.svg
 # dumbbell = a rule with a dot at each end
-open assets/dumbbell.csv | charton rule -x country -y y2011 --y2 y2021 --flip \
-    --layer [{geom: point, y: y2011}, {geom: point, y: y2021}] -o dumbbell.svg
+let ends = [{geom: point, y: y2011}, {geom: point, y: y2021}]
+open assets/dumbbell.csv
+| charton rule -x country -y y2011 --y2 y2021 --flip --layer $ends -o dumbbell.svg
 # range = a single rule; slope = a line with its points
 open assets/range.csv | charton rule -x month -y low --y2 high --flip -o range.svg
 open assets/slope.csv | charton line -x period -y rate -c country --layer point -o slope.svg
@@ -136,9 +141,11 @@ Chart types that Charton builds from primitives — ridgeline, ECDF, candlestick
 dumbbell, range, slope, bump, waterfall, raincloud — are **not** commands: you
 write them with `--transform` and `--layer`, exactly as the
 [cookbook](../gallery/primitives.md) shows. The `--transform` vocabulary is
-closed: `density`, `density-2d`, `contour`, `band`, `quantile-box`, `window`.
-Charton's `transform_calculate` is intentionally not a flag — compute the column
-in the pipeline instead (`... | insert ratio {|r| $r.a / $r.b} | charton ...`).
+closed: `density`, `density-2d`, `contour`, `band`, `quantile-box`, `window`,
+`calculate`. `calculate` runs a Nushell closure per row (`{op: calculate,
+as: ratio, expr: {|r| $r.a / $r.b}}`), so it can read an earlier transform's
+output; a plain `insert` before `charton` is faster when the value only needs the
+original columns.
 The full flag table is in the plugin README.
 
 ## Configuration

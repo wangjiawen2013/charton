@@ -17,6 +17,7 @@
 //!     background: "#ffffff"
 //!     theme: dark               # auto | light | dark
 //!     color_map: viridis        # continuous color scheme (heatmaps, density)
+//!     font_scale: 1.5           # multiply every chart font (default 1.5)
 //! }
 //! ```
 //!
@@ -230,9 +231,8 @@ pub fn to_color_map(name: &str) -> Result<ColorMap, String> {
         "cool" => ColorMap::Cool,
         other => {
             return Err(format!(
-                "unknown color map '{other}'; try viridis, inferno, magma, plasma, 
-                 cividis, blues, greens, greys, oranges, purples, reds, or a 
-                 multi-hue map like ylgnbu"
+                "unknown color map '{other}'; try viridis, inferno, magma, plasma, \
+                 cividis, blues, greens, greys, or a multi-hue map like ylgnbu"
             ));
         }
     })
