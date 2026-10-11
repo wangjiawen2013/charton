@@ -14,7 +14,7 @@ That one line reads the table, infers column types, builds the chart, and draws
 it in the terminal. The command is `charton`; the plugin is registered without
 the `nu_plugin_` prefix.
 
-> **Compatibility:** targets **Nushell 0.116** and shares the `charton` version
+> Compatibility: targets Nushell 0.116 and shares the `charton` version
 > number (both `0.8.x`), so one release covers the matching pair. See
 > [Compatibility](#compatibility).
 
@@ -73,10 +73,10 @@ four levels, from "just draw my rows" to "write a recipe nobody named":
 
 | Level | You use | When you reach for it |
 |---|---|---|
-| **1. Marks** | `charton point`, `charton hist`, … | almost always — start here |
-| **2. Compose** | `--layer` | one mark is not enough |
-| **3. Transform** | `--transform` | no mark computes the numbers you need |
-| **4. Compose + transform** | `--layer` + `--transform` | a complete recipe |
+| 1. Marks | `charton point`, `charton hist`, … | almost always — start here |
+| 2. Compose | `--layer` | one mark is not enough |
+| 3. Transform | `--transform` | no mark computes the numbers you need |
+| 4. Compose + transform | `--layer` + `--transform` | a complete recipe |
 
 **Why it is built this way.** Chart *types* are infinite; *marks* and
 *statistics* are finite. So the plugin exposes exactly Charton's public marks
@@ -87,7 +87,7 @@ command**. The trade-off is explicit: the first level is a one-liner, the last
 levels ask you to know the pieces — but the vocabulary never grows, and a
 brand-new chart type needs no plugin change.
 
-Most charts are **Level 1**. Levels 2–4 exist so that "not a built-in chart
+Most charts are Level 1. Levels 2–4 exist so that "not a built-in chart
 type" never means "not possible".
 
 ---
@@ -98,9 +98,9 @@ A *mark* is the thing that draws. `charton <mark>` picks one; each command
 declares only the flags it understands, so `help charton bar` and
 `charton bar --<TAB>` stay focused. There are two kinds:
 
-- **Primitives** draw the rows as they are: one row in, one shape out. `-x` /
+- Primitives draw the rows as they are: one row in, one shape out. `-x` /
   `-y` name existing columns.
-- **Atoms** run one canonical statistic first, which **replaces** the table,
+- Atoms run one canonical statistic first, which replaces the table,
   then draw its output. `-y` is often a generated column (`count`, `density`, a
   five-number summary, …).
 
@@ -219,15 +219,15 @@ Some numbers are not in your table yet: a smooth density curve, a running
 total, an inter-quartile box. `--transform` computes them first, then the mark
 draws the result.
 
-A transform is a **record**. It has three kinds of keys:
+A transform is a record. It has three kinds of keys:
 
 | Key | Meaning |
 |---|---|
 | `op` | Which operation to run. Required; one of the names in the catalogue below. |
-| **input keys** | The inputs the operation expects. The key name is fixed by the transform; its **value is one of your column names**. A `density` expects an input key called `field`, so `field: score` means "read my `score` column". |
+| input keys | The inputs the operation expects. The key name is fixed by the transform; its value is one of your column names. A `density` expects an input key called `field`, so `field: score` means "read my `score` column". |
 | `as` | The names to give the columns the transform writes. Usually a list, e.g. `as: [value, density]`. Omit it to keep the defaults. |
 
-The catalogue below lists each operation's input keys under **Reads**; the value
+The catalogue below lists each operation's input keys under Reads; the value
 you give each key is one of your column names. The density example, stage by
 stage:
 
@@ -243,11 +243,11 @@ open assets/data.csv | charton area -x value -y density --transform $curve
 | the transform writes | `value`, `density` — one row per point on the curve |
 | the mark then draws | `-x value` (the position) and `-y density` (the height there) |
 
-`--transform` takes one record, or a **list** run in order. Each step
-**replaces** the table, so the mark's `-x` / `-y` / `--path-group` name the
+`--transform` takes one record, or a list run in order. Each step
+replaces the table, so the mark's `-x` / `-y` / `--path-group` name the
 columns the last step wrote (its `as` names), not the original columns.
 
-The vocabulary is **closed** — these are all the transforms:
+The vocabulary is closed — these are all the transforms:
 
 | `op` | What it computes | Reads | Writes (`as` default) | Example record |
 |---|---|---|---|---|
@@ -262,7 +262,7 @@ The vocabulary is **closed** — these are all the transforms:
 The `op` accepts aliases too: `kde` (`density`), `density2d` (`density-2d`),
 `box` (`quantile-box`), and `calc` (`calculate`).
 
-> **Full guide:** [Writing Transforms in the Nushell Plugin](https://wangjiawen2013.github.io/charton/ecosystem/nushell_transforms.html)
+> Full guide: [Writing Transforms in the Nushell Plugin](https://wangjiawen2013.github.io/charton/ecosystem/nushell_transforms.html)
 > covers every tuning key (`bandwidth`, `kind`, `side`, ...), the `window`
 > kinds, multi-step pipelines, and worked recipes (density, ECDF, ridgeline,
 > waterfall, raincloud).
@@ -275,6 +275,36 @@ The `op` accepts aliases too: `kde` (`density`), `density2d` (`density-2d`),
 > ```nu
 > open data.csv | insert ratio {|r| $r.revenue / $r.cost} | charton point -x ratio -y score
 > ```
+
+### Well-known recipes
+
+The same pieces spell out the charts people know by name:
+
+```nu
+# Ridgeline = density + a one-sided band + polygon (violin's own pieces)
+open assets/data.csv |
+charton polygon -x x -y y --path-group pg -c category --flip --transform [
+  {op: density, field: score, as: [value, density], group-by: [category], trim: true}
+  {op: band, value: value, width: density, center: category,
+    side: right, scale: per-group, overlap: 2.5, as: [x, y, pg]}
+]
+
+# ECDF = the CumeDist window transform + a step line
+let ecdf = {op: window, field: score, kind: cume-dist, as: ecdf, group-by: [group]}
+open assets/data.csv | charton line -x score -y ecdf -c group --interpolation step --transform $ecdf
+```
+
+A waterfall is floating bars from the running total *before* a step to the total
+*after* it, with the opening and closing totals anchored at zero. A `window`
+makes the running total, then a `calculate` finds each bar's lower edge:
+
+```nu
+open assets/waterfall.csv |
+charton bar -x step -y base --y2 total -c kind --mark-width 0.6 --transform [
+  {op: window, field: delta, kind: cumulative-sum, as: total}
+  {op: calculate, as: base, expr: {|row| if $row.kind == 'Total' { 0 } else { $row.total - $row.delta }}
+]
+```
 
 ---
 
