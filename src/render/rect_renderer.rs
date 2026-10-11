@@ -92,12 +92,15 @@ impl MarkRenderer for Chart<MarkRect> {
                     &mark_config.color,
                 );
 
-                // 3. Rect Boundary Calculation: Offset from center to top-left corner
+                // 3. Rect Boundary Calculation: Offset from center to top-left
+                //    corner. `cell_padding` grows the cell so neighbouring
+                //    tiles overlap and no seam shows through.
+                let pad = mark_config.cell_padding;
                 Some(RectConfig {
-                    x: (px - rect_width / 2.0) as Precision,
-                    y: (py - rect_height / 2.0) as Precision,
-                    width: rect_width as Precision,
-                    height: rect_height as Precision,
+                    x: (px - rect_width / 2.0 - pad) as Precision,
+                    y: (py - rect_height / 2.0 - pad) as Precision,
+                    width: (rect_width + 2.0 * pad) as Precision,
+                    height: (rect_height + 2.0 * pad) as Precision,
                     fill,
                     stroke: mark_config.stroke,
                     stroke_width: mark_config.stroke_width as Precision,

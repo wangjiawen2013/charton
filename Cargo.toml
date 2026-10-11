@@ -32,7 +32,7 @@ exclude = [
 features = ["png", "pdf", "geo", "arrow", "parallel"]
 
 [features]
-default = []
+default = ["png", "pdf", "geo", "wgpu"]
 
 # Enables multi-threaded data processing via Rayon for massive datasets.
 # NOTE: Disable this feature when targeting WebAssembly (Wasm) unless

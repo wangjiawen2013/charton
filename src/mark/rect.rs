@@ -12,6 +12,10 @@ pub struct MarkRect {
     pub(crate) opacity: f64,
     pub(crate) stroke: SingleColor,
     pub(crate) stroke_width: f64,
+    /// Extra device pixels added to every side of a cell. A heatmap's tiles
+    /// meet edge to edge, and anti-aliasing then leaves a hairline seam;
+    /// a small positive padding closes it. Negative values open a gap.
+    pub(crate) cell_padding: f64,
 }
 
 impl MarkRect {
@@ -20,8 +24,12 @@ impl MarkRect {
             // (0.500, 0.992, 0.553, 0.235), // #fd8d3c
             color: SingleColor::new("black"),
             opacity: 1.0,
-            stroke: SingleColor::new("white"),
+            // No outline by default; a real colour at width 0 is contradictory
+            // and lets a rasterizer leave a hairline between tiles.
+            stroke: SingleColor::none(),
             stroke_width: 0.0,
+            // Enough to overlap the anti-aliased edge of the neighbouring tile.
+            cell_padding: 0.5,
         }
     }
 
@@ -50,6 +58,16 @@ impl MarkRect {
     /// Sets the thickness of the rectangle's outline.
     pub const fn with_stroke_width(mut self, width: f64) -> Self {
         self.stroke_width = width;
+        self
+    }
+
+    /// Grows each cell by `padding` device pixels on every side.
+    ///
+    /// Use a small positive value to close the hairline seams that
+    /// anti-aliasing leaves between heatmap tiles, or a negative value to open
+    /// a deliberate gap. The default is `0.5`.
+    pub const fn with_cell_padding(mut self, padding: f64) -> Self {
+        self.cell_padding = padding;
         self
     }
 }

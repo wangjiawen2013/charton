@@ -1,34 +1,54 @@
-//! The `charton` subcommands: read a pipeline table, build a charton chart,
-//! then either render it inline in the terminal, save it, or return the raw
-//! data.
+//! The `charton` Nushell plugin.
 //!
-//! Every mark is its own subcommand (`charton bar`, `charton line`, ...). A
-//! mark declares only the flags it understands, so `charton <TAB>` and
-//! `help charton <mark>` stay focused instead of listing every option.
+//! A Nushell pipeline is a table; `charton` turns one into a chart and either
+//! draws it inline in the terminal, saves it (`-o chart.svg`), or hands the
+//! image back to the pipeline (`--raw`).
 //!
-//! The file has two halves:
-//! - the **command layer** at the top: one [`MarkCommand`] per mark, its
-//!   signature ([`base_signature`] + [`mark_signature`]), value completions,
-//!   and [`run_chart`], which parses the flags into a [`LayerOpts`];
-//! - the **build engine** below: [`build_chart`] / [`build_layer`] turn the
-//!   layers into a charton [`LayeredChart`], with the flag parsers alongside.
+//! # Commands
+//!
+//! Every mark is its own subcommand — `charton point`, `charton bar`,
+//! `charton density`, ... — registered from [`MARKS`]. A subcommand declares
+//! only the flags it understands, so `charton <TAB>` and `help charton bar`
+//! stay focused. `charton` itself is a parent that lists the marks.
+//!
+//! The API follows Charton's grammar of graphics, in widening levels:
+//! - **a mark** (`-x` / `-y` and friends) draws the rows;
+//! - **`--layer`** stacks more marks on the same data;
+//! - **`--transform`** rewrites the table first (Charton's public transforms).
+//!
+//! `--layer` and `--transform` combine into full recipes — ridgeline, ECDF,
+//! candlestick, ... — the README's Level 4.
+//!
+//! # Layout
+//!
+//! The file is organised in two halves:
+//! - the **command layer** (top): one [`MarkCommand`] per mark, its signature
+//!   ([`base_signature`] plus [`mark_signature`]), flag completions, and
+//!   [`run_chart`], which reads the flags into a [`LayerOpts`];
+//! - the **build engine** (below): [`build_chart`] ingests the pipeline table
+//!   and calls [`build_layer`] per layer, and [`finish`] applies the chart-wide
+//!   options (title, theme, facets, coordinates, size).
+//!
+//! A layer is built by the big mark `match` in [`build_layer`] — or, when it
+//! carries `--transform` or is a `path`/`polygon`, by [`build_primitive_layer`],
+//! which walks the [`TransformSpec`] chain and then draws a Tier-1 mark.
 
 use std::io::{IsTerminal, Write};
 use std::path::Path;
 
 use charton::error::ChartonError;
 use charton::prelude::{
-    BandScale, BandSide, BandTransform, BandwidthType, Chart, ColorMap, ColorPalette,
+    AnyValue, BandScale, BandSide, BandTransform, BandwidthType, Chart, ColorMap, ColorPalette,
     ContourTransform, CoordSystem, Dataset, Density2DTransform, DensityTransform, Expansion,
     FacetSpec, IntoLayered, KernelType, LabelFormat, LayeredChart, MarkArea, MarkBar, MarkBoxplot,
     MarkErrorBar, MarkGeoPath, MarkLine, MarkPoint, MarkRect, MarkRule, MarkText, MarkTick,
-    Position, QuantileBoxTransform, Scale, ThemeMode, WindowFieldDef, WindowOnlyOp,
+    Position, QuantileBoxTransform, RowAccessor, Scale, ThemeMode, WindowFieldDef, WindowOnlyOp,
     WindowTransform, alt, geojson_to_dataset,
 };
 use nu_plugin::{DynamicCompletionCall, EngineInterface, EvaluatedCall, PluginCommand};
 use nu_protocol::{
     DynamicSuggestion, Example, IntoPipelineData, LabeledError, PipelineData, Record, Signature,
-    Span, SyntaxShape, Type, Value, engine::ArgType,
+    Span, Spanned, SyntaxShape, Type, Value, engine::ArgType,
 };
 
 use crate::ChartonPlugin;
@@ -231,7 +251,7 @@ fn base_signature(name: &str) -> Signature {
             "transform",
             SyntaxShape::Any,
             "Transform(s) applied before the mark: one record or a list, in order. \
-             ops: density | density-2d | contour | band | quantile-box | window",
+             ops: density | density-2d | contour | band | quantile-box | window | calculate",
             None,
         )
         .named(
@@ -357,7 +377,7 @@ fn base_signature(name: &str) -> Signature {
         .named(
             "font-scale",
             SyntaxShape::Number,
-            "Scale every chart font (title, labels, ticks, legend); 1.0 = default",
+            "Scale every chart font (title, labels, ticks, legend); default 1.5",
             None,
         )
         .named("scale", SyntaxShape::Number, "Raster pixel scale factor (default 2.0)", None)
@@ -498,10 +518,23 @@ fn mark_signature(name: &str, mark: &str) -> Signature {
             )
             .switch("cumulative", "Cumulative density instead of density", None)
             .switch("counts", "Smoothed counts instead of probabilities", None),
-        "density_2d" => sig.named(
-            "bins",
-            SyntaxShape::Int,
-            "Grid size per axis for the 2-D density estimate",
+        "density_2d" => sig
+            .named(
+                "bins",
+                SyntaxShape::Int,
+                "Grid size per axis for the 2-D density estimate",
+                None,
+            )
+            .named(
+                "cell-padding",
+                SyntaxShape::Number,
+                "Extra pixels per cell side: closes tile seams (default 0.5); negative opens a gap",
+                None,
+            ),
+        "rect" => sig.named(
+            "cell-padding",
+            SyntaxShape::Number,
+            "Extra pixels per cell side: closes tile seams (default 0.5); negative opens a gap",
             None,
         ),
         "contour" => sig
@@ -727,6 +760,7 @@ pub(crate) fn run_chart(
         layout: call.get_flag("layout")?,
         quasirandom_method: call.get_flag("quasirandom-method")?,
         mark_width: call.get_flag("mark-width")?,
+        cell_padding: call.get_flag("cell-padding")?,
         cap_length: call.get_flag("cap-length")?,
         center: if call.has_flag("no-center")? {
             Some(false)
@@ -993,7 +1027,7 @@ pub(crate) fn run_chart(
         font_scale,
         span,
     };
-    let chart = build_chart(&values, &opts)?;
+    let chart = build_chart(&values, &opts, engine)?;
 
     // 4. Decide how to deliver the result.
     let can_inline = !raw
@@ -1001,7 +1035,7 @@ pub(crate) fn run_chart(
         && !engine.is_using_stdio()
         && (std::io::stdout().is_terminal() || force_inline);
 
-    // 3a. Save to file if requested (works alongside inline display).
+    // 4a. Save to file if requested (works alongside inline display).
     //     Plugins run with their executable's directory as the process CWD,
     //     so relative paths must be resolved against the shell context.
     if let Some(path) = &output {
@@ -1014,7 +1048,7 @@ pub(crate) fn run_chart(
         write_output(&chart, &resolved, span)?;
     }
 
-    // 3b. Inline terminal rendering. Only safe when stdout is the terminal
+    // 4b. Inline terminal rendering. Only safe when stdout is the terminal
     //     (local-socket mode); never in stdio mode.
     if can_inline {
         let (cols, rows) = terminal_size::terminal_size()
@@ -1086,7 +1120,7 @@ pub(crate) fn run_chart(
         return Ok(Value::nothing(span).into_pipeline_data());
     }
 
-    // 3c. Raw data for further piping.
+    // 4c. Raw data for further piping.
     if raw {
         if want_png {
             let bytes = render::to_png(&chart)
@@ -1098,7 +1132,7 @@ pub(crate) fn run_chart(
         return Ok(Value::string(svg, span).into_pipeline_data());
     }
 
-    // 3d. Saved already? return nothing, else hand back SVG text.
+    // 4d. Saved already? return nothing, else hand back SVG text.
     if output.is_some() {
         Ok(Value::nothing(span).into_pipeline_data())
     } else {
@@ -1147,18 +1181,34 @@ struct LayerOpts {
 }
 
 /// One step of a `--transform` chain: a Nushell record mapped onto a charton
-/// public transform. The vocabulary is closed — `calculate` is the one public
-/// transform not offered here, because a Nushell `insert` does that job better.
+/// public transform. The vocabulary is closed — this is the whole list.
 #[derive(Clone)]
 enum TransformSpec {
     Density(DensityTransform),
     Density2D(Density2DTransform),
     Contour(ContourTransform),
-    Band(BandTransform),
-    QuantileBox(QuantileBoxTransform),
+    /// `transform_calculate`: add a column from a Nushell closure run per row.
+    Calculate {
+        as_: String,
+        expr: Value,
+    },
+    /// `center` is the categorical column the band sits on. It is kept here so
+    /// the encoder can label the x axis with it (`with_category_labels`), which
+    /// is what lets a hand-written violin/ridge share a discrete scale with points.
+    Band {
+        transform: BandTransform,
+        center: Option<String>,
+    },
+    QuantileBox {
+        transform: QuantileBoxTransform,
+        category: Option<String>,
+    },
     Window(WindowTransform),
 }
 
+/// The whole chart: every layer, plus the options that are shared across them
+/// (title, theme, facets, coordinate system, size) rather than belonging to one
+/// mark.
 struct BuildOpts<'a> {
     primary: LayerOpts,
     layers: Vec<LayerOpts>,
@@ -1199,9 +1249,11 @@ struct BuildOpts<'a> {
 
 /// Mark-level visual overrides for one layer.
 ///
-/// Only the flags a mark declares can be set: an inapplicable flag is rejected
-/// by the parser, not silently ignored. A `--layer` may carry its own `style`
-/// record, which is merged over the primary layer's style.
+/// Every field is optional: `None` (or `false` for `loess`) keeps the mark's own
+/// default. The primary layer fills these from its CLI flags; a `--layer` may
+/// carry a `style` record that overrides them for that layer only. A flag a mark
+/// does not declare is rejected by the CLI parser, and an unknown key in a
+/// `style` record is rejected by [`parse_style_record`].
 #[derive(Clone, Default)]
 struct Style {
     color: Option<String>,
@@ -1218,6 +1270,7 @@ struct Style {
     layout: Option<String>,
     quasirandom_method: Option<String>,
     mark_width: Option<f64>,
+    cell_padding: Option<f64>,
     cap_length: Option<f64>,
     /// `Some(false)` when `--no-center` is given; `None` keeps the default.
     center: Option<bool>,
@@ -1331,6 +1384,9 @@ fn style_rect(mut m: MarkRect, s: &Style) -> MarkRect {
     }
     if let Some(w) = s.stroke_width {
         m = m.with_stroke_width(w);
+    }
+    if let Some(p) = s.cell_padding {
+        m = m.with_cell_padding(p);
     }
     m
 }
@@ -1519,14 +1575,18 @@ fn validate_columns(table: &Table, opts: &BuildOpts<'_>) -> Result<(), LabeledEr
     Ok(())
 }
 
-fn build_chart(values: &[Value], opts: &BuildOpts<'_>) -> Result<LayeredChart, LabeledError> {
+fn build_chart(
+    values: &[Value],
+    opts: &BuildOpts<'_>,
+    engine: &EngineInterface,
+) -> Result<LayeredChart, LabeledError> {
     let span = opts.span;
 
     // --- Geographic marks read from a GeoJSON file, not the pipeline. ---
     if matches!(opts.primary.geom.as_str(), "geo" | "geoshape") {
         if !opts.layers.is_empty() {
             return Err(LabeledError::new("Layers are not supported for geo charts")
-                .with_label("remove `--layer` when using `-g geo`", span));
+                .with_label("remove `--layer` when using `charton geo`", span));
         }
         let path = opts
             .geojson
@@ -1562,9 +1622,15 @@ fn build_chart(values: &[Value], opts: &BuildOpts<'_>) -> Result<LayeredChart, L
     validate_columns(&table, opts)?;
     let dataset = table.to_dataset()?;
 
-    let mut layered = build_layer(dataset.clone(), &opts.primary, opts.coord, span)?;
+    let mut layered = build_layer(dataset.clone(), &opts.primary, opts.coord, span, engine)?;
     for extra in &opts.layers {
-        layered = layered.and(build_layer(dataset.clone(), extra, opts.coord, span)?);
+        layered = layered.and(build_layer(
+            dataset.clone(),
+            extra,
+            opts.coord,
+            span,
+            engine,
+        )?);
     }
     Ok(finish(layered, opts))
 }
@@ -1576,12 +1642,13 @@ fn build_layer(
     layer: &LayerOpts,
     coord: Option<CoordSystem>,
     span: Span,
+    engine: &EngineInterface,
 ) -> Result<LayeredChart, LabeledError> {
     let geom = layer.geom.as_str();
     // `path`/`polygon` (and anything with an explicit `--transform` chain) are
     // drawn from the grammar primitives: apply the transforms, then the mark.
     if !layer.transforms.is_empty() || matches!(geom, "path" | "polygon") {
-        return build_primitive_layer(dataset, layer, span);
+        return build_primitive_layer(dataset, layer, span, engine);
     }
     let (x, y, y2) = (layer.x.as_deref(), layer.y.as_deref(), layer.y2.as_deref());
     let z = layer.z.as_deref();
@@ -2048,6 +2115,7 @@ fn build_primitive_layer(
     dataset: Dataset,
     layer: &LayerOpts,
     span: Span,
+    engine: &EngineInterface,
 ) -> Result<LayeredChart, LabeledError> {
     let geom = layer.geom.as_str();
     let style = &layer.style;
@@ -2059,9 +2127,13 @@ fn build_primitive_layer(
             TransformSpec::Density(d) => chart.transform_density(d.clone()),
             TransformSpec::Density2D(d) => chart.transform_density_2d(d.clone()),
             TransformSpec::Contour(d) => chart.transform_contour(d.clone()),
-            TransformSpec::Band(d) => chart.transform_band(d.clone()),
-            TransformSpec::QuantileBox(d) => chart.transform_quantile_box(d.clone()),
+            TransformSpec::Band { transform, .. } => chart.transform_band(transform.clone()),
+            TransformSpec::QuantileBox { transform, .. } => {
+                chart.transform_quantile_box(transform.clone())
+            }
             TransformSpec::Window(d) => chart.transform_window(d.clone()),
+            TransformSpec::Calculate { as_, expr } => chart
+                .transform_calculate(as_.as_str(), |row| calculate_row(engine, expr, &row, span)),
         }
         .map_err(|e| chart_err(span, e))?;
     }
@@ -2075,11 +2147,22 @@ fn build_primitive_layer(
         .y
         .as_deref()
         .ok_or_else(|| missing(geom, "--y", span))?;
+    // A band or quantile-box places its shape on a categorical axis. Label the
+    // x axis with that column (as charton's hand-written violin does) so the
+    // layer shares a discrete scale with points and boxes.
+    let category_label = layer.transforms.iter().find_map(|t| match t {
+        TransformSpec::Band { center, .. } => center.as_deref(),
+        TransformSpec::QuantileBox { category, .. } => category.as_deref(),
+        _ => None,
+    });
     let encoders = || {
-        let xe = match layer.x_scale {
+        let mut xe = match layer.x_scale {
             Some(s) => alt::x(x).with_scale(s),
             None => alt::x(x),
         };
+        if let Some(label) = category_label {
+            xe = xe.with_category_labels(label);
+        }
         let mut ye = match layer.y_scale {
             Some(s) => alt::y(y).with_scale(s),
             None => alt::y(y),
@@ -2209,6 +2292,57 @@ fn build_primitive_layer(
         }
     };
     Ok(layered)
+}
+
+/// Evaluate a `calculate` closure against one charton row, returning its number.
+///
+/// The row is handed to the closure as a Nushell record (every column name to
+/// its value), so `{|r| ... }` can read any column produced by an earlier
+/// transform. Non-numeric or errored results become `None` (a null cell).
+fn calculate_row(
+    engine: &EngineInterface,
+    expr: &Value,
+    row: &RowAccessor<'_>,
+    span: Span,
+) -> Option<f64> {
+    let Value::Closure { val, .. } = expr else {
+        return None;
+    };
+    let mut record = Record::new();
+    for (name, value) in row.entries() {
+        record.push(name, any_to_value(&value, span));
+    }
+    let closure = Spanned {
+        item: (**val).clone(),
+        span: expr.span(),
+    };
+    let out = engine
+        .eval_closure(&closure, vec![Value::record(record, span)], None)
+        .ok()?;
+    out.as_float()
+        .ok()
+        .or_else(|| out.as_int().ok().map(|i| i as f64))
+}
+
+/// Convert one charton cell into the closest Nushell value.
+fn any_to_value(value: &AnyValue<'_>, span: Span) -> Value {
+    match value {
+        AnyValue::Null => Value::nothing(span),
+        AnyValue::Boolean(b) => Value::bool(*b, span),
+        AnyValue::Int8(i) => Value::int(*i as i64, span),
+        AnyValue::Int16(i) => Value::int(*i as i64, span),
+        AnyValue::Int32(i) => Value::int(*i as i64, span),
+        AnyValue::Int64(i) => Value::int(*i, span),
+        AnyValue::UInt32(u) => Value::int(*u as i64, span),
+        AnyValue::UInt64(u) => Value::int(*u as i64, span),
+        AnyValue::Float32(f) => Value::float(*f as f64, span),
+        AnyValue::Float64(f) => Value::float(*f, span),
+        AnyValue::String(s) => Value::string(*s, span),
+        AnyValue::Date(d) => Value::int(*d as i64, span),
+        AnyValue::Datetime(ts, _) => Value::int(*ts, span),
+        AnyValue::Duration(d) => Value::int(*d, span),
+        AnyValue::Time(t) => Value::int(*t, span),
+    }
 }
 
 fn bad_transform(span: Span, msg: String) -> LabeledError {
@@ -2341,11 +2475,13 @@ fn parse_transform(value: &Value, span: Span) -> Result<TransformSpec, LabeledEr
             if as_.len() >= 3 {
                 d = d.with_as(as_[0].clone(), as_[1].clone(), as_[2].clone());
             }
-            if let Some(center) = sf("center") {
-                d = d.with_center(center);
+            let center = sf("center");
+            if let Some(c) = &center {
+                d = d.with_center(c.clone());
             }
-            if let Some(group) = sf("group") {
-                d = d.with_group(group);
+            let group = sf("group");
+            if let Some(g) = &group {
+                d = d.with_group(g.clone());
             }
             if let Some(side) = sf("side") {
                 d = d.with_side(parse_band_side(&side));
@@ -2368,18 +2504,23 @@ fn parse_transform(value: &Value, span: Span) -> Result<TransformSpec, LabeledEr
             if sf("position").as_deref() == Some("dodge") {
                 d = d.with_position(Position::dodge());
             }
-            Ok(TransformSpec::Band(d))
+            Ok(TransformSpec::Band {
+                transform: d,
+                center,
+            })
         }
         "quantilebox" | "box" => {
             let value = sf("value")
                 .ok_or_else(|| bad_transform(span, "quantile-box needs `value`".into()))?;
             let as_ = list("as");
             let mut d = QuantileBoxTransform::new(value);
-            if let Some(category) = sf("category") {
-                d = d.with_category(category);
+            let category = sf("category");
+            if let Some(c) = &category {
+                d = d.with_category(c.clone());
             }
-            if let Some(group) = sf("group") {
-                d = d.with_group(group);
+            let group = sf("group");
+            if let Some(g) = &group {
+                d = d.with_group(g.clone());
             }
             if as_.len() >= 3 {
                 d = d.with_as(as_[0].clone(), as_[1].clone(), as_[2].clone());
@@ -2396,7 +2537,10 @@ fn parse_transform(value: &Value, span: Span) -> Result<TransformSpec, LabeledEr
             if sf("position").as_deref() == Some("dodge") {
                 d = d.with_position(Position::dodge());
             }
-            Ok(TransformSpec::QuantileBox(d))
+            Ok(TransformSpec::QuantileBox {
+                transform: d,
+                category,
+            })
         }
         "window" => {
             let field =
@@ -2414,11 +2558,25 @@ fn parse_transform(value: &Value, span: Span) -> Result<TransformSpec, LabeledEr
             }
             Ok(TransformSpec::Window(d))
         }
+        "calculate" | "calc" => {
+            let as_ = sf("as").ok_or_else(|| bad_transform(span, "calculate needs `as`".into()))?;
+            let expr = val
+                .get("expr")
+                .cloned()
+                .ok_or_else(|| bad_transform(span, "calculate needs `expr` (a closure)".into()))?;
+            if !matches!(expr, Value::Closure { .. }) {
+                return Err(bad_transform(
+                    span,
+                    "calculate `expr` must be a closure, e.g. {|row| $row.a + $row.b}".into(),
+                ));
+            }
+            Ok(TransformSpec::Calculate { as_, expr })
+        }
         other => Err(bad_transform(
             span,
             format!(
                 "unknown transform `{other}`; try density, density-2d, contour, band, \
-                 quantile-box, or window"
+                 quantile-box, window, or calculate"
             ),
         )),
     }
@@ -2495,7 +2653,7 @@ fn parse_layers(
         // inherits the primary layer's.
         let style = match val.get("style") {
             Some(Value::Record { val: style_rec, .. }) => {
-                parse_style_record(style_rec, &primary.style, layer_span)?
+                parse_style_record(style_rec, &primary.style)?
             }
             _ => primary.style.clone(),
         };
@@ -2572,8 +2730,8 @@ fn parse_scale(spec: &str, span: Span) -> Result<Scale, LabeledError> {
     })
 }
 
-/// Parse `--coord`: `cartesian` (the default) or `polar`. Geographic charts are
-/// selected with `-g geo`, not with this flag.
+/// Parse `--coord`: `cartesian` (the default) or `polar`. Geographic charts use
+/// the `geo` mark (`charton geo`), not this flag.
 fn parse_coord(spec: Option<String>, span: Span) -> Result<Option<CoordSystem>, LabeledError> {
     let Some(spec) = spec else {
         return Ok(None);
@@ -2761,56 +2919,102 @@ fn parse_label_format(value: &Value, span: Span) -> Result<LabelFormat, LabeledE
     }
 }
 
+/// Canonical keys of a `--layer` `style` record, in kebab-case. Snake-case
+/// spellings are accepted too; the list is shown when a key is not recognised.
+const STYLE_KEYS: &[&str] = &[
+    "color",
+    "opacity",
+    "size",
+    "stroke",
+    "stroke-width",
+    "shape",
+    "dash",
+    "interpolation",
+    "outlier-color",
+    "anchor",
+    "weight",
+    "layout",
+    "quasirandom-method",
+    "mark-width",
+    "cell-padding",
+    "cap-length",
+    "center",
+    "outliers",
+    "outlier-size",
+    "loess",
+    "loess-bandwidth",
+];
+
+/// Coerce a style value to a string, or name the type that was expected.
+fn style_string(value: &Value) -> Result<String, &'static str> {
+    value.as_str().map(str::to_string).map_err(|_| "a string")
+}
+
+/// Coerce a style value to a number (int or float), or name the expected type.
+fn style_number(value: &Value) -> Result<f64, &'static str> {
+    value
+        .as_float()
+        .ok()
+        .or_else(|| value.as_int().ok().map(|i| i as f64))
+        .ok_or("a number")
+}
+
+/// Coerce a style value to a boolean, or name the expected type.
+fn style_bool(value: &Value) -> Result<bool, &'static str> {
+    value.as_bool().map_err(|_| "a boolean")
+}
+
 /// Build a per-layer [`Style`] by overriding `base` with the fields present in
 /// a `--layer` `style` record.
-fn parse_style_record(rec: &Record, base: &Style, span: Span) -> Result<Style, LabeledError> {
+///
+/// Keys may be kebab-case or snake_case; they mirror the per-mark flags, with
+/// the two negative switches written as booleans: `center: false` is
+/// `--no-center`, and `outliers: false` is `--no-outliers`. A wrong value type
+/// or an unknown key is an error, so a typo surfaces instead of leaving the
+/// field at its default.
+fn parse_style_record(rec: &Record, base: &Style) -> Result<Style, LabeledError> {
     let mut s = base.clone();
-    let strf = |k: &str| rec.get(k).and_then(|v| v.as_str().ok().map(str::to_string));
-    let numf = |k: &str| {
-        rec.get(k).and_then(|v| {
-            v.as_float()
-                .ok()
-                .or_else(|| v.as_int().ok().map(|i| i as f64))
-        })
-    };
-    if let Some(v) = strf("color") {
-        s.color = Some(v);
-    }
-    if let Some(v) = numf("opacity") {
-        s.opacity = Some(v);
-    }
-    if let Some(v) = numf("size") {
-        s.size = Some(v);
-    }
-    if let Some(v) = strf("stroke") {
-        s.stroke = Some(v);
-    }
-    if let Some(v) = numf("stroke_width").or_else(|| numf("stroke-width")) {
-        s.stroke_width = Some(v);
-    }
-    if let Some(v) = strf("shape") {
-        s.shape = Some(v);
-    }
-    if let Some(v) = strf("dash") {
-        s.dash = Some(parse_dash(&v, span)?);
-    }
-    if let Some(v) = strf("interpolation") {
-        s.interpolation = Some(v);
-    }
-    if let Some(v) = strf("outlier_color").or_else(|| strf("outlier-color")) {
-        s.outlier_color = Some(v);
-    }
-    if let Some(v) = strf("anchor") {
-        s.anchor = Some(v);
-    }
-    if let Some(v) = strf("weight") {
-        s.weight = Some(v);
-    }
-    if let Some(v) = strf("layout") {
-        s.layout = Some(v);
-    }
-    if let Some(v) = strf("quasirandom_method").or_else(|| strf("quasirandom-method")) {
-        s.quasirandom_method = Some(v);
+    for (key, value) in rec.iter() {
+        let key = key.replace('-', "_");
+        let bad = |expected: &str| {
+            LabeledError::new("Invalid layer style")
+                .with_label(format!("`{key}` expects {expected}"), value.span())
+        };
+        match key.as_str() {
+            "color" => s.color = Some(style_string(value).map_err(bad)?),
+            "opacity" => s.opacity = Some(style_number(value).map_err(bad)?),
+            "size" => s.size = Some(style_number(value).map_err(bad)?),
+            "stroke" => s.stroke = Some(style_string(value).map_err(bad)?),
+            "stroke_width" => s.stroke_width = Some(style_number(value).map_err(bad)?),
+            "shape" => s.shape = Some(style_string(value).map_err(bad)?),
+            "dash" => {
+                let pattern = style_string(value).map_err(bad)?;
+                s.dash = Some(parse_dash(&pattern, value.span())?);
+            }
+            "interpolation" => s.interpolation = Some(style_string(value).map_err(bad)?),
+            "outlier_color" => s.outlier_color = Some(style_string(value).map_err(bad)?),
+            "anchor" => s.anchor = Some(style_string(value).map_err(bad)?),
+            "weight" => s.weight = Some(style_string(value).map_err(bad)?),
+            "layout" => s.layout = Some(style_string(value).map_err(bad)?),
+            "quasirandom_method" => s.quasirandom_method = Some(style_string(value).map_err(bad)?),
+            "mark_width" => s.mark_width = Some(style_number(value).map_err(bad)?),
+            "cell_padding" => s.cell_padding = Some(style_number(value).map_err(bad)?),
+            "cap_length" => s.cap_length = Some(style_number(value).map_err(bad)?),
+            "center" => s.center = Some(style_bool(value).map_err(bad)?),
+            "outliers" | "show_outliers" => s.show_outliers = Some(style_bool(value).map_err(bad)?),
+            "outlier_size" => s.outlier_size = Some(style_number(value).map_err(bad)?),
+            "loess" => s.loess = style_bool(value).map_err(bad)?,
+            "loess_bandwidth" => s.loess_bandwidth = Some(style_number(value).map_err(bad)?),
+            other => {
+                return Err(LabeledError::new("Unknown layer style key").with_label(
+                    format!(
+                        "`{other}` is not a style field; try one of: {}",
+                        STYLE_KEYS.join(", ")
+                    ),
+                    value.span(),
+                ));
+            }
+        }
     }
     Ok(s)
 }
@@ -3065,6 +3269,39 @@ mod tests {
         let base = run("charton bar -x species -y petal_length")?;
         let big = run("charton bar -x species -y petal_length --font-scale 2.0")?;
         assert_ne!(base.as_str()?, big.as_str()?);
+        Ok(())
+    }
+
+    #[test]
+    fn raincloud_layers_share_one_scale() -> Result<(), ShellError> {
+        // A violin atom, a quantile-box layer, and the raw points. The box
+        // transform's `category` labels the x axis as discrete, so the three
+        // layers line up instead of conflicting on linear vs discrete.
+        let out = run("charton violin -x species -y petal_length \
+             --layer {geom: polygon, x: qx, y: qy, path_group: qpg, \
+                      transforms: [{op: quantile-box, value: petal_length, category: species, as: [qx, qy, qpg]}]} \
+             --layer {geom: point, x: species, y: petal_length}")?;
+        assert!(out.as_str()?.contains("<svg"));
+        Ok(())
+    }
+
+    #[test]
+    fn calculate_transform_adds_a_column() -> Result<(), ShellError> {
+        // `calculate` runs a Nushell closure per row; the row is a record built
+        // from the current (transformed) table.
+        let out = run("charton bar -x species -y doubled \
+             --transform [{op: calculate, as: doubled, expr: {|r| $r.petal_length * 2}}]")?;
+        assert!(out.as_str()?.contains("<svg"));
+        Ok(())
+    }
+
+    #[test]
+    fn calculate_sees_earlier_transform_output() -> Result<(), ShellError> {
+        // A window transform adds `total`, and `calculate` can read it.
+        let out = run("charton bar -x species -y base --y2 total --transform [\
+             {op: window, field: petal_length, kind: cumulative-sum, as: total}, \
+             {op: calculate, as: base, expr: {|r| $r.total - $r.petal_length}}]")?;
+        assert!(out.as_str()?.contains("<svg"));
         Ok(())
     }
 
@@ -3377,6 +3614,55 @@ mod tests {
         )?;
         assert!(out.as_str()?.contains("<svg"));
         Ok(())
+    }
+
+    #[test]
+    fn layer_style_record_maps_every_field() {
+        // A field settable by a CLI flag must be settable from a layer `style`
+        // record too, or the two parsing paths drift apart. This covers the
+        // fields that are not simple `color`/`size` overrides.
+        let rec = record! {
+            "mark-width" => Value::test_float(0.5),
+            "cell-padding" => Value::test_float(-1.0),
+            "cap-length" => Value::test_float(4.0),
+            "center" => Value::test_bool(false),
+            "outliers" => Value::test_bool(false),
+            "outlier-size" => Value::test_float(3.0),
+            "loess" => Value::test_bool(true),
+            "loess-bandwidth" => Value::test_float(0.4),
+        };
+        let s = parse_style_record(&rec, &Style::default()).unwrap();
+        assert_eq!(s.mark_width, Some(0.5));
+        assert_eq!(s.cell_padding, Some(-1.0));
+        assert_eq!(s.cap_length, Some(4.0));
+        assert_eq!(s.center, Some(false));
+        assert_eq!(s.show_outliers, Some(false));
+        assert_eq!(s.outlier_size, Some(3.0));
+        assert!(s.loess);
+        assert_eq!(s.loess_bandwidth, Some(0.4));
+    }
+
+    #[test]
+    fn layer_style_record_takes_kebab_or_snake_case() {
+        let rec = record! {
+            "mark_width" => Value::test_float(0.25),
+            "outlier-color" => Value::test_string("red"),
+            "quasirandom_method" => Value::test_string("tukey"),
+        };
+        let s = parse_style_record(&rec, &Style::default()).unwrap();
+        assert_eq!(s.mark_width, Some(0.25));
+        assert_eq!(s.outlier_color.as_deref(), Some("red"));
+        assert_eq!(s.quasirandom_method.as_deref(), Some("tukey"));
+    }
+
+    #[test]
+    fn layer_style_record_rejects_typos_and_wrong_types() {
+        // An unknown key or a value of the wrong type is an error, not a field
+        // that is silently left at its default.
+        let typo = record! { "colour" => Value::test_string("red") };
+        assert!(parse_style_record(&typo, &Style::default()).is_err());
+        let wrong_type = record! { "opacity" => Value::test_string("lots") };
+        assert!(parse_style_record(&wrong_type, &Style::default()).is_err());
     }
 
     #[test]

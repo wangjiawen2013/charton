@@ -111,9 +111,10 @@ declares only the flags it understands, so `help charton bar` and
 | Geo | `geo` (Charton's `mark_geoshape`, fed by a GeoJSON file) |
 
 This is exactly Charton's public mark list. `beeswarm` is
-`point --layout beeswarm`, not a mark. The `--layer` / `--transform` records
-also accept the short aliases `scatter`, `box`, `label`, `heatmap`,
-`histogram`, `kde`, `density2d`, and `isoline`.
+`point --layout beeswarm`, not a mark. A `--layer` record accepts short geom
+aliases (`scatter`, `box`, `label`, `heatmap`, `histogram`, `kde`, `density2d`,
+`isoline`), and a `--transform` record accepts `kde`, `density2d`, `box`
+(`quantile-box`), and `calc` (`calculate`).
 
 ### Quick start
 
@@ -190,12 +191,14 @@ fields it changes.
 open assets/data.csv | charton line -x t -y v --layer point
 
 # a rule with a dot at each end — a dumbbell (--flip makes it horizontal)
-open assets/dumbbell.csv | charton rule -x country -y y2011 --y2 y2021 --flip \
-    --layer [{geom: point, y: y2011}, {geom: point, y: y2021}]
+let ends = [{geom: point, y: y2011}, {geom: point, y: y2021}]
+open assets/dumbbell.csv
+| charton rule -x country -y y2011 --y2 y2021 --flip --layer $ends
 
 # a low--high rule (wick) under a floating bar (body) — a candlestick
-open assets/ohlc.csv | charton rule -x date -y low --y2 high -c direction \
-    --layer {geom: bar, y: open, y2: close} --x-angle -45
+let body = {geom: bar, y: open, y2: close}
+open assets/ohlc.csv
+| charton rule -x date -y low --y2 high -c direction --layer $body --x-angle -45
 ```
 
 More one-liners at this level:
@@ -221,12 +224,8 @@ draws. Each transform **replaces** the table, so the mark's `-x` / `-y` /
 
 ```nu
 # density curve, written from the primitive pieces
-open assets/data.csv | charton area -x value -y density \
-    --transform {op: density, field: score, as: [value, density]}
-
-# a running total
-open assets/waterfall.csv | charton bar -x step -y cumulative -c kind \
-    --transform {op: window, field: delta, kind: cumulative-sum, as: cumulative}
+let curve = {op: density, field: score, as: [value, density]}
+open assets/data.csv | charton area -x value -y density --transform $curve
 ```
 
 The vocabulary is **closed** — these are all the public transforms:
@@ -239,15 +238,17 @@ The vocabulary is **closed** — these are all the public transforms:
 | `band` | `value`, `width` (+ `center`, `group`) | `[x, y, path_group]` | polygon vertex |
 | `quantile-box` | `value` (+ `category`, `group`) | `[x, y, path_group]` | polygon vertex |
 | `window` | one column | `as` (a new column; `kind: rank \| cume-dist \| cumulative-sum \| row-number`) | one per row |
+| `calculate` | any column, via the row record | `as` (a new column, from an `expr: {\|row\| ...}` closure) | one per row |
 
 Options: `density` takes `bandwidth`, `kernel`, `cumulative`, `counts`, `trim`;
 `band` takes `side` (`both` / `left` / `right`), `scale` (`per-group` / `global`
 / `raw`), `overlap`, `span`, `split`, `position` (`identity` / `dodge`);
 `quantile-box` and `density-2d` take their own layout/size options.
 
-> `transform_calculate` is intentionally a Nushell job, not a flag: compute the
-> column in the pipeline, where it is easier and no per-row closure crosses the
-> plugin boundary.
+> `calculate` runs a Nushell closure for every row, and the row is a record, so
+> the closure can read any column an earlier transform produced. When a value
+> only depends on the original columns, a plain `insert` before `charton` is
+> faster — reach for `calculate` when you need a transform's output.
 >
 > ```nu
 > open data.csv | insert ratio {|r| $r.revenue / $r.cost} | charton point -x ratio -y score
@@ -257,16 +258,30 @@ Recipes that need nothing but transforms:
 
 ```nu
 # Ridgeline = density + a one-sided band + polygon (violin's own pieces)
-open assets/data.csv | charton polygon -x x -y y --path-group pg -c category --flip \
-    --transform [
-        {op: density, field: score, as: [value, density], group-by: [category], trim: true}
-        {op: band, value: value, width: density, center: category,
-         side: right, scale: per-group, overlap: 2.5, as: [x, y, pg]}
-    ]
+open assets/data.csv
+| charton polygon -x x -y y --path-group pg -c category --flip --transform [
+    {op: density, field: score, as: [value, density], group-by: [category], trim: true}
+    {op: band, value: value, width: density, center: category,
+     side: right, scale: per-group, overlap: 2.5, as: [x, y, pg]}
+  ]
 
 # ECDF = the CumeDist window transform + a step line
-open assets/data.csv | charton line -x score -y ecdf -c group --interpolation step \
-    --transform {op: window, field: score, kind: cume-dist, as: ecdf, group-by: [group]}
+let ecdf = {op: window, field: score, kind: cume-dist, as: ecdf, group-by: [group]}
+open assets/data.csv
+| charton line -x score -y ecdf -c group --interpolation step --transform $ecdf
+```
+
+Charton's waterfall is floating bars from the running total *before* a step to
+the total *after* it, with the opening and closing totals anchored at zero. Two
+transforms do it — a window for the running total, then a `calculate` for the
+bar's lower edge:
+
+```nu
+open assets/waterfall.csv
+| charton bar -x step -y base --y2 total -c kind --mark-width 0.6 --transform [
+    {op: window, field: delta, kind: cumulative-sum, as: total}
+    {op: calculate, as: base, expr: {|row| if $row.kind == 'Total' { 0 } else { $row.total - $row.delta }}
+  ]
 ```
 
 ---
@@ -277,21 +292,17 @@ Some charts need both: several layers, each rewriting the table its own way.
 This is the top of the ladder — and it is still just records.
 
 ```nu
-# Raincloud = a half violin, a quantile box, and the raw points
-open assets/data.csv | charton polygon -x x -y y --path-group pg -c category --flip \
-    --transform [
-        {op: density, field: score, as: [value, density], group-by: [category], trim: true}
-        {op: band, value: value, width: density, center: category,
-         side: left, scale: per-group, as: [x, y, pg]}
-    ] \
-    --layer {geom: polygon, x: qx, y: qy, path_group: qpg, color: category,
-             transforms: [{op: quantile-box, value: score, category: category, as: [qx, qy, qpg]}]} \
-    --layer {geom: point, x: category, y: score}
+# Raincloud = the violin atom, an inner box, and the raw points. The box is a
+# transform on its own layer, placed on the same (discrete) category axis.
+let box = {geom: polygon, x: qx, y: qy, path_group: qpg, color: category,
+           transforms: [{op: quantile-box, value: score, category: category, as: [qx, qy, qpg]}]}
+open assets/data.csv
+| charton violin -x category -y score --layer $box --layer {geom: point, x: category, y: score}
 
 # Bump = a rank window on every layer, drawn as a line with its points
-open assets/bump.csv | charton line -x year -y rank -c country \
-    --transform {op: window, field: value, kind: rank, as: rank, group-by: [year]} \
-    --layer {geom: point, transforms: [{op: window, field: value, kind: rank, as: rank, group-by: [year]}]}
+let rank = {op: window, field: value, kind: rank, as: rank, group-by: [year]}
+open assets/bump.csv
+| charton line -x year -y rank -c country --transform $rank --layer {geom: point, transforms: [$rank]}
 ```
 
 A layer with its own `transforms` rewrites the table for that layer; a layer
@@ -373,12 +384,27 @@ These are declared only on the marks that use them.
 |---|---|
 | `--mark-color`, `--opacity`, `--size`, `--stroke`, `--stroke-width` | Colour, opacity, size, stroke |
 | `--mark-width` | Band width 0.0–1.0 (`bar` / `boxplot` / `point` / `errorbar`) |
+| `--cell-padding` | Heatmap cell size in device pixels (`rect` / `density-2d`); the default 0.5 closes tile seams, negative opens a gap |
 | `--shape` | Point shape: `circle` \| `square` \| `triangle` \| `star` \| `diamond` \| `pentagon` \| `hexagon` \| `octagon` |
 | `--layout`, `--quasirandom-method` | Point layout (`standard` / `jitter` / `beeswarm` / `quasirandom`) and pairing (`tukey` / `pseudorandom`) |
 | `--dash`, `--interpolation` | Line dash pattern (`6,4`) and interpolation (`linear` / `step` / `step-before`) |
 | `--outlier-color`, `--outlier-size`, `--no-outliers` | Boxplot outliers |
 | `--cap-length`, `--no-center` | Errorbar cap and centre dot |
 | `--anchor`, `--weight` | Text anchor (`start` / `middle` / `end`) and weight (`normal` / `bold` / `100..900`) |
+
+A `--layer` record may also carry a `style` record; it overrides the primary
+layer's styling for that layer only. Keys are the flags above (kebab- or
+snake-case), with the two negative switches written as booleans (`center: false`
+for `--no-center`, `outliers: false` for `--no-outliers`):
+
+```nu
+# the points are red and larger on this layer only
+open assets/data.csv | charton line -x t -y v \
+    --layer {geom: point, style: {color: red, size: 4}}
+```
+
+An unknown key or a wrong value type is an error, so a typo does not silently
+fall back to the default.
 
 ### Output and inline rendering
 
