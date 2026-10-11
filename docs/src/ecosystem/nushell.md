@@ -142,11 +142,10 @@ dumbbell, range, slope, bump, waterfall, raincloud — are **not** commands: you
 write them with `--transform` and `--layer`, exactly as the
 [cookbook](../gallery/primitives.md) shows. The `--transform` vocabulary is
 closed: `density`, `density-2d`, `contour`, `band`, `quantile-box`, `window`,
-`calculate`. `calculate` runs a Nushell closure per row (`{op: calculate,
-as: ratio, expr: {|r| $r.a / $r.b}}`), so it can read an earlier transform's
-output; a plain `insert` before `charton` is faster when the value only needs the
-original columns.
-The full flag table is in the plugin README.
+`calculate`. A transform record says what to run (`op`), which columns to read
+(`field`, `x`, `y`, ...), and what to call the new columns (`as`).
+[Writing Transforms](nushell_transforms.md) explains every key, lists the
+options, and builds the recipes step by step.
 
 ## Configuration
 

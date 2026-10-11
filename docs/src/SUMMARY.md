@@ -84,6 +84,7 @@
 
 # Ecosystem & Integrations
 - [The Nushell Plugin](ecosystem/nushell.md)
+- [Writing Transforms in the Nushell Plugin](ecosystem/nushell_transforms.md)
 - [Nushell Plugin Internals](ecosystem/nushell_internals.md)
 
 # Appendix
