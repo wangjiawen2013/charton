@@ -100,12 +100,13 @@ open data.csv | charton line -x t -y v -c series --layer point
 # transforms in order and the mark draws the columns they emit
 # ridgeline = density + one-sided band + polygon
 let ridge = [
-    {op: density, field: score, as: [value, density], group-by: [category], trim: true}
+    {op: density, field: score, as: [value, density], group-by: [category]}
     {op: band, value: value, width: density, center: category, side: right,
-     scale: per-group, overlap: 2.5, as: [x, y, pg]}
+     scale: per-group, overlap: 2.5, band-width: 1.0, as: [x, y, pg]}
 ]
 open assets/data.csv
-| charton polygon -x x -y y --path-group pg -c category --flip --transform $ridge -o ridge.svg
+| charton polygon -x x -y y --path-group pg -c category --flip \
+    --x-expand [0.4, 1.5] --opacity 0.85 --stroke '#2c3e50' --stroke-width 1.0 --transform $ridge -o ridge.svg
 # ECDF = the CumeDist window transform + a step line
 let ecdf = {op: window, field: score, kind: cume-dist, as: ecdf, group-by: [group]}
 open assets/data.csv

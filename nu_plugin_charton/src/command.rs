@@ -298,14 +298,14 @@ fn base_signature(name: &str) -> Signature {
         )
         .named(
             "x-expand",
-            SyntaxShape::Number,
-            "Padding added to both ends of the x axis (fraction of the range)",
+            SyntaxShape::Any,
+            "Padding on the x axis: a number (fraction of the range) or [low, high] (data units)",
             None,
         )
         .named(
             "y-expand",
-            SyntaxShape::Number,
-            "Padding added to both ends of the y axis (fraction of the range)",
+            SyntaxShape::Any,
+            "Padding on the y axis: a number (fraction of the range) or [low, high] (data units)",
             None,
         )
         .named("x-ticks", SyntaxShape::Any, "Explicit x tick values, e.g. [0 1 2 3]", None)
@@ -824,8 +824,8 @@ pub(crate) fn run_chart(
         None => None,
     };
     let bins = call.get_flag::<i64>("bins")?.map(|n| n.max(1) as usize);
-    let x_expand = call.get_flag::<f64>("x-expand")?;
-    let y_expand = call.get_flag::<f64>("y-expand")?;
+    let x_expand = parse_expansion(call.get_flag::<Value>("x-expand")?, "--x-expand", span)?;
+    let y_expand = parse_expansion(call.get_flag::<Value>("y-expand")?, "--y-expand", span)?;
     let margins = match call.get_flag::<String>("margins")? {
         Some(s) => Some(parse_margins(&s, span)?),
         None => None,
@@ -1172,8 +1172,9 @@ struct LayerOpts {
     shape_by: Option<String>,
     aggregate: Option<String>,
     bins: Option<usize>,
-    x_expand: Option<f64>,
-    y_expand: Option<f64>,
+    /// `--x-expand`: see [`parse_expansion`].
+    x_expand: Option<Expansion>,
+    y_expand: Option<Expansion>,
     density_bandwidth: Option<f64>,
     density_kernel: Option<KernelType>,
     density_cumulative: bool,
@@ -1662,12 +1663,6 @@ fn build_layer(
     let bins = layer.bins;
     let (x_expand, y_expand) = (layer.x_expand, layer.y_expand);
 
-    // Axis padding from `--x-expand`/`--y-expand`, as a symmetric fraction.
-    let pad = |v: f64| Expansion {
-        mult: (v, v),
-        add: (0.0, 0.0),
-    };
-
     // Build an x or y encoding from this layer's settings. The x encoder carries
     // the axis scale, binning and padding; the y encoder additionally carries
     // stacking, normalization and aggregation.
@@ -1679,8 +1674,8 @@ fn build_layer(
         if let Some(n) = bins {
             e = e.with_bins(n);
         }
-        if let Some(v) = x_expand {
-            e = e.with_expansion(pad(v));
+        if let Some(exp) = x_expand {
+            e = e.with_expansion(exp);
         }
         e
     };
@@ -1698,8 +1693,8 @@ fn build_layer(
         if let Some(op) = aggregate {
             e = e.with_aggregate(op);
         }
-        if let Some(v) = y_expand {
-            e = e.with_expansion(pad(v));
+        if let Some(exp) = y_expand {
+            e = e.with_expansion(exp);
         }
         e
     };
@@ -2163,6 +2158,9 @@ fn build_primitive_layer(
         if let Some(label) = category_label {
             xe = xe.with_category_labels(label);
         }
+        if let Some(exp) = layer.x_expand {
+            xe = xe.with_expansion(exp);
+        }
         let mut ye = match layer.y_scale {
             Some(s) => alt::y(y).with_scale(s),
             None => alt::y(y),
@@ -2175,6 +2173,9 @@ fn build_primitive_layer(
         }
         if let Some(op) = layer.aggregate.as_deref() {
             ye = ye.with_aggregate(op);
+        }
+        if let Some(exp) = layer.y_expand {
+            ye = ye.with_expansion(exp);
         }
         (xe, ye)
     };
@@ -2839,6 +2840,54 @@ fn parse_ticks(value: Option<Value>, span: Span) -> Result<Option<Vec<f64>>, Lab
         }
     }
     Ok(Some(ticks))
+}
+
+/// Parse `--x-expand` / `--y-expand`.
+///
+/// A single number pads both ends by that fraction of the data range (the
+/// historical behavior). A `[low, high]` list instead pads the low and high
+/// ends by that many data units, which is how a one-sided mark gets headroom on
+/// the side it grows toward (a ridgeline's half-band, for example).
+fn parse_expansion(
+    value: Option<Value>,
+    flag: &str,
+    span: Span,
+) -> Result<Option<Expansion>, LabeledError> {
+    let Some(value) = value else {
+        return Ok(None);
+    };
+    let number = |v: &Value| {
+        v.as_float()
+            .ok()
+            .or_else(|| v.as_int().ok().map(|i| i as f64))
+    };
+    let bad = || {
+        LabeledError::new("Invalid axis expansion").with_label(
+            format!(
+                "{flag} expects a number or a [low, high] pair, got {}",
+                value.get_type()
+            ),
+            span,
+        )
+    };
+    match &value {
+        Value::Int { .. } | Value::Float { .. } => {
+            let v = number(&value).ok_or_else(bad)?;
+            Ok(Some(Expansion {
+                mult: (v, v),
+                add: (0.0, 0.0),
+            }))
+        }
+        Value::List { vals, .. } if vals.len() == 2 => {
+            let lo = number(&vals[0]).ok_or_else(bad)?;
+            let hi = number(&vals[1]).ok_or_else(bad)?;
+            Ok(Some(Expansion {
+                mult: (0.0, 0.0),
+                add: (lo, hi),
+            }))
+        }
+        _ => Err(bad()),
+    }
 }
 
 /// Parse `--dash`, e.g. `"6,4"` or `"2 2"`, into an on/off pattern in pixels.
@@ -3890,15 +3939,84 @@ mod tests {
         Ok(())
     }
 
+    #[test]
+    fn axis_expansion_accepts_number_or_pair() {
+        assert!(parse_expansion(None, "--x-expand", Span::test_data())
+            .unwrap()
+            .is_none());
+        // A number stays a symmetric fraction of the range.
+        let number = parse_expansion(
+            Some(Value::test_float(0.1)),
+            "--x-expand",
+            Span::test_data(),
+        )
+        .unwrap()
+        .unwrap();
+        assert_eq!(number.mult, (0.1, 0.1));
+        assert_eq!(number.add, (0.0, 0.0));
+        // A pair is an asymmetric additive padding, in axis units.
+        let pair = parse_expansion(
+            Some(Value::test_list(vec![
+                Value::test_float(0.4),
+                Value::test_float(1.5),
+            ])),
+            "--x-expand",
+            Span::test_data(),
+        )
+        .unwrap()
+        .unwrap();
+        assert_eq!(pair.mult, (0.0, 0.0));
+        assert_eq!(pair.add, (0.4, 1.5));
+        // A string, or a list that is not a pair, is rejected.
+        assert!(
+            parse_expansion(Some(Value::test_string("wide")), "--x-expand", Span::test_data())
+                .is_err()
+        );
+        assert!(
+            parse_expansion(
+                Some(Value::test_list(vec![Value::test_float(1.0)])),
+                "--x-expand",
+                Span::test_data(),
+            )
+            .is_err()
+        );
+    }
+
+    #[test]
+    fn primitive_path_honours_axis_expansion() -> Result<(), ShellError> {
+        // `--x-expand` must also reach the `--transform` / `path` / `polygon`
+        // route, not just the direct mark route.
+        let base =
+            "charton point -x x -y y --transform {op: density, field: petal_length, as: [x, y]}";
+        let expanded = "charton point -x x -y y --x-expand [0.4, 1.5] \
+                        --transform {op: density, field: petal_length, as: [x, y]}";
+        assert_ne!(run(base)?.as_str()?, run(expanded)?.as_str()?);
+        Ok(())
+    }
+
+    #[test]
+    fn waterfall_calculate_with_if_else_renders() -> Result<(), ShellError> {
+        // The README's waterfall record: a `calculate` closure with an if/else
+        // must parse (the record needs its own closing brace).
+        let out = run(
+            "charton bar -x species -y base --y2 total --transform [\
+             {op: window, field: petal_length, kind: cumulative-sum, as: total}, \
+             {op: calculate, as: base, expr: {|row| if $row.species == 'setosa' { 0 } else { $row.total - $row.petal_length }}}]",
+        )?;
+        assert!(out.as_str()?.contains("<svg"));
+        Ok(())
+    }
+
     /// Tier-3 recipes are not marks: each is written here from the grammar
     /// primitives (`--transform` + `--layer`) and must render to SVG.
     #[test]
     fn compositions_render_svg() -> Result<(), ShellError> {
         for src in [
-            // ridgeline: a one-sided band over a per-category density.
-            "charton polygon -x x -y y --path-group pg -c species --flip --transform \
-             [{op: density, field: petal_length, as: [value, density], group-by: [species], trim: true}, \
-              {op: band, value: value, width: density, center: species, side: right, scale: per-group, overlap: 2.5, as: [x, y, pg]}]",
+            // ridgeline: a one-sided band over a per-category density. The
+            // `--x-expand` pair gives the top ridge headroom (books' recipe).
+            "charton polygon -x x -y y --path-group pg -c species --flip --x-expand [0.4, 1.5] \
+             --transform [{op: density, field: petal_length, as: [value, density], group-by: [species]}, \
+              {op: band, value: value, width: density, center: species, side: right, scale: per-group, overlap: 2.5, band-width: 1.0, as: [x, y, pg]}]",
             // candlestick: a low--high rule wick plus a floating bar body.
             "charton rule -x species -y lo --y2 hi -c grp --layer {geom: bar, y: lo, y2: hi}",
             // dumbbell: one rule joined by a dot at each end.

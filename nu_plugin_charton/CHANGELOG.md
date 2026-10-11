@@ -46,6 +46,10 @@ stated in the README and in each release.
   small, so the default is now **1.5**; pass `1.0` for Charton's original sizes
   or up to `2.0` for even larger text. Built on the new
   `charton::Theme::with_font_scale`.
+- **`--x-expand` / `--y-expand` accept `[low, high]`** for an asymmetric,
+  additive padding in axis units, and now also apply to the `--transform` /
+  `path` / `polygon` route. This is what gives a ridgeline's top ridge headroom
+  so it is not clipped.
 
 ### Fixed
 

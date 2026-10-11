@@ -281,13 +281,15 @@ The `op` accepts aliases too: `kde` (`density`), `density2d` (`density-2d`),
 The same pieces spell out the charts people know by name:
 
 ```nu
-# Ridgeline = density + a one-sided band + polygon (violin's own pieces)
+# Ridgeline = density + a one-sided band + polygon (violin's own pieces).
+# `--x-expand [0.4, 1.5]` gives the top ridge headroom so it is not clipped.
 open assets/data.csv |
-charton polygon -x x -y y --path-group pg -c category --flip --transform [
-  {op: density, field: score, as: [value, density], group-by: [category], trim: true}
-  {op: band, value: value, width: density, center: category,
-    side: right, scale: per-group, overlap: 2.5, as: [x, y, pg]}
-]
+charton polygon -x x -y y --path-group pg -c category --flip \
+  --x-expand [0.4, 1.5] --opacity 0.85 --stroke '#2c3e50' --stroke-width 1.0 --transform [
+    {op: density, field: score, as: [value, density], group-by: [category]}
+    {op: band, value: value, width: density, center: category,
+     side: right, scale: per-group, overlap: 2.5, band-width: 1.0, as: [x, y, pg]}
+  ]
 
 # ECDF = the CumeDist window transform + a step line
 let ecdf = {op: window, field: score, kind: cume-dist, as: ecdf, group-by: [group]}
@@ -302,7 +304,7 @@ makes the running total, then a `calculate` finds each bar's lower edge:
 open assets/waterfall.csv |
 charton bar -x step -y base --y2 total -c kind --mark-width 0.6 --transform [
   {op: window, field: delta, kind: cumulative-sum, as: total}
-  {op: calculate, as: base, expr: {|row| if $row.kind == 'Total' { 0 } else { $row.total - $row.delta }}
+  {op: calculate, as: base, expr: {|row| if $row.kind == 'Total' { 0 } else { $row.total - $row.delta }}}
 ]
 ```
 
@@ -372,7 +374,7 @@ Because a transform is just a record, the same pieces recombine into new charts
 |---|---|
 | `--x-scale`, `--y-scale` | Axis scale: `linear` \| `log` \| `discrete` \| `temporal` |
 | `--x-min`, `--x-max`, `--y-min`, `--y-max` | Fix an axis bound (min and max go together) |
-| `--x-expand`, `--y-expand` | Padding at both ends, as a fraction of the range |
+| `--x-expand`, `--y-expand` | Padding on an axis: a number (fraction of the range) or `[low, high]` (data units) |
 | `--x-ticks`, `--y-ticks` | Explicit tick values, e.g. `[0 2 4 6]` |
 | `--x-format`, `--y-format`, `--legend-format` | Label format: `compact`, or a record `{prefix, suffix, precision, compact, thousands, multiplier}` |
 | `--x-label`, `--y-label`, `--color-label` | Axis and legend titles |
