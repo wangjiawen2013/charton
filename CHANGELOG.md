@@ -6,6 +6,12 @@ predate this file.
 
 ## [Unreleased]
 
+### Added
+
+- **`Theme::with_font_scale(factor)`** multiplies every font size (title, axis
+  labels, tick labels, legend, facet labels) in one call. Handy for rendering
+  the same chart at a larger text ratio, e.g. when fitting it into a terminal.
+
 ## [0.8.3] - 2026-10-06
 
 Lockstep version bump so the library and its Nushell plugin keep one version

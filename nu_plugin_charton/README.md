@@ -354,6 +354,7 @@ Because a transform is just a record, the same pieces recombine into new charts
 | `--legend` | `left` \| `right` \| `top` \| `bottom` \| `none` |
 | `--grid`, `--no-grid` | Force grid lines on / off |
 | `--width`, `--height` | Pixel canvas size (default 800×600) |
+| `--font-scale` | Multiply every chart font (title, labels, ticks, legend); default 1.5 |
 
 ### Mark styling
 
@@ -402,6 +403,7 @@ $env.config.plugins.charton = {
     background: "#ffffff"
     theme: dark                    # auto | light | dark
     color_map: viridis
+    font_scale: 1.5                # chart text size (try 1.5–2.0 in a terminal)
 }
 ```
 
@@ -418,6 +420,7 @@ $env.config.plugins.charton = {
 | `background` | string | Chart background colour |
 | `theme` | string | `auto` / `light` / `dark` |
 | `color_map` | string | Continuous colour map |
+| `font_scale` | float | Multiplies every chart font; default 1.5 |
 
 ## Inline rendering
 

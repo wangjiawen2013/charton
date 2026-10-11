@@ -36,6 +36,11 @@ use crate::config::{self, Config, LegendSetting};
 use crate::converter::Table;
 use crate::render;
 
+/// Default multiplier for every chart font. Charton's base sizes target a
+/// standalone figure; fitted into a terminal they look small, so the plugin
+/// enlarges them. Override with `--font-scale` or the `font_scale` config key.
+pub(crate) const DEFAULT_FONT_SCALE: f64 = 1.5;
+
 /// Every mark subcommand: `(command suffix, charton geom)`.
 ///
 /// The command name is `charton <suffix>`; the geom is the internal name used
@@ -349,6 +354,12 @@ fn base_signature(name: &str) -> Signature {
         )
         .named("width", SyntaxShape::Int, "Pixel width of the rendered chart", None)
         .named("height", SyntaxShape::Int, "Pixel height of the rendered chart", None)
+        .named(
+            "font-scale",
+            SyntaxShape::Number,
+            "Scale every chart font (title, labels, ticks, legend); 1.0 = default",
+            None,
+        )
         .named("scale", SyntaxShape::Number, "Raster pixel scale factor (default 2.0)", None)
         .switch(
             "raw",
@@ -819,6 +830,14 @@ pub(crate) fn run_chart(
         .or(cfg.scale)
         .filter(|s| *s > 0.0)
         .unwrap_or(2.0);
+    // Every chart font is multiplied by this. Inline charts are fitted into
+    // the terminal, so charton's base sizes come out small; 1.5 reads like the
+    // shell's own text. Flag > config > default.
+    let font_scale = call
+        .get_flag::<f64>("font-scale")?
+        .or(cfg.font_scale)
+        .filter(|s| *s > 0.0)
+        .unwrap_or(DEFAULT_FONT_SCALE);
     let cell_w = cfg
         .cell_width
         .map(|v| v as usize)
@@ -971,6 +990,7 @@ pub(crate) fn run_chart(
         width,
         height,
         scale,
+        font_scale,
         span,
     };
     let chart = build_chart(&values, &opts)?;
@@ -1173,6 +1193,7 @@ struct BuildOpts<'a> {
     width: u32,
     height: u32,
     scale: f32,
+    font_scale: f64,
     span: Span,
 }
 
@@ -2896,6 +2917,9 @@ fn finish(layered: LayeredChart, opts: &BuildOpts<'_>) -> LayeredChart {
     // top. An explicit `--background` always wins over the theme's background.
     l = l.configure_theme(|mut t| {
         t = t.with_mode(opts.theme);
+        if (opts.font_scale - 1.0).abs() > f64::EPSILON {
+            t = t.with_font_scale(opts.font_scale);
+        }
         if let Some(p) = &opts.palette {
             t = t.with_palette(p.clone());
         }
@@ -3033,6 +3057,14 @@ mod tests {
         let out = run("charton bar -x species -y petal_length --theme dark")?;
         // Catppuccin Mocha base #1E1E2E renders as rgba(30,30,46,1.000).
         assert!(out.as_str()?.contains("rgba(30,30,46,1.000)"));
+        Ok(())
+    }
+
+    #[test]
+    fn font_scale_changes_the_render() -> Result<(), ShellError> {
+        let base = run("charton bar -x species -y petal_length")?;
+        let big = run("charton bar -x species -y petal_length --font-scale 2.0")?;
+        assert_ne!(base.as_str()?, big.as_str()?);
         Ok(())
     }
 
