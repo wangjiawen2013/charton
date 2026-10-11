@@ -34,7 +34,7 @@ A transform is a Nushell **record**. It has three kinds of keys:
 | Key | Meaning |
 |---|---|
 | `op` | Which operation to run. Required; one of the names in [the catalogue](#the-transform-catalogue). |
-| **input keys** | The inputs the operation expects. The key name is fixed by the transform; its **value is one of your column names**. A `density` expects `field`, so `field: score` means "read the `score` column". |
+| **input keys** | The inputs the operation expects. The key name is fixed by the transform; its **value is one of your column names**. A `density` expects `field`, so `{op: density, field: score}` reads the `score` column; a `density-2d` expects `x` and `y`, so `{op: density-2d, x: a, y: b}` reads columns `a` and `b`. |
 | `as` | The names to give the columns the transform writes. Usually a list, e.g. `as: [value, density]`. Omit it to accept the defaults. |
 
 Every other key (`bandwidth`, `trim`, `kind`, ...) tunes that operation. The

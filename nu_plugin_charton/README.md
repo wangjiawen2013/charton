@@ -224,7 +224,7 @@ A transform is a record. It has three kinds of keys:
 | Key | Meaning |
 |---|---|
 | `op` | Which operation to run. Required; one of the names in the catalogue below. |
-| input keys | The inputs the operation expects. The key name is fixed by the transform; its value is one of your column names. A `density` expects an input key called `field`, so `field: score` means "read my `score` column". |
+| input keys | The inputs the operation expects. The key name is fixed by the transform; its value is one of your column names. A `density` expects a key called `field`, so `{op: density, field: score}` reads your `score` column. A `density-2d` expects `x` and `y`, so `{op: density-2d, x: a, y: b}` reads columns `a` and `b`. |
 | `as` | The names to give the columns the transform writes. Usually a list, e.g. `as: [value, density]`. Omit it to keep the defaults. |
 
 The catalogue below lists each operation's input keys under Reads; the value
@@ -232,7 +232,11 @@ you give each key is one of your column names. The density example, stage by
 stage:
 
 ```nu
+#   score (raw values)  ---density-->  value + density (curve points)
+#   `field: score`          reads the `score` column
+#   `as: [value, density]`  names the two new columns
 let curve = {op: density, field: score, as: [value, density]}
+# The mark then draws the new columns: x = value, y = density.
 open assets/data.csv | charton area -x value -y density --transform $curve
 ```
 
