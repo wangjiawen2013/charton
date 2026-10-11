@@ -4,7 +4,7 @@ All notable changes to `nu_plugin_charton` are documented here. The crate
 shares the `charton` version number, and the Nushell release it targets is
 stated in the README and in each release.
 
-## [Unreleased]
+## [0.8.4] - 2026-10-11
 
 ### Changed
 

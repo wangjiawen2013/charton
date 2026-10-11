@@ -4,7 +4,7 @@ All notable changes to the `charton` library are documented here. The project
 follows [Semantic Versioning](https://semver.org/). Releases before 0.7.0
 predate this file.
 
-## [Unreleased]
+## [0.8.4] - 2026-10-11
 
 ### Added
 

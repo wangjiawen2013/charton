@@ -60,14 +60,15 @@ This plugin has a small vocabulary that recombines into every chart. There are
 four levels, from "just draw my rows" to "write a recipe nobody named":
 
 ```text
- 1. MARKS                2. COMPOSE              3. TRANSFORM            4. COMPOSE + TRANSFORM
- point, hist, …          --layer                 --transform             all three
+ 1. MARKS                2. COMPOSE              3. TRANSFORM              4. COMPOSE + TRANSFORM
+ point, hist, …          --layer                 --transform               all three
 
- draw the rows      →    stack marks        →    rewrite the table  →    full recipes
- ─────────── basic ────────────      ───────────── advanced ─────────────────────────
+ draw the rows    →    stack marks      →      rewrite the table     →     full recipes
+ ───────────────basic ─────────────           ────────────────── advanced ────────────────────
 
  charton bar -x c -y v   charton line …           charton polygon …       charton polygon …
-                         --layer point            --transform […]        --transform […]
+                         --layer point            --transform […]         --transform […]
+                                                                          --layer […]
 ```
 
 | Level | You use | When you reach for it |
@@ -81,10 +82,10 @@ four levels, from "just draw my rows" to "write a recipe nobody named":
 *statistics* are finite. So the plugin exposes exactly Charton's public marks
 and public transforms — no more — and gives you the two ways to combine them:
 layering and transforms. A chart nobody named (ridgeline, candlestick,
-waterfall, raincloud, …) is a Level 4 composition, **not a missing command**.
-The trade-off is explicit: the first level is a one-liner, the last levels ask
-you to know the pieces — but the vocabulary never grows, and a brand-new chart
-type needs no plugin change.
+waterfall, raincloud, …) is a composition across Levels 2–4, **not a missing
+command**. The trade-off is explicit: the first level is a one-liner, the last
+levels ask you to know the pieces — but the vocabulary never grows, and a
+brand-new chart type needs no plugin change.
 
 Most charts are **Level 1**. Levels 2–4 exist so that "not a built-in chart
 type" never means "not possible".
@@ -252,14 +253,7 @@ Options: `density` takes `bandwidth`, `kernel`, `cumulative`, `counts`, `trim`;
 > open data.csv | insert ratio {|r| $r.revenue / $r.cost} | charton point -x ratio -y score
 > ```
 
----
-
-## Level 4 — Compose and transform (recipes)
-
-Putting Levels 2 and 3 together is how Charton's cookbook builds the charts
-people ask for **by name but that are not marks**: ridgeline, ECDF, candlestick,
-waterfall, raincloud, and so on. There is no command to learn — the recipe is
-the code.
+Recipes that need nothing but transforms:
 
 ```nu
 # Ridgeline = density + a one-sided band + polygon (violin's own pieces)
@@ -273,11 +267,16 @@ open assets/data.csv | charton polygon -x x -y y --path-group pg -c category --f
 # ECDF = the CumeDist window transform + a step line
 open assets/data.csv | charton line -x score -y ecdf -c group --interpolation step \
     --transform {op: window, field: score, kind: cume-dist, as: ecdf, group-by: [group]}
+```
 
-# Waterfall = floating bars on a running total
-open assets/waterfall.csv | charton bar -x step -y cumulative -c kind \
-    --transform {op: window, field: delta, kind: cumulative-sum, as: cumulative}
+---
 
+## Level 4 — Compose and transform (recipes)
+
+Some charts need both: several layers, each rewriting the table its own way.
+This is the top of the ladder — and it is still just records.
+
+```nu
 # Raincloud = a half violin, a quantile box, and the raw points
 open assets/data.csv | charton polygon -x x -y y --path-group pg -c category --flip \
     --transform [
@@ -288,7 +287,17 @@ open assets/data.csv | charton polygon -x x -y y --path-group pg -c category --f
     --layer {geom: polygon, x: qx, y: qy, path_group: qpg, color: category,
              transforms: [{op: quantile-box, value: score, category: category, as: [qx, qy, qpg]}]} \
     --layer {geom: point, x: category, y: score}
+
+# Bump = a rank window on every layer, drawn as a line with its points
+open assets/bump.csv | charton line -x year -y rank -c country \
+    --transform {op: window, field: value, kind: rank, as: rank, group-by: [year]} \
+    --layer {geom: point, transforms: [{op: window, field: value, kind: rank, as: rank, group-by: [year]}]}
 ```
+
+A layer with its own `transforms` rewrites the table for that layer; a layer
+with none reads the original rows, which is why the bump's point layer repeats
+the window. That independence is what lets a recipe mix a transformed layer with
+a raw one.
 
 Because a transform is just a record, the same pieces recombine into new charts
 — and nothing has to be added to the plugin when the next one comes along.
@@ -485,7 +494,7 @@ Nushell, install the matching plugin release (or rebuild) and re-run
 `plugin add`.
 
 `nu_plugin_charton` shares its version number with the `charton` library, so
-`charton 0.8.3` and `nu_plugin_charton 0.8.3` ship as a pair.
+`charton 0.8.4` and `nu_plugin_charton 0.8.4` ship as a pair.
 
 ## Uninstall
 
