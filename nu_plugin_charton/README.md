@@ -192,13 +192,11 @@ open assets/data.csv | charton line -x t -y v --layer point
 
 # a rule with a dot at each end — a dumbbell (--flip makes it horizontal)
 let ends = [{geom: point, y: y2011}, {geom: point, y: y2021}]
-open assets/dumbbell.csv
-| charton rule -x country -y y2011 --y2 y2021 --flip --layer $ends
+open assets/dumbbell.csv | charton rule -x country -y y2011 --y2 y2021 --flip --layer $ends
 
 # a low--high rule (wick) under a floating bar (body) — a candlestick
 let body = {geom: bar, y: open, y2: close}
-open assets/ohlc.csv
-| charton rule -x date -y low --y2 high -c direction --layer $body --x-angle -45
+open assets/ohlc.csv | charton rule -x date -y low --y2 high -c direction --layer $body --x-angle -45
 ```
 
 More one-liners at this level:
@@ -258,17 +256,16 @@ Recipes that need nothing but transforms:
 
 ```nu
 # Ridgeline = density + a one-sided band + polygon (violin's own pieces)
-open assets/data.csv
-| charton polygon -x x -y y --path-group pg -c category --flip --transform [
-    {op: density, field: score, as: [value, density], group-by: [category], trim: true}
-    {op: band, value: value, width: density, center: category,
-     side: right, scale: per-group, overlap: 2.5, as: [x, y, pg]}
-  ]
+open assets/data.csv |
+charton polygon -x x -y y --path-group pg -c category --flip --transform [
+  {op: density, field: score, as: [value, density], group-by: [category], trim: true}
+  {op: band, value: value, width: density, center: category,
+    side: right, scale: per-group, overlap: 2.5, as: [x, y, pg]}
+]
 
 # ECDF = the CumeDist window transform + a step line
 let ecdf = {op: window, field: score, kind: cume-dist, as: ecdf, group-by: [group]}
-open assets/data.csv
-| charton line -x score -y ecdf -c group --interpolation step --transform $ecdf
+open assets/data.csv | charton line -x score -y ecdf -c group --interpolation step --transform $ecdf
 ```
 
 Charton's waterfall is floating bars from the running total *before* a step to
@@ -277,11 +274,11 @@ transforms do it — a window for the running total, then a `calculate` for the
 bar's lower edge:
 
 ```nu
-open assets/waterfall.csv
-| charton bar -x step -y base --y2 total -c kind --mark-width 0.6 --transform [
-    {op: window, field: delta, kind: cumulative-sum, as: total}
-    {op: calculate, as: base, expr: {|row| if $row.kind == 'Total' { 0 } else { $row.total - $row.delta }}
-  ]
+open assets/waterfall.csv |
+charton bar -x step -y base --y2 total -c kind --mark-width 0.6 --transform [
+  {op: window, field: delta, kind: cumulative-sum, as: total}
+  {op: calculate, as: base, expr: {|row| if $row.kind == 'Total' { 0 } else { $row.total - $row.delta }}
+]
 ```
 
 ---
@@ -296,13 +293,11 @@ This is the top of the ladder — and it is still just records.
 # transform on its own layer, placed on the same (discrete) category axis.
 let box = {geom: polygon, x: qx, y: qy, path_group: qpg, color: category,
            transforms: [{op: quantile-box, value: score, category: category, as: [qx, qy, qpg]}]}
-open assets/data.csv
-| charton violin -x category -y score --layer $box --layer {geom: point, x: category, y: score}
+open assets/data.csv | charton violin -x category -y score --layer $box --layer {geom: point, x: category, y: score}
 
 # Bump = a rank window on every layer, drawn as a line with its points
 let rank = {op: window, field: value, kind: rank, as: rank, group-by: [year]}
-open assets/bump.csv
-| charton line -x year -y rank -c country --transform $rank --layer {geom: point, transforms: [$rank]}
+open assets/bump.csv | charton line -x year -y rank -c country --transform $rank --layer {geom: point, transforms: [$rank]}
 ```
 
 A layer with its own `transforms` rewrites the table for that layer; a layer
@@ -399,8 +394,7 @@ for `--no-center`, `outliers: false` for `--no-outliers`):
 
 ```nu
 # the points are red and larger on this layer only
-open assets/data.csv | charton line -x t -y v \
-    --layer {geom: point, style: {color: red, size: 4}}
+open assets/data.csv | charton line -x t -y v --layer {geom: point, style: {color: red, size: 4}}
 ```
 
 An unknown key or a wrong value type is an error, so a typo does not silently
