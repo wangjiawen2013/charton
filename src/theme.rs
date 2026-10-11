@@ -541,6 +541,21 @@ impl Theme {
         self
     }
 
+    /// Multiplies every font size — title, axis labels, tick labels, legend,
+    /// and facet labels — by `factor`.
+    ///
+    /// Use it to make all of a chart's text larger or smaller in one step,
+    /// relative to the theme's current sizes; `1.0` leaves them unchanged.
+    pub fn with_font_scale(mut self, factor: f64) -> Self {
+        self.title_size *= factor;
+        self.label_size *= factor;
+        self.tick_label_size *= factor;
+        self.legend_title_size *= factor;
+        self.legend_label_size *= factor;
+        self.facet_label_size *= factor;
+        self
+    }
+
     /// The color of the facet label text.
     pub fn with_facet_label_color(mut self, color: impl Into<SingleColor>) -> Self {
         self.facet_label_color = color.into();

@@ -35,6 +35,14 @@ stated in the README and in each release.
   written `--layer point`; the layer inherits the primary encoding, and a list
   may mix names and records.
 
+### Added
+
+- **`--font-scale` (and the `font_scale` config key)** multiply every chart
+  font. Charts are fitted into the terminal, where Charton's base sizes look
+  small, so the default is now **1.5**; pass `1.0` for Charton's original sizes
+  or up to `2.0` for even larger text. Built on the new
+  `charton::Theme::with_font_scale`.
+
 ### Fixed
 
 - **A typo in a column name now reports the available columns** instead of
