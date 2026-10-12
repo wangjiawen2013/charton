@@ -221,8 +221,12 @@ impl<'a> RenderBackend for RasterBackend<'a> {
                     .fill_rect(rect, &paint, self.transform, self.clip_mask.as_ref());
             }
 
-            // 3. Render Stroke: stroke-opacity is intentionally 1.0
-            if let Some(c) = self.to_skia_color(&config.stroke, 1.0) {
+            // 3. Render Stroke: stroke-opacity is intentionally 1.0.
+            //    A zero width means "no stroke" (SVG semantics); skip it so the
+            //    rasterizer does not leave a hairline between adjacent cells.
+            if config.stroke_width > 0.0
+                && let Some(c) = self.to_skia_color(&config.stroke, 1.0)
+            {
                 let mut paint = Paint::default();
                 paint.set_color(c);
                 paint.anti_alias = true;

@@ -21,6 +21,15 @@ impl Plugin for ChartonPlugin {
         #[allow(unused_mut)]
         let mut commands: Vec<Box<dyn PluginCommand<Plugin = Self>>> =
             vec![Box::new(command::Charton)];
+        commands.extend(
+            command::MARKS
+                .iter()
+                .map(|(suffix, mark)| {
+                    Box::new(command::MarkCommand::new(format!("charton {suffix}"), mark))
+                        as Box<dyn PluginCommand<Plugin = Self>>
+                })
+                .collect::<Vec<_>>(),
+        );
         // `charton-probe` is a development diagnostic; enable it with
         // `--features probe` so it does not show up in users' `help commands`.
         #[cfg(feature = "probe")]

@@ -17,6 +17,7 @@
 //!     background: "#ffffff"
 //!     theme: dark               # auto | light | dark
 //!     color_map: viridis        # continuous color scheme (heatmaps, density)
+//!     font_scale: 1.5           # multiply every chart font (default 1.5)
 //! }
 //! ```
 //!
@@ -47,6 +48,8 @@ const KNOWN_KEYS: &[&str] = &[
     "x-angle",
     "background",
     "theme",
+    "font_scale",
+    "font-scale",
 ];
 
 /// A configured palette: either a named built-in or an explicit color list.
@@ -97,6 +100,9 @@ pub struct Config {
     pub theme: Option<String>,
     /// Continuous color scheme for heatmaps / density plots.
     pub color_map: Option<ColorMap>,
+    /// Multiplies every chart font size. `None` (or `1.0`) keeps the default;
+    /// values around 1.5–2.0 read better when drawing inline in a terminal.
+    pub font_scale: Option<f64>,
 }
 
 impl Config {
@@ -157,6 +163,9 @@ impl Config {
             background: str_field(val, "background"),
             theme: str_field(val, "theme"),
             color_map,
+            font_scale: float_field(val, "font_scale")
+                .or_else(|| float_field(val, "font-scale"))
+                .filter(|s| *s > 0.0),
         })
     }
 }
@@ -222,9 +231,8 @@ pub fn to_color_map(name: &str) -> Result<ColorMap, String> {
         "cool" => ColorMap::Cool,
         other => {
             return Err(format!(
-                "unknown color map '{other}'; try viridis, inferno, magma, plasma, 
-                 cividis, blues, greens, greys, oranges, purples, reds, or a 
-                 multi-hue map like ylgnbu"
+                "unknown color map '{other}'; try viridis, inferno, magma, plasma, \
+                 cividis, blues, greens, greys, or a multi-hue map like ylgnbu"
             ));
         }
     })

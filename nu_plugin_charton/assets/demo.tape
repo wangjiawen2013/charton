@@ -16,6 +16,6 @@ Set FontSize 20
 Set Padding 20
 Set TypingSpeed 55ms
 
-Type "open demo.csv | charton -g point -x x -y y -c group --size-by size --theme dark --inline-style halfblock"
+Type "open demo.csv | charton point -x x -y y -c group --size-by size --theme dark --title 'charton - bubble scatter in your terminal' --inline-style halfblock"
 Enter
 Sleep 4s

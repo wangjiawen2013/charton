@@ -47,7 +47,7 @@ impl MarkDensity2D {
         Self {
             color: SingleColor::new("black"),
             opacity: 1.0,
-            stroke: SingleColor::new("white"),
+            stroke: SingleColor::none(),
             stroke_width: 0.0,
 
             bandwidth: BandwidthType::Scott,

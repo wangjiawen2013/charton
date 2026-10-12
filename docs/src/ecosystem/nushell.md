@@ -7,7 +7,7 @@ into a chart. `nu_plugin_charton` is the bridge that turns Charton into a
 first-class citizen of the shell.
 
 ```nu
-open sales.csv | charton -g bar -x region -y revenue
+open sales.csv | charton bar -x region -y revenue
 ```
 
 That single line reads a file, infers column types, builds a Charton `Dataset`,
@@ -33,7 +33,7 @@ plugin rather than a standalone CLI buys three things:
   no second parse.
 - **Composability.** The command can hand values *back* to the pipeline
   (`--raw`), so a chart is just another stage:
-  `... | charton -g point -x a -y b --raw | save chart.svg`.
+  `... | charton point -x a -y b --raw | save chart.svg`.
 - **Terminal-native output.** The plugin inherits the shell's `stdout`, so it
   can draw the chart *inline* in the terminal — the shell equivalent of
   `plt.show()`.
@@ -45,7 +45,7 @@ Nushell Value (list<record>)
         │  converter.rs  (per-column type inference over all rows)
         ▼
       Table
-        │  command.rs    (geom → mark, layers, facets, styling)
+        │  command.rs    (mark subcommand → mark, --transform, --layer, facets)
         ▼
    Charton Dataset / LayeredChart
         │  render.rs
@@ -81,46 +81,72 @@ The full, platform-specific walk-through (including uninstall) is in the
 
 ```nu
 # inline, auto-detected terminal protocol
-ls | charton -g bar -x name -y size
+ls | charton bar -x name -y size
 
 # export by extension: SVG is a vector, PNG is a raster
-open data.csv | charton -g line -x date -y value -o chart.svg
-open data.csv | charton -g beeswarm -x group -y score -o chart.png
+open data.csv | charton line -x date -y value -o chart.svg
+open data.csv | charton point -x group -y score --layout beeswarm -o chart.png
 
 # violin: a density outline with an inner quartile box; -c dodges one per group
-open data.csv | charton -g violin -x category -y score -c group -o violin.svg
+open data.csv | charton violin -x category -y score -c group -o violin.svg
 
 # contour: iso-lines of a regular x/y/z grid; --z is the value column
-open grid.csv | charton -g contour -x x -y y --z z -o contour.svg
+open grid.csv | charton contour -x x -y y --z z -o contour.svg
 
 # group by a column with a color channel, then overlay a second mark
-open data.csv | charton -g line -x t -y v -c series \
-    --layer {geom: point}
+open data.csv | charton line -x t -y v -c series --layer point
 
-# cookbook recipes: each is a composition of the marks above, and each reads a
-# small table whose row shape fits the chart (see nu_plugin_charton/assets)
-open assets/data.csv | charton -g ridge -x category -y score -o ridge.svg
-open assets/dumbbell.csv | charton -g dumbbell -x country -y y2011 --y2 y2021 --flip -o dumbbell.svg
-open assets/lollipop.csv | charton -g lollipop -x language -y share --flip -o lollipop.svg
-open assets/range.csv | charton -g range -x month -y low --y2 high --flip -o range.svg
-open assets/slope.csv | charton -g slope -x period -y rate -c country -o slope.svg
-open assets/bump.csv | charton -g bump -x year -y value -c country -o bump.svg
-open assets/waterfall.csv | charton -g waterfall -x step -y delta -c kind -o waterfall.svg
-open assets/ohlc.csv | charton -g candlestick -x date -y open --y2 close \
-    --low low --high high -c direction --x-angle -45 -o candles.svg
+# recipes are compositions, not marks: --transform runs Charton's public
+# transforms in order and the mark draws the columns they emit
+# ridgeline = density + one-sided band + polygon
+let ridge = [
+    {op: density, field: score, as: [value, density], group-by: [category]}
+    {op: band, value: value, width: density, center: category, side: right,
+     scale: per-group, overlap: 2.5, band-width: 1.0, as: [x, y, pg]}
+]
+open assets/data.csv
+| charton polygon -x x -y y --path-group pg -c category --flip \
+    --x-expand [0.4, 1.5] --opacity 0.85 --stroke '#2c3e50' --stroke-width 1.0 --transform $ridge -o ridge.svg
+# ECDF = the CumeDist window transform + a step line
+let ecdf = {op: window, field: score, kind: cume-dist, as: ecdf, group-by: [group]}
+open assets/data.csv
+| charton line -x score -y ecdf -c group --interpolation step --transform $ecdf -o ecdf.svg
+# candlestick = a low--high rule + a floating bar
+let body = {geom: bar, y: open, y2: close}
+open assets/ohlc.csv
+| charton rule -x date -y low --y2 high -c direction --layer $body --x-angle -45 -o candles.svg
+# dumbbell = a rule with a dot at each end
+let ends = [{geom: point, y: y2011}, {geom: point, y: y2021}]
+open assets/dumbbell.csv
+| charton rule -x country -y y2011 --y2 y2021 --flip --layer $ends -o dumbbell.svg
+# range = a single rule; slope = a line with its points
+open assets/range.csv | charton rule -x month -y low --y2 high --flip -o range.svg
+open assets/slope.csv | charton line -x period -y rate -c country --layer point -o slope.svg
 
 # geographic choropleth from GeoJSON
-charton -g geo --geojson world.geojson -c POP_EST -o world.png
+charton geo --geojson world.geojson -c POP_EST -o world.png
 ```
 
-The `-g` names cover every Charton mark (`point`, `line`, `area`, `bar`,
-`boxplot`, `errorbar`, `rule`, `tick`, `text`, `rect`/`heatmap`, `hist`,
-`density`/`kde`, `density_2d`, `ecdf`, `geo`) plus the composition names
-`beeswarm`, `violin`, `contour`, `ridge`, `dumbbell`, `lollipop`, `range`,
-`slope`, `bump`, `waterfall`, and `candlestick`; aliases such as `scatter`,
-`label`, and `heatmap` map onto the marks. The recipes are the same
-compositions as the [cookbook](../gallery/primitives.md) — no new marks. The
-full flag table is in the plugin README.
+The plugin is built around four levels, from "just draw my rows" to writing a
+full recipe: **marks** (geometry primitives and statistical atoms),
+**composition** (`--layer`), **transforms** (`--transform`), and both together.
+The README's [four-level guide](https://github.com/wangjiawen2013/charton/blob/main/nu_plugin_charton/README.md#the-four-levels)
+walks through them.
+
+The mark subcommands cover every Charton mark (`charton point`, `charton line`,
+`charton path`, `charton polygon`, `charton area`, `charton bar`,
+`charton boxplot`, `charton violin`, `charton errorbar`, `charton rule`,
+`charton tick`, `charton text`, `charton rect`, `charton hist`,
+`charton density`, `charton density-2d`, `charton contour`, `charton geo`).
+Chart types that Charton builds from primitives — ridgeline, ECDF, candlestick,
+dumbbell, range, slope, bump, waterfall, raincloud — are **not** commands: you
+write them with `--transform` and `--layer`, exactly as the
+[cookbook](../gallery/primitives.md) shows. The `--transform` vocabulary is
+closed: `density`, `density-2d`, `contour`, `band`, `quantile-box`, `window`,
+`calculate`. A transform record says what to run (`op`), which columns to read
+(`field`, `x`, `y`, ...), and what to call the new columns (`as`).
+[Writing Transforms](nushell_transforms.md) explains every key, lists the
+options, and builds the recipes step by step.
 
 ## Configuration
 

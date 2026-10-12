@@ -103,7 +103,9 @@ pub mod prelude {
     pub use crate::coordinate::geo::GeoProjection;
     pub use crate::core::composite::LayeredChart;
     pub use crate::core::conversion::IntoLayered;
-    pub use crate::core::data::{ColumnVector, Dataset, IntoColumn, ToDataset};
+    pub use crate::core::data::{
+        AnyValue, ColumnVector, Dataset, IntoColumn, RowAccessor, ToDataset,
+    };
     pub use crate::core::guide::LegendPosition;
     pub use crate::datasets::load_dataset;
     pub use crate::facets::FacetSpec;
