@@ -3684,10 +3684,8 @@ mod tests {
              --transform {op: contour, x: x, y: y, z: z}",
         )?;
         assert!(out.as_str()?.contains("<svg"));
-        let out = run(
-            "charton polygon -x x -y y --path-group path_group \
-             --transform {op: quantile-box, value: petal_length, category: species}",
-        )?;
+        let out = run("charton polygon -x x -y y --path-group path_group \
+             --transform {op: quantile-box, value: petal_length, category: species}")?;
         assert!(out.as_str()?.contains("<svg"));
         // The book's two-step scatter → density-2d → contour pipeline: the
         // second step reads the first step's default `density` column.
@@ -3705,18 +3703,14 @@ mod tests {
         // A layer that states no `transforms` reuses the primary's chain, so
         // an overlay can be added with just `--layer point` even when the
         // primary rewrites the table (`petal_length` -> `value` / `density`).
-        let out = run(
-            "charton area -x value -y density \
-             --transform {op: density, field: petal_length, as: [value, density]} --layer point",
-        )?;
+        let out = run("charton area -x value -y density \
+             --transform {op: density, field: petal_length, as: [value, density]} --layer point")?;
         assert!(out.as_str()?.contains("<svg"));
         // A window keeps the other columns, so `--layer point` draws the same
         // ranks as the line (the bump recipe).
-        let out = run(
-            "charton line -x t -y rank -c grp \
+        let out = run("charton line -x t -y rank -c grp \
              --transform {op: window, field: petal_length, kind: rank, as: rank, group-by: [grp]} \
-             --layer point",
-        )?;
+             --layer point")?;
         assert!(out.as_str()?.contains("<svg"));
         Ok(())
     }
@@ -3726,11 +3720,9 @@ mod tests {
         // `transforms: []` replaces the inherited chain, so this point layer
         // reads the original `t` / `petal_length` columns even though the
         // primary rewrote the table into `value` / `density`.
-        let out = run(
-            "charton area -x value -y density \
+        let out = run("charton area -x value -y density \
              --transform {op: density, field: petal_length, as: [value, density]} \
-             --layer {geom: point, x: t, y: petal_length, transforms: []}",
-        )?;
+             --layer {geom: point, x: t, y: petal_length, transforms: []}")?;
         assert!(out.as_str()?.contains("<svg"));
         Ok(())
     }
@@ -3941,9 +3933,11 @@ mod tests {
 
     #[test]
     fn axis_expansion_accepts_number_or_pair() {
-        assert!(parse_expansion(None, "--x-expand", Span::test_data())
-            .unwrap()
-            .is_none());
+        assert!(
+            parse_expansion(None, "--x-expand", Span::test_data())
+                .unwrap()
+                .is_none()
+        );
         // A number stays a symmetric fraction of the range.
         let number = parse_expansion(
             Some(Value::test_float(0.1)),
@@ -3969,8 +3963,12 @@ mod tests {
         assert_eq!(pair.add, (0.4, 1.5));
         // A string, or a list that is not a pair, is rejected.
         assert!(
-            parse_expansion(Some(Value::test_string("wide")), "--x-expand", Span::test_data())
-                .is_err()
+            parse_expansion(
+                Some(Value::test_string("wide")),
+                "--x-expand",
+                Span::test_data()
+            )
+            .is_err()
         );
         assert!(
             parse_expansion(
@@ -3998,11 +3996,9 @@ mod tests {
     fn waterfall_calculate_with_if_else_renders() -> Result<(), ShellError> {
         // The README's waterfall record: a `calculate` closure with an if/else
         // must parse (the record needs its own closing brace).
-        let out = run(
-            "charton bar -x species -y base --y2 total --transform [\
+        let out = run("charton bar -x species -y base --y2 total --transform [\
              {op: window, field: petal_length, kind: cumulative-sum, as: total}, \
-             {op: calculate, as: base, expr: {|row| if $row.species == 'setosa' { 0 } else { $row.total - $row.petal_length }}}]",
-        )?;
+             {op: calculate, as: base, expr: {|row| if $row.species == 'setosa' { 0 } else { $row.total - $row.petal_length }}}]")?;
         assert!(out.as_str()?.contains("<svg"));
         Ok(())
     }

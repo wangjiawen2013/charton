@@ -82,8 +82,8 @@ four levels, from "just draw my rows" to "write a recipe nobody named":
 *statistics* are finite. So the plugin exposes exactly Charton's public marks
 and public transforms — no more — and gives you the two ways to combine them:
 layering and transforms. A chart nobody named (ridgeline, candlestick,
-waterfall, raincloud, …) is a composition across Levels 2–4, **not a missing
-command**. The trade-off is explicit: the first level is a one-liner, the last
+waterfall, raincloud, …) is a composition across Levels 2–4, not a missing
+command. The trade-off is explicit: the first level is a one-liner, the last
 levels ask you to know the pieces — but the vocabulary never grows, and a
 brand-new chart type needs no plugin change.
 
