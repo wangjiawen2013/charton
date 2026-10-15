@@ -148,10 +148,29 @@ pub struct LayeredChart {
     pub(crate) polar_end_angle: Option<f64>,
     pub(crate) polar_inner_radius: Option<f64>,
 
-    // The device pixel ratio for raster rendering. Defaults to 2.0.
+    // Pixel-density factor for raster rendering. Defaults to 1.0, which makes
+    // raster output exactly `width × height` as configured by `with_size`.
+    // Values > 1.0 render the same layout at a higher pixel density (Retina /
+    // print assets, terminal image fitting); they are not needed for
+    // anti-aliasing, which the raster backend handles internally.
     pub(crate) scale_factor: f32,
 
     pub(crate) facet: Option<FacetSpec>,
+}
+
+/// Resolved geometry for a raster export, shared by every bitmap exporter so
+/// the CPU and GPU paths cannot drift apart. See [`LayeredChart::raster_plan`].
+#[cfg(feature = "png")]
+struct RasterPlan {
+    /// Internal supersampling factor (1 or 2). The caller downsamples the
+    /// rendered buffer by this factor to reach the final output size.
+    supersample: u32,
+    /// Internal render buffer width in pixels (`logical * render_scale`).
+    render_width: u32,
+    /// Internal render buffer height in pixels.
+    render_height: u32,
+    /// Density the backend must draw at (`scale_factor * supersample`).
+    render_scale: f32,
 }
 
 impl Default for LayeredChart {
@@ -212,7 +231,7 @@ impl LayeredChart {
             polar_end_angle: None,
             polar_inner_radius: None,
 
-            scale_factor: 2.0,
+            scale_factor: 1.0,
 
             facet: None,
         }
@@ -1461,12 +1480,61 @@ impl LayeredChart {
             .map_err(|e| ChartonError::Render(format!("PDF generation error: {e:?}")))
     }
 
+    /// Resolves the raster export plan shared by all bitmap exporters.
+    ///
+    /// The supersampling factor is fixed at 2x, or 1 when the requested density
+    /// is already >= 2x or the intermediate buffer would be too big. The final
+    /// output is `render_* / supersample` (integer division), which is exactly
+    /// `with_size` times `scale_factor` for the common cases and within one
+    /// pixel otherwise.
+    #[cfg(feature = "png")]
+    fn raster_plan(&self) -> RasterPlan {
+        const SUPERSAMPLE: u32 = 2;
+        const SUPERSAMPLE_MAX_PIXELS: u64 = 16_000_000;
+
+        // Decide the factor from the *would-be* 2x buffer size, then derive the
+        // render size from the chosen density. Deriving it from the density
+        // (rather than from the output size times the factor) keeps the buffer
+        // exactly equal to `logical * render_scale`, which is what the WGPU
+        // backend computes for its scissor rect and NDC mapping.
+        let full_scale = self.scale_factor * SUPERSAMPLE as f32;
+        let full_pixels = (self.width as f32 * full_scale).round().max(1.0) as u64
+            * (self.height as f32 * full_scale).round().max(1.0) as u64;
+
+        let supersample = if self.scale_factor < 2.0 && full_pixels <= SUPERSAMPLE_MAX_PIXELS {
+            SUPERSAMPLE
+        } else {
+            1
+        };
+
+        let render_scale = self.scale_factor * supersample as f32;
+        let render_width = (self.width as f32 * render_scale).round().max(1.0) as u32;
+        let render_height = (self.height as f32 * render_scale).round().max(1.0) as u32;
+        RasterPlan {
+            supersample,
+            render_width,
+            render_height,
+            render_scale,
+        }
+    }
+
     /// Generates and returns a PNG representation of the chart as a byte vector.
     ///
     /// This method renders the entire chart into a pixel buffer using the `tiny-skia`
     /// engine. It creates a mutable clone of the chart to perform the stateful
     /// "Training Phase" (synchronizing scales and aesthetics) while preserving
     /// the original chart as an immutable recipe.
+    ///
+    /// # Output size
+    /// The produced bitmap is exactly `width × height` as configured by
+    /// `with_size`, multiplied by `scale_factor` (default `1.0`). With the
+    /// default this is the configured size; `with_scale_factor` is only for
+    /// explicitly requesting a higher-density asset, not for sharpness.
+    ///
+    /// To keep small canvases free of aliasing, the chart is rendered
+    /// internally at 2x and box-downsampled back to the requested size. That
+    /// supersampling is skipped when the requested density is already >= 2x or
+    /// when the intermediate buffer would be too large.
     ///
     /// # Returns
     /// A Result containing the PNG encoded bytes or a ChartonError.
@@ -1476,49 +1544,47 @@ impl LayeredChart {
         // This ensures the training phase doesn't mutate the original chart instance.
         let mut chart_instance = self.clone();
 
-        // 2. Initialize the Pixmap (pixel buffer).
-        // If dimensions are invalid or memory allocation fails, we return a descriptive Render error.
-        let mut pixmap = tiny_skia::Pixmap::new(
-            (self.width as f32 * self.scale_factor) as u32,
-            (self.height as f32 * self.scale_factor) as u32,
-        )
-        .ok_or_else(|| {
-            ChartonError::Render("Invalid chart dimensions or out of memory for Pixmap".to_string())
-        })?;
+        // 2. Resolve the shared raster plan: supersampling factor, internal
+        //    render size and density.
+        let plan = self.raster_plan();
 
-        // 3. Localized Backend Scope.
+        // 3. Allocate the internal (supersampled) pixel buffer.
+        let mut pixmap =
+            tiny_skia::Pixmap::new(plan.render_width, plan.render_height).ok_or_else(|| {
+                ChartonError::Render(
+                    "Invalid chart dimensions or out of memory for Pixmap".to_string(),
+                )
+            })?;
+
+        // Fill the whole buffer directly so no transparent sliver can survive a
+        // non-integer scale factor's sub-pixel rounding at the edges.
+        let [br, bg, bb, ba] = self.theme.background_color.rgba();
+        if let Some(color) = tiny_skia::Color::from_rgba(br, bg, bb, ba) {
+            pixmap.fill(color);
+        }
+
+        // 4. Render the unified pipeline at the internal density. The backend
+        //    applies `render_scale` to every logical coordinate.
         {
-            // Renders the chart using the configured scale_factor (defaulting to 2.0x for High-DPI quality).
-            // The backend automatically retrieves the globally cached 'static font from utils.
             let mut backend =
-                crate::render::backend::raster::RasterBackend::new(&mut pixmap, self.scale_factor);
-
-            // Render Background.
-            // We use the backend's draw_rect to ensure the background is the first
-            // layer in the drawing stack.
-            backend.draw_rect(RectConfig {
-                x: 0.0,
-                y: 0.0,
-                width: self.width as Precision,
-                height: self.height as Precision,
-                fill: self.theme.background_color,
-                stroke: "none".into(),
-                stroke_width: 0.0,
-                opacity: 1.0,
-            });
-
-            // Execute the unified rendering pipeline.
-            // This is the core logic shared between all export formats (SVG, PNG, etc.).
+                crate::render::backend::raster::RasterBackend::new(&mut pixmap, plan.render_scale);
             chart_instance.render(&mut backend)?;
         }
 
-        // 4. Finalize PNG Document.
-        // Encode the raw pixel buffer into a standard PNG byte stream.
-        let png_bytes = pixmap
-            .encode_png()
-            .map_err(|e| ChartonError::Render(format!("Failed to encode PNG: {}", e)))?;
+        // 5. Box-downsample back to the requested output size.
+        let pixmap = if plan.supersample > 1 {
+            crate::render::backend::raster::downsample_premultiplied(&pixmap, plan.supersample)
+                .ok_or_else(|| {
+                    ChartonError::Render("Failed to downsample supersampled buffer".to_string())
+                })?
+        } else {
+            pixmap
+        };
 
-        Ok(png_bytes)
+        // 6. Finalize PNG Document: encode the raw pixel buffer.
+        pixmap
+            .encode_png()
+            .map_err(|e| ChartonError::Render(format!("Failed to encode PNG: {}", e)))
     }
 
     /// Generate the chart and display in Jupyter
@@ -1673,15 +1739,14 @@ impl LayeredChart {
         backend.reset();
         backend.collected_texts.clear();
 
-        let scaled_width = self.width as f32 * self.scale_factor;
-        let scaled_height = self.height as f32 * self.scale_factor;
-
-        // Base layer: Draw solid white background
+        // Base layer: Draw solid white background. Coordinates are logical; the
+        // WGPU shader applies `scale_factor` itself, so passing the logical size
+        // here covers the whole physical target without double-scaling.
         backend.draw_rect(RectConfig {
             x: 0.0,
             y: 0.0,
-            width: scaled_width,
-            height: scaled_height,
+            width: self.width as Precision,
+            height: self.height as Precision,
             fill: self.theme.background_color,
             stroke: "none".into(),
             stroke_width: 0.0,
@@ -1734,13 +1799,13 @@ impl LayeredChart {
             .await
             .map_err(|e| ChartonError::Render(format!("wgpu device error: {}", e)))?;
 
-        // 2. Create an off-screen texture with HiDPI scaling
-        let scaled_width = (self.width as f32 * self.scale_factor) as u32;
-        let scaled_height = (self.height as f32 * self.scale_factor) as u32;
+        // 2. Resolve the shared raster plan and create an off-screen texture at
+        //    the internal (possibly supersampled) size.
+        let plan = self.raster_plan();
 
         let texture_size = wgpu::Extent3d {
-            width: scaled_width,
-            height: scaled_height,
+            width: plan.render_width,
+            height: plan.render_height,
             depth_or_array_layers: 1,
         };
 
@@ -1763,7 +1828,7 @@ impl LayeredChart {
             queue.clone(),
             self.width,
             self.height,
-            self.scale_factor,
+            plan.render_scale,
         )
         .await;
 
@@ -1772,11 +1837,11 @@ impl LayeredChart {
 
         // 4. Readback buffer setup
         let bytes_per_pixel = 4;
-        let unpadded_bytes_per_row = scaled_width * bytes_per_pixel;
+        let unpadded_bytes_per_row = plan.render_width * bytes_per_pixel;
         let align = wgpu::COPY_BYTES_PER_ROW_ALIGNMENT;
         let padding = (align - unpadded_bytes_per_row % align) % align;
         let padded_bytes_per_row = unpadded_bytes_per_row + padding;
-        let buffer_size = padded_bytes_per_row * scaled_height;
+        let buffer_size = padded_bytes_per_row * plan.render_height;
 
         let buffer = device.create_buffer(&wgpu::BufferDescriptor {
             label: Some("Readback Buffer"),
@@ -1798,7 +1863,7 @@ impl LayeredChart {
                 layout: wgpu::TexelCopyBufferLayout {
                     offset: 0,
                     bytes_per_row: Some(padded_bytes_per_row),
-                    rows_per_image: Some(scaled_height),
+                    rows_per_image: Some(plan.render_height),
                 },
             },
             texture_size,
@@ -1823,14 +1888,15 @@ impl LayeredChart {
             .map_err(|e| ChartonError::Render(format!("Buffer mapping failed: {:?}", e)))?;
 
         // 6. Convert raw texture pixels to tiny_skia compatible layout (BGRA Premultiplied)
-        let mut skia_pixels = Vec::with_capacity((scaled_width * scaled_height * 4) as usize);
+        let mut skia_pixels =
+            Vec::with_capacity((plan.render_width * plan.render_height * 4) as usize);
 
         {
             // Explicit scope restricts raw pointer lifetime before unmapping the buffer
             let raw_padded_data = buffer_slice.get_mapped_range();
-            for row in 0..scaled_height {
+            for row in 0..plan.render_height {
                 let start = (row * padded_bytes_per_row) as usize;
-                for col in 0..scaled_width as usize {
+                for col in 0..plan.render_width as usize {
                     let pixel_offset = start + (col * 4);
                     let r = raw_padded_data[pixel_offset];
                     let g = raw_padded_data[pixel_offset + 1];
@@ -1865,7 +1931,7 @@ impl LayeredChart {
         // 7. Initialize tiny_skia CPU canvas wrapped over the WGPU raw pixel payload
         let mut pixmap = tiny_skia::Pixmap::from_vec(
             skia_pixels,
-            tiny_skia::IntSize::from_wh(scaled_width, scaled_height)
+            tiny_skia::IntSize::from_wh(plan.render_width, plan.render_height)
                 .ok_or_else(|| ChartonError::Render("Invalid dimensions for Pixmap".to_string()))?,
         )
         .ok_or_else(|| ChartonError::Render("Failed to create Pixmap from GPU data".to_string()))?;
@@ -1873,7 +1939,7 @@ impl LayeredChart {
         // 8. Compositing layer: Draw ALL DEFERRED TEXT with tiny-skia (CPU)
         {
             let mut skia_backend =
-                crate::render::backend::raster::RasterBackend::new(&mut pixmap, self.scale_factor);
+                crate::render::backend::raster::RasterBackend::new(&mut pixmap, plan.render_scale);
 
             // Render text collected from the deferred ledger
             for text_config in saved_texts {
@@ -1881,7 +1947,17 @@ impl LayeredChart {
             }
         }
 
-        // 9. Encode image and serialize to filesystem target
+        // 9. Box-downsample back to the requested output size.
+        let pixmap = if plan.supersample > 1 {
+            crate::render::backend::raster::downsample_premultiplied(&pixmap, plan.supersample)
+                .ok_or_else(|| {
+                    ChartonError::Render("Failed to downsample supersampled buffer".to_string())
+                })?
+        } else {
+            pixmap
+        };
+
+        // 10. Encode image and serialize to filesystem target
         let png_bytes = pixmap
             .encode_png()
             .map_err(|e| ChartonError::Render(format!("PNG encoding failed: {}", e)))?;
@@ -2340,5 +2416,65 @@ mod pdf_export_tests {
         let bytes = sample_chart().to_pdf().unwrap();
         assert!(bytes.starts_with(b"%PDF-"), "missing PDF header");
         assert!(bytes.len() > 512, "PDF looks suspiciously small");
+    }
+}
+
+#[cfg(all(test, feature = "png"))]
+mod png_export_tests {
+    use super::*;
+    use crate::alt;
+    use crate::core::conversion::IntoLayered;
+    use crate::core::data::Dataset;
+
+    /// Reads `(width, height)` straight out of the PNG IHDR chunk.
+    fn png_size(bytes: &[u8]) -> (u32, u32) {
+        assert_eq!(&bytes[..8], b"\x89PNG\r\n\x1a\n", "not a PNG");
+        // IHDR is always the first chunk: [len:4][type:4][width:4][height:4].
+        let width = u32::from_be_bytes(bytes[16..20].try_into().unwrap());
+        let height = u32::from_be_bytes(bytes[20..24].try_into().unwrap());
+        (width, height)
+    }
+
+    fn sample_png_chart() -> LayeredChart {
+        let x: Vec<f64> = (0..12).map(|i| i as f64).collect();
+        let y: Vec<f64> = x.iter().map(|v| v.sin() * 3.0).collect();
+        let dataset = Dataset::new()
+            .with_column("x", x)
+            .unwrap()
+            .with_column("y", y)
+            .unwrap();
+
+        Chart::build(dataset)
+            .unwrap()
+            .mark_point()
+            .unwrap()
+            .encode((alt::x("x"), alt::y("y")))
+            .unwrap()
+            .with_size(300, 200)
+    }
+
+    /// The default output size is exactly the configured layout size, even
+    /// though rendering internally supersamples at 2x.
+    #[test]
+    fn png_output_matches_with_size() {
+        let (width, height) = png_size(&sample_png_chart().to_png().unwrap());
+        assert_eq!((width, height), (300, 200));
+    }
+
+    /// `with_scale_factor` intentionally multiplies the pixel density while
+    /// keeping the same layout.
+    #[test]
+    fn scale_factor_multiplies_pixel_density() {
+        let (width, height) =
+            png_size(&sample_png_chart().with_scale_factor(2.0).to_png().unwrap());
+        assert_eq!((width, height), (600, 400));
+    }
+
+    /// A fractional density rounds the output size instead of truncating.
+    #[test]
+    fn fractional_scale_factor_rounds_output_size() {
+        let (width, height) =
+            png_size(&sample_png_chart().with_scale_factor(1.5).to_png().unwrap());
+        assert_eq!((width, height), (450, 300));
     }
 }

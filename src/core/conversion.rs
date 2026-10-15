@@ -72,7 +72,15 @@ pub trait IntoLayered: Into<LayeredChart> + Clone {
 
     // --- Physical Dimensions ---
 
-    /// Sets the target dimensions of the chart in pixels.
+    /// Sets the layout size of the chart in pixels.
+    ///
+    /// This is also the exact pixel size of raster output under the default
+    /// settings: an image built with `with_size(600, 400)` is 600 × 400 pixels.
+    /// Small canvases are supersampled internally (2x) and downsampled for
+    /// anti-aliasing, so what you set is what you get.
+    ///
+    /// The one exception is [`with_scale_factor`](Self::with_scale_factor),
+    /// which deliberately multiplies the output pixel density.
     fn with_size(self, width: u32, height: u32) -> LayeredChart {
         let mut lc: LayeredChart = self.into();
         lc.width = width;
@@ -282,17 +290,27 @@ pub trait IntoLayered: Into<LayeredChart> + Clone {
         lc
     }
 
-    /// Sets the scale factor for rendering.
+    /// Sets the raster pixel-density factor (default `1.0`).
     ///
-    /// # Note
-    /// This factor affects **all raster outputs** (PNG via CPU or GPU).
-    /// It determines the physical pixel density (High-DPI/Retina support).
+    /// The layout stays as configured by [`with_size`](Self::with_size); this
+    /// factor only multiplies the pixel density of raster output. With the
+    /// default `1.0`, `with_size(600, 400)` produces a 600 × 400 image. With
+    /// `2.0`, it produces a 1200 × 800 image of the **same layout** — fonts,
+    /// stroke widths and spacing scale together, so it is the same picture,
+    /// just with more pixels (useful for Retina displays, print, or fitting an
+    /// image to a terminal's pixel area).
     ///
-    /// - For `to_png()`: Controls tiny-skia Pixmap size and coordinate scaling
-    /// - For `save(".png")` with wgpu: Controls GPU texture size and shader scaling
+    /// # This is not needed for anti-aliasing
+    /// `to_png()` already renders internally at 2x and box-downsamples, so the
+    /// default output is smooth. Use this method only when you explicitly want
+    /// a higher-density *asset*.
     ///
-    /// This field has **no effect on vector outputs** (e.g., SVG), as vector
-    /// formats are resolution-independent by nature.
+    /// # Scope
+    /// - Affects raster outputs (PNG via CPU or GPU).
+    /// - Has **no effect on vector outputs** (SVG, PDF), which are
+    ///   resolution-independent.
+    /// - Values `< 2.0` still receive internal 2x supersampling; values
+    ///   `>= 2.0` are rendered at the requested density directly.
     fn with_scale_factor(self, factor: f32) -> LayeredChart {
         let mut lc: LayeredChart = self.into();
         lc.scale_factor = factor;

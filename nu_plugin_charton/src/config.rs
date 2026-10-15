@@ -6,7 +6,7 @@
 //! $env.config.plugins.charton = {
 //!     width: 1000
 //!     height: 700
-//!     scale: 2.0
+//!     scale: 1.0          # output pixels = width × scale (1.0 = WYSIWYG)
 //!     cell_width: 9       # terminal cell size in device px (inline fitting)
 //!     cell_height: 20
 //!     inline_style: kitty

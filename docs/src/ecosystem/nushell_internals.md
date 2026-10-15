@@ -86,9 +86,10 @@ Because the terminal path is raster, the quality question is entirely about
 
 ### The symptom
 
-A naive fit renders an 800×600 logical canvas at `scale = 2.0` (a **1600×1200
-PNG**) and asks the terminal to shrink it into the character grid — often by a
-large, non-integer factor (≈ 2.7× in one measured case). That produces the two
+A naive fit renders the logical canvas at a fixed pixel density and asks the
+terminal to shrink it into the character grid — often by a large, non-integer
+factor (with the old `scale = 2.0` default, an 800×600 canvas became a
+**1600×1200 PNG** shrunk by ≈ 2.7× in one measured case). That produces the two
 classic complaints:
 
 - **Blurry text** — glyphs rendered at 24 px and resampled down to ~9 px.
@@ -116,6 +117,10 @@ The chart's **logical layout is unchanged** — only the pixel density is fitted
 — which keeps fonts and margins proportional. The chosen cell counts are then
 computed with the same `cell_w : cell_h` ratio (`fit_cells_with_cell`), so the
 display box has the image's aspect ratio and the terminal does not stretch it.
+
+This is separate from anti-aliasing: charton already renders internally at 2×
+and downsamples, so the default `scale = 1.0` raster is smooth. Fitting is about
+matching the terminal's *device-pixel* area so no resampling happens at all.
 
 ### The cell size is the crux
 

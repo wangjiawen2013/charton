@@ -4,6 +4,23 @@ All notable changes to the `charton` library are documented here. The project
 follows [Semantic Versioning](https://semver.org/). Releases before 0.7.0
 predate this file.
 
+## [Unreleased]
+
+### Changed
+
+- **Raster output is now WYSIWYG: `with_size(w, h)` produces a `w × h`
+  image.** `scale_factor` now defaults to `1.0` instead of `2.0`, so the size
+  you configure is the size you get. Sharpness is no longer the caller's
+  problem: `to_png()` and the wgpu PNG export render internally at 2x and
+  box-downsample, skipping the extra pass for very large images or when the
+  requested density is already >= 2x.
+- **`with_scale_factor` is now purely a pixel-density knob** for explicitly
+  requesting a higher-density asset (Retina, print, terminal image fitting). It
+  no longer affects the default output size or anti-aliasing. Its purpose and
+  interaction with `with_size` are now documented on the method.
+- **Raster size arithmetic no longer truncates fractional scale factors**
+  with `as u32`; internal and output sizes are rounded consistently.
+
 ## [0.8.4] - 2026-10-11
 
 ### Added

@@ -380,7 +380,12 @@ fn base_signature(name: &str) -> Signature {
             "Scale every chart font (title, labels, ticks, legend); default 1.5",
             None,
         )
-        .named("scale", SyntaxShape::Number, "Raster pixel scale factor (default 2.0)", None)
+        .named(
+            "scale",
+            SyntaxShape::Number,
+            "Raster pixel scale factor (default 1.0; >1 gives a higher-density asset)",
+            None,
+        )
         .switch(
             "raw",
             "Return the raw image data (SVG string, or PNG with --png) instead of drawing inline",
@@ -859,11 +864,13 @@ pub(crate) fn run_chart(
     // Remember whether the user chose a scale: inline fitting only kicks in
     // when the resolution was left to us.
     let scale_explicit = scale_flag.is_some() || cfg.scale.is_some();
+    // `None` means "leave charton's default in place", so the plugin tracks the
+    // library (`scale_factor` defaults to 1.0, i.e. the PNG is exactly the
+    // configured `width × height`). An explicit flag/config value overrides it.
     let scale = scale_flag
         .map(|v| v as f32)
         .or(cfg.scale)
-        .filter(|s| *s > 0.0)
-        .unwrap_or(2.0);
+        .filter(|s| *s > 0.0);
     // Every chart font is multiplied by this. Inline charts are fitted into
     // the terminal, so charton's base sizes come out small; 1.5 reads like the
     // shell's own text. Flag > config > default.
@@ -1243,7 +1250,7 @@ struct BuildOpts<'a> {
     theme: ThemeMode,
     width: u32,
     height: u32,
-    scale: f32,
+    scale: Option<f32>,
     font_scale: f64,
     span: Span,
 }
@@ -3108,9 +3115,12 @@ fn parse_colorfgbg(value: &str) -> Option<ThemeMode> {
 }
 
 fn finish(layered: LayeredChart, opts: &BuildOpts<'_>) -> LayeredChart {
-    let mut l = layered
-        .with_size(opts.width, opts.height)
-        .with_scale_factor(opts.scale);
+    let mut l = layered.with_size(opts.width, opts.height);
+    // Only override the density when the user asked for one; otherwise inherit
+    // charton's default (currently 1.0) so the plugin and the library agree.
+    if let Some(scale) = opts.scale {
+        l = l.with_scale_factor(scale);
+    }
     if let Some(title) = opts.title {
         l = l.with_title(title);
     }

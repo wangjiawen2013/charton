@@ -581,3 +581,90 @@ impl<'a> RenderBackend for RasterBackend<'a> {
         }
     }
 }
+
+/// Box-downsamples a premultiplied RGBA pixmap by an integer factor.
+///
+/// tiny-skia stores pixels premultiplied, so a straight per-channel average is
+/// correct and no un-premultiplication step is needed. If the source
+/// dimensions are not exact multiples of `factor`, any trailing rows/columns
+/// that do not fill a complete block are ignored.
+///
+/// Returns `None` if the factor is zero or the source is too small to produce
+/// a non-empty result. A factor of `0` or `1` returns a clone/unchanged copy.
+pub(crate) fn downsample_premultiplied(src: &Pixmap, factor: u32) -> Option<Pixmap> {
+    if factor <= 1 {
+        return Some(src.clone());
+    }
+
+    let src_width = src.width();
+    let src_height = src.height();
+    let dst_width = src_width / factor;
+    let dst_height = src_height / factor;
+    if dst_width == 0 || dst_height == 0 {
+        return None;
+    }
+
+    let mut dst = Pixmap::new(dst_width, dst_height)?;
+    let src_pixels = src.data();
+    let samples = factor * factor;
+    let half = samples / 2;
+
+    // `src` and `dst` are distinct allocations; every index below stays within
+    // their respective dimensions.
+    let dst_pixels = dst.data_mut();
+    for y in 0..dst_height {
+        for x in 0..dst_width {
+            let mut acc = [0u32; 4];
+            for dy in 0..factor {
+                let src_y = y * factor + dy;
+                let row = (src_y * src_width) as usize * 4;
+                for dx in 0..factor {
+                    let src_x = x * factor + dx;
+                    let i = row + src_x as usize * 4;
+                    acc[0] += src_pixels[i] as u32;
+                    acc[1] += src_pixels[i + 1] as u32;
+                    acc[2] += src_pixels[i + 2] as u32;
+                    acc[3] += src_pixels[i + 3] as u32;
+                }
+            }
+            let o = (y * dst_width + x) as usize * 4;
+            dst_pixels[o] = ((acc[0] + half) / samples) as u8;
+            dst_pixels[o + 1] = ((acc[1] + half) / samples) as u8;
+            dst_pixels[o + 2] = ((acc[2] + half) / samples) as u8;
+            dst_pixels[o + 3] = ((acc[3] + half) / samples) as u8;
+        }
+    }
+
+    Some(dst)
+}
+
+#[cfg(test)]
+mod downsample_tests {
+    use super::*;
+
+    #[test]
+    fn solid_color_survives_downsample() {
+        let mut src = Pixmap::new(4, 4).unwrap();
+        src.fill(Color::from_rgba8(10, 20, 30, 255));
+
+        let dst = downsample_premultiplied(&src, 2).unwrap();
+        assert_eq!((dst.width(), dst.height()), (2, 2));
+        for px in dst.data().chunks_exact(4) {
+            assert_eq!(px, [10, 20, 30, 255]);
+        }
+    }
+
+    #[test]
+    fn factor_one_is_a_passthrough() {
+        let mut src = Pixmap::new(3, 2).unwrap();
+        src.fill(Color::from_rgba8(1, 2, 3, 255));
+        let dst = downsample_premultiplied(&src, 1).unwrap();
+        assert_eq!(dst.data(), src.data());
+    }
+
+    #[test]
+    fn too_small_source_returns_none() {
+        let src = Pixmap::new(1, 1).unwrap();
+        assert!(downsample_premultiplied(&src, 2).is_none());
+    }
+}

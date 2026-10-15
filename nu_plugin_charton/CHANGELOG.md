@@ -4,6 +4,17 @@ All notable changes to `nu_plugin_charton` are documented here. The crate
 shares the `charton` version number, and the Nushell release it targets is
 stated in the README and in each release.
 
+## [Unreleased]
+
+### Changed
+
+- **The default raster scale now follows `charton` (1.0).** `--scale` and the
+  `scale` config key are optional; when unset the plugin no longer forces 2.0,
+  so `-o chart.png` writes an image whose size equals `--width × --height`
+  (the library supersamples internally, so it stays sharp). Pass `--scale 2.0`
+  to request a higher-density asset. Inline bitmap protocols still auto-fit the
+  raster to the terminal, and an explicit `--scale` still disables that.
+
 ## [0.8.4] - 2026-10-11
 
 ### Changed

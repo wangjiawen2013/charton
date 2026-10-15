@@ -439,7 +439,7 @@ fall back to the default.
 | `-o, --output` | Save to `.svg` or `.png` (relative paths resolve against the shell's directory) |
 | `--raw` | Return the image instead of drawing inline |
 | `--png` | With `--raw`, return PNG bytes instead of an SVG string |
-| `--scale` | Raster pixel scale (default 2.0; also disables inline auto-fit) |
+| `--scale` | Raster pixel scale (default 1.0; also disables inline auto-fit) |
 | `--inline-style` | `auto` (default) \| `halfblock` \| `iterm2` \| `kitty` \| `sixel` |
 | `--no-inline` | Never draw inline |
 | `--force-inline` | Draw inline even when stdout is not a TTY (testing) |
@@ -453,7 +453,7 @@ wins over built-in defaults. Unknown keys warn on stderr, so typos surface.
 $env.config.plugins.charton = {
     width: 1000
     height: 700
-    scale: 2.0
+    scale: 1.0                     # output pixels = width × scale
     cell_width: 9                  # terminal cell size in device px
     cell_height: 20                # (tune if inline charts look soft)
     inline_style: kitty            # auto | halfblock | iterm2 | kitty | sixel
@@ -471,7 +471,7 @@ $env.config.plugins.charton = {
 | Config key | Type | Purpose |
 |---|---|---|
 | `width`, `height` | int | Default pixel canvas |
-| `scale` | float | Raster scale (disables inline auto-fit) |
+| `scale` | float | Raster pixel scale; default 1.0 (output = `width × height`), >1 gives a higher-density asset. Disables inline auto-fit |
 | `cell_width`, `cell_height` | int | Assumed terminal cell size in device px; used to fit inline images |
 | `inline_style` | string | Default inline renderer |
 | `grid` | bool | Show grid lines |

@@ -157,7 +157,7 @@ config, and config wins over built-in defaults:
 $env.config.plugins.charton = {
     width: 1000
     height: 700
-    scale: 2.0
+    scale: 1.0                     # output pixels = width × scale
     cell_width: 9                  # terminal cell size in device px
     cell_height: 20                # (tune if inline charts look soft)
     inline_style: kitty            # auto | halfblock | iterm2 | kitty | sixel
