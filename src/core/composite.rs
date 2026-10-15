@@ -955,11 +955,12 @@ impl LayeredChart {
             text_anchor: text_anchor.to_string(),
             dominant_baseline: "middle".into(),
             font_weight: "bold".to_string(),
+            font_style: "normal".to_string(),
             opacity: 1.0,
             angle: 0.0,
         };
 
-        backend.draw_text(config);
+        backend.draw_text(config)?;
 
         Ok(())
     }
@@ -1160,7 +1161,7 @@ impl LayeredChart {
                 &legend_ctx,
                 &legend_rect,
                 &band,
-            );
+            )?;
         }
 
         Ok(())
@@ -1373,11 +1374,12 @@ impl LayeredChart {
             text_anchor: "middle".to_string(),
             dominant_baseline: "middle".into(),
             font_weight: "bold".to_string(),
+            font_style: "normal".to_string(),
             opacity: 1.0,
             angle: 0.0,
         };
 
-        backend.draw_text(config);
+        backend.draw_text(config)?;
 
         Ok(())
     }
@@ -1943,7 +1945,7 @@ impl LayeredChart {
 
             // Render text collected from the deferred ledger
             for text_config in saved_texts {
-                skia_backend.draw_text(text_config);
+                skia_backend.draw_text(text_config)?;
             }
         }
 

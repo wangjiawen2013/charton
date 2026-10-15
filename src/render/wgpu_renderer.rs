@@ -237,7 +237,7 @@ impl WgpuRenderer {
 
         let mut backend = RasterBackend::new(&mut pixmap, scale_factor);
         for config in ledger {
-            backend.draw_text(config);
+            backend.draw_text(config)?;
         }
 
         // Write the composited result back to the original slice

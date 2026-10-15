@@ -564,7 +564,8 @@ fn mark_signature(name: &str, mark: &str) -> Signature {
                 SyntaxShape::String,
                 "Text font weight: normal | bold | 100..900",
                 None,
-            ),
+            )
+            .switch("italic", "Italic text", None),
         "tick" => sig.named("size", SyntaxShape::Number, "Tick thickness", None),
         "geo" => sig.named(
             "geojson",
@@ -762,6 +763,11 @@ pub(crate) fn run_chart(
         outlier_color: call.get_flag("outlier-color")?,
         anchor: call.get_flag("anchor")?,
         weight: call.get_flag("weight")?,
+        italic: if call.has_flag("italic")? {
+            Some(true)
+        } else {
+            None
+        },
         layout: call.get_flag("layout")?,
         quasirandom_method: call.get_flag("quasirandom-method")?,
         mark_width: call.get_flag("mark-width")?,
@@ -1275,6 +1281,7 @@ struct Style {
     outlier_color: Option<String>,
     anchor: Option<String>,
     weight: Option<String>,
+    italic: Option<bool>,
     layout: Option<String>,
     quasirandom_method: Option<String>,
     mark_width: Option<f64>,
@@ -1474,6 +1481,9 @@ fn style_text(mut m: MarkText, s: &Style) -> MarkText {
     }
     if let Some(weight) = &s.weight {
         m = m.with_weight(weight.as_str());
+    }
+    if let Some(italic) = s.italic {
+        m = m.with_italic(italic);
     }
     m
 }
@@ -2989,6 +2999,7 @@ const STYLE_KEYS: &[&str] = &[
     "outlier-color",
     "anchor",
     "weight",
+    "italic",
     "layout",
     "quasirandom-method",
     "mark-width",
@@ -3051,6 +3062,7 @@ fn parse_style_record(rec: &Record, base: &Style) -> Result<Style, LabeledError>
             "outlier_color" => s.outlier_color = Some(style_string(value).map_err(bad)?),
             "anchor" => s.anchor = Some(style_string(value).map_err(bad)?),
             "weight" => s.weight = Some(style_string(value).map_err(bad)?),
+            "italic" => s.italic = Some(style_bool(value).map_err(bad)?),
             "layout" => s.layout = Some(style_string(value).map_err(bad)?),
             "quasirandom_method" => s.quasirandom_method = Some(style_string(value).map_err(bad)?),
             "mark_width" => s.mark_width = Some(style_number(value).map_err(bad)?),
@@ -3536,6 +3548,15 @@ mod tests {
     fn text_returns_svg() -> Result<(), ShellError> {
         let out = run("charton text -x t -y petal_length --text species")?;
         assert!(out.as_str()?.contains("<svg"));
+        Ok(())
+    }
+
+    #[test]
+    fn text_weight_and_italic_reach_the_svg() -> Result<(), ShellError> {
+        let out = run("charton text -x t -y petal_length --text species --weight bold --italic")?;
+        let svg = out.as_str()?;
+        assert!(svg.contains(r#"font-weight="bold""#), "{svg}");
+        assert!(svg.contains(r#"font-style="italic""#), "{svg}");
         Ok(())
     }
 

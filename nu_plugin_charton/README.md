@@ -417,7 +417,7 @@ These are declared only on the marks that use them.
 | `--dash`, `--interpolation` | Line dash pattern (`6,4`) and interpolation (`linear` / `step` / `step-before`) |
 | `--outlier-color`, `--outlier-size`, `--no-outliers` | Boxplot outliers |
 | `--cap-length`, `--no-center` | Errorbar cap and centre dot |
-| `--anchor`, `--weight` | Text anchor (`start` / `middle` / `end`) and weight (`normal` / `bold` / `100..900`) |
+| `--anchor`, `--weight`, `--italic` | Text anchor (`start` / `middle` / `end`), weight (`normal` / `bold` / `100..900`) and italic slant |
 
 A `--layer` record may also carry a `style` record; it overrides the primary
 layer's styling for that layer only. Keys are the flags above (kebab- or

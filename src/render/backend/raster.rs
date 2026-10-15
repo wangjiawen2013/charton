@@ -3,6 +3,7 @@ use crate::core::layer::{
     CircleConfig, GradientRectConfig, LineConfig, PathConfig, PathTopology, PolygonConfig,
     RectConfig, RenderBackend, TextConfig,
 };
+use crate::error::ChartonError;
 use crate::visual::color::SingleColor;
 use ab_glyph::{Font, FontArc, PxScale, ScaleFont};
 use tiny_skia::{
@@ -48,23 +49,6 @@ impl<'a> RasterBackend<'a> {
 
         let rgba = color.rgba();
         Color::from_rgba(rgba[0], rgba[1], rgba[2], rgba[3] * opacity)
-    }
-
-    /// Calculates the precise width of a text string using font metrics.
-    fn get_precise_width(&self, text: &str, scale: PxScale, font: &FontArc) -> Precision {
-        let scaled_font = font.as_scaled(scale);
-        let mut width: Precision = 0.0;
-        let mut last_glyph_id = None;
-
-        for c in text.chars() {
-            let glyph_id = font.glyph_id(c);
-            if let Some(last_id) = last_glyph_id {
-                width += scaled_font.kern(last_id, glyph_id) as Precision;
-            }
-            width += scaled_font.h_advance(glyph_id) as Precision;
-            last_glyph_id = Some(glyph_id);
-        }
-        width
     }
 }
 
@@ -388,23 +372,33 @@ impl<'a> RenderBackend for RasterBackend<'a> {
         }
     }
 
-    fn draw_text(&mut self, config: TextConfig) {
+    fn draw_text(&mut self, config: TextConfig) -> Result<(), ChartonError> {
         if config.color.is_none() || config.text.is_empty() {
-            return;
+            return Ok(());
         }
 
-        let font = crate::core::utils::get_raster_font(&config.font_family);
+        let request =
+            crate::core::font::FontRequest::from_css(&config.font_weight, &config.font_style);
+        let stack = crate::core::font::get_raster_fonts(&config.font_family, request)?;
         let scale = PxScale::from(config.font_size);
-        let scaled_font = font.as_scaled(scale);
+
+        // The primary face defines the line box (ascent/descent); individual
+        // glyphs may come from a fallback face when the primary lacks them.
+        let primary = stack.primary().as_scaled(scale);
 
         let anchor_x = config.x;
         let anchor_y = config.y;
 
-        // 1. Strictly calculate horizontal width (used for text-anchor)
-        let width = self.get_precise_width(&config.text, scale, &font);
+        // 1. Lay out every character: face, glyph and advance, with same-face
+        //    kerning. The same layout drives the anchor width and the drawing.
+        let placements = stack.layout(&config.text, scale);
+        let width: Precision = placements.iter().map(|g| g.kern + g.advance).sum();
         const TRACKING: f32 = 0.3;
-        let total_tracking = if config.text.len() > 1 {
-            (config.text.len() - 1) as f32 * TRACKING
+        // Tracking is applied once per character, not once per byte, so the
+        // anchor width must count characters (`placements.len()`), otherwise
+        // multi-byte text such as CJK is mis-anchored.
+        let total_tracking = if placements.len() > 1 {
+            (placements.len() - 1) as f32 * TRACKING
         } else {
             0.0
         };
@@ -420,8 +414,8 @@ impl<'a> RenderBackend for RasterBackend<'a> {
         // 2. Strictly align with SVG dominant-baseline
         // In SVG, the default y is the baseline, so dy = 0
         let mut dy = 0.0;
-        let ascent = scaled_font.ascent();
-        let descent = scaled_font.descent();
+        let ascent = primary.ascent();
+        let descent = primary.descent();
 
         match config.dominant_baseline.as_str() {
             "hanging" => dy += ascent,
@@ -451,71 +445,28 @@ impl<'a> RenderBackend for RasterBackend<'a> {
         paint.set_color(base_color);
         paint.anti_alias = true;
 
-        let units_per_em = font.units_per_em().unwrap_or(1000.0);
-        let font_to_px = config.font_size / units_per_em;
+        for placement in &placements {
+            current_x += placement.kern;
 
-        let mut last_glyph_id = None;
-
-        for c in config.text.chars() {
-            let glyph_id = font.glyph_id(c);
-            if let Some(last_id) = last_glyph_id {
-                current_x += scaled_font.kern(last_id, glyph_id);
+            // Outlines are scaled with the same factor ab_glyph uses for the
+            // advances that position them. See `build_glyph_path`.
+            if let Some(path) = build_glyph_path(stack.face(placement.face), placement.glyph, scale)
+            {
+                // Apply rotation first, then translate to the current character's baseline position
+                let glyph_transform = global_transform.pre_translate(current_x, draw_y);
+                self.pixmap.fill_path(
+                    &path,
+                    &paint,
+                    tiny_skia::FillRule::Winding,
+                    glyph_transform,
+                    self.clip_mask.as_ref(),
+                );
             }
 
-            if let Some(outline) = font.outline(glyph_id) {
-                let mut pb = tiny_skia::PathBuilder::new();
-                // Note: p.y is negated because the ab_glyph coordinate system grows upwards
-                let map_p = |p: ab_glyph::Point| (p.x * font_to_px, -p.y * font_to_px);
-
-                let mut current_pen: Option<ab_glyph::Point> = None;
-                for curve in outline.curves {
-                    let (start, end) = match curve {
-                        ab_glyph::OutlineCurve::Line(p1, p2) => (p1, p2),
-                        ab_glyph::OutlineCurve::Quad(p1, _, p3) => (p1, p3),
-                        ab_glyph::OutlineCurve::Cubic(p1, _, _, p4) => (p1, p4),
-                    };
-
-                    if current_pen != Some(start) {
-                        let (sx, sy) = map_p(start);
-                        pb.move_to(sx, sy);
-                    }
-
-                    match curve {
-                        ab_glyph::OutlineCurve::Line(_, p2) => {
-                            let (px, py) = map_p(p2);
-                            pb.line_to(px, py);
-                        }
-                        ab_glyph::OutlineCurve::Quad(_, p2, p3) => {
-                            let (p2x, p2y) = map_p(p2);
-                            let (p3x, p3y) = map_p(p3);
-                            pb.quad_to(p2x, p2y, p3x, p3y);
-                        }
-                        ab_glyph::OutlineCurve::Cubic(_, p2, p3, p4) => {
-                            let (p2x, p2y) = map_p(p2);
-                            let (p3x, p3y) = map_p(p3);
-                            let (p4x, p4y) = map_p(p4);
-                            pb.cubic_to(p2x, p2y, p3x, p3y, p4x, p4y);
-                        }
-                    }
-                    current_pen = Some(end);
-                }
-
-                if let Some(path) = pb.finish() {
-                    // Apply rotation first, then translate to the current character's baseline position
-                    let glyph_transform = global_transform.pre_translate(current_x, draw_y);
-                    self.pixmap.fill_path(
-                        &path,
-                        &paint,
-                        tiny_skia::FillRule::Winding,
-                        glyph_transform,
-                        self.clip_mask.as_ref(),
-                    );
-                }
-            }
-
-            current_x += scaled_font.h_advance(glyph_id) + TRACKING;
-            last_glyph_id = Some(glyph_id);
+            current_x += placement.advance + TRACKING;
         }
+
+        Ok(())
     }
 
     fn draw_gradient_rect(&mut self, config: GradientRectConfig) {
@@ -580,6 +531,66 @@ impl<'a> RenderBackend for RasterBackend<'a> {
                 .fill_rect(rect, &paint, self.transform, self.clip_mask.as_ref());
         }
     }
+}
+
+/// Builds a tiny-skia path for a single glyph outline, relative to the glyph's
+/// pen position (baseline at `(0, 0)`, y growing downwards).
+///
+/// # Why the scale factor matters
+/// `ab_glyph`'s [`PxScale`] is relative to the font's `height_unscaled`
+/// (`ascent - descent`), *not* `units_per_em`; see [`ScaleFont::scale_factor`].
+/// Advances, kerning, ascent and descent all live in that coordinate system, so
+/// the outline must use the same factor. Deriving it from `units_per_em` instead
+/// would draw glyphs at a size that disagrees with the advances positioning them
+/// whenever the two differ (common in CJK fonts), so neighbours overlap.
+fn build_glyph_path(
+    font: &FontArc,
+    glyph_id: ab_glyph::GlyphId,
+    scale: PxScale,
+) -> Option<tiny_skia::Path> {
+    let outline = font.outline(glyph_id)?;
+    let factor = font.as_scaled(scale).scale_factor();
+
+    let mut pb = tiny_skia::PathBuilder::new();
+    // ab_glyph's coordinate system grows upwards, tiny-skia's grows downwards.
+    let map_p = |p: ab_glyph::Point| (p.x * factor.horizontal, -p.y * factor.vertical);
+
+    let mut current_pen: Option<ab_glyph::Point> = None;
+    for curve in outline.curves {
+        let (start, end) = match curve {
+            ab_glyph::OutlineCurve::Line(p1, p2) => (p1, p2),
+            ab_glyph::OutlineCurve::Quad(p1, _, p3) => (p1, p3),
+            ab_glyph::OutlineCurve::Cubic(p1, _, _, p4) => (p1, p4),
+        };
+
+        // A change of contour start point means the previous contour ended;
+        // within one contour curves are chained start-to-end.
+        if current_pen != Some(start) {
+            let (sx, sy) = map_p(start);
+            pb.move_to(sx, sy);
+        }
+
+        match curve {
+            ab_glyph::OutlineCurve::Line(_, p2) => {
+                let (px, py) = map_p(p2);
+                pb.line_to(px, py);
+            }
+            ab_glyph::OutlineCurve::Quad(_, p2, p3) => {
+                let (p2x, p2y) = map_p(p2);
+                let (p3x, p3y) = map_p(p3);
+                pb.quad_to(p2x, p2y, p3x, p3y);
+            }
+            ab_glyph::OutlineCurve::Cubic(_, p2, p3, p4) => {
+                let (p2x, p2y) = map_p(p2);
+                let (p3x, p3y) = map_p(p3);
+                let (p4x, p4y) = map_p(p4);
+                pb.cubic_to(p2x, p2y, p3x, p3y, p4x, p4y);
+            }
+        }
+        current_pen = Some(end);
+    }
+
+    pb.finish()
 }
 
 /// Box-downsamples a premultiplied RGBA pixmap by an integer factor.
@@ -666,5 +677,67 @@ mod downsample_tests {
     fn too_small_source_returns_none() {
         let src = Pixmap::new(1, 1).unwrap();
         assert!(downsample_premultiplied(&src, 2).is_none());
+    }
+}
+
+#[cfg(test)]
+mod glyph_path_tests {
+    use super::*;
+
+    /// The path handed to tiny-skia must match the outline ab_glyph produces via
+    /// `outline_glyph`, i.e. scaled by `scale_factor()` (which is relative to
+    /// `height_unscaled`), not by `units_per_em`.
+    ///
+    /// Regression guard for glyphs being rendered larger than the advances that
+    /// position them, which made `2.0` read as `20` (the `2` covered the dot).
+    /// Uses the bundled Inter font, so it is deterministic on every machine.
+    #[test]
+    fn path_matches_ab_glyph_scaled_outline() {
+        let stack = crate::core::font::get_raster_fonts(
+            "sans-serif",
+            crate::core::font::FontRequest::NORMAL,
+        )
+        .unwrap();
+        let font = stack.primary();
+        let size = 100.0_f32;
+        let scale = PxScale::from(size);
+
+        for c in ['M', 'W', 'g', '2', '.', '0'] {
+            let gid = font.glyph_id(c);
+            let path = build_glyph_path(font, gid, scale)
+                .unwrap_or_else(|| panic!("no glyph path for {c:?}"));
+            let b = path.bounds();
+
+            let glyph = gid.with_scale_and_position(scale, ab_glyph::point(0.0, 0.0));
+            let outline = font.outline_glyph(glyph).expect("outline_glyph");
+            let pb = outline.px_bounds();
+
+            // px_bounds is floor/ceil rounded to whole pixels, so allow ~1px.
+            let tol = 1.5;
+            assert!(
+                (b.left() - pb.min.x).abs() <= tol,
+                "{c:?} left {} vs {}",
+                b.left(),
+                pb.min.x
+            );
+            assert!(
+                (b.right() - pb.max.x).abs() <= tol,
+                "{c:?} right {} vs {}",
+                b.right(),
+                pb.max.x
+            );
+            assert!(
+                (b.top() - pb.min.y).abs() <= tol,
+                "{c:?} top {} vs {}",
+                b.top(),
+                pb.min.y
+            );
+            assert!(
+                (b.bottom() - pb.max.y).abs() <= tol,
+                "{c:?} bottom {} vs {}",
+                b.bottom(),
+                pb.max.y
+            );
+        }
     }
 }

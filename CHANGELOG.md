@@ -6,6 +6,46 @@ predate this file.
 
 ## [Unreleased]
 
+### Added
+
+- **`MarkText::with_font_family(...)`, `with_italic(bool)` and `with_font_style(...)`**
+  for text marks, plus a `font_style` field on `TextConfig` that backends read.
+  `with_font_family` completes the text mark, whose family field previously had
+  no setter.
+
+### Fixed
+
+- **Font weight and slant are now resolved to the matching face.** The raster
+  and PDF backends previously ignored `font_weight`; they now query `fontdb`
+  with the requested weight, stretch and slant, so bold text selects a bold face
+  when the selected family provides one. (The bundled Inter is Regular only, so
+  the default theme's bold titles keep using the regular face.) SVG already
+  forwarded the values as attributes.
+- **CSS-style font family stacks are resolved in the raster and PDF backends.**
+  A `font_family` may be a stack such as `"Inter, 'Segoe UI', sans-serif"`.
+  Both backends now try the names left to right and map the generic names
+  (`sans-serif`, `serif`, `monospace`, `cursive`, `fantasy`) onto the system
+  families. Previously the raster backend passed the whole stack to `fontdb` as
+  a single family name, so every requested system font was ignored and text
+  fell back to the bundled Inter.
+- **Missing glyphs fall back per character.** A stack now resolves to an ordered
+  candidate chain (the requested faces, a curated system fallback, then the
+  bundled Inter). The raster backend draws each character with the first face
+  that contains it and the PDF backend splits the string into runs, so Latin,
+  CJK and symbols such as `²` render correctly even when the primary font does
+  not cover them.
+- **Glyph outlines are scaled consistently with their advances.** The raster
+  backend drew outlines using `units_per_em` while positioning them with
+  advances based on `height_unscaled`, which made glyphs too large whenever the
+  two differ — common in CJK fonts. A label such as `2.0` could read as `20`
+  because the `2` covered the decimal point. Outlines now use ab_glyph's
+  `scale_factor`, the same factor used for advances, kerning and
+  ascent/descent.
+- **Unknown font families are no longer swallowed.** A stack in which no name
+  resolves now returns `ChartonError::Font` from `to_png()` / `to_pdf()` instead
+  of silently drawing with Inter. Mixed stacks (some names missing) still work,
+  and generic names such as `sans-serif` resolve through the bundled face.
+
 ### Changed
 
 - **Raster output is now WYSIWYG: `with_size(w, h)` produces a `w × h`
@@ -20,6 +60,16 @@ predate this file.
   interaction with `with_size` are now documented on the method.
 - **Raster size arithmetic no longer truncates fractional scale factors**
   with `as u32`; internal and output sizes are rounded consistently.
+- **`RenderBackend::draw_text` now returns `Result<(), ChartonError>`** so that
+  backends which resolve fonts themselves (PNG, PDF) can report a bad family.
+  SVG and WGPU, which defer font selection to the viewer or host, return
+  `Ok(())`.
+
+### Documentation
+
+- **New "Fonts & Text Rendering" chapter** in the mdbook documents the stack
+  syntax, the fallback chain, the strict unknown-family error, the per-backend
+  behaviour, and why CJK is served from system fonts rather than bundled.
 
 ## [0.8.4] - 2026-10-11
 

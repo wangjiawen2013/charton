@@ -93,9 +93,10 @@ pub fn render_polar_axes(
                 text_anchor: anchor.to_string(),
                 dominant_baseline: baseline.to_string(),
                 font_weight: "normal".to_string(),
+                font_style: "normal".to_string(),
                 opacity: 1.0,
                 angle: 0.0,
-            });
+            })?;
         }
     }
 

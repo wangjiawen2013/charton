@@ -14,6 +14,7 @@
 - [Scale Arbitration](concepts/scale_arbitration.md)
 - [Missing Values & Gaps](concepts/missing_values.md)
 - [Rendering Backends](concepts/rendering.md)
+- [Fonts & Text Rendering](concepts/fonts.md)
 - [GPU Architecture & the WgpuRenderer](concepts/gpu.md)
 
 # The Core Engine: Dataset

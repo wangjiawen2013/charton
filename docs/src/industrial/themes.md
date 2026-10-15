@@ -11,7 +11,7 @@ As defined in `theme.rs`, a `Theme` is an immutable, comprehensive configuration
 These themes are injected into the rendering pipeline through `PanelContext`, allowing the same data layer to be styled differently simply by swapping the theme reference. The system governs three critical stylistic dimensions:
 
 - Global Canvas & Spatial Margins: Controlled by parameters such as `top_margin`, `right_margin`, `bottom_margin`, and `left_margin`. These define the protective buffers around the canvas, ensuring that legends, titles, and axis elements do not bleed into the boundaries of the export surface.
-- Typographic Hierarchy: The system utilizes a font-stack strategy, governing specific layers—from `title_size` to `tick_label_size` and `legend_label_size`. This ensures clear, readable visual hierarchy across different output resolutions.
+- Typographic Hierarchy: The system utilizes a font-stack strategy, governing specific layers—from `title_size` to `tick_label_size` and `legend_label_size`. This ensures clear, readable visual hierarchy across different output resolutions. The stack syntax, per-glyph fallback and error behaviour are covered in [Fonts & Text Rendering](../concepts/fonts.md).
 - Visual Anchor Metrics: Geometric constraints such as `axis_width`, `tick_length`, `legend_block_gap`, and `legend_marker_text_gap`. By formalizing these metrics, the library maintains consistent layout density across varying chart complexities.
 
 ```rust

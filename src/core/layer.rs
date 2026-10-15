@@ -145,6 +145,7 @@ pub struct TextConfig {
     pub text_anchor: String,       // "start", "middle", "end"
     pub dominant_baseline: String, // "alphabetic", "hanging", "central", etc.
     pub font_weight: String,       // "normal", "bold", or numeric "400"
+    pub font_style: String,        // "normal", "italic", or "oblique"
     pub opacity: Precision,
     pub angle: Precision, // Rotation angle in degrees
 }
@@ -180,7 +181,12 @@ pub trait RenderBackend {
     fn draw_polygon(&mut self, config: PolygonConfig);
 
     /// Renders text with specific alignment and weight.
-    fn draw_text(&mut self, config: TextConfig);
+    ///
+    /// Fallible because backends that rasterise glyphs themselves (PNG, PDF)
+    /// must resolve the font family and can fail on a stack that names no
+    /// available font. Markup/GPU backends defer font selection to the renderer
+    /// or host and normally return `Ok`.
+    fn draw_text(&mut self, config: TextConfig) -> Result<(), ChartonError>;
 
     /// Draws a simple straight line between two points.
     ///

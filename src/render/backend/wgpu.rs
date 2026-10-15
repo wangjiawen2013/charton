@@ -9,6 +9,7 @@ use crate::core::layer::{
     CircleConfig, GradientRectConfig, LineConfig, PathConfig, PathTopology, PolygonConfig,
     RectConfig, RenderBackend, TextConfig,
 };
+use crate::error::ChartonError;
 use bytemuck::{Pod, Zeroable};
 use wgpu::util::DeviceExt;
 
@@ -1895,7 +1896,8 @@ impl RenderBackend for WgpuBackend {
         }
     }
 
-    fn draw_text(&mut self, config: TextConfig) {
+    fn draw_text(&mut self, config: TextConfig) -> Result<(), ChartonError> {
         self.collected_texts.push(config);
+        Ok(())
     }
 }

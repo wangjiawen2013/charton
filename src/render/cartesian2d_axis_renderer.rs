@@ -200,9 +200,10 @@ fn draw_ticks_and_labels(
             text_anchor: anchor.to_string(),
             dominant_baseline: baseline.to_string(),
             font_weight: "normal".to_string(), // Ticks usually use normal weight
+            font_style: "normal".to_string(),
             opacity: 1.0,
             angle: angle as Precision,
-        });
+        })?;
     }
     Ok(())
 }
@@ -268,9 +269,10 @@ fn draw_axis_title(
             text_anchor: "middle".to_string(),
             dominant_baseline: "hanging".to_string(),
             font_weight: "bold".to_string(),
+            font_style: "normal".to_string(),
             opacity: 1.0,
             angle: 0.0,
-        });
+        })?;
     } else {
         let y = panel.y + panel.height / 2.0;
 
@@ -303,9 +305,10 @@ fn draw_axis_title(
             text_anchor: "middle".to_string(),
             dominant_baseline: "middle".to_string(),
             font_weight: "bold".to_string(),
+            font_style: "normal".to_string(),
             opacity: 1.0,
             angle: -90.0, // Rotate Counter-Clockwise(CCW) for vertical alignment
-        });
+        })?;
     }
 
     Ok(())

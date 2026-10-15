@@ -34,9 +34,14 @@ pub enum ChartonError {
     #[error("Scale error: {0}")]
     Scale(String),
 
-    /// Error during rendering operations.
+    /// Error related to rendering operations.
     #[error("Render error: {0}")]
     Render(String),
+
+    /// Error related to font resolution, such as a family stack that names no
+    /// font available on the system.
+    #[error("Font error: {0}")]
+    Font(String),
 
     /// I/O error from standard library operations.
     #[error("io error: {0}")]

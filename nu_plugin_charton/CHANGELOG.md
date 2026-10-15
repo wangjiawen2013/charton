@@ -6,6 +6,13 @@ stated in the README and in each release.
 
 ## [Unreleased]
 
+### Added
+
+- **`--italic` on `charton text`** (and `italic: true` in a `--layer` style
+  record) requests a slanted face. It pairs with the existing `--weight`; both
+  now reach the renderer, which selects the matching face when the font family
+  provides one.
+
 ### Changed
 
 - **The default raster scale now follows `charton` (1.0).** `--scale` and the

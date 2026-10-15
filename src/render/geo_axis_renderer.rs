@@ -74,9 +74,10 @@ pub(crate) fn render_geo_axes(
                 text_anchor: "middle".to_string(),
                 dominant_baseline: "hanging".to_string(),
                 font_weight: "normal".to_string(),
+                font_style: "normal".to_string(),
                 opacity: 1.0,
                 angle: 0.0,
-            });
+            })?;
         }
 
         // X-axis label
@@ -102,9 +103,10 @@ pub(crate) fn render_geo_axes(
                 text_anchor: "middle".to_string(),
                 dominant_baseline: "hanging".to_string(),
                 font_weight: "normal".to_string(),
+                font_style: "normal".to_string(),
                 opacity: 1.0,
                 angle: 0.0,
-            });
+            })?;
         }
     }
 
@@ -149,9 +151,10 @@ pub(crate) fn render_geo_axes(
                 text_anchor: "end".to_string(),
                 dominant_baseline: "central".to_string(),
                 font_weight: "normal".to_string(),
+                font_style: "normal".to_string(),
                 opacity: 1.0,
                 angle: 0.0,
-            });
+            })?;
         }
 
         // Y-axis label
@@ -180,9 +183,10 @@ pub(crate) fn render_geo_axes(
                 text_anchor: "middle".to_string(),
                 dominant_baseline: "middle".to_string(),
                 font_weight: "normal".to_string(),
+                font_style: "normal".to_string(),
                 opacity: 1.0,
                 angle: -90.0,
-            });
+            })?;
         }
     }
 
