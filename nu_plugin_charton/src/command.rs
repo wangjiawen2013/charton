@@ -220,7 +220,7 @@ fn mark_description(mark: &str) -> &'static str {
         "text" => "Place a text label at each x/y",
         "hist" => "Histogram: count rows per bin",
         "boxplot" => "Five-number summary with Tukey outliers",
-        "violin" => "Kernel density outline plus an inner box",
+        "violin" => "Kernel density outline (violin plot)",
         "errorbar" => "Confidence interval / error bars",
         "density" => "1-D kernel density estimate",
         "density_2d" => "Joint 2-D kernel density drawn as a grid",
@@ -1820,23 +1820,24 @@ fn build_layer(
             let x = x.ok_or_else(|| missing(geom, "--x (the category column)", span))?;
             let y = y.ok_or_else(|| missing(geom, "--y (the value column)", span))?;
 
-            // A violin is a density outline plus an inner inter-quartile box.
-            // The outline is built here from `transform_density` (grouped by
-            // category, optionally also by the colour group) and
-            // `transform_band`; `--color` dodges one violin per group, without
-            // it there is one violin per category.
-            // The composition generates intermediate columns. They are
+            // `violin` is the plain density outline, matching charton's
+            // `mark_violin` (`examples/violin.rs`). The inner-box form
+            // (`examples/violin_box.rs`) is deliberately not a mark: it is this
+            // outline plus a `quantile-box` layer, which users compose with
+            // `--layer` (the README has the recipe).
+            //
+            // The outline is density → band → polygon. `transform_density`
+            // groups by category, and by the colour group when `--color` is
+            // given; `transform_band` then dodges one violin per group (one per
+            // category without `--color`). The intermediate columns are
             // namespaced so they can never collide with the user's own columns,
-            // which are passed straight through as transform inputs — a
-            // category column is very often literally called `x`.
+            // which are passed through as transform inputs — a category column
+            // is very often literally called `x`.
             const VALUE: &str = "__charton_violin_value";
             const WIDTH: &str = "__charton_violin_width";
             const BAND_X: &str = "__charton_violin_x";
             const BAND_Y: &str = "__charton_violin_y";
             const BAND_PATH: &str = "__charton_violin_path";
-            const BOX_X: &str = "__charton_violin_box_x";
-            const BOX_Y: &str = "__charton_violin_box_y";
-            const BOX_PATH: &str = "__charton_violin_box_path";
 
             let mut density = DensityTransform::new(y)
                 .with_as(VALUE, WIDTH)
@@ -1848,18 +1849,12 @@ fn build_layer(
                 .with_center(x)
                 .with_as(BAND_X, BAND_Y, BAND_PATH)
                 .with_scale(BandScale::PerGroup);
-            let mut quantile_box = QuantileBoxTransform::new(y)
-                .with_category(x)
-                .with_as(BOX_X, BOX_Y, BOX_PATH);
             if let Some(group) = color {
                 density = density.with_groupbys([x, group]);
                 band = band.with_group(group).with_position(Position::dodge());
-                quantile_box = quantile_box
-                    .with_group(group)
-                    .with_position(Position::dodge());
             }
 
-            let outline = Chart::build(dataset.clone())
+            let outline = Chart::build(dataset)
                 .map_err(|e| chart_err(span, e))?
                 .transform_density(density)
                 .map_err(|e| chart_err(span, e))?
@@ -1883,29 +1878,10 @@ fn build_layer(
             }
             .map_err(|e| chart_err(span, e))?;
 
-            let inner_box = Chart::build(dataset)
-                .map_err(|e| chart_err(span, e))?
-                .transform_quantile_box(quantile_box)
-                .map_err(|e| chart_err(span, e))?
-                .mark_polygon()
-                .map_err(|e| chart_err(span, e))?
-                .configure_geoshape(|m| {
-                    m.with_fill("white")
-                        .with_stroke("black")
-                        .with_stroke_width(1.0)
-                });
-            let inner_box = inner_box
-                .encode((
-                    alt::x(BOX_X).with_category_labels(x),
-                    make_y(BOX_Y),
-                    alt::path_group(BOX_PATH),
-                ))
-                .map_err(|e| chart_err(span, e))?;
-
             // The generated columns are namespaced, so default the axis titles
             // to the user's own column names. Explicit `--x-label` / `--y-label`
             // still win; they are applied later.
-            outline.and(inner_box).with_x_label(x).with_y_label(y)
+            outline.with_x_label(x).with_y_label(y)
         }
         "tick" => {
             let c = Chart::build(dataset)
@@ -2245,7 +2221,19 @@ fn build_primitive_layer(
                 .mark_bar()
                 .map_err(|e| chart_err(span, e))?
                 .configure_bar(|m| style_bar(m, style));
-            encode_xy!(c).into()
+            // A `--y2` bound makes the bar float between `y` and `y2` (a
+            // waterfall step, a candlestick body) instead of growing from zero.
+            // Encoding `y2` also tells charton not to dodge colour into lanes,
+            // so each step keeps a single bar — matching `examples/waterfall.rs`.
+            let (xe, ye) = encoders();
+            match (layer.y2.as_deref(), layer.color.as_deref()) {
+                (Some(h), Some(col)) => c.encode((xe, ye, alt::y2(h), alt::color(col))),
+                (Some(h), None) => c.encode((xe, ye, alt::y2(h))),
+                (None, Some(col)) => c.encode((xe, ye, alt::color(col))),
+                (None, None) => c.encode((xe, ye)),
+            }
+            .map_err(|e| chart_err(span, e))?
+            .into()
         }
         "area" => {
             let c = chart
@@ -3446,12 +3434,30 @@ mod tests {
 
     #[test]
     fn violin_returns_svg() -> Result<(), ShellError> {
-        // One violin per category.
+        // One violin per category: the plain density outline, matching
+        // `examples/violin.rs`.
         let out = run("charton violin -x species -y petal_length")?;
         assert!(out.as_str()?.contains("<svg"));
         // Grouped (dodged) violins, one per `grp`.
         let out = run("charton violin -x species -y petal_length -c grp")?;
         assert!(out.as_str()?.contains("<svg"));
+        Ok(())
+    }
+
+    #[test]
+    fn violin_box_is_a_composition() -> Result<(), ShellError> {
+        // The inner-box violin (`examples/violin_box.rs`) is not a mark: it is
+        // the `violin` outline plus a `quantile-box` layer, so it must differ
+        // from the plain outline for the same data.
+        let box_layer = "{geom: polygon, x: qx, y: qy, path_group: qpg, \
+             transforms: [{op: quantile-box, value: petal_length, category: species, \
+                          as: [qx, qy, qpg]}]}";
+        let outline = run("charton violin -x species -y petal_length")?;
+        let with_box = run(&format!(
+            "charton violin -x species -y petal_length --layer {box_layer}"
+        ))?;
+        assert!(with_box.as_str()?.contains("<svg"));
+        assert_ne!(outline.as_str()?, with_box.as_str()?);
         Ok(())
     }
 
@@ -4031,6 +4037,41 @@ mod tests {
              {op: window, field: petal_length, kind: cumulative-sum, as: total}, \
              {op: calculate, as: base, expr: {|row| if $row.species == 'setosa' { 0 } else { $row.total - $row.petal_length }}}]")?;
         assert!(out.as_str()?.contains("<svg"));
+        Ok(())
+    }
+
+    #[test]
+    fn waterfall_recipe_matches_the_example() -> Result<(), ShellError> {
+        // The README's waterfall recipe, run on the same data as
+        // `examples/waterfall.rs`: a `window` running total and a `calculate`
+        // lower edge, drawn as floating bars. The `Total` steps anchor at zero,
+        // so the opening and closing totals span the full height.
+        let step = ["Start", "Q1", "Q2", "Q3", "Q4", "End"];
+        let delta = [200.0, 50.0, 30.0, -20.0, -10.0, 0.0];
+        let kind = [
+            "Total", "Increase", "Increase", "Decrease", "Decrease", "Total",
+        ];
+        let waterfall = Value::test_list(
+            (0..step.len())
+                .map(|i| {
+                    Value::test_record(record! {
+                        "step" => Value::test_string(step[i]),
+                        "delta" => Value::test_float(delta[i]),
+                        "kind" => Value::test_string(kind[i]),
+                    })
+                })
+                .collect(),
+        );
+        let out = run_on(
+            waterfall,
+            "charton bar -x step -y base --y2 total -c kind --mark-width 0.6 --transform [\
+             {op: window, field: delta, kind: cumulative-sum, as: total}, \
+             {op: calculate, as: base, expr: {|row| if $row.kind == 'Total' { 0 } else { $row.total - $row.delta }}}]",
+        )?;
+        assert!(out.as_str()?.contains("<svg"));
+        // `--y2` must reach the mark on the `--transform` path: six floating
+        // bars (one per step), not a dodged Cartesian product of step × kind.
+        assert_eq!(out.as_str()?.matches(" Z\" fill=\"rgba(").count(), 6);
         Ok(())
     }
 

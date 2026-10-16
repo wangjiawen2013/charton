@@ -87,7 +87,7 @@ ls | charton bar -x name -y size
 open data.csv | charton line -x date -y value -o chart.svg
 open data.csv | charton point -x group -y score --layout beeswarm -o chart.png
 
-# violin: a density outline with an inner quartile box; -c dodges one per group
+# violin: the density outline (`examples/violin.rs`); -c dodges one per group
 open data.csv | charton violin -x category -y score -c group -o violin.svg
 
 # contour: iso-lines of a regular x/y/z grid; --z is the value column
@@ -139,9 +139,9 @@ The mark subcommands cover every Charton mark (`charton point`, `charton line`,
 `charton tick`, `charton text`, `charton rect`, `charton hist`,
 `charton density`, `charton density-2d`, `charton contour`, `charton geo`).
 Chart types that Charton builds from primitives — ridgeline, ECDF, candlestick,
-dumbbell, range, slope, bump, waterfall, raincloud — are **not** commands: you
-write them with `--transform` and `--layer`, exactly as the
-[cookbook](../gallery/primitives.md) shows. The `--transform` vocabulary is
+dumbbell, range, slope, bump, waterfall, raincloud, violin-with-box — are
+**not** commands: you write them with `--transform` and `--layer`, exactly as
+the [cookbook](../gallery/primitives.md) shows. The `--transform` vocabulary is
 closed: `density`, `density-2d`, `contour`, `band`, `quantile-box`, `window`,
 `calculate`. A transform record says what to run (`op`), which columns to read
 (`field`, `x`, `y`, ...), and what to call the new columns (`as`).

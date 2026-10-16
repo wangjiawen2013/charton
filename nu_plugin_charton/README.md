@@ -141,7 +141,7 @@ Everything else is optional:
 open assets/sales.csv | charton bar -x region -y revenue -c quarter --stack stacked
 open assets/sales.csv | charton bar -x region -y revenue --aggregate mean
 
-# Atoms: a density curve, a violin (density + inner box), a histogram
+# Atoms: a density curve, a violin (density outline), a histogram
 open assets/data.csv | charton density -x score -c group --opacity 0.5
 open assets/data.csv | charton violin -x category -y score -c group
 open assets/grid.csv  | charton hist -x x --bins 20
@@ -269,7 +269,7 @@ The `op` accepts aliases too: `kde` (`density`), `density2d` (`density-2d`),
 > Full guide: [Writing Transforms in the Nushell Plugin](https://wangjiawen2013.github.io/charton/ecosystem/nushell_transforms.html)
 > covers every tuning key (`bandwidth`, `kind`, `side`, ...), the `window`
 > kinds, multi-step pipelines, and worked recipes (density, ECDF, ridgeline,
-> waterfall, raincloud).
+> violin-with-box, waterfall, raincloud).
 
 > `calculate` runs a Nushell closure for every row, and the row is a record, so
 > the closure can read any column an earlier transform produced. When a value
@@ -319,6 +319,17 @@ Some charts need both: several layers, each rewriting the table its own way.
 This is the top of the ladder — and it is still just records.
 
 ```nu
+# Violin, matching examples/violin.rs: the density outline alone.
+open assets/data.csv | charton violin -x category -y score -c group
+
+# Violin with an inner box, matching examples/violin_box.rs: the same outline
+# plus a `quantile-box` layer. The box is a transform, not a mark, so it stays
+# a recipe — the plugin needs no `violin-box` command.
+open assets/data.csv | charton violin -x category -y score --layer {
+    geom: polygon, x: qx, y: qy, path_group: qpg,
+    transforms: [{op: quantile-box, value: score, category: category, as: [qx, qy, qpg]}]
+}
+
 # Raincloud = the violin atom, an inner box, and the raw points. The box is a
 # transform on its own layer, placed on the same (discrete) category axis.
 let box = {geom: polygon, x: qx, y: qy, path_group: qpg, color: category,

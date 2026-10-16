@@ -16,7 +16,7 @@ open data.csv | charton area -x value -y density \
 
 This page is the long-form guide. It explains what each key of a transform
 record means, lists every transform and its options, and builds the common
-recipes (ridgeline, ECDF, waterfall, raincloud) from the pieces.
+recipes (ridgeline, violin-with-box, ECDF, waterfall, raincloud) from the pieces.
 
 Related pages:
 
@@ -201,7 +201,9 @@ open assets/data.csv
 ### Ridgeline
 
 A ridge is a density, a one-sided band around each category, and a polygon.
-This is exactly the pieces `charton violin` assembles internally.
+`charton violin` is built from the same pieces — density, a two-sided band and a
+polygon — so a ridge is a violin that leans to one side and overlaps its
+neighbours.
 
 ```nu
 open assets/data.csv
@@ -218,6 +220,18 @@ one. `--x-expand [0.4, 1.5]` pads that axis by 0.4 at the low end and 1.5 at the
 high end (in category units), so the tallest ridge is not clipped. The two
 numbers are `[low, high]`; a single number instead pads both ends by a fraction
 of the range.
+
+### Violin with an inner box
+
+`charton violin` is the density outline alone (Charton's `examples/violin.rs`).
+The inner-box form (`examples/violin_box.rs`) is that outline plus a
+`quantile-box` layer on the same discrete category axis — a recipe, not a mark:
+
+```nu
+let box = {geom: polygon, x: qx, y: qy, path_group: qpg,
+           transforms: [{op: quantile-box, value: score, category: category, as: [qx, qy, qpg]}]}
+open assets/data.csv | charton violin -x category -y score --layer $box
+```
 
 ### Waterfall
 
