@@ -1,4 +1,5 @@
 use crate::Precision;
+use crate::core::font::{em_scale, line_metrics, run_width, shape};
 use crate::core::layer::{
     CircleConfig, GradientRectConfig, LineConfig, PathConfig, PathTopology, PolygonConfig,
     RectConfig, RenderBackend, TextConfig,
@@ -380,55 +381,39 @@ impl<'a> RenderBackend for RasterBackend<'a> {
         let request =
             crate::core::font::FontRequest::from_css(&config.font_weight, &config.font_style);
         let stack = crate::core::font::get_raster_fonts(&config.font_family, request)?;
-        let scale = PxScale::from(config.font_size);
+        let faces = stack.faces();
 
-        // The primary face defines the line box (ascent/descent); individual
-        // glyphs may come from a fallback face when the primary lacks them.
-        let primary = stack.primary().as_scaled(scale);
+        // 1. Lay the run out in em pixels. `font_size` is an em size, the same
+        //    one the SVG and PDF backends use; `shape` picks a face for every
+        //    character and returns its advance and kerning. This one layout
+        //    drives both the anchor arithmetic and the drawing below.
+        let placements = shape(faces, &config.text, config.font_size);
+        let width = run_width(&placements);
 
         let anchor_x = config.x;
         let anchor_y = config.y;
 
-        // 1. Lay out every character: face, glyph and advance, with same-face
-        //    kerning. The same layout drives the anchor width and the drawing.
-        let placements = stack.layout(&config.text, scale);
-        let width: Precision = placements.iter().map(|g| g.kern + g.advance).sum();
-        const TRACKING: f32 = 0.3;
-        // Tracking is applied once per character, not once per byte, so the
-        // anchor width must count characters (`placements.len()`), otherwise
-        // multi-byte text such as CJK is mis-anchored.
-        let total_tracking = if placements.len() > 1 {
-            (placements.len() - 1) as f32 * TRACKING
-        } else {
-            0.0
-        };
-        let full_width = width + total_tracking;
-
+        // 2. Horizontal anchor, matching SVG's `text-anchor`: `middle` and
+        //    `end` shift the run by its own width.
         let mut dx = 0.0;
         match config.text_anchor.as_str() {
-            "middle" => dx -= full_width / 2.0,
-            "end" => dx -= full_width,
+            "middle" => dx -= width / 2.0,
+            "end" => dx -= width,
             _ => {}
         }
 
-        // 2. Strictly align with SVG dominant-baseline
-        // In SVG, the default y is the baseline, so dy = 0
+        // 3. Vertical anchor, matching SVG's `dominant-baseline`. The default
+        //    (alphabetic) baseline sits at `config.y`; `middle` centres the
+        //    line box on the anchor, and descent is negative.
         let mut dy = 0.0;
-        let ascent = primary.ascent();
-        let descent = primary.descent();
-
+        let metrics = line_metrics(&faces[0], config.font_size);
         match config.dominant_baseline.as_str() {
-            "hanging" => dy += ascent,
-            "central" | "middle" => {
-                // Key logic: SVG's middle is an offset relative to the Baseline
-                // Usually (ascent + descent) / 2, noting that descent is a negative value
-                dy += (ascent + descent) / 2.0;
-            }
-            _ => {} // alphabetic: dy = 0 (baseline alignment)
+            "hanging" => dy += metrics.ascent,
+            "central" | "middle" => dy += (metrics.ascent + metrics.descent) / 2.0,
+            _ => {}
         }
 
-        // 3. Build the same transformation matrix as SVG
-        // SVG: transform="rotate(angle, x, y)"
+        // 4. Rotation, matching SVG's transform="rotate(angle, x, y)".
         let mut global_transform = self.transform;
         if config.angle != 0.0 {
             global_transform = global_transform
@@ -445,14 +430,22 @@ impl<'a> RenderBackend for RasterBackend<'a> {
         paint.set_color(base_color);
         paint.anti_alias = true;
 
+        // 5. Draw. Every face gets its own em scale, so a glyph supplied by a
+        //    fallback face is exactly as large as the primary face's glyphs.
+        let scales: Vec<PxScale> = faces
+            .iter()
+            .map(|face| em_scale(face, config.font_size))
+            .collect();
+
         for placement in &placements {
             current_x += placement.kern;
 
-            // Outlines are scaled with the same factor ab_glyph uses for the
-            // advances that position them. See `build_glyph_path`.
-            if let Some(path) = build_glyph_path(stack.face(placement.face), placement.glyph, scale)
-            {
-                // Apply rotation first, then translate to the current character's baseline position
+            if let Some(path) = build_glyph_path(
+                &faces[placement.face],
+                placement.glyph,
+                scales[placement.face],
+            ) {
+                // Rotation first, then move the glyph to its pen position.
                 let glyph_transform = global_transform.pre_translate(current_x, draw_y);
                 self.pixmap.fill_path(
                     &path,
@@ -463,7 +456,7 @@ impl<'a> RenderBackend for RasterBackend<'a> {
                 );
             }
 
-            current_x += placement.advance + TRACKING;
+            current_x += placement.advance;
         }
 
         Ok(())
@@ -533,16 +526,14 @@ impl<'a> RenderBackend for RasterBackend<'a> {
     }
 }
 
-/// Builds a tiny-skia path for a single glyph outline, relative to the glyph's
-/// pen position (baseline at `(0, 0)`, y growing downwards).
+/// Builds the tiny-skia path for one glyph outline, relative to the glyph's pen
+/// position (baseline at `(0, 0)`, y growing downwards).
 ///
-/// # Why the scale factor matters
-/// `ab_glyph`'s [`PxScale`] is relative to the font's `height_unscaled`
-/// (`ascent - descent`), *not* `units_per_em`; see [`ScaleFont::scale_factor`].
-/// Advances, kerning, ascent and descent all live in that coordinate system, so
-/// the outline must use the same factor. Deriving it from `units_per_em` instead
-/// would draw glyphs at a size that disagrees with the advances positioning them
-/// whenever the two differ (common in CJK fonts), so neighbours overlap.
+/// `scale` must be the em scale of the face that supplies the glyph, i.e.
+/// [`crate::core::font::em_scale`]. The run's advances were measured with the
+/// same scale, so outline and advance always agree; using any other scale draws
+/// glyphs wider than the space reserved for them, which is how `2.0` once read
+/// as `20`.
 fn build_glyph_path(
     font: &FontArc,
     glyph_id: ab_glyph::GlyphId,
@@ -681,30 +672,64 @@ mod downsample_tests {
 }
 
 #[cfg(test)]
+mod font_tests;
+
+#[cfg(test)]
 mod glyph_path_tests {
     use super::*;
+    use crate::core::font::{FontRequest, em_scale, get_raster_fonts};
 
-    /// The path handed to tiny-skia must match the outline ab_glyph produces via
-    /// `outline_glyph`, i.e. scaled by `scale_factor()` (which is relative to
-    /// `height_unscaled`), not by `units_per_em`.
+    /// The bundled Inter face, resolved through the same chain the renderer
+    /// uses, so the tests do not depend on the fonts installed on the machine.
+    fn inter() -> FontArc {
+        let stack = get_raster_fonts("sans-serif", FontRequest::NORMAL).unwrap();
+        stack.faces()[0].clone()
+    }
+
+    /// `font_size` is an em size, so one em must be exactly `font_size` pixels
+    /// regardless of how tall the face's line box is.
     ///
-    /// Regression guard for glyphs being rendered larger than the advances that
-    /// position them, which made `2.0` read as `20` (the `2` covered the dot).
-    /// Uses the bundled Inter font, so it is deterministic on every machine.
+    /// Inter's line box is ~1.21x its em, so treating `PxScale::from(font_size)`
+    /// as the em size used to draw text ~17% too small; a face such as PingFang
+    /// SC was off by ~30%.
+    #[test]
+    fn em_scale_makes_one_em_equal_font_size() {
+        let font = inter();
+        let font_size = 64.0_f32;
+        let scale = em_scale(&font, font_size);
+        let upm = font.units_per_em().expect("units_per_em");
+
+        let em_pixels = font.as_scaled(scale).scale_factor().horizontal * upm;
+        assert!(
+            (em_pixels - font_size).abs() < 0.01,
+            "one em should be {font_size}px, got {em_pixels}px"
+        );
+
+        // The conversion must not be the identity: ab_glyph's scale is the line
+        // box height, which differs from the em size for this face.
+        assert!(
+            (scale.y - font_size).abs() > 1.0,
+            "Inter's line box ({}) should not equal its em size ({font_size})",
+            scale.y
+        );
+    }
+
+    /// The path handed to tiny-skia must match the outline ab_glyph produces for
+    /// the same em scale, and the ink must stay inside the advance that positions
+    /// it.
+    ///
+    /// Regression guard for glyphs being rendered larger than their advances,
+    /// which made `2.0` read as `20` (the `2` covered the dot).
     #[test]
     fn path_matches_ab_glyph_scaled_outline() {
-        let stack = crate::core::font::get_raster_fonts(
-            "sans-serif",
-            crate::core::font::FontRequest::NORMAL,
-        )
-        .unwrap();
-        let font = stack.primary();
-        let size = 100.0_f32;
-        let scale = PxScale::from(size);
+        let font = inter();
+        let font_size = 100.0_f32;
+        let scale = em_scale(&font, font_size);
+        let scaled = font.as_scaled(scale);
 
         for c in ['M', 'W', 'g', '2', '.', '0'] {
             let gid = font.glyph_id(c);
-            let path = build_glyph_path(font, gid, scale)
+            let path = build_glyph_path(&font, gid, scale)
                 .unwrap_or_else(|| panic!("no glyph path for {c:?}"));
             let b = path.bounds();
 
@@ -714,29 +739,23 @@ mod glyph_path_tests {
 
             // px_bounds is floor/ceil rounded to whole pixels, so allow ~1px.
             let tol = 1.5;
+            for (actual, expected, edge) in [
+                (b.left(), pb.min.x, "left"),
+                (b.right(), pb.max.x, "right"),
+                (b.top(), pb.min.y, "top"),
+                (b.bottom(), pb.max.y, "bottom"),
+            ] {
+                assert!(
+                    (actual - expected).abs() <= tol,
+                    "{c:?} {edge} {actual} vs {expected}"
+                );
+            }
+
+            let advance = scaled.h_advance(gid);
             assert!(
-                (b.left() - pb.min.x).abs() <= tol,
-                "{c:?} left {} vs {}",
-                b.left(),
-                pb.min.x
-            );
-            assert!(
-                (b.right() - pb.max.x).abs() <= tol,
-                "{c:?} right {} vs {}",
-                b.right(),
-                pb.max.x
-            );
-            assert!(
-                (b.top() - pb.min.y).abs() <= tol,
-                "{c:?} top {} vs {}",
-                b.top(),
-                pb.min.y
-            );
-            assert!(
-                (b.bottom() - pb.max.y).abs() <= tol,
-                "{c:?} bottom {} vs {}",
-                b.bottom(),
-                pb.max.y
+                b.width() <= advance + 1.0,
+                "{c:?} ink is {}px wide but its advance is only {advance}px",
+                b.width()
             );
         }
     }

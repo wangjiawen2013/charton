@@ -5,6 +5,9 @@ on:
     branches: [ "main" ]
   pull_request:
     branches: [ "main" ]
+  # Lets you run the jobs by hand from the Actions tab, without pushing a
+  # commit, and download the rendered PNGs from the run page.
+  workflow_dispatch:
 
 env:
   CARGO_TERM_COLOR: always
@@ -63,3 +66,55 @@ jobs:
       - name: Lint with Clippy
         # Again, focus only on the library and tests to save memory
         run: cargo clippy --lib --tests -- -D warnings
+
+  # The raster (PNG) backend is only compiled behind `--features png`, so it is
+  # invisible to the default-feature job above. Text rendering is inherently
+  # platform dependent, which is why this runs on all three OSes. `macos-15` is
+  # an Apple-silicon runner and ships the exact fonts from the font issue
+  # (PingFang SC, Hiragino Sans GB, Helvetica), so the macOS run is the faithful
+  # reproduction.
+  raster_font_tests:
+    name: Raster fonts (${{ matrix.os }})
+    runs-on: ${{ matrix.os }}
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-latest, windows-latest, macos-15]
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Set up Rust
+        uses: dtolnay/rust-toolchain@stable
+
+      - name: Rust Cache
+        uses: Swatinem/rust-cache@v2
+        with:
+          key: raster-fonts
+
+      - name: Install CJK and Latin fonts (Linux)
+        if: runner.os == 'Linux'
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y fonts-noto-cjk fonts-dejavu-core
+
+      - name: Font resolution and raster text tests
+        # `--nocapture` so the skip reasons are visible when a host does not
+        # ship the fonts a case needs.
+        run: cargo test --features png --lib -- --nocapture
+
+      - name: Render the issue's cases
+        # Runs even when a test failed, so the artifact shows what was drawn.
+        if: always()
+        run: cargo run --features png --example chinese
+
+      - name: Upload rendered PNGs
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: raster-fonts-${{ matrix.os }}
+          path: |
+            target/test-output/font-issue/*.png
+            target/example-output/font-issue/*.png
+          if-no-files-found: ignore

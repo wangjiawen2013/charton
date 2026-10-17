@@ -1,13 +1,23 @@
 use ahash::AHashMap;
 
-/// Estimates text width using character categorization.
+/// Estimates the pixel width of `text` drawn at `font_size` em.
+///
+/// Layout needs a text width before a backend is chosen (title and legend
+/// rectangles, tick spacing, label rotation), and the SVG backend cannot
+/// measure text at all, so this has to be a font-independent estimate. It is
+/// deliberately an over-estimate for wide scripts: a CJK ideograph advances one
+/// em, and under-estimating a label clips it, while over-estimating only leaves
+/// a little padding.
 pub(crate) fn estimate_text_width(text: &str, font_size: f64) -> f64 {
+    let mut wide_chars = 0;
     let mut narrow_chars = 0;
     let mut uppercase_chars = 0;
     let mut other_chars = 0;
 
     for c in text.chars() {
-        if matches!(
+        if is_wide(c) {
+            wide_chars += 1;
+        } else if matches!(
             c,
             '.' | ',' | ':' | ';' | '!' | 'i' | 'j' | 'l' | '-' | '|' | '1' | 't' | 'f' | 'r'
         ) {
@@ -19,8 +29,36 @@ pub(crate) fn estimate_text_width(text: &str, font_size: f64) -> f64 {
         }
     }
 
-    (narrow_chars as f64 * 0.3 + uppercase_chars as f64 * 0.65 + other_chars as f64 * 0.55)
+    (wide_chars as f64
+        + narrow_chars as f64 * 0.3
+        + uppercase_chars as f64 * 0.65
+        + other_chars as f64 * 0.55)
         * font_size
+}
+
+/// Whether `c` is East Asian Wide or Fullwidth, i.e. advances about one em in
+/// the fonts that contain it.
+///
+/// Ranges follow the Unicode East Asian Width property for the blocks that chart
+/// text actually uses. Halfwidth katakana (`U+FF61..=U+FFDC`) is intentionally
+/// not included; it is narrow and falls into the generic bucket.
+const fn is_wide(c: char) -> bool {
+    matches!(c as u32,
+        0x1100..=0x115F      // Hangul Jamo
+        | 0x2E80..=0x303E    // CJK radicals, Kangxi, CJK symbols and punctuation
+        | 0x3041..=0x33FF    // Kana, Bopomofo, Hangul compatibility, CJK compatibility
+        | 0x3400..=0x4DBF    // CJK Unified Ideographs Extension A
+        | 0x4E00..=0x9FFF    // CJK Unified Ideographs
+        | 0xA000..=0xA4CF    // Yi
+        | 0xAC00..=0xD7A3    // Hangul syllables
+        | 0xF900..=0xFAFF    // CJK compatibility ideographs
+        | 0xFE10..=0xFE19    // Vertical forms
+        | 0xFE30..=0xFE4F    // CJK compatibility forms
+        | 0xFF01..=0xFF60    // Fullwidth forms
+        | 0xFFE0..=0xFFE6    // Fullwidth signs
+        | 0x1F300..=0x1F9FF  // Emoji
+        | 0x20000..=0x3FFFD  // CJK Extensions B and beyond
+    )
 }
 
 //=============================== Parallelization Utilities =====================================
@@ -635,5 +673,23 @@ const fn geometry_type_name(value: &GeometryValue) -> &'static str {
         GeometryValue::Polygon { .. } => "Polygon",
         GeometryValue::MultiPolygon { .. } => "MultiPolygon",
         GeometryValue::GeometryCollection { .. } => "GeometryCollection",
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::estimate_text_width;
+
+    /// Wide scripts advance about one em per character, so a CJK label must be
+    /// measured at least that wide; under-estimating it is what clipped Chinese
+    /// legend entries and titles.
+    #[test]
+    fn wide_characters_are_measured_at_one_em() {
+        let size = 10.0;
+        assert!((estimate_text_width("销售额趋势", size) - 5.0 * size).abs() < 1e-9);
+        // Two fullwidth parentheses at 1em, plus two Latin-ish glyphs at 0.55em.
+        assert!((estimate_text_width("（m²）", size) - 3.1 * size).abs() < 1e-9);
+        // Latin keeps its narrower estimate.
+        assert!(estimate_text_width("WWWW", size) < 4.0 * size);
     }
 }

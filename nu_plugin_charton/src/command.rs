@@ -299,13 +299,13 @@ fn base_signature(name: &str) -> Signature {
         .named(
             "x-expand",
             SyntaxShape::Any,
-            "Padding on the x axis: a number (fraction of the range) or [low, high] (data units)",
+            "Optional x padding: a number (fraction of the range) or [low, high] (data units)",
             None,
         )
         .named(
             "y-expand",
             SyntaxShape::Any,
-            "Padding on the y axis: a number (fraction of the range) or [low, high] (data units)",
+            "Optional y padding: a number (fraction of the range) or [low, high] (data units)",
             None,
         )
         .named("x-ticks", SyntaxShape::Any, "Explicit x tick values, e.g. [0 1 2 3]", None)
@@ -2843,10 +2843,11 @@ fn parse_ticks(value: Option<Value>, span: Span) -> Result<Option<Vec<f64>>, Lab
 
 /// Parse `--x-expand` / `--y-expand`.
 ///
-/// A single number pads both ends by that fraction of the data range (the
+/// A single number pads both ends by that fraction of the range (the
 /// historical behavior). A `[low, high]` list instead pads the low and high
-/// ends by that many data units, which is how a one-sided mark gets headroom on
-/// the side it grows toward (a ridgeline's half-band, for example).
+/// ends by that many data units. Padding is optional: positional axes already
+/// grow to cover the geometry a transform emits (a ridgeline's overlap, a
+/// dodged lane), so these flags only fine-tune the breathing room.
 fn parse_expansion(
     value: Option<Value>,
     flag: &str,
@@ -4075,8 +4076,9 @@ mod tests {
     fn compositions_render_svg() -> Result<(), ShellError> {
         for src in [
             // ridgeline: a one-sided band over a per-category density. The
-            // `--x-expand` pair gives the top ridge headroom (books' recipe).
-            "charton polygon -x x -y y --path-group pg -c species --flip --x-expand [0.4, 1.5] \
+            // category axis covers the band's overlap automatically, so the
+            // recipe needs no `--x-expand`.
+            "charton polygon -x x -y y --path-group pg -c species --flip \
              --transform [{op: density, field: petal_length, as: [value, density], group-by: [species]}, \
               {op: band, value: value, width: density, center: species, side: right, scale: per-group, overlap: 2.5, band-width: 1.0, as: [x, y, pg]}]",
             // candlestick: a low--high rule wick plus a floating bar body.
@@ -4092,6 +4094,103 @@ mod tests {
             assert!(out.as_str()?.contains("<svg"), "no SVG for `{src}`");
         }
         Ok(())
+    }
+
+    /// The plugin path must inherit the automatic category fit: `--transform`
+    /// emits the numeric band positions, the band's centre becomes the axis
+    /// labels, and the ridge must still sit inside the panel.
+    #[test]
+    fn ridge_axis_covers_the_band_overlap() -> Result<(), ShellError> {
+        let out = run(
+            "charton polygon -x x -y y --path-group pg -c species --flip \
+             --transform [{op: density, field: petal_length, as: [value, density], group-by: [species]}, \
+              {op: band, value: value, width: density, center: species, side: right, scale: per-group, overlap: 2.5, band-width: 1.0, as: [x, y, pg]}]",
+        )?;
+        let svg = out.as_str()?;
+        let (px, py, pw, ph) = panel_rect(svg);
+        let points = clipped_mark_points(svg);
+        assert!(!points.is_empty(), "the ridge produced no mark points");
+
+        for (x, y) in &points {
+            assert!(
+                *x >= px - 1e-6 && *x <= px + pw + 1e-6,
+                "mark x={x} is outside the panel [{px}, {}]",
+                px + pw
+            );
+            assert!(
+                *y >= py - 1e-6 && *y <= py + ph + 1e-6,
+                "mark y={y} is outside the panel [{py}, {}]",
+                py + ph
+            );
+        }
+
+        // The tallest ridge keeps the axis padding above it instead of
+        // touching the clip boundary.
+        let top = points
+            .into_iter()
+            .map(|(_, y)| y)
+            .fold(f64::INFINITY, f64::min);
+        assert!(
+            top > py + 1.0,
+            "the tallest ridge is flush with the panel top: {top} vs {py}"
+        );
+        Ok(())
+    }
+
+    fn attr(line: &str, name: &str) -> f64 {
+        line.split(&format!("{name}=\""))
+            .nth(1)
+            .and_then(|value| value.split('"').next())
+            .unwrap_or_else(|| panic!("expected attribute {name} in: {line}"))
+            .parse::<f64>()
+            .unwrap_or_else(|_| panic!("attribute {name} should be numeric in: {line}"))
+    }
+
+    fn panel_rect(svg: &str) -> (f64, f64, f64, f64) {
+        let line = svg
+            .lines()
+            .find(|line| line.contains("plot-clip-area-0"))
+            .expect("expected the plot panel clip rect");
+        (
+            attr(line, "x"),
+            attr(line, "y"),
+            attr(line, "width"),
+            attr(line, "height"),
+        )
+    }
+
+    fn clipped_mark_points(svg: &str) -> Vec<(f64, f64)> {
+        let open = "<g clip-path=\"url(#plot-clip-area-0)\">";
+        let start = svg
+            .find(open)
+            .unwrap_or_else(|| panic!("expected the plot panel clip group"))
+            + open.len();
+        let end = start
+            + svg[start..]
+                .find("</g>")
+                .expect("expected the plot panel clip group to close");
+
+        let mut points = Vec::new();
+        for path in svg[start..end].split("d=\"").skip(1) {
+            let data = path.split('"').next().unwrap_or_default();
+            let mut tokens = data.split_whitespace();
+            while let Some(command) = tokens.next() {
+                if command == "M" || command == "L" {
+                    let x: f64 = tokens
+                        .next()
+                        .expect("x coordinate")
+                        .parse()
+                        .expect("numeric x coordinate");
+                    let y: f64 = tokens
+                        .next()
+                        .expect("y coordinate")
+                        .parse()
+                        .expect("numeric y coordinate");
+                    points.push((x, y));
+                }
+            }
+        }
+        points
     }
 
     #[test]

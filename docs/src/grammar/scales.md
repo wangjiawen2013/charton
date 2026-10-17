@@ -43,6 +43,14 @@ the positions numerically while drawing one integer tick per category, labelled
 from `"Sex"`. A value that matches a known label still maps by label, so
 existing categorical axes are unchanged.
 
+The scale is trained from the numeric positions as well as the category list, so
+geometry that reaches past the last category — an overlapping ridgeline, a
+fractional dodge at the edge — expands the axis automatically instead of being
+clipped. Expansion still describes the breathing room: the scale keeps the
+axis's normal per-side padding around the category indices, and applies the same
+padding when the data reaches past them, so the data itself is always covered.
+A manual expansion widens or tightens that padding.
+
 #### Missing values
 
 A discrete *position* scale never invents a level for a missing value: those

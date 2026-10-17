@@ -991,8 +991,12 @@ impl<T: Mark> Chart<T> {
         }
 
         // --- 2. HALF-STEP PADDING FOR DISCRETE AXES ---
-        // Categorical marks with thickness (Bar, Boxplot, Rect) need 0.5 units of padding
-        // to center the marks and prevent them from clipping against axis lines.
+        // Marks that place geometry around a category centre (bars, box plots,
+        // rects, violins) and the closed-path/polygon mark (`mark_polygon` is
+        // the `geo_path` mark) need half a category step on each side. The same
+        // padding is what the scale reuses when a mark reaches past the
+        // category indices, so this default is also the automatic headroom a
+        // ridgeline gets above its tallest ridge.
         let needs_discrete_padding = ["bar", "boxplot", "rect", "geo_path", "violin"].contains(&mt);
         if needs_discrete_padding {
             if x_enc.scale_type == Some(Scale::Discrete) && x_enc.expansion.is_none() {
@@ -1100,11 +1104,28 @@ where
         let primary_series = self.data.column(field_name)?;
 
         // A discrete position axis can take its categories from a separate
-        // column while `field_name` holds numeric positions. When that is the
-        // case the axis domain is the category list, not the positions.
+        // column while `field_name` holds numeric positions. The axis ticks are
+        // the category list, but the scale also needs the positions the marks
+        // actually occupy: a ridgeline grows past the last category, a dodged
+        // lane sits on a fractional index. Carrying both lets the scale cover
+        // the geometry without teaching every renderer about overhangs.
         if let Some(category_field) = self.encoding.get_category_field_by_channel(channel) {
             let categories = self.data.column(category_field)?;
-            return Ok(ScaleDomain::Discrete(categories.unique_values()));
+            let labels = categories.unique_values();
+
+            // Only numeric columns can carry positions. A temporal or string
+            // column with category labels keeps the old index-only domain.
+            let extent = if primary_series.semantic_type() == SemanticType::Continuous {
+                let (min, max) = primary_series.min_max();
+                (min.is_finite() && max.is_finite()).then_some((min, max))
+            } else {
+                None
+            };
+
+            return Ok(match extent {
+                Some(extent) => ScaleDomain::DiscretePositions { labels, extent },
+                None => ScaleDomain::Discrete(labels),
+            });
         }
 
         // --- Determine the active scale type (User Override > Inferred) ---

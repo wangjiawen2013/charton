@@ -208,18 +208,21 @@ neighbours.
 ```nu
 open assets/data.csv
 | charton polygon -x x -y y --path-group pg -c category --flip \
-    --x-expand [0.4, 1.5] --opacity 0.85 --stroke '#2c3e50' --stroke-width 1.0 --transform [
+    --opacity 0.85 --stroke '#2c3e50' --stroke-width 1.0 --transform [
       {op: density, field: score, as: [value, density], group-by: [category]}
       {op: band, value: value, width: density, center: category,
        side: right, scale: per-group, overlap: 2.5, band-width: 1.0, as: [x, y, pg]}
     ]
 ```
 
-A ridge grows past its lane, so the category axis needs headroom above the top
-one. `--x-expand [0.4, 1.5]` pads that axis by 0.4 at the low end and 1.5 at the
-high end (in category units), so the tallest ridge is not clipped. The two
-numbers are `[low, high]`; a single number instead pads both ends by a fraction
-of the range.
+A ridge grows past its lane. The category axis is trained from the numeric
+positions the band emits, so it expands automatically to include the tallest
+ridge; no `--x-expand` is needed. The automatic headroom is the axis's normal
+padding: half a category step per side for a polygon/bar/box-plot/rect/violin,
+and 0.4 for other discrete marks. The flag is still available for fine-tuning:
+`--x-expand [0.4, 1.5]` pads that axis by 0.4 at the low end and 1.5 at the high
+end (in category units), and a single number instead pads both ends by a
+fraction of the range. Either way the scale still covers the data extent.
 
 ### Violin with an inner box
 

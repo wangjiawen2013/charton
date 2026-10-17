@@ -12,9 +12,22 @@ predate this file.
   for text marks, plus a `font_style` field on `TextConfig` that backends read.
   `with_font_family` completes the text mark, whose family field previously had
   no setter.
+- **`ScaleDomain::DiscretePositions`** records both the category labels and the
+  numeric position extent of an axis built with `with_category_labels`.
+  `ScaleDomain::discrete_labels()` and `ScaleDomain::is_discrete()` make the
+  two discrete variants easy to handle; downstream exhaustive matches must
+  handle the new variant.
 
 ### Fixed
 
+- **A discrete category axis now covers the numeric positions its marks use.**
+  `with_category_labels` builds a discrete axis from the category list, but a
+  ridgeline with overlap, a dodged lane, or any composed mark can sit outside
+  the integer category indices. The scale now trains on the real position
+  extent as well and expands to include it, so those charts no longer need a
+  hand-written `with_expansion` to avoid being clipped by the panel boundary.
+  On these category axes, manual expansion still works and now only controls
+  the amount of breathing room.
 - **Font weight and slant are now resolved to the matching face.** The raster
   and PDF backends previously ignored `font_weight`; they now query `fontdb`
   with the requested weight, stretch and slant, so bold text selects a bold face
@@ -34,13 +47,31 @@ predate this file.
   that contains it and the PDF backend splits the string into runs, so Latin,
   CJK and symbols such as `²` render correctly even when the primary font does
   not cover them.
-- **Glyph outlines are scaled consistently with their advances.** The raster
-  backend drew outlines using `units_per_em` while positioning them with
-  advances based on `height_unscaled`, which made glyphs too large whenever the
-  two differ — common in CJK fonts. A label such as `2.0` could read as `20`
-  because the `2` covered the decimal point. Outlines now use ab_glyph's
-  `scale_factor`, the same factor used for advances, kerning and
-  ascent/descent.
+- **Raster text is drawn at the requested em size, and its outlines match the
+  advances that position it.** The raster backend scaled outlines by
+  `units_per_em` while positioning them with advances based on the font's line
+  box, so a glyph could be wider than its own advance: a label such as `2.0`
+  read as `20` because the oversized `2` covered the decimal point. Aligning the
+  outline with the advance was not enough on its own, because `ab_glyph`'s
+  `PxScale` is a line-box height, not an em: the same mismatch made PNG text
+  17-30% smaller than SVG and PDF at the same `font_size` (Inter's line box is
+  1.21x its em, Microsoft YaHei's 1.32x, PingFang SC's about 1.4x). Text is now
+  shaped through one em-based layout in `core::font` — `em_scale` per face,
+  `shape`, `line_metrics`, `run_width` — so one em is `font_size` pixels in
+  every backend and a fallback glyph is the same size as the primary face's
+  glyphs (`m` and `²` in `m²` used to differ by 17%).
+- **CJK labels are measured at their real width when laying out.** The text
+  width estimate treated every non-ASCII character as 0.55em, so a four
+  character Chinese legend entry was allotted about 2.2em while it draws at 4em
+  and was clipped at the figure edge (in SVG as well as PNG). East Asian
+  Wide/Fullwidth characters now count as one em.
+- **Linux and CJK-system fallbacks are actually reachable.** The fallback chain
+  reused the theme's default family stack, which is Latin-first and lists no
+  Linux CJK family, so a container with only `Noto Sans CJK` installed still
+  drew `.notdef` boxes. Coverage now has its own list
+  (`FALLBACK_FONT_STACK`) with the CJK families of every supported platform,
+  kept separate from the theme's default so adding coverage cannot change how a
+  default chart looks.
 - **Unknown font families are no longer swallowed.** A stack in which no name
   resolves now returns `ChartonError::Font` from `to_png()` / `to_pdf()` instead
   of silently drawing with Inter. Mixed stacks (some names missing) still work,
@@ -48,6 +79,13 @@ predate this file.
 
 ### Changed
 
+- **Raster text is slightly larger, and uses no hidden letter spacing.** With
+  the em fix above, PNG text grows by the font's line-box ratio (about 17% for
+  Inter, 24% for Microsoft YaHei). The raster backend also added a hard-coded
+  0.3px of tracking after every character that SVG and PDF never applied, and
+  that pushed centre- and right-anchored text past its own measured width; it is
+  gone. PNG images will look different. SVG and PDF output is unchanged apart
+  from the CJK label-width fix above.
 - **Raster output is now WYSIWYG: `with_size(w, h)` produces a `w × h`
   image.** `scale_factor` now defaults to `1.0` instead of `2.0`, so the size
   you configure is the size you get. Sharpness is no longer the caller's

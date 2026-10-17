@@ -221,7 +221,41 @@ impl Scale {
 pub enum ScaleDomain {
     Continuous(f64, f64),
     Discrete(Vec<String>),
+    /// A categorical axis whose data sits at numeric positions instead of only
+    /// at the integer category indices.
+    ///
+    /// `labels` define the ticks (`0..labels.len() - 1`); `extent` is the range
+    /// the marks actually occupy, in category steps. A ridgeline, for example,
+    /// lets its top ridge grow past the last category, and a dodged lane sits
+    /// on a fractional position. The scale must cover both so the geometry is
+    /// never clipped, while the axis still shows one tick per label.
+    DiscretePositions {
+        /// The category labels, in tick order.
+        labels: Vec<String>,
+        /// The `(min, max)` numeric position occupied by the data.
+        extent: (f64, f64),
+    },
     Temporal(i64, i64), // (raw start nanoseconds, raw end nanoseconds)
+}
+
+impl ScaleDomain {
+    /// The category labels of a discrete domain, if this is one.
+    ///
+    /// Both discrete variants answer here. Callers that only need the
+    /// categories (legends, guides, label counting) do not care whether the
+    /// domain also carries numeric positions.
+    pub fn discrete_labels(&self) -> Option<&[String]> {
+        match self {
+            Self::Discrete(labels) => Some(labels),
+            Self::DiscretePositions { labels, .. } => Some(labels),
+            _ => None,
+        }
+    }
+
+    /// Whether this domain is categorical.
+    pub const fn is_discrete(&self) -> bool {
+        matches!(self, Self::Discrete(_) | Self::DiscretePositions { .. })
+    }
 }
 
 /// The primary interface for all scale implementations.
@@ -330,15 +364,19 @@ pub fn create_scale(
                 ));
             }
         }
-        Scale::Discrete => {
-            if let ScaleDomain::Discrete(categories) = domain_data {
+        Scale::Discrete => match domain_data {
+            ScaleDomain::Discrete(categories) => {
                 Box::new(DiscreteScale::new(categories, expansion, mapper))
-            } else {
+            }
+            ScaleDomain::DiscretePositions { labels, extent } => Box::new(
+                DiscreteScale::with_positions(labels, expansion, Some(extent), mapper),
+            ),
+            _ => {
                 return Err(ChartonError::Scale(
                     "Discrete scale requires Categorical domain".into(),
                 ));
             }
-        }
+        },
         Scale::Temporal => {
             if let ScaleDomain::Temporal(min_ns, max_ns) = domain_data {
                 // 1. Convert to nanoseconds immediately to perform high-precision expansion

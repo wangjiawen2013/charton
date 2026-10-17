@@ -7,16 +7,38 @@
 //! `sans-serif` generic and is the last-resort fallback.
 //!
 //! Resolution produces an ordered *candidate chain*: the faces the caller asked
-//! for, then a curated system fallback, then the bundled face. Renderers walk
-//! that chain per character, so a glyph missing from the requested face is
-//! served by the next face that has it instead of becoming a `.notdef` box.
+//! for, then the coverage families in [`FALLBACK_FONT_STACK`], then the bundled
+//! face. Renderers walk that chain per character, so a glyph missing from the
+//! requested face is served by the next face that has it instead of becoming a
+//! `.notdef` box.
 //!
 //! Both backends resolve through this module, so they always agree on which
 //! face a stack selects.
+//!
+//! It also owns **text metrics**. Every backend receives an *em* size
+//! (`font_size` means what CSS `font-size` and PDF `Tf` mean), so [`em_scale`]
+//! converts that size into the unit `ab_glyph` expects and [`shape`] turns a
+//! string into positioned glyphs. Raster and PDF both draw through these, which
+//! is what keeps their text the same size and spacing.
 
-/// Default CSS-like font stack, shared by the default theme, new text marks and
-/// the font fallback chain.
+/// Default CSS-like font stack for the theme and for new text marks.
+///
+/// This is the user-facing default: it decides which face text is *primarily*
+/// drawn with, so it is Latin-first and ends in the generic fallback.
 pub(crate) const DEFAULT_FONT_STACK: &str = "Inter, -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, 'PingFang SC', 'Microsoft YaHei', Ubuntu, Cantarell, 'Noto Sans', sans-serif";
+
+/// Families tried, in order, for glyphs the requested stack cannot draw.
+///
+/// This is a *coverage* list, not a visual preference: its faces never become
+/// the primary face, they only fill in characters such as CJK ideographs that
+/// the requested language's fonts usually lack. It is separate from
+/// [`DEFAULT_FONT_STACK`] so that adding a coverage face (for example a Linux
+/// CJK family) cannot change how the default chart looks.
+///
+/// The order follows how widely the families are installed across the supported
+/// operating systems.
+#[cfg(any(feature = "png", feature = "pdf"))]
+pub(crate) const FALLBACK_FONT_STACK: &str = "'PingFang SC', 'Hiragino Sans GB', 'Heiti SC', 'Songti SC', 'Microsoft YaHei', SimHei, 'Noto Sans CJK SC', 'Noto Sans SC', 'Source Han Sans SC', 'Noto Sans CJK JP', 'Noto Sans CJK KR', 'WenQuanYi Zen Hei', 'Droid Sans Fallback', 'Arial Unicode MS', 'Segoe UI', 'DejaVu Sans', 'Liberation Sans', Arial";
 
 // =============================== Resolution =====================================
 
@@ -25,10 +47,8 @@ use std::sync::OnceLock;
 
 #[cfg(any(feature = "png", feature = "pdf"))]
 use crate::error::ChartonError;
-#[cfg(feature = "png")]
-use ab_glyph::{Font, GlyphId, PxScale, ScaleFont};
 #[cfg(any(feature = "png", feature = "pdf"))]
-use ab_glyph::{FontArc, FontVec};
+use ab_glyph::{Font, FontArc, FontVec, GlyphId, PxScale, ScaleFont};
 #[cfg(feature = "png")]
 use ahash::AHashMap;
 #[cfg(any(feature = "png", feature = "pdf"))]
@@ -181,9 +201,10 @@ pub(crate) fn resolve_candidates(
         )));
     }
 
-    // 2. Curated system fallback, so scripts the requested stack does not cover
-    //    still render instead of becoming `.notdef` boxes.
-    for name in family_names(DEFAULT_FONT_STACK) {
+    // 2. Coverage families, so scripts the requested stack does not cover still
+    //    render instead of becoming `.notdef` boxes. They never become the
+    //    primary face; see `FALLBACK_FONT_STACK`.
+    for name in family_names(FALLBACK_FONT_STACK) {
         if let Some(id) = query(&[family(name)], request) {
             push_unique(&mut ids, id);
         }
@@ -194,18 +215,101 @@ pub(crate) fn resolve_candidates(
     Ok(ids)
 }
 
-// =============================== Raster (PNG) =====================================
+// =============================== Text metrics ===================================
 
-/// One laid-out character: the face that will draw it plus the metrics needed
-/// to position it. `kern` is the same-face kerning that precedes this glyph and
-/// is applied to the *previous* glyph's advance.
-#[cfg(feature = "png")]
-pub(crate) struct GlyphPlacement {
+/// Converts an em size in pixels into `ab_glyph`'s [`PxScale`] for one face.
+///
+/// `font_size` is an **em size**, exactly what CSS `font-size` and PDF `Tf`
+/// mean, and it is what every backend receives. `ab_glyph`'s `PxScale` is *not*
+/// an em size: its `y` is the pixel height of the line box (`ascent - descent`),
+/// and the ratio between the two differs per face — 1.0 for many CJK fonts,
+/// ~1.21 for Inter, ~1.4 for PingFang SC. The conversion therefore has to be
+/// done **per face**: a single `PxScale` shared by a whole chain would draw a
+/// fallback glyph at a different em than the primary face's glyphs on the same
+/// line.
+#[cfg(any(feature = "png", feature = "pdf"))]
+pub(crate) fn em_scale(face: &FontArc, font_size: f32) -> PxScale {
+    let units_per_em = face.units_per_em().unwrap_or(1000.0).max(1.0);
+    PxScale::from(font_size * face.height_unscaled() / units_per_em)
+}
+
+/// One character of a laid-out run, with all lengths in pixels.
+#[cfg(any(feature = "png", feature = "pdf"))]
+pub(crate) struct ShapedGlyph {
+    /// Index into the candidate chain of the face that draws this character.
     pub(crate) face: usize,
     pub(crate) glyph: GlyphId,
+    /// Kerning between the previous glyph of the same face and this one. It
+    /// shortens the previous glyph's advance.
     pub(crate) kern: f32,
+    /// Horizontal advance at the em size the run was shaped with.
     pub(crate) advance: f32,
 }
+
+/// The vertical metrics of a line, in pixels.
+#[cfg(any(feature = "png", feature = "pdf"))]
+pub(crate) struct LineMetrics {
+    pub(crate) ascent: f32,
+    pub(crate) descent: f32,
+}
+
+/// The line metrics defined by the primary face at `font_size` em pixels.
+#[cfg(any(feature = "png", feature = "pdf"))]
+pub(crate) fn line_metrics(primary: &FontArc, font_size: f32) -> LineMetrics {
+    let scaled = primary.as_scaled(em_scale(primary, font_size));
+    LineMetrics {
+        ascent: scaled.ascent(),
+        descent: scaled.descent(),
+    }
+}
+
+/// Walks the candidate chain per character and returns the run's glyphs.
+///
+/// The first face that contains a character draws it; if none does, the primary
+/// face draws `.notdef`. Kerning only applies between two glyphs of the same
+/// face, so it is dropped wherever the face changes.
+#[cfg(any(feature = "png", feature = "pdf"))]
+pub(crate) fn shape(faces: &[FontArc], text: &str, font_size: f32) -> Vec<ShapedGlyph> {
+    let mut placements = Vec::with_capacity(text.chars().count());
+    if faces.is_empty() {
+        return placements;
+    }
+
+    let mut previous: Option<(usize, GlyphId)> = None;
+
+    for c in text.chars() {
+        let face = faces
+            .iter()
+            .position(|f| f.glyph_id(c) != GlyphId(0))
+            .unwrap_or(0);
+        let font = &faces[face];
+        let glyph = font.glyph_id(c);
+        let scaled = font.as_scaled(em_scale(font, font_size));
+
+        let kern = match previous {
+            Some((prev_face, prev_glyph)) if prev_face == face => scaled.kern(prev_glyph, glyph),
+            _ => 0.0,
+        };
+
+        placements.push(ShapedGlyph {
+            face,
+            glyph,
+            kern,
+            advance: scaled.h_advance(glyph),
+        });
+        previous = Some((face, glyph));
+    }
+
+    placements
+}
+
+/// The advance width of a shaped run, in pixels.
+#[cfg(any(feature = "png", feature = "pdf"))]
+pub(crate) fn run_width(placements: &[ShapedGlyph]) -> f32 {
+    placements.iter().map(|g| g.kern + g.advance).sum()
+}
+
+// =============================== Raster (PNG) ===================================
 
 /// A resolved raster font chain. `faces[0]` is the primary face; the rest are
 /// fallbacks for characters the earlier faces cannot draw.
@@ -216,53 +320,9 @@ pub(crate) struct RasterFontStack {
 
 #[cfg(feature = "png")]
 impl RasterFontStack {
-    /// The face whose metrics define the line's ascent/descent.
-    pub(crate) fn primary(&self) -> &FontArc {
-        &self.faces[0]
-    }
-
-    pub(crate) fn face(&self, index: usize) -> &FontArc {
-        &self.faces[index]
-    }
-
-    /// The first face that has a glyph for `c`, or the primary face when none
-    /// does (in which case the renderer draws `.notdef`).
-    pub(crate) fn face_for(&self, c: char) -> usize {
-        self.faces
-            .iter()
-            .position(|f| f.glyph_id(c) != GlyphId(0))
-            .unwrap_or(0)
-    }
-
-    /// Per-character face selection, advance and same-face kerning for `text`.
-    ///
-    /// Kerning is only meaningful between two glyphs of the same face, so it is
-    /// dropped wherever the selected face changes.
-    pub(crate) fn layout(&self, text: &str, scale: PxScale) -> Vec<GlyphPlacement> {
-        let mut placements = Vec::with_capacity(text.chars().count());
-        let mut previous: Option<(usize, GlyphId)> = None;
-
-        for c in text.chars() {
-            let face = self.face_for(c);
-            let font = &self.faces[face];
-            let glyph = font.glyph_id(c);
-            let scaled = font.as_scaled(scale);
-            let kern = match previous {
-                Some((prev_face, prev_glyph)) if prev_face == face => {
-                    scaled.kern(prev_glyph, glyph)
-                }
-                _ => 0.0,
-            };
-            placements.push(GlyphPlacement {
-                face,
-                glyph,
-                kern,
-                advance: scaled.h_advance(glyph),
-            });
-            previous = Some((face, glyph));
-        }
-
-        placements
+    /// The candidate chain, primary face first.
+    pub(crate) fn faces(&self) -> &[FontArc] {
+        &self.faces
     }
 }
 
@@ -330,7 +390,7 @@ pub(crate) fn get_raster_fonts(
     Ok(fonts)
 }
 
-// =============================== PDF =====================================
+// =============================== PDF ============================================
 
 /// Builds the krilla and `ab_glyph` handles for one font face.
 #[cfg(feature = "pdf")]

@@ -369,7 +369,7 @@ impl GuideSpec {
 
         let mut ticks = mapping.scale_impl.suggest_ticks(COLORBAR_TICK_COUNT);
         // Fall back to plain sampling when the pretty algorithm is too sparse.
-        if ticks.len() < 3 && !matches!(self.domain, ScaleDomain::Discrete(_)) {
+        if ticks.len() < 3 && !self.domain.is_discrete() {
             ticks = mapping.scale_impl.sample_n(COLORBAR_TICK_COUNT);
         }
         ticks
@@ -387,8 +387,8 @@ impl GuideSpec {
             let count = match self.kind {
                 GuideKind::ColorBar => 5,
                 GuideKind::Legend => {
-                    if let ScaleDomain::Discrete(ref v) = self.domain {
-                        v.len()
+                    if let Some(labels) = self.domain.discrete_labels() {
+                        labels.len()
                     } else {
                         5
                     }
@@ -399,7 +399,7 @@ impl GuideSpec {
             let mut ticks = first_mapping.scale_impl.suggest_ticks(count);
 
             // Fallback to force-sampling if the pretty algorithm returns insufficient points
-            if ticks.len() < 3 && !matches!(self.domain, ScaleDomain::Discrete(_)) {
+            if ticks.len() < 3 && !self.domain.is_discrete() {
                 ticks = first_mapping.scale_impl.sample_n(count);
             }
 
@@ -412,7 +412,7 @@ impl GuideSpec {
             // 3. --- Uniform Precision Logic ---
 
             // Check if we are dealing with a numeric (non-categorical) scale
-            if !matches!(self.domain, ScaleDomain::Discrete(_)) {
+            if !self.domain.is_discrete() {
                 // Determine the maximum precision needed across all sampled points.
                 // We look for the most specific decimal place to ensure no data is lost.
                 let mut max_precision = 0;
@@ -446,10 +446,10 @@ impl GuideSpec {
             }
         } else {
             // Fallback for empty mappings
-            match &self.domain {
-                ScaleDomain::Discrete(v) => v.clone(),
-                _ => Vec::new(),
-            }
+            self.domain
+                .discrete_labels()
+                .map(|labels| labels.to_vec())
+                .unwrap_or_default()
         }
     }
 
@@ -459,7 +459,7 @@ impl GuideSpec {
             let count = 5; // Target density
             let mut ticks = first_mapping.scale_impl.suggest_ticks(count);
 
-            if ticks.len() < 3 && !matches!(self.domain, ScaleDomain::Discrete(_)) {
+            if ticks.len() < 3 && !self.domain.is_discrete() {
                 ticks = first_mapping.scale_impl.sample_n(count);
             }
 
