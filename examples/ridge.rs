@@ -6,6 +6,10 @@
 //! `coord_flip` puts the value on the horizontal axis and the density bulge on
 //! the vertical one. `with_overlap` lets each ridge grow past its lane so it
 //! overlaps the one above it. A ridge is a violin that keeps one bank.
+//!
+//! The category axis is trained from the numeric positions the band emits, so
+//! the tallest ridge is never clipped even though it grows past the last
+//! category. The recipe needs no hand-written expansion.
 
 use charton::prelude::*;
 use std::error::Error;
@@ -34,15 +38,9 @@ fn main() -> Result<(), Box<dyn Error>> {
                 .with_stroke_width(1.0)
         })
         .encode((
-            // Each ridge grows one and a quarter categories past its baseline,
-            // so the category axis needs headroom above the top one (a plain
-            // violin only needs the default 0.4).
-            alt::x("x")
-                .with_category_labels("species")
-                .with_expansion(Expansion {
-                    mult: (0.0, 0.0),
-                    add: (0.4, 1.5),
-                }),
+            // The category axis covers the band's real extent automatically:
+            // a ridge grows past its lane, and the scale expands to include it.
+            alt::x("x").with_category_labels("species"),
             alt::y("y"),
             alt::path_group("path_group"),
             alt::color("species"),

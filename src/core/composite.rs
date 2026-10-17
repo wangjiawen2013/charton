@@ -28,14 +28,24 @@ pub struct ResolvedSpec {
 }
 
 /// Flips a trained domain so its axis runs the other way.
-fn reversed_domain(domain: ScaleDomain) -> ScaleDomain {
+///
+/// Categorical domains reverse by reversing their label list, which works
+/// because marks look their category up by label. A domain trained from
+/// numeric category positions cannot do that: the values are numbers, so
+/// flipping only the labels would mislabel every mark. Reject it instead of
+/// drawing a wrong axis; reordering the categories is the way to reverse them.
+fn reversed_domain(domain: ScaleDomain) -> Result<ScaleDomain, ChartonError> {
     match domain {
-        ScaleDomain::Continuous(a, b) => ScaleDomain::Continuous(b, a),
-        ScaleDomain::Temporal(a, b) => ScaleDomain::Temporal(b, a),
+        ScaleDomain::Continuous(a, b) => Ok(ScaleDomain::Continuous(b, a)),
+        ScaleDomain::Temporal(a, b) => Ok(ScaleDomain::Temporal(b, a)),
         ScaleDomain::Discrete(mut labels) => {
             labels.reverse();
-            ScaleDomain::Discrete(labels)
+            Ok(ScaleDomain::Discrete(labels))
         }
+        ScaleDomain::DiscretePositions { .. } => Err(ChartonError::Scale(
+            "reversing an axis with category labels is not supported; reorder the data instead"
+                .into(),
+        )),
     }
 }
 
@@ -270,12 +280,15 @@ impl LayeredChart {
         let mut inferred_label: Option<String> = None;
         let mut inferred_type: Option<Scale> = None;
 
-        // Domain accumulators
+        // Domain and numeric-position accumulators.
         let mut cont_min = f64::INFINITY;
         let mut cont_max = f64::NEG_INFINITY;
         let mut all_labels: Vec<String> = Vec::new();
         let mut temp_min: i64 = i64::MAX;
         let mut temp_max: i64 = i64::MIN;
+        let mut pos_min = f64::INFINITY;
+        let mut pos_max = f64::NEG_INFINITY;
+        let mut has_positions = false;
 
         // Expansion accumulators (Finding the "Maximum Room" requested by layers)
         let mut max_mult = (0.0f64, 0.0f64);
@@ -323,6 +336,18 @@ impl LayeredChart {
                         }
                     }
                 }
+                ScaleDomain::DiscretePositions { labels, extent } => {
+                    for label in labels {
+                        if !all_labels.contains(&label) {
+                            all_labels.push(label);
+                        }
+                    }
+                    if extent.0.is_finite() && extent.1.is_finite() {
+                        pos_min = pos_min.min(extent.0);
+                        pos_max = pos_max.max(extent.1);
+                        has_positions = true;
+                    }
+                }
                 ScaleDomain::Temporal(min_ns, max_ns) => {
                     temp_min = temp_min.min(min_ns);
                     temp_max = temp_max.max(max_ns);
@@ -360,7 +385,7 @@ impl LayeredChart {
         let scale_type = match (&inferred_type, &manual_domain) {
             (Some(t), _) => *t,
             (None, Some(d)) => match d {
-                ScaleDomain::Discrete(_) => Scale::Discrete,
+                ScaleDomain::Discrete(_) | ScaleDomain::DiscretePositions { .. } => Scale::Discrete,
                 ScaleDomain::Temporal(_, _) => Scale::Temporal,
                 _ => Scale::Linear,
             },
@@ -379,7 +404,14 @@ impl LayeredChart {
                     if all_labels.is_empty() {
                         return Ok(None);
                     }
-                    ScaleDomain::Discrete(all_labels)
+                    if has_positions {
+                        ScaleDomain::DiscretePositions {
+                            labels: all_labels,
+                            extent: (pos_min, pos_max),
+                        }
+                    } else {
+                        ScaleDomain::Discrete(all_labels)
+                    }
                 }
                 Scale::Temporal => {
                     if temp_min == i64::MAX || temp_max == i64::MIN {
@@ -440,7 +472,7 @@ impl LayeredChart {
         // A reversed axis is just the trained domain flipped; the scale layer
         // already expands and ticks a reversed domain correctly.
         let domain = if reverse {
-            reversed_domain(domain)
+            reversed_domain(domain)?
         } else {
             domain
         };
@@ -680,15 +712,13 @@ impl LayeredChart {
         let color_mapping = if let Some(spec) = self.resolve_scale_spec(Channel::Color)? {
             // When the merged discrete domain ends with the reserved missing
             // category, mark that slot so the mapper paints it neutral grey.
-            let na_index = match &spec.domain {
-                crate::scale::ScaleDomain::Discrete(labels)
-                    if labels.last().map(String::as_str)
-                        == Some(crate::core::data::MISSING_CATEGORY) =>
-                {
-                    Some(labels.len() - 1)
-                }
-                _ => None,
-            };
+            let na_index = spec
+                .domain
+                .discrete_labels()
+                .filter(|labels| {
+                    labels.last().map(String::as_str) == Some(crate::core::data::MISSING_CATEGORY)
+                })
+                .map(|labels| labels.len() - 1);
             let mapper = VisualMapper::new_color_default(&spec.scale_type, &self.theme)
                 .with_na_index(na_index);
             let scale_impl = create_scale(

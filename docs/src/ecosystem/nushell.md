@@ -122,7 +122,7 @@ let ridge = [
 ]
 open assets/data.csv
 | charton polygon -x x -y y --path-group pg -c category --flip \
-    --x-expand [0.4, 1.5] --opacity 0.85 --stroke '#2c3e50' --stroke-width 1.0 --transform $ridge -o ridge.svg
+    --opacity 0.85 --stroke '#2c3e50' --stroke-width 1.0 --transform $ridge -o ridge.svg
 # ECDF = the CumeDist window transform + a step line
 let ecdf = {op: window, field: score, kind: cume-dist, as: ecdf, group-by: [group]}
 open assets/data.csv

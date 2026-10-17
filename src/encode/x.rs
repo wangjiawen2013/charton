@@ -79,6 +79,11 @@ impl X {
     /// A rank axis then shows rank 1 at the top; a depth axis shows the surface
     /// at the top. Expansion and ticks follow the numeric span, not the
     /// direction.
+    ///
+    /// A numeric category axis built with
+    /// [`with_category_labels`](Self::with_category_labels) cannot be reversed
+    /// this way: its labels and positions would disagree. Reorder the
+    /// categories instead.
     pub const fn with_reverse(mut self, reverse: bool) -> Self {
         self.reverse = reverse;
         self
@@ -106,6 +111,12 @@ impl X {
     /// The encoded field should hold an integer category index plus an optional
     /// fractional offset (for example a dodged violin's `category + dodge`). The
     /// axis then shows one integer tick per category, labelled from this column.
+    ///
+    /// The axis is trained from both the labels and the actual numeric
+    /// positions, so geometry that reaches past the category indices — an
+    /// overlapping ridgeline, a dodged lane at the edge — is included in the
+    /// scale instead of being clipped. Reversing such an axis is not supported;
+    /// reorder the categories instead.
     pub fn with_category_labels(mut self, category_field: impl Into<String>) -> Self {
         self.category_field = Some(category_field.into());
         self

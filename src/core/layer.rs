@@ -287,6 +287,10 @@ pub trait Layer: MarkRenderer + Send + Sync {
     /// Calculates the raw data boundaries (Min/Max for continuous, unique labels for discrete)
     /// contained within this specific layer's dataset.
     ///
+    /// A discrete position axis may return [`ScaleDomain::DiscretePositions`]
+    /// to report both its category labels and the numeric positions its marks
+    /// actually occupy.
+    ///
     /// This is the primary input for the "Training" phase, where scales are
     /// resolved — one shared scale for the chart, or one per panel under free
     /// scales.

@@ -65,10 +65,10 @@ See
 [The firewall](../concepts/design_rules.md#the-firewall-a-mark-must-change-a-cell)
 for why a ridgeline is a recipe rather than a mark.
 
-One practical note: because a ridge grows past its lane, the category axis needs
-headroom above the top one. The example sets
-`with_expansion(add: (0.4, 1.5))` rather than the default `0.4`, so the tallest
-ridge is not clipped.
+One practical note: because a ridge grows past its lane, the category axis is
+trained from the numeric positions the band actually emits. The axis expands
+to include them, so the example needs no hand-written `with_expansion`; use it
+only when you want more (or less) breathing room than the automatic fit.
 
 ## Choosing the geometry
 

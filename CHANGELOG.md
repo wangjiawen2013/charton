@@ -12,9 +12,22 @@ predate this file.
   for text marks, plus a `font_style` field on `TextConfig` that backends read.
   `with_font_family` completes the text mark, whose family field previously had
   no setter.
+- **`ScaleDomain::DiscretePositions`** records both the category labels and the
+  numeric position extent of an axis built with `with_category_labels`.
+  `ScaleDomain::discrete_labels()` and `ScaleDomain::is_discrete()` make the
+  two discrete variants easy to handle; downstream exhaustive matches must
+  handle the new variant.
 
 ### Fixed
 
+- **A discrete category axis now covers the numeric positions its marks use.**
+  `with_category_labels` builds a discrete axis from the category list, but a
+  ridgeline with overlap, a dodged lane, or any composed mark can sit outside
+  the integer category indices. The scale now trains on the real position
+  extent as well and expands to include it, so those charts no longer need a
+  hand-written `with_expansion` to avoid being clipped by the panel boundary.
+  On these category axes, manual expansion still works and now only controls
+  the amount of breathing room.
 - **Font weight and slant are now resolved to the matching face.** The raster
   and PDF backends previously ignored `font_weight`; they now query `fontdb`
   with the requested weight, stretch and slant, so bold text selects a bold face

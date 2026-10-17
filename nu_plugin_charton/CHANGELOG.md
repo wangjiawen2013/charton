@@ -45,6 +45,10 @@ stated in the README and in each release.
 
 ### Fixed
 
+- **Ridgeline recipes no longer need `--x-expand`.** Charton now trains a
+  category axis from the numeric positions the band emits, so an overlapping
+  ridge expands the axis automatically. `--x-expand` remains available for
+  fine-tuning the breathing room.
 - **`assets/waterfall.csv` now matches `examples/waterfall.rs`.** It was missing
   the opening and closing `Total` rows, so the recipe's `calculate` — which
   anchors `Total` steps at zero — never took that branch and drew a truncated

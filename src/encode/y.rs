@@ -121,6 +121,11 @@ impl Y {
     /// A rank axis then shows rank 1 at the top; a depth axis shows the surface
     /// at the top. Expansion and ticks follow the numeric span, not the
     /// direction.
+    ///
+    /// A numeric category axis built with
+    /// [`with_category_labels`](Self::with_category_labels) cannot be reversed
+    /// this way: its labels and positions would disagree. Reorder the
+    /// categories instead.
     pub const fn with_reverse(mut self, reverse: bool) -> Self {
         self.reverse = reverse;
         self
@@ -158,6 +163,12 @@ impl Y {
 
     /// Reads the axis categories from `category_field` while keeping the encoded
     /// field as a numeric position.
+    ///
+    /// The axis is trained from both the labels and the actual numeric
+    /// positions, so geometry that reaches past the category indices is
+    /// included in the scale instead of being clipped. See
+    /// [`X::with_category_labels`](crate::encode::x::X::with_category_labels)
+    /// for the position semantics.
     pub fn with_category_labels(mut self, category_field: impl Into<String>) -> Self {
         self.category_field = Some(category_field.into());
         self

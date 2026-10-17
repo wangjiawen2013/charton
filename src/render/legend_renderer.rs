@@ -9,7 +9,6 @@ use crate::core::layer::{
 };
 use crate::core::layout::{GuideBlockLayout, LegendLayoutPlan};
 use crate::error::ChartonError;
-use crate::scale::ScaleDomain;
 use crate::scale::mapper::VisualMapper;
 use crate::theme::Theme;
 use crate::visual::color::SingleColor;
@@ -410,11 +409,9 @@ impl LegendRenderer {
         // `lookup_labels` are the original category names used to look up
         // colours and shapes. Formatting must not affect that lookup.
         let (labels, lookup_labels, values_f64): (Vec<String>, Vec<String>, Vec<f64>) =
-            match &spec.domain {
-                ScaleDomain::Discrete(values) => {
-                    (spec.get_sampling_labels(), values.clone(), Vec::new())
-                }
-                _ => {
+            match spec.domain.discrete_labels() {
+                Some(values) => (spec.get_sampling_labels(), values.to_vec(), Vec::new()),
+                None => {
                     let ticks = spec.get_sampling_ticks();
                     let l = ticks.iter().map(|t| t.label.clone()).collect();
                     let v = ticks.iter().map(|t| t.value).collect();
