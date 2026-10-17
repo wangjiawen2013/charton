@@ -258,12 +258,12 @@ fn overlap(a: &[bool], b: &[bool]) -> f32 {
     intersection as f32 / union.max(1) as f32
 }
 
-fn render_pixmap_of(title: &str, family: Option<&str>) -> Pixmap {
+fn must_render(title: &str, family: Option<&str>) -> Pixmap {
     render(title, family).unwrap_or_else(|e| panic!("rendering {title:?} as {family:?}: {e}"))
 }
 
 fn render_ink(title: &str, family: Option<&str>) -> Ink {
-    Ink::from_pixmap(&render_pixmap_of(title, family))
+    Ink::from_pixmap(&must_render(title, family))
 }
 
 fn save(name: &str, pixmap: &Pixmap) {
@@ -456,7 +456,7 @@ fn default_stack_renders_cjk_instead_of_notdef() {
     if pick_family(&['销'], &[]).is_none() {
         return skip("no installed font covers CJK, so there is nothing to fall back to");
     }
-    let png = render_pixmap_of("销售额趋势", None);
+    let png = must_render("销售额趋势", None);
     save("default-stack-cjk", &png);
     assert!(
         !Tofu::new(None).any_in("销售额趋势"),
@@ -481,7 +481,7 @@ fn unknown_family_is_an_error() {
     }
 
     // The same chart with a usable family still renders.
-    let ok = render_pixmap_of("Hello", None);
+    let ok = must_render("Hello", None);
     save("unknown-family-baseline", &ok);
 }
 
@@ -503,7 +503,7 @@ fn latin_only_family_falls_back_per_glyph() {
         "the tofu detector failed on its own reference"
     );
 
-    let png = render_pixmap_of("销售额", Some(&latin));
+    let png = must_render("销售额", Some(&latin));
     save("latin-only-cjk", &png);
     assert!(
         !tofu.any_in("销售额"),
@@ -524,7 +524,7 @@ fn cjk_family_without_superscript_falls_back() {
 
     let tofu = Tofu::new(Some(&cjk));
     for symbol in ["²", "³", "µ"] {
-        let png = render_pixmap_of(symbol, Some(&cjk));
+        let png = must_render(symbol, Some(&cjk));
         save(&format!("cjk-missing-{symbol}"), &png);
         assert!(
             !tofu.is_tofu(symbol.chars().next().unwrap()),
@@ -533,7 +533,7 @@ fn cjk_family_without_superscript_falls_back() {
     }
 
     // The full title from the report: Chinese must render as well.
-    let png = render_pixmap_of("销售额（m²）", Some(&cjk));
+    let png = must_render("销售额（m²）", Some(&cjk));
     save("cjk-missing-superscript-title", &png);
     assert!(
         !tofu.any_in("销售额（m²）"),
@@ -600,10 +600,7 @@ fn family_installed(name: &str) -> bool {
 #[test]
 fn reported_macos_cases() {
     // 1. Default theme stack, Chinese title.
-    save(
-        "macos-1-default-stack",
-        &render_pixmap_of("销售额趋势", None),
-    );
+    save("macos-1-default-stack", &must_render("销售额趋势", None));
     assert!(
         !Tofu::new(None).any_in("销售额趋势"),
         "report 1: the default stack drew CJK as .notdef boxes"
@@ -619,7 +616,7 @@ fn reported_macos_cases() {
     if family_installed("Helvetica") {
         save(
             "macos-3a-helvetica",
-            &render_pixmap_of("销售额", Some("Helvetica")),
+            &must_render("销售额", Some("Helvetica")),
         );
         assert!(
             !Tofu::new(Some("Helvetica")).any_in("销售额"),
@@ -634,7 +631,7 @@ fn reported_macos_cases() {
         let hiragino = Tofu::new(Some("Hiragino Sans GB"));
         save(
             "macos-3b-hiragino",
-            &render_pixmap_of("销售额（m²）", Some("Hiragino Sans GB")),
+            &must_render("销售额（m²）", Some("Hiragino Sans GB")),
         );
         assert!(
             !hiragino.is_tofu('²'),
@@ -651,7 +648,7 @@ fn reported_macos_cases() {
     // 4. PingFang SC swallowed the decimal point: "2.5" read as "25".
     if family_installed("PingFang SC") {
         let (y0, y1) = title_band(Some("PingFang SC"));
-        let png = render_pixmap_of("2.5", Some("PingFang SC"));
+        let png = must_render("2.5", Some("PingFang SC"));
         save("macos-4-pingfang-decimal", &png);
         let blobs = Ink::from_pixmap(&png).blobs_in(y0, y1);
         assert_eq!(
@@ -678,7 +675,7 @@ fn decimal_point_is_not_swallowed() {
 
     let (y0, y1) = title_band(Some(&family));
 
-    let png = render_pixmap_of("2.5", Some(&family));
+    let png = must_render("2.5", Some(&family));
     let blobs = Ink::from_pixmap(&png).blobs_in(y0, y1);
     save("decimal-mismatched-metrics", &png);
     assert_eq!(
@@ -688,7 +685,7 @@ fn decimal_point_is_not_swallowed() {
     );
 
     // `25` is two blobs, which shows the counter itself is sound.
-    let png = render_pixmap_of("25", Some(&family));
+    let png = must_render("25", Some(&family));
     let blobs = Ink::from_pixmap(&png).blobs_in(y0, y1);
     assert_eq!(
         blobs, 2,
@@ -698,7 +695,7 @@ fn decimal_point_is_not_swallowed() {
     // The bundled face has height == units_per_em, so it is a control: the
     // period must survive there in both the old and the new code.
     let (y0, y1) = title_band(None);
-    let png = render_pixmap_of("2.5", None);
+    let png = must_render("2.5", None);
     let blobs = Ink::from_pixmap(&png).blobs_in(y0, y1);
     save("decimal-default-stack", &png);
     assert_eq!(

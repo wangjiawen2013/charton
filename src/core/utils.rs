@@ -681,8 +681,8 @@ mod tests {
     use super::estimate_text_width;
 
     /// Wide scripts advance about one em per character, so a CJK label must be
-    /// measured at least that wide. Under-estimating clipped Chinese legend
-    /// entries and titles.
+    /// measured at least that wide; under-estimating it is what clipped Chinese
+    /// legend entries and titles.
     #[test]
     fn wide_characters_are_measured_at_one_em() {
         let size = 10.0;

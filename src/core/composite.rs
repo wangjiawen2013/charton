@@ -1520,11 +1520,13 @@ impl LayeredChart {
         }
     }
 
-    /// Renders the chart into an off-screen pixel buffer at the configured
-    /// size.
+    /// Renders the chart into the off-screen pixel buffer at the configured
+    /// size, after supersampling and downsampling.
     ///
-    /// This is the raster pipeline behind [`to_png`](Self::to_png), split out so
-    /// that tests can assert on pixels without an encode/decode round trip.
+    /// [`to_png`](Self::to_png) is this plus PNG encoding, and that is the only
+    /// difference between them: rendering and encoding are separate steps, so
+    /// callers and tests that need pixels do not have to go through a PNG
+    /// encode/decode round trip. The buffer is exactly what `to_png` encodes.
     #[cfg(feature = "png")]
     pub(crate) fn render_pixmap(&self) -> Result<tiny_skia::Pixmap, ChartonError> {
         // 1. Create a mutable clone for the stateful rendering phase.

@@ -1,6 +1,6 @@
 //! Font-path reproduction for the CPU raster (PNG) backend.
 //!
-//! Renders the issue's minimal skeleton. With no arguments it renders the four
+//! Renders the issue's minimal skeleton. With no arguments it renders the
 //! reported cases using font families that exist on the current OS, and writes
 //! the PNGs under `target/example-output/font-issue/`:
 //!
@@ -116,7 +116,7 @@ mod demo {
     pub fn main() -> Result<(), Box<dyn std::error::Error>> {
         let mut args = std::env::args().skip(1);
         let (Some(title), family) = (args.next(), args.next()) else {
-            // Batch mode: the four reports of the issue.
+            // Batch mode: the reports from the issue.
             println!("Rendering the reported cases into {}:", out_dir().display());
             save("1-default-stack-cjk", "销售额趋势", None)?;
             save("2-latin-only-cjk", "销售额", Some(latin_only()))?;

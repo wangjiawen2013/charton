@@ -383,15 +383,18 @@ impl<'a> RenderBackend for RasterBackend<'a> {
         let stack = crate::core::font::get_raster_fonts(&config.font_family, request)?;
         let faces = stack.faces();
 
-        // Text is laid out in em pixels, the same em size the SVG and PDF
-        // backends draw, so the three backends agree on size. Each glyph is
-        // scaled for the face that draws it; see `font::em_scale`.
+        // 1. Lay the run out in em pixels. `font_size` is an em size, the same
+        //    one the SVG and PDF backends use; `shape` picks a face for every
+        //    character and returns its advance and kerning. This one layout
+        //    drives both the anchor arithmetic and the drawing below.
         let placements = shape(faces, &config.text, config.font_size);
         let width = run_width(&placements);
 
         let anchor_x = config.x;
         let anchor_y = config.y;
 
+        // 2. Horizontal anchor, matching SVG's `text-anchor`: `middle` and
+        //    `end` shift the run by its own width.
         let mut dx = 0.0;
         match config.text_anchor.as_str() {
             "middle" => dx -= width / 2.0,
@@ -399,23 +402,18 @@ impl<'a> RenderBackend for RasterBackend<'a> {
             _ => {}
         }
 
-        // 2. Strictly align with SVG dominant-baseline
-        // In SVG, the default y is the baseline, so dy = 0
+        // 3. Vertical anchor, matching SVG's `dominant-baseline`. The default
+        //    (alphabetic) baseline sits at `config.y`; `middle` centres the
+        //    line box on the anchor, and descent is negative.
         let mut dy = 0.0;
         let metrics = line_metrics(&faces[0], config.font_size);
-
         match config.dominant_baseline.as_str() {
             "hanging" => dy += metrics.ascent,
-            "central" | "middle" => {
-                // SVG's middle is an offset relative to the baseline:
-                // (ascent + descent) / 2, with descent negative.
-                dy += (metrics.ascent + metrics.descent) / 2.0;
-            }
-            _ => {} // alphabetic: dy = 0 (baseline alignment)
+            "central" | "middle" => dy += (metrics.ascent + metrics.descent) / 2.0,
+            _ => {}
         }
 
-        // 3. Build the same transformation matrix as SVG
-        // SVG: transform="rotate(angle, x, y)"
+        // 4. Rotation, matching SVG's transform="rotate(angle, x, y)".
         let mut global_transform = self.transform;
         if config.angle != 0.0 {
             global_transform = global_transform
@@ -432,8 +430,8 @@ impl<'a> RenderBackend for RasterBackend<'a> {
         paint.set_color(base_color);
         paint.anti_alias = true;
 
-        // One em scale per face, so a glyph served by a fallback face has the
-        // same em size as the primary face's glyphs.
+        // 5. Draw. Every face gets its own em scale, so a glyph supplied by a
+        //    fallback face is exactly as large as the primary face's glyphs.
         let scales: Vec<PxScale> = faces
             .iter()
             .map(|face| em_scale(face, config.font_size))
@@ -447,7 +445,7 @@ impl<'a> RenderBackend for RasterBackend<'a> {
                 placement.glyph,
                 scales[placement.face],
             ) {
-                // Apply rotation first, then translate to the current character's baseline position
+                // Rotation first, then move the glyph to its pen position.
                 let glyph_transform = global_transform.pre_translate(current_x, draw_y);
                 self.pixmap.fill_path(
                     &path,
@@ -528,15 +526,14 @@ impl<'a> RenderBackend for RasterBackend<'a> {
     }
 }
 
-/// Builds a tiny-skia path for a single glyph outline, relative to the glyph's
-/// pen position (baseline at `(0, 0)`, y growing downwards).
+/// Builds the tiny-skia path for one glyph outline, relative to the glyph's pen
+/// position (baseline at `(0, 0)`, y growing downwards).
 ///
-/// # Why the scale factor matters
-/// `scale` must be the face's em scale (see [`crate::core::font::em_scale`]),
-/// the same scale that shaped the run's advances. Drawing the outline with a
-/// different scale than the advances makes glyphs overlap their neighbours:
-/// that is what made `2.0` read as `20`, with the oversized `2` covering the
-/// period.
+/// `scale` must be the em scale of the face that supplies the glyph, i.e.
+/// [`crate::core::font::em_scale`]. The run's advances were measured with the
+/// same scale, so outline and advance always agree; using any other scale draws
+/// glyphs wider than the space reserved for them, which is how `2.0` once read
+/// as `20`.
 fn build_glyph_path(
     font: &FontArc,
     glyph_id: ab_glyph::GlyphId,

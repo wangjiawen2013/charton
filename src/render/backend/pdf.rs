@@ -304,31 +304,20 @@ impl RenderBackend for PdfBackend<'_, '_> {
         let request = FontRequest::from_css(&config.font_weight, &config.font_style);
         let chain = self.font(&config.font_family, request)?;
 
-        // The same shaping the raster backend uses, in em pixels, so both draw
-        // the text at the same size and spacing.
+        // Shape with the same em-based layout as the raster backend, so both
+        // draw the text at the same size and spacing.
         let faces: Vec<FontArc> = chain.iter().map(|(_, metrics)| metrics.clone()).collect();
         let placements = shape(&faces, &config.text, config.font_size);
         let text_width = run_width(&placements);
 
-        // krilla measures advances in em units and multiplies by the font size,
-        // so the pixel advances are converted back here.
-        let to_em = |px: f32| px / config.font_size.max(f32::EPSILON);
-        // Byte range per character, in the same order `shape` returned them;
-        // krilla uses it to subset the embedded font.
-        let byte_ranges: Vec<std::ops::Range<usize>> = config
-            .text
-            .char_indices()
-            .map(|(start, c)| start..start + c.len_utf8())
-            .collect();
-
-        // Horizontal placement based on the requested text anchor.
+        // Horizontal anchor, matching SVG's `text-anchor`.
         let start_x = match config.text_anchor.as_str() {
             "middle" => config.x - text_width / 2.0,
             "end" => config.x - text_width,
             _ => config.x,
         };
 
-        // Vertical placement based on the requested baseline.
+        // Vertical anchor, matching SVG's `dominant-baseline`.
         let metrics = line_metrics(&faces[0], config.font_size);
         let baseline_y = match config.dominant_baseline.as_str() {
             "hanging" => config.y + metrics.ascent,
@@ -347,8 +336,20 @@ impl RenderBackend for PdfBackend<'_, '_> {
             ));
         }
 
+        // krilla takes advances in em units and multiplies them by the font
+        // size, so the pixel advances are converted back here.
+        let to_em = |px: f32| px / config.font_size.max(f32::EPSILON);
+
+        // The byte range of each character, in the order `shape` produced them;
+        // krilla needs it to subset the embedded font.
+        let byte_ranges: Vec<std::ops::Range<usize>> = config
+            .text
+            .char_indices()
+            .map(|(start, c)| start..start + c.len_utf8())
+            .collect();
+
         // krilla draws one font per `draw_glyphs` call, so consecutive
-        // characters sharing a face are drawn as a run.
+        // characters sharing a face become a single run.
         let mut run_start = 0usize;
         let mut run_x = start_x;
         while run_start < placements.len() {

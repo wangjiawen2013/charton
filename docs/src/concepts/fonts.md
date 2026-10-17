@@ -116,14 +116,14 @@ many CJK fonts, about 1.21 for Inter, about 1.4 for PingFang SC. Feeding
 same font size in SVG, and the error depends on which font the text happens to
 use.
 
-Layout budgets use the same em: `estimate_text_width` measures East Asian wide
-characters as one em, so the rectangle a title or legend entry is allotted
-matches the size it is drawn at.
-
 `core::font::em_scale` performs the conversion, and it is applied **per face**.
 The per-face part matters as much as the conversion: one scale shared by a whole
 fallback chain draws a fallback glyph at a different em than the primary face's
 glyphs, so in `m²` the `m` and the `²` would differ in height by 15-30%.
+
+Layout budgets use the same em. `estimate_text_width` measures East Asian wide
+characters as one em, so the rectangle a title or legend entry is allotted
+matches the size it is drawn at.
 
 ## CJK and other large scripts
 

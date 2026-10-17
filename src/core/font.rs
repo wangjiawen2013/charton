@@ -7,14 +7,15 @@
 //! `sans-serif` generic and is the last-resort fallback.
 //!
 //! Resolution produces an ordered *candidate chain*: the faces the caller asked
-//! for, then a curated system fallback, then the bundled face. Renderers walk
-//! that chain per character, so a glyph missing from the requested face is
-//! served by the next face that has it instead of becoming a `.notdef` box.
+//! for, then the coverage families in [`FALLBACK_FONT_STACK`], then the bundled
+//! face. Renderers walk that chain per character, so a glyph missing from the
+//! requested face is served by the next face that has it instead of becoming a
+//! `.notdef` box.
 //!
 //! Both backends resolve through this module, so they always agree on which
 //! face a stack selects.
 //!
-//! The module also owns **text metrics**. Every backend receives an *em* size
+//! It also owns **text metrics**. Every backend receives an *em* size
 //! (`font_size` means what CSS `font-size` and PDF `Tf` mean), so [`em_scale`]
 //! converts that size into the unit `ab_glyph` expects and [`shape`] turns a
 //! string into positioned glyphs. Raster and PDF both draw through these, which
@@ -200,8 +201,9 @@ pub(crate) fn resolve_candidates(
         )));
     }
 
-    // 2. Curated system fallback, so scripts the requested stack does not cover
-    //    still render instead of becoming `.notdef` boxes.
+    // 2. Coverage families, so scripts the requested stack does not cover still
+    //    render instead of becoming `.notdef` boxes. They never become the
+    //    primary face; see `FALLBACK_FONT_STACK`.
     for name in family_names(FALLBACK_FONT_STACK) {
         if let Some(id) = query(&[family(name)], request) {
             push_unique(&mut ids, id);
@@ -213,7 +215,7 @@ pub(crate) fn resolve_candidates(
     Ok(ids)
 }
 
-// =============================== Text metrics ==================================
+// =============================== Text metrics ===================================
 
 /// Converts an em size in pixels into `ab_glyph`'s [`PxScale`] for one face.
 ///
@@ -307,7 +309,7 @@ pub(crate) fn run_width(placements: &[ShapedGlyph]) -> f32 {
     placements.iter().map(|g| g.kern + g.advance).sum()
 }
 
-// =============================== Raster (PNG) =====================================
+// =============================== Raster (PNG) ===================================
 
 /// A resolved raster font chain. `faces[0]` is the primary face; the rest are
 /// fallbacks for characters the earlier faces cannot draw.
@@ -388,7 +390,7 @@ pub(crate) fn get_raster_fonts(
     Ok(fonts)
 }
 
-// =============================== PDF =====================================
+// =============================== PDF ============================================
 
 /// Builds the krilla and `ab_glyph` handles for one font face.
 #[cfg(feature = "pdf")]

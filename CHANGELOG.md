@@ -34,21 +34,19 @@ predate this file.
   that contains it and the PDF backend splits the string into runs, so Latin,
   CJK and symbols such as `²` render correctly even when the primary font does
   not cover them.
-- **Glyph outlines are scaled consistently with their advances.** The raster
-  backend drew outlines using `units_per_em` while positioning them with
-  advances based on `height_unscaled`, which made glyphs too large whenever the
-  two differ — common in CJK fonts. A label such as `2.0` could read as `20`
-  because the `2` covered the decimal point. Outlines now use ab_glyph's
-  `scale_factor`, the same factor used for advances, kerning and
-  ascent/descent.
-- **`font_size` is an em size in every backend.** The raster backend passed it
-  straight to `ab_glyph`'s `PxScale`, which is a *line-box height*, so PNG text
-  was 17-30% smaller than the same font size in SVG and PDF depending on the
-  font (Inter 1.21x its em, Microsoft YaHei 1.32x, PingFang SC about 1.4x). The
-  conversion now happens per face in `core::font::em_scale`, so one em is
-  `font_size` pixels, and a glyph served by a fallback face is the same size as
-  the primary face's glyphs on the same line (`m` and `²` in `m²` used to differ
-  by 17%).
+- **Raster text is drawn at the requested em size, and its outlines match the
+  advances that position it.** The raster backend scaled outlines by
+  `units_per_em` while positioning them with advances based on the font's line
+  box, so a glyph could be wider than its own advance: a label such as `2.0`
+  read as `20` because the oversized `2` covered the decimal point. Aligning the
+  outline with the advance was not enough on its own, because `ab_glyph`'s
+  `PxScale` is a line-box height, not an em: the same mismatch made PNG text
+  17-30% smaller than SVG and PDF at the same `font_size` (Inter's line box is
+  1.21x its em, Microsoft YaHei's 1.32x, PingFang SC's about 1.4x). Text is now
+  shaped through one em-based layout in `core::font` — `em_scale` per face,
+  `shape`, `line_metrics`, `run_width` — so one em is `font_size` pixels in
+  every backend and a fallback glyph is the same size as the primary face's
+  glyphs (`m` and `²` in `m²` used to differ by 17%).
 - **CJK labels are measured at their real width when laying out.** The text
   width estimate treated every non-ASCII character as 0.55em, so a four
   character Chinese legend entry was allotted about 2.2em while it draws at 4em
@@ -68,13 +66,13 @@ predate this file.
 
 ### Changed
 
-- **Raster text is slightly larger, and uses no hidden letter spacing.** Two
-  raster-only behaviours are gone: text was drawn at a line-box scale (see
-  above) and every character was followed by a hard-coded 0.3px of tracking that
-  SVG and PDF never applied, which also made right- and centre-anchored text
-  drift from its own measured width. Text now advances exactly as the font says
-  and matches the other backends. PNG images will look slightly different; the
-  SVG and PDF output is unchanged.
+- **Raster text is slightly larger, and uses no hidden letter spacing.** With
+  the em fix above, PNG text grows by the font's line-box ratio (about 17% for
+  Inter, 24% for Microsoft YaHei). The raster backend also added a hard-coded
+  0.3px of tracking after every character that SVG and PDF never applied, and
+  that pushed centre- and right-anchored text past its own measured width; it is
+  gone. PNG images will look different. SVG and PDF output is unchanged apart
+  from the CJK label-width fix above.
 - **Raster output is now WYSIWYG: `with_size(w, h)` produces a `w × h`
   image.** `scale_factor` now defaults to `1.0` instead of `2.0`, so the size
   you configure is the size you get. Sharpness is no longer the caller's
