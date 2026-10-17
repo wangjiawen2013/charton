@@ -4,7 +4,7 @@ All notable changes to the `charton` library are documented here. The project
 follows [Semantic Versioning](https://semver.org/). Releases before 0.7.0
 predate this file.
 
-## [Unreleased]
+## [0.8.5] - 2026-10-17
 
 ### Added
 
@@ -79,6 +79,22 @@ predate this file.
 
 ### Changed
 
+- **`with_font_scale` now scales the text layout, not just the glyphs.** Axis
+  title/tick padding, the main title padding, legend spacing, and facet strip
+  padding scale with the font. Enlarging text without its surrounding gaps made
+  axis titles crowd their tick labels; the Nushell plugin's default `1.5` was
+  visibly tighter than the library at `1.0`. The default layout is unchanged
+  because the scale defaults to `1.0`.
+- **`Theme::label_padding` is now the whole tick-label ↔ axis-title gap.** The
+  renderer previously added a hidden 5px constant to it; that constant is gone
+  and the default `label_padding` is `10px`, so the default gap is unchanged.
+  A custom `with_label_padding` value now describes the whole gap rather than
+  half of it.
+- **Reversing a numeric category axis is now rejected.** `with_reverse` on an
+  axis built with `with_category_labels` would flip the labels without flipping
+  the numeric positions, so every mark would sit under the wrong label. The
+  engine now reports the unsupported combination instead of drawing a wrong
+  axis; reorder the categories instead.
 - **Raster text is slightly larger, and uses no hidden letter spacing.** With
   the em fix above, PNG text grows by the font's line-box ratio (about 17% for
   Inter, 24% for Microsoft YaHei). The raster backend also added a hard-coded

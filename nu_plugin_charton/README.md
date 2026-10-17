@@ -391,7 +391,7 @@ Because a transform is just a record, the same pieces recombine into new charts
 |---|---|
 | `--x-scale`, `--y-scale` | Axis scale: `linear` \| `log` \| `discrete` \| `temporal` |
 | `--x-min`, `--x-max`, `--y-min`, `--y-max` | Fix an axis bound (min and max go together) |
-| `--x-expand`, `--y-expand` | Padding on an axis: a number (fraction of the range) or `[low, high]` (data units) |
+| `--x-expand`, `--y-expand` | Optional padding on an axis: a number (fraction of the range) or `[low, high]` (data units) |
 | `--x-ticks`, `--y-ticks` | Explicit tick values, e.g. `[0 2 4 6]` |
 | `--x-format`, `--y-format`, `--legend-format` | Label format: `compact`, or a record `{prefix, suffix, precision, compact, thousands, multiplier}` |
 | `--x-label`, `--y-label`, `--color-label` | Axis and legend titles |
@@ -415,7 +415,7 @@ Because a transform is just a record, the same pieces recombine into new charts
 | `--legend` | `left` \| `right` \| `top` \| `bottom` \| `none` |
 | `--grid`, `--no-grid` | Force grid lines on / off |
 | `--width`, `--height` | Pixel canvas size (default 800×600) |
-| `--font-scale` | Multiply every chart font (title, labels, ticks, legend); default 1.5 |
+| `--font-scale` | Multiply every chart font and its spacing (title, labels, ticks, legend); default 1.5 |
 
 ### Mark styling
 
@@ -481,7 +481,7 @@ $env.config.plugins.charton = {
     background: "#ffffff"
     theme: dark                    # auto | light | dark
     color_map: viridis
-    font_scale: 1.5                # chart text size (try 1.5–2.0 in a terminal)
+    font_scale: 1.5                # chart text size and spacing (try 1.5–2.0 in a terminal)
 }
 ```
 
@@ -498,7 +498,7 @@ $env.config.plugins.charton = {
 | `background` | string | Chart background colour |
 | `theme` | string | `auto` / `light` / `dark` |
 | `color_map` | string | Continuous colour map |
-| `font_scale` | float | Multiplies every chart font; default 1.5 |
+| `font_scale` | float | Multiplies every chart font and its spacing; default 1.5 |
 
 ## Inline rendering
 
@@ -578,7 +578,7 @@ Nushell, install the matching plugin release (or rebuild) and re-run
 `plugin add`.
 
 `nu_plugin_charton` shares its version number with the `charton` library, so
-`charton 0.8.4` and `nu_plugin_charton 0.8.4` ship as a pair.
+`charton 0.8.5` and `nu_plugin_charton 0.8.5` ship as a pair.
 
 ## Uninstall
 

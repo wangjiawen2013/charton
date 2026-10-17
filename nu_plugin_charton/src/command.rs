@@ -56,9 +56,10 @@ use crate::config::{self, Config, LegendSetting};
 use crate::converter::Table;
 use crate::render;
 
-/// Default multiplier for every chart font. Charton's base sizes target a
-/// standalone figure; fitted into a terminal they look small, so the plugin
-/// enlarges them. Override with `--font-scale` or the `font_scale` config key.
+/// Default multiplier for every chart font and its surrounding text spacing.
+/// Charton's base sizes target a standalone figure; fitted into a terminal they
+/// look small, so the plugin enlarges the glyphs and the gaps between them
+/// together. Override with `--font-scale` or the `font_scale` config key.
 pub(crate) const DEFAULT_FONT_SCALE: f64 = 1.5;
 
 /// Every mark subcommand: `(command suffix, charton geom)`.
@@ -377,7 +378,7 @@ fn base_signature(name: &str) -> Signature {
         .named(
             "font-scale",
             SyntaxShape::Number,
-            "Scale every chart font (title, labels, ticks, legend); default 1.5",
+            "Scale chart text and its surrounding spacing (title, labels, ticks, legend); default 1.5",
             None,
         )
         .named(
@@ -3326,6 +3327,26 @@ mod tests {
         Ok(())
     }
 
+    /// The plugin applies `--font-scale` through the theme, so it must widen the
+    /// axis-title gap, not only the glyphs. This is the regression behind the
+    /// y-axis title crowding its tick labels at the default scale of 1.5.
+    #[test]
+    fn font_scale_scales_the_axis_title_gap() -> Result<(), ShellError> {
+        let base = "charton point -x t -y petal_length --y-label 'Sepal width'";
+        let small = run(&format!("{base} --font-scale 1.0"))?;
+        let large = run(&format!("{base} --font-scale 1.5"))?;
+        let small_svg = small.as_str()?;
+        let large_svg = large.as_str()?;
+
+        let small_gap = y_tick_right(&small_svg) - axis_title_x(&small_svg, "Sepal width");
+        let large_gap = y_tick_right(&large_svg) - axis_title_x(&large_svg, "Sepal width");
+        assert!(
+            large_gap > small_gap * 1.2,
+            "font scale should widen the axis-title gap: 1.0 -> {small_gap}, 1.5 -> {large_gap}"
+        );
+        Ok(())
+    }
+
     #[test]
     fn raincloud_layers_share_one_scale() -> Result<(), ShellError> {
         // A violin atom, a quantile-box layer, and the raw points. The box
@@ -4144,6 +4165,29 @@ mod tests {
             .unwrap_or_else(|| panic!("expected attribute {name} in: {line}"))
             .parse::<f64>()
             .unwrap_or_else(|_| panic!("attribute {name} should be numeric in: {line}"))
+    }
+
+    /// The x coordinate of a rendered text element, found by its content.
+    fn axis_title_x(svg: &str, title: &str) -> f64 {
+        let marker = format!(">{title}</text>");
+        let line = svg
+            .lines()
+            .find(|line| line.contains(&marker))
+            .unwrap_or_else(|| panic!("expected the axis title {title:?}"));
+        attr(line, "x")
+    }
+
+    /// The rightmost y-axis tick label: it uses `text-anchor="end"` while the
+    /// x-axis labels are centred.
+    fn y_tick_right(svg: &str) -> f64 {
+        svg.lines()
+            .filter(|line| {
+                line.contains("<text ")
+                    && line.contains("text-anchor=\"end\"")
+                    && line.contains("dominant-baseline=\"central\"")
+            })
+            .map(|line| attr(line, "x"))
+            .fold(f64::NEG_INFINITY, f64::max)
     }
 
     fn panel_rect(svg: &str) -> (f64, f64, f64, f64) {

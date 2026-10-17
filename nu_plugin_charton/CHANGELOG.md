@@ -4,7 +4,7 @@ All notable changes to `nu_plugin_charton` are documented here. The crate
 shares the `charton` version number, and the Nushell release it targets is
 stated in the README and in each release.
 
-## [Unreleased]
+## [0.8.5] - 2026-10-17
 
 ### Added
 
@@ -19,10 +19,10 @@ stated in the README and in each release.
   interprets `font_size` as an em size, the same as SVG and PDF, so the labels,
   ticks and legend in `-o chart.png` and in inline output grow by the font's
   line-box ratio (about 17% for the default Latin stack, more for CJK fallback
-  faces). Nothing else about the layout changed: titles and legends were always
-  measured in ems, so they now fill the space that was reserved for them.
-  `--font-scale` still defaults to 1.5; lower it if you prefer the previous
-  size.
+  faces). The rest of that sizing fix left the layout alone: titles and legends
+  were always measured in ems, so they now fill the space that was reserved for
+  them. `--font-scale` still defaults to 1.5; lower it if you prefer the
+  previous size.
 - **`charton violin` no longer draws the inner box.** It was composing a
   `quantile-box` into the atom, so it did not match Charton's `mark_violin`
   (`examples/violin.rs`). `charton violin` is now the plain density outline.
@@ -45,6 +45,10 @@ stated in the README and in each release.
 
 ### Fixed
 
+- **Y-axis titles no longer crowd their tick labels at the default
+  `--font-scale 1.5`.** Charton now scales the text-adjacent spacing with the
+  font, so the gap between the axis title and tick labels keeps the same
+  proportion as at scale `1.0`.
 - **Ridgeline recipes no longer need `--x-expand`.** Charton now trains a
   category axis from the numeric positions the band emits, so an overlapping
   ridge expands the axis automatically. `--x-expand` remains available for

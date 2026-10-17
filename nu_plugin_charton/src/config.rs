@@ -18,7 +18,7 @@
 //!     background: "#ffffff"
 //!     theme: dark               # auto | light | dark
 //!     color_map: viridis        # continuous color scheme (heatmaps, density)
-//!     font_scale: 1.5           # multiply every chart font (default 1.5)
+//!     font_scale: 1.5           # multiply chart text size and spacing (default 1.5)
 //! }
 //! ```
 //!
