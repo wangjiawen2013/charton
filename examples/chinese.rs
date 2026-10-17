@@ -16,6 +16,10 @@
 //!
 //! On macOS, `"PingFang SC"` and `"Hiragino Sans GB"` reproduce reports 3 and 4
 //! exactly; on Windows, `"Microsoft YaHei"` and `"SimHei"` play the same roles.
+//! The batch run falls back to another installed CJK family when the first one
+//! is missing (some CI macOS images do not expose PingFang SC), so the decimal
+//! case is still rendered instead of being skipped.
+//!
 //! The automated version of these checks lives in
 //! `src/render/backend/raster/font_tests.rs` (`cargo test --features png --lib`).
 
@@ -57,13 +61,18 @@ mod demo {
         }
     }
 
-    fn cjk() -> &'static str {
+    /// CJK families to try for the "expected" cases, most faithful first.
+    ///
+    /// CI images do not always expose the same system fonts (the macOS runner
+    /// may lack PingFang SC), so the batch run falls back down this list rather
+    /// than skipping the decimal case entirely.
+    fn cjk_candidates() -> &'static [&'static str] {
         if cfg!(target_os = "macos") {
-            "PingFang SC"
+            &["PingFang SC", "Hiragino Sans GB", "Songti SC", "Heiti SC"]
         } else if cfg!(target_os = "windows") {
-            "Microsoft YaHei"
+            &["Microsoft YaHei", "SimHei"]
         } else {
-            "Noto Sans CJK SC"
+            &["Noto Sans CJK SC", "WenQuanYi Zen Hei", "Noto Sans SC"]
         }
     }
 
@@ -113,6 +122,37 @@ mod demo {
         Ok(())
     }
 
+    /// Renders with the first available family in `candidates`, saving the image.
+    ///
+    /// A family this OS does not ship is reported, not fatal: the same example
+    /// runs on every platform and in CI. When every candidate is missing, no
+    /// image is written and the batch continues.
+    fn save_first_available(
+        name: &str,
+        title: &str,
+        candidates: &[&str],
+    ) -> Result<(), Box<dyn std::error::Error>> {
+        let dir = out_dir();
+        std::fs::create_dir_all(&dir)?;
+        for family in candidates {
+            match render(title, Some(family)) {
+                Ok(png) => {
+                    let path = dir.join(format!("{name}.png"));
+                    std::fs::write(&path, png)?;
+                    println!(
+                        "  {:<24} {:<22} -> {} (selected {family})",
+                        title,
+                        family,
+                        path.display()
+                    );
+                    return Ok(());
+                }
+                Err(e) => println!("  {:<24} {:<22} -> skipped: {e}", title, family),
+            }
+        }
+        Ok(())
+    }
+
     pub fn main() -> Result<(), Box<dyn std::error::Error>> {
         let mut args = std::env::args().skip(1);
         let (Some(title), family) = (args.next(), args.next()) else {
@@ -125,8 +165,8 @@ mod demo {
                 "销售额（m²）",
                 Some(cjk_without_superscripts()),
             )?;
-            save("3b-expected-superscript", "销售额（m²）", Some(cjk()))?;
-            save("4-decimal", "2.5", Some(cjk()))?;
+            save_first_available("3b-expected-superscript", "销售额（m²）", cjk_candidates())?;
+            save_first_available("4-decimal", "2.5", cjk_candidates())?;
 
             // Report 2: an unknown family must be an error rather than a silent
             // fallback. Print it instead of failing the whole run.

@@ -70,9 +70,10 @@ jobs:
   # The raster (PNG) backend is only compiled behind `--features png`, so it is
   # invisible to the default-feature job above. Text rendering is inherently
   # platform dependent, which is why this runs on all three OSes. `macos-15` is
-  # an Apple-silicon runner and ships the exact fonts from the font issue
-  # (PingFang SC, Hiragino Sans GB, Helvetica), so the macOS run is the faithful
-  # reproduction.
+  # an Apple-silicon runner and normally ships the exact fonts from the font
+  # issue (PingFang SC, Hiragino Sans GB, Helvetica). When a font is missing,
+  # the tests skip that specific case and the `chinese` example falls back to
+  # another installed CJK family instead of dropping the image.
   raster_font_tests:
     name: Raster fonts (${{ matrix.os }})
     runs-on: ${{ matrix.os }}
