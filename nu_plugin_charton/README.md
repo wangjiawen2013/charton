@@ -51,7 +51,8 @@ context (`nu -c`, redirected output) it returns the SVG text instead.
 
 > **First chart looks soft?** That is the default `halfblock` renderer, which
 > works on every terminal. Set `inline_style` once in `config.nu` for sharp
-> output — see [Inline rendering](#inline-rendering).
+> output, or pass `--inline-style kitty` / `sixel` / `iterm2` for a single
+> command — see [Inline rendering](#inline-rendering).
 
 ---
 
@@ -525,7 +526,7 @@ $env.config.plugins.charton = { inline_style: iterm2 }
 ```
 
 Precedence is `--inline-style` > `CHARTON_INLINE_STYLE` > `inline_style` in
-config > `halfblock`. Flags remain available for one-off use.
+config > `halfblock`. Flags remain available for a single command.
 
 Inline drawing only happens when the plugin is **not** in stdio mode and its
 `stdout` is a TTY; otherwise it falls back to `-o`, `--raw`, or an SVG string.
@@ -537,7 +538,7 @@ The rationale (process model, resolution fitting, protocol versioning) is in
 Terminal-brand environment variables are often not forwarded over SSH, and the
 plugin does not inspect them anyway. Set the protocol explicitly for the remote
 session. `CHARTON_INLINE_STYLE` overrides the config value, so it is handy for
-a one-off connection:
+a single session:
 
 ```nu
 $env.CHARTON_INLINE_STYLE = "iterm2"
