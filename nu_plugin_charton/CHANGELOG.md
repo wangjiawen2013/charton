@@ -4,6 +4,49 @@ All notable changes to `nu_plugin_charton` are documented here. The crate
 shares the `charton` version number, and the Nushell release it targets is
 stated in the README and in each release.
 
+## [Unreleased]
+
+### Added
+
+- **`--italic` on `charton text`** (and `italic: true` in a `--layer` style
+  record) requests a slanted face. It pairs with the existing `--weight`; both
+  now reach the renderer, which selects the matching face when the font family
+  provides one.
+
+### Changed
+
+- **`charton violin` no longer draws the inner box.** It was composing a
+  `quantile-box` into the atom, so it did not match Charton's `mark_violin`
+  (`examples/violin.rs`). `charton violin` is now the plain density outline.
+  The inner-box form (`examples/violin_box.rs`) stays a recipe — the same
+  outline plus a `quantile-box` layer — exactly as the raincloud recipe already
+  spells out; no new mark was added for it.
+- **The default raster scale now follows `charton` (1.0).** `--scale` and the
+  `scale` config key are optional; when unset the plugin no longer forces 2.0,
+  so `-o chart.png` writes an image whose size equals `--width × --height`
+  (the library supersamples internally, so it stays sharp). Pass `--scale 2.0`
+  to request a higher-density asset. Inline bitmap protocols still auto-fit the
+  raster to the terminal, and an explicit `--scale` still disables that.
+- **Inline rendering uses an explicit transport; the default is `halfblock`.**
+  The plugin does not inspect terminal-brand variables (`TERM_PROGRAM`,
+  `KITTY_*`, `WEZTERM_*`, ...), which are brittle across terminals, versions, and
+  SSH. Choose the renderer with `--inline-style`, `CHARTON_INLINE_STYLE`, or
+  `inline_style` in config (flag > env > config > `halfblock`) — set it once per
+  terminal and no terminal names are needed in the code. `charton-probe` also
+  no longer reports brand-specific variables.
+
+### Fixed
+
+- **`assets/waterfall.csv` now matches `examples/waterfall.rs`.** It was missing
+  the opening and closing `Total` rows, so the recipe's `calculate` — which
+  anchors `Total` steps at zero — never took that branch and drew a truncated
+  chart.
+- **`--y2` is no longer dropped on the `--transform` route.** That path encoded
+  only `x`/`y`/`color`, so a floating bar — the waterfall recipe — grew from
+  the baseline and dodged colour into lanes instead of spanning `y` to `y2`.
+  The `bar` case now encodes `y2` like the non-transform branch, so the recipe
+  reproduces the library example.
+
 ## [0.8.4] - 2026-10-11
 
 ### Changed

@@ -220,7 +220,7 @@ fn mark_description(mark: &str) -> &'static str {
         "text" => "Place a text label at each x/y",
         "hist" => "Histogram: count rows per bin",
         "boxplot" => "Five-number summary with Tukey outliers",
-        "violin" => "Kernel density outline plus an inner box",
+        "violin" => "Kernel density outline (violin plot)",
         "errorbar" => "Confidence interval / error bars",
         "density" => "1-D kernel density estimate",
         "density_2d" => "Joint 2-D kernel density drawn as a grid",
@@ -380,7 +380,12 @@ fn base_signature(name: &str) -> Signature {
             "Scale every chart font (title, labels, ticks, legend); default 1.5",
             None,
         )
-        .named("scale", SyntaxShape::Number, "Raster pixel scale factor (default 2.0)", None)
+        .named(
+            "scale",
+            SyntaxShape::Number,
+            "Raster pixel scale factor (default 1.0; >1 gives a higher-density asset)",
+            None,
+        )
         .switch(
             "raw",
             "Return the raw image data (SVG string, or PNG with --png) instead of drawing inline",
@@ -396,7 +401,7 @@ fn base_signature(name: &str) -> Signature {
         .named(
             "inline-style",
             SyntaxShape::String,
-            "Inline renderer: auto | halfblock | iterm2 | kitty | sixel",
+            "Inline renderer: halfblock | iterm2 | kitty | sixel (default halfblock)",
             None,
         )
         .named(
@@ -559,7 +564,8 @@ fn mark_signature(name: &str, mark: &str) -> Signature {
                 SyntaxShape::String,
                 "Text font weight: normal | bold | 100..900",
                 None,
-            ),
+            )
+            .switch("italic", "Italic text", None),
         "tick" => sig.named("size", SyntaxShape::Number, "Tick thickness", None),
         "geo" => sig.named(
             "geojson",
@@ -669,11 +675,10 @@ fn complete_arg(arg_type: ArgType) -> Option<Vec<DynamicSuggestion>> {
         ],
         "theme" => &[("auto", ""), ("light", ""), ("dark", "")],
         "inline-style" => &[
-            ("auto", ""),
-            ("halfblock", ""),
-            ("iterm2", ""),
-            ("kitty", ""),
-            ("sixel", ""),
+            ("halfblock", "universal truecolor blocks (default)"),
+            ("iterm2", "iTerm2 inline images"),
+            ("kitty", "Kitty graphics protocol"),
+            ("sixel", "DEC Sixel"),
         ],
         "facet-strategy" => &[("fixed", ""), ("free", ""), ("free_x", ""), ("free_y", "")],
         "color-map" => &[
@@ -757,6 +762,11 @@ pub(crate) fn run_chart(
         outlier_color: call.get_flag("outlier-color")?,
         anchor: call.get_flag("anchor")?,
         weight: call.get_flag("weight")?,
+        italic: if call.has_flag("italic")? {
+            Some(true)
+        } else {
+            None
+        },
         layout: call.get_flag("layout")?,
         quasirandom_method: call.get_flag("quasirandom-method")?,
         mark_width: call.get_flag("mark-width")?,
@@ -859,11 +869,13 @@ pub(crate) fn run_chart(
     // Remember whether the user chose a scale: inline fitting only kicks in
     // when the resolution was left to us.
     let scale_explicit = scale_flag.is_some() || cfg.scale.is_some();
+    // `None` means "leave charton's default in place", so the plugin tracks the
+    // library (`scale_factor` defaults to 1.0, i.e. the PNG is exactly the
+    // configured `width × height`). An explicit flag/config value overrides it.
     let scale = scale_flag
         .map(|v| v as f32)
         .or(cfg.scale)
-        .filter(|s| *s > 0.0)
-        .unwrap_or(2.0);
+        .filter(|s| *s > 0.0);
     // Every chart font is multiplied by this. Inline charts are fitted into
     // the terminal, so charton's base sizes come out small; 1.5 reads like the
     // shell's own text. Flag > config > default.
@@ -888,11 +900,15 @@ pub(crate) fn run_chart(
         None => None,
     };
 
+    // Precedence: flag > generic env override > config > universal default.
+    // There is deliberately no terminal-brand detection: protocol support is
+    // not discoverable portably, so choose it once per terminal in config.
     let inline_style = render::InlineStyle::parse(
         &call
             .get_flag::<String>("inline-style")?
+            .or_else(|| std::env::var("CHARTON_INLINE_STYLE").ok())
             .or_else(|| cfg.inline_style.clone())
-            .unwrap_or_else(|| "auto".to_string()),
+            .unwrap_or_else(|| "halfblock".to_string()),
     )
     .map_err(|e| LabeledError::new("Invalid inline style").with_label(e, span))?;
 
@@ -1057,12 +1073,6 @@ pub(crate) fn run_chart(
         let max_cols = cols.saturating_sub(1).max(20);
         let max_rows = rows.saturating_sub(2).max(6);
 
-        let style = if inline_style == render::InlineStyle::Auto {
-            render::InlineStyle::detect()
-        } else {
-            inline_style
-        };
-
         // Protocols that hand a bitmap to the terminal (iTerm2, Kitty,
         // Sixel) look best when the raster already matches the terminal's
         // pixel area: the terminal then scales little or not at all, which
@@ -1070,7 +1080,7 @@ pub(crate) fn run_chart(
         // us per cell, so they keep the full-resolution raster.
         let terminal_sized = !scale_explicit
             && matches!(
-                style,
+                inline_style,
                 render::InlineStyle::Iterm2
                     | render::InlineStyle::Kitty
                     | render::InlineStyle::Sixel
@@ -1084,7 +1094,7 @@ pub(crate) fn run_chart(
         let bytes = render::to_png(&inline_chart)
             .map_err(|e| LabeledError::new("PNG rendering failed").with_label(e, span))?;
 
-        let art = match style {
+        let art = match inline_style {
             render::InlineStyle::Iterm2 => {
                 let (w, h) = render::png_dimensions(&bytes).map_err(|e| {
                     LabeledError::new("Inline rendering failed").with_label(e, span)
@@ -1103,11 +1113,8 @@ pub(crate) fn run_chart(
                 render::sixel_image(&bytes, max_cols, max_rows, cell_w, cell_h)
                     .map_err(|e| LabeledError::new("Inline rendering failed").with_label(e, span))?
             }
-            // `Auto` already resolved above; treat as the universal fallback.
-            render::InlineStyle::HalfBlock | render::InlineStyle::Auto => {
-                render::png_to_halfblock(&bytes, max_cols, max_rows)
-                    .map_err(|e| LabeledError::new("Inline rendering failed").with_label(e, span))?
-            }
+            render::InlineStyle::HalfBlock => render::png_to_halfblock(&bytes, max_cols, max_rows)
+                .map_err(|e| LabeledError::new("Inline rendering failed").with_label(e, span))?,
         };
 
         let mut out = std::io::stdout();
@@ -1243,7 +1250,7 @@ struct BuildOpts<'a> {
     theme: ThemeMode,
     width: u32,
     height: u32,
-    scale: f32,
+    scale: Option<f32>,
     font_scale: f64,
     span: Span,
 }
@@ -1268,6 +1275,7 @@ struct Style {
     outlier_color: Option<String>,
     anchor: Option<String>,
     weight: Option<String>,
+    italic: Option<bool>,
     layout: Option<String>,
     quasirandom_method: Option<String>,
     mark_width: Option<f64>,
@@ -1467,6 +1475,9 @@ fn style_text(mut m: MarkText, s: &Style) -> MarkText {
     }
     if let Some(weight) = &s.weight {
         m = m.with_weight(weight.as_str());
+    }
+    if let Some(italic) = s.italic {
+        m = m.with_italic(italic);
     }
     m
 }
@@ -1803,23 +1814,24 @@ fn build_layer(
             let x = x.ok_or_else(|| missing(geom, "--x (the category column)", span))?;
             let y = y.ok_or_else(|| missing(geom, "--y (the value column)", span))?;
 
-            // A violin is a density outline plus an inner inter-quartile box.
-            // The outline is built here from `transform_density` (grouped by
-            // category, optionally also by the colour group) and
-            // `transform_band`; `--color` dodges one violin per group, without
-            // it there is one violin per category.
-            // The composition generates intermediate columns. They are
+            // `violin` is the plain density outline, matching charton's
+            // `mark_violin` (`examples/violin.rs`). The inner-box form
+            // (`examples/violin_box.rs`) is deliberately not a mark: it is this
+            // outline plus a `quantile-box` layer, which users compose with
+            // `--layer` (the README has the recipe).
+            //
+            // The outline is density → band → polygon. `transform_density`
+            // groups by category, and by the colour group when `--color` is
+            // given; `transform_band` then dodges one violin per group (one per
+            // category without `--color`). The intermediate columns are
             // namespaced so they can never collide with the user's own columns,
-            // which are passed straight through as transform inputs — a
-            // category column is very often literally called `x`.
+            // which are passed through as transform inputs — a category column
+            // is very often literally called `x`.
             const VALUE: &str = "__charton_violin_value";
             const WIDTH: &str = "__charton_violin_width";
             const BAND_X: &str = "__charton_violin_x";
             const BAND_Y: &str = "__charton_violin_y";
             const BAND_PATH: &str = "__charton_violin_path";
-            const BOX_X: &str = "__charton_violin_box_x";
-            const BOX_Y: &str = "__charton_violin_box_y";
-            const BOX_PATH: &str = "__charton_violin_box_path";
 
             let mut density = DensityTransform::new(y)
                 .with_as(VALUE, WIDTH)
@@ -1831,18 +1843,12 @@ fn build_layer(
                 .with_center(x)
                 .with_as(BAND_X, BAND_Y, BAND_PATH)
                 .with_scale(BandScale::PerGroup);
-            let mut quantile_box = QuantileBoxTransform::new(y)
-                .with_category(x)
-                .with_as(BOX_X, BOX_Y, BOX_PATH);
             if let Some(group) = color {
                 density = density.with_groupbys([x, group]);
                 band = band.with_group(group).with_position(Position::dodge());
-                quantile_box = quantile_box
-                    .with_group(group)
-                    .with_position(Position::dodge());
             }
 
-            let outline = Chart::build(dataset.clone())
+            let outline = Chart::build(dataset)
                 .map_err(|e| chart_err(span, e))?
                 .transform_density(density)
                 .map_err(|e| chart_err(span, e))?
@@ -1866,29 +1872,10 @@ fn build_layer(
             }
             .map_err(|e| chart_err(span, e))?;
 
-            let inner_box = Chart::build(dataset)
-                .map_err(|e| chart_err(span, e))?
-                .transform_quantile_box(quantile_box)
-                .map_err(|e| chart_err(span, e))?
-                .mark_polygon()
-                .map_err(|e| chart_err(span, e))?
-                .configure_geoshape(|m| {
-                    m.with_fill("white")
-                        .with_stroke("black")
-                        .with_stroke_width(1.0)
-                });
-            let inner_box = inner_box
-                .encode((
-                    alt::x(BOX_X).with_category_labels(x),
-                    make_y(BOX_Y),
-                    alt::path_group(BOX_PATH),
-                ))
-                .map_err(|e| chart_err(span, e))?;
-
             // The generated columns are namespaced, so default the axis titles
             // to the user's own column names. Explicit `--x-label` / `--y-label`
             // still win; they are applied later.
-            outline.and(inner_box).with_x_label(x).with_y_label(y)
+            outline.with_x_label(x).with_y_label(y)
         }
         "tick" => {
             let c = Chart::build(dataset)
@@ -2228,7 +2215,19 @@ fn build_primitive_layer(
                 .mark_bar()
                 .map_err(|e| chart_err(span, e))?
                 .configure_bar(|m| style_bar(m, style));
-            encode_xy!(c).into()
+            // A `--y2` bound makes the bar float between `y` and `y2` (a
+            // waterfall step, a candlestick body) instead of growing from zero.
+            // Encoding `y2` also tells charton not to dodge colour into lanes,
+            // so each step keeps a single bar — matching `examples/waterfall.rs`.
+            let (xe, ye) = encoders();
+            match (layer.y2.as_deref(), layer.color.as_deref()) {
+                (Some(h), Some(col)) => c.encode((xe, ye, alt::y2(h), alt::color(col))),
+                (Some(h), None) => c.encode((xe, ye, alt::y2(h))),
+                (None, Some(col)) => c.encode((xe, ye, alt::color(col))),
+                (None, None) => c.encode((xe, ye)),
+            }
+            .map_err(|e| chart_err(span, e))?
+            .into()
         }
         "area" => {
             let c = chart
@@ -2982,6 +2981,7 @@ const STYLE_KEYS: &[&str] = &[
     "outlier-color",
     "anchor",
     "weight",
+    "italic",
     "layout",
     "quasirandom-method",
     "mark-width",
@@ -3044,6 +3044,7 @@ fn parse_style_record(rec: &Record, base: &Style) -> Result<Style, LabeledError>
             "outlier_color" => s.outlier_color = Some(style_string(value).map_err(bad)?),
             "anchor" => s.anchor = Some(style_string(value).map_err(bad)?),
             "weight" => s.weight = Some(style_string(value).map_err(bad)?),
+            "italic" => s.italic = Some(style_bool(value).map_err(bad)?),
             "layout" => s.layout = Some(style_string(value).map_err(bad)?),
             "quasirandom_method" => s.quasirandom_method = Some(style_string(value).map_err(bad)?),
             "mark_width" => s.mark_width = Some(style_number(value).map_err(bad)?),
@@ -3108,9 +3109,12 @@ fn parse_colorfgbg(value: &str) -> Option<ThemeMode> {
 }
 
 fn finish(layered: LayeredChart, opts: &BuildOpts<'_>) -> LayeredChart {
-    let mut l = layered
-        .with_size(opts.width, opts.height)
-        .with_scale_factor(opts.scale);
+    let mut l = layered.with_size(opts.width, opts.height);
+    // Only override the density when the user asked for one; otherwise inherit
+    // charton's default (currently 1.0) so the plugin and the library agree.
+    if let Some(scale) = opts.scale {
+        l = l.with_scale_factor(scale);
+    }
     if let Some(title) = opts.title {
         l = l.with_title(title);
     }
@@ -3424,12 +3428,30 @@ mod tests {
 
     #[test]
     fn violin_returns_svg() -> Result<(), ShellError> {
-        // One violin per category.
+        // One violin per category: the plain density outline, matching
+        // `examples/violin.rs`.
         let out = run("charton violin -x species -y petal_length")?;
         assert!(out.as_str()?.contains("<svg"));
         // Grouped (dodged) violins, one per `grp`.
         let out = run("charton violin -x species -y petal_length -c grp")?;
         assert!(out.as_str()?.contains("<svg"));
+        Ok(())
+    }
+
+    #[test]
+    fn violin_box_is_a_composition() -> Result<(), ShellError> {
+        // The inner-box violin (`examples/violin_box.rs`) is not a mark: it is
+        // the `violin` outline plus a `quantile-box` layer, so it must differ
+        // from the plain outline for the same data.
+        let box_layer = "{geom: polygon, x: qx, y: qy, path_group: qpg, \
+             transforms: [{op: quantile-box, value: petal_length, category: species, \
+                          as: [qx, qy, qpg]}]}";
+        let outline = run("charton violin -x species -y petal_length")?;
+        let with_box = run(&format!(
+            "charton violin -x species -y petal_length --layer {box_layer}"
+        ))?;
+        assert!(with_box.as_str()?.contains("<svg"));
+        assert_ne!(outline.as_str()?, with_box.as_str()?);
         Ok(())
     }
 
@@ -3526,6 +3548,15 @@ mod tests {
     fn text_returns_svg() -> Result<(), ShellError> {
         let out = run("charton text -x t -y petal_length --text species")?;
         assert!(out.as_str()?.contains("<svg"));
+        Ok(())
+    }
+
+    #[test]
+    fn text_weight_and_italic_reach_the_svg() -> Result<(), ShellError> {
+        let out = run("charton text -x t -y petal_length --text species --weight bold --italic")?;
+        let svg = out.as_str()?;
+        assert!(svg.contains(r#"font-weight="bold""#), "{svg}");
+        assert!(svg.contains(r#"font-style="italic""#), "{svg}");
         Ok(())
     }
 
@@ -4000,6 +4031,41 @@ mod tests {
              {op: window, field: petal_length, kind: cumulative-sum, as: total}, \
              {op: calculate, as: base, expr: {|row| if $row.species == 'setosa' { 0 } else { $row.total - $row.petal_length }}}]")?;
         assert!(out.as_str()?.contains("<svg"));
+        Ok(())
+    }
+
+    #[test]
+    fn waterfall_recipe_matches_the_example() -> Result<(), ShellError> {
+        // The README's waterfall recipe, run on the same data as
+        // `examples/waterfall.rs`: a `window` running total and a `calculate`
+        // lower edge, drawn as floating bars. The `Total` steps anchor at zero,
+        // so the opening and closing totals span the full height.
+        let step = ["Start", "Q1", "Q2", "Q3", "Q4", "End"];
+        let delta = [200.0, 50.0, 30.0, -20.0, -10.0, 0.0];
+        let kind = [
+            "Total", "Increase", "Increase", "Decrease", "Decrease", "Total",
+        ];
+        let waterfall = Value::test_list(
+            (0..step.len())
+                .map(|i| {
+                    Value::test_record(record! {
+                        "step" => Value::test_string(step[i]),
+                        "delta" => Value::test_float(delta[i]),
+                        "kind" => Value::test_string(kind[i]),
+                    })
+                })
+                .collect(),
+        );
+        let out = run_on(
+            waterfall,
+            "charton bar -x step -y base --y2 total -c kind --mark-width 0.6 --transform [\
+             {op: window, field: delta, kind: cumulative-sum, as: total}, \
+             {op: calculate, as: base, expr: {|row| if $row.kind == 'Total' { 0 } else { $row.total - $row.delta }}}]",
+        )?;
+        assert!(out.as_str()?.contains("<svg"));
+        // `--y2` must reach the mark on the `--transform` path: six floating
+        // bars (one per step), not a dodged Cartesian product of step × kind.
+        assert_eq!(out.as_str()?.matches(" Z\" fill=\"rgba(").count(), 6);
         Ok(())
     }
 

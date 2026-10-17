@@ -2,6 +2,7 @@ use crate::core::layer::{
     CircleConfig, GradientRectConfig, LineConfig, PathConfig, PathTopology, PolygonConfig,
     RectConfig, RenderBackend, TextConfig,
 };
+use crate::error::ChartonError;
 use crate::visual::color::SingleColor;
 use std::fmt::Write;
 
@@ -266,7 +267,7 @@ impl<'a> RenderBackend for SvgBackend<'a> {
         let _ = self.buffer.write_str("\n");
     }
 
-    fn draw_text(&mut self, config: TextConfig) {
+    fn draw_text(&mut self, config: TextConfig) -> Result<(), ChartonError> {
         let TextConfig {
             x,
             y,
@@ -276,6 +277,7 @@ impl<'a> RenderBackend for SvgBackend<'a> {
             color,
             text_anchor,
             font_weight,
+            font_style,
             dominant_baseline,
             opacity,
             angle,
@@ -289,8 +291,8 @@ impl<'a> RenderBackend for SvgBackend<'a> {
         self.write_color(&color);
         let _ = write!(
             self.buffer,
-            r#"" fill-opacity="{:.3}" text-anchor="{}" font-weight="{}" dominant-baseline="{}""#,
-            opacity, text_anchor, font_weight, dominant_baseline
+            r#"" fill-opacity="{:.3}" text-anchor="{}" font-weight="{}" font-style="{}" dominant-baseline="{}""#,
+            opacity, text_anchor, font_weight, font_style, dominant_baseline
         );
         let _ = write!(
             self.buffer,
@@ -303,6 +305,7 @@ impl<'a> RenderBackend for SvgBackend<'a> {
         self.buffer.push_str(&escape_xml(&text));
 
         let _ = self.buffer.write_str("</text>\n");
+        Ok(())
     }
 
     fn draw_line(&mut self, config: LineConfig) {

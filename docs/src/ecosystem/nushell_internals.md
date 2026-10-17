@@ -27,7 +27,7 @@ inline rendering is allowed  ⇔  NOT stdio mode  AND  stdout is a TTY
 
 `engine.is_using_stdio()` reports the transport; `stdout().is_terminal()` gates
 the rest. The `charton-probe` command prints exactly this decision, plus the
-environment variables used for protocol detection:
+terminal environment variables it saw:
 
 ```nu
 charton-probe | to md
@@ -36,21 +36,32 @@ charton-probe | to md
 In stdio mode (or when `stdout` is a pipe) the plugin silently falls back to
 `-o` saving, `--raw` data, or an SVG string — it never writes escape sequences.
 
-## 2. The inline rendering ladder
+## 2. Inline rendering transports
 
-Terminals disagree about how to display images, so the plugin tries four tiers
-and picks the best one the environment advertises:
+Terminals disagree about how to display images. The plugin supports four
+transports and uses the one you choose; it does **not** guess from terminal
+names or environment variables, because protocol support is not discoverable
+portably and brand heuristics break across terminals, versions, and SSH.
 
-| Tier | Protocol | Detected from | Terminals |
-|---|---|---|---|
-| 1 | **Kitty graphics** (`ESC_G…`) | `KITTY_WINDOW_ID`, `TERM=*kitty*`, `TERM_PROGRAM=*ghostty*` | Kitty, Ghostty, recent WezTerm |
-| 2 | **iTerm2 inline images** (`OSC 1337`) | `TERM_PROGRAM=*iterm*` or `*wezterm*`, `WEZTERM_*` | iTerm2, WezTerm |
-| 3 | **Sixel** (`ESC P…q`) | `TERM=*sixel*`, `foot*`, `mlterm*` | xterm, foot, mlterm, Windows Terminal 1.22+ |
-| 4 | **Truecolor half-blocks** (`▀`) | always | everything |
+| Protocol | Transport | Default? |
+|---|---|---|
+| `kitty` | Kitty graphics protocol (`ESC_G…`) | |
+| `iterm2` | iTerm2 inline images (`OSC 1337`) | |
+| `sixel` | DEC Sixel (`ESC P…q`) | |
+| `halfblock` | Truecolor half-blocks (`▀`) | ✓ |
 
-Override with `--inline-style auto|halfblock|iterm2|kitty|sixel`. WezTerm is
-mapped to **iTerm2** deliberately: it is its most reliable protocol, and it
-avoids the platform-specific Sixel support matrix.
+Because the plugin never guesses, the default is `halfblock`: it always
+renders, but it is visibly softer than a bitmap protocol. A fresh install
+looking soft is therefore expected behavior, not a failed render.
+
+Choose with `--inline-style halfblock|iterm2|kitty|sixel`, the
+`CHARTON_INLINE_STYLE` environment variable, or `inline_style` in
+`$env.config.plugins.charton`. Precedence is flag > env > config > `halfblock`.
+Set it once per terminal in config:
+
+```nu
+$env.config.plugins.charton = { inline_style: kitty }
+```
 
 Every frame ends on a clean line at column 0, so whatever follows — usually
 the shell prompt — starts below the chart at the left margin.
@@ -86,9 +97,10 @@ Because the terminal path is raster, the quality question is entirely about
 
 ### The symptom
 
-A naive fit renders an 800×600 logical canvas at `scale = 2.0` (a **1600×1200
-PNG**) and asks the terminal to shrink it into the character grid — often by a
-large, non-integer factor (≈ 2.7× in one measured case). That produces the two
+A naive fit renders the logical canvas at a fixed pixel density and asks the
+terminal to shrink it into the character grid — often by a large, non-integer
+factor (with the old `scale = 2.0` default, an 800×600 canvas became a
+**1600×1200 PNG** shrunk by ≈ 2.7× in one measured case). That produces the two
 classic complaints:
 
 - **Blurry text** — glyphs rendered at 24 px and resampled down to ~9 px.
@@ -116,6 +128,10 @@ The chart's **logical layout is unchanged** — only the pixel density is fitted
 — which keeps fonts and margins proportional. The chosen cell counts are then
 computed with the same `cell_w : cell_h` ratio (`fit_cells_with_cell`), so the
 display box has the image's aspect ratio and the terminal does not stretch it.
+
+This is separate from anti-aliasing: charton already renders internally at 2×
+and downsamples, so the default `scale = 1.0` raster is smooth. Fitting is about
+matching the terminal's *device-pixel* area so no resampling happens at all.
 
 ### The cell size is the crux
 

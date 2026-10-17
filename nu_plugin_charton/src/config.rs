@@ -1,15 +1,16 @@
 //! Plugin configuration, read from `$env.config.plugins.charton`.
 //!
-//! Precedence is: command-line flag > plugin config > built-in default.
+//! Precedence is: command-line flag > `CHARTON_INLINE_STYLE` (inline style
+//! only) > plugin config > built-in default.
 //!
 //! ```nu
 //! $env.config.plugins.charton = {
 //!     width: 1000
 //!     height: 700
-//!     scale: 2.0
+//!     scale: 1.0          # output pixels = width × scale (1.0 = WYSIWYG)
 //!     cell_width: 9       # terminal cell size in device px (inline fitting)
 //!     cell_height: 20
-//!     inline_style: kitty
+//!     inline_style: kitty        # halfblock (default) | iterm2 | kitty | sixel
 //!     grid: true
 //!     palette: tab10            # or a list like ["#333" "#6fc481" "red"]
 //!     legend: bottom            # left | right | top | bottom | none

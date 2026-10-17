@@ -1,6 +1,7 @@
 step,delta,kind
-Start,200,Increase
+Start,200,Total
 Q1,50,Increase
 Q2,30,Increase
 Q3,-20,Decrease
 Q4,-10,Decrease
+End,0,Total

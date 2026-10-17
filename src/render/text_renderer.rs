@@ -107,6 +107,7 @@ impl MarkRenderer for Chart<MarkText> {
                     text_anchor: mark_config.text_anchor.to_string(),
                     dominant_baseline: "middle".to_string(), // Common default for data point labels
                     font_weight: mark_config.font_weight.to_string(),
+                    font_style: mark_config.font_style.to_string(),
                     opacity: mark_config.opacity as Precision,
                     angle: 0.0, // Data labels are horizontal by default
                 })
@@ -116,7 +117,7 @@ impl MarkRenderer for Chart<MarkText> {
         // --- STEP 4: SEQUENTIAL DRAW DISPATCH ---
         // Dispatch draw calls to the backend in deterministic data order.
         for config in render_configs {
-            backend.draw_text(config);
+            backend.draw_text(config)?;
         }
 
         Ok(())

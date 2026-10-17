@@ -107,4 +107,4 @@ The WGPU backend (`WgpuBackend`) strictly adheres to a 4-Tier Geometry Architect
 
 **The Deferred Text Ledger:**
 
-To decouple heavy font-shaping from the GPU, `render_primitive_only` collects all `TextConfig` calls into a `Vec<TextConfig>`. This ledger is returned to the host runner (`save_wgpu_png` or `render_to_canvas`), which then safely overlays the text using the most optimal native 2D API available to the platform.
+To decouple heavy font-shaping from the GPU, `render_primitive_only` collects all `TextConfig` calls into a `Vec<TextConfig>`. This ledger is returned to the host runner (`save_wgpu_png` or `render_to_canvas`), which then safely overlays the text using the most optimal native 2D API available to the platform. Font families, fallback and error handling for that overlay are described in [Fonts & Text Rendering](fonts.md).

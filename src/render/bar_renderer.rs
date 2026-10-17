@@ -240,7 +240,7 @@ impl MarkRenderer for Chart<MarkBar> {
                     context,
                     backend,
                     mark_config.opacity as Precision,
-                );
+                )?;
             }
         }
 
@@ -271,7 +271,7 @@ impl Chart<MarkBar> {
         context: &PanelContext,
         backend: &mut dyn RenderBackend,
         opacity: f32,
-    ) {
+    ) -> Result<(), ChartonError> {
         let percentage = if is_normalized {
             y_val * 100.0
         } else {
@@ -297,9 +297,12 @@ impl Chart<MarkBar> {
                 text_anchor: "middle".into(),
                 dominant_baseline: "middle".into(),
                 font_weight: "bold".into(),
+                font_style: "normal".to_string(),
                 opacity: opacity as Precision,
                 angle: 0.0,
-            });
+            })?;
         }
+
+        Ok(())
     }
 }

@@ -69,25 +69,41 @@ rules described in [The Dataset Struct](../engine/dataset_core.md).
 cargo install --path nu_plugin_charton --locked
 ```
 
+Add the plugin to Nushell's registry:
+
 ```nu
 plugin add '~/.cargo/bin/nu_plugin_charton.exe'   # Windows: full path is most reliable
+```
+
+Then load its commands in the current session:
+
+```nu
 plugin use charton
 ```
+
+`plugin use` is a parser keyword, so the two lines must be separate inputs, not
+one script.
 
 The full, platform-specific walk-through (including uninstall) is in the
 [plugin README](https://github.com/wangjiawen2013/charton/blob/main/nu_plugin_charton/README.md#install).
 
+> **First chart looks blurry?** Nothing is wrong. With no `inline_style`
+> configured the plugin uses the universal `halfblock` renderer, which works on
+> every terminal but is soft. Set the protocol once in
+> `$env.config.plugins.charton` (`iterm2`, `kitty`, or `sixel`) for sharp
+> bitmap output.
+
 ### Everyday use
 
 ```nu
-# inline, auto-detected terminal protocol
+# inline
 ls | charton bar -x name -y size
 
 # export by extension: SVG is a vector, PNG is a raster
 open data.csv | charton line -x date -y value -o chart.svg
 open data.csv | charton point -x group -y score --layout beeswarm -o chart.png
 
-# violin: a density outline with an inner quartile box; -c dodges one per group
+# violin: the density outline (`examples/violin.rs`); -c dodges one per group
 open data.csv | charton violin -x category -y score -c group -o violin.svg
 
 # contour: iso-lines of a regular x/y/z grid; --z is the value column
@@ -139,9 +155,9 @@ The mark subcommands cover every Charton mark (`charton point`, `charton line`,
 `charton tick`, `charton text`, `charton rect`, `charton hist`,
 `charton density`, `charton density-2d`, `charton contour`, `charton geo`).
 Chart types that Charton builds from primitives — ridgeline, ECDF, candlestick,
-dumbbell, range, slope, bump, waterfall, raincloud — are **not** commands: you
-write them with `--transform` and `--layer`, exactly as the
-[cookbook](../gallery/primitives.md) shows. The `--transform` vocabulary is
+dumbbell, range, slope, bump, waterfall, raincloud, violin-with-box — are
+**not** commands: you write them with `--transform` and `--layer`, exactly as
+the [cookbook](../gallery/primitives.md) shows. The `--transform` vocabulary is
 closed: `density`, `density-2d`, `contour`, `band`, `quantile-box`, `window`,
 `calculate`. A transform record says what to run (`op`), which columns to read
 (`field`, `x`, `y`, ...), and what to call the new columns (`as`).
@@ -157,10 +173,10 @@ config, and config wins over built-in defaults:
 $env.config.plugins.charton = {
     width: 1000
     height: 700
-    scale: 2.0
+    scale: 1.0                     # output pixels = width × scale
     cell_width: 9                  # terminal cell size in device px
     cell_height: 20                # (tune if inline charts look soft)
-    inline_style: kitty            # auto | halfblock | iterm2 | kitty | sixel
+    inline_style: kitty            # halfblock (default) | iterm2 | kitty | sixel
     grid: true
     palette: tab10
     legend: bottom
@@ -169,5 +185,7 @@ $env.config.plugins.charton = {
 }
 ```
 
-`cell_width`/`cell_height` are the one non-obvious knob; they are explained in
-[Nushell Plugin Internals](nushell_internals.md).
+`inline_style` tells the plugin which image protocol your terminal supports;
+set it once per terminal. The default `halfblock` works everywhere.
+`cell_width`/`cell_height` are the other non-obvious knob; both are explained
+in [Nushell Plugin Internals](nushell_internals.md).

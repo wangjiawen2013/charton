@@ -589,7 +589,7 @@ impl Theme {
 
 impl Default for Theme {
     fn default() -> Self {
-        let font_stack = "Inter, -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, 'PingFang SC', 'Microsoft YaHei', Ubuntu, Cantarell, 'Noto Sans', sans-serif".to_string();
+        let font_stack = crate::core::font::DEFAULT_FONT_STACK.to_string();
 
         Self {
             background_color: "white".into(),

@@ -13,6 +13,7 @@ pub struct MarkText {
     pub(crate) font_size: f64,
     pub(crate) font_family: String,
     pub(crate) font_weight: FontWeight,
+    pub(crate) font_style: FontStyle,
     pub(crate) text_anchor: TextAnchor,
     pub(crate) opacity: f64,
 }
@@ -55,6 +56,35 @@ impl std::fmt::Display for FontWeight {
     }
 }
 
+/// Font slant options for text elements.
+#[derive(Debug, Clone, Copy, Default, PartialEq, Eq)]
+pub enum FontStyle {
+    /// Upright text.
+    #[default]
+    Normal,
+    /// Slanted, cursive-style text.
+    Italic,
+}
+
+impl From<&str> for FontStyle {
+    fn from(s: &str) -> Self {
+        match s.to_lowercase().as_str() {
+            "italic" | "oblique" => FontStyle::Italic,
+            _ => FontStyle::Normal,
+        }
+    }
+}
+
+// Helper for backend conversion.
+impl std::fmt::Display for FontStyle {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        match self {
+            FontStyle::Normal => write!(f, "normal"),
+            FontStyle::Italic => write!(f, "italic"),
+        }
+    }
+}
+
 /// Horizontal alignment options for text elements.
 #[derive(Debug, Clone, Default)]
 pub enum TextAnchor {
@@ -91,13 +121,13 @@ impl std::fmt::Display for TextAnchor {
 impl MarkText {
     /// Create a new text mark with default properties.
     pub(crate) fn new() -> Self {
-        let font_stack = "Inter, -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, 'PingFang SC', 'Microsoft YaHei', Ubuntu, Cantarell, 'Noto Sans', sans-serif".to_string();
         Self {
             text: String::new(),
             color: SingleColor::new("black"),
             font_size: 12.0,
-            font_family: font_stack,
+            font_family: crate::core::font::DEFAULT_FONT_STACK.to_string(),
             font_weight: "normal".into(),
+            font_style: FontStyle::Normal,
             text_anchor: TextAnchor::default(),
             opacity: 1.0,
         }
@@ -123,9 +153,32 @@ impl MarkText {
         self
     }
 
+    /// Sets the font family stack for this text mark. Accepts the same
+    /// CSS-like syntax as the theme's `*_family` fields.
+    pub fn with_font_family(mut self, family: impl Into<String>) -> Self {
+        self.font_family = family.into();
+        self
+    }
+
     /// Sets the font weight of the text.
     pub fn with_weight(mut self, anchor: impl Into<FontWeight>) -> Self {
         self.font_weight = anchor.into();
+        self
+    }
+
+    /// Sets the font slant. `true` requests an italic face.
+    pub const fn with_italic(mut self, italic: bool) -> Self {
+        self.font_style = if italic {
+            FontStyle::Italic
+        } else {
+            FontStyle::Normal
+        };
+        self
+    }
+
+    /// Sets the font slant from a value such as `"italic"`.
+    pub fn with_font_style(mut self, style: impl Into<FontStyle>) -> Self {
+        self.font_style = style.into();
         self
     }
 

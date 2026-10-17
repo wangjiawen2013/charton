@@ -8,6 +8,7 @@ use crate::core::layer::{
     TextConfig,
 };
 use crate::core::layout::{GuideBlockLayout, LegendLayoutPlan};
+use crate::error::ChartonError;
 use crate::scale::ScaleDomain;
 use crate::scale::mapper::VisualMapper;
 use crate::theme::Theme;
@@ -38,12 +39,12 @@ impl LegendRenderer {
         ctx: &PanelContext,
         placement: &Rect,
         band: &Rect,
-    ) {
+    ) -> Result<(), ChartonError> {
         // Resolve the legend position from the theme.
         let position = plan.position;
 
         if specs.is_empty() || matches!(position, LegendPosition::None) {
-            return;
+            return Ok(());
         }
 
         let font_size = theme.legend_label_size;
@@ -88,9 +89,10 @@ impl LegendRenderer {
                 text_anchor: "start".to_string(),
                 dominant_baseline: "central".into(),
                 font_weight: "bold".to_string(),
+                font_style: "normal".to_string(),
                 opacity: 1.0,
                 angle: 0.0,
-            });
+            })?;
 
             // 2. Draw the content: a gradient bar, or the discrete entries.
             // Entry offsets are relative to the block origin and already sit
@@ -108,7 +110,7 @@ impl LegendRenderer {
                             theme,
                             is_horizontal,
                             geometry,
-                        );
+                        )?;
                     }
                 }
                 GuideKind::Legend => {
@@ -124,12 +126,13 @@ impl LegendRenderer {
                         block_y,
                         font_size,
                         theme,
-                    );
+                    )?;
                 }
             };
         }
 
         backend.end_clip_scope();
+        Ok(())
     }
 
     /// Whether `inner` lies completely inside `outer`.
@@ -193,7 +196,7 @@ impl LegendRenderer {
         theme: &Theme,
         is_horizontal: bool,
         geometry: ColorBarGeometry,
-    ) {
+    ) -> Result<(), ChartonError> {
         // The gradient runs along the bar, so on a vertical bar the measured
         // length becomes the drawn height.
         let (bar_w, bar_h) = if is_horizontal {
@@ -269,9 +272,10 @@ impl LegendRenderer {
                         text_anchor: "middle".to_string(),
                         dominant_baseline: "hanging".into(),
                         font_weight: "normal".to_string(),
+                        font_style: "normal".to_string(),
                         opacity: 1.0,
                         angle: 0.0,
-                    });
+                    })?;
                 } else {
                     let tick_y = y + (bar_h * (1.0 - norm));
                     backend.draw_line(LineConfig {
@@ -304,12 +308,15 @@ impl LegendRenderer {
                         text_anchor: "start".to_string(),
                         dominant_baseline: "central".into(),
                         font_weight: "normal".to_string(),
+                        font_style: "normal".to_string(),
                         opacity: 1.0,
                         angle: 0.0,
-                    });
+                    })?;
                 }
             }
         }
+
+        Ok(())
     }
 
     /// Draws the discrete entries of one legend block.
@@ -329,7 +336,7 @@ impl LegendRenderer {
         block_y: f64,
         font_size: f64,
         theme: &Theme,
-    ) {
+    ) -> Result<(), ChartonError> {
         let font_family = &theme.legend_label_family;
         let cell = block.metrics.cell;
         let row = block.metrics.row;
@@ -368,10 +375,13 @@ impl LegendRenderer {
                 text_anchor: "start".to_string(),
                 dominant_baseline: "central".into(),
                 font_weight: "normal".to_string(),
+                font_style: "normal".to_string(),
                 opacity: 1.0,
                 angle: 0.0,
-            });
+            })?;
         }
+
+        Ok(())
     }
 
     /// The color a legend symbol is drawn with.
