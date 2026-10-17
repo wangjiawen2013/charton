@@ -279,6 +279,36 @@ fn title_band(family: Option<&str>) -> (usize, usize) {
     render_ink(CONTROL_TITLE, family).title_window()
 }
 
+/// Renders `"2.5"` and `"25"` in `family` and asserts that the period adds its
+/// own ink component, optionally saving the `"2.5"` render.
+///
+/// An absolute blob count is font-specific: a text face may draw a digit with
+/// more than one disconnected stroke (Songti SC does). The period must still
+/// contribute a separate component, so the two strings are compared directly.
+/// When an oversized glyph swallows the period, the counts stop increasing.
+fn assert_period_survives(family: &str, save_as: Option<&str>) -> (usize, usize) {
+    let (y0, y1) = title_band(Some(family));
+
+    let png = must_render("2.5", Some(family));
+    if let Some(name) = save_as {
+        save(name, &png);
+    }
+    let with_period = Ink::from_pixmap(&png).blobs_in(y0, y1);
+    let without_period = Ink::from_pixmap(&must_render("25", Some(family))).blobs_in(y0, y1);
+
+    assert!(
+        with_period > without_period,
+        "family {family:?}: \"2.5\" has {with_period} ink blobs but \"25\" has \
+         {without_period}; the decimal point was swallowed by an oversized neighbour"
+    );
+    assert!(
+        without_period >= 2,
+        "family {family:?}: \"25\" should have at least two ink blobs, got {without_period}"
+    );
+
+    (with_period, without_period)
+}
+
 /// Detects `.notdef` (tofu) characters by rendering them one at a time and
 /// comparing the silhouette to the font's own `.notdef` glyph.
 ///
@@ -647,14 +677,7 @@ fn reported_macos_cases() {
 
     // 4. PingFang SC swallowed the decimal point: "2.5" read as "25".
     if family_installed("PingFang SC") {
-        let (y0, y1) = title_band(Some("PingFang SC"));
-        let png = must_render("2.5", Some("PingFang SC"));
-        save("macos-4-pingfang-decimal", &png);
-        let blobs = Ink::from_pixmap(&png).blobs_in(y0, y1);
-        assert_eq!(
-            blobs, 3,
-            "report 4: PingFang SC drew \"2.5\" as {blobs} ink blobs, not 3 (2, ., 5)"
-        );
+        assert_period_survives("PingFang SC", Some("macos-4-pingfang-decimal"));
     } else {
         skip("PingFang SC is not installed");
     }
@@ -665,35 +688,23 @@ fn reported_macos_cases() {
 /// Before the fix glyphs were scaled by `units_per_em` instead of ab_glyph's
 /// `scale_factor`, so on faces whose `height_unscaled` differs (PingFang SC,
 /// Microsoft YaHei, Hiragino) they were drawn wider than their advances; the
-/// oversized `2` covered the `.` and `2.5` was read as `25`. A covered period
-/// merges the three ink blobs into fewer.
+/// oversized `2` covered the `.` and `2.5` was read as `25`.
+///
+/// The period must add its own ink component. An absolute "three blobs" count
+/// would be font-specific: some text faces (Songti SC on macOS) draw a digit
+/// with more than one disconnected stroke. Comparing against the same string
+/// without the period isolates the property under test.
 #[test]
 fn decimal_point_is_not_swallowed() {
     let Some(family) = pick_mismatched_metrics_family() else {
         return skip("no installed font has height_unscaled != units_per_em");
     };
 
-    let (y0, y1) = title_band(Some(&family));
+    assert_period_survives(&family, Some("decimal-mismatched-metrics"));
 
-    let png = must_render("2.5", Some(&family));
-    let blobs = Ink::from_pixmap(&png).blobs_in(y0, y1);
-    save("decimal-mismatched-metrics", &png);
-    assert_eq!(
-        blobs, 3,
-        "family {family:?}: \"2.5\" should be three ink blobs (2, ., 5), got {blobs}; \
-         the decimal point was swallowed by an oversized neighbour"
-    );
-
-    // `25` is two blobs, which shows the counter itself is sound.
-    let png = must_render("25", Some(&family));
-    let blobs = Ink::from_pixmap(&png).blobs_in(y0, y1);
-    assert_eq!(
-        blobs, 2,
-        "family {family:?}: \"25\" should be two ink blobs, got {blobs}"
-    );
-
-    // The bundled face has height == units_per_em, so it is a control: the
-    // period must survive there in both the old and the new code.
+    // The bundled face has height == units_per_em, so it is a control: its
+    // digits are connected and the period must survive in both the old and the
+    // new code.
     let (y0, y1) = title_band(None);
     let png = must_render("2.5", None);
     let blobs = Ink::from_pixmap(&png).blobs_in(y0, y1);
