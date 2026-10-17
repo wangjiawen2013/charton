@@ -31,16 +31,13 @@ plugin add ~/.cargo/bin/nu_plugin_charton                        # Linux/macOS
 plugin add 'C:/Users/you/.cargo/bin/nu_plugin_charton.exe'       # Windows
 ```
 
-In Nushell 0.116 a registered plugin is not loaded automatically — its commands
-enter scope after `plugin use`. Add that line to `config.nu` to load it every
-session:
+`plugin add` registers the plugin. To load its commands in the current session,
+run `plugin use` (a parser keyword, so it must be on its own line and cannot
+share a script with `plugin add`):
 
 ```nu
 plugin use charton
 ```
-
-`plugin use` is a parser keyword, so it must be on its own line and cannot share
-a script with the `plugin add` that registers the plugin.
 
 Verify:
 
@@ -51,6 +48,10 @@ plugin list | where name == charton
 
 The last command draws inline in an interactive terminal; in a non-interactive
 context (`nu -c`, redirected output) it returns the SVG text instead.
+
+> **First chart looks soft?** That is the default `halfblock` renderer, which
+> works on every terminal. Set `inline_style` once in `config.nu` for sharp
+> output — see [Inline rendering](#inline-rendering).
 
 ---
 
@@ -122,7 +123,7 @@ The mark is the subcommand and `-x` / `-y` name the columns. That is the whole
 essentials:
 
 ```nu
-# Draw inline (Kitty / iTerm2 / Sixel / truecolor half-blocks)
+# Draw inline
 ls | charton bar -x name -y size
 
 # Save instead — the format follows the extension
@@ -451,14 +452,17 @@ fall back to the default.
 | `--raw` | Return the image instead of drawing inline |
 | `--png` | With `--raw`, return PNG bytes instead of an SVG string |
 | `--scale` | Raster pixel scale (default 1.0; also disables inline auto-fit) |
-| `--inline-style` | `auto` (default) \| `halfblock` \| `iterm2` \| `kitty` \| `sixel` |
+| `--inline-style` | `halfblock` (default) \| `iterm2` \| `kitty` \| `sixel` |
 | `--no-inline` | Never draw inline |
 | `--force-inline` | Draw inline even when stdout is not a TTY (testing) |
 
 ## Configuration
 
 Set defaults in `$env.config.plugins.charton`. Flags win over config, and config
-wins over built-in defaults. Unknown keys warn on stderr, so typos surface.
+wins over built-in defaults; `CHARTON_INLINE_STYLE` sits between the flag and
+config for the inline renderer. Unknown keys warn on stderr, so typos surface.
+Keys accept snake_case or kebab-case, so `inline_style` and `inline-style` are
+the same setting.
 
 ```nu
 $env.config.plugins.charton = {
@@ -467,7 +471,7 @@ $env.config.plugins.charton = {
     scale: 1.0                     # output pixels = width × scale
     cell_width: 9                  # terminal cell size in device px
     cell_height: 20                # (tune if inline charts look soft)
-    inline_style: kitty            # auto | halfblock | iterm2 | kitty | sixel
+    inline_style: kitty            # halfblock (default) | iterm2 | kitty | sixel
     grid: true
     palette: tab10                 # or ["#333" "#6fc481" "red"]
     legend: bottom                 # left | right | top | bottom | none
@@ -484,7 +488,7 @@ $env.config.plugins.charton = {
 | `width`, `height` | int | Default pixel canvas |
 | `scale` | float | Raster pixel scale; default 1.0 (output = `width × height`), >1 gives a higher-density asset. Disables inline auto-fit |
 | `cell_width`, `cell_height` | int | Assumed terminal cell size in device px; used to fit inline images |
-| `inline_style` | string | Default inline renderer |
+| `inline_style` | string | Inline renderer: `halfblock` (default) / `iterm2` / `kitty` / `sixel`; set it once per terminal (see [Inline rendering](#inline-rendering)) |
 | `grid` | bool | Show grid lines |
 | `palette` | string \| list | Named palette (`tab10`…`accent`) or explicit colours |
 | `legend` | string | `left` / `right` / `top` / `bottom` / `none` |
@@ -496,20 +500,32 @@ $env.config.plugins.charton = {
 
 ## Inline rendering
 
-In an interactive terminal the plugin draws the chart itself, best renderer
-first, chosen from the environment:
+A terminal can only show the bitmap protocols it implements, and there is no
+portable way to ask it which ones those are. So the plugin does not guess: it
+uses the renderer you choose, and falls back to the universal `halfblock`
+renderer (the default) when nothing is configured.
 
-| Tier | Protocol | Terminals |
+| Protocol | Transport | Notes |
 |---|---|---|
-| 1 | **Kitty graphics** | Kitty, Ghostty, recent WezTerm |
-| 2 | **iTerm2 inline images** (`OSC 1337`) | iTerm2, WezTerm |
-| 3 | **Sixel** | xterm, foot, mlterm, recent Windows Terminal |
-| 4 | **Truecolor half-blocks** (`▀`) | everywhere |
+| `kitty` | Kitty graphics protocol (`ESC_G…`) | Sharp bitmap where supported |
+| `iterm2` | iTerm2 inline images (`OSC 1337`) | Sharp bitmap where supported |
+| `sixel` | DEC Sixel (`ESC P…q`) | Sharp bitmap where supported |
+| `halfblock` | Truecolor `▀` cells | **Default**; works on any UTF-8 terminal |
 
-Tiers 1–3 hand a real PNG bitmap to the terminal, so text and thin lines stay
-sharp. Tier 4 is the universal fallback: it packs the bitmap into coloured `▀`
-characters and works on any UTF-8 terminal. Override with `--inline-style`, the
-`CHARTON_INLINE_STYLE` environment variable, or `inline_style` in config.
+The three bitmap protocols hand a real PNG to the terminal, so text and thin
+lines stay sharp. `halfblock` packs the bitmap into coloured `▀` characters and
+is the safe fallback. Support varies by terminal *and* version, so check your
+terminal's documentation.
+
+Choose the protocol once per terminal in config; every `charton` call then
+uses it:
+
+```nu
+$env.config.plugins.charton = { inline_style: iterm2 }
+```
+
+Precedence is `--inline-style` > `CHARTON_INLINE_STYLE` > `inline_style` in
+config > `halfblock`. Flags remain available for one-off use.
 
 Inline drawing only happens when the plugin is **not** in stdio mode and its
 `stdout` is a TTY; otherwise it falls back to `-o`, `--raw`, or an SVG string.
@@ -518,28 +534,31 @@ The rationale (process model, resolution fitting, protocol versioning) is in
 
 ### Over SSH
 
-Terminal identity variables (`TERM_PROGRAM`, `WEZTERM_*`, `KITTY_*`, ...) are
-often not forwarded, but `TERM` is. If your client is not detected — for
-example WezTerm set to `term = "xterm-256color"` — force the protocol:
+Terminal-brand environment variables are often not forwarded over SSH, and the
+plugin does not inspect them anyway. Set the protocol explicitly for the remote
+session. `CHARTON_INLINE_STYLE` overrides the config value, so it is handy for
+a one-off connection:
 
 ```nu
-$env.CHARTON_INLINE_STYLE = "iterm2"             # WezTerm / iTerm2
-$env.config.plugins.charton = { inline_style: kitty }
+$env.CHARTON_INLINE_STYLE = "iterm2"
+# or persist it for this machine instead:
+$env.config.plugins.charton = { inline_style: iterm2 }
 ```
 
 ## Troubleshooting
 
 | Symptom | Try |
 |---|---|
-| Text and axes render as small coloured blocks | The half-block fallback is in use. Force an image protocol: `--inline-style iterm2` (WezTerm/iTerm2), `kitty`, or `sixel`. |
+| Text and axes render as small coloured blocks | Expected with the default `halfblock`. Set `inline_style` once in config to the protocol your terminal supports: `iterm2`, `kitty`, or `sixel`. |
+| Inline chart is garbled or does not appear | The chosen protocol is not supported by this terminal/version. Try another (`halfblock` always works), or update the terminal. |
 | Nothing inline, just an SVG string | stdout is not a TTY (piping / `nu -c`), or the plugin is in stdio mode. Use `-o` or `--raw`. |
 | Charts look soft or stretched | Tune `cell_width` / `cell_height`, or pass an explicit `--scale`. |
 | Command not found after a rebuild | Re-register (`plugin add <path>`) and restart, or `plugin rm charton` then add it again. |
 | `--interpolation` rejected by `charton bar` | Flags are per-mark. Use `charton line` (or check `help charton bar`). |
 
-`charton-probe` reports the transport, terminal capabilities, and the
-environment variables used for detection. It is a development tool, built only
-with `--features probe`:
+`charton-probe` reports the transport, terminal capability signals, and the
+environment variables it saw. It is a development tool, built only with
+`--features probe`:
 
 ```sh
 cargo build -p nu_plugin_charton --release --features probe

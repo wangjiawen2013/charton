@@ -89,9 +89,7 @@ impl PluginCommand for Probe {
                 "TERM" => env("TERM"),
                 "COLORTERM" => env("COLORTERM"),
                 "TERM_PROGRAM" => env("TERM_PROGRAM"),
-                "WT_SESSION" => env("WT_SESSION"),
-                "KITTY_WINDOW_ID" => env("KITTY_WINDOW_ID"),
-                "WEZTERM_EXECUTABLE" => env("WEZTERM_EXECUTABLE"),
+                "CHARTON_INLINE_STYLE" => env("CHARTON_INLINE_STYLE"),
             },
             span,
         );

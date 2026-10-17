@@ -27,7 +27,7 @@ inline rendering is allowed  ⇔  NOT stdio mode  AND  stdout is a TTY
 
 `engine.is_using_stdio()` reports the transport; `stdout().is_terminal()` gates
 the rest. The `charton-probe` command prints exactly this decision, plus the
-environment variables used for protocol detection:
+terminal environment variables it saw:
 
 ```nu
 charton-probe | to md
@@ -36,21 +36,32 @@ charton-probe | to md
 In stdio mode (or when `stdout` is a pipe) the plugin silently falls back to
 `-o` saving, `--raw` data, or an SVG string — it never writes escape sequences.
 
-## 2. The inline rendering ladder
+## 2. Inline rendering transports
 
-Terminals disagree about how to display images, so the plugin tries four tiers
-and picks the best one the environment advertises:
+Terminals disagree about how to display images. The plugin supports four
+transports and uses the one you choose; it does **not** guess from terminal
+names or environment variables, because protocol support is not discoverable
+portably and brand heuristics break across terminals, versions, and SSH.
 
-| Tier | Protocol | Detected from | Terminals |
-|---|---|---|---|
-| 1 | **Kitty graphics** (`ESC_G…`) | `KITTY_WINDOW_ID`, `TERM=*kitty*`, `TERM_PROGRAM=*ghostty*` | Kitty, Ghostty, recent WezTerm |
-| 2 | **iTerm2 inline images** (`OSC 1337`) | `TERM_PROGRAM=*iterm*` or `*wezterm*`, `WEZTERM_*` | iTerm2, WezTerm |
-| 3 | **Sixel** (`ESC P…q`) | `TERM=*sixel*`, `foot*`, `mlterm*` | xterm, foot, mlterm, Windows Terminal 1.22+ |
-| 4 | **Truecolor half-blocks** (`▀`) | always | everything |
+| Protocol | Transport | Default? |
+|---|---|---|
+| `kitty` | Kitty graphics protocol (`ESC_G…`) | |
+| `iterm2` | iTerm2 inline images (`OSC 1337`) | |
+| `sixel` | DEC Sixel (`ESC P…q`) | |
+| `halfblock` | Truecolor half-blocks (`▀`) | ✓ |
 
-Override with `--inline-style auto|halfblock|iterm2|kitty|sixel`. WezTerm is
-mapped to **iTerm2** deliberately: it is its most reliable protocol, and it
-avoids the platform-specific Sixel support matrix.
+Because the plugin never guesses, the default is `halfblock`: it always
+renders, but it is visibly softer than a bitmap protocol. A fresh install
+looking soft is therefore expected behavior, not a failed render.
+
+Choose with `--inline-style halfblock|iterm2|kitty|sixel`, the
+`CHARTON_INLINE_STYLE` environment variable, or `inline_style` in
+`$env.config.plugins.charton`. Precedence is flag > env > config > `halfblock`.
+Set it once per terminal in config:
+
+```nu
+$env.config.plugins.charton = { inline_style: kitty }
+```
 
 Every frame ends on a clean line at column 0, so whatever follows — usually
 the shell prompt — starts below the chart at the left margin.

@@ -401,7 +401,7 @@ fn base_signature(name: &str) -> Signature {
         .named(
             "inline-style",
             SyntaxShape::String,
-            "Inline renderer: auto | halfblock | iterm2 | kitty | sixel",
+            "Inline renderer: halfblock | iterm2 | kitty | sixel (default halfblock)",
             None,
         )
         .named(
@@ -675,11 +675,10 @@ fn complete_arg(arg_type: ArgType) -> Option<Vec<DynamicSuggestion>> {
         ],
         "theme" => &[("auto", ""), ("light", ""), ("dark", "")],
         "inline-style" => &[
-            ("auto", ""),
-            ("halfblock", ""),
-            ("iterm2", ""),
-            ("kitty", ""),
-            ("sixel", ""),
+            ("halfblock", "universal truecolor blocks (default)"),
+            ("iterm2", "iTerm2 inline images"),
+            ("kitty", "Kitty graphics protocol"),
+            ("sixel", "DEC Sixel"),
         ],
         "facet-strategy" => &[("fixed", ""), ("free", ""), ("free_x", ""), ("free_y", "")],
         "color-map" => &[
@@ -901,11 +900,15 @@ pub(crate) fn run_chart(
         None => None,
     };
 
+    // Precedence: flag > generic env override > config > universal default.
+    // There is deliberately no terminal-brand detection: protocol support is
+    // not discoverable portably, so choose it once per terminal in config.
     let inline_style = render::InlineStyle::parse(
         &call
             .get_flag::<String>("inline-style")?
+            .or_else(|| std::env::var("CHARTON_INLINE_STYLE").ok())
             .or_else(|| cfg.inline_style.clone())
-            .unwrap_or_else(|| "auto".to_string()),
+            .unwrap_or_else(|| "halfblock".to_string()),
     )
     .map_err(|e| LabeledError::new("Invalid inline style").with_label(e, span))?;
 
@@ -1070,12 +1073,6 @@ pub(crate) fn run_chart(
         let max_cols = cols.saturating_sub(1).max(20);
         let max_rows = rows.saturating_sub(2).max(6);
 
-        let style = if inline_style == render::InlineStyle::Auto {
-            render::InlineStyle::detect()
-        } else {
-            inline_style
-        };
-
         // Protocols that hand a bitmap to the terminal (iTerm2, Kitty,
         // Sixel) look best when the raster already matches the terminal's
         // pixel area: the terminal then scales little or not at all, which
@@ -1083,7 +1080,7 @@ pub(crate) fn run_chart(
         // us per cell, so they keep the full-resolution raster.
         let terminal_sized = !scale_explicit
             && matches!(
-                style,
+                inline_style,
                 render::InlineStyle::Iterm2
                     | render::InlineStyle::Kitty
                     | render::InlineStyle::Sixel
@@ -1097,7 +1094,7 @@ pub(crate) fn run_chart(
         let bytes = render::to_png(&inline_chart)
             .map_err(|e| LabeledError::new("PNG rendering failed").with_label(e, span))?;
 
-        let art = match style {
+        let art = match inline_style {
             render::InlineStyle::Iterm2 => {
                 let (w, h) = render::png_dimensions(&bytes).map_err(|e| {
                     LabeledError::new("Inline rendering failed").with_label(e, span)
@@ -1116,11 +1113,8 @@ pub(crate) fn run_chart(
                 render::sixel_image(&bytes, max_cols, max_rows, cell_w, cell_h)
                     .map_err(|e| LabeledError::new("Inline rendering failed").with_label(e, span))?
             }
-            // `Auto` already resolved above; treat as the universal fallback.
-            render::InlineStyle::HalfBlock | render::InlineStyle::Auto => {
-                render::png_to_halfblock(&bytes, max_cols, max_rows)
-                    .map_err(|e| LabeledError::new("Inline rendering failed").with_label(e, span))?
-            }
+            render::InlineStyle::HalfBlock => render::png_to_halfblock(&bytes, max_cols, max_rows)
+                .map_err(|e| LabeledError::new("Inline rendering failed").with_label(e, span))?,
         };
 
         let mut out = std::io::stdout();

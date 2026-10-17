@@ -27,6 +27,13 @@ stated in the README and in each release.
   (the library supersamples internally, so it stays sharp). Pass `--scale 2.0`
   to request a higher-density asset. Inline bitmap protocols still auto-fit the
   raster to the terminal, and an explicit `--scale` still disables that.
+- **Inline rendering uses an explicit transport; the default is `halfblock`.**
+  The plugin does not inspect terminal-brand variables (`TERM_PROGRAM`,
+  `KITTY_*`, `WEZTERM_*`, ...), which are brittle across terminals, versions, and
+  SSH. Choose the renderer with `--inline-style`, `CHARTON_INLINE_STYLE`, or
+  `inline_style` in config (flag > env > config > `halfblock`) — set it once per
+  terminal and no terminal names are needed in the code. `charton-probe` also
+  no longer reports brand-specific variables.
 
 ### Fixed
 
