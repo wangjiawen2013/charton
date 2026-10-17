@@ -15,6 +15,14 @@ stated in the README and in each release.
 
 ### Changed
 
+- **Chart text drawn to PNG is slightly larger.** Charton's raster backend now
+  interprets `font_size` as an em size, the same as SVG and PDF, so the labels,
+  ticks and legend in `-o chart.png` and in inline output grow by the font's
+  line-box ratio (about 17% for the default Latin stack, more for CJK fallback
+  faces). Nothing else about the layout changed: titles and legends were always
+  measured in ems, so they now fill the space that was reserved for them.
+  `--font-scale` still defaults to 1.5; lower it if you prefer the previous
+  size.
 - **`charton violin` no longer draws the inner box.** It was composing a
   `quantile-box` into the atom, so it did not match Charton's `mark_violin`
   (`examples/violin.rs`). `charton violin` is now the plain density outline.
