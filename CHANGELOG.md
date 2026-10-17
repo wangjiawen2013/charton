@@ -4,7 +4,7 @@ All notable changes to the `charton` library are documented here. The project
 follows [Semantic Versioning](https://semver.org/). Releases before 0.7.0
 predate this file.
 
-## [Unreleased]
+## [0.8.5] - 2026-10-17
 
 ### Added
 
@@ -79,6 +79,11 @@ predate this file.
 
 ### Changed
 
+- **Reversing a numeric category axis is now rejected.** `with_reverse` on an
+  axis built with `with_category_labels` would flip the labels without flipping
+  the numeric positions, so every mark would sit under the wrong label. The
+  engine now reports the unsupported combination instead of drawing a wrong
+  axis; reorder the categories instead.
 - **Raster text is slightly larger, and uses no hidden letter spacing.** With
   the em fix above, PNG text grows by the font's line-box ratio (about 17% for
   Inter, 24% for Microsoft YaHei). The raster backend also added a hard-coded
