@@ -45,6 +45,10 @@ stated in the README and in each release.
 
 ### Fixed
 
+- **Y-axis titles no longer crowd their tick labels at the default
+  `--font-scale 1.5`.** Charton now scales the text-adjacent spacing with the
+  font, so the gap between the axis title and tick labels keeps the same
+  proportion as at scale `1.0`.
 - **Ridgeline recipes no longer need `--x-expand`.** Charton now trains a
   category axis from the numeric positions the band emits, so an overlapping
   ridge expands the axis automatically. `--x-expand` remains available for

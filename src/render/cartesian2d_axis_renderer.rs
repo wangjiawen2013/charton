@@ -223,7 +223,7 @@ fn draw_axis_title(
 
     let is_flipped = coord.is_flipped();
     let tick_line_len = 6.0;
-    let title_gap = 5.0;
+    let title_gap = theme.axis_title_gap;
 
     // Resolve which angle and scale are mapped to this physical axis.
     let (angle_rad, target_scale) = if is_flipped {

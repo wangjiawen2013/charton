@@ -623,7 +623,7 @@ impl LayoutEngine {
     ) -> f64 {
         // Physical constants (should match those used in draw_ticks_and_labels)
         let tick_line_len = 6.0;
-        let title_gap = 5.0; // Distance between labels and the title text
+        let title_gap = theme.axis_title_gap; // Gap between labels and the title text
         // Small safety margin only; the theme's canvas margins provide the real
         // breathing room, so it does not need to reserve a wide band.
         let edge_buffer = 4.0;

@@ -31,7 +31,7 @@ pub(crate) fn render_geo_axes(
     let label_color = theme.label_color;
     let label_family = theme.label_family.clone();
     let tick_len = 6.0;
-    let title_gap = 5.0;
+    let title_gap = theme.axis_title_gap;
 
     // --- X-axis (Longitude) ---
     if visibility.show_x {

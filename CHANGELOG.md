@@ -12,6 +12,9 @@ predate this file.
   for text marks, plus a `font_style` field on `TextConfig` that backends read.
   `with_font_family` completes the text mark, whose family field previously had
   no setter.
+- **`Theme::with_axis_title_gap(...)`** controls the gap between tick labels and
+  the axis title. It is part of the text layout that `with_font_scale` now
+  scales.
 - **`ScaleDomain::DiscretePositions`** records both the category labels and the
   numeric position extent of an axis built with `with_category_labels`.
   `ScaleDomain::discrete_labels()` and `ScaleDomain::is_discrete()` make the
@@ -79,6 +82,12 @@ predate this file.
 
 ### Changed
 
+- **`with_font_scale` now scales the text layout, not just the glyphs.** Axis
+  title/tick/label padding, the title gap, legend text gaps, and facet strip
+  padding scale with the font. Enlarging text without its surrounding gaps made
+  axis titles crowd their tick labels; the Nushell plugin's default `1.5` was
+  visibly tighter than the library at `1.0`. The default layout is unchanged
+  because the scale defaults to `1.0`.
 - **Reversing a numeric category axis is now rejected.** `with_reverse` on an
   axis built with `with_category_labels` would flip the labels without flipping
   the numeric positions, so every mark would sit under the wrong label. The
