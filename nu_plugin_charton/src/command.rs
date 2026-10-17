@@ -56,9 +56,10 @@ use crate::config::{self, Config, LegendSetting};
 use crate::converter::Table;
 use crate::render;
 
-/// Default multiplier for every chart font. Charton's base sizes target a
-/// standalone figure; fitted into a terminal they look small, so the plugin
-/// enlarges them. Override with `--font-scale` or the `font_scale` config key.
+/// Default multiplier for every chart font and its surrounding text spacing.
+/// Charton's base sizes target a standalone figure; fitted into a terminal they
+/// look small, so the plugin enlarges the glyphs and the gaps between them
+/// together. Override with `--font-scale` or the `font_scale` config key.
 pub(crate) const DEFAULT_FONT_SCALE: f64 = 1.5;
 
 /// Every mark subcommand: `(command suffix, charton geom)`.
@@ -377,7 +378,7 @@ fn base_signature(name: &str) -> Signature {
         .named(
             "font-scale",
             SyntaxShape::Number,
-            "Scale every chart font (title, labels, ticks, legend); default 1.5",
+            "Scale chart text and its surrounding spacing (title, labels, ticks, legend); default 1.5",
             None,
         )
         .named(

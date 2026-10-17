@@ -31,7 +31,6 @@ pub(crate) fn render_geo_axes(
     let label_color = theme.label_color;
     let label_family = theme.label_family.clone();
     let tick_len = 6.0;
-    let title_gap = theme.axis_title_gap;
 
     // --- X-axis (Longitude) ---
     if visibility.show_x {
@@ -92,7 +91,7 @@ pub(crate) fn render_geo_axes(
                 .fold(0.0, f64::max);
 
             let label_x = panel.x + panel.width / 2.0;
-            let label_y = y_bottom + tick_len + max_tick_height + theme.label_padding + title_gap;
+            let label_y = y_bottom + tick_len + max_tick_height + theme.label_padding;
             backend.draw_text(TextConfig {
                 x: label_x as Precision,
                 y: label_y as Precision,
@@ -164,13 +163,8 @@ pub(crate) fn render_geo_axes(
                 .map(|t| crate::core::utils::estimate_text_width(&t.1, font_size))
                 .fold(0.0, f64::max);
 
-            let label_x = x_left
-                - tick_len
-                - max_tick_width
-                - theme.label_padding
-                - title_gap
-                - (label_size / 2.0)
-                - 3.0;
+            let label_x =
+                x_left - tick_len - max_tick_width - theme.label_padding - (label_size / 2.0) - 3.0;
             let label_y = panel.y + panel.height / 2.0;
 
             backend.draw_text(TextConfig {

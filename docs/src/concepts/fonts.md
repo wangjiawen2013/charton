@@ -125,6 +125,20 @@ Layout budgets use the same em. `estimate_text_width` measures East Asian wide
 characters as one em, so the rectangle a title or legend entry is allotted
 matches the size it is drawn at.
 
+## Scaling all text together
+
+`Theme::with_font_scale(factor)` multiplies every font size **and the gaps that
+separate that text** by the same factor: the main title padding, axis title/tick
+padding, legend spacing, and facet strip padding. Scaling the glyphs alone would
+make an enlarged axis title crowd its tick labels, because the text grows but
+the space around it does not.
+
+The default is `1.0`, so a chart that never calls it is unchanged. The Nushell
+plugin uses `1.5` so charts remain readable in a terminal; its axis titles keep
+the same visual distance from the tick labels as a `1.0` chart does. Individual
+gaps can still be overridden after the scale is applied, for example with
+`Theme::with_label_padding`.
+
 ## CJK and other large scripts
 
 Charton bundles only the small Latin **Inter** face. A full CJK font is several

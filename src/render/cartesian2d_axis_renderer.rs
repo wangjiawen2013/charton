@@ -223,7 +223,6 @@ fn draw_axis_title(
 
     let is_flipped = coord.is_flipped();
     let tick_line_len = 6.0;
-    let title_gap = theme.axis_title_gap;
 
     // Resolve which angle and scale are mapped to this physical axis.
     let (angle_rad, target_scale) = if is_flipped {
@@ -256,7 +255,7 @@ fn draw_axis_title(
             .fold(0.0, f64::max);
 
         // Compute total vertical offset from the panel edge.
-        let v_offset = tick_line_len + max_tick_height + theme.label_padding + title_gap;
+        let v_offset = tick_line_len + max_tick_height + theme.label_padding;
         let y = panel.y + panel.height + v_offset;
 
         backend.draw_text(TextConfig {
@@ -287,12 +286,8 @@ fn draw_axis_title(
             .fold(0.0, f64::max);
 
         // Total horizontal offset for vertical axis title.
-        let h_offset = tick_line_len
-            + max_tick_width
-            + theme.label_padding
-            + title_gap
-            + (theme.label_size / 2.0)
-            + 3.0;
+        let h_offset =
+            tick_line_len + max_tick_width + theme.label_padding + (theme.label_size / 2.0) + 3.0;
         let x = panel.x - h_offset;
 
         backend.draw_text(TextConfig {

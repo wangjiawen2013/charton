@@ -623,7 +623,6 @@ impl LayoutEngine {
     ) -> f64 {
         // Physical constants (should match those used in draw_ticks_and_labels)
         let tick_line_len = 6.0;
-        let title_gap = theme.axis_title_gap; // Gap between labels and the title text
         // Small safety margin only; the theme's canvas margins provide the real
         // breathing room, so it does not need to reserve a wide band.
         let edge_buffer = 4.0;
@@ -663,9 +662,9 @@ impl LayoutEngine {
             0.0
         } else {
             // We reserve the full height of the title font (label_size) plus the
-            // padding and the gap. This ensures the title doesn't overlap labels
-            // and doesn't get clipped by the SVG boundary.
-            title_gap + theme.label_size + label_padding
+            // padding. This ensures the title doesn't overlap labels and doesn't
+            // get clipped by the SVG boundary.
+            theme.label_size + label_padding
         };
 
         // 4. Summation of Layout Segments

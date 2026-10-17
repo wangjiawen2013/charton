@@ -115,15 +115,12 @@ pub struct Theme {
     pub(crate) label_family: String,
     /// Text color for axis titles.
     pub(crate) label_color: SingleColor,
-    /// Spacing between the axis title and the tick labels.
-    pub(crate) label_padding: f64,
-
     /// Gap between the tick labels and the axis title, in pixels.
     ///
-    /// This is the breathing room between the numbers/categories and the
-    /// rotated/centered axis title. It scales with [`Theme::with_font_scale`]
-    /// so enlarged text does not crowd its title.
-    pub(crate) axis_title_gap: f64,
+    /// This is the whole gap, not an additional nudge: the axis title renderer
+    /// places the title this far from the tick labels. It scales with
+    /// [`Theme::with_font_scale`] so enlarged text does not crowd its title.
+    pub(crate) label_padding: f64,
 
     // --- Tick Label Styling (The numbers/categories on axes) ---
     /// Font size for the text next to axis ticks.
@@ -374,14 +371,9 @@ impl Theme {
         self
     }
 
+    /// Sets the gap between the tick labels and the axis title, in pixels.
     pub const fn with_label_padding(mut self, padding: f64) -> Self {
         self.label_padding = padding;
-        self
-    }
-
-    /// Sets the gap between the tick labels and the axis title, in pixels.
-    pub const fn with_axis_title_gap(mut self, gap: f64) -> Self {
-        self.axis_title_gap = gap;
         self
     }
 
@@ -557,10 +549,10 @@ impl Theme {
     /// Multiplies every font size — title, axis labels, tick labels, legend,
     /// and facet labels — and the gaps that separate that text by `factor`.
     ///
-    /// Use it to make all of a chart's text larger or smaller in one step,
-    /// relative to the theme's current sizes; `1.0` leaves them unchanged.
-    /// Scaling the gaps with the glyphs keeps the layout proportional: enlarging
-    /// text alone makes axis titles crowd their tick labels.
+    /// This includes the main title padding, axis title/tick padding, legend
+    /// spacing, and facet strip padding. Scaling the gaps with the glyphs keeps
+    /// the layout proportional: enlarging text alone makes axis titles crowd
+    /// their tick labels.
     pub fn with_font_scale(mut self, factor: f64) -> Self {
         self.title_size *= factor;
         self.label_size *= factor;
@@ -573,7 +565,6 @@ impl Theme {
         self.title_padding *= factor;
         self.label_padding *= factor;
         self.tick_label_padding *= factor;
-        self.axis_title_gap *= factor;
         self.legend_marker_text_gap *= factor;
         self.legend_title_gap *= factor;
         self.legend_item_v_gap *= factor;
@@ -640,8 +631,7 @@ impl Default for Theme {
             label_size: 15.0,
             label_family: font_stack.clone(),
             label_color: "#333".into(),
-            label_padding: 5.0,
-            axis_title_gap: 5.0,
+            label_padding: 10.0,
 
             tick_label_size: 13.0,
             tick_label_family: font_stack.clone(),
@@ -741,9 +731,8 @@ mod tests {
         // Text-adjacent gaps scale with them, so axis titles keep their
         // distance from tick labels and the title does not touch the plot.
         assert_eq!(theme.title_padding, 12.0);
-        assert_eq!(theme.label_padding, 10.0);
+        assert_eq!(theme.label_padding, 20.0);
         assert_eq!(theme.tick_label_padding, 6.0);
-        assert_eq!(theme.axis_title_gap, 10.0);
         assert_eq!(theme.legend_marker_text_gap, 16.0);
         assert_eq!(theme.legend_title_gap, 14.0);
         assert_eq!(theme.legend_item_v_gap, 6.0);
