@@ -41,6 +41,26 @@ predate this file.
   because the `2` covered the decimal point. Outlines now use ab_glyph's
   `scale_factor`, the same factor used for advances, kerning and
   ascent/descent.
+- **`font_size` is an em size in every backend.** The raster backend passed it
+  straight to `ab_glyph`'s `PxScale`, which is a *line-box height*, so PNG text
+  was 17-30% smaller than the same font size in SVG and PDF depending on the
+  font (Inter 1.21x its em, Microsoft YaHei 1.32x, PingFang SC about 1.4x). The
+  conversion now happens per face in `core::font::em_scale`, so one em is
+  `font_size` pixels, and a glyph served by a fallback face is the same size as
+  the primary face's glyphs on the same line (`m` and `²` in `m²` used to differ
+  by 17%).
+- **CJK labels are measured at their real width when laying out.** The text
+  width estimate treated every non-ASCII character as 0.55em, so a four
+  character Chinese legend entry was allotted about 2.2em while it draws at 4em
+  and was clipped at the figure edge (in SVG as well as PNG). East Asian
+  Wide/Fullwidth characters now count as one em.
+- **Linux and CJK-system fallbacks are actually reachable.** The fallback chain
+  reused the theme's default family stack, which is Latin-first and lists no
+  Linux CJK family, so a container with only `Noto Sans CJK` installed still
+  drew `.notdef` boxes. Coverage now has its own list
+  (`FALLBACK_FONT_STACK`) with the CJK families of every supported platform,
+  kept separate from the theme's default so adding coverage cannot change how a
+  default chart looks.
 - **Unknown font families are no longer swallowed.** A stack in which no name
   resolves now returns `ChartonError::Font` from `to_png()` / `to_pdf()` instead
   of silently drawing with Inter. Mixed stacks (some names missing) still work,
@@ -48,6 +68,13 @@ predate this file.
 
 ### Changed
 
+- **Raster text is slightly larger, and uses no hidden letter spacing.** Two
+  raster-only behaviours are gone: text was drawn at a line-box scale (see
+  above) and every character was followed by a hard-coded 0.3px of tracking that
+  SVG and PDF never applied, which also made right- and centre-anchored text
+  drift from its own measured width. Text now advances exactly as the font says
+  and matches the other backends. PNG images will look slightly different; the
+  SVG and PDF output is unchanged.
 - **Raster output is now WYSIWYG: `with_size(w, h)` produces a `w × h`
   image.** `scale_factor` now defaults to `1.0` instead of `2.0`, so the size
   you configure is the size you get. Sharpness is no longer the caller's

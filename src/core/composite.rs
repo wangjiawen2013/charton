@@ -1520,28 +1520,13 @@ impl LayeredChart {
         }
     }
 
-    /// Generates and returns a PNG representation of the chart as a byte vector.
+    /// Renders the chart into an off-screen pixel buffer at the configured
+    /// size.
     ///
-    /// This method renders the entire chart into a pixel buffer using the `tiny-skia`
-    /// engine. It creates a mutable clone of the chart to perform the stateful
-    /// "Training Phase" (synchronizing scales and aesthetics) while preserving
-    /// the original chart as an immutable recipe.
-    ///
-    /// # Output size
-    /// The produced bitmap is exactly `width × height` as configured by
-    /// `with_size`, multiplied by `scale_factor` (default `1.0`). With the
-    /// default this is the configured size; `with_scale_factor` is only for
-    /// explicitly requesting a higher-density asset, not for sharpness.
-    ///
-    /// To keep small canvases free of aliasing, the chart is rendered
-    /// internally at 2x and box-downsampled back to the requested size. That
-    /// supersampling is skipped when the requested density is already >= 2x or
-    /// when the intermediate buffer would be too large.
-    ///
-    /// # Returns
-    /// A Result containing the PNG encoded bytes or a ChartonError.
+    /// This is the raster pipeline behind [`to_png`](Self::to_png), split out so
+    /// that tests can assert on pixels without an encode/decode round trip.
     #[cfg(feature = "png")]
-    pub fn to_png(&self) -> Result<Vec<u8>, ChartonError> {
+    pub(crate) fn render_pixmap(&self) -> Result<tiny_skia::Pixmap, ChartonError> {
         // 1. Create a mutable clone for the stateful rendering phase.
         // This ensures the training phase doesn't mutate the original chart instance.
         let mut chart_instance = self.clone();
@@ -1583,8 +1568,33 @@ impl LayeredChart {
             pixmap
         };
 
-        // 6. Finalize PNG Document: encode the raw pixel buffer.
-        pixmap
+        // 6. The buffer is complete; `to_png` encodes it.
+        Ok(pixmap)
+    }
+
+    /// Generates and returns a PNG representation of the chart as a byte vector.
+    ///
+    /// This method renders the entire chart into a pixel buffer using the `tiny-skia`
+    /// engine. It creates a mutable clone of the chart to perform the stateful
+    /// "Training Phase" (synchronizing scales and aesthetics) while preserving
+    /// the original chart as an immutable recipe.
+    ///
+    /// # Output size
+    /// The produced bitmap is exactly `width × height` as configured by
+    /// `with_size`, multiplied by `scale_factor` (default `1.0`). With the
+    /// default this is the configured size; `with_scale_factor` is only for
+    /// explicitly requesting a higher-density asset, not for sharpness.
+    ///
+    /// To keep small canvases free of aliasing, the chart is rendered
+    /// internally at 2x and box-downsampled back to the requested size. That
+    /// supersampling is skipped when the requested density is already >= 2x or
+    /// when the intermediate buffer would be too large.
+    ///
+    /// # Returns
+    /// A Result containing the PNG encoded bytes or a ChartonError.
+    #[cfg(feature = "png")]
+    pub fn to_png(&self) -> Result<Vec<u8>, ChartonError> {
+        self.render_pixmap()?
             .encode_png()
             .map_err(|e| ChartonError::Render(format!("Failed to encode PNG: {}", e)))
     }

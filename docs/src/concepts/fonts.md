@@ -55,8 +55,8 @@ Resolving a stack does not return a single font. It returns an ordered
 
 1. every face named by the stack that exists, in order (the first one is the
    *primary* face);
-2. a curated set of system fallbacks, so scripts the requested fonts do not
-   cover still render;
+2. a curated set of system fallbacks (`FALLBACK_FONT_STACK`), so scripts the
+   requested fonts do not cover still render;
 3. the bundled Inter face.
 
 The primary face defines the line box (`ascent`/`descent`) and so the baseline.
@@ -90,9 +90,40 @@ they are served by the next face in the chain that has them (for example
 Helvetica.
 
 The fallback list is **curated**, not a scan of every installed font. It covers
-CJK and common symbols such as `²`, `µ`, `°`, `℃` and `Ω`. For a script the
-default list does not cover, name a font that has it as the first entry of the
-stack.
+CJK and common symbols such as `²`, `µ`, `°`, `℃` and `Ω`, and it lists the CJK
+families of each supported platform (`PingFang SC` and `Hiragino Sans GB` on
+macOS, `Microsoft YaHei` and `SimHei` on Windows, `Noto Sans CJK` and
+`WenQuanYi Zen Hei` on Linux). For a script the default list does not cover,
+name a font that has it as the first entry of the stack.
+
+The fallback list is deliberately separate from `DEFAULT_FONT_STACK`, the
+theme's default family stack. The theme's stack decides which face text is
+*primarily* drawn with and must stay Latin-first; the fallback list only fills
+in glyphs and must never become the primary face. Keeping them apart means a
+new coverage entry cannot silently change how a default chart looks.
+
+## Text size is an em size
+
+`font_size` means the same thing in every backend: an **em size**, exactly like
+CSS `font-size` and the PDF text operator. A chart with an 18px title has an
+18px em in PNG, SVG and PDF.
+
+That is worth spelling out because the Rust text stack does not work in ems.
+`ab_glyph`'s `PxScale` is the pixel height of the *line box* (`ascent - descent`),
+and the ratio between that height and the em square differs per face: 1.0 for
+many CJK fonts, about 1.21 for Inter, about 1.4 for PingFang SC. Feeding
+`font_size` straight into `PxScale` therefore makes text 17-30% smaller than the
+same font size in SVG, and the error depends on which font the text happens to
+use.
+
+Layout budgets use the same em: `estimate_text_width` measures East Asian wide
+characters as one em, so the rectangle a title or legend entry is allotted
+matches the size it is drawn at.
+
+`core::font::em_scale` performs the conversion, and it is applied **per face**.
+The per-face part matters as much as the conversion: one scale shared by a whole
+fallback chain draws a fallback glyph at a different em than the primary face's
+glyphs, so in `m²` the `m` and the `²` would differ in height by 15-30%.
 
 ## CJK and other large scripts
 
@@ -200,10 +231,16 @@ keep the default stack.
 - `src/core/font.rs` is the single source of truth. New text-drawing backends
   should resolve through `resolve_candidates` rather than querying `fontdb`
   directly, or the backends will drift apart again.
-- A glyph outline must be scaled with `ab_glyph`'s `ScaleFont::scale_factor`
-  (which is relative to `height_unscaled`, *not* `units_per_em`), the same
-  factor used for advances, kerning and ascent/descent. `build_glyph_path` in
-  `raster.rs` is the reference implementation.
+- Text is measured and drawn through `core::font`. `em_scale` converts
+  `font_size` (an em size) into `ab_glyph`'s face-specific `PxScale`, `shape`
+  selects the face per character and returns advances and kerning in pixels,
+  `line_metrics` gives the baseline, and `run_width` totals a run. The raster and
+  PDF backends must draw through these functions, or they will drift apart in
+  size and spacing again. Never pass `font_size` to a font library as a line
+  height, and never share one scale across a fallback chain.
+- `DEFAULT_FONT_STACK` is the theme's visual default; `FALLBACK_FONT_STACK` is
+  the coverage list appended to whatever the user asked for. Add coverage
+  families to the second one.
 - `RenderBackend::draw_text` is fallible so that a backend which resolves fonts
   itself can report a bad family. Backends that defer font selection return
   `Ok(())`.

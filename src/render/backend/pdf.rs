@@ -1,12 +1,12 @@
 use crate::Precision;
-use crate::core::font::FontRequest;
+use crate::core::font::{FontRequest, line_metrics, run_width, shape};
 use crate::core::layer::{
     CircleConfig, GradientRectConfig, LineConfig, PathConfig, PathTopology, PolygonConfig,
     RectConfig, RenderBackend, TextConfig,
 };
 use crate::error::ChartonError;
 use crate::visual::color::SingleColor;
-use ab_glyph::{Font as AbFont, FontArc, PxScale, ScaleFont};
+use ab_glyph::FontArc;
 use ahash::AHashMap;
 use krilla::color::rgb;
 use krilla::geom::{Path, PathBuilder, Point, Rect, Transform};
@@ -304,58 +304,22 @@ impl RenderBackend for PdfBackend<'_, '_> {
         let request = FontRequest::from_css(&config.font_weight, &config.font_style);
         let chain = self.font(&config.font_family, request)?;
 
-        let scale = PxScale::from(config.font_size);
-        // The primary face defines the line box; glyphs may come from fallbacks.
-        let primary = chain[0].1.as_scaled(scale);
+        // The same shaping the raster backend uses, in em pixels, so both draw
+        // the text at the same size and spacing.
+        let faces: Vec<FontArc> = chain.iter().map(|(_, metrics)| metrics.clone()).collect();
+        let placements = shape(&faces, &config.text, config.font_size);
+        let text_width = run_width(&placements);
 
-        // Lay the text out character by character, picking the first face in the
-        // chain that covers each character. Advances are normalized by the font
-        // size because krilla scales them back up when drawing.
-        struct Placement {
-            face: usize,
-            glyph: ab_glyph::GlyphId,
-            advance: f32,
-            kern: f32,
-            range: std::ops::Range<usize>,
-        }
-
-        let mut placements: Vec<Placement> = Vec::with_capacity(config.text.chars().count());
-        let mut byte_offset = 0usize;
-        let mut previous: Option<(usize, ab_glyph::GlyphId)> = None;
-        let mut text_width = 0.0f32;
-
-        for ch in config.text.chars() {
-            let face = chain
-                .iter()
-                .position(|(_, metrics)| metrics.glyph_id(ch) != ab_glyph::GlyphId(0))
-                .unwrap_or(0);
-            let metrics = &chain[face].1;
-            let units_per_em = metrics.units_per_em().unwrap_or(1000.0).max(1.0);
-            let glyph_id = metrics.glyph_id(ch);
-            let advance = metrics.h_advance_unscaled(glyph_id) / units_per_em;
-
-            // Kerning only applies between two glyphs of the same face, so it is
-            // dropped at a face change.
-            let kern = match previous {
-                Some((prev_face, prev_glyph)) if prev_face == face => {
-                    metrics.kern_unscaled(prev_glyph, glyph_id) / units_per_em
-                }
-                _ => 0.0,
-            };
-
-            let start = byte_offset;
-            byte_offset += ch.len_utf8();
-
-            text_width += (advance + kern) * config.font_size;
-            placements.push(Placement {
-                face,
-                glyph: glyph_id,
-                advance,
-                kern,
-                range: start..byte_offset,
-            });
-            previous = Some((face, glyph_id));
-        }
+        // krilla measures advances in em units and multiplies by the font size,
+        // so the pixel advances are converted back here.
+        let to_em = |px: f32| px / config.font_size.max(f32::EPSILON);
+        // Byte range per character, in the same order `shape` returned them;
+        // krilla uses it to subset the embedded font.
+        let byte_ranges: Vec<std::ops::Range<usize>> = config
+            .text
+            .char_indices()
+            .map(|(start, c)| start..start + c.len_utf8())
+            .collect();
 
         // Horizontal placement based on the requested text anchor.
         let start_x = match config.text_anchor.as_str() {
@@ -365,11 +329,10 @@ impl RenderBackend for PdfBackend<'_, '_> {
         };
 
         // Vertical placement based on the requested baseline.
-        let ascent = primary.ascent();
-        let descent = primary.descent();
+        let metrics = line_metrics(&faces[0], config.font_size);
         let baseline_y = match config.dominant_baseline.as_str() {
-            "hanging" => config.y + ascent,
-            "central" | "middle" => config.y + (ascent + descent) / 2.0,
+            "hanging" => config.y + metrics.ascent,
+            "central" | "middle" => config.y + (metrics.ascent + metrics.descent) / 2.0,
             _ => config.y,
         };
 
@@ -403,15 +366,15 @@ impl RenderBackend for PdfBackend<'_, '_> {
                 if i > 0
                     && let Some(last) = glyphs.last_mut()
                 {
-                    last.x_advance += p.kern;
+                    last.x_advance += to_em(p.kern);
                 }
                 glyphs.push(KrillaGlyph::new(
                     GlyphId::new(p.glyph.0 as u32),
-                    p.advance,
+                    to_em(p.advance),
                     0.0,
                     0.0,
                     0.0,
-                    p.range.clone(),
+                    byte_ranges[run_start + i].clone(),
                     None,
                 ));
             }
@@ -425,11 +388,7 @@ impl RenderBackend for PdfBackend<'_, '_> {
                 false,
             );
 
-            let run_width: f32 = run
-                .iter()
-                .map(|p| (p.advance + p.kern) * config.font_size)
-                .sum();
-            run_x += run_width;
+            run_x += run.iter().map(|p| p.kern + p.advance).sum::<f32>();
             run_start = run_end;
         }
 
