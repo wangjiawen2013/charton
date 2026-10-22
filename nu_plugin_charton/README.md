@@ -393,6 +393,7 @@ Because a transform is just a record, the same pieces recombine into new charts
 | `--x-min`, `--x-max`, `--y-min`, `--y-max` | Fix an axis bound (min and max go together) |
 | `--x-expand`, `--y-expand` | Optional padding on an axis: a number (fraction of the range) or `[low, high]` (data units) |
 | `--x-ticks`, `--y-ticks` | Explicit tick values, e.g. `[0 2 4 6]` |
+| `--tick-count` | Aim for about this many ticks per axis; omit to fit as many labels as the panel holds |
 | `--x-format`, `--y-format`, `--legend-format` | Label format: `compact`, or a record `{prefix, suffix, precision, compact, thousands, multiplier}` |
 | `--x-label`, `--y-label`, `--color-label` | Axis and legend titles |
 | `--x-angle` | X tick label angle in degrees |
@@ -499,6 +500,13 @@ $env.config.plugins.charton = {
 | `theme` | string | `auto` / `light` / `dark` |
 | `color_map` | string | Continuous colour map |
 | `font_scale` | float | Multiplies every chart font and its spacing; default 1.5 |
+
+Tick density is intentionally not a config key. Each axis fits as many labels as
+its panel can hold without overlap, which is what you want across different
+chart sizes. A persistent count would disable that adaptivity for every chart,
+so the override is per command: `--tick-count 6`, or an alias such as
+`alias chart-panel = charton bar --tick-count 6`. Explicit `--x-ticks` /
+`--y-ticks` values still win.
 
 ## Inline rendering
 

@@ -115,7 +115,14 @@ impl Config {
         let Value::Record { val, .. } = &value else {
             return Err("$env.config.plugins.charton must be a record".to_string());
         };
+        Self::from_record(val)
+    }
 
+    /// Parse the config record itself.
+    ///
+    /// Kept separate from [`Config::load`] so the parsing rules (aliases,
+    /// validation, unknown-key warnings) can be tested without an engine.
+    fn from_record(val: &Record) -> Result<Self, String> {
         let legend = match val.get("legend") {
             Some(Value::Bool { val: false, .. }) => Some(LegendSetting::Off),
             Some(Value::String { val, .. }) => Some(LegendSetting::parse(val)?),
@@ -286,6 +293,36 @@ mod tests {
     fn custom_palette_from_list() {
         let p = PaletteSetting::Custom(vec!["#333".into(), "red".into()]);
         assert!(to_color_palette(&p).is_ok());
+    }
+
+    /// Every key that has a kebab-case alias accepts both spellings.
+    ///
+    /// `Config::from_record` exists mainly so these parsing rules can be tested
+    /// without a Nushell engine.
+    #[test]
+    fn kebab_case_aliases_are_parsed() {
+        use nu_protocol::Value as NuValue;
+        use nu_protocol::record;
+
+        let kebab = record! {
+            "cell-width" => NuValue::test_int(11),
+            "cell-height" => NuValue::test_int(22),
+            "x-angle" => NuValue::test_float(-45.0),
+            "font-scale" => NuValue::test_float(1.5),
+        };
+        let cfg = Config::from_record(&kebab).unwrap();
+        assert_eq!(cfg.cell_width, Some(11));
+        assert_eq!(cfg.cell_height, Some(22));
+        assert_eq!(cfg.x_angle, Some(-45.0));
+        assert_eq!(cfg.font_scale, Some(1.5));
+
+        let snake = record! {
+            "cell_width" => NuValue::test_int(9),
+            "x_angle" => NuValue::test_float(30.0),
+        };
+        let cfg = Config::from_record(&snake).unwrap();
+        assert_eq!(cfg.cell_width, Some(9));
+        assert_eq!(cfg.x_angle, Some(30.0));
     }
 
     #[test]

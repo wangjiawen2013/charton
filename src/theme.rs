@@ -145,8 +145,12 @@ pub struct Theme {
     pub(crate) tick_color: SingleColor,
     /// The physical length of the tick marks.
     pub(crate) tick_length: f64,
-    /// Minimum pixel spacing between ticks to ensure visual density.
-    pub(crate) tick_min_spacing: f64,
+    /// How many ticks each axis aims for.
+    ///
+    /// `None` (the default) fits as many readable ticks as the panel holds;
+    /// `Some(n)` pins a target and is honoured without the fit pass. See
+    /// [`Theme::with_tick_count`].
+    pub(crate) tick_count: Option<usize>,
 
     // --- Legend Styling ---
     pub(crate) show_legend: bool,
@@ -436,8 +440,24 @@ impl Theme {
         self
     }
 
-    pub const fn with_tick_min_spacing(mut self, spacing: f64) -> Self {
-        self.tick_min_spacing = spacing;
+    /// Asks every axis for about `count` ticks, whatever the panel size is.
+    ///
+    /// By default an axis fits as many readable ticks as the panel allows, so
+    /// this is only needed to match a reference figure or to make an axis
+    /// deliberately denser or sparser than the automatic rule would. The
+    /// request is deliberately not clamped to the automatic 3..12 window and
+    /// not overlap-checked: the scale snaps it to human-friendly values
+    /// (`1, 2, 5, 10, ...`), so the axis may end up with a few more or fewer
+    /// labels, and on a narrow panel they may overlap.
+    pub const fn with_tick_count(mut self, count: usize) -> Self {
+        self.tick_count = Some(count);
+        self
+    }
+
+    /// Drops a [`Theme::with_tick_count`] target and returns to the automatic
+    /// density, which is the default.
+    pub const fn with_auto_tick_count(mut self) -> Self {
+        self.tick_count = None;
         self
     }
 
@@ -595,13 +615,6 @@ impl Theme {
         self.facet_strip_padding = padding;
         self
     }
-
-    /// Calculates a suggested number of ticks based on the available
-    /// physical space and the theme's density settings.
-    pub fn suggest_tick_count(&self, available_pixels: f64) -> usize {
-        // We ensure at least 2 ticks (start and end) are always present.
-        ((available_pixels / self.tick_min_spacing).floor() as usize).max(2)
-    }
 }
 
 impl Default for Theme {
@@ -646,7 +659,7 @@ impl Default for Theme {
             tick_width: 1.0,
             tick_color: "black".into(),
             tick_length: 6.0,
-            tick_min_spacing: 50.0,
+            tick_count: None,
 
             show_legend: true,
             legend_title_color: "#333".into(),

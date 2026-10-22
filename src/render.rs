@@ -28,15 +28,15 @@ pub(crate) fn resolve_color(
 }
 
 pub(crate) mod area_renderer;
+/// The value axes of every rectangular coordinate system (Cartesian, Geo).
+pub(crate) mod axis_renderer;
 pub(crate) mod backend;
 pub(crate) mod bar_renderer;
 pub(crate) mod box_renderer;
-pub(crate) mod cartesian2d_axis_renderer;
 pub(crate) mod contour_renderer;
 pub(crate) mod density_2d_renderer;
 pub(crate) mod density_renderer;
 pub(crate) mod errorbar_renderer;
-pub(crate) mod geo_axis_renderer;
 pub(crate) mod geo_renderer;
 pub(crate) mod hist_renderer;
 pub(crate) mod legend_renderer;

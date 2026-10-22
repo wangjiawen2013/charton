@@ -70,20 +70,20 @@ pub struct CoordLayout {
 /// 2. Defining the shape of the plotting area (Cartesian, Polar, etc.).
 /// 3. Providing metadata for rendering axes and grids.
 pub trait CoordinateTrait: Send + Sync {
-    /// Orchestrates the visual rendering of axes, grid lines, and titles.
+    /// Draws the coordinate system's axes and titles.
     ///
-    /// Different coordinate systems implement this to reflect their geometry:
-    /// - **Cartesian**: Renders straight horizontal and vertical lines.
-    /// - **Polar**: Renders concentric circles (radius) and radial lines (angle).
-    #[allow(clippy::too_many_arguments)]
+    /// Each coordinate system reflects its own geometry: Cartesian and Geo
+    /// share the straight-axis pipeline (`render::axis_renderer`), polar draws
+    /// a ring. Axis titles come from the coordinate system itself
+    /// ([`CoordinateTrait::get_x_label`] / [`CoordinateTrait::get_y_label`]),
+    /// so there is one owner for them instead of a copy passed alongside the
+    /// data scales.
     fn render_axes(
         &self,
         svg: &mut dyn RenderBackend,
         theme: &Theme,
         panel: &Rect,
-        x_label: &str,
         x_explicit: Option<&[ExplicitTick]>,
-        y_label: &str,
         y_explicit: Option<&[ExplicitTick]>,
         visibility: AxisVisibility,
     ) -> Result<(), ChartonError>;

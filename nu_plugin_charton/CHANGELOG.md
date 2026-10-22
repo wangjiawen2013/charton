@@ -4,6 +4,30 @@ All notable changes to `nu_plugin_charton` are documented here. The crate
 shares the `charton` version number, and the Nushell release it targets is
 stated in the README and in each release.
 
+## [Unreleased]
+
+### Added
+
+- **`--tick-count <int>`** asks every axis for about that many ticks, for
+  figures that must match a reference or a row of panels. It is a per-command
+  flag, not a config key: omitting it keeps charton's automatic, label-aware
+  fit, which adapts to each panel. Explicit `--x-ticks` / `--y-ticks` values
+  still win.
+
+### Changed
+
+- **Ticks follow the rendered labels.** The count now adapts to the label text
+  (long dates or category names get fewer ticks) instead of assuming a fixed
+  pixel budget, so labels no longer collide on wide-format charts and a larger
+  `--width`/`--height` no longer makes the axis denser. `--font-scale` also
+  changes the count naturally: bigger text gets fewer labels.
+- **Explicit tick values size the axis band.** Long `--x-ticks`/`--y-ticks`
+  labels are measured into the margin, so they are no longer clipped.
+- **`charton geo` draws through the same axis pipeline as the other marks**, so
+  its grid, labels, tick density, theme colours and label rotation now match
+  cartesian charts (previously it used a separate renderer with eight fixed
+  ticks and a hard-coded axis colour).
+
 ## [0.8.5] - 2026-10-17
 
 ### Added

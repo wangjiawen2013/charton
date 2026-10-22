@@ -43,18 +43,82 @@ legend size  ->  unclaimed space  ->  axis tick count  ->  axis depth
 Concretely, for a `Top` legend:
 
 ```text
-legend height -> unclaimed_h -> left(y) tick count = floor(unclaimed_h / tick_min_spacing)
-              -> y-axis depth (the widest y label) -> plot_w
+legend height -> unclaimed_h -> left(y) ticks = AxisView(Left).ticks()
+              -> y-axis depth = AxisView(Left).band().depth -> plot_w
               -> legend budget (horizontal main = width) -> wrapped rows -> legend height
 ```
 
 and for a `Right`/`Left` legend:
 
 ```text
-legend width -> unclaimed_w -> bottom(x) tick count
-             -> x-axis depth -> plot_h -> legend budget (vertical main = height)
-             -> wrapped columns -> legend width
+legend width -> unclaimed_w -> bottom(x) ticks = AxisView(Bottom).ticks()
+             -> x-axis depth = AxisView(Bottom).band().depth -> plot_h
+             -> legend budget (vertical main = height) -> wrapped columns -> legend width
 ```
+
+### The axis pipeline
+
+An axis is resolved in two layers, and both the layout measurement and the drawing go through the
+same objects:
+
+| Layer | Owns | Does not know about |
+| --- | --- | --- |
+| `core::axis::AxisView` | which data scale sits on which physical side (flip), its title, its label rotation, its ticks, and the depth of its band | how tick counts are chosen |
+| `core::ticks` | how many ticks fit, given the panel length, the label rotation and the label size | which side the axis is on, its band, its title |
+
+`AxisView` is built from (coordinate, side, panel, explicit ticks, theme). From it the layout reads
+`band().depth`, and the renderer reads `ticks()`, `tick_point()` and `band()`. There is exactly one
+implementation of the bottom/left mapping and one formula for the band, so a reservation cannot
+disagree with what is painted. All rectangular coordinate systems (Cartesian and Geo) draw through
+the same renderer; polar keeps its own, because it has a circular frame and no axis band.
+
+### How many ticks an axis gets
+
+A scale snaps a requested count to human-friendly values (`1, 2, 5, 10, ...`).
+How many to request is decided by `core::ticks`, which knows the two things the
+scale cannot: the panel length and the rendered size of the labels. It is the
+only place that decides a tick count, and it runs whenever an `AxisView` is
+built, so layout and drawing always see the same list.
+
+By default (no `with_tick_count` on the theme) the rule has three steps:
+
+1. **Length budget.** One label per four tick-font sizes, clamped to 3..12. The
+   clamp is what keeps a large canvas from turning into a wall of labels: text
+   keeps its physical size, so past a point more labels only add clutter.
+2. **Snap to the scale's ladder.** The budget is passed to the scale, which
+   returns its own values (`1/2/5` steps, calendar steps, powers of ten).
+   Because it rounds, the list can be slightly denser than requested.
+3. **Measure and back off.** The labels that were really produced are projected
+   along the axis, rotation included. If two neighbours would touch, the scale
+   is asked for fewer ticks, which moves it to its next coarser step. The first
+   list that fits wins.
+
+The count is therefore a *target*, not a promise. Short numbers pack an axis;
+long labels (dates, category names) thin it out; and the count does not grow
+linearly with the canvas. Fewer labels still span the same domain, so an axis
+that drops from nine labels to four stays complete.
+
+Two fallbacks keep the result honest:
+
+- If even the coarsest step does not fit — one label nearly as wide as the axis
+  — only the two ends are labelled. Both are real, nice-aligned values, and no
+  interval is invented.
+- If that is still too sparse for the figure, the labels themselves need
+  attention: rotate them (`with_x_tick_label_angle`), shorten them
+  (`with_x_label_format` with compact notation or reduced precision), or pin
+  ticks.
+
+What overrides the automatic rule:
+
+- `Theme::with_tick_count(n)` pins a target for one figure. It is not clamped to
+  3..12 and does not run the fit pass, so the caller owns the density (and any
+  overlap on a narrow panel). The scale still snaps to nice values.
+- `with_x_ticks([...])` / `with_y_ticks([...])` are a contract: every listed
+  value is drawn. The band is measured from those labels, so they are never
+  clipped, but they can overlap each other.
+- `Theme::with_auto_tick_count()` returns to the default.
+
+### When the cycle can oscillate
 
 The cycle only bites when the axis depth actually depends on the available space. That depends on
 the direction the labels are measured in:
@@ -160,7 +224,8 @@ The loop above is a fixed-point iteration on a map that is **piecewise constant*
 is not guaranteed to have a fixed point. Both the axis depth and the wrapped legend size are
 quantised step functions:
 
-- the tick count is `floor(available / tick_min_spacing)`;
+- the automatic tick count is a step function of the panel length, and the *set* of labels it
+  produces decides the axis depth (the widest label, and for rotated labels the deepest box);
 - the legend jumps by a whole column or row every time it wraps.
 
 When the thresholds of those two step functions interleave, the iteration can settle into a
@@ -169,42 +234,39 @@ proof, and the loop does not assert that it settled.
 
 ### A reproducible case
 
-A clean oscillation appears for a `Right` or `Left` legend with rotated x labels and a dense tick
-spacing:
+A clean oscillation appears for a `Top` or `Bottom` legend with a long, wrapping legend and a
+continuous `x` axis:
 
-- data: 120 points, `x = i * 123457`, `y = i^3 * 1234`, 40 `"Category N"` groups;
-- theme: `LegendPosition::Right`, `x_tick_label_angle = 90`, `tick_min_spacing = 20`;
+- data: 120 points, `x = i * 123457`, `y = i^3 * 1234`, 40 `"Category N"` groups on color;
+- theme: default (automatic tick density), `LegendPosition::Top` or `Bottom`;
 - canvas: height 480, width swept from 320 to 1000 (step 2).
 
-Across that sweep, **59 of 341 widths never converge** (checked with the pass limit raised to 64).
-The traced `legend_box.right` alternates forever:
-
-```text
-right: 432.2, 323.4, 432.2, 323.4, ...      // G(432.2) = 323.4, G(323.4) = 432.2
-```
+With horizontal x labels, **5 of the 341 widths** never converge (widths 730–738); with the labels
+rotated 90 degrees, another 5 (widths 844–852). The same chart with `Right` or `Left` legends, and
+the same chart with `with_tick_count(20)`, settle on every width of the sweep.
 
 The mechanism is a negative feedback loop:
 
 ```text
-bigger legend reserve -> less width -> fewer rotated x ticks -> shallower bottom axis
--> taller panel -> legend fits in fewer columns -> smaller reserve
--> more width -> more ticks -> deeper bottom axis -> shorter panel -> more columns -> bigger reserve
+bigger top legend -> shorter panel -> fewer y ticks / different labels
+-> different y-axis depth -> narrower panel -> legend wraps into another row
+-> taller legend -> ...
 ```
 
 ### How often it happens
 
-Two sweeps, both over many canvas sizes:
+Sweeps over many canvas sizes and legend positions:
 
 | Scenario | Not settled |
 | --- | --- |
-| Default theme (`angle = 0`, `tick_min_spacing = 50`), `Right`/`Left`, any category count | 0 / 25272 |
-| Default theme, `Top`/`Bottom` with 2/3/5/8 categories | 0 |
-| Default theme, `Top`/`Bottom` with 15–30 categories | 34 / 25272 (~0.13%) |
-| Adversarial: rotated labels, `tick_min_spacing = 20`, 40–120 categories | 344 / 36828 (~0.9%), up to ~17% within the worst single combination |
+| Automatic density, `Right`/`Left` legend, labels at 0°, -45° or 90°, width 320–1000 step 2 | 0 / 1,023 |
+| Automatic density, `Top`/`Bottom` legend, same data and sweep | 10 / 2,046 (~0.5%, in narrow 5-pixel windows) |
+| Same charts with `with_tick_count(20)` | 0 / 1,364 |
+| Discrete x with 15/20/25/30 categories, `Top`/`Bottom`/`Right` legends, 86 widths × 83 heights | 0 / 85,656 |
 
-So it is uncommon, but real. It needs all three of: an axis depth that is sensitive to available
-space, a legend that wraps, and the two quantisation thresholds interleaving on that particular
-canvas size. The failure window is narrow — a few pixels of width usually make it disappear.
+So it is uncommon, but real, and it only shows up when the automatic density is free to change the
+tick count as the panel shrinks. Pinning the count with `Theme::with_tick_count` removes one leg of
+the cycle and is the practical workaround.
 
 ### Impact
 
@@ -224,7 +286,7 @@ canvas size. The failure window is narrow — a few pixels of width usually make
 ### Current status and possible directions
 
 This is a known, accepted limitation at the moment, not an active bug fix. Cheap mitigations that
-would not disturb the 99.87% of charts that already settle:
+would not disturb the charts that already settle:
 
 1. detect the cycle (remember the previous two states) and stop on the conservative one — the
    larger reservation;

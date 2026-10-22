@@ -4,6 +4,63 @@ All notable changes to the `charton` library are documented here. The project
 follows [Semantic Versioning](https://semver.org/). Releases before 0.7.0
 predate this file.
 
+## [Unreleased]
+
+### Added
+
+- **`Theme::with_tick_count(n)`** pins how many ticks every axis aims for, for
+  charts that must match a reference figure; `with_auto_tick_count()` returns to
+  the default. The Nushell plugin exposes the same as the per-chart
+  `--tick-count` flag (deliberately not a config key: a persistent count would
+  disable the adaptive fit for every chart).
+
+### Changed
+
+- **Axes share one pipeline.** `core::axis::AxisView` resolves which data scale
+  sits on which physical side (including `coord_flip`), its title, label
+  rotation, explicit ticks and its band geometry. The layout engine and the
+  renderers read the same object, so the reserved band and the drawn axis cannot
+  disagree. `render::axis_renderer` draws Cartesian *and* Geo panels, replacing
+  the duplicated Geo renderer; Geo therefore gains label-aware tick density,
+  theme tick/axis colours, label rotation and consistent explicit-tick handling.
+  Axis titles are owned by the coordinate system instead of being passed
+  alongside it.
+- **Tick counts follow the rendered labels instead of a fixed pixel budget.**
+  The panel length sets a budget (one label per four tick-font sizes, clamped to
+  3..12 ticks); the scale snaps it to its own nice values; the labels that were
+  really produced are measured, rotation included, and the count is lowered —
+  moving to the scale's next coarser step — until neighbours no longer touch.
+  Short labels pack an axis, long dates or category names thin it out, and a
+  larger canvas no longer adds labels whose text keeps the same physical size.
+  If even the coarsest step does not fit (a label nearly as wide as the axis),
+  only the two ends are labelled; values always stay on the scale's own ladder.
+- **A wide logarithmic axis subdivides its decades.** Powers of the base were
+  the only labels, so a 900px log axis over `1..1000` showed four. With room, it
+  now labels the 2x then the 5x multiples as well (`1, 2, 5, 10, 20, 50, ...`).
+- **`Theme::tick_length` is applied.** Tick marks were hard-coded to 6px in the
+  axis renderers; layout and drawing now both read the theme value, and axis
+  titles are placed from the ticks that are actually drawn (explicit values
+  included).
+
+### Fixed
+
+- **Axis titles sit exactly in the strip measured for them.** The x title
+  ignored the tick-label padding, and the left title and tick labels carried
+  their own magic offsets; both now come from the shared `AxisBand` geometry.
+- **Explicit tick labels are measured into the axis band.** `with_x_ticks` /
+  `with_y_ticks` values were drawn but not measured, so a long explicit label
+  could be clipped at the canvas edge.
+- **An axis whose labels are too long no longer stacks them**: it moves to the
+  scale's next coarser step, and labels only the two ends as a last resort (see
+  the tick entry above).
+
+### Removed
+
+- **`Theme::with_tick_min_spacing`**, its `tick_min_spacing` field, and
+  **`Theme::suggest_tick_count`**. A fixed pixel budget cannot know how wide a
+  label is; leave the default for the adaptive fit, or use `with_tick_count` to
+  pin a density.
+
 ## [0.8.5] - 2026-10-17
 
 ### Added
