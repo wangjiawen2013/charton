@@ -48,14 +48,12 @@ impl CoordinateTrait for Cartesian2D {
         backend: &mut dyn RenderBackend,
         theme: &Theme,
         panel: &Rect,
-        x_label: &str,
         x_explicit: Option<&[ExplicitTick]>,
-        y_label: &str,
         y_explicit: Option<&[ExplicitTick]>,
         visibility: AxisVisibility,
     ) -> Result<(), ChartonError> {
-        crate::render::cartesian2d_axis_renderer::render_cartesian_axes(
-            backend, theme, panel, self, x_label, x_explicit, y_label, y_explicit, visibility,
+        crate::render::axis_renderer::render_axes(
+            backend, theme, panel, self, x_explicit, y_explicit, visibility,
         )
     }
 
@@ -68,7 +66,7 @@ impl CoordinateTrait for Cartesian2D {
         x_explicit: Option<&[ExplicitTick]>,
         y_explicit: Option<&[ExplicitTick]>,
     ) -> Result<(), ChartonError> {
-        crate::render::cartesian2d_axis_renderer::render_cartesian_grid(
+        crate::render::axis_renderer::render_grid(
             backend, theme, panel, self, x_explicit, y_explicit,
         )
     }

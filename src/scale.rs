@@ -286,6 +286,14 @@ pub trait ScaleTrait: std::fmt::Debug + Send + Sync {
     fn mapper(&self) -> Option<&VisualMapper>;
 
     /// Generates suggested tick marks for axes or legends.
+    ///
+    /// `count` is a *target*, not a promise: the scale snaps it to its own
+    /// human-friendly ladder (`1, 2, 5, 10, ...`, calendar steps, powers of the
+    /// log base), so the returned list may hold a few more or fewer ticks. That
+    /// is deliberate — the scale owns the values, while the caller owns how much
+    /// room there is. `core::ticks` uses this contract to ask for fewer ticks
+    /// until the rendered labels fit; discrete scales ignore `count` and return
+    /// one tick per category.
     fn suggest_ticks(&self, count: usize) -> Vec<Tick>;
 
     /// Generates user-requested ticks.

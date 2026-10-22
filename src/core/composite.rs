@@ -877,8 +877,8 @@ impl LayeredChart {
                 crate::core::layout::LayoutEngine::calculate_axis_constraints(
                     &PanelContext::new(&chart_spec, final_coord.clone(), panel_guess),
                     &self.theme,
-                    panel_guess.width,
-                    panel_guess.height,
+                    self.x_ticks.as_deref(),
+                    self.y_ticks.as_deref(),
                 )
             } else {
                 crate::core::layout::AxisLayoutConstraints::default()
@@ -1105,8 +1105,8 @@ impl LayeredChart {
                     let measured = crate::core::layout::LayoutEngine::calculate_axis_constraints(
                         &PanelContext::new(&spec, panel_coord.clone(), p.rect),
                         &self.theme,
-                        p.rect.width,
-                        p.rect.height,
+                        self.x_ticks.as_deref(),
+                        self.y_ticks.as_deref(),
                     );
                     if p.info.show_y_axis {
                         per_column_left[p.info.col] =
@@ -1362,9 +1362,7 @@ impl LayeredChart {
                 backend,
                 &self.theme,
                 &panel.rect,
-                coord.get_x_label(),
                 self.x_ticks.as_deref(),
-                coord.get_y_label(),
                 self.y_ticks.as_deref(),
                 crate::coordinate::AxisVisibility {
                     show_x: panel.info.show_x_axis,

@@ -115,12 +115,21 @@ impl ScaleTrait for LogScale {
 
     /// Generates logarithmic tick marks.
     ///
-    /// This version focuses exclusively on "Major Ticks" (integer powers of the base).
-    /// It includes a safety fallback to ensure at least two ticks are returned
-    /// even if the data range is smaller than a single decade.
-    fn suggest_ticks(&self, _count: usize) -> Vec<Tick> {
+    /// Whole powers of the base are the primary labels, because they are what a
+    /// reader expects on a log axis (`1, 10, 100, ...`). A short axis keeps only
+    /// those, no matter how few labels that leaves — squeezing more in would
+    /// make them collide.
+    ///
+    /// When the axis has room for more than one label per decade, each decade is
+    /// split at its 2x and then its 5x multiple, which is how printed log plots
+    /// are labelled (`1, 2, 5, 10, 20, 50, ...`). Stopping at the powers on a
+    /// wide axis would leave a handful of labels in a sea of white space.
+    ///
+    /// A domain narrower than a single decade falls back to its endpoints, so
+    /// the axis is never blank.
+    fn suggest_ticks(&self, count: usize) -> Vec<Tick> {
         let (min, max) = self.domain;
-        let mut tick_values = Vec::new();
+        let count = count.max(1);
 
         // Logarithmic calculations to find the range of exponents
         let log_base = self.base.ln();
@@ -130,27 +139,57 @@ impl ScaleTrait for LogScale {
         let start_exp = log_min.floor() as i32;
         let end_exp = log_max.ceil() as i32;
 
-        // 1. Generate Major Ticks (powers of the base)
-        // We use a small epsilon (0.99/1.01) to account for floating point inaccuracies
-        // ensuring that boundary values are captured.
-        for exp in start_exp..=end_exp {
-            let val = self.base.powi(exp);
-            if val >= min * 0.99 && val <= max * 1.01 {
-                tick_values.push(val);
-            }
+        // We use a small epsilon (0.99/1.01) to account for floating point
+        // inaccuracies, ensuring that boundary values are captured.
+        let lo = min * 0.99;
+        let hi = max * 1.01;
+
+        // Tier 0: powers of the base.
+        let powers: Vec<f64> = (start_exp..=end_exp)
+            .map(|exp| self.base.powi(exp))
+            .filter(|val| (lo..=hi).contains(val))
+            .collect();
+
+        // A narrow domain may hold fewer than two powers (e.g. 120..150). Label
+        // its endpoints instead of leaving the axis blank.
+        if powers.len() < 2 {
+            return super::format_ticks(&[min, max]);
         }
 
-        // 2. Fallback Logic
-        // If the domain is very narrow (e.g., between 120 and 150), no integer power
-        // of 10 exists within it. In such cases, we provide the min and max
-        // as ticks so the axis isn't blank.
-        if tick_values.len() < 2 {
-            tick_values.clear();
-            tick_values.push(min);
-            tick_values.push(max);
+        // The subdivisions of a decade only make sense for a decimal base,
+        // where 2 and 5 are the conventional stops between powers.
+        let mut tick_values = powers.clone();
+        if (self.base - 10.0).abs() < 1e-9 {
+            let multiples = |factor: f64| -> Vec<f64> {
+                (start_exp..end_exp)
+                    .map(|exp| self.base.powi(exp) * factor)
+                    .filter(|val| (lo..=hi).contains(val))
+                    .collect()
+            };
+            let twos = multiples(2.0);
+            let fives = multiples(5.0);
+
+            // Keep the densest tier that still fits the requested count: powers
+            // plus the 2x stops, or else powers plus both 2x and 5x. Preferring
+            // the sparser tier when the denser one would overflow keeps the
+            // labels readable rather than merely numerous.
+            let mut with_two = powers.clone();
+            with_two.extend(twos.iter().copied());
+            with_two.sort_by(f64::total_cmp);
+
+            let mut with_five = with_two.clone();
+            with_five.extend(fives.iter().copied());
+            with_five.sort_by(f64::total_cmp);
+
+            tick_values = if with_five.len() <= count {
+                with_five
+            } else if with_two.len() <= count {
+                with_two
+            } else {
+                powers
+            };
         }
 
-        // 3. Formatting
         // Delegate to the shared formatter which handles scientific notation
         // and converts raw f64 values into Tick objects.
         super::format_ticks(&tick_values)
@@ -193,7 +232,7 @@ impl ScaleTrait for LogScale {
             })
             .collect();
 
-        // High-Performance Logging: Report issues after the loop
+        // Report all filtered values at once instead of one line per value.
         if type_mismatch > 0 || out_of_domain > 0 {
             eprintln!(
                 "Warning [LogScale]: Filtered {} ticks ({} type mismatch, {} out of domain or <= 0).",
@@ -246,5 +285,75 @@ impl ScaleTrait for LogScale {
 
         // Call super::format_ticks to ensure consistent axis-wide formatting (automatic scientific notation)
         super::format_ticks(&values)
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    fn scale(min: f64, max: f64) -> LogScale {
+        LogScale::new((min, max), 10.0, None).unwrap()
+    }
+
+    fn values(ticks: &[Tick]) -> Vec<f64> {
+        ticks.iter().map(|t| t.value).collect()
+    }
+
+    /// A short axis keeps the powers of ten: more labels would collide.
+    #[test]
+    fn narrow_axis_labels_only_the_powers() {
+        let ticks = scale(1.0, 1000.0).suggest_ticks(4);
+        assert_eq!(values(&ticks), vec![1.0, 10.0, 100.0, 1000.0]);
+    }
+
+    /// A wide axis subdivides each decade instead of leaving three labels in a
+    /// huge panel. The 2x tier comes first, the 5x tier only when it still fits.
+    #[test]
+    fn wide_axis_subdivides_its_decades() {
+        let s = scale(1.0, 1000.0);
+
+        let two = values(&s.suggest_ticks(8));
+        assert_eq!(two, vec![1.0, 2.0, 10.0, 20.0, 100.0, 200.0, 1000.0]);
+
+        let five = values(&s.suggest_ticks(12));
+        assert_eq!(
+            five,
+            vec![1.0, 2.0, 5.0, 10.0, 20.0, 50.0, 100.0, 200.0, 500.0, 1000.0]
+        );
+    }
+
+    /// The subdivision is only used for a decimal base; a binary log axis stays
+    /// on its powers.
+    #[test]
+    fn binary_base_keeps_its_powers() {
+        let s = LogScale::new((1.0, 64.0), 2.0, None).unwrap();
+        assert_eq!(
+            values(&s.suggest_ticks(12)),
+            vec![1.0, 2.0, 4.0, 8.0, 16.0, 32.0, 64.0]
+        );
+    }
+
+    /// A domain that starts or ends inside a decade only labels the multiples
+    /// that actually fall inside it, and still keeps the tiers consistent.
+    #[test]
+    fn partial_decades_keep_each_tier_consistent() {
+        let s = scale(0.5, 300.0);
+
+        assert_eq!(
+            values(&s.suggest_ticks(8)),
+            vec![1.0, 2.0, 10.0, 20.0, 100.0, 200.0]
+        );
+        assert_eq!(
+            values(&s.suggest_ticks(12)),
+            vec![0.5, 1.0, 2.0, 5.0, 10.0, 20.0, 50.0, 100.0, 200.0]
+        );
+    }
+
+    /// A domain inside one decade still labels its endpoints.
+    #[test]
+    fn narrow_domain_falls_back_to_the_endpoints() {
+        let ticks = scale(120.0, 150.0).suggest_ticks(6);
+        assert_eq!(values(&ticks), vec![120.0, 150.0]);
     }
 }

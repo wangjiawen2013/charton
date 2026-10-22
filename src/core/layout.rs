@@ -38,13 +38,14 @@
 //! The caller breaks that loop by measuring a few times until nothing changes.
 //! This module only provides the measuring and the stacking.
 
+use super::axis::{AxisSide, AxisView};
 use super::context::PanelContext;
 use super::flow::{self, Direction, Extent};
 use super::guide::{
     ColorBarGeometry, EntryMetrics, EntryOffset, GuideSpec, LegendPosition, MeasuredGuide,
 };
-use super::utils::estimate_text_width;
 use crate::coordinate::Rect;
+use crate::scale::ExplicitTick;
 use crate::theme::{Theme, TitleFrame};
 
 /// How much room the axes take on the left and below the panel.
@@ -528,148 +529,36 @@ impl LayoutEngine {
         Rect::new(x, y, width.max(0.0), height.max(0.0))
     }
 
-    /// Calculates layout constraints based on predicted axis dimensions.
+    /// Measures the bands two value axes need around a panel.
     ///
-    /// This method uses the chart's reference dimensions to estimate the
-    /// "worst-case" margin required for labels and titles.
+    /// The measurement uses the same [`AxisView`] the renderers draw with:
+    /// same scale on each side, same label rotation, same ticks (explicit
+    /// values included). The returned depth is what
+    /// [`LayoutEngine::build_bands`] reserves, so the reserved strip and the
+    /// drawn axis are the same rectangle.
     pub fn calculate_axis_constraints(
         ctx: &PanelContext,
         theme: &Theme,
-        reference_width: f64,
-        reference_height: f64,
+        x_explicit: Option<&[ExplicitTick]>,
+        y_explicit: Option<&[ExplicitTick]>,
     ) -> AxisLayoutConstraints {
-        let mut constraints = AxisLayoutConstraints::default();
-        let coord = ctx.coord.clone();
-        let is_flipped = coord.is_flipped();
+        let coord = ctx.coord.as_ref();
+        let panel = &ctx.panel;
 
-        // 1. Resolve Bottom Axis:
-        // Uses X-scale by default; uses Y-scale if the coordinate system is flipped.
-        let (b_scale, b_angle, b_title, b_pad) = if is_flipped {
-            (
-                coord.get_y_scale(),
-                theme.y_tick_label_angle,
-                coord.get_y_label(),
-                theme.label_padding,
-            )
-        } else {
-            (
-                coord.get_x_scale(),
-                theme.x_tick_label_angle,
-                coord.get_x_label(),
-                theme.label_padding,
-            )
-        };
-        constraints.bottom = Self::estimate_axis_dimension(
-            b_scale,
-            b_angle,
-            b_title,
-            b_pad,
+        let bottom = AxisView::new(
+            coord,
+            AxisSide::Bottom,
+            panel,
+            x_explicit,
+            y_explicit,
             theme,
-            true,
-            reference_width,
         );
+        let left = AxisView::new(coord, AxisSide::Left, panel, x_explicit, y_explicit, theme);
 
-        // 2. Resolve Left Axis:
-        // Uses Y-axis by default, or X-axis if flipped.
-        let (l_scale, l_angle, l_title, l_pad) = if is_flipped {
-            (
-                coord.get_x_scale(),
-                theme.x_tick_label_angle,
-                coord.get_x_label(),
-                theme.label_padding,
-            )
-        } else {
-            (
-                coord.get_y_scale(),
-                theme.y_tick_label_angle,
-                coord.get_y_label(),
-                theme.label_padding,
-            )
-        };
-        constraints.left = Self::estimate_axis_dimension(
-            l_scale,
-            l_angle,
-            l_title,
-            l_pad,
-            theme,
-            false,
-            reference_height,
-        );
-
-        constraints
-    }
-
-    /// Estimates the total physical 'depth' required for an axis.
-    ///
-    /// For a Bottom axis, this represents the total height (from the X-axis line
-    /// down to the SVG edge). For a Left axis, this represents the total width
-    /// (from the Y-axis line left to the SVG edge).
-    ///
-    /// It accounts for:
-    /// 1. Tick mark lines.
-    /// 2. Padding between ticks and labels.
-    /// 3. The bounding box of rotated labels (using trigonometry).
-    /// 4. Padding between labels and the axis title.
-    /// 5. The height of the title text itself.
-    /// 6. A final safety buffer for the SVG edge.
-    fn estimate_axis_dimension(
-        scale: &dyn crate::scale::ScaleTrait,
-        angle_deg: f64,
-        title: &str,
-        label_padding: f64, // The padding between labels and title (theme.label_padding)
-        theme: &Theme,
-        is_horizontal_axis: bool,
-        available_space: f64,
-    ) -> f64 {
-        // Physical constants (should match those used in draw_ticks_and_labels)
-        let tick_line_len = 6.0;
-        // Small safety margin only; the theme's canvas margins provide the real
-        // breathing room, so it does not need to reserve a wide band.
-        let edge_buffer = 4.0;
-        let angle_rad = angle_deg.to_radians();
-
-        // 1. Predictive Tick Generation
-        // We must generate the same number of ticks as the renderer to ensure we
-        // measure the actual strings (like "1.0000E7") that will be displayed.
-        let final_count = theme.suggest_tick_count(available_space);
-        let ticks = scale.suggest_ticks(final_count);
-
-        // 2. Compute the physical footprint of the labels
-        // Rotated text creates a bounding box. We need the projection of this box
-        // onto the axis perpendicular to the chart.
-        let max_label_footprint = ticks
-            .iter()
-            .map(|t| {
-                // Approximation of string width based on character weights
-                let w = estimate_text_width(&t.label, theme.tick_label_size);
-                // The height of the font (cap-height approximation)
-                let h = theme.tick_label_size;
-
-                // Formula for the height/width of a rotated rectangle:
-                // For Bottom axis (horizontal), we need vertical depth: |w*sin| + |h*cos|
-                // For Left axis (vertical), we need horizontal depth: |w*cos| + |h*sin|
-                if is_horizontal_axis {
-                    w.abs() * angle_rad.sin().abs() + h * angle_rad.cos().abs()
-                } else {
-                    w.abs() * angle_rad.cos().abs() + h * angle_rad.sin().abs()
-                }
-            })
-            .fold(0.0, f64::max);
-
-        // 3. Title Area Calculation
-        // If a title exists, we need to reserve space for the gap and the text height.
-        let title_area = if title.is_empty() {
-            0.0
-        } else {
-            // We reserve the full height of the title font (label_size) plus the
-            // padding. This ensures the title doesn't overlap labels and doesn't
-            // get clipped by the SVG boundary.
-            theme.label_size + label_padding
-        };
-
-        // 4. Summation of Layout Segments
-        // Total Depth = [Tick] + [Padding] + [Label Box] + [Title Area] + [Edge Buffer]
-        tick_line_len + theme.tick_label_padding + max_label_footprint + title_area + edge_buffer
+        AxisLayoutConstraints {
+            bottom: bottom.band().depth,
+            left: left.band().depth,
+        }
     }
 }
 

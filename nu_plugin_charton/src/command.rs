@@ -312,6 +312,12 @@ fn base_signature(name: &str) -> Signature {
         .named("x-ticks", SyntaxShape::Any, "Explicit x tick values, e.g. [0 1 2 3]", None)
         .named("y-ticks", SyntaxShape::Any, "Explicit y tick values, e.g. [0 1 2 3]", None)
         .named(
+            "tick-count",
+            SyntaxShape::Int,
+            "Ask each axis for about this many ticks (default: as many as fit)",
+            None,
+        )
+        .named(
             "margins",
             SyntaxShape::String,
             "Canvas margins as 'top,right,bottom,left' (fractions 0.0-1.0)",
@@ -843,6 +849,10 @@ pub(crate) fn run_chart(
     };
     let x_ticks = parse_ticks(call.get_flag::<Value>("x-ticks")?, span)?;
     let y_ticks = parse_ticks(call.get_flag::<Value>("y-ticks")?, span)?;
+    // Per-chart only: `None` leaves charton's automatic, label-aware fit alone.
+    let tick_count = call
+        .get_flag::<i64>("tick-count")?
+        .map(|n| n.max(1) as usize);
     let density_bandwidth = call.get_flag::<f64>("density-bandwidth")?;
     let density_kernel = match call.get_flag::<String>("density-kernel")? {
         Some(s) => Some(parse_kernel(&s, span)?),
@@ -1037,6 +1047,7 @@ pub(crate) fn run_chart(
         margins,
         x_ticks,
         y_ticks,
+        tick_count,
         theme,
         width,
         height,
@@ -1248,6 +1259,7 @@ struct BuildOpts<'a> {
     margins: Option<[f64; 4]>,
     x_ticks: Option<Vec<f64>>,
     y_ticks: Option<Vec<f64>>,
+    tick_count: Option<usize>,
     theme: ThemeMode,
     width: u32,
     height: u32,
@@ -3179,6 +3191,10 @@ fn finish(layered: LayeredChart, opts: &BuildOpts<'_>) -> LayeredChart {
         if (opts.font_scale - 1.0).abs() > f64::EPSILON {
             t = t.with_font_scale(opts.font_scale);
         }
+        // An explicit count replaces charton's automatic, label-aware fit.
+        if let Some(count) = opts.tick_count {
+            t = t.with_tick_count(count);
+        }
         if let Some(p) = &opts.palette {
             t = t.with_palette(p.clone());
         }
@@ -3330,20 +3346,53 @@ mod tests {
     /// The plugin applies `--font-scale` through the theme, so it must widen the
     /// axis-title gap, not only the glyphs. This is the regression behind the
     /// y-axis title crowding its tick labels at the default scale of 1.5.
+    ///
+    /// The tick values are pinned on purpose. With the automatic density a
+    /// larger font asks for fewer labels, so the widest y label can change from
+    /// `1.5` to `2` and the gap would be measured against a *narrower* label;
+    /// pinning the ticks keeps the compared labels identical.
     #[test]
     fn font_scale_scales_the_axis_title_gap() -> Result<(), ShellError> {
-        let base = "charton point -x t -y petal_length --y-label 'Sepal width'";
+        let base = "charton point -x t -y petal_length --y-label 'Sepal width' --y-ticks [2 4 6]";
         let small = run(&format!("{base} --font-scale 1.0"))?;
         let large = run(&format!("{base} --font-scale 1.5"))?;
         let small_svg = small.as_str()?;
         let large_svg = large.as_str()?;
 
-        let small_gap = y_tick_right(&small_svg) - axis_title_x(&small_svg, "Sepal width");
-        let large_gap = y_tick_right(&large_svg) - axis_title_x(&large_svg, "Sepal width");
+        let small_gap = y_tick_right(small_svg) - axis_title_x(small_svg, "Sepal width");
+        let large_gap = y_tick_right(large_svg) - axis_title_x(large_svg, "Sepal width");
         assert!(
-            large_gap > small_gap * 1.2,
+            large_gap > small_gap * 1.3,
             "font scale should widen the axis-title gap: 1.0 -> {small_gap}, 1.5 -> {large_gap}"
         );
+        Ok(())
+    }
+
+    /// `--tick-count` replaces the automatic fit for both axes.
+    #[test]
+    fn tick_count_sets_the_number_of_labels() -> Result<(), ShellError> {
+        let auto = run("charton point -x t -y petal_length --font-scale 1.0")?;
+        let pinned = run("charton point -x t -y petal_length --font-scale 1.0 --tick-count 3")?;
+
+        let auto_n = y_tick_count(auto.as_str()?);
+        let pinned_n = y_tick_count(pinned.as_str()?);
+        assert!(
+            pinned_n < auto_n,
+            "--tick-count 3 should be sparser than the automatic fit ({pinned_n} vs {auto_n})"
+        );
+        // The scale snaps 3 to nice values, so the axis may get a few more.
+        assert!(
+            (3..=5).contains(&pinned_n),
+            "expected about 3 y labels, got {pinned_n}"
+        );
+        Ok(())
+    }
+
+    /// Explicit tick values still win over `--tick-count`.
+    #[test]
+    fn explicit_ticks_win_over_tick_count() -> Result<(), ShellError> {
+        let out = run("charton point -x t -y petal_length --tick-count 8 --y-ticks [2 6]")?;
+        assert_eq!(y_tick_count(out.as_str()?), 2);
         Ok(())
     }
 
@@ -4188,6 +4237,17 @@ mod tests {
             })
             .map(|line| attr(line, "x"))
             .fold(f64::NEG_INFINITY, f64::max)
+    }
+
+    /// How many labels the y axis drew.
+    fn y_tick_count(svg: &str) -> usize {
+        svg.lines()
+            .filter(|line| {
+                line.contains("<text ")
+                    && line.contains("text-anchor=\"end\"")
+                    && line.contains("dominant-baseline=\"central\"")
+            })
+            .count()
     }
 
     fn panel_rect(svg: &str) -> (f64, f64, f64, f64) {

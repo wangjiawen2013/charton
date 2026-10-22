@@ -1,34 +1,66 @@
+//! Drawing the angular axis of a polar panel.
+//!
+//! Polar charts have no axis band: values are placed by angle along the
+//! circumference and by radius from the centre, and only the outer ring is
+//! drawn (a radial axis would crowd the centre). The circle is described once by
+//! [`PolarFrame`] and shared by the axis and the grid, and the tick count comes
+//! from the same [`resolve_ticks`] policy as the rectangular axes.
+
 use crate::Precision;
 use crate::coordinate::{AxisVisibility, CoordinateTrait, Rect, polar::Polar};
 use crate::core::layer::{CircleConfig, LineConfig, RenderBackend, TextConfig};
+use crate::core::ticks::{AxisDirection, resolve_ticks};
 use crate::error::ChartonError;
 use crate::scale::ExplicitTick;
 use crate::theme::Theme;
 
-/// Renders the polar coordinate system axes (Radial and Angular).
+/// Small gap between the ring and the tick labels.
+const LABEL_GAP: f64 = 2.0;
+
+/// The circle a polar panel inscribes: centre and radius.
 ///
-/// Refinements included:
-/// 1. Radial Axis (Y): Only displays the maximum domain value to keep the center clean.
-/// 2. Smart Positioning: Labels use quadrant-aware anchoring to "grow" away from lines.
-/// 3. Padding: Added theme-based padding to prevent text from touching the outer ring.
-#[allow(clippy::too_many_arguments)]
+/// The angular axis runs along its circumference, so both the axis and the grid
+/// need the same geometry. Computing it in one place keeps the ring, the spokes
+/// and the labels on the same circle.
+struct PolarFrame {
+    center_x: f64,
+    center_y: f64,
+    radius: f64,
+}
+
+impl PolarFrame {
+    fn of(panel: &Rect) -> Self {
+        Self {
+            center_x: panel.x + panel.width / 2.0,
+            center_y: panel.y + panel.height / 2.0,
+            radius: panel.width.min(panel.height) / 2.0,
+        }
+    }
+
+    /// Arc length available to the angular labels.
+    fn circumference(&self) -> f64 {
+        2.0 * std::f64::consts::PI * self.radius
+    }
+}
+
+/// Renders the angular axis of a polar panel.
+///
+/// The polar model has no axis band: values are placed by angle on the
+/// circumference and by radius from the centre, and only the outer ring is
+/// drawn (a radial axis would clutter the centre). Tick labels are horizontal
+/// and anchored by quadrant so they grow away from the ring.
 pub fn render_polar_axes(
     backend: &mut dyn RenderBackend,
     theme: &Theme,
     panel: &Rect,
     coord: &Polar,
-    x_label: &str,
-    _x_explicit: Option<&[ExplicitTick]>,
-    _y_label: &str,
+    x_explicit: Option<&[ExplicitTick]>,
     _y_explicit: Option<&[ExplicitTick]>,
     visibility: AxisVisibility,
 ) -> Result<(), ChartonError> {
     let x_scale = coord.get_x_scale();
-
-    // Calculate geometric center and maximum radius of the polar chart
-    let center_x = panel.x + panel.width / 2.0;
-    let center_y = panel.y + panel.height / 2.0;
-    let max_r = panel.width.min(panel.height) / 2.0;
+    let frame = PolarFrame::of(panel);
+    let (center_x, center_y, max_r) = (frame.center_x, frame.center_y, frame.radius);
 
     // Draw the outermost boundary circle
     if visibility.show_x || visibility.show_y {
@@ -43,23 +75,17 @@ pub fn render_polar_axes(
         });
     }
 
-    // Check if the chart is a Pie or Donut chart (implied by an empty x_label).
-    // For Nightingale Rose charts, we generate ticks along the circumference based on the total perimeter.
-    // For Pie and Donut charts, we skip tick generation to avoid cluttering the visual display.
-    let is_pie_or_donut = x_label.is_empty();
-    let x_ticks = if !is_pie_or_donut {
-        x_scale.suggest_ticks(theme.suggest_tick_count(2.0 * std::f64::consts::PI * max_r))
-    } else {
-        vec![]
-    };
+    // An empty x label means a pie/donut, whose slices are labelled by the
+    // legend. Angular ticks would only clutter the ring.
+    let is_pie_or_donut = coord.get_x_label().is_empty();
 
-    if visibility.show_x {
-        for tick in x_ticks {
+    if visibility.show_x && !is_pie_or_donut {
+        for tick in angular_ticks(coord, &frame, x_explicit, theme) {
             let x_n = x_scale.normalize(tick.value);
             let theta = coord.start_angle + x_n * (coord.end_angle - coord.start_angle);
 
             // Calculate label coordinates with padding
-            let label_r = max_r + theme.tick_label_padding + 2.0;
+            let label_r = max_r + theme.tick_label_padding + LABEL_GAP;
             let lx = center_x + label_r * theta.cos();
             let ly = center_y + label_r * theta.sin();
 
@@ -103,21 +129,39 @@ pub fn render_polar_axes(
     Ok(())
 }
 
-/// Renders the underlying grid system for polar coordinates, including
-/// concentric circular boundaries and angular spokes.
+/// The angular ticks, shared by the axis and its grid.
+///
+/// The room one label gets is arc length, not a straight panel edge, so the
+/// resolver is asked with the circumference. Labels are drawn horizontally,
+/// hence `AxisDirection::Horizontal` and no rotation.
+fn angular_ticks(
+    coord: &Polar,
+    frame: &PolarFrame,
+    explicit: Option<&[ExplicitTick]>,
+    theme: &Theme,
+) -> Vec<crate::scale::Tick> {
+    resolve_ticks(
+        coord.get_x_scale(),
+        explicit,
+        frame.circumference(),
+        AxisDirection::Horizontal,
+        0.0,
+        theme,
+    )
+}
+
+/// Renders the underlying grid: the outer ring plus one spoke per angular tick.
+/// Polar has no cartesian grid; these spokes are its equivalent.
 pub fn render_polar_grid(
     backend: &mut dyn RenderBackend,
     theme: &Theme,
     panel: &Rect,
     coord: &Polar,
     x_explicit: Option<&[ExplicitTick]>,
-    y_explicit: Option<&[ExplicitTick]>,
+    _y_explicit: Option<&[ExplicitTick]>,
 ) -> Result<(), ChartonError> {
-    let center_x = panel.x + panel.width / 2.0;
-    let center_y = panel.y + panel.height / 2.0;
-    let max_r = panel.width.min(panel.height) / 2.0;
-    let _ = x_explicit;
-    let _ = y_explicit;
+    let frame = PolarFrame::of(panel);
+    let (center_x, center_y, max_r) = (frame.center_x, frame.center_y, frame.radius);
 
     // 1. Draw the concentric background circles (text labels removed)
     backend.draw_circle(CircleConfig {
@@ -132,10 +176,7 @@ pub fn render_polar_grid(
 
     // 2. Draw the angular grid lines / spokes (text labels removed)
     let x_scale = coord.get_x_scale();
-    let x_ticks =
-        x_scale.suggest_ticks(theme.suggest_tick_count(2.0 * std::f64::consts::PI * max_r));
-
-    for tick in x_ticks {
+    for tick in angular_ticks(coord, &frame, x_explicit, theme) {
         let x_n = x_scale.normalize(tick.value);
         let theta = coord.start_angle + x_n * (coord.end_angle - coord.start_angle);
 

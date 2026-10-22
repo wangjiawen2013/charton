@@ -61,14 +61,12 @@ impl CoordinateTrait for Polar {
         backend: &mut dyn RenderBackend,
         theme: &Theme,
         panel: &Rect,
-        x_label: &str,
         x_explicit: Option<&[ExplicitTick]>,
-        y_label: &str,
         y_explicit: Option<&[ExplicitTick]>,
         visibility: AxisVisibility,
     ) -> Result<(), ChartonError> {
         crate::render::polar_axis_renderer::render_polar_axes(
-            backend, theme, panel, self, x_label, x_explicit, y_label, y_explicit, visibility,
+            backend, theme, panel, self, x_explicit, y_explicit, visibility,
         )
     }
 

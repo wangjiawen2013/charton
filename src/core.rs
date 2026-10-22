@@ -1,4 +1,6 @@
 pub mod aesthetics;
+/// Physical axes: scale/tick mapping, band geometry and label placement.
+pub(crate) mod axis;
 pub mod composite;
 pub mod context;
 pub mod conversion;
@@ -10,4 +12,6 @@ pub(crate) mod font;
 pub mod guide;
 pub mod layer;
 pub mod layout;
+/// Axis tick placement: how many ticks fit, given the rendered labels.
+pub(crate) mod ticks;
 pub mod utils;
