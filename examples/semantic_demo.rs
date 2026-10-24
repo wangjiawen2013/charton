@@ -4,6 +4,9 @@
 //! Run with `cargo run --example semantic_demo`, then open
 //! `target/test-output/semantic_demo.html` in a browser: the page's stylesheet
 //! restyles the inline SVG without re-rendering it.
+//!
+//! It also refreshes `docs/src/export/semantic_demo.html`, the page the book
+//! embeds: the same trick, applied to the documentation itself.
 
 use charton::prelude::*;
 use std::error::Error;
@@ -55,7 +58,10 @@ fn main() -> Result<(), Box<dyn Error>> {
             .with_defs(HATCH),
     )?;
 
-    std::fs::write("target/test-output/semantic_demo.html", page(&styled))?;
+    let demo_page = page(&styled);
+    std::fs::write("target/test-output/semantic_demo.html", &demo_page)?;
+    std::fs::create_dir_all("docs/src/export")?;
+    std::fs::write("docs/src/export/semantic_demo.html", &demo_page)?;
 
     // 3. A byte-minimal asset for embedding in a document as an image.
     let plain = chart.to_svg_with(&SvgOptions::default().without_classes().with_a11y(A11y::Off))?;
@@ -67,7 +73,8 @@ fn main() -> Result<(), Box<dyn Error>> {
 /// A page whose stylesheet restyles the inlined chart by role.
 ///
 /// Nothing here is chart-specific: one stylesheet drives the light/dark switch,
-/// the print layout and the series colors.
+/// the print layout and the series colors. The page is meant to be embedded as
+/// is (the book does so in an `<iframe>`), so it carries no heading or prose.
 fn page(svg: &str) -> String {
     format!(
         r#"<!doctype html>
@@ -80,20 +87,20 @@ fn page(svg: &str) -> String {
     --ink: #1f2933;
     --muted: #6b7280;
     --accent: #2563eb;
+    --surface: #ffffff;
     --band: url(#demo-hatch);
   }}
-  body {{ margin: 2rem auto; max-width: 46rem; font: 16px/1.6 "Inter", system-ui, sans-serif; color: var(--ink); }}
-  svg.charton {{ max-width: 100%; height: auto; }}
+  html, body {{ margin: 0; padding: 0; background: var(--surface); }}
+  body {{ font: 16px/1.6 "Inter", system-ui, sans-serif; color: var(--ink); }}
+  svg.charton {{ display: block; width: 100%; height: auto; }}
   /* Colours and fonts live on the drawn elements, so the rules reach them. */
   [data-layer="0"] path {{ stroke: var(--accent); stroke-width: 2.5; }}
   [data-layer="1"] path {{ fill: var(--band); }}
   .charton-tick-label text {{ font-size: 11px; fill: var(--muted); }}
   .charton-axis-title text {{ font-size: 12px; fill: var(--muted); }}
-  .charton-legend {{ display: none; }}
+  [data-value="2020"] {{ font-weight: 700; }}
   @media (prefers-color-scheme: dark) {{
-    body {{ background: #111827; color: #e5e7eb; }}
-    .charton-tick-label text, .charton-axis-title text {{ fill: #9ca3af; }}
-    [data-layer="0"] path {{ stroke: #60a5fa; }}
+    :root {{ --ink: #e5e7eb; --muted: #9ca3af; --accent: #60a5fa; --surface: #111827; }}
   }}
   @media print {{
     .charton-grid, .charton-frame {{ display: none; }}
@@ -103,9 +110,6 @@ fn page(svg: &str) -> String {
 </style>
 </head>
 <body>
-<h1>Output</h1>
-<p>Monthly output with its uncertainty band. The chart below is one static SVG
-document; every style above comes from this page.</p>
 {svg}
 </body>
 </html>

@@ -18,6 +18,29 @@ let svg = chart.to_svg_with(&SvgOptions::default()
 The options never change the picture, only how it is written: the same chart
 rendered with different options draws exactly the same shapes.
 
+## A live example
+
+Below is a real HTML page, embedded as is: one static SVG document plus one
+stylesheet. Nothing re-renders per theme, and no JavaScript is involved — switch
+the book's light/dark theme and reload to see the same file restyled from your
+operating system's preference (the frame follows `prefers-color-scheme`).
+
+<iframe src="semantic_demo.html" title="A chart restyled by a page stylesheet"
+        style="width:100%;height:520px;border:1px solid #8884;border-radius:6px"></iframe>
+
+Its stylesheet is written against the classes and attributes documented here:
+
+```css
+[data-layer="0"] path            { stroke: var(--accent); stroke-width: 2.5; }
+[data-layer="1"] path            { fill: url(#demo-hatch); }
+.charton-tick-label text         { font-size: 11px; fill: var(--muted); }
+[data-value="2020"]              { font-weight: 700; }
+@media (prefers-color-scheme: dark) { :root { --accent: #60a5fa; } }
+```
+
+`examples/semantic_demo.rs` generates that page (and a standalone copy under
+`target/test-output/`), so the example and the documentation cannot drift.
+
 ## The model: three channels
 
 | Channel | Lives on | Example | Cost |
