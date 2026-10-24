@@ -7,7 +7,10 @@
 //! so those marks fit without the hand-written `with_expansion` that the
 //! recipe used to need.
 
+mod common;
+
 use charton::prelude::*;
+use common::{plot_body, plot_rect};
 use std::error::Error;
 
 /// Renders the gallery ridgeline, optionally with a manual expansion override.
@@ -46,43 +49,10 @@ fn ridge_svg(expansion: Option<Expansion>) -> Result<String, Box<dyn Error>> {
     Ok(svg)
 }
 
-fn attr(line: &str, name: &str) -> f64 {
-    line.split(&format!("{name}=\""))
-        .nth(1)
-        .and_then(|value| value.split('"').next())
-        .unwrap_or_else(|| panic!("expected attribute {name} in: {line}"))
-        .parse::<f64>()
-        .unwrap_or_else(|_| panic!("attribute {name} should be numeric in: {line}"))
-}
-
-/// The plot panel rectangle, in the same pixel space as the marks.
-fn panel_rect(svg: &str) -> (f64, f64, f64, f64) {
-    let line = svg
-        .lines()
-        .find(|line| line.contains("plot-clip-area-0"))
-        .expect("expected the plot panel clip rect");
-    (
-        attr(line, "x"),
-        attr(line, "y"),
-        attr(line, "width"),
-        attr(line, "height"),
-    )
-}
-
 /// Every point of every mark path inside the plot panel clip group.
 fn clipped_mark_points(svg: &str) -> Vec<(f64, f64)> {
-    let open = "<g clip-path=\"url(#plot-clip-area-0)\">";
-    let start = svg
-        .find(open)
-        .unwrap_or_else(|| panic!("expected the plot panel clip group"))
-        + open.len();
-    let end = start
-        + svg[start..]
-            .find("</g>")
-            .expect("expected the plot panel clip group to close");
-
     let mut points = Vec::new();
-    for path in svg[start..end].split("d=\"").skip(1) {
+    for path in plot_body(svg).split("d=\"").skip(1) {
         let data = path.split('"').next().unwrap_or_default();
         let mut tokens = data.split_whitespace();
         while let Some(command) = tokens.next() {
@@ -114,7 +84,7 @@ fn top_of(svg: &str) -> f64 {
 #[test]
 fn an_overlapping_ridge_fits_the_panel_without_manual_expansion() -> Result<(), Box<dyn Error>> {
     let svg = ridge_svg(None)?;
-    let (px, py, pw, ph) = panel_rect(&svg);
+    let (px, py, pw, ph) = plot_rect(&svg);
     let points = clipped_mark_points(&svg);
     assert!(!points.is_empty(), "the ridgeline produced no mark points");
 

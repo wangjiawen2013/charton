@@ -4,6 +4,7 @@ use crate::core::layer::{
     CircleConfig, GradientRectConfig, LineConfig, PathConfig, PathTopology, PolygonConfig,
     RectConfig, RenderBackend, TextConfig,
 };
+use crate::core::semantic::Group;
 use crate::error::ChartonError;
 use crate::visual::color::SingleColor;
 use ab_glyph::{Font, FontArc, PxScale, ScaleFont};
@@ -24,6 +25,8 @@ pub struct RasterBackend<'a> {
     pub transform: Transform,
     /// Active clipping mask to constrain drawing within the panel viewport.
     pub clip_mask: Option<Mask>,
+    /// What every open scope must restore when it closes.
+    clip_stack: Vec<SavedClip>,
 }
 
 impl<'a> RasterBackend<'a> {
@@ -37,7 +40,37 @@ impl<'a> RasterBackend<'a> {
             pixmap,
             transform: Transform::from_scale(scale, scale),
             clip_mask: None, // Initialize with no active clipping mask
+            clip_stack: Vec::new(),
         }
+    }
+
+    /// Builds the mask for a clip rectangle in device pixels.
+    fn build_clip_mask(
+        pixmap: &Pixmap,
+        transform: &Transform,
+        rect: &crate::coordinate::Rect,
+    ) -> Option<Mask> {
+        let mut mask = Mask::new(pixmap.width(), pixmap.height())?;
+        let mut pb = PathBuilder::new();
+
+        // Apply the DPI scale transform to the clipping rectangle bounds
+        let skia_rect = SkiaRect::from_xywh(
+            (rect.x as f32) * transform.sx,
+            (rect.y as f32) * transform.sy,
+            (rect.width as f32) * transform.sx,
+            (rect.height as f32) * transform.sy,
+        )?;
+        pb.push_rect(skia_rect);
+        let path = pb.finish()?;
+
+        // Fill the mask path with a winding rule to define the clip area
+        mask.fill_path(
+            &path,
+            FillRule::Winding,
+            true,                  // Anti-aliasing
+            Transform::identity(), // Bounds are already pre-scaled
+        );
+        Some(mask)
     }
 
     /// Converts a `SingleColor` and a `Precision` opacity into a tiny-skia `Color`.
@@ -53,47 +86,36 @@ impl<'a> RasterBackend<'a> {
     }
 }
 
+/// What closing a scope restores.
+enum SavedClip {
+    /// The scope installed no clip, so the enclosing mask stays active.
+    Keep,
+    /// The scope installed a clip; restore the mask that was active before it
+    /// (which may itself be none).
+    Restore(Option<Mask>),
+}
+
 impl<'a> RenderBackend for RasterBackend<'a> {
     // =========================================================================
     // STATE MACHINE SCOPE IMPLEMENTATION
     // =========================================================================
 
-    fn begin_clip_scope(&mut self, rect: &crate::coordinate::Rect) {
-        // Create an uninitialized mask matching the size of the canvas pixmap
-        let width = self.pixmap.width();
-        let height = self.pixmap.height();
-
-        if let Some(mut mask) = Mask::new(width, height) {
-            let mut pb = PathBuilder::new();
-
-            // Apply the DPI scale transform to the clipping rectangle bounds
-            let scale_x = self.transform.sx;
-            let scale_y = self.transform.sy;
-
-            if let Some(skia_rect) = SkiaRect::from_xywh(
-                (rect.x as f32) * scale_x,
-                (rect.y as f32) * scale_y,
-                (rect.width as f32) * scale_x,
-                (rect.height as f32) * scale_y,
-            ) {
-                pb.push_rect(skia_rect);
-                if let Some(path) = pb.finish() {
-                    // Fill the mask path with a winding rule to define the clip area
-                    mask.fill_path(
-                        &path,
-                        FillRule::Winding,
-                        true,                  // Anti-aliasing
-                        Transform::identity(), // Bounds are already pre-scaled
-                    );
-                    self.clip_mask = Some(mask);
-                }
-            }
-        }
+    fn begin_group(&mut self, group: &Group<'_>) {
+        let Some(rect) = group.clip else {
+            // No clip: keep the enclosing mask and remember that nothing is owed.
+            self.clip_stack.push(SavedClip::Keep);
+            return;
+        };
+        let previous = self.clip_mask.take();
+        self.clip_mask = Self::build_clip_mask(self.pixmap, &self.transform, &rect);
+        self.clip_stack.push(SavedClip::Restore(previous));
     }
 
-    fn end_clip_scope(&mut self) {
-        // Drop the clipping mask to restore full canvas drawing
-        self.clip_mask = None;
+    fn end_group(&mut self) {
+        // Restore the mask of the enclosing scope (or no mask at the outermost).
+        if let Some(SavedClip::Restore(previous)) = self.clip_stack.pop() {
+            self.clip_mask = previous;
+        }
     }
 
     // =========================================================================
@@ -470,7 +492,7 @@ impl<'a> RenderBackend for RasterBackend<'a> {
             height,
             stops,
             is_vertical,
-            .. // id_suffix is not needed for direct raster rendering
+            .. // the field name matters only to formats with definitions
         } = config;
 
         if let Some(rect) = SkiaRect::from_xywh(x, y, width, height) {

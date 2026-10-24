@@ -1,4 +1,7 @@
+mod common;
+
 use charton::prelude::*;
+use common::{attr, plot_rect as panel_rect};
 
 #[test]
 fn test_scatter_1() -> Result<(), Box<dyn std::error::Error>> {
@@ -136,36 +139,11 @@ fn title_anchor_moves_the_title_along_its_frame() -> Result<(), Box<dyn std::err
     Ok(())
 }
 
-/// Reads a numeric attribute from an SVG element line.
-fn attr(line: &str, name: &str) -> f64 {
-    let needle = format!(" {name}=\"");
-    line.split(&needle)
-        .nth(1)
-        .and_then(|value| value.split('"').next())
-        .unwrap_or_else(|| panic!("expected attribute {name} in: {line}"))
-        .parse::<f64>()
-        .unwrap_or_else(|_| panic!("attribute {name} should be numeric in: {line}"))
-}
-
-/// The plot panel rectangle, in the same pixel space as everything else.
-fn panel_rect(svg: &str) -> (f64, f64, f64, f64) {
-    let line = svg
-        .lines()
-        .find(|line| line.contains("plot-clip-area-0"))
-        .expect("expected the plot panel clip rect");
-    (
-        attr(line, "x"),
-        attr(line, "y"),
-        attr(line, "width"),
-        attr(line, "height"),
-    )
-}
-
 /// The gradient bar rectangle, in the same pixel space as everything else.
 fn gradient_rect(svg: &str) -> (f64, f64, f64, f64) {
     let line = svg
         .lines()
-        .find(|line| line.contains("fill=\"url(#grad"))
+        .find(|line| line.contains("fill=\"url(#") && line.contains("-grad-"))
         .expect("expected a gradient bar rect");
     (
         attr(line, "x"),

@@ -10,6 +10,7 @@ use crate::TEMP_SUFFIX;
 use crate::chart::Chart;
 use crate::core::context::PanelContext;
 use crate::core::layer::{MarkRenderer, PathConfig, PathTopology, RenderBackend};
+use crate::core::semantic::{Group, Role};
 use crate::core::utils::Parallelizable;
 use crate::encode::y::StackMode;
 use crate::error::ChartonError;
@@ -117,7 +118,7 @@ impl MarkRenderer for Chart<MarkArea> {
         let area_render_data: Vec<_> = grouped_data
             .groups
             .maybe_par_iter()
-            .filter_map(|(_name, row_indices)| {
+            .filter_map(|(group_key, row_indices)| {
                 if row_indices.is_empty() {
                     return None;
                 }
@@ -203,12 +204,14 @@ impl MarkRenderer for Chart<MarkArea> {
                     })
                     .collect();
 
-                Some((segments, group_color))
+                Some((group_key.clone(), segments, group_color))
             })
             .collect();
 
         // --- STEP 5: Final Dispatch to Backend ---
-        for (segments, group_color) in area_render_data {
+        for (group_key, segments, group_color) in area_render_data {
+            // One scope per series: the whole area can be addressed by name.
+            backend.begin_group(&Group::new(Role::Series).series_opt(group_key.as_deref()));
             for (fill_pts, stroke_pts) in segments {
                 // Layer 1: Area Fill (Unified concave polygon fill)
                 // One closed path. `draw_path` with `PathTopology::Complex`
@@ -242,6 +245,7 @@ impl MarkRenderer for Chart<MarkArea> {
                     });
                 }
             }
+            backend.end_group();
         }
 
         Ok(())

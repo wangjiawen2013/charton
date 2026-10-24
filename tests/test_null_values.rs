@@ -1,12 +1,11 @@
+mod common;
+
 use charton::prelude::*;
 use std::error::Error;
 
-/// Counts the marker elements inside the plot clip group, excluding legend keys.
+/// Counts the marker elements inside the plot scope, excluding legend keys.
 fn plot_circles(svg: &str) -> usize {
-    let start = svg.find("<g clip-path=").expect("plot group missing");
-    let rest = &svg[start..];
-    let end = rest.find("</g>").expect("plot group not closed");
-    rest[..end].matches("<circle").count()
+    common::plot_body(svg).matches("<circle").count()
 }
 
 /// Missing **positional** values (x/y) are dropped, matching Vega-Lite and

@@ -41,10 +41,15 @@ pub(crate) mod geo_renderer;
 pub(crate) mod hist_renderer;
 pub(crate) mod legend_renderer;
 pub(crate) mod line_renderer;
+#[cfg(feature = "pdf")]
+/// PDF document assembly: page, tagging and structure tree.
+pub mod pdf;
 pub(crate) mod point_renderer;
 pub(crate) mod polar_axis_renderer;
 pub(crate) mod rect_renderer;
 pub(crate) mod rule_renderer;
+/// SVG document assembly: root element, accessibility metadata and `<defs>`.
+pub mod svg;
 pub(crate) mod text_renderer;
 pub(crate) mod tick_renderer;
 pub(crate) mod violin_renderer;

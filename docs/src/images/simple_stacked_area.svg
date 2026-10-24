@@ -1,60 +1,144 @@
-<svg width="500" height="400" viewBox="0 0 500 400" xmlns="http://www.w3.org/2000/svg"><rect x="0.000" y="0.000" width="500.000" height="400.000" fill="rgba(255,255,255,1.000)" stroke="none" stroke-width="0.000" fill-opacity="1.000" stroke-opacity="1.000" />
-<defs><clipPath id="plot-clip-area-0"><rect x="64.800" y="10.000" width="318.200" height="327.000" /></clipPath></defs>
-<g clip-path="url(#plot-clip-area-0)">
+<svg width="500" height="400" viewBox="0 0 500 400" xmlns="http://www.w3.org/2000/svg" class="charton">
+<defs><clipPath id="charton-8d44ed34-clip-0"><rect x="64.800" y="10.000" width="318.200" height="327.000" /></clipPath>
+<clipPath id="charton-8d44ed34-clip-1"><rect x="383.000" y="0.000" width="117.000" height="400.000" /></clipPath>
+</defs>
+<g class="charton-background">
+<rect x="0.000" y="0.000" width="500.000" height="400.000" fill="rgba(255,255,255,1.000)" stroke="none" stroke-width="0.000" fill-opacity="1.000" stroke-opacity="1.000" />
+</g>
+<g class="charton-plot" clip-path="url(#charton-8d44ed34-clip-0)">
+<g class="charton-mark charton-mark-0 charton-mark-area" data-layer="0" data-mark="area">
+<g class="charton-series" data-series="Belarus">
 <path d="M 79.264 309.075 L 108.167 309.618 L 137.150 309.799 L 166.053 309.890 L 194.957 310.569 L 223.860 310.569 L 252.843 311.429 L 281.747 315.457 L 310.650 318.172 L 339.554 315.411 L 368.536 315.547 L 368.536 337.000 L 339.554 337.000 L 310.650 337.000 L 281.747 337.000 L 252.843 337.000 L 223.860 337.000 L 194.957 337.000 L 166.053 337.000 L 137.150 337.000 L 108.167 337.000 L 79.264 337.000 Z" fill="rgba(31,119,180,1.000)" fill-opacity="1.000" stroke="none" />
+</g>
+<g class="charton-series" data-series="Ireland">
 <path d="M 79.264 239.602 L 108.167 239.693 L 137.150 247.658 L 166.053 256.212 L 194.957 265.717 L 223.860 272.687 L 252.843 281.060 L 281.747 289.478 L 310.650 295.769 L 339.554 289.976 L 368.536 285.540 L 368.536 315.547 L 339.554 315.411 L 310.650 318.172 L 281.747 315.457 L 252.843 311.429 L 223.860 310.569 L 194.957 310.569 L 166.053 309.890 L 137.150 309.799 L 108.167 309.618 L 79.264 309.075 Z" fill="rgba(255,127,14,1.000)" fill-opacity="1.000" stroke="none" />
+</g>
+<g class="charton-series" data-series="Moldova">
 <path d="M 79.264 209.369 L 108.167 214.438 L 137.150 224.576 L 166.053 239.331 L 194.957 244.445 L 223.860 254.492 L 252.843 262.503 L 281.747 270.876 L 310.650 272.687 L 339.554 272.687 L 368.536 267.618 L 368.536 285.540 L 339.554 289.976 L 310.650 295.769 L 281.747 289.478 L 252.843 281.060 L 223.860 272.687 L 194.957 265.717 L 166.053 256.212 L 137.150 247.658 L 108.167 239.693 L 79.264 239.602 Z" fill="rgba(44,160,44,1.000)" fill-opacity="1.000" stroke="none" />
+</g>
+<g class="charton-series" data-series="Malta">
 <path d="M 79.264 180.494 L 108.167 186.377 L 137.150 196.923 L 166.053 213.442 L 194.957 220.095 L 223.860 233.266 L 252.843 244.400 L 281.747 254.311 L 310.650 256.303 L 339.554 253.406 L 368.536 251.777 L 368.536 267.618 L 339.554 272.687 L 310.650 272.687 L 281.747 270.876 L 252.843 262.503 L 223.860 254.492 L 194.957 244.445 L 166.053 239.331 L 137.150 224.576 L 108.167 214.438 L 79.264 209.369 Z" fill="rgba(214,39,40,1.000)" fill-opacity="1.000" stroke="none" />
+</g>
+<g class="charton-series" data-series="Puerto Rico">
 <path d="M 79.264 109.437 L 108.167 120.752 L 137.150 132.202 L 166.053 150.532 L 194.957 165.784 L 223.860 179.860 L 252.843 195.520 L 281.747 212.673 L 310.650 218.738 L 339.554 213.171 L 368.536 214.348 L 368.536 251.777 L 339.554 253.406 L 310.650 256.303 L 281.747 254.311 L 252.843 244.400 L 223.860 233.266 L 194.957 220.095 L 166.053 213.442 L 137.150 196.923 L 108.167 186.377 L 79.264 180.494 Z" fill="rgba(148,103,189,1.000)" fill-opacity="1.000" stroke="none" />
+</g>
+<g class="charton-series" data-series="Senegal">
 <path d="M 79.264 62.548 L 108.167 78.027 L 137.150 93.370 L 166.053 115.909 L 194.957 135.189 L 223.860 159.674 L 252.843 178.819 L 281.747 197.828 L 310.650 205.794 L 339.554 196.787 L 368.536 197.511 L 368.536 214.348 L 339.554 213.171 L 310.650 218.738 L 281.747 212.673 L 252.843 195.520 L 223.860 179.860 L 194.957 165.784 L 166.053 150.532 L 137.150 132.202 L 108.167 120.752 L 79.264 109.437 Z" fill="rgba(140,86,75,1.000)" fill-opacity="1.000" stroke="none" />
+</g>
+<g class="charton-series" data-series="Slovenia">
 <path d="M 79.264 25.571 L 108.167 38.018 L 137.150 47.658 L 166.053 72.143 L 194.957 94.637 L 223.860 123.467 L 252.843 149.129 L 281.747 174.701 L 310.650 185.653 L 339.554 174.293 L 368.536 177.507 L 368.536 197.511 L 339.554 196.787 L 310.650 205.794 L 281.747 197.828 L 252.843 178.819 L 223.860 159.674 L 194.957 135.189 L 166.053 115.909 L 137.150 93.370 L 108.167 78.027 L 79.264 62.548 Z" fill="rgba(227,119,194,1.000)" fill-opacity="1.000" stroke="none" />
 </g>
+</g>
+</g>
+<g class="charton-axis charton-axis-x" data-axis="x">
+<g class="charton-axis-line">
 <path d="M 64.800 337.000 L 383.000 337.000" fill="none" stroke="rgba(0,0,0,1.000)" stroke-width="1.000" stroke-opacity="1.000" stroke-linejoin="round" stroke-linecap="round" />
+</g>
+<g class="charton-tick">
 <path d="M 108.167 337.000 L 108.167 343.000" fill="none" stroke="rgba(0,0,0,1.000)" stroke-width="1.000" stroke-opacity="1.000" stroke-linejoin="round" stroke-linecap="round" />
-<text x="108.167" y="346.000" font-size="13.0" font-family="Inter, -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, 'PingFang SC', 'Microsoft YaHei', Ubuntu, Cantarell, 'Noto Sans', sans-serif" fill="rgba(51,51,51,1.000)" fill-opacity="1.000" text-anchor="middle" font-weight="normal" font-style="normal" dominant-baseline="hanging" transform="rotate(0 108.167 346.000)">2012</text>
 <path d="M 166.053 337.000 L 166.053 343.000" fill="none" stroke="rgba(0,0,0,1.000)" stroke-width="1.000" stroke-opacity="1.000" stroke-linejoin="round" stroke-linecap="round" />
-<text x="166.053" y="346.000" font-size="13.0" font-family="Inter, -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, 'PingFang SC', 'Microsoft YaHei', Ubuntu, Cantarell, 'Noto Sans', sans-serif" fill="rgba(51,51,51,1.000)" fill-opacity="1.000" text-anchor="middle" font-weight="normal" font-style="normal" dominant-baseline="hanging" transform="rotate(0 166.053 346.000)">2014</text>
 <path d="M 223.860 337.000 L 223.860 343.000" fill="none" stroke="rgba(0,0,0,1.000)" stroke-width="1.000" stroke-opacity="1.000" stroke-linejoin="round" stroke-linecap="round" />
-<text x="223.860" y="346.000" font-size="13.0" font-family="Inter, -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, 'PingFang SC', 'Microsoft YaHei', Ubuntu, Cantarell, 'Noto Sans', sans-serif" fill="rgba(51,51,51,1.000)" fill-opacity="1.000" text-anchor="middle" font-weight="normal" font-style="normal" dominant-baseline="hanging" transform="rotate(0 223.860 346.000)">2016</text>
 <path d="M 281.747 337.000 L 281.747 343.000" fill="none" stroke="rgba(0,0,0,1.000)" stroke-width="1.000" stroke-opacity="1.000" stroke-linejoin="round" stroke-linecap="round" />
-<text x="281.747" y="346.000" font-size="13.0" font-family="Inter, -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, 'PingFang SC', 'Microsoft YaHei', Ubuntu, Cantarell, 'Noto Sans', sans-serif" fill="rgba(51,51,51,1.000)" fill-opacity="1.000" text-anchor="middle" font-weight="normal" font-style="normal" dominant-baseline="hanging" transform="rotate(0 281.747 346.000)">2018</text>
 <path d="M 339.554 337.000 L 339.554 343.000" fill="none" stroke="rgba(0,0,0,1.000)" stroke-width="1.000" stroke-opacity="1.000" stroke-linejoin="round" stroke-linecap="round" />
-<text x="339.554" y="346.000" font-size="13.0" font-family="Inter, -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, 'PingFang SC', 'Microsoft YaHei', Ubuntu, Cantarell, 'Noto Sans', sans-serif" fill="rgba(51,51,51,1.000)" fill-opacity="1.000" text-anchor="middle" font-weight="normal" font-style="normal" dominant-baseline="hanging" transform="rotate(0 339.554 346.000)">2020</text>
+</g>
+<g class="charton-tick-label">
+<text x="108.167" y="346.000" font-size="13.0" font-family="Inter, -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, 'PingFang SC', 'Microsoft YaHei', Ubuntu, Cantarell, 'Noto Sans', sans-serif" fill="rgba(51,51,51,1.000)" fill-opacity="1.000" text-anchor="middle" font-weight="normal" font-style="normal" dominant-baseline="hanging" transform="rotate(0 108.167 346.000)" data-value="2012">2012</text>
+<text x="166.053" y="346.000" font-size="13.0" font-family="Inter, -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, 'PingFang SC', 'Microsoft YaHei', Ubuntu, Cantarell, 'Noto Sans', sans-serif" fill="rgba(51,51,51,1.000)" fill-opacity="1.000" text-anchor="middle" font-weight="normal" font-style="normal" dominant-baseline="hanging" transform="rotate(0 166.053 346.000)" data-value="2014">2014</text>
+<text x="223.860" y="346.000" font-size="13.0" font-family="Inter, -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, 'PingFang SC', 'Microsoft YaHei', Ubuntu, Cantarell, 'Noto Sans', sans-serif" fill="rgba(51,51,51,1.000)" fill-opacity="1.000" text-anchor="middle" font-weight="normal" font-style="normal" dominant-baseline="hanging" transform="rotate(0 223.860 346.000)" data-value="2016">2016</text>
+<text x="281.747" y="346.000" font-size="13.0" font-family="Inter, -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, 'PingFang SC', 'Microsoft YaHei', Ubuntu, Cantarell, 'Noto Sans', sans-serif" fill="rgba(51,51,51,1.000)" fill-opacity="1.000" text-anchor="middle" font-weight="normal" font-style="normal" dominant-baseline="hanging" transform="rotate(0 281.747 346.000)" data-value="2018">2018</text>
+<text x="339.554" y="346.000" font-size="13.0" font-family="Inter, -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, 'PingFang SC', 'Microsoft YaHei', Ubuntu, Cantarell, 'Noto Sans', sans-serif" fill="rgba(51,51,51,1.000)" fill-opacity="1.000" text-anchor="middle" font-weight="normal" font-style="normal" dominant-baseline="hanging" transform="rotate(0 339.554 346.000)" data-value="2020">2020</text>
+</g>
+<g class="charton-axis-title">
 <text x="223.900" y="369.000" font-size="15.0" font-family="Inter, -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, 'PingFang SC', 'Microsoft YaHei', Ubuntu, Cantarell, 'Noto Sans', sans-serif" fill="rgba(51,51,51,1.000)" fill-opacity="1.000" text-anchor="middle" font-weight="bold" font-style="normal" dominant-baseline="hanging" transform="rotate(0 223.900 369.000)">Year</text>
+</g>
+</g>
+<g class="charton-axis charton-axis-y" data-axis="y">
+<g class="charton-axis-line">
 <path d="M 64.800 10.000 L 64.800 337.000" fill="none" stroke="rgba(0,0,0,1.000)" stroke-width="1.000" stroke-opacity="1.000" stroke-linejoin="round" stroke-linecap="round" />
+</g>
+<g class="charton-tick">
 <path d="M 64.800 337.000 L 58.800 337.000" fill="none" stroke="rgba(0,0,0,1.000)" stroke-width="1.000" stroke-opacity="1.000" stroke-linejoin="round" stroke-linecap="round" />
-<text x="55.800" y="337.000" font-size="13.0" font-family="Inter, -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, 'PingFang SC', 'Microsoft YaHei', Ubuntu, Cantarell, 'Noto Sans', sans-serif" fill="rgba(51,51,51,1.000)" fill-opacity="1.000" text-anchor="end" font-weight="normal" font-style="normal" dominant-baseline="central" transform="rotate(0 55.800 337.000)">0</text>
 <path d="M 64.800 291.741 L 58.800 291.741" fill="none" stroke="rgba(0,0,0,1.000)" stroke-width="1.000" stroke-opacity="1.000" stroke-linejoin="round" stroke-linecap="round" />
-<text x="55.800" y="291.741" font-size="13.0" font-family="Inter, -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, 'PingFang SC', 'Microsoft YaHei', Ubuntu, Cantarell, 'Noto Sans', sans-serif" fill="rgba(51,51,51,1.000)" fill-opacity="1.000" text-anchor="end" font-weight="normal" font-style="normal" dominant-baseline="central" transform="rotate(0 55.800 291.741)">10</text>
 <path d="M 64.800 246.482 L 58.800 246.482" fill="none" stroke="rgba(0,0,0,1.000)" stroke-width="1.000" stroke-opacity="1.000" stroke-linejoin="round" stroke-linecap="round" />
-<text x="55.800" y="246.482" font-size="13.0" font-family="Inter, -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, 'PingFang SC', 'Microsoft YaHei', Ubuntu, Cantarell, 'Noto Sans', sans-serif" fill="rgba(51,51,51,1.000)" fill-opacity="1.000" text-anchor="end" font-weight="normal" font-style="normal" dominant-baseline="central" transform="rotate(0 55.800 246.482)">20</text>
 <path d="M 64.800 201.222 L 58.800 201.222" fill="none" stroke="rgba(0,0,0,1.000)" stroke-width="1.000" stroke-opacity="1.000" stroke-linejoin="round" stroke-linecap="round" />
-<text x="55.800" y="201.222" font-size="13.0" font-family="Inter, -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, 'PingFang SC', 'Microsoft YaHei', Ubuntu, Cantarell, 'Noto Sans', sans-serif" fill="rgba(51,51,51,1.000)" fill-opacity="1.000" text-anchor="end" font-weight="normal" font-style="normal" dominant-baseline="central" transform="rotate(0 55.800 201.222)">30</text>
 <path d="M 64.800 155.963 L 58.800 155.963" fill="none" stroke="rgba(0,0,0,1.000)" stroke-width="1.000" stroke-opacity="1.000" stroke-linejoin="round" stroke-linecap="round" />
-<text x="55.800" y="155.963" font-size="13.0" font-family="Inter, -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, 'PingFang SC', 'Microsoft YaHei', Ubuntu, Cantarell, 'Noto Sans', sans-serif" fill="rgba(51,51,51,1.000)" fill-opacity="1.000" text-anchor="end" font-weight="normal" font-style="normal" dominant-baseline="central" transform="rotate(0 55.800 155.963)">40</text>
 <path d="M 64.800 110.704 L 58.800 110.704" fill="none" stroke="rgba(0,0,0,1.000)" stroke-width="1.000" stroke-opacity="1.000" stroke-linejoin="round" stroke-linecap="round" />
-<text x="55.800" y="110.704" font-size="13.0" font-family="Inter, -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, 'PingFang SC', 'Microsoft YaHei', Ubuntu, Cantarell, 'Noto Sans', sans-serif" fill="rgba(51,51,51,1.000)" fill-opacity="1.000" text-anchor="end" font-weight="normal" font-style="normal" dominant-baseline="central" transform="rotate(0 55.800 110.704)">50</text>
 <path d="M 64.800 65.445 L 58.800 65.445" fill="none" stroke="rgba(0,0,0,1.000)" stroke-width="1.000" stroke-opacity="1.000" stroke-linejoin="round" stroke-linecap="round" />
-<text x="55.800" y="65.445" font-size="13.0" font-family="Inter, -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, 'PingFang SC', 'Microsoft YaHei', Ubuntu, Cantarell, 'Noto Sans', sans-serif" fill="rgba(51,51,51,1.000)" fill-opacity="1.000" text-anchor="end" font-weight="normal" font-style="normal" dominant-baseline="central" transform="rotate(0 55.800 65.445)">60</text>
 <path d="M 64.800 20.186 L 58.800 20.186" fill="none" stroke="rgba(0,0,0,1.000)" stroke-width="1.000" stroke-opacity="1.000" stroke-linejoin="round" stroke-linecap="round" />
-<text x="55.800" y="20.186" font-size="13.0" font-family="Inter, -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, 'PingFang SC', 'Microsoft YaHei', Ubuntu, Cantarell, 'Noto Sans', sans-serif" fill="rgba(51,51,51,1.000)" fill-opacity="1.000" text-anchor="end" font-weight="normal" font-style="normal" dominant-baseline="central" transform="rotate(0 55.800 20.186)">70</text>
+</g>
+<g class="charton-tick-label">
+<text x="55.800" y="337.000" font-size="13.0" font-family="Inter, -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, 'PingFang SC', 'Microsoft YaHei', Ubuntu, Cantarell, 'Noto Sans', sans-serif" fill="rgba(51,51,51,1.000)" fill-opacity="1.000" text-anchor="end" font-weight="normal" font-style="normal" dominant-baseline="central" transform="rotate(0 55.800 337.000)" data-value="0">0</text>
+<text x="55.800" y="291.741" font-size="13.0" font-family="Inter, -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, 'PingFang SC', 'Microsoft YaHei', Ubuntu, Cantarell, 'Noto Sans', sans-serif" fill="rgba(51,51,51,1.000)" fill-opacity="1.000" text-anchor="end" font-weight="normal" font-style="normal" dominant-baseline="central" transform="rotate(0 55.800 291.741)" data-value="10">10</text>
+<text x="55.800" y="246.482" font-size="13.0" font-family="Inter, -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, 'PingFang SC', 'Microsoft YaHei', Ubuntu, Cantarell, 'Noto Sans', sans-serif" fill="rgba(51,51,51,1.000)" fill-opacity="1.000" text-anchor="end" font-weight="normal" font-style="normal" dominant-baseline="central" transform="rotate(0 55.800 246.482)" data-value="20">20</text>
+<text x="55.800" y="201.222" font-size="13.0" font-family="Inter, -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, 'PingFang SC', 'Microsoft YaHei', Ubuntu, Cantarell, 'Noto Sans', sans-serif" fill="rgba(51,51,51,1.000)" fill-opacity="1.000" text-anchor="end" font-weight="normal" font-style="normal" dominant-baseline="central" transform="rotate(0 55.800 201.222)" data-value="30">30</text>
+<text x="55.800" y="155.963" font-size="13.0" font-family="Inter, -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, 'PingFang SC', 'Microsoft YaHei', Ubuntu, Cantarell, 'Noto Sans', sans-serif" fill="rgba(51,51,51,1.000)" fill-opacity="1.000" text-anchor="end" font-weight="normal" font-style="normal" dominant-baseline="central" transform="rotate(0 55.800 155.963)" data-value="40">40</text>
+<text x="55.800" y="110.704" font-size="13.0" font-family="Inter, -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, 'PingFang SC', 'Microsoft YaHei', Ubuntu, Cantarell, 'Noto Sans', sans-serif" fill="rgba(51,51,51,1.000)" fill-opacity="1.000" text-anchor="end" font-weight="normal" font-style="normal" dominant-baseline="central" transform="rotate(0 55.800 110.704)" data-value="50">50</text>
+<text x="55.800" y="65.445" font-size="13.0" font-family="Inter, -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, 'PingFang SC', 'Microsoft YaHei', Ubuntu, Cantarell, 'Noto Sans', sans-serif" fill="rgba(51,51,51,1.000)" fill-opacity="1.000" text-anchor="end" font-weight="normal" font-style="normal" dominant-baseline="central" transform="rotate(0 55.800 65.445)" data-value="60">60</text>
+<text x="55.800" y="20.186" font-size="13.0" font-family="Inter, -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, 'PingFang SC', 'Microsoft YaHei', Ubuntu, Cantarell, 'Noto Sans', sans-serif" fill="rgba(51,51,51,1.000)" fill-opacity="1.000" text-anchor="end" font-weight="normal" font-style="normal" dominant-baseline="central" transform="rotate(0 55.800 20.186)" data-value="70">70</text>
+</g>
+<g class="charton-axis-title">
 <text x="24.000" y="173.500" font-size="15.0" font-family="Inter, -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, 'PingFang SC', 'Microsoft YaHei', Ubuntu, Cantarell, 'Noto Sans', sans-serif" fill="rgba(51,51,51,1.000)" fill-opacity="1.000" text-anchor="middle" font-weight="bold" font-style="normal" dominant-baseline="middle" transform="rotate(-90 24.000 173.500)">Unemployment rate (%)</text>
-<defs><clipPath id="plot-clip-area-1"><rect x="383.000" y="0.000" width="117.000" height="400.000" /></clipPath></defs>
-<g clip-path="url(#plot-clip-area-1)">
+</g>
+</g>
+<g class="charton-legend" data-series="Country" clip-path="url(#charton-8d44ed34-clip-1)">
+<g class="charton-legend-title">
 <text x="398.000" y="16.000" font-size="13.2" font-family="Inter, -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, 'PingFang SC', 'Microsoft YaHei', Ubuntu, Cantarell, 'Noto Sans', sans-serif" fill="rgba(51,51,51,1.000)" fill-opacity="1.000" text-anchor="start" font-weight="bold" font-style="normal" dominant-baseline="central" transform="rotate(0 398.000 16.000)">Country</text>
+</g>
+<g class="charton-legend-entry">
+<g class="charton-legend-swatch">
 <circle cx="407.000" cy="39.200" r="5.000" fill="rgba(31,119,180,1.000)" stroke="none" stroke-width="0.000" fill-opacity="1.000" stroke-opacity="1.000" />
+</g>
+<g class="charton-legend-label">
 <text x="424.000" y="39.200" font-size="12.0" font-family="Inter, -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, 'PingFang SC', 'Microsoft YaHei', Ubuntu, Cantarell, 'Noto Sans', sans-serif" fill="rgba(51,51,51,1.000)" fill-opacity="1.000" text-anchor="start" font-weight="normal" font-style="normal" dominant-baseline="central" transform="rotate(0 424.000 39.200)">Belarus</text>
+</g>
+</g>
+<g class="charton-legend-entry">
+<g class="charton-legend-swatch">
 <circle cx="407.000" cy="60.200" r="5.000" fill="rgba(255,127,14,1.000)" stroke="none" stroke-width="0.000" fill-opacity="1.000" stroke-opacity="1.000" />
+</g>
+<g class="charton-legend-label">
 <text x="424.000" y="60.200" font-size="12.0" font-family="Inter, -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, 'PingFang SC', 'Microsoft YaHei', Ubuntu, Cantarell, 'Noto Sans', sans-serif" fill="rgba(51,51,51,1.000)" fill-opacity="1.000" text-anchor="start" font-weight="normal" font-style="normal" dominant-baseline="central" transform="rotate(0 424.000 60.200)">Ireland</text>
+</g>
+</g>
+<g class="charton-legend-entry">
+<g class="charton-legend-swatch">
 <circle cx="407.000" cy="81.200" r="5.000" fill="rgba(44,160,44,1.000)" stroke="none" stroke-width="0.000" fill-opacity="1.000" stroke-opacity="1.000" />
+</g>
+<g class="charton-legend-label">
 <text x="424.000" y="81.200" font-size="12.0" font-family="Inter, -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, 'PingFang SC', 'Microsoft YaHei', Ubuntu, Cantarell, 'Noto Sans', sans-serif" fill="rgba(51,51,51,1.000)" fill-opacity="1.000" text-anchor="start" font-weight="normal" font-style="normal" dominant-baseline="central" transform="rotate(0 424.000 81.200)">Moldova</text>
+</g>
+</g>
+<g class="charton-legend-entry">
+<g class="charton-legend-swatch">
 <circle cx="407.000" cy="102.200" r="5.000" fill="rgba(214,39,40,1.000)" stroke="none" stroke-width="0.000" fill-opacity="1.000" stroke-opacity="1.000" />
+</g>
+<g class="charton-legend-label">
 <text x="424.000" y="102.200" font-size="12.0" font-family="Inter, -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, 'PingFang SC', 'Microsoft YaHei', Ubuntu, Cantarell, 'Noto Sans', sans-serif" fill="rgba(51,51,51,1.000)" fill-opacity="1.000" text-anchor="start" font-weight="normal" font-style="normal" dominant-baseline="central" transform="rotate(0 424.000 102.200)">Malta</text>
+</g>
+</g>
+<g class="charton-legend-entry">
+<g class="charton-legend-swatch">
 <circle cx="407.000" cy="123.200" r="5.000" fill="rgba(148,103,189,1.000)" stroke="none" stroke-width="0.000" fill-opacity="1.000" stroke-opacity="1.000" />
+</g>
+<g class="charton-legend-label">
 <text x="424.000" y="123.200" font-size="12.0" font-family="Inter, -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, 'PingFang SC', 'Microsoft YaHei', Ubuntu, Cantarell, 'Noto Sans', sans-serif" fill="rgba(51,51,51,1.000)" fill-opacity="1.000" text-anchor="start" font-weight="normal" font-style="normal" dominant-baseline="central" transform="rotate(0 424.000 123.200)">Puerto Rico</text>
+</g>
+</g>
+<g class="charton-legend-entry">
+<g class="charton-legend-swatch">
 <circle cx="407.000" cy="144.200" r="5.000" fill="rgba(140,86,75,1.000)" stroke="none" stroke-width="0.000" fill-opacity="1.000" stroke-opacity="1.000" />
+</g>
+<g class="charton-legend-label">
 <text x="424.000" y="144.200" font-size="12.0" font-family="Inter, -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, 'PingFang SC', 'Microsoft YaHei', Ubuntu, Cantarell, 'Noto Sans', sans-serif" fill="rgba(51,51,51,1.000)" fill-opacity="1.000" text-anchor="start" font-weight="normal" font-style="normal" dominant-baseline="central" transform="rotate(0 424.000 144.200)">Senegal</text>
+</g>
+</g>
+<g class="charton-legend-entry">
+<g class="charton-legend-swatch">
 <circle cx="407.000" cy="165.200" r="5.000" fill="rgba(227,119,194,1.000)" stroke="none" stroke-width="0.000" fill-opacity="1.000" stroke-opacity="1.000" />
+</g>
+<g class="charton-legend-label">
 <text x="424.000" y="165.200" font-size="12.0" font-family="Inter, -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, 'PingFang SC', 'Microsoft YaHei', Ubuntu, Cantarell, 'Noto Sans', sans-serif" fill="rgba(51,51,51,1.000)" fill-opacity="1.000" text-anchor="start" font-weight="normal" font-style="normal" dominant-baseline="central" transform="rotate(0 424.000 165.200)">Slovenia</text>
+</g>
+</g>
 </g>
 </svg>

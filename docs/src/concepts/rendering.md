@@ -108,3 +108,47 @@ The WGPU backend (`WgpuBackend`) strictly adheres to a 4-Tier Geometry Architect
 **The Deferred Text Ledger:**
 
 To decouple heavy font-shaping from the GPU, `render_primitive_only` collects all `TextConfig` calls into a `Vec<TextConfig>`. This ledger is returned to the host runner (`save_wgpu_png` or `render_to_canvas`), which then safely overlays the text using the most optimal native 2D API available to the platform. Font families, fallback and error handling for that overlay are described in [Fonts & Text Rendering](fonts.md).
+## Semantic Scopes: the Sixth Contract
+
+The six drawing methods above answer *what shape* and *where*. They cannot
+answer *what it means*: `draw_line` draws a grid line, a tick, an axis spine and
+a data mark identically. Structuring the document therefore needs one more
+concept, and it deliberately is not a new primitive.
+
+```rust
+fn begin_group(&mut self, group: &Group<'_>);
+fn end_group(&mut self);
+```
+
+A `Group` (see `core::semantic`) carries a `Role` — `Axis(X)`, `TickLabel`,
+`Grid`, `Mark`, `Legend`, … — plus optional identity (`layer`, `mark_type`,
+`series`) and an optional clip rectangle. Every group opened is closed, and
+groups nest.
+
+What each backend does with it:
+
+| Backend | Effect |
+|---|---|
+| SVG | `<g class="charton-…" data-… aria-… clip-path="…">` |
+| PDF | applies the clip rectangle and, when `PdfOptions` enables tagging, starts a marked-content section for each whole accessible unit (see `Role::structure`) |
+| Raster | swaps the clipping mask, restoring the enclosing one on close |
+| WGPU | narrows the scissor rectangle, restoring the enclosing one on close |
+
+Two properties keep this compatible with the streaming design:
+
+* **Roles are groups, not per-primitive tags.** The number of groups is
+  O(ticks + layers), not O(points), so nothing is allocated per data point.
+* **A clip is a property of a group.** There is exactly one way to isolate a
+  region, and therefore exactly one `<defs>` block per document.
+
+Per-observation identity is the one piece that does travel on a primitive
+(`begin_element`/`end_element` → `data-value`): a bar or a tick label is exactly
+the element a stylesheet wants to address, and a value on a wrapping group could
+not override the presentation attributes of the element it wraps.
+
+Because the semantics live in the pipeline rather than in the SVG backend, the
+same stream drives PDF tagging and can never drift between backends.
+
+See [Semantic Output: CSS, Accessibility & Tagging](../export/semantic_output.md)
+for the class grammar, the `SvgOptions`/`PdfOptions` APIs and the PDF structure
+mapping.

@@ -8,6 +8,7 @@ use crate::core::layer::{
     TextConfig,
 };
 use crate::core::layout::{GuideBlockLayout, LegendLayoutPlan};
+use crate::core::semantic::{Group, Role};
 use crate::error::ChartonError;
 use crate::scale::mapper::VisualMapper;
 use crate::theme::Theme;
@@ -62,11 +63,6 @@ impl LegendRenderer {
         };
         Self::warn_if_clipped(plan, ctx, origin_x, origin_y, band);
 
-        // Only ever paint inside the open area on this side of the panel, so a
-        // legend that is far too big is cut off instead of spilling onto the
-        // title or the plot.
-        backend.begin_clip_scope(band);
-
         // Every block and every entry already knows where it goes; this loop only
         // draws. It must not re-derive any layout, or the drawing would start
         // disagreeing with the space the layout reserved.
@@ -77,7 +73,13 @@ impl LegendRenderer {
             let block_x = origin_x + block.offset_x;
             let block_y = origin_y + block.offset_y;
 
+            // One scope per legend block: it carries the field the legend
+            // explains, and the clip that keeps an oversized legend off the plot
+            // and the title.
+            backend.begin_group(&Group::new(Role::Legend).series(&spec.field).clip(*band));
+
             // 1. Draw the block title.
+            backend.begin_group(&Group::new(Role::LegendTitle));
             backend.draw_text(TextConfig {
                 text: spec.title.clone(),
                 x: block_x as Precision,
@@ -92,6 +94,7 @@ impl LegendRenderer {
                 opacity: 1.0,
                 angle: 0.0,
             })?;
+            backend.end_group();
 
             // 2. Draw the content: a gradient bar, or the discrete entries.
             // Entry offsets are relative to the block origin and already sit
@@ -100,6 +103,7 @@ impl LegendRenderer {
                 GuideKind::ColorBar => {
                     // Colour bars are guaranteed to carry their geometry.
                     if let Some(geometry) = block.colorbar {
+                        backend.begin_group(&Group::new(Role::ColorBar));
                         Self::draw_colorbar(
                             backend,
                             spec,
@@ -110,6 +114,7 @@ impl LegendRenderer {
                             is_horizontal,
                             geometry,
                         )?;
+                        backend.end_group();
                     }
                 }
                 GuideKind::Legend => {
@@ -128,9 +133,10 @@ impl LegendRenderer {
                     )?;
                 }
             };
+
+            backend.end_group();
         }
 
-        backend.end_clip_scope();
         Ok(())
     }
 
@@ -230,7 +236,7 @@ impl LegendRenderer {
             height: bar_h as Precision,
             stops,
             is_vertical: !is_horizontal,
-            id_suffix: spec.field.clone(),
+            field: spec.field.clone(),
         };
         backend.draw_gradient_rect(gradient_rect_config);
 
@@ -355,6 +361,9 @@ impl LegendRenderer {
             // The symbol and its label share the vertical centre of the row.
             let centre_y = block_y + entry.y + row / 2.0;
 
+            backend.begin_group(&Group::new(Role::LegendEntry).label(label));
+
+            backend.begin_group(&Group::new(Role::LegendSwatch));
             Self::draw_symbol(
                 backend,
                 shape,
@@ -363,7 +372,9 @@ impl LegendRenderer {
                 radius,
                 colors.get(index).unwrap_or(&theme.legend_label_color),
             );
+            backend.end_group();
 
+            backend.begin_group(&Group::new(Role::LegendLabel));
             backend.draw_text(TextConfig {
                 text: label.clone(),
                 x: (block_x + entry.x + cell + theme.legend_marker_text_gap) as Precision,
@@ -378,6 +389,9 @@ impl LegendRenderer {
                 opacity: 1.0,
                 angle: 0.0,
             })?;
+            backend.end_group();
+
+            backend.end_group();
         }
 
         Ok(())

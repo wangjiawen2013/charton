@@ -12,10 +12,12 @@ use crate::TEMP_SUFFIX;
 use crate::chart::Chart;
 use crate::core::context::PanelContext;
 use crate::core::layer::{MarkRenderer, PathConfig, PathTopology, RenderBackend, TextConfig};
+use crate::core::semantic::Element;
 use crate::encode::y::StackMode;
 use crate::error::ChartonError;
 use crate::mark::bar::MarkBar;
 use crate::position::Position;
+use crate::scale::mapper::VisualMapper;
 use crate::visual::color::SingleColor;
 use ahash::AHashMap;
 
@@ -97,6 +99,21 @@ impl MarkRenderer for Chart<MarkBar> {
                 .scale_type()
                 .normalize_column(c.scale_impl.as_ref(), ds.column(&c.field).unwrap())
         });
+
+        // A grouped bar belongs to a series, but bars are drawn as a flat stream
+        // (re-grouping them would change the draw order, and with it the visual
+        // stacking). The series therefore travels on the element itself.
+        let series_field = context
+            .spec
+            .aesthetics
+            .color
+            .as_ref()
+            .filter(|m| {
+                m.scale_impl
+                    .mapper()
+                    .is_some_and(|v| matches!(v, VisualMapper::DiscreteColor { .. }))
+            })
+            .map(|m| m.field.clone());
 
         let global_total = if is_pie_mode {
             y_values.iter().sum::<f64>().max(1.0)
@@ -210,7 +227,13 @@ impl MarkRenderer for Chart<MarkBar> {
                     .collect()
             };
 
-            // D: Drawing
+            // D: Drawing. Each bar stands for one category: annotate it with
+            // that category so `[data-value="2020"]` can address it.
+            let series_label = series_field
+                .as_ref()
+                .and_then(|field| ds.get(field, idx).to_string());
+            backend.begin_element(Element::new(&x_str).with_series(series_label.as_deref()));
+
             let color_val = color_norms.as_ref().map(|cn| cn[idx].unwrap_or(f64::NAN));
             let final_color = self.resolve_color_from_value(color_val, context, &mark_config.color);
 
@@ -242,6 +265,8 @@ impl MarkRenderer for Chart<MarkBar> {
                     mark_config.opacity as Precision,
                 )?;
             }
+
+            backend.end_element();
         }
 
         Ok(())

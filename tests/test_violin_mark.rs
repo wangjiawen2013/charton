@@ -4,7 +4,10 @@
 //! `transform_density` + `transform_band` + the polygon renderer. The strongest
 //! way to keep that promise honest is to render both and compare the bytes.
 
+mod common;
+
 use charton::prelude::*;
+use common::drawing_only;
 use std::error::Error;
 use std::fs;
 
@@ -55,7 +58,8 @@ fn mark_violin_matches_the_manual_recipe_byte_for_byte() -> Result<(), Box<dyn E
     let manual = fs::read_to_string("./target/test-output/violin_manual.svg")?;
     let sugar = fs::read_to_string("./target/test-output/violin_mark.svg")?;
     assert_eq!(
-        manual, sugar,
+        drawing_only(&manual),
+        drawing_only(&sugar),
         "mark_violin must render exactly like transform_density + transform_band"
     );
 

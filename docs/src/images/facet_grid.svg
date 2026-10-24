@@ -1,5 +1,17 @@
-<svg width="800" height="500" viewBox="0 0 800 500" xmlns="http://www.w3.org/2000/svg"><rect x="0.000" y="0.000" width="800.000" height="500.000" fill="rgba(255,255,255,1.000)" stroke="none" stroke-width="0.000" fill-opacity="1.000" stroke-opacity="1.000" />
+<svg width="800" height="500" viewBox="0 0 800 500" xmlns="http://www.w3.org/2000/svg" class="charton">
+<defs><clipPath id="charton-32191a14-clip-0"><rect x="52.300" y="26.500" width="337.050" height="193.000" /></clipPath>
+<clipPath id="charton-32191a14-clip-1"><rect x="399.350" y="26.500" width="337.050" height="193.000" /></clipPath>
+<clipPath id="charton-32191a14-clip-2"><rect x="52.300" y="256.000" width="337.050" height="193.000" /></clipPath>
+<clipPath id="charton-32191a14-clip-3"><rect x="399.350" y="256.000" width="337.050" height="193.000" /></clipPath>
+<clipPath id="charton-32191a14-clip-4"><rect x="736.400" y="0.000" width="63.600" height="500.000" /></clipPath>
+</defs>
+<g class="charton-background">
+<rect x="0.000" y="0.000" width="800.000" height="500.000" fill="rgba(255,255,255,1.000)" stroke="none" stroke-width="0.000" fill-opacity="1.000" stroke-opacity="1.000" />
+</g>
+<g class="charton-facet-label">
 <text x="220.825" y="13.250" font-size="11.0" font-family="Inter, -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, 'PingFang SC', 'Microsoft YaHei', Ubuntu, Cantarell, 'Noto Sans', sans-serif" fill="rgba(51,51,51,1.000)" fill-opacity="1.000" text-anchor="middle" font-weight="bold" font-style="normal" dominant-baseline="middle" transform="rotate(0 220.825 13.250)">vs = 0 | am = 1</text>
+</g>
+<g class="charton-grid">
 <line x1="105.775" y1="26.500" x2="105.775" y2="219.500" stroke="rgba(189,189,189,1.000)" stroke-width="1.000" stroke-opacity="0.500" />
 <line x1="184.120" y1="26.500" x2="184.120" y2="219.500" stroke="rgba(189,189,189,1.000)" stroke-width="1.000" stroke-opacity="0.500" />
 <line x1="262.466" y1="26.500" x2="262.466" y2="219.500" stroke="rgba(189,189,189,1.000)" stroke-width="1.000" stroke-opacity="0.500" />
@@ -7,28 +19,49 @@
 <line x1="52.300" y1="213.714" x2="389.350" y2="213.714" stroke="rgba(189,189,189,1.000)" stroke-width="1.000" stroke-opacity="0.500" />
 <line x1="52.300" y1="139.052" x2="389.350" y2="139.052" stroke="rgba(189,189,189,1.000)" stroke-width="1.000" stroke-opacity="0.500" />
 <line x1="52.300" y1="64.391" x2="389.350" y2="64.391" stroke="rgba(189,189,189,1.000)" stroke-width="1.000" stroke-opacity="0.500" />
+<g class="charton-frame">
 <line x1="52.300" y1="26.500" x2="389.350" y2="26.500" stroke="rgba(189,189,189,1.000)" stroke-width="1.000" stroke-opacity="0.500" />
 <line x1="389.350" y1="26.500" x2="389.350" y2="219.500" stroke="rgba(189,189,189,1.000)" stroke-width="1.000" stroke-opacity="0.500" />
 <line x1="389.350" y1="219.500" x2="52.300" y2="219.500" stroke="rgba(189,189,189,1.000)" stroke-width="1.000" stroke-opacity="0.500" />
 <line x1="52.300" y1="219.500" x2="52.300" y2="26.500" stroke="rgba(189,189,189,1.000)" stroke-width="1.000" stroke-opacity="0.500" />
-<defs><clipPath id="plot-clip-area-0"><rect x="52.300" y="26.500" width="337.050" height="193.000" /></clipPath></defs>
-<g clip-path="url(#plot-clip-area-0)">
+</g>
+</g>
+<g class="charton-plot" clip-path="url(#charton-32191a14-clip-0)">
+<g class="charton-mark charton-mark-0 charton-mark-point" data-layer="0" data-mark="point">
+<g class="charton-series" data-series="4">
 <circle cx="154.349" cy="131.586" r="4.000" fill="rgba(31,119,180,1.000)" stroke="none" stroke-width="0.000" fill-opacity="0.850" stroke-opacity="0.850" />
 <circle cx="174.327" cy="131.586" r="4.000" fill="rgba(31,119,180,1.000)" stroke="none" stroke-width="0.000" fill-opacity="0.850" stroke-opacity="0.850" />
+</g>
+<g class="charton-series" data-series="5">
 <circle cx="116.743" cy="94.255" r="4.000" fill="rgba(44,160,44,1.000)" stroke="none" stroke-width="0.000" fill-opacity="0.850" stroke-opacity="0.850" />
 <circle cx="197.439" cy="170.410" r="4.000" fill="rgba(44,160,44,1.000)" stroke="none" stroke-width="0.000" fill-opacity="0.850" stroke-opacity="0.850" />
 <circle cx="166.101" cy="141.292" r="4.000" fill="rgba(44,160,44,1.000)" stroke="none" stroke-width="0.000" fill-opacity="0.850" stroke-opacity="0.850" />
 <circle cx="228.777" cy="176.383" r="4.000" fill="rgba(44,160,44,1.000)" stroke="none" stroke-width="0.000" fill-opacity="0.850" stroke-opacity="0.850" />
 </g>
+</g>
+</g>
+<g class="charton-axis charton-axis-y" data-axis="y">
+<g class="charton-axis-line">
 <path d="M 52.300 26.500 L 52.300 219.500" fill="none" stroke="rgba(0,0,0,1.000)" stroke-width="1.000" stroke-opacity="1.000" stroke-linejoin="round" stroke-linecap="round" />
+</g>
+<g class="charton-tick">
 <path d="M 52.300 213.714 L 46.300 213.714" fill="none" stroke="rgba(0,0,0,1.000)" stroke-width="1.000" stroke-opacity="1.000" stroke-linejoin="round" stroke-linecap="round" />
-<text x="43.300" y="213.714" font-size="13.0" font-family="Inter, -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, 'PingFang SC', 'Microsoft YaHei', Ubuntu, Cantarell, 'Noto Sans', sans-serif" fill="rgba(51,51,51,1.000)" fill-opacity="1.000" text-anchor="end" font-weight="normal" font-style="normal" dominant-baseline="central" transform="rotate(0 43.300 213.714)">10</text>
 <path d="M 52.300 139.052 L 46.300 139.052" fill="none" stroke="rgba(0,0,0,1.000)" stroke-width="1.000" stroke-opacity="1.000" stroke-linejoin="round" stroke-linecap="round" />
-<text x="43.300" y="139.052" font-size="13.0" font-family="Inter, -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, 'PingFang SC', 'Microsoft YaHei', Ubuntu, Cantarell, 'Noto Sans', sans-serif" fill="rgba(51,51,51,1.000)" fill-opacity="1.000" text-anchor="end" font-weight="normal" font-style="normal" dominant-baseline="central" transform="rotate(0 43.300 139.052)">20</text>
 <path d="M 52.300 64.391 L 46.300 64.391" fill="none" stroke="rgba(0,0,0,1.000)" stroke-width="1.000" stroke-opacity="1.000" stroke-linejoin="round" stroke-linecap="round" />
-<text x="43.300" y="64.391" font-size="13.0" font-family="Inter, -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, 'PingFang SC', 'Microsoft YaHei', Ubuntu, Cantarell, 'Noto Sans', sans-serif" fill="rgba(51,51,51,1.000)" fill-opacity="1.000" text-anchor="end" font-weight="normal" font-style="normal" dominant-baseline="central" transform="rotate(0 43.300 64.391)">30</text>
+</g>
+<g class="charton-tick-label">
+<text x="43.300" y="213.714" font-size="13.0" font-family="Inter, -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, 'PingFang SC', 'Microsoft YaHei', Ubuntu, Cantarell, 'Noto Sans', sans-serif" fill="rgba(51,51,51,1.000)" fill-opacity="1.000" text-anchor="end" font-weight="normal" font-style="normal" dominant-baseline="central" transform="rotate(0 43.300 213.714)" data-value="10">10</text>
+<text x="43.300" y="139.052" font-size="13.0" font-family="Inter, -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, 'PingFang SC', 'Microsoft YaHei', Ubuntu, Cantarell, 'Noto Sans', sans-serif" fill="rgba(51,51,51,1.000)" fill-opacity="1.000" text-anchor="end" font-weight="normal" font-style="normal" dominant-baseline="central" transform="rotate(0 43.300 139.052)" data-value="20">20</text>
+<text x="43.300" y="64.391" font-size="13.0" font-family="Inter, -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, 'PingFang SC', 'Microsoft YaHei', Ubuntu, Cantarell, 'Noto Sans', sans-serif" fill="rgba(51,51,51,1.000)" fill-opacity="1.000" text-anchor="end" font-weight="normal" font-style="normal" dominant-baseline="central" transform="rotate(0 43.300 64.391)" data-value="30">30</text>
+</g>
+<g class="charton-axis-title">
 <text x="11.500" y="123.000" font-size="15.0" font-family="Inter, -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, 'PingFang SC', 'Microsoft YaHei', Ubuntu, Cantarell, 'Noto Sans', sans-serif" fill="rgba(51,51,51,1.000)" fill-opacity="1.000" text-anchor="middle" font-weight="bold" font-style="normal" dominant-baseline="middle" transform="rotate(-90 11.500 123.000)">mpg</text>
+</g>
+</g>
+<g class="charton-facet-label">
 <text x="567.875" y="13.250" font-size="11.0" font-family="Inter, -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, 'PingFang SC', 'Microsoft YaHei', Ubuntu, Cantarell, 'Noto Sans', sans-serif" fill="rgba(51,51,51,1.000)" fill-opacity="1.000" text-anchor="middle" font-weight="bold" font-style="normal" dominant-baseline="middle" transform="rotate(0 567.875 13.250)">vs = 0 | am = 0</text>
+</g>
+<g class="charton-grid">
 <line x1="452.825" y1="26.500" x2="452.825" y2="219.500" stroke="rgba(189,189,189,1.000)" stroke-width="1.000" stroke-opacity="0.500" />
 <line x1="531.170" y1="26.500" x2="531.170" y2="219.500" stroke="rgba(189,189,189,1.000)" stroke-width="1.000" stroke-opacity="0.500" />
 <line x1="609.516" y1="26.500" x2="609.516" y2="219.500" stroke="rgba(189,189,189,1.000)" stroke-width="1.000" stroke-opacity="0.500" />
@@ -36,12 +69,16 @@
 <line x1="399.350" y1="213.714" x2="736.400" y2="213.714" stroke="rgba(189,189,189,1.000)" stroke-width="1.000" stroke-opacity="0.500" />
 <line x1="399.350" y1="139.052" x2="736.400" y2="139.052" stroke="rgba(189,189,189,1.000)" stroke-width="1.000" stroke-opacity="0.500" />
 <line x1="399.350" y1="64.391" x2="736.400" y2="64.391" stroke="rgba(189,189,189,1.000)" stroke-width="1.000" stroke-opacity="0.500" />
+<g class="charton-frame">
 <line x1="399.350" y1="26.500" x2="736.400" y2="26.500" stroke="rgba(189,189,189,1.000)" stroke-width="1.000" stroke-opacity="0.500" />
 <line x1="736.400" y1="26.500" x2="736.400" y2="219.500" stroke="rgba(189,189,189,1.000)" stroke-width="1.000" stroke-opacity="0.500" />
 <line x1="736.400" y1="219.500" x2="399.350" y2="219.500" stroke="rgba(189,189,189,1.000)" stroke-width="1.000" stroke-opacity="0.500" />
 <line x1="399.350" y1="219.500" x2="399.350" y2="26.500" stroke="rgba(189,189,189,1.000)" stroke-width="1.000" stroke-opacity="0.500" />
-<defs><clipPath id="plot-clip-area-1"><rect x="399.350" y="26.500" width="337.050" height="193.000" /></clipPath></defs>
-<g clip-path="url(#plot-clip-area-1)">
+</g>
+</g>
+<g class="charton-plot" clip-path="url(#charton-32191a14-clip-1)">
+<g class="charton-mark charton-mark-0 charton-mark-point" data-layer="0" data-mark="point">
+<g class="charton-series" data-series="3">
 <circle cx="565.642" cy="148.758" r="4.000" fill="rgba(255,127,14,1.000)" stroke="none" stroke-width="0.000" fill-opacity="0.850" stroke-opacity="0.850" />
 <circle cx="575.827" cy="181.609" r="4.000" fill="rgba(255,127,14,1.000)" stroke="none" stroke-width="0.000" fill-opacity="0.850" stroke-opacity="0.850" />
 <circle cx="615.000" cy="165.930" r="4.000" fill="rgba(255,127,14,1.000)" stroke="none" stroke-width="0.000" fill-opacity="0.850" stroke-opacity="0.850" />
@@ -55,7 +92,12 @@
 <circle cx="596.980" cy="189.075" r="4.000" fill="rgba(255,127,14,1.000)" stroke="none" stroke-width="0.000" fill-opacity="0.850" stroke-opacity="0.850" />
 <circle cx="597.372" cy="145.025" r="4.000" fill="rgba(255,127,14,1.000)" stroke="none" stroke-width="0.000" fill-opacity="0.850" stroke-opacity="0.850" />
 </g>
+</g>
+</g>
+<g class="charton-facet-label">
 <text x="220.825" y="242.750" font-size="11.0" font-family="Inter, -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, 'PingFang SC', 'Microsoft YaHei', Ubuntu, Cantarell, 'Noto Sans', sans-serif" fill="rgba(51,51,51,1.000)" fill-opacity="1.000" text-anchor="middle" font-weight="bold" font-style="normal" dominant-baseline="middle" transform="rotate(0 220.825 242.750)">vs = 1 | am = 1</text>
+</g>
+<g class="charton-grid">
 <line x1="105.775" y1="256.000" x2="105.775" y2="449.000" stroke="rgba(189,189,189,1.000)" stroke-width="1.000" stroke-opacity="0.500" />
 <line x1="184.120" y1="256.000" x2="184.120" y2="449.000" stroke="rgba(189,189,189,1.000)" stroke-width="1.000" stroke-opacity="0.500" />
 <line x1="262.466" y1="256.000" x2="262.466" y2="449.000" stroke="rgba(189,189,189,1.000)" stroke-width="1.000" stroke-opacity="0.500" />
@@ -63,39 +105,70 @@
 <line x1="52.300" y1="443.214" x2="389.350" y2="443.214" stroke="rgba(189,189,189,1.000)" stroke-width="1.000" stroke-opacity="0.500" />
 <line x1="52.300" y1="368.552" x2="389.350" y2="368.552" stroke="rgba(189,189,189,1.000)" stroke-width="1.000" stroke-opacity="0.500" />
 <line x1="52.300" y1="293.891" x2="389.350" y2="293.891" stroke="rgba(189,189,189,1.000)" stroke-width="1.000" stroke-opacity="0.500" />
+<g class="charton-frame">
 <line x1="52.300" y1="256.000" x2="389.350" y2="256.000" stroke="rgba(189,189,189,1.000)" stroke-width="1.000" stroke-opacity="0.500" />
 <line x1="389.350" y1="256.000" x2="389.350" y2="449.000" stroke="rgba(189,189,189,1.000)" stroke-width="1.000" stroke-opacity="0.500" />
 <line x1="389.350" y1="449.000" x2="52.300" y2="449.000" stroke="rgba(189,189,189,1.000)" stroke-width="1.000" stroke-opacity="0.500" />
 <line x1="52.300" y1="449.000" x2="52.300" y2="256.000" stroke="rgba(189,189,189,1.000)" stroke-width="1.000" stroke-opacity="0.500" />
-<defs><clipPath id="plot-clip-area-2"><rect x="52.300" y="256.000" width="337.050" height="193.000" /></clipPath></defs>
-<g clip-path="url(#plot-clip-area-2)">
+</g>
+</g>
+<g class="charton-plot" clip-path="url(#charton-32191a14-clip-2)">
+<g class="charton-mark charton-mark-0 charton-mark-point" data-layer="0" data-mark="point">
+<g class="charton-series" data-series="4">
 <circle cx="130.845" cy="347.647" r="4.000" fill="rgba(31,119,180,1.000)" stroke="none" stroke-width="0.000" fill-opacity="0.850" stroke-opacity="0.850" />
 <circle cx="121.444" cy="275.972" r="4.000" fill="rgba(31,119,180,1.000)" stroke="none" stroke-width="0.000" fill-opacity="0.850" stroke-opacity="0.850" />
 <circle cx="75.612" cy="290.904" r="4.000" fill="rgba(31,119,180,1.000)" stroke="none" stroke-width="0.000" fill-opacity="0.850" stroke-opacity="0.850" />
 <circle cx="92.848" cy="264.773" r="4.000" fill="rgba(31,119,180,1.000)" stroke="none" stroke-width="0.000" fill-opacity="0.850" stroke-opacity="0.850" />
 <circle cx="100.682" cy="314.049" r="4.000" fill="rgba(31,119,180,1.000)" stroke="none" stroke-width="0.000" fill-opacity="0.850" stroke-opacity="0.850" />
 <circle cx="166.884" cy="358.100" r="4.000" fill="rgba(31,119,180,1.000)" stroke="none" stroke-width="0.000" fill-opacity="0.850" stroke-opacity="0.850" />
+</g>
+<g class="charton-series" data-series="5">
 <circle cx="67.620" cy="290.904" r="4.000" fill="rgba(44,160,44,1.000)" stroke="none" stroke-width="0.000" fill-opacity="0.850" stroke-opacity="0.850" />
 </g>
+</g>
+</g>
+<g class="charton-axis charton-axis-x" data-axis="x">
+<g class="charton-axis-line">
 <path d="M 52.300 449.000 L 389.350 449.000" fill="none" stroke="rgba(0,0,0,1.000)" stroke-width="1.000" stroke-opacity="1.000" stroke-linejoin="round" stroke-linecap="round" />
+</g>
+<g class="charton-tick">
 <path d="M 105.775 449.000 L 105.775 455.000" fill="none" stroke="rgba(0,0,0,1.000)" stroke-width="1.000" stroke-opacity="1.000" stroke-linejoin="round" stroke-linecap="round" />
-<text x="105.775" y="458.000" font-size="13.0" font-family="Inter, -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, 'PingFang SC', 'Microsoft YaHei', Ubuntu, Cantarell, 'Noto Sans', sans-serif" fill="rgba(51,51,51,1.000)" fill-opacity="1.000" text-anchor="middle" font-weight="normal" font-style="normal" dominant-baseline="hanging" transform="rotate(0 105.775 458.000)">2</text>
 <path d="M 184.120 449.000 L 184.120 455.000" fill="none" stroke="rgba(0,0,0,1.000)" stroke-width="1.000" stroke-opacity="1.000" stroke-linejoin="round" stroke-linecap="round" />
-<text x="184.120" y="458.000" font-size="13.0" font-family="Inter, -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, 'PingFang SC', 'Microsoft YaHei', Ubuntu, Cantarell, 'Noto Sans', sans-serif" fill="rgba(51,51,51,1.000)" fill-opacity="1.000" text-anchor="middle" font-weight="normal" font-style="normal" dominant-baseline="hanging" transform="rotate(0 184.120 458.000)">3</text>
 <path d="M 262.466 449.000 L 262.466 455.000" fill="none" stroke="rgba(0,0,0,1.000)" stroke-width="1.000" stroke-opacity="1.000" stroke-linejoin="round" stroke-linecap="round" />
-<text x="262.466" y="458.000" font-size="13.0" font-family="Inter, -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, 'PingFang SC', 'Microsoft YaHei', Ubuntu, Cantarell, 'Noto Sans', sans-serif" fill="rgba(51,51,51,1.000)" fill-opacity="1.000" text-anchor="middle" font-weight="normal" font-style="normal" dominant-baseline="hanging" transform="rotate(0 262.466 458.000)">4</text>
 <path d="M 340.811 449.000 L 340.811 455.000" fill="none" stroke="rgba(0,0,0,1.000)" stroke-width="1.000" stroke-opacity="1.000" stroke-linejoin="round" stroke-linecap="round" />
-<text x="340.811" y="458.000" font-size="13.0" font-family="Inter, -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, 'PingFang SC', 'Microsoft YaHei', Ubuntu, Cantarell, 'Noto Sans', sans-serif" fill="rgba(51,51,51,1.000)" fill-opacity="1.000" text-anchor="middle" font-weight="normal" font-style="normal" dominant-baseline="hanging" transform="rotate(0 340.811 458.000)">5</text>
+</g>
+<g class="charton-tick-label">
+<text x="105.775" y="458.000" font-size="13.0" font-family="Inter, -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, 'PingFang SC', 'Microsoft YaHei', Ubuntu, Cantarell, 'Noto Sans', sans-serif" fill="rgba(51,51,51,1.000)" fill-opacity="1.000" text-anchor="middle" font-weight="normal" font-style="normal" dominant-baseline="hanging" transform="rotate(0 105.775 458.000)" data-value="2">2</text>
+<text x="184.120" y="458.000" font-size="13.0" font-family="Inter, -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, 'PingFang SC', 'Microsoft YaHei', Ubuntu, Cantarell, 'Noto Sans', sans-serif" fill="rgba(51,51,51,1.000)" fill-opacity="1.000" text-anchor="middle" font-weight="normal" font-style="normal" dominant-baseline="hanging" transform="rotate(0 184.120 458.000)" data-value="3">3</text>
+<text x="262.466" y="458.000" font-size="13.0" font-family="Inter, -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, 'PingFang SC', 'Microsoft YaHei', Ubuntu, Cantarell, 'Noto Sans', sans-serif" fill="rgba(51,51,51,1.000)" fill-opacity="1.000" text-anchor="middle" font-weight="normal" font-style="normal" dominant-baseline="hanging" transform="rotate(0 262.466 458.000)" data-value="4">4</text>
+<text x="340.811" y="458.000" font-size="13.0" font-family="Inter, -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, 'PingFang SC', 'Microsoft YaHei', Ubuntu, Cantarell, 'Noto Sans', sans-serif" fill="rgba(51,51,51,1.000)" fill-opacity="1.000" text-anchor="middle" font-weight="normal" font-style="normal" dominant-baseline="hanging" transform="rotate(0 340.811 458.000)" data-value="5">5</text>
+</g>
+<g class="charton-axis-title">
 <text x="220.825" y="481.000" font-size="15.0" font-family="Inter, -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, 'PingFang SC', 'Microsoft YaHei', Ubuntu, Cantarell, 'Noto Sans', sans-serif" fill="rgba(51,51,51,1.000)" fill-opacity="1.000" text-anchor="middle" font-weight="bold" font-style="normal" dominant-baseline="hanging" transform="rotate(0 220.825 481.000)">wt</text>
+</g>
+</g>
+<g class="charton-axis charton-axis-y" data-axis="y">
+<g class="charton-axis-line">
 <path d="M 52.300 256.000 L 52.300 449.000" fill="none" stroke="rgba(0,0,0,1.000)" stroke-width="1.000" stroke-opacity="1.000" stroke-linejoin="round" stroke-linecap="round" />
+</g>
+<g class="charton-tick">
 <path d="M 52.300 443.214 L 46.300 443.214" fill="none" stroke="rgba(0,0,0,1.000)" stroke-width="1.000" stroke-opacity="1.000" stroke-linejoin="round" stroke-linecap="round" />
-<text x="43.300" y="443.214" font-size="13.0" font-family="Inter, -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, 'PingFang SC', 'Microsoft YaHei', Ubuntu, Cantarell, 'Noto Sans', sans-serif" fill="rgba(51,51,51,1.000)" fill-opacity="1.000" text-anchor="end" font-weight="normal" font-style="normal" dominant-baseline="central" transform="rotate(0 43.300 443.214)">10</text>
 <path d="M 52.300 368.552 L 46.300 368.552" fill="none" stroke="rgba(0,0,0,1.000)" stroke-width="1.000" stroke-opacity="1.000" stroke-linejoin="round" stroke-linecap="round" />
-<text x="43.300" y="368.552" font-size="13.0" font-family="Inter, -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, 'PingFang SC', 'Microsoft YaHei', Ubuntu, Cantarell, 'Noto Sans', sans-serif" fill="rgba(51,51,51,1.000)" fill-opacity="1.000" text-anchor="end" font-weight="normal" font-style="normal" dominant-baseline="central" transform="rotate(0 43.300 368.552)">20</text>
 <path d="M 52.300 293.891 L 46.300 293.891" fill="none" stroke="rgba(0,0,0,1.000)" stroke-width="1.000" stroke-opacity="1.000" stroke-linejoin="round" stroke-linecap="round" />
-<text x="43.300" y="293.891" font-size="13.0" font-family="Inter, -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, 'PingFang SC', 'Microsoft YaHei', Ubuntu, Cantarell, 'Noto Sans', sans-serif" fill="rgba(51,51,51,1.000)" fill-opacity="1.000" text-anchor="end" font-weight="normal" font-style="normal" dominant-baseline="central" transform="rotate(0 43.300 293.891)">30</text>
+</g>
+<g class="charton-tick-label">
+<text x="43.300" y="443.214" font-size="13.0" font-family="Inter, -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, 'PingFang SC', 'Microsoft YaHei', Ubuntu, Cantarell, 'Noto Sans', sans-serif" fill="rgba(51,51,51,1.000)" fill-opacity="1.000" text-anchor="end" font-weight="normal" font-style="normal" dominant-baseline="central" transform="rotate(0 43.300 443.214)" data-value="10">10</text>
+<text x="43.300" y="368.552" font-size="13.0" font-family="Inter, -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, 'PingFang SC', 'Microsoft YaHei', Ubuntu, Cantarell, 'Noto Sans', sans-serif" fill="rgba(51,51,51,1.000)" fill-opacity="1.000" text-anchor="end" font-weight="normal" font-style="normal" dominant-baseline="central" transform="rotate(0 43.300 368.552)" data-value="20">20</text>
+<text x="43.300" y="293.891" font-size="13.0" font-family="Inter, -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, 'PingFang SC', 'Microsoft YaHei', Ubuntu, Cantarell, 'Noto Sans', sans-serif" fill="rgba(51,51,51,1.000)" fill-opacity="1.000" text-anchor="end" font-weight="normal" font-style="normal" dominant-baseline="central" transform="rotate(0 43.300 293.891)" data-value="30">30</text>
+</g>
+<g class="charton-axis-title">
 <text x="11.500" y="352.500" font-size="15.0" font-family="Inter, -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, 'PingFang SC', 'Microsoft YaHei', Ubuntu, Cantarell, 'Noto Sans', sans-serif" fill="rgba(51,51,51,1.000)" fill-opacity="1.000" text-anchor="middle" font-weight="bold" font-style="normal" dominant-baseline="middle" transform="rotate(-90 11.500 352.500)">mpg</text>
+</g>
+</g>
+<g class="charton-facet-label">
 <text x="567.875" y="242.750" font-size="11.0" font-family="Inter, -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, 'PingFang SC', 'Microsoft YaHei', Ubuntu, Cantarell, 'Noto Sans', sans-serif" fill="rgba(51,51,51,1.000)" fill-opacity="1.000" text-anchor="middle" font-weight="bold" font-style="normal" dominant-baseline="middle" transform="rotate(0 567.875 242.750)">vs = 1 | am = 0</text>
+</g>
+<g class="charton-grid">
 <line x1="452.825" y1="256.000" x2="452.825" y2="449.000" stroke="rgba(189,189,189,1.000)" stroke-width="1.000" stroke-opacity="0.500" />
 <line x1="531.170" y1="256.000" x2="531.170" y2="449.000" stroke="rgba(189,189,189,1.000)" stroke-width="1.000" stroke-opacity="0.500" />
 <line x1="609.516" y1="256.000" x2="609.516" y2="449.000" stroke="rgba(189,189,189,1.000)" stroke-width="1.000" stroke-opacity="0.500" />
@@ -103,38 +176,75 @@
 <line x1="399.350" y1="443.214" x2="736.400" y2="443.214" stroke="rgba(189,189,189,1.000)" stroke-width="1.000" stroke-opacity="0.500" />
 <line x1="399.350" y1="368.552" x2="736.400" y2="368.552" stroke="rgba(189,189,189,1.000)" stroke-width="1.000" stroke-opacity="0.500" />
 <line x1="399.350" y1="293.891" x2="736.400" y2="293.891" stroke="rgba(189,189,189,1.000)" stroke-width="1.000" stroke-opacity="0.500" />
+<g class="charton-frame">
 <line x1="399.350" y1="256.000" x2="736.400" y2="256.000" stroke="rgba(189,189,189,1.000)" stroke-width="1.000" stroke-opacity="0.500" />
 <line x1="736.400" y1="256.000" x2="736.400" y2="449.000" stroke="rgba(189,189,189,1.000)" stroke-width="1.000" stroke-opacity="0.500" />
 <line x1="736.400" y1="449.000" x2="399.350" y2="449.000" stroke="rgba(189,189,189,1.000)" stroke-width="1.000" stroke-opacity="0.500" />
 <line x1="399.350" y1="449.000" x2="399.350" y2="256.000" stroke="rgba(189,189,189,1.000)" stroke-width="1.000" stroke-opacity="0.500" />
-<defs><clipPath id="plot-clip-area-3"><rect x="399.350" y="256.000" width="337.050" height="193.000" /></clipPath></defs>
-<g clip-path="url(#plot-clip-area-3)">
+</g>
+</g>
+<g class="charton-plot" clip-path="url(#charton-32191a14-clip-3)">
+<g class="charton-mark charton-mark-0 charton-mark-point" data-layer="0" data-mark="point">
+<g class="charton-series" data-series="3">
 <circle cx="548.014" cy="358.100" r="4.000" fill="rgba(255,127,14,1.000)" stroke="none" stroke-width="0.000" fill-opacity="0.850" stroke-opacity="0.850" />
 <circle cx="567.209" cy="382.738" r="4.000" fill="rgba(255,127,14,1.000)" stroke="none" stroke-width="0.000" fill-opacity="0.850" stroke-opacity="0.850" />
 <circle cx="489.255" cy="357.353" r="4.000" fill="rgba(255,127,14,1.000)" stroke="none" stroke-width="0.000" fill-opacity="0.850" stroke-opacity="0.850" />
+</g>
+<g class="charton-series" data-series="4">
 <circle cx="546.056" cy="335.701" r="4.000" fill="rgba(31,119,180,1.000)" stroke="none" stroke-width="0.000" fill-opacity="0.850" stroke-opacity="0.850" />
 <circle cx="542.922" cy="347.647" r="4.000" fill="rgba(31,119,180,1.000)" stroke="none" stroke-width="0.000" fill-opacity="0.850" stroke-opacity="0.850" />
 <circle cx="565.642" cy="374.525" r="4.000" fill="rgba(31,119,180,1.000)" stroke="none" stroke-width="0.000" fill-opacity="0.850" stroke-opacity="0.850" />
 <circle cx="565.642" cy="384.978" r="4.000" fill="rgba(31,119,180,1.000)" stroke="none" stroke-width="0.000" fill-opacity="0.850" stroke-opacity="0.850" />
 </g>
+</g>
+</g>
+<g class="charton-axis charton-axis-x" data-axis="x">
+<g class="charton-axis-line">
 <path d="M 399.350 449.000 L 736.400 449.000" fill="none" stroke="rgba(0,0,0,1.000)" stroke-width="1.000" stroke-opacity="1.000" stroke-linejoin="round" stroke-linecap="round" />
+</g>
+<g class="charton-tick">
 <path d="M 452.825 449.000 L 452.825 455.000" fill="none" stroke="rgba(0,0,0,1.000)" stroke-width="1.000" stroke-opacity="1.000" stroke-linejoin="round" stroke-linecap="round" />
-<text x="452.825" y="458.000" font-size="13.0" font-family="Inter, -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, 'PingFang SC', 'Microsoft YaHei', Ubuntu, Cantarell, 'Noto Sans', sans-serif" fill="rgba(51,51,51,1.000)" fill-opacity="1.000" text-anchor="middle" font-weight="normal" font-style="normal" dominant-baseline="hanging" transform="rotate(0 452.825 458.000)">2</text>
 <path d="M 531.170 449.000 L 531.170 455.000" fill="none" stroke="rgba(0,0,0,1.000)" stroke-width="1.000" stroke-opacity="1.000" stroke-linejoin="round" stroke-linecap="round" />
-<text x="531.170" y="458.000" font-size="13.0" font-family="Inter, -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, 'PingFang SC', 'Microsoft YaHei', Ubuntu, Cantarell, 'Noto Sans', sans-serif" fill="rgba(51,51,51,1.000)" fill-opacity="1.000" text-anchor="middle" font-weight="normal" font-style="normal" dominant-baseline="hanging" transform="rotate(0 531.170 458.000)">3</text>
 <path d="M 609.516 449.000 L 609.516 455.000" fill="none" stroke="rgba(0,0,0,1.000)" stroke-width="1.000" stroke-opacity="1.000" stroke-linejoin="round" stroke-linecap="round" />
-<text x="609.516" y="458.000" font-size="13.0" font-family="Inter, -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, 'PingFang SC', 'Microsoft YaHei', Ubuntu, Cantarell, 'Noto Sans', sans-serif" fill="rgba(51,51,51,1.000)" fill-opacity="1.000" text-anchor="middle" font-weight="normal" font-style="normal" dominant-baseline="hanging" transform="rotate(0 609.516 458.000)">4</text>
 <path d="M 687.861 449.000 L 687.861 455.000" fill="none" stroke="rgba(0,0,0,1.000)" stroke-width="1.000" stroke-opacity="1.000" stroke-linejoin="round" stroke-linecap="round" />
-<text x="687.861" y="458.000" font-size="13.0" font-family="Inter, -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, 'PingFang SC', 'Microsoft YaHei', Ubuntu, Cantarell, 'Noto Sans', sans-serif" fill="rgba(51,51,51,1.000)" fill-opacity="1.000" text-anchor="middle" font-weight="normal" font-style="normal" dominant-baseline="hanging" transform="rotate(0 687.861 458.000)">5</text>
+</g>
+<g class="charton-tick-label">
+<text x="452.825" y="458.000" font-size="13.0" font-family="Inter, -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, 'PingFang SC', 'Microsoft YaHei', Ubuntu, Cantarell, 'Noto Sans', sans-serif" fill="rgba(51,51,51,1.000)" fill-opacity="1.000" text-anchor="middle" font-weight="normal" font-style="normal" dominant-baseline="hanging" transform="rotate(0 452.825 458.000)" data-value="2">2</text>
+<text x="531.170" y="458.000" font-size="13.0" font-family="Inter, -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, 'PingFang SC', 'Microsoft YaHei', Ubuntu, Cantarell, 'Noto Sans', sans-serif" fill="rgba(51,51,51,1.000)" fill-opacity="1.000" text-anchor="middle" font-weight="normal" font-style="normal" dominant-baseline="hanging" transform="rotate(0 531.170 458.000)" data-value="3">3</text>
+<text x="609.516" y="458.000" font-size="13.0" font-family="Inter, -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, 'PingFang SC', 'Microsoft YaHei', Ubuntu, Cantarell, 'Noto Sans', sans-serif" fill="rgba(51,51,51,1.000)" fill-opacity="1.000" text-anchor="middle" font-weight="normal" font-style="normal" dominant-baseline="hanging" transform="rotate(0 609.516 458.000)" data-value="4">4</text>
+<text x="687.861" y="458.000" font-size="13.0" font-family="Inter, -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, 'PingFang SC', 'Microsoft YaHei', Ubuntu, Cantarell, 'Noto Sans', sans-serif" fill="rgba(51,51,51,1.000)" fill-opacity="1.000" text-anchor="middle" font-weight="normal" font-style="normal" dominant-baseline="hanging" transform="rotate(0 687.861 458.000)" data-value="5">5</text>
+</g>
+<g class="charton-axis-title">
 <text x="567.875" y="481.000" font-size="15.0" font-family="Inter, -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, 'PingFang SC', 'Microsoft YaHei', Ubuntu, Cantarell, 'Noto Sans', sans-serif" fill="rgba(51,51,51,1.000)" fill-opacity="1.000" text-anchor="middle" font-weight="bold" font-style="normal" dominant-baseline="hanging" transform="rotate(0 567.875 481.000)">wt</text>
-<defs><clipPath id="plot-clip-area-4"><rect x="736.400" y="0.000" width="63.600" height="500.000" /></clipPath></defs>
-<g clip-path="url(#plot-clip-area-4)">
+</g>
+</g>
+<g class="charton-legend" data-series="gear" clip-path="url(#charton-32191a14-clip-4)">
+<g class="charton-legend-title">
 <text x="751.400" y="6.000" font-size="13.2" font-family="Inter, -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, 'PingFang SC', 'Microsoft YaHei', Ubuntu, Cantarell, 'Noto Sans', sans-serif" fill="rgba(51,51,51,1.000)" fill-opacity="1.000" text-anchor="start" font-weight="bold" font-style="normal" dominant-baseline="central" transform="rotate(0 751.400 6.000)">gear</text>
+</g>
+<g class="charton-legend-entry">
+<g class="charton-legend-swatch">
 <circle cx="760.400" cy="29.200" r="5.000" fill="rgba(31,119,180,1.000)" stroke="none" stroke-width="0.000" fill-opacity="1.000" stroke-opacity="1.000" />
+</g>
+<g class="charton-legend-label">
 <text x="777.400" y="29.200" font-size="12.0" font-family="Inter, -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, 'PingFang SC', 'Microsoft YaHei', Ubuntu, Cantarell, 'Noto Sans', sans-serif" fill="rgba(51,51,51,1.000)" fill-opacity="1.000" text-anchor="start" font-weight="normal" font-style="normal" dominant-baseline="central" transform="rotate(0 777.400 29.200)">4</text>
+</g>
+</g>
+<g class="charton-legend-entry">
+<g class="charton-legend-swatch">
 <circle cx="760.400" cy="50.200" r="5.000" fill="rgba(255,127,14,1.000)" stroke="none" stroke-width="0.000" fill-opacity="1.000" stroke-opacity="1.000" />
+</g>
+<g class="charton-legend-label">
 <text x="777.400" y="50.200" font-size="12.0" font-family="Inter, -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, 'PingFang SC', 'Microsoft YaHei', Ubuntu, Cantarell, 'Noto Sans', sans-serif" fill="rgba(51,51,51,1.000)" fill-opacity="1.000" text-anchor="start" font-weight="normal" font-style="normal" dominant-baseline="central" transform="rotate(0 777.400 50.200)">3</text>
+</g>
+</g>
+<g class="charton-legend-entry">
+<g class="charton-legend-swatch">
 <circle cx="760.400" cy="71.200" r="5.000" fill="rgba(44,160,44,1.000)" stroke="none" stroke-width="0.000" fill-opacity="1.000" stroke-opacity="1.000" />
+</g>
+<g class="charton-legend-label">
 <text x="777.400" y="71.200" font-size="12.0" font-family="Inter, -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, 'PingFang SC', 'Microsoft YaHei', Ubuntu, Cantarell, 'Noto Sans', sans-serif" fill="rgba(51,51,51,1.000)" fill-opacity="1.000" text-anchor="start" font-weight="normal" font-style="normal" dominant-baseline="central" transform="rotate(0 777.400 71.200)">5</text>
+</g>
+</g>
 </g>
 </svg>

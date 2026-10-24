@@ -99,8 +99,11 @@ The full, platform-specific walk-through (including uninstall) is in the
 # inline
 ls | charton bar -x name -y size
 
-# export by extension: SVG is a vector, PNG is a raster
-open data.csv | charton line -x date -y value -o chart.svg
+# export by extension: SVG is a vector, PNG is a raster.
+# Exported SVG carries semantic classes and, with -t/--description, an
+# accessible name, so a page stylesheet or a screen reader can use it.
+open data.csv | charton line -x date -y value -t Revenue \
+    --description 'Revenue grows steadily from 2019 to 2023.' -o chart.svg
 open data.csv | charton point -x group -y score --layout beeswarm -o chart.png
 
 # violin: the density outline (`examples/violin.rs`); -c dodges one per group

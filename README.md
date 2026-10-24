@@ -69,13 +69,13 @@ Add to `Cargo.toml`:
 
 ```toml
 [dependencies]
-charton = "0.8"                                            # Standard (Single-threaded + SVG export)
-charton = { version = "0.8", features = ["png"] }          # Pure Headless Raster Renderer (CPU only)
-charton = { version = "0.8", features = ["pdf"] }          # Export charts to PDF format
-charton = { version = "0.8", features = ["wgpu", "png"] }  # Local Desktop with GPU acceleration + PNG export
-charton = { version = "0.8", features = ["wgpu"] }         # Web Browsers (WebAssembly/Wasm target)
-charton = { version = "0.8", features = ["parallel"] }     # Multi-threaded data processing (Rayon)
-charton = { version = "0.8", features = ["geo"] }          # Enable geospatial coordinate support
+charton = "0.9"                                            # Standard (Single-threaded + SVG export)
+charton = { version = "0.9", features = ["png"] }          # Pure Headless Raster Renderer (CPU only)
+charton = { version = "0.9", features = ["pdf"] }          # Export charts to PDF format
+charton = { version = "0.9", features = ["wgpu", "png"] }  # Local Desktop with GPU acceleration + PNG export
+charton = { version = "0.9", features = ["wgpu"] }         # Web Browsers (WebAssembly/Wasm target)
+charton = { version = "0.9", features = ["parallel"] }     # Multi-threaded data processing (Rayon)
+charton = { version = "0.9", features = ["geo"] }          # Enable geospatial coordinate support
 ```
 
 ## Quick Start
@@ -172,6 +172,8 @@ Charton offers two integration paths for GUI applications: `render_to_surface` f
 Charton supports WebAssembly and modern web frontend. Below is an interactive demo simulates a 50,000-point Lorenz Attractor at 60 FPS, demonstrating how WebAssembly enables high-performance, real-time data visualization in the browser.
 
 <p align="center"> <img src="assets/lorenz.gif" alt="Charton Wasm demo"> </p>
+
+The SVG it returns is a semantic document: elements carry role classes (`charton-axis`, `charton-mark`, `charton-legend`, …) and identity attributes, so a page stylesheet can restyle a chart — dark mode, brand colors, print — without re-rendering it, and screen readers get the chart's title and description instead of a stream of tick numbers. Exported PDFs carry the equivalent structure as tags. See [Semantic Output](https://wangjiawen2013.github.io/charton/export/semantic_output.html).
 
 ## Interactive Notebooks (Jupyter)
 Charton integrates with evcxr_jupyter for interactive data exploration. Replacing `.save()` with `.show()` renders SVGs directly within notebook cells:

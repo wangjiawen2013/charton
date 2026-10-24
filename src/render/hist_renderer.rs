@@ -2,6 +2,7 @@ use crate::Precision;
 use crate::chart::Chart;
 use crate::core::context::PanelContext;
 use crate::core::layer::{MarkRenderer, RectConfig, RenderBackend};
+use crate::core::semantic::{Group, Role};
 use crate::core::utils::Parallelizable;
 use crate::error::ChartonError;
 use crate::mark::histogram::MarkHist;
@@ -70,11 +71,11 @@ impl MarkRenderer for Chart<MarkHist> {
 
         // --- STEP 4: PARALLEL PROCESSING PER GROUP ---
         // We calculate all rects for all groups in parallel while maintaining the group structure
-        let groups_render_data: Vec<Vec<RectConfig>> = grouped_indices
+        let groups_render_data: Vec<(Option<String>, Vec<RectConfig>)> = grouped_indices
             .groups
             .maybe_par_iter()
-            .map(|(_group_key, row_indices)| {
-                row_indices
+            .map(|(group_key, row_indices)| {
+                let rects: Vec<RectConfig> = row_indices
                     .iter()
                     .filter_map(|&idx| {
                         let x_n = x_norms[idx]?;
@@ -119,16 +120,20 @@ impl MarkRenderer for Chart<MarkHist> {
                             }
                         })
                     })
-                    .collect()
+                    .collect();
+                (group_key.clone(), rects)
             })
             .collect();
 
         // --- STEP 5: SEQUENTIAL EMISSION ---
         // Iterate through groups in their original order to ensure correct Z-order layering
-        for rects in groups_render_data {
+        for (group_key, rects) in groups_render_data {
+            // One scope per series: all bins of a series can be addressed together.
+            backend.begin_group(&Group::new(Role::Series).series_opt(group_key.as_deref()));
             for config in rects {
                 backend.draw_rect(config);
             }
+            backend.end_group();
         }
 
         Ok(())

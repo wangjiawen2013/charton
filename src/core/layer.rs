@@ -1,8 +1,9 @@
 use super::aesthetics::GlobalAesthetics;
 use super::data::{Dataset, FacetPartition};
 use crate::Precision;
-use crate::coordinate::{CoordinateTrait, Rect};
+use crate::coordinate::CoordinateTrait;
 use crate::core::context::PanelContext;
+use crate::core::semantic::{Element, Group};
 use crate::encode::Channel;
 use crate::error::ChartonError;
 use crate::scale::{Expansion, Scale, ScaleDomain};
@@ -150,11 +151,12 @@ pub struct TextConfig {
     pub angle: Precision, // Rotation angle in degrees
 }
 
+/// A colour ramp drawn as one rectangle, used by colour bars.
 ///
-/// # Fields
-/// * `stops` - A slice of tuples containing (offset, color), where offset is 0.0 to 1.0.
-/// * `is_vertical` - If true, gradient runs from top to bottom; otherwise, left to right.
-/// * `id_suffix` - A unique identifier used to define the gradient ID in the backend (e.g., SVG `<defs>`).
+/// `stops` are `(offset, colour)` pairs with the offset in `0.0..=1.0`. The ramp
+/// becomes a gradient *definition* in formats that have one (SVG `<linearGradient>`,
+/// PDF shading); the rectangle merely references it. `field` names the data
+/// field the ramp stands for, so the definition can be told apart in the output.
 pub struct GradientRectConfig {
     pub x: Precision,
     pub y: Precision,
@@ -162,7 +164,8 @@ pub struct GradientRectConfig {
     pub height: Precision,
     pub stops: Vec<(Precision, SingleColor)>,
     pub is_vertical: bool,
-    pub id_suffix: String,
+    /// The data field whose scale this ramp visualises.
+    pub field: String,
 }
 
 /// Abstract backend for rendering shapes.
@@ -196,15 +199,41 @@ pub trait RenderBackend {
     /// Draws a rectangle filled with a linear gradient.
     fn draw_gradient_rect(&mut self, config: GradientRectConfig);
 
-    /// State Machine Scopes: activates a local clipping region bounded by the specified rectangle.
-    fn begin_clip_scope(&mut self, _rect: &Rect) {
-        // Default no-op for backends that do not require or support hardware/markup clipping.
+    /// Opens a semantic scope around the primitives that follow.
+    ///
+    /// A backend turns the role and identity into whatever its output format can
+    /// express: the SVG backend writes `<g class="charton-…">` (plus `data-*`,
+    /// `aria-*` and `clip-path`), the raster and PDF backends apply the clip
+    /// rectangle and ignore the rest, and the GPU backend only narrows its
+    /// scissor rectangle. Every group must be closed by [`RenderBackend::end_group`].
+    ///
+    /// Groups nest; a group without a clip is a pure semantic scope and costs a
+    /// backend nothing.
+    fn begin_group(&mut self, group: &Group<'_>) {
+        let _ = group;
     }
 
-    /// State Machine Scopes: terminates the current clipping region and restores the global drawing canvas.
-    fn end_clip_scope(&mut self) {
-        // Default no-op.
+    /// Closes the innermost scope opened by [`RenderBackend::begin_group`].
+    fn end_group(&mut self) {}
+
+    /// Marks the primitives that follow as representing one data value.
+    ///
+    /// This is the per-element counterpart of [`RenderBackend::begin_group`]:
+    /// the group says *which series* a run of primitives belongs to, this says
+    /// *which observation* a single primitive stands for. The SVG backend writes
+    /// it as `data-value` **on the primitive itself**, not on a wrapper, because
+    /// a class or attribute on a parent group cannot override the `fill` or
+    /// `font-size` presentation attributes the primitive already carries — a
+    /// stylesheet must match the element it wants to restyle.
+    ///
+    /// Element scopes never nest; the identity applies to every primitive drawn
+    /// until [`RenderBackend::end_element`].
+    fn begin_element(&mut self, element: Element<'_>) {
+        let _ = element;
     }
+
+    /// Clears the value set by [`RenderBackend::begin_element`].
+    fn end_element(&mut self) {}
 }
 
 /// `MarkRenderer` defines the contract for drawing geometric primitives.
@@ -247,6 +276,15 @@ pub trait MarkRenderer {
 /// 5. **Rendering**: the engine calls `render_marks` to produce the final geometry.
 pub trait Layer: MarkRenderer + Send + Sync {
     // --- Metadata Discovery Phase ---
+
+    /// The mark type this layer draws (`"line"`, `"point"`, `"bar"`, ...).
+    ///
+    /// Used to give the layer's marks a `charton-mark-<type>` class and a
+    /// `data-mark` attribute, so a stylesheet can treat a line differently from
+    /// a band without counting elements. Layers with no mark return `""`.
+    fn mark_type(&self) -> &'static str {
+        ""
+    }
 
     /// Returns true if this layer requires coordinate axes (X/Y) to be drawn.
     /// Some layers, like annotations or background fills, might not need them.

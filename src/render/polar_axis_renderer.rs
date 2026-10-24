@@ -9,6 +9,7 @@
 use crate::Precision;
 use crate::coordinate::{AxisVisibility, CoordinateTrait, Rect, polar::Polar};
 use crate::core::layer::{CircleConfig, LineConfig, RenderBackend, TextConfig};
+use crate::core::semantic::{AxisKind, Element, Group, Role};
 use crate::core::ticks::{AxisDirection, resolve_ticks};
 use crate::error::ChartonError;
 use crate::scale::ExplicitTick;
@@ -62,8 +63,11 @@ pub fn render_polar_axes(
     let frame = PolarFrame::of(panel);
     let (center_x, center_y, max_r) = (frame.center_x, frame.center_y, frame.radius);
 
-    // Draw the outermost boundary circle
+    // Draw the outermost boundary circle. The ring is the angular axis' spine,
+    // so it shares the axis scope with the angular labels below.
     if visibility.show_x || visibility.show_y {
+        backend.begin_group(&Group::new(Role::Axis(AxisKind::Theta)));
+        backend.begin_group(&Group::new(Role::AxisLine));
         backend.draw_circle(CircleConfig {
             x: center_x as Precision,
             y: center_y as Precision,
@@ -73,6 +77,7 @@ pub fn render_polar_axes(
             stroke_width: theme.grid_width as Precision,
             opacity: 0.5,
         });
+        backend.end_group();
     }
 
     // An empty x label means a pie/donut, whose slices are labelled by the
@@ -80,6 +85,7 @@ pub fn render_polar_axes(
     let is_pie_or_donut = coord.get_x_label().is_empty();
 
     if visibility.show_x && !is_pie_or_donut {
+        backend.begin_group(&Group::new(Role::TickLabel));
         for tick in angular_ticks(coord, &frame, x_explicit, theme) {
             let x_n = x_scale.normalize(tick.value);
             let theta = coord.start_angle + x_n * (coord.end_angle - coord.start_angle);
@@ -109,6 +115,7 @@ pub fn render_polar_axes(
                 "middle"
             };
 
+            backend.begin_element(Element::new(&tick.label));
             backend.draw_text(TextConfig {
                 x: lx as Precision,
                 y: ly as Precision,
@@ -123,7 +130,13 @@ pub fn render_polar_axes(
                 opacity: 1.0,
                 angle: 0.0,
             })?;
+            backend.end_element();
         }
+        backend.end_group();
+    }
+
+    if visibility.show_x || visibility.show_y {
+        backend.end_group();
     }
 
     Ok(())

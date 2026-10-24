@@ -262,6 +262,12 @@ fn base_signature(name: &str) -> Signature {
             Some('o'),
         )
         .named("title", SyntaxShape::String, "Chart title", Some('t'))
+        .named(
+            "description",
+            SyntaxShape::String,
+            "Describe the chart for assistive technology; exported as the SVG <desc> and the PDF figure's alternative text, never drawn",
+            None,
+        )
         .named("x-label", SyntaxShape::String, "X axis label", None)
         .named("y-label", SyntaxShape::String, "Y axis label", None)
         .named("color-label", SyntaxShape::String, "Color legend label", None)
@@ -744,6 +750,7 @@ pub(crate) fn run_chart(
     let geojson: Option<String> = call.get_flag("geojson")?;
     let output: Option<String> = call.get_flag("output")?;
     let title: Option<String> = call.get_flag("title")?;
+    let description: Option<String> = call.get_flag("description")?;
     let x_label: Option<String> = call.get_flag("x-label")?;
     let y_label: Option<String> = call.get_flag("y-label")?;
     let color_label: Option<String> = call.get_flag("color-label")?;
@@ -1021,6 +1028,7 @@ pub(crate) fn run_chart(
         primary,
         layers,
         title: title.as_deref(),
+        description: description.as_deref(),
         x_label: x_label.as_deref(),
         y_label: y_label.as_deref(),
         color_label: color_label.as_deref(),
@@ -1233,6 +1241,7 @@ struct BuildOpts<'a> {
     primary: LayerOpts,
     layers: Vec<LayerOpts>,
     title: Option<&'a str>,
+    description: Option<&'a str>,
     x_label: Option<&'a str>,
     y_label: Option<&'a str>,
     color_label: Option<&'a str>,
@@ -3132,6 +3141,9 @@ fn finish(layered: LayeredChart, opts: &BuildOpts<'_>) -> LayeredChart {
     if let Some(title) = opts.title {
         l = l.with_title(title);
     }
+    if let Some(description) = opts.description {
+        l = l.with_description(description);
+    }
     if let Some(x) = opts.x_label {
         l = l.with_x_label(x);
     }
@@ -3324,6 +3336,53 @@ mod tests {
     fn bar_returns_svg() -> Result<(), ShellError> {
         let out = run("charton bar -x species -y petal_length")?;
         assert!(out.as_str()?.trim_start().starts_with("<svg"));
+        Ok(())
+    }
+
+    /// `--description` is metadata only: it reaches the exported document (SVG
+    /// `<desc>`, and the PDF figure's alternative text) and never the drawing.
+    #[test]
+    fn description_reaches_the_document_but_not_the_drawing() -> Result<(), ShellError> {
+        let plain = run("charton point -x t -y petal_length --title Output")?;
+        let described = run(
+            "charton point -x t -y petal_length --title Output              --description 'Petal length over time.'",
+        )?;
+
+        let svg = described.as_str()?;
+        assert!(svg.contains("<desc"), "no <desc> element");
+        assert!(svg.contains("Petal length over time."));
+        assert!(svg.contains("role=\"img\""));
+
+        // Same shapes, same coordinates: only the metadata differs.
+        let shapes = |doc: &str| -> Vec<String> {
+            doc.lines()
+                .filter(|line| {
+                    ["<rect", "<line", "<path", "<circle", "<polygon", "<text"]
+                        .iter()
+                        .any(|start| line.starts_with(start))
+                })
+                .map(str::to_owned)
+                .collect()
+        };
+        assert_eq!(shapes(plain.as_str()?), shapes(svg));
+        Ok(())
+    }
+
+    /// The flag's whole point is the exported file, so the written SVG must carry
+    /// the description as well as the inline result.
+    #[test]
+    fn description_reaches_an_exported_svg_file() -> Result<(), ShellError> {
+        let path = std::env::temp_dir().join("charton_test_description.svg");
+        let arg = path.to_string_lossy().replace('\\', "/");
+        run(&format!(
+            "charton line -x t -y petal_length -t Revenue --description 'Revenue grows steadily.' -o '{arg}'"
+        ))?;
+
+        let svg = std::fs::read_to_string(&path).expect("the exported file");
+        let _ = std::fs::remove_file(&path);
+        assert!(svg.contains("<desc"), "no <desc> in the exported file");
+        assert!(svg.contains("Revenue grows steadily."));
+        assert!(svg.contains("aria-describedby="));
         Ok(())
     }
 
@@ -4250,10 +4309,11 @@ mod tests {
             .count()
     }
 
+    /// The plot panel rectangle, taken from the clip path the plot group uses.
     fn panel_rect(svg: &str) -> (f64, f64, f64, f64) {
         let line = svg
             .lines()
-            .find(|line| line.contains("plot-clip-area-0"))
+            .find(|line| line.contains("<clipPath id="))
             .expect("expected the plot panel clip rect");
         (
             attr(line, "x"),
@@ -4263,19 +4323,37 @@ mod tests {
         )
     }
 
-    fn clipped_mark_points(svg: &str) -> Vec<(f64, f64)> {
-        let open = "<g clip-path=\"url(#plot-clip-area-0)\">";
-        let start = svg
-            .find(open)
-            .unwrap_or_else(|| panic!("expected the plot panel clip group"))
-            + open.len();
-        let end = start
-            + svg[start..]
-                .find("</g>")
-                .expect("expected the plot panel clip group to close");
+    /// The body of the plot scope, i.e. everything the clip protects.
+    ///
+    /// The group is found by its semantic class and its nesting is tracked, so
+    /// this returns the whole subtree rather than its first child.
+    fn plot_body(svg: &str) -> &str {
+        let marker = "class=\"charton-plot\"";
+        let found = svg.find(marker).expect("expected a plot group");
+        let body_start = found + svg[found..].find('>').expect("open tag") + 1;
+        let mut depth = 1usize;
+        let mut index = body_start;
+        while index < svg.len() {
+            let rest = &svg[index..];
+            if rest.starts_with("</g>") {
+                depth -= 1;
+                if depth == 0 {
+                    return &svg[body_start..index];
+                }
+                index += 4;
+            } else if rest.starts_with("<g") {
+                depth += 1;
+                index += 2;
+            } else {
+                index += rest.chars().next().map_or(1, char::len_utf8);
+            }
+        }
+        panic!("unbalanced <g> around the plot group");
+    }
 
+    fn clipped_mark_points(svg: &str) -> Vec<(f64, f64)> {
         let mut points = Vec::new();
-        for path in svg[start..end].split("d=\"").skip(1) {
+        for path in plot_body(svg).split("d=\"").skip(1) {
             let data = path.split('"').next().unwrap_or_default();
             let mut tokens = data.split_whitespace();
             while let Some(command) = tokens.next() {
