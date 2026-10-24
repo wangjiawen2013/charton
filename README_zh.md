@@ -69,13 +69,13 @@ Charton 是一款高性能 Rust 绘图库，其声明式 API 灵感源自 [Altai
 
 ```toml
 [dependencies]
-charton = "0.8"                                            # 标准版 (单线程 + SVG 导出)
-charton = { version = "0.8", features = ["png"] }          # 纯后端光栅化渲染（仅 CPU 模式）
-charton = { version = "0.8", features = ["pdf"] }          # PDF 格式图表导出
-charton = { version = "0.8", features = ["wgpu", "png"] }  # 本地桌面端（GPU 加速 + PNG 导出）
-charton = { version = "0.8", features = ["wgpu"] }         # 网页浏览器（WebAssembly/Wasm 目标平台）
-charton = { version = "0.8", features = ["parallel"] }     # 多线程数据处理（基于 Rayon）
-charton = { version = "0.8", features = ["geo"] }          # 地理坐标支持
+charton = "0.9"                                            # 标准版 (单线程 + SVG 导出)
+charton = { version = "0.9", features = ["png"] }          # 纯后端光栅化渲染（仅 CPU 模式）
+charton = { version = "0.9", features = ["pdf"] }          # PDF 格式图表导出
+charton = { version = "0.9", features = ["wgpu", "png"] }  # 本地桌面端（GPU 加速 + PNG 导出）
+charton = { version = "0.9", features = ["wgpu"] }         # 网页浏览器（WebAssembly/Wasm 目标平台）
+charton = { version = "0.9", features = ["parallel"] }     # 多线程数据处理（基于 Rayon）
+charton = { version = "0.9", features = ["geo"] }          # 地理坐标支持
 ```
 
 ## 快速上手
@@ -172,6 +172,8 @@ Charton 为 GUI 应用提供了两种集成路径：`render_to_surface` 用于�
 Charton 支持 WebAssembly 及现代 Web 前端开发。下面这个示例展示了一个支持实时交互的 50,000 点 Lorenz 吸引子 3D 动力学系统，利用 WASM 技术在浏览器中实现 60 FPS 的超流畅渲染。
 
 <p align="center"> <img src="assets/lorenz.gif" alt="Charton Wasm demo"> </p>
+
+其返回的 SVG 是一份语义化文档：元素带有角色 class（`charton-axis`、`charton-mark`、`charton-legend` 等）与身份属性，因此页面样式表可以在不重新渲染的前提下重绘图表——深色模式、品牌色、打印样式；屏幕阅读器读到的则是图表标题与描述，而不是一串刻度数字。导出的 PDF 也带有等价的标签结构。详见[语义化输出](https://wangjiawen2013.github.io/charton/export/semantic_output.html)。
 
 ## 交互式作图 (Jupyter)
 Charton 与 evcxr_jupyter 集成，支持交互式数据探索。将 `.save()` 替换为 `.show()` 即可直接在 jupyter notebook 单元格中显示 SVG：

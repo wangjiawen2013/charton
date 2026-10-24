@@ -2,6 +2,7 @@ use crate::Precision;
 use crate::chart::Chart;
 use crate::core::context::PanelContext;
 use crate::core::layer::{MarkRenderer, PathConfig, PathTopology, RenderBackend};
+use crate::core::semantic::{Group, Role};
 use crate::core::utils::Parallelizable;
 use crate::error::ChartonError;
 use crate::mark::geo_path::MarkGeoPath;
@@ -81,7 +82,7 @@ impl MarkRenderer for Chart<MarkGeoPath> {
         let geo_render_data: Vec<_> = grouped_data
             .groups
             .maybe_par_iter()
-            .filter_map(|(_group_name, row_indices)| {
+            .filter_map(|(group_key, row_indices)| {
                 if row_indices.len() < 2 {
                     return None;
                 }
@@ -118,7 +119,7 @@ impl MarkRenderer for Chart<MarkGeoPath> {
                     mark_config.fill
                 };
 
-                Some((render_points, fill_color))
+                Some((group_key.clone(), render_points, fill_color))
             })
             .collect();
 
@@ -126,7 +127,10 @@ impl MarkRenderer for Chart<MarkGeoPath> {
         // The dash pattern is shared by every outline in the layer.
         let dash: Vec<Precision> = mark_config.dash.iter().map(|&d| d as Precision).collect();
 
-        for (points, group_color) in geo_render_data {
+        for (group_key, points, group_color) in geo_render_data {
+            // One scope per path group, so a polygon (an island, a region) can
+            // be addressed by name.
+            backend.begin_group(&Group::new(Role::Series).series_opt(group_key.as_deref()));
             if mark_config.closed {
                 // Fill and outline are two independent passes. The fill carries
                 // no stroke, so the anti-aliased fill stays clean, and the
@@ -174,6 +178,7 @@ impl MarkRenderer for Chart<MarkGeoPath> {
                     });
                 }
             }
+            backend.end_group();
         }
 
         Ok(())

@@ -7,9 +7,13 @@ use crate::core::context::{ChartSpec, PanelContext};
 use crate::core::data::FacetPartition;
 use crate::core::guide::GuideSpec;
 use crate::core::layer::{Layer, RectConfig, RenderBackend, TextConfig};
+use crate::core::semantic::{Group, Role};
 use crate::encode::Channel;
 use crate::error::ChartonError;
 use crate::facets::{FacetMetrics, FacetPanel, FacetPanelInfo, FacetSpec, FacetStrategy};
+#[cfg(feature = "pdf")]
+use crate::render::pdf::{PdfDocument, PdfOptions};
+use crate::render::svg::{SvgDocument, SvgOptions};
 use crate::scale::{
     Expansion, ExplicitTick, Scale, ScaleDomain, create_scale, formatter::LabelFormat,
     mapper::VisualMapper,
@@ -89,6 +93,10 @@ pub struct LayeredChart {
     // --- Content ---
     /// The text content of the chart title. Styled by `theme.title_size/color`.
     pub(crate) title: Option<String>,
+    /// A longer description of the chart, exported as the SVG `<desc>` (the
+    /// accessible description) and appended to the PDF figure's alternative
+    /// text. It has no visual representation, so it never changes the layout.
+    pub(crate) description: Option<String>,
     /// The collection of plot layers (points, lines, bars, etc.).
     pub(crate) layers: Vec<Arc<dyn Layer>>,
     /// The logical coordinate system (e.g., Cartesian, Polar).
@@ -197,6 +205,7 @@ impl LayeredChart {
 
             theme: Theme::default(),
             title: None,
+            description: None,
 
             layers: Vec::new(),
             coord_system: CoordSystem::default(),
@@ -990,7 +999,9 @@ impl LayeredChart {
             angle: 0.0,
         };
 
+        backend.begin_group(&Group::new(Role::Title));
         backend.draw_text(config)?;
+        backend.end_group();
 
         Ok(())
     }
@@ -1338,7 +1349,10 @@ impl LayeredChart {
         }
 
         // 3. Render grid lines when enabled, including the multi-panel default.
+        //    The grid only restates the tick positions, so it is a decorative
+        //    scope: a stylesheet can hide or fade it as a whole.
         if should_show_grid {
+            backend.begin_group(&Group::new(Role::Grid));
             coord.render_grid_lines(
                 backend,
                 &self.theme,
@@ -1346,15 +1360,21 @@ impl LayeredChart {
                 self.x_ticks.as_deref(),
                 self.y_ticks.as_deref(),
             )?;
+            backend.end_group();
         }
 
-        // 4. Render marks with clipping. The caller already materialised this
-        //    panel's layers (facet subset + per-panel statistic).
-        backend.begin_clip_scope(&panel.rect);
-        for layer in effective_layers {
+        // 4. Render marks. The plot group owns the clip rectangle (so the marks
+        //    cannot spill into the axis bands) and every layer gets its own
+        //    scope inside it, carrying the layer index and the mark type. The
+        //    caller already materialised this panel's layers (facet subset plus
+        //    the per-panel statistic).
+        backend.begin_group(&Group::new(Role::Plot).clip(panel.rect));
+        for (index, layer) in effective_layers.iter().enumerate() {
+            backend.begin_group(&Group::new(Role::Mark).layer(index).mark(layer.mark_type()));
             layer.render_marks(backend, &panel_ctx)?;
+            backend.end_group();
         }
-        backend.end_clip_scope();
+        backend.end_group();
 
         // 5. Render axes (if enabled and needed)
         if self.theme.show_axes && self.layers.iter().any(|l| l.requires_axes()) {
@@ -1407,87 +1427,47 @@ impl LayeredChart {
             angle: 0.0,
         };
 
+        backend.begin_group(&Group::new(Role::FacetLabel));
         backend.draw_text(config)?;
+        backend.end_group();
 
         Ok(())
     }
 
     /// Generates and returns the SVG representation of the chart.
     ///
-    /// This method renders the entire chart as an SVG string. It creates a mutable
-    /// clone of the chart to perform the stateful training phase (syncing scales
-    /// and aesthetics) without mutating the original chart instance.
+    /// This is shorthand for `to_svg_with(&SvgOptions::default())`: the same
+    /// document that carries semantic groups, the accessible name, the shared
+    /// `<defs>` block and the drawn scene. The chart is cloned to run the
+    /// stateful training phase (syncing scales and aesthetics) without mutating
+    /// this instance.
     ///
-    /// # Returns
-    /// A Result containing the complete SVG markup or a ChartonError.
+    /// Use [`LayeredChart::to_svg_with`] to switch the accessibility mode, add
+    /// custom `<defs>`, or fix the id namespace.
     pub fn to_svg(&self) -> Result<String, ChartonError> {
-        let mut chart_instance = self.clone();
-        let mut svg_content = String::new();
-
-        // 1. SVG Header & ViewBox Setup
-        // Define dimensions and coordinate system to ensure proper scaling.
-        svg_content.push_str(&format!(
-            r#"<svg width="{}" height="{}" viewBox="0 0 {} {}" xmlns="http://www.w3.org/2000/svg">"#,
-            self.width, self.height, self.width, self.height
-        ));
-
-        // 2. Localized Backend Scope
-        // We initialize the SvgBackend. The background is rendered through the
-        // backend interface to ensure consistency across different output formats.
-        {
-            let mut backend = crate::render::backend::svg::SvgBackend::new(&mut svg_content);
-
-            // Render Background
-            backend.draw_rect(RectConfig {
-                x: 0.0,
-                y: 0.0,
-                width: self.width as Precision,
-                height: self.height as Precision,
-                fill: self.theme.background_color,
-                stroke: "none".into(),
-                stroke_width: 0.0,
-                opacity: 1.0,
-            });
-
-            // Orchestrate the full rendering pipeline
-            chart_instance.render(&mut backend)?;
-        }
-
-        // 3. Finalize SVG Document
-        svg_content.push_str("</svg>");
-
-        Ok(svg_content)
+        self.to_svg_with(&SvgOptions::default())
     }
 
-    /// Generates and returns a PDF representation of the chart.
+    /// Generates the SVG representation of the chart with explicit [`SvgOptions`].
     ///
-    /// Drawing goes straight into the PDF page, so the same layout and colors
-    /// that produce the SVG and raster output are used here as well. As with the
-    /// other backends, the chart is cloned so the stateful training phase does
-    /// not modify the original instance.
-    ///
-    /// # Returns
-    /// A Result containing the encoded PDF bytes or a ChartonError.
-    #[cfg(feature = "pdf")]
-    pub fn to_pdf(&self) -> Result<Vec<u8>, ChartonError> {
-        use krilla::Document;
-        use krilla::geom::Size;
-        use krilla::page::PageSettings;
-
+    /// `options` only decides how the document is serialised, never how it
+    /// looks: the same chart rendered with different options is visually
+    /// identical, but one document may carry semantic classes, accessibility
+    /// metadata, custom `<defs>`, or a different id namespace.
+    pub fn to_svg_with(&self, options: &SvgOptions) -> Result<String, ChartonError> {
         let mut chart_instance = self.clone();
 
-        let page_size = Size::from_wh(self.width as f32, self.height as f32)
-            .ok_or_else(|| ChartonError::Render("Invalid chart dimensions for PDF".to_string()))?;
-
-        // 1. Create the document and a page that matches the chart canvas.
-        let mut document = Document::new();
-        let mut page = document.start_page_with(PageSettings::new(page_size));
-        let mut surface = page.surface();
-
-        // 2. Draw the background and the full rendering pipeline onto the page.
-        {
-            let mut backend = crate::render::backend::pdf::PdfBackend::new(&mut surface);
-
+        SvgDocument {
+            width: self.width,
+            height: self.height,
+            title: self.title.as_deref(),
+            description: self.description.as_deref(),
+            options,
+        }
+        .render(|backend| {
+            // The canvas fill is decoration: it carries no information that the
+            // marks below it do not already carry.
+            backend.begin_group(&Group::new(Role::Background));
             backend.draw_rect(RectConfig {
                 x: 0.0,
                 y: 0.0,
@@ -1498,16 +1478,60 @@ impl LayeredChart {
                 stroke_width: 0.0,
                 opacity: 1.0,
             });
+            backend.end_group();
 
-            chart_instance.render(&mut backend)?;
+            chart_instance.render(backend)
+        })
+    }
+
+    /// Generates and returns the PDF representation of the chart.
+    ///
+    /// This is shorthand for `to_pdf_with(&PdfOptions::default())`: a tagged
+    /// document, compressed. Drawing goes straight into the PDF page, so the
+    /// same layout and colors that produce the SVG and raster output are used
+    /// here as well; the chart is cloned so the stateful training phase does not
+    /// modify the original instance.
+    ///
+    /// Use [`LayeredChart::to_pdf_with`] to turn tagging off or to write an
+    /// inspectable file.
+    #[cfg(feature = "pdf")]
+    pub fn to_pdf(&self) -> Result<Vec<u8>, ChartonError> {
+        self.to_pdf_with(&PdfOptions::default())
+    }
+
+    /// Generates the PDF with explicit [`PdfOptions`].
+    ///
+    /// The options decide whether the page is tagged and whether it is written
+    /// in an inspectable form; they never change the picture.
+    #[cfg(feature = "pdf")]
+    pub fn to_pdf_with(&self, options: &PdfOptions) -> Result<Vec<u8>, ChartonError> {
+        let mut chart_instance = self.clone();
+
+        PdfDocument {
+            width: self.width,
+            height: self.height,
+            title: self.title.as_deref(),
+            description: self.description.as_deref(),
+            options,
         }
+        .render(|backend| {
+            // The canvas fill is decoration; the tagged document marks it as an
+            // artifact.
+            backend.begin_group(&Group::new(Role::Background));
+            backend.draw_rect(RectConfig {
+                x: 0.0,
+                y: 0.0,
+                width: self.width as Precision,
+                height: self.height as Precision,
+                fill: self.theme.background_color,
+                stroke: "none".into(),
+                stroke_width: 0.0,
+                opacity: 1.0,
+            });
+            backend.end_group();
 
-        // 3. Finalize the page and serialize the document.
-        surface.finish();
-        page.finish();
-        document
-            .finish()
-            .map_err(|e| ChartonError::Render(format!("PDF generation error: {e:?}")))
+            chart_instance.render(backend)
+        })
     }
 
     /// Resolves the raster export plan shared by all bitmap exporters.
@@ -1670,10 +1694,12 @@ impl LayeredChart {
         Ok(())
     }
 
-    /// Generate the chart and save to file
+    /// Generates the chart and saves it to a file.
     ///
-    /// Renders the chart and saves it to the specified file path. The format is determined
-    /// by the file extension in the path. Currently, only SVG and PNG format are supported.
+    /// The format follows the file extension (`svg`, `png`, `pdf`). Documents are
+    /// written with the default options; call `to_svg_with` / `to_pdf_with` and
+    /// write the result yourself when you need control over classes,
+    /// accessibility, tagging or the id namespace.
     ///
     /// # Arguments
     ///

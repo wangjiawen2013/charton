@@ -35,6 +35,16 @@ Professional styling requires safeguarding the mathematical fidelity of continuo
 
 By utilizing predefined `ColorMap` strategies (such as Viridis or Magma), the theme ensures that data magnitude changes correspond linearly to human visual perception. This eliminates "false clustering"—a common visual bias in standard palettes—and ensures that every pixel accurately reflects the underlying data distribution.
 
+## See Also
+
+A theme is baked into the output at render time. When the *same* chart has to be
+presented in several contexts — a dark page, a print stylesheet, a tenant's brand
+colours — the presentation belongs in the host page's CSS instead, addressing the
+exported document's semantic classes. [Semantic Output: CSS, Accessibility &
+Tagging](../export/semantic_output.md) covers that division of labour, including
+the one rule a theme cannot replace: layout is measured with the theme's font
+sizes, so large typographic changes still belong in `Theme::with_font_scale`.
+
 ## Key Takeaways
 
 - Complete Separation of Concerns: Data encodings (via `Chart<T>`) define what is visualized, while the `Theme` architecture dictates how it is physically presented.

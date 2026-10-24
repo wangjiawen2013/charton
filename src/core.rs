@@ -12,6 +12,8 @@ pub(crate) mod font;
 pub mod guide;
 pub mod layer;
 pub mod layout;
+/// Semantic roles and scopes shared by every render backend.
+pub mod semantic;
 /// Axis tick placement: how many ticks fit, given the rendered labels.
 pub(crate) mod ticks;
 pub mod utils;

@@ -4,7 +4,10 @@
 //! nothing more, so the strongest check is a byte-for-byte comparison against
 //! the hand-written `transform_contour` + `mark_path` composition.
 
+mod common;
+
 use charton::prelude::*;
+use common::drawing_only;
 use std::error::Error;
 use std::fs;
 
@@ -59,7 +62,8 @@ fn mark_contour_matches_the_manual_recipe_byte_for_byte() -> Result<(), Box<dyn 
     let manual = fs::read_to_string("./target/test-output/contour_manual.svg")?;
     let sugar = fs::read_to_string("./target/test-output/contour_mark.svg")?;
     assert_eq!(
-        manual, sugar,
+        drawing_only(&manual),
+        drawing_only(&sugar),
         "mark_contour must render exactly like transform_contour + mark_path"
     );
 

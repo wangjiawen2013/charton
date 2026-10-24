@@ -53,7 +53,7 @@ crate-type = ["cdylib"]     # Produces a dynamic library for WASM
 
 [dependencies]
 wasm-bindgen = "0.2"        # JS ↔ Rust bridge
-charton = "0.8"             # Declarative plotting library
+charton = "0.9"             # Declarative plotting library
 
 # getrandom must be explicitly added with the "wasm_js" feature flag
 # for wasm32-unknown-unknown target support.

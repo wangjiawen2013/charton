@@ -9,6 +9,7 @@ use crate::core::layer::{
     CircleConfig, GradientRectConfig, LineConfig, PathConfig, PathTopology, PolygonConfig,
     RectConfig, RenderBackend, TextConfig,
 };
+use crate::core::semantic::Group;
 use crate::error::ChartonError;
 use bytemuck::{Pod, Zeroable};
 use wgpu::util::DeviceExt;
@@ -264,6 +265,8 @@ pub struct WgpuBackend {
     batches: Vec<(DrawBatch, Option<(u32, u32, u32, u32)>)>,
     // Add state tracking for physical dimensions and current clipping rect.
     current_scissor: Option<(u32, u32, u32, u32)>,
+    /// Scissors saved by enclosing semantic scopes.
+    scissor_stack: Vec<Option<(u32, u32, u32, u32)>>,
     // Physical width of the rendering surface in device pixels (logical_width * scale_factor).
     // Used for scissor rect clamping and full-screen restore operations.
     physical_width: u32,
@@ -684,6 +687,7 @@ impl WgpuBackend {
             collected_texts: Vec::new(),
             batches: Vec::with_capacity(1024),
             current_scissor: None,
+            scissor_stack: Vec::new(),
             physical_width,
             physical_height,
             scale_factor,
@@ -1598,7 +1602,12 @@ impl WgpuBackend {
 // ============================================================================
 
 impl RenderBackend for WgpuBackend {
-    fn begin_clip_scope(&mut self, rect: &crate::coordinate::Rect) {
+    fn begin_group(&mut self, group: &Group<'_>) {
+        self.scissor_stack.push(self.current_scissor);
+        let Some(rect) = group.clip else {
+            return;
+        };
+
         // Convert virtual logical coordinates into physical pixels
         let physical_x = ((rect.x as f32) * self.scale_factor).max(0.0) as u32;
         let physical_y = ((rect.y as f32) * self.scale_factor).max(0.0) as u32;
@@ -1616,9 +1625,9 @@ impl RenderBackend for WgpuBackend {
         self.current_scissor = Some((x, y, w, h));
     }
 
-    fn end_clip_scope(&mut self) {
-        // Reset the state to full viewport rendering
-        self.current_scissor = None;
+    fn end_group(&mut self) {
+        // Restore the scissor of the enclosing scope (or the full viewport).
+        self.current_scissor = self.scissor_stack.pop().flatten();
     }
 
     fn draw_circle(&mut self, config: CircleConfig) {

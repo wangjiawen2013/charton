@@ -4,6 +4,7 @@ use crate::core::layer::{
     CircleConfig, GradientRectConfig, LineConfig, PathConfig, PathTopology, PolygonConfig,
     RectConfig, RenderBackend, TextConfig,
 };
+use crate::core::semantic::{Group, Structure};
 use crate::error::ChartonError;
 use crate::visual::color::SingleColor;
 use ab_glyph::FontArc;
@@ -15,6 +16,7 @@ use krilla::paint::{
     Fill, FillRule, LineCap, LineJoin, LinearGradient, SpreadMethod, Stop, Stroke, StrokeDash,
 };
 use krilla::surface::Surface;
+use krilla::tagging::{Artifact, ArtifactType, ContentTag, Tag, TagGroup, TagTree};
 use krilla::text::{Font, GlyphId, KrillaGlyph};
 use std::sync::Arc;
 
@@ -36,18 +38,73 @@ pub struct PdfBackend<'a, 'p> {
     /// Fonts already resolved for this document, keyed by family name and then
     /// face request. Each entry is the ordered fallback chain for that stack.
     fonts: AHashMap<String, AHashMap<FontRequest, FontChain>>,
-    /// Number of clip regions currently pushed onto the surface.
-    clip_depth: usize,
+    /// One entry per open scope: what it owes the surface when it closes.
+    group_stack: Vec<GroupState>,
+    /// Accessibility: when set, tag-worthy scopes become marked content and are
+    /// collected into one `/Figure`.
+    tag: Option<TagBuilder>,
+}
+
+/// Turns on tagging for a document.
+///
+/// The backend reads only the alternative text; the structure mapping itself
+/// comes from [`Role::structure`](crate::core::semantic::Role::structure), so
+/// this type carries document-level data rather than layout knowledge.
+pub struct PdfTagging {
+    /// The figure's `/Alt` text: the chart title, then its description.
+    pub alt_text: Option<String>,
+}
+
+/// What one open scope has to undo on close.
+#[derive(Clone, Copy)]
+struct GroupState {
+    /// The scope pushed a clip region (`surface.pop()`).
+    clipped: bool,
+    /// The scope started a tagged section (`surface.end_tagged()`).
+    tagged: bool,
+}
+
+/// The tag tree under construction.
+struct TagBuilder {
+    /// The figure that collects the document's tagged content. Everything a
+    /// reader should hear about the chart hangs off it.
+    figure: TagGroup,
+    /// Whether a tagged section is open. krilla forbids nesting them, so a
+    /// scope inside an already-tagged unit simply joins it.
+    open: bool,
 }
 
 impl<'a, 'p> PdfBackend<'a, 'p> {
     /// Creates a backend that draws onto the given page surface.
-    pub fn new(surface: &'a mut Surface<'p>) -> Self {
+    ///
+    /// `tagging` turns on the structure tree: decorative scopes become
+    /// artifacts, the plot becomes the document's figure (described by the
+    /// tagging's alternative text), and the axes and legend become text blocks.
+    /// `None` writes a plain, untagged page.
+    pub fn new(surface: &'a mut Surface<'p>, tagging: Option<PdfTagging>) -> Self {
         Self {
             surface,
             fonts: AHashMap::new(),
-            clip_depth: 0,
+            group_stack: Vec::new(),
+            tag: tagging.map(|tagging| TagBuilder {
+                figure: TagGroup::new(Tag::Figure(tagging.alt_text)),
+                open: false,
+            }),
         }
+    }
+
+    /// Consumes the backend and returns the collected structure tree.
+    ///
+    /// `None` when tagging is off or nothing tag-worthy was drawn, so the
+    /// document never carries an empty structure tree.
+    pub(crate) fn into_tag_tree(self) -> Option<TagTree> {
+        let tag = self.tag?;
+        if tag.figure.children.is_empty() {
+            return None;
+        }
+        let mut tree = TagTree::new();
+        tree.push(tag.figure);
+        Some(tree)
     }
 
     /// Clamps an opacity to the 0..=1 range that krilla expects.
@@ -177,22 +234,81 @@ impl<'a, 'p> PdfBackend<'a, 'p> {
 }
 
 impl RenderBackend for PdfBackend<'_, '_> {
-    fn begin_clip_scope(&mut self, rect: &crate::coordinate::Rect) {
-        if let Some(path) = Self::rect_path(
-            rect.x as f32,
-            rect.y as f32,
-            rect.width as f32,
-            rect.height as f32,
-        ) {
-            self.surface.push_clip_path(&path, &FillRule::NonZero);
-            self.clip_depth += 1;
+    fn begin_group(&mut self, group: &Group<'_>) {
+        let Self {
+            surface,
+            group_stack,
+            tag,
+            ..
+        } = self;
+
+        let clipped = group
+            .clip
+            .and_then(|rect| {
+                Self::rect_path(
+                    rect.x as f32,
+                    rect.y as f32,
+                    rect.width as f32,
+                    rect.height as f32,
+                )
+            })
+            .map(|path| surface.push_clip_path(&path, &FillRule::NonZero))
+            .is_some();
+
+        let mut tagged = false;
+        if let Some(tag) = tag
+            && !tag.open
+            && let Some(structure) = group.role.structure()
+        {
+            match structure {
+                Structure::Artifact => {
+                    // Cosmetic scaffolding: excluded from the logical structure.
+                    surface.start_tagged(ContentTag::Artifact(Artifact::with_kind(
+                        ArtifactType::Layout,
+                    )));
+                }
+                Structure::Figure => {
+                    // The chart body itself. It is the figure's own content, so
+                    // its identifier is a direct child.
+                    let id = surface.start_tagged(ContentTag::Other);
+                    tag.figure.push(id);
+                }
+                Structure::Caption => {
+                    let id = surface.start_tagged(ContentTag::Other);
+                    tag.figure
+                        .push(TagGroup::with_children(Tag::Caption, vec![id.into()]));
+                }
+                Structure::Paragraph => {
+                    let id = surface.start_tagged(ContentTag::Other);
+                    tag.figure
+                        .push(TagGroup::with_children(Tag::P, vec![id.into()]));
+                }
+            }
+            tag.open = true;
+            tagged = true;
         }
+
+        group_stack.push(GroupState { clipped, tagged });
     }
 
-    fn end_clip_scope(&mut self) {
-        if self.clip_depth > 0 {
-            self.surface.pop();
-            self.clip_depth -= 1;
+    fn end_group(&mut self) {
+        let Self {
+            surface,
+            group_stack,
+            tag,
+            ..
+        } = self;
+        let Some(state) = group_stack.pop() else {
+            return;
+        };
+        if state.tagged {
+            surface.end_tagged();
+            if let Some(tag) = tag {
+                tag.open = false;
+            }
+        }
+        if state.clipped {
+            surface.pop();
         }
     }
 

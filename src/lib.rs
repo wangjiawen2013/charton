@@ -107,6 +107,7 @@ pub mod prelude {
         AnyValue, ColumnVector, Dataset, IntoColumn, RowAccessor, ToDataset,
     };
     pub use crate::core::guide::LegendPosition;
+    pub use crate::core::semantic::A11y;
     pub use crate::datasets::load_dataset;
     pub use crate::facets::FacetSpec;
     pub use crate::mark::{
@@ -117,6 +118,9 @@ pub mod prelude {
     };
     pub use crate::position::Position;
     pub use crate::render::line_renderer::PathInterpolation;
+    #[cfg(feature = "pdf")]
+    pub use crate::render::pdf::PdfOptions;
+    pub use crate::render::svg::SvgOptions;
     pub use crate::scale::formatter::{Abbreviation, LabelFormat};
     pub use crate::scale::{Expansion, Scale};
     pub use crate::theme::{Theme, ThemeMode, TitleAnchor, TitleFrame};

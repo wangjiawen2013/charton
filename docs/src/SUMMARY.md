@@ -72,6 +72,9 @@
 - [Lorenz Attractor](case_studies/lorenz_attractor.md)
 - [System Monitor (egui Dashboard)](case_studies/system_monitor.md)
 
+# Exporting & Embedding
+- [Semantic Output: CSS, Accessibility & Tagging](export/semantic_output.md)
+
 # WebAssembly
 - [WASM CPU-Driven SVG Animation](web/wasm_cpu_svg.md)
 - [WASM WGPU Blazing-Fast Rendering](web/wasm_gpu_wgpu.md)

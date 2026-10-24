@@ -4,7 +4,10 @@
 //! `mark_rect` recipe (plus the automatic bin alignment), so the strongest check
 //! is a byte-for-byte comparison against the hand-written composition.
 
+mod common;
+
 use charton::prelude::*;
+use common::drawing_only;
 use std::error::Error;
 use std::fs;
 
@@ -41,7 +44,8 @@ fn mark_density_2d_matches_the_manual_recipe_byte_for_byte() -> Result<(), Box<d
     let manual = fs::read_to_string("./target/test-output/density_2d_manual.svg")?;
     let sugar = fs::read_to_string("./target/test-output/density_2d_mark.svg")?;
     assert_eq!(
-        manual, sugar,
+        drawing_only(&manual),
+        drawing_only(&sugar),
         "mark_density_2d must render exactly like transform_density_2d + mark_rect"
     );
 

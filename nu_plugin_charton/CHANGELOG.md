@@ -4,10 +4,13 @@ All notable changes to `nu_plugin_charton` are documented here. The crate
 shares the `charton` version number, and the Nushell release it targets is
 stated in the README and in each release.
 
-## [Unreleased]
+## [0.9.0] - 2026-10-24
 
 ### Added
 
+- **`--description <string>`**, next to `-t/--title`: describes the chart for
+  assistive technology. It is exported as the SVG `<desc>` (and, through the
+  library, as the PDF figure's alternative text) and is never drawn.
 - **`--tick-count <int>`** asks every axis for about that many ticks, for
   figures that must match a reference or a row of panels. It is a per-command
   flag, not a config key: omitting it keeps charton's automatic, label-aware
@@ -16,6 +19,10 @@ stated in the README and in each release.
 
 ### Changed
 
+- **Exported SVG files are semantic documents.** They now carry role classes,
+  identity attributes and an accessible name (title + description), so a page
+  stylesheet can restyle an exported chart without re-rendering it. Nothing else
+  about the output changes; a chart without a description is unaffected.
 - **Ticks follow the rendered labels.** The count now adapts to the label text
   (long dates or category names get fewer ticks) instead of assuming a fixed
   pixel budget, so labels no longer collide on wide-format charts and a larger

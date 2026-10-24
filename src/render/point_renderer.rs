@@ -5,6 +5,7 @@ use crate::core::context::PanelContext;
 use crate::core::layer::{
     CircleConfig, MarkRenderer, PointElementConfig, PolygonConfig, RectConfig, RenderBackend,
 };
+use crate::core::semantic::{Group, Role};
 use crate::core::utils::IntoParallelizable;
 use crate::error::ChartonError;
 use crate::mark::point::{MarkPoint, PointLayout, QuasirandomMethod};
@@ -242,13 +243,16 @@ impl MarkRenderer for Chart<MarkPoint> {
         // Emit draw calls sequentially by group.
         // This ensures identical shapes/colors are drawn contiguously, massively reducing
         // pipeline state changes (Draw Calls) in the WGPU backend via interleaved batching.
-        for (_group_key, row_indices) in grouped_indices.groups {
+        for (group_key, row_indices) in grouped_indices.groups {
+            // One scope per series (colour or shape group).
+            backend.begin_group(&Group::new(Role::Series).series_opt(group_key.as_deref()));
             for &idx in &row_indices {
                 // take() moves the value out, leaving None, which is perfectly safe and fast.
                 if let Some(config) = config_lookup[idx].take() {
                     self.emit_draw_call(backend, config);
                 }
             }
+            backend.end_group();
         }
 
         Ok(())

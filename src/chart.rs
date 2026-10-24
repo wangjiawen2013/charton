@@ -1047,6 +1047,11 @@ where
         self.mark.as_ref().map(|m| m.mark_type()) != Some("arc")
     }
 
+    /// The mark type of this layer, for its semantic class.
+    fn mark_type(&self) -> &'static str {
+        self.mark.as_ref().map(|m| m.mark_type()).unwrap_or("")
+    }
+
     /// Retrieves the field name for a specific channel.
     /// Redirects to the central Encoding container.
     fn get_field(&self, channel: Channel) -> Option<String> {

@@ -10,6 +10,7 @@ use crate::Precision;
 use crate::chart::Chart;
 use crate::core::context::PanelContext;
 use crate::core::layer::{MarkRenderer, PathConfig, PathTopology, RenderBackend};
+use crate::core::semantic::{Group, Role};
 use crate::core::utils::Parallelizable;
 use crate::error::ChartonError;
 use crate::mark::line::MarkLine;
@@ -120,7 +121,7 @@ impl MarkRenderer for Chart<MarkLine> {
         let line_render_data: Vec<_> = grouped_indices
             .groups
             .maybe_par_iter()
-            .filter_map(|(_group_key, row_indices)| {
+            .filter_map(|(group_key, row_indices)| {
                 let first_idx = *row_indices.first()?;
 
                 // 3.1 Split into contiguous segments at missing x/y values. A
@@ -193,14 +194,16 @@ impl MarkRenderer for Chart<MarkLine> {
                     })
                     .collect();
 
-                Some((segments, final_color))
+                Some((group_key.clone(), segments, final_color))
             })
             .collect();
 
         // --- STEP 4: SEQUENTIAL DRAW DISPATCH ---
         // Lines are drawn in sequence to respect the Z-order established by grouping.
         // Each data gap is its own path, so the line is visibly interrupted.
-        for (segments, color) in line_render_data {
+        for (group_key, segments, color) in line_render_data {
+            // One scope per series: the whole line can be addressed by name.
+            backend.begin_group(&Group::new(Role::Series).series_opt(group_key.as_deref()));
             for points in segments {
                 if points.is_empty() {
                     continue;
@@ -219,6 +222,7 @@ impl MarkRenderer for Chart<MarkLine> {
                     topology: PathTopology::Simple,
                 });
             }
+            backend.end_group();
         }
 
         Ok(())

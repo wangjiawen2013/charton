@@ -531,11 +531,10 @@ impl LayoutEngine {
 
     /// Measures the bands two value axes need around a panel.
     ///
-    /// The measurement uses the same [`AxisView`] the renderers draw with:
-    /// same scale on each side, same label rotation, same ticks (explicit
-    /// values included). The returned depth is what
-    /// [`LayoutEngine::build_bands`] reserves, so the reserved strip and the
-    /// drawn axis are the same rectangle.
+    /// The measurement uses the same `AxisView` the renderers draw with: same
+    /// scale on each side, same label rotation, same ticks (explicit values
+    /// included). The returned depth is what `build_bands` reserves, so the
+    /// reserved strip and the drawn axis are the same rectangle.
     pub fn calculate_axis_constraints(
         ctx: &PanelContext,
         theme: &Theme,

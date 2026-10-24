@@ -15,7 +15,7 @@ it in the terminal. The command is `charton`; the plugin is registered without
 the `nu_plugin_` prefix.
 
 > Compatibility: targets Nushell 0.116 and shares the `charton` version
-> number (both `0.8.x`), so one release covers the matching pair. See
+> number (both `0.9.x`), so one release covers the matching pair. See
 > [Compatibility](#compatibility).
 
 ## Install
@@ -410,6 +410,7 @@ Because a transform is just a record, the same pieces recombine into new charts
 | Flag | Meaning |
 |---|---|
 | `-t, --title` | Chart title |
+| `--description` | Describes the chart for assistive technology; exported as the SVG `<desc>` and the PDF figure's alternative text, never drawn |
 | `--theme` | `auto` (default) \| `light` \| `dark` |
 | `--background` | Background color (overrides `--theme`) |
 | `--color-map` | Continuous colour map (`viridis`, `magma`, `ylgnbu`, ...) |
@@ -586,7 +587,7 @@ Nushell, install the matching plugin release (or rebuild) and re-run
 `plugin add`.
 
 `nu_plugin_charton` shares its version number with the `charton` library, so
-`charton 0.8.5` and `nu_plugin_charton 0.8.5` ship as a pair.
+`charton 0.9.0` and `nu_plugin_charton 0.9.0` ship as a pair.
 
 ## Uninstall
 

@@ -4,10 +4,75 @@ All notable changes to the `charton` library are documented here. The project
 follows [Semantic Versioning](https://semver.org/). Releases before 0.7.0
 predate this file.
 
-## [Unreleased]
+## [0.9.0] - 2026-10-24
+
+### Breaking
+
+- **`RenderBackend` has semantic scopes instead of clip scopes.**
+  `begin_clip_scope`/`end_clip_scope` are gone; `begin_group`/`end_group` take a
+  `core::semantic::Group` that carries the role, the identity and (optionally)
+  the clip rectangle. `begin_element`/`end_element` annotate a single
+  observation. Custom backend implementations must be updated.
+- **`GradientRectConfig::id_suffix` is now `field`.** The value never chose the
+  gradient id (the document namespaces ids); it names the data field the ramp
+  visualises.
+- **`IntoLayered` gained required methods**: `to_svg_with`, and (with the `pdf`
+  feature) `to_pdf` / `to_pdf_with`. Implementations outside this crate need
+  bodies for them.
+- **The default SVG document changed.** The picture is identical, the markup is
+  not: groups carry semantic classes and `data-*` attributes, ids are namespaced
+  (`charton-<hash>-clip-0` instead of `plot-clip-area-0`), and `<defs>` is
+  emitted once before the body. Code that parses the SVG text must address the
+  classes instead of fixed ids; code that only renders it is unaffected.
+- **PDF output is tagged by default.** The picture is identical; the file now
+  carries a structure tree. `PdfOptions::with_a11y(A11y::Off)` writes the plain
+  document.
 
 ### Added
 
+- **Semantic output: classes, identity attributes and accessibility metadata.**
+  Every rendered group now carries its role as a CSS class (`charton-tick-label`,
+  `charton-grid`, `charton-mark-<layer>`, `charton-legend`, …) plus `data-*`
+  identity (`data-layer`, `data-mark`, `data-series`, `data-axis`), so a page
+  stylesheet can restyle a chart by role instead of by element type. The root
+  element gains `role="img"` (or `graphics-document`), `<title>`/`<desc>`, and
+  `aria-labelledby`/`aria-describedby` — the name is the title, the description
+  is announced separately, as SVG defines the two; decorative groups are hidden
+  in document mode.
+  `LayeredChart::to_svg_with(&SvgOptions)` selects the accessibility mode, adds
+  custom `<defs>` fragments and fixes the id namespace. `with_description()`
+  supplies the `<desc>` text. See `docs/src/export/semantic_output.md`.
+- **`SvgOptions` / `A11y`** (also in the prelude), and
+  `IntoLayered::to_svg_with`. The default *picture* is unchanged: classes and
+  attributes are inert markup until a stylesheet matches them.
+- **Per-series and per-value identity.** Marks are grouped per series
+  (`class="charton-series"` + `data-series="Ford"`) inside their layer, and the
+  elements that stand for a single observation — each bar, each tick label —
+  carry that value as `data-value="2020"` on the drawn element itself. One
+  selector can therefore restyle a series, or the bar *and* the tick label of one
+  category. Element values go on the element (not on a wrapper group) because a
+  rule matching a parent cannot override the presentation attributes the element
+  already carries. `RenderBackend::begin_element`/`end_element` is the new,
+  backend-neutral way to annotate them; the series scope is emitted uniformly and
+  only carries a `data-series` attribute when the mark is really grouped by
+  color/shape/path group.
+- **Tagged PDF.** `Role::structure()` maps the same semantic roles onto PDF
+  structure elements, so `to_pdf()` now writes a tagged document: the background,
+  grid and frame become `/Artifact`s, the chart body becomes a `/Figure` whose
+  `/Alt` is the chart's title and description, the title becomes a `/Caption`,
+  and the axes and legend become `/P` blocks. `PdfOptions` selects tagging
+  (`A11y::Off` writes a plain PDF) and `pretty()` writes an inspectable,
+  uncompressed document. `IntoLayered::to_pdf`/`to_pdf_with` and
+  `LayeredChart::to_pdf_with` expose it.
+- **`--description` in the Nushell plugin**, next to `--title`: the text is
+  exported as the SVG `<desc>` and as the PDF figure's alternative text, and is
+  never drawn. Exported SVG files from the plugin now carry the semantic classes
+  and accessibility metadata described above.
+- **Deterministic, collision-free SVG ids.** Ids are namespaced by a hash of the
+  finished drawing instead of the fixed `plot-clip-area-0` / `grad_<field>`
+  names, so several charts can be inlined into one page without stealing each
+  other's clip paths and gradients. The same chart still renders to the same
+  bytes.
 - **`Theme::with_tick_count(n)`** pins how many ticks every axis aims for, for
   charts that must match a reference figure; `with_auto_tick_count()` returns to
   the default. The Nushell plugin exposes the same as the per-chart
@@ -16,6 +81,10 @@ predate this file.
 
 ### Changed
 
+- **`<defs>` is emitted once, before the body.** Clip paths and gradients used to
+  be written inline where they were needed.
+- **Attribute values are escaped.** A theme font stack containing `&` or `"`
+  used to produce a document that no XML parser accepts.
 - **Axes share one pipeline.** `core::axis::AxisView` resolves which data scale
   sits on which physical side (including `coord_flip`), its title, label
   rotation, explicit ticks and its band geometry. The layout engine and the
@@ -502,6 +571,9 @@ No API changes. This release bumps the version to stay in lockstep with
   dark backgrounds.
 
 [0.7.0]: https://github.com/wangjiawen2013/charton/releases/tag/v0.7.0
+[0.9.0]: https://github.com/wangjiawen2013/charton/releases/tag/v0.9.0
+[0.8.5]: https://github.com/wangjiawen2013/charton/releases/tag/v0.8.5
+[0.8.4]: https://github.com/wangjiawen2013/charton/releases/tag/v0.8.4
 [0.8.3]: https://github.com/wangjiawen2013/charton/releases/tag/v0.8.3
 [0.8.2]: https://github.com/wangjiawen2013/charton/releases/tag/v0.8.2
 [0.8.1]: https://github.com/wangjiawen2013/charton/releases/tag/v0.8.1

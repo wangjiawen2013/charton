@@ -31,6 +31,9 @@ pub trait IntoLayered: Into<LayeredChart> + Clone {
         if lc.title.is_none() {
             lc.title = other_lc.title;
         }
+        if lc.description.is_none() {
+            lc.description = other_lc.description;
+        }
         if lc.x_label.is_none() {
             lc.x_label = other_lc.x_label;
         }
@@ -149,9 +152,25 @@ pub trait IntoLayered: Into<LayeredChart> + Clone {
     }
 
     /// Sets the global chart title.
+    ///
+    /// The title is drawn on the canvas and, when the SVG accessibility mode is
+    /// on, becomes the document's accessible name (`<title>`).
     fn with_title<S: Into<String>>(self, title: S) -> LayeredChart {
         let mut lc: LayeredChart = self.into();
         lc.title = Some(title.into());
+        lc
+    }
+
+    /// Sets a description of the chart.
+    ///
+    /// The description is never drawn: it is exported as the SVG `<desc>` element
+    /// (the accessible description, announced after the title) and appended to
+    /// the PDF figure's alternative text. Use it to say what the chart shows and
+    /// what its main takeaway is, e.g. "Revenue grows steadily from 2019 to
+    /// 2023, then drops in 2024".
+    fn with_description<S: Into<String>>(self, description: S) -> LayeredChart {
+        let mut lc: LayeredChart = self.into();
+        lc.description = Some(description.into());
         lc
     }
 
@@ -329,6 +348,38 @@ pub trait IntoLayered: Into<LayeredChart> + Clone {
     fn to_svg(&self) -> Result<String, ChartonError> {
         let lc: LayeredChart = self.clone().into();
         lc.to_svg()
+    }
+
+    /// Generates and returns the PDF representation of the chart, with default
+    /// [`PdfOptions`](crate::render::pdf::PdfOptions) (a tagged document).
+    #[cfg(feature = "pdf")]
+    fn to_pdf(&self) -> Result<Vec<u8>, ChartonError> {
+        let lc: LayeredChart = self.clone().into();
+        lc.to_pdf()
+    }
+
+    /// Generates the PDF with explicit [`PdfOptions`](crate::render::pdf::PdfOptions):
+    /// a tagged or plain document, compressed or inspectable.
+    #[cfg(feature = "pdf")]
+    fn to_pdf_with(
+        &self,
+        options: &crate::render::pdf::PdfOptions,
+    ) -> Result<Vec<u8>, ChartonError> {
+        let lc: LayeredChart = self.clone().into();
+        lc.to_pdf_with(options)
+    }
+
+    /// Generates the SVG with explicit [`SvgOptions`](crate::render::svg::SvgOptions):
+    /// semantic classes, accessibility metadata, custom `<defs>` and the id
+    /// namespace the document uses.
+    ///
+    /// The options never change the picture, only how the document is written.
+    fn to_svg_with(
+        &self,
+        options: &crate::render::svg::SvgOptions,
+    ) -> Result<String, ChartonError> {
+        let lc: LayeredChart = self.clone().into();
+        lc.to_svg_with(options)
     }
 
     fn show(&self) -> Result<(), ChartonError> {

@@ -4,7 +4,10 @@
 //! a name for the public `transform_density` + area recipe, so the strongest
 //! check is a byte-for-byte comparison against the hand-written composition.
 
+mod common;
+
 use charton::prelude::*;
+use common::drawing_only;
 use std::error::Error;
 use std::fs;
 
@@ -39,7 +42,8 @@ fn mark_density_matches_the_manual_recipe_byte_for_byte() -> Result<(), Box<dyn 
     let manual = fs::read_to_string("./target/test-output/density_manual.svg")?;
     let sugar = fs::read_to_string("./target/test-output/density_mark.svg")?;
     assert_eq!(
-        manual, sugar,
+        drawing_only(&manual),
+        drawing_only(&sugar),
         "mark_density must render exactly like transform_density + mark_area"
     );
 

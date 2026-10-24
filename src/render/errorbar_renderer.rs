@@ -3,6 +3,7 @@ use crate::TEMP_SUFFIX;
 use crate::chart::Chart;
 use crate::core::context::PanelContext;
 use crate::core::layer::{CircleConfig, LineConfig, MarkRenderer, RenderBackend};
+use crate::core::semantic::{Group, Role};
 use crate::error::ChartonError;
 use crate::mark::errorbar::MarkErrorBar;
 use crate::position::Position;
@@ -122,7 +123,9 @@ impl MarkRenderer for Chart<MarkErrorBar> {
             let grouped_data = ds.group_by(color_field);
             let n_groups = grouped_data.groups.len() as f64;
 
-            for (group_idx, (_group_key, row_indices)) in grouped_data.groups.iter().enumerate() {
+            for (group_idx, (group_key, row_indices)) in grouped_data.groups.iter().enumerate() {
+                // One scope per series: every interval of a series is addressed together.
+                backend.begin_group(&Group::new(Role::Series).series_opt(group_key.as_deref()));
                 for &idx in row_indices {
                     let Some(xn) = x_norms[idx] else { continue };
                     let sub_idx = group_idx as f64;
@@ -142,6 +145,7 @@ impl MarkRenderer for Chart<MarkErrorBar> {
                         backend,
                     );
                 }
+                backend.end_group();
             }
         }
 

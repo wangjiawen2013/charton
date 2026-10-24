@@ -13,6 +13,7 @@ use crate::Precision;
 use crate::coordinate::{AxisVisibility, CoordinateTrait, Rect};
 use crate::core::axis::{AxisSide, AxisView};
 use crate::core::layer::{LineConfig, PathConfig, PathTopology, RenderBackend, TextConfig};
+use crate::core::semantic::{AxisKind, Element, Group, Role};
 use crate::error::ChartonError;
 use crate::scale::ExplicitTick;
 use crate::theme::Theme;
@@ -39,9 +40,30 @@ pub fn render_axes(
         }
 
         let axis = AxisView::new(coord, side, panel, x_explicit, y_explicit, theme);
+        let kind = match side {
+            AxisSide::Bottom => AxisKind::X,
+            AxisSide::Left => AxisKind::Y,
+        };
+
+        // One scope per physical axis, so a stylesheet can restyle (or hide) the
+        // x axis without touching the y axis.
+        backend.begin_group(&Group::new(Role::Axis(kind)));
+
+        backend.begin_group(&Group::new(Role::AxisLine));
         draw_spine(backend, theme, panel, side)?;
+        backend.end_group();
+
         draw_ticks(backend, &axis)?;
-        draw_title(backend, &axis)?;
+
+        // The title is the axis' name; it is skipped when no title was set, so
+        // no empty group is emitted.
+        if !axis.title().is_empty() {
+            backend.begin_group(&Group::new(Role::AxisTitle));
+            draw_title(backend, &axis)?;
+            backend.end_group();
+        }
+
+        backend.end_group();
     }
 
     Ok(())
@@ -104,16 +126,29 @@ fn draw_ticks(backend: &mut dyn RenderBackend, axis: &AxisView<'_>) -> Result<()
         AxisSide::Left => ("end", "central"),
     };
 
-    for tick in axis.ticks() {
-        let norm = axis.scale().normalize(tick.value);
-        let (px, py) = axis.tick_point(norm);
+    // Positions are resolved once and then used by both passes, so the tick
+    // marks and their labels cannot drift apart.
+    let positions: Vec<(f64, f64)> = axis
+        .ticks()
+        .iter()
+        .map(|tick| axis.tick_point(axis.scale().normalize(tick.value)))
+        .collect();
 
+    if positions.is_empty() {
+        return Ok(());
+    }
+
+    // Tick marks and tick labels are separate scopes: they are the two halves a
+    // stylesheet most often treats differently (labels get a font, marks get
+    // hidden).
+    backend.begin_group(&Group::new(Role::Tick));
+    for (px, py) in &positions {
         backend.draw_path(PathConfig {
             points: vec![
-                (px as Precision, py as Precision),
+                (*px as Precision, *py as Precision),
                 (
-                    (px + out_x * tick_len) as Precision,
-                    (py + out_y * tick_len) as Precision,
+                    (*px + out_x * tick_len) as Precision,
+                    (*py + out_y * tick_len) as Precision,
                 ),
             ],
             fill: "none".into(),
@@ -123,11 +158,18 @@ fn draw_ticks(backend: &mut dyn RenderBackend, axis: &AxisView<'_>) -> Result<()
             dash: vec![],
             topology: PathTopology::Simple,
         });
+    }
+    backend.end_group();
 
+    backend.begin_group(&Group::new(Role::TickLabel));
+    for (tick, (px, py)) in axis.ticks().iter().zip(&positions) {
+        // One scope per label, so a stylesheet or a script can address the
+        // label of a single value (`[data-value="2020"]`).
+        backend.begin_element(Element::new(&tick.label));
         backend.draw_text(TextConfig {
             text: tick.label.clone(),
-            x: (px + out_x * band.label_offset) as Precision,
-            y: (py + out_y * band.label_offset) as Precision,
+            x: (*px + out_x * band.label_offset) as Precision,
+            y: (*py + out_y * band.label_offset) as Precision,
             font_size: theme.tick_label_size as Precision,
             font_family: theme.tick_label_family.clone(),
             color: theme.tick_label_color,
@@ -138,7 +180,9 @@ fn draw_ticks(backend: &mut dyn RenderBackend, axis: &AxisView<'_>) -> Result<()
             opacity: 1.0,
             angle: axis.angle_deg() as Precision,
         })?;
+        backend.end_element();
     }
+    backend.end_group();
 
     Ok(())
 }
@@ -240,7 +284,10 @@ pub fn render_grid(
         });
     }
 
-    // Close the frame even when no tick lands exactly on an edge.
+    // Close the frame even when no tick lands exactly on an edge. The frame is
+    // scaffolding, not an axis: it gets its own decorative scope so it can be
+    // removed independently of the grid lines.
+    backend.begin_group(&Group::new(Role::Frame));
     let right = panel.x + panel.width;
     let bottom_edge = panel.y + panel.height;
     for (x1, y1, x2, y2) in [
@@ -260,6 +307,7 @@ pub fn render_grid(
             dash: vec![],
         });
     }
+    backend.end_group();
 
     Ok(())
 }
