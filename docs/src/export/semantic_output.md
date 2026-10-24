@@ -31,11 +31,13 @@ operating system's preference (the frame follows `prefers-color-scheme`).
 Its stylesheet is written against the classes and attributes documented here:
 
 ```css
-[data-layer="0"] path            { stroke: var(--accent); stroke-width: 2.5; }
-[data-layer="1"] path            { fill: url(#demo-hatch); }
-.charton-tick-label text         { font-size: 11px; fill: var(--muted); }
-[data-value="2020"]              { font-weight: 700; }
-@media (prefers-color-scheme: dark) { :root { --accent: #60a5fa; } }
+[data-layer="0"] path            { fill: url(#demo-band); stroke: none; }
+[data-layer="1"] path            { fill: none; stroke: var(--accent); stroke-width: 2.5; }
+#demo-band rect                  { fill: var(--accent); fill-opacity: .10; }
+#demo-band path                  { stroke: var(--accent); stroke-opacity: .22; }
+.charton-tick-label text         { font-size: var(--text-tick); fill: var(--muted); }
+.charton-tick-label text[data-value="2020"] { fill: var(--highlight); font-weight: 700; }
+@media (prefers-color-scheme: dark) { :root { --accent: #60a5fa; --highlight: #f87171; } }
 ```
 
 `examples/semantic_demo.rs` generates that page (and a standalone copy under
@@ -80,7 +82,10 @@ Two consequences of the CSS cascade are worth stating once:
   descendant selector (`.charton-tick-label text`); otherwise the element's own
   presentation attribute wins over the value inherited from its parent.
 * `data-value` is the exception that proves the rule: it is written **on the
-  element**, so a plain `[data-value="2020"]` rule works directly.
+  element**, so a plain `[data-value="2020"]` rule works directly. When a role
+  rule also sets the same property — the tick-label colour, for example —
+  qualify the selector (`.charton-tick-label text[data-value="2020"]`) so it
+  wins on specificity.
 
 This is what makes the following possible without rendering twice:
 
@@ -197,8 +202,8 @@ for assistive technology:
 
 ```rust
 chart
-    .with_title("Output")
-    .with_description("Monthly output with its uncertainty band.");
+    .with_title("Annual output")
+    .with_description("Annual output with its uncertainty band.");
 ```
 
 ## Definitions and ids
@@ -219,7 +224,7 @@ let svg = chart.to_svg_with(
 ```
 
 ```css
-[data-layer="1"] path { fill: url(#sales-hatch); }
+[data-layer="0"] path { fill: url(#sales-hatch); }
 ```
 
 Fragments are inserted verbatim: their well-formedness is your responsibility,
