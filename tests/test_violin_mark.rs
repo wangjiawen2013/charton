@@ -29,7 +29,7 @@ fn mark_violin_matches_the_manual_recipe_byte_for_byte() -> Result<(), Box<dyn E
         )?
         .transform_band(BandTransform::new("sepal_length", "density"))?
         .mark_polygon()?
-        .configure_geoshape(|mark| {
+        .configure_polygon(|mark| {
             mark.with_fill("#7fb3d5")
                 .with_stroke("#2c3e50")
                 .with_stroke_width(1.0)

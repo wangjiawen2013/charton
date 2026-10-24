@@ -1,7 +1,7 @@
-<svg width="500" height="400" viewBox="0 0 500 400" xmlns="http://www.w3.org/2000/svg" class="charton" role="img" aria-roledescription="chart" aria-labelledby="charton-bce525da-title">
-<title id="charton-bce525da-title">Running total</title>
-<defs><clipPath id="charton-bce525da-clip-0"><rect x="71.950" y="37.600" width="326.050" height="324.400" /></clipPath>
-<clipPath id="charton-bce525da-clip-1"><rect x="398.000" y="0.000" width="102.000" height="400.000" /></clipPath>
+<svg width="500" height="400" viewBox="0 0 500 400" xmlns="http://www.w3.org/2000/svg" class="charton" role="img" aria-roledescription="chart" aria-labelledby="charton-40ae5232-title">
+<title id="charton-40ae5232-title">Running total</title>
+<defs><clipPath id="charton-40ae5232-clip-0"><rect x="71.950" y="37.600" width="326.050" height="324.400" /></clipPath>
+<clipPath id="charton-40ae5232-clip-1"><rect x="398.000" y="0.000" width="102.000" height="400.000" /></clipPath>
 </defs>
 <g class="charton-background">
 <rect x="0.000" y="0.000" width="500.000" height="400.000" fill="rgba(255,255,255,1.000)" stroke="none" stroke-width="0.000" fill-opacity="1.000" stroke-opacity="1.000" />
@@ -9,14 +9,14 @@
 <g class="charton-title">
 <text x="234.975" y="20.800" font-size="18.0" font-family="Inter, -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, 'PingFang SC', 'Microsoft YaHei', Ubuntu, Cantarell, 'Noto Sans', sans-serif" fill="rgba(51,51,51,1.000)" fill-opacity="1.000" text-anchor="middle" font-weight="bold" font-style="normal" dominant-baseline="middle" transform="rotate(0 234.975 20.800)">Running total</text>
 </g>
-<g class="charton-plot" clip-path="url(#charton-bce525da-clip-0)">
+<g class="charton-plot" clip-path="url(#charton-40ae5232-clip-0)">
 <g class="charton-mark charton-mark-0 charton-mark-bar" data-layer="0" data-mark="bar">
-<path d="M 82.818 347.255 L 82.818 136.605 L 115.423 136.605 L 115.423 347.255 Z" fill="rgba(31,119,180,1.000)" fill-opacity="1.000" stroke="rgba(0,0,0,1.000)" stroke-width="1.000" stroke-opacity="1.000" stroke-linejoin="round" stroke-linecap="round" data-value="Start" data-series="Total" />
-<path d="M 137.160 136.605 L 137.160 83.943 L 169.765 83.943 L 169.765 136.605 Z" fill="rgba(255,127,14,1.000)" fill-opacity="1.000" stroke="rgba(0,0,0,1.000)" stroke-width="1.000" stroke-opacity="1.000" stroke-linejoin="round" stroke-linecap="round" data-value="Q1" data-series="Increase" />
-<path d="M 191.502 83.943 L 191.502 52.345 L 224.107 52.345 L 224.107 83.943 Z" fill="rgba(255,127,14,1.000)" fill-opacity="1.000" stroke="rgba(0,0,0,1.000)" stroke-width="1.000" stroke-opacity="1.000" stroke-linejoin="round" stroke-linecap="round" data-value="Q2" data-series="Increase" />
-<path d="M 245.843 73.410 L 245.843 52.345 L 278.448 52.345 L 278.448 73.410 Z" fill="rgba(44,160,44,1.000)" fill-opacity="1.000" stroke="rgba(0,0,0,1.000)" stroke-width="1.000" stroke-opacity="1.000" stroke-linejoin="round" stroke-linecap="round" data-value="Q3" data-series="Decrease" />
-<path d="M 300.185 83.943 L 300.185 73.410 L 332.790 73.410 L 332.790 83.943 Z" fill="rgba(44,160,44,1.000)" fill-opacity="1.000" stroke="rgba(0,0,0,1.000)" stroke-width="1.000" stroke-opacity="1.000" stroke-linejoin="round" stroke-linecap="round" data-value="Q4" data-series="Decrease" />
-<path d="M 354.527 347.255 L 354.527 83.943 L 387.132 83.943 L 387.132 347.255 Z" fill="rgba(31,119,180,1.000)" fill-opacity="1.000" stroke="rgba(0,0,0,1.000)" stroke-width="1.000" stroke-opacity="1.000" stroke-linejoin="round" stroke-linecap="round" data-value="End" data-series="Total" />
+<path d="M 82.818 347.255 L 82.818 136.605 L 115.423 136.605 L 115.423 347.255 Z" fill="rgba(31,119,180,1.000)" fill-opacity="1.000" fill-rule="evenodd" stroke="rgba(0,0,0,1.000)" stroke-width="1.000" stroke-opacity="1.000" stroke-linejoin="round" stroke-linecap="round" data-value="Start" data-series="Total" />
+<path d="M 137.160 136.605 L 137.160 83.943 L 169.765 83.943 L 169.765 136.605 Z" fill="rgba(255,127,14,1.000)" fill-opacity="1.000" fill-rule="evenodd" stroke="rgba(0,0,0,1.000)" stroke-width="1.000" stroke-opacity="1.000" stroke-linejoin="round" stroke-linecap="round" data-value="Q1" data-series="Increase" />
+<path d="M 191.502 83.943 L 191.502 52.345 L 224.107 52.345 L 224.107 83.943 Z" fill="rgba(255,127,14,1.000)" fill-opacity="1.000" fill-rule="evenodd" stroke="rgba(0,0,0,1.000)" stroke-width="1.000" stroke-opacity="1.000" stroke-linejoin="round" stroke-linecap="round" data-value="Q2" data-series="Increase" />
+<path d="M 245.843 73.410 L 245.843 52.345 L 278.448 52.345 L 278.448 73.410 Z" fill="rgba(44,160,44,1.000)" fill-opacity="1.000" fill-rule="evenodd" stroke="rgba(0,0,0,1.000)" stroke-width="1.000" stroke-opacity="1.000" stroke-linejoin="round" stroke-linecap="round" data-value="Q3" data-series="Decrease" />
+<path d="M 300.185 83.943 L 300.185 73.410 L 332.790 73.410 L 332.790 83.943 Z" fill="rgba(44,160,44,1.000)" fill-opacity="1.000" fill-rule="evenodd" stroke="rgba(0,0,0,1.000)" stroke-width="1.000" stroke-opacity="1.000" stroke-linejoin="round" stroke-linecap="round" data-value="Q4" data-series="Decrease" />
+<path d="M 354.527 347.255 L 354.527 83.943 L 387.132 83.943 L 387.132 347.255 Z" fill="rgba(31,119,180,1.000)" fill-opacity="1.000" fill-rule="evenodd" stroke="rgba(0,0,0,1.000)" stroke-width="1.000" stroke-opacity="1.000" stroke-linejoin="round" stroke-linecap="round" data-value="End" data-series="Total" />
 </g>
 </g>
 <g class="charton-axis charton-axis-x" data-axis="x">
@@ -64,7 +64,7 @@
 <text x="24.000" y="199.800" font-size="15.0" font-family="Inter, -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, 'PingFang SC', 'Microsoft YaHei', Ubuntu, Cantarell, 'Noto Sans', sans-serif" fill="rgba(51,51,51,1.000)" fill-opacity="1.000" text-anchor="middle" font-weight="bold" font-style="normal" dominant-baseline="middle" transform="rotate(-90 24.000 199.800)">Value</text>
 </g>
 </g>
-<g class="charton-legend" data-series="kind" clip-path="url(#charton-bce525da-clip-1)">
+<g class="charton-legend" data-series="kind" clip-path="url(#charton-40ae5232-clip-1)">
 <g class="charton-legend-title">
 <text x="413.000" y="43.600" font-size="13.2" font-family="Inter, -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, 'PingFang SC', 'Microsoft YaHei', Ubuntu, Cantarell, 'Noto Sans', sans-serif" fill="rgba(51,51,51,1.000)" fill-opacity="1.000" text-anchor="start" font-weight="bold" font-style="normal" dominant-baseline="central" transform="rotate(0 413.000 43.600)"></text>
 </g>

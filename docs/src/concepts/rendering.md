@@ -1,6 +1,6 @@
 # Rendering Primitives & Backend Contract
 
-This chapter defines the unified, internal rendering contract that powers all Charton backends (SVG, PNG/Raster, PDF, WGPU). These primitives are not exposed to end users—they form the low-level geometry layer that translates declarative marks (Point, Line, Boxplot, Text, Area) into pixels or vectors.
+This chapter defines the unified backend contract that powers all Charton backends (SVG, PNG/Raster, PDF, WGPU). These primitives are the backend-implementer API, not the chart-author API: chart authors work with marks, while backends translate those marks into pixels or vectors.
 
 The design follows strict principles of semantic clarity, cross-backend consistency, performance optimization, and implementation simplicity. Every method has a single, well-defined responsibility.
 
@@ -12,9 +12,9 @@ Charton’s `RenderBackend` is engineered around five non-negotiable constraints
 
 2. Semantic Separation & Data-Driven Routing: Each drawing method corresponds to a distinct geometric category. We do not force primitives to guess intents. Complex geometries are routed automatically via lightweight topology hints (e.g., `PathTopology`), ensuring the backend always selects the optimal hardware pathway.
 
-3. Cross-Backend Semantic Consistency: All backends must implement exactly the same set of primitives with identical semantics. What `draw_polygon` means in SVG is exactly what it means in PNG and WGPU. This is the foundation of Charton's reliability.
+3. Cross-Backend Semantic Consistency: All backends must implement exactly the same set of primitives with identical semantics. What `draw_path` means in SVG is exactly what it means in PNG and WGPU. This is the foundation of Charton's reliability.
 
-4. Performance by Design (The 4-Tier Architecture): Primitives are optimized for their intended use cases: instanced SDF for circles on GPU, line extrusion for fast strokes, hardware Triangle Fans for convex polygons, and heavy Stencil-Then-Cover (STC) pipelines solely reserved for highly complex maps.
+4. Performance by Design (The 4-Tier Architecture): Primitives are optimized for their intended use cases: instanced SDF for circles on GPU, line extrusion for fast strokes, hardware triangle fans for convex paths, and stencil-then-cover for concave or multi-ring paths.
 
 5. Deferred Typography: Font rendering and glyph layout are highly platform-dependent. The backend contract treats text as a "Deferred Ledger," collecting text commands during the geometric pass and executing them natively via the host environment (HTML5 Canvas 2D or CPU-composited Skia) to guarantee pixel-perfect legibility and zero GPU-atlas overhead.
 
@@ -55,27 +55,20 @@ Below is the formal definition of each primitive, its semantic role, performance
     - Vector: Context-linked `<linearGradient>`.
     - GPU Raster (WGPU): Custom fragment shader computing interpolations directly on instanced quads.
 
-5. `draw_polygon(&mut self, config: PolygonConfig)`
-- Semantics: Renders a closed, strictly convex polygon used for high-performance internal area filling. 
+5. `draw_path(&mut self, config: PathConfig)`
+- Semantics: The universal vector-path primitive. A path contains one or more subpaths (rings). Its behavior is dictated by the `topology` hint:
+    - `PathTopology::Simple`: open polylines. Every subpath is stroked independently; nothing is closed or filled.
+    - `PathTopology::Convex`: one closed, convex ring. Backends may use a triangle fan or another convex fast path.
+    - `PathTopology::Complex`: one or more closed rings, filled with the even-odd rule. Concave shapes, self-intersections and holes are all expressed by the subpath list; an inner ring simply flips the parity to zero.
 - Implementation:
-    - Vector: Closed `<polygon>` element.
-    - GPU Raster (WGPU): Fast-path Triangle Fan hardware rasterization. Single pass, zero tessellation or stencil overhead.
-- Performance: Extremely fast, but relies on the CPU/Mark layer to guarantee the input is convex. Not intended for arbitrary or concave geo-polygons.
-- Use Cases:
-    - Symmetric markers (Triangle, Diamond, Hexagon, Star).
-    - Area Plots: The continuous concave area is sliced by the CPU into hundreds of perfect, convex trapezoids ($X_n \le X_{n+1}$) and fed sequentially to this fast-path filler.
-
-6. `draw_path(&mut self, config: PathConfig)`
-- Semantics: The universal topological router. Renders a continuous polyline or a complex area boundary. Its behavior is strictly dictated by the `topology` hint.
-- Implementation:
-    - Vector: Continuous `<path>` or `<polyline>` element.
+    - Vector: `<path>` for multi-subpath paths, or a smaller `<polygon>` for a single convex ring.
     - GPU Raster (WGPU): Acts as a dispatcher:
-        - `PathTopology::Simple` -> `draw_path_simple`: Pure GPU normal extrusion. **Strokes only, no fills**. Used for smoothing chart boundaries and polylines.
-        - `PathTopology::Complex` -> `draw_path_complex`: The heavy-duty Stencil-Then-Cover (STC) pipeline. Handles concave, self-intersecting, or holed polygons seamlessly using Odd-Even winding hardware passes.
-- Performance: Provides a zero-cost abstraction. Simple paths bypass expensive triangulation, while complex paths safely fallback to robust stencil hardware logic.
-- Use Cases: Continuous line marks, the top-highlighted edge of an area plot (`Simple`), geographic maps, and multi-layered complex boundaries (`Complex`).
+        - `Simple` -> normal-extrusion stroke shader.
+        - `Convex` -> direct triangle-fan fill (the convex fast path).
+        - `Complex` -> stencil-then-cover, one stencil fan per ring and one cover pass for the combined bounding box.
+- Use Cases: Line marks, area fill and boundary, point glyphs (convex or star), violins, maps, and any path with holes.
 
-7. `draw_text(&mut self, config: TextConfig)`
+6. `draw_text(&mut self, config: TextConfig)`
 - Semantics: Registers formatted text with strict layout attributes (text-anchor, dominant-baseline) into a Deferred Text Ledger.
 - Implementation:
     - Vector (SVG/PDF): Native `<text>` nodes.
@@ -89,21 +82,21 @@ The real power of this design is how high-level declarative marks map to low-lev
 
 | Mark Type       | Primary Primitive Mapping                              | Backend Execution Strategy                                                                 |
 | --------------- | ------------------------------------------------------ | ------------------------------------------------------------------------------------------ |
-| PointMark       | `draw_circle`, `draw_rect`, `draw_polygon`                    | GPU Instanced SDF & Hardware Convex Fan.                                                   |
-| LineMark        | `draw_path` (`Topology::Simple`)                           | GPU On-Chip Vertex Extrusion (Stroke only).                                                |
-| AreaMark        | `draw_polygon` (Fill) + `draw_path` (Simple Stroke)        | CPU slices concave area into convex trapezoids for draw_polygon; top boundary routed to draw_path for clean extrusion. |
-| BoxplotMark     | `draw_rect`, `draw_line`, `draw_circle`                      | Decomposed cleanly into atomic backend shape calls.                                        |
-| BarMark         | `draw_rect`                                              | Highly optimized direct bounding-box rectangle fills.                                      |
-| Geographic      | `draw_path` (`Topology::Complex`)                          | STC (Stencil-Then-Cover) dual-pass GPU filling for irregular concave shapes with holes.     |
-| TextMark        | `draw_text` (Deferred Ledger)                            | Geometry rendered via GPU, typography composited via host native environment (HTML5 Canvas 2D / tiny-skia). |
+| PointMark       | `draw_circle`, `draw_rect`, `draw_path`                | Instanced SDF for circles, rect fast path for squares, triangle fan for convex glyphs, STC for the concave star. |
+| LineMark        | `draw_path` (`Simple`)                                 | GPU on-chip vertex extrusion (stroke only).                                                |
+| AreaMark        | `draw_path` (`Complex` fill, `Simple` top stroke)       | Even-odd fill for the closed area; the top boundary is a separate open path.                |
+| BoxplotMark     | `draw_rect`, `draw_line`, `draw_circle`                | Decomposed cleanly into atomic backend shape calls.                                        |
+| BarMark         | `draw_rect`                                            | Highly optimized direct bounding-box rectangle fills.                                      |
+| Geographic      | `draw_path` (`Complex`)                                | Multi-ring STC fill: outer ring plus holes as separate subpaths.                           |
+| TextMark        | `draw_text` (Deferred Ledger)                          | Geometry rendered via GPU, typography composited via host native environment (HTML5 Canvas 2D / tiny-skia). |
 
 ## WGPU Implementation Notes (For Backend Developers)
 The WGPU backend (`WgpuBackend`) strictly adheres to a 4-Tier Geometry Architecture mixed with a Deferred Compositing pipeline:
 
 1. Tier 1 (SDF Instancing): `circle_pipeline`, `rect_pipeline` for mathematically perfect, zero-tessellation primitives.
-2. Tier 2 (Vertex Extrusion): `draw_path_simple` uses normal-expansion in WGSL to create resolution-independent thick lines.
-3. Tier 3 (Convex Fast-Path): `draw_polygon` relies on basic `TriangleList`/`TriangleStrip` topology for blindingly fast fills, assuming the CPU has provided convex indices.
-4. Tier 4 (STC Heavy Weapon): `draw_path_complex` utilizes `wgpu::StencilState` with `StencilOperation::Invert` (Odd-Even winding) to solve arbitrary geographic concave polygons directly on the GPU.
+2. Tier 2 (Vertex Extrusion): the `Simple` path pipeline uses normal-expansion in WGSL to create resolution-independent thick lines.
+3. Tier 3 (Convex Fast-Path): `draw_path` with `PathTopology::Convex` uses a triangle fan for blindingly fast fills. The mark layer guarantees the single ring is convex.
+4. Tier 4 (STC Heavy Weapon): `draw_path` with `PathTopology::Complex` uses `wgpu::StencilState` with `StencilOperation::Invert` (odd-even winding). One stencil fan per ring makes holes and arbitrary concave shapes fall out of the parity rule.
 
 **The Deferred Text Ledger:**
 

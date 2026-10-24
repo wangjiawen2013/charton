@@ -1,6 +1,6 @@
 use crate::core::layer::{
-    CircleConfig, GradientRectConfig, LineConfig, PathConfig, PathTopology, PolygonConfig,
-    RectConfig, RenderBackend, TextConfig,
+    CircleConfig, GradientRectConfig, LineConfig, PathConfig, PathTopology, RectConfig,
+    RenderBackend, TextConfig,
 };
 use crate::core::semantic::{A11y, Element, Group, Role};
 use crate::error::ChartonError;
@@ -309,7 +309,7 @@ impl RenderBackend for SvgBackend<'_> {
 
     fn draw_path(&mut self, config: PathConfig) {
         let PathConfig {
-            points,
+            subpaths,
             fill,
             stroke,
             stroke_width,
@@ -318,36 +318,86 @@ impl RenderBackend for SvgBackend<'_> {
             topology,
         } = config;
 
-        if points.is_empty() || (fill.is_none() && stroke.is_none()) {
+        let closed = matches!(topology, PathTopology::Convex | PathTopology::Complex);
+        let has_fill = closed && !fill.is_none();
+        if subpaths.iter().all(|points| points.is_empty()) || (!has_fill && stroke.is_none()) {
             return;
         }
 
-        // 1. Write path data (d attribute)
-        let _ = self.body.write_str(r#"<path d=""#);
-        for (index, (x, y)) in points.iter().enumerate() {
-            if index == 0 {
-                let _ = write!(self.body, "M {x:.3} {y:.3}");
-            } else {
-                let _ = write!(self.body, " L {x:.3} {y:.3}");
+        // A convex single ring has a smaller and more direct SVG spelling.
+        if matches!(topology, PathTopology::Convex) && subpaths.len() == 1 {
+            let points = &subpaths[0];
+            if points.is_empty() {
+                return;
             }
+            let _ = self.body.write_str(r#"<polygon points=""#);
+            for (index, (x, y)) in points.iter().enumerate() {
+                let _ = write!(
+                    self.body,
+                    "{}{:.3},{:.3}",
+                    if index == 0 { "" } else { " " },
+                    x,
+                    y
+                );
+            }
+            let _ = self.body.write_str(r#"" fill=""#);
+            self.write_color(&fill);
+            let _ = self.body.write_str(r#"" stroke=""#);
+            self.write_color(&stroke);
+            let _ = write!(self.body, r#"" stroke-width="{:.3}""#, stroke_width);
+            if !fill.is_none() {
+                let _ = write!(self.body, r#" fill-opacity="{:.3}""#, opacity);
+            }
+            if !stroke.is_none() {
+                let _ = write!(self.body, r#" stroke-opacity="{:.3}""#, opacity);
+            }
+            if !dash.is_empty() {
+                let _ = self.body.write_str(r#" stroke-dasharray=""#);
+                for (index, value) in dash.iter().enumerate() {
+                    if index > 0 {
+                        self.body.push(',');
+                    }
+                    let _ = write!(self.body, "{value}");
+                }
+                self.body.push('"');
+            }
+            self.write_element_value();
+            let _ = self.body.write_str(" />\n");
+            return;
         }
 
-        // Close the path automatically for area fills (Complex topology)
-        if matches!(topology, PathTopology::Complex) || !fill.is_none() {
-            let _ = self.body.write_str(" Z");
+        // 1. Write path data. Each subpath is an independent M...L...Z run;
+        //    even-odd filling turns an inner ring into a hole.
+        let _ = self.body.write_str(r#"<path d=""#);
+        for points in &subpaths {
+            if points.is_empty() {
+                continue;
+            }
+            for (index, (x, y)) in points.iter().enumerate() {
+                if index == 0 {
+                    let _ = write!(self.body, "M {x:.3} {y:.3}");
+                } else {
+                    let _ = write!(self.body, " L {x:.3} {y:.3}");
+                }
+            }
+            if closed {
+                let _ = self.body.write_str(" Z");
+            }
         }
         let _ = self.body.write_str("\"");
 
-        // 2. Write Fill attributes
+        // 2. Fill attributes. Closed regions use even-odd so inner rings punch
+        //    holes regardless of their winding direction.
         let _ = self.body.write_str(r#" fill=""#);
-        if fill.is_none() {
+        if !has_fill {
             let _ = self.body.write_str("none\"");
         } else {
             self.write_color(&fill);
             let _ = write!(self.body, r#"" fill-opacity="{:.3}""#, opacity);
+            let _ = self.body.write_str(r#" fill-rule="evenodd""#);
         }
 
-        // 3. Write Stroke attributes
+        // 3. Stroke attributes.
         let _ = self.body.write_str(r#" stroke=""#);
         if stroke.is_none() {
             let _ = self.body.write_str("none\"");
@@ -360,7 +410,7 @@ impl RenderBackend for SvgBackend<'_> {
             );
         }
 
-        // 4. Dash array attributes
+        // 4. Dash array attributes.
         if !dash.is_empty() {
             let _ = self.body.write_str(r#" stroke-dasharray=""#);
             for (index, value) in dash.iter().enumerate() {
@@ -372,42 +422,6 @@ impl RenderBackend for SvgBackend<'_> {
             self.body.push('"');
         }
 
-        self.write_element_value();
-        let _ = self.body.write_str(" />\n");
-    }
-
-    fn draw_polygon(&mut self, config: PolygonConfig) {
-        let PolygonConfig {
-            points,
-            fill,
-            stroke,
-            stroke_width,
-            opacity,
-        } = config;
-        if points.is_empty() {
-            return;
-        }
-
-        let _ = self.body.write_str(r#"<polygon points=""#);
-        for (index, (x, y)) in points.iter().enumerate() {
-            let _ = write!(
-                self.body,
-                "{}{:.3},{:.3}",
-                if index == 0 { "" } else { " " },
-                x,
-                y
-            );
-        }
-
-        let _ = self.body.write_str(r#"" fill=""#);
-        self.write_color(&fill);
-        let _ = self.body.write_str(r#"" stroke=""#);
-        self.write_color(&stroke);
-        let _ = write!(
-            self.body,
-            r#"" stroke-width="{:.3}" fill-opacity="{:.3}""#,
-            stroke_width, opacity
-        );
         self.write_element_value();
         let _ = self.body.write_str(" />\n");
     }

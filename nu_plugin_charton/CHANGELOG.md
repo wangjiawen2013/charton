@@ -16,6 +16,9 @@ stated in the README and in each release.
   flag, not a config key: omitting it keeps charton's automatic, label-aware
   fit, which adapts to each panel. Explicit `--x-ticks` / `--y-ticks` values
   still win.
+- **GeoJSON polygons keep their holes.** `geojson_to_dataset` now emits
+  `_ring_id`, and `charton geo` feeds each ring to the renderer as a subpath of
+  one even-odd path, so interior rings render as real holes.
 
 ### Changed
 
@@ -34,6 +37,12 @@ stated in the README and in each release.
   its grid, labels, tick density, theme colours and label rotation now match
   cartesian charts (previously it used a separate renderer with eight fixed
   ticks and a hard-coded axis colour).
+
+### Fixed
+
+- **`charton path` now applies `--color` to the stroke and honours `--dash`.**
+  Previously the single-colour style was written to the mark's fill, which an
+  open path never paints, so `--color` had no visible effect.
 
 ## [0.8.5] - 2026-10-17
 

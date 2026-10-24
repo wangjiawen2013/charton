@@ -87,16 +87,16 @@ fn draw_spine(
     };
 
     backend.draw_path(PathConfig {
-        points: vec![
-            (x1 as Precision, y1 as Precision),
-            (x2 as Precision, y2 as Precision),
-        ],
         fill: "none".into(),
         stroke: theme.axes_color,
         stroke_width: theme.axis_width as Precision,
         opacity: 1.0,
         dash: vec![],
         topology: PathTopology::Simple,
+        ..PathConfig::new(vec![
+            (x1 as Precision, y1 as Precision),
+            (x2 as Precision, y2 as Precision),
+        ])
     });
 
     Ok(())
@@ -144,19 +144,19 @@ fn draw_ticks(backend: &mut dyn RenderBackend, axis: &AxisView<'_>) -> Result<()
     backend.begin_group(&Group::new(Role::Tick));
     for (px, py) in &positions {
         backend.draw_path(PathConfig {
-            points: vec![
-                (*px as Precision, *py as Precision),
-                (
-                    (*px + out_x * tick_len) as Precision,
-                    (*py + out_y * tick_len) as Precision,
-                ),
-            ],
             fill: "none".into(),
             stroke: theme.tick_color,
             stroke_width: theme.tick_width as Precision,
             opacity: 1.0,
             dash: vec![],
             topology: PathTopology::Simple,
+            ..PathConfig::new(vec![
+                (*px as Precision, *py as Precision),
+                (
+                    (*px + out_x * tick_len) as Precision,
+                    (*py + out_y * tick_len) as Precision,
+                ),
+            ])
         });
     }
     backend.end_group();

@@ -1,7 +1,15 @@
 # Line Charts
 
-A line connects the rows of a group in x-order. One group per colour, so a
+A line connects the rows of a group in **x-order**. One group per colour, so a
 multi-series line is just `color`.
+
+Use `mark_line` when the x-axis is the independent variable: time series,
+trends, slopes, cumulative curves. It sorts each group by x, splits at missing
+values, and can smooth with LOESS or use step interpolation. If the **row order
+itself** is the geometry — a trajectory, contour line or network edge — use
+`mark_path` instead; see
+[Path Mark](../grammar/marks.md#path-mark-mark_path) and
+[The five geometries](../grammar/marks.md#the-five-geometries-side-by-side).
 
 ## Multiple series
 

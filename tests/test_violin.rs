@@ -15,7 +15,7 @@ fn test_violin_1() -> Result<(), Box<dyn Error>> {
         )?
         .transform_band(BandTransform::new("sepal_length", "density"))?
         .mark_polygon()?
-        .configure_geoshape(|mark| mark.with_fill("#7fb3d5").with_stroke("#2c3e50"))
+        .configure_polygon(|mark| mark.with_fill("#7fb3d5").with_stroke("#2c3e50"))
         .encode((alt::x("x"), alt::y("y"), alt::path_group("path_group")))?
         .save("./target/test-output/violin_1.svg")?;
 
@@ -41,7 +41,7 @@ fn test_violin_2() -> Result<(), Box<dyn Error>> {
                 .with_position(Position::dodge()),
         )?
         .mark_polygon()?
-        .configure_geoshape(|mark| mark.with_fill("#95a5a6").with_stroke("#2c3e50"))
+        .configure_polygon(|mark| mark.with_fill("#95a5a6").with_stroke("#2c3e50"))
         .encode((
             alt::x("x").with_category_labels("Sex"),
             alt::y("y"),
@@ -100,7 +100,7 @@ fn test_violin_4() -> Result<(), Box<dyn Error>> {
                 .with_scale(BandScale::PerGroup),
         )?
         .mark_polygon()?
-        .configure_geoshape(|mark| mark.with_fill("#d6eaf8").with_stroke("#2c3e50"))
+        .configure_polygon(|mark| mark.with_fill("#d6eaf8").with_stroke("#2c3e50"))
         .encode((
             alt::x("x").with_category_labels("Sex"),
             alt::y("y"),
@@ -116,7 +116,7 @@ fn test_violin_4() -> Result<(), Box<dyn Error>> {
                 .with_position(Position::dodge()),
         )?
         .mark_polygon()?
-        .configure_geoshape(|mark| mark.with_fill("white").with_stroke("black"))
+        .configure_polygon(|mark| mark.with_fill("white").with_stroke("black"))
         .encode((
             alt::x("x").with_category_labels("Sex"),
             alt::y("y"),
@@ -178,7 +178,7 @@ fn test_violin_split() -> Result<(), Box<dyn Error>> {
                 .with_scale(BandScale::PerGroup),
         )?
         .mark_polygon()?
-        .configure_geoshape(|mark| mark.with_fill("#95a5a6").with_stroke("#2c3e50"))
+        .configure_polygon(|mark| mark.with_fill("#95a5a6").with_stroke("#2c3e50"))
         .encode((
             alt::x("x").with_category_labels("Species"),
             alt::y("y"),
@@ -208,7 +208,7 @@ fn test_violin_raincloud() -> Result<(), Box<dyn Error>> {
                 .with_scale(BandScale::PerGroup),
         )?
         .mark_polygon()?
-        .configure_geoshape(|mark| mark.with_fill("#d6eaf8").with_stroke("#2c3e50"))
+        .configure_polygon(|mark| mark.with_fill("#d6eaf8").with_stroke("#2c3e50"))
         .encode((
             alt::x("x").with_category_labels("Species"),
             alt::y("y"),
@@ -220,7 +220,7 @@ fn test_violin_raincloud() -> Result<(), Box<dyn Error>> {
             QuantileBoxTransform::new("Body Mass (g)").with_category("Species"),
         )?
         .mark_polygon()?
-        .configure_geoshape(|mark| mark.with_fill("white").with_stroke("black"))
+        .configure_polygon(|mark| mark.with_fill("white").with_stroke("black"))
         .encode((
             alt::x("x").with_category_labels("Species"),
             alt::y("y"),

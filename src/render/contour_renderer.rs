@@ -8,7 +8,7 @@ use crate::core::context::PanelContext;
 use crate::core::layer::{MarkRenderer, RenderBackend};
 use crate::error::ChartonError;
 use crate::mark::contour::MarkContour;
-use crate::mark::geo_path::MarkGeoPath;
+use crate::mark::path::MarkPath;
 
 impl MarkRenderer for Chart<MarkContour> {
     fn render_marks(
@@ -21,15 +21,13 @@ impl MarkRenderer for Chart<MarkContour> {
         })?;
 
         // An iso-line is an open path: stroked, never closed and never filled.
-        let path = MarkGeoPath::new()
-            .with_closed(false)
-            .with_fill("none")
+        let path = MarkPath::new()
             .with_stroke(mark.stroke)
             .with_stroke_width(mark.stroke_width)
             .with_opacity(mark.opacity)
             .with_dash(mark.dash.clone());
 
-        let as_path = Chart::<MarkGeoPath> {
+        let as_path = Chart::<MarkPath> {
             data: self.data.clone(),
             encoding: self.encoding.clone(),
             mark: Some(path),

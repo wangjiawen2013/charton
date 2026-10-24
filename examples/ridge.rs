@@ -32,7 +32,7 @@ fn main() -> Result<(), Box<dyn Error>> {
                 .with_scale(BandScale::PerGroup),
         )?
         .mark_polygon()?
-        .configure_geoshape(|mark| {
+        .configure_polygon(|mark| {
             mark.with_opacity(0.85)
                 .with_stroke("#2c3e50")
                 .with_stroke_width(1.0)

@@ -5,9 +5,10 @@
 //! - @group(0): Global Environment (Uniforms shared across all pipelines)
 //! - @group(1): Isolated Instance Data (Exclusive storage buffers per pipeline)
 
+use crate::Precision;
 use crate::core::layer::{
-    CircleConfig, GradientRectConfig, LineConfig, PathConfig, PathTopology, PolygonConfig,
-    RectConfig, RenderBackend, TextConfig,
+    CircleConfig, GradientRectConfig, LineConfig, PathConfig, PathTopology, RectConfig,
+    RenderBackend, TextConfig,
 };
 use crate::core::semantic::Group;
 use crate::error::ChartonError;
@@ -1129,145 +1130,142 @@ impl WgpuBackend {
             })
     }
 
-    /// Renders a stroked path using GPU extrusion (simple open/closed polylines).
-    fn stroke_path(&mut self, config: PathConfig) {
-        if config.points.len() < 2 {
-            return;
-        }
-
-        // A `Complex` path is a closed region (SVG/raster add a `Z`), but this
-        // shader extrudes one quad per consecutive pair and never wraps. Append
-        // the first point once so the closing edge is actually stroked; without
-        // this a polygon outline (violin, box, custom shape) is left open.
-        let close_loop = config.closes_stroke();
-
-        let start_point_idx = self.pending_path_points.len() as u32;
-        let point_count = config.points.len() as u32 + u32::from(close_loop);
-        let style_idx = self.pending_path_styles.len() as u32;
-        let path_idx = self.pending_path_args.len() as u32;
-
-        // Push the points while accumulating the arc length the dashed stroke
-        // measures against. The closing point's length includes the last edge.
-        let mut arc_len = 0.0f32;
-        let mut previous: Option<(f32, f32)> = None;
-        for &(x, y) in &config.points {
-            if let Some((px, py)) = previous {
-                arc_len += ((x - px).powi(2) + (y - py).powi(2)).sqrt();
-            }
-            self.pending_path_points
-                .push(GpuPathPoint { x, y, len: arc_len });
-            previous = Some((x, y));
-        }
-        if close_loop {
-            let (x, y) = config.points[0];
-            let (px, py) = previous.expect("at least two points");
-            arc_len += ((x - px).powi(2) + (y - py).powi(2)).sqrt();
-            self.pending_path_points
-                .push(GpuPathPoint { x, y, len: arc_len });
-        }
-
-        // A dash pattern is shared across paths through one flat buffer; this
-        // path only stores the slice it owns. An empty/zero pattern stays solid.
+    /// Renders the stroke of every subpath using GPU extrusion.
+    fn stroke_path(&mut self, config: &PathConfig) {
         let dash = config.normalized_dash();
-        let dash_start = self.pending_path_dash.len() as f32;
-        let dash_len = dash.len() as f32;
-        self.pending_path_dash.extend_from_slice(&dash);
 
-        let stroke_color = config.stroke.rgba();
-        self.pending_path_styles.push(GpuPathStyle {
-            r: stroke_color[0],
-            g: stroke_color[1],
-            b: stroke_color[2],
-            a: stroke_color[3] * config.opacity,
-            thickness: config.stroke_width,
-            dash_start,
-            dash_len,
-            dash_offset: 0.0,
-        });
+        for points in &config.subpaths {
+            if points.len() < 2 {
+                continue;
+            }
 
-        self.pending_path_args.push(GpuPathArgs {
-            start_point_idx,
-            style_idx,
-            _pad0: 0,
-            _pad1: 0,
-        });
+            // A closed subpath needs its first point re-appended: this shader
+            // extrudes one quad per consecutive pair and never wraps.
+            let close_loop = PathConfig::stroke_closes(config.topology, points);
 
-        self.batches.push((
-            DrawBatch::PathSimple {
-                path_idx,
-                point_count,
-            },
-            self.current_scissor,
-        ));
+            let start_point_idx = self.pending_path_points.len() as u32;
+            let point_count = points.len() as u32 + u32::from(close_loop);
+            let style_idx = self.pending_path_styles.len() as u32;
+            let path_idx = self.pending_path_args.len() as u32;
+
+            // Push the points while accumulating the arc length the dashed
+            // stroke measures against. The closing point's length includes the
+            // last edge.
+            let mut arc_len = 0.0f32;
+            let mut previous: Option<(f32, f32)> = None;
+            for &(x, y) in points {
+                if let Some((px, py)) = previous {
+                    arc_len += ((x - px).powi(2) + (y - py).powi(2)).sqrt();
+                }
+                self.pending_path_points
+                    .push(GpuPathPoint { x, y, len: arc_len });
+                previous = Some((x, y));
+            }
+            if close_loop {
+                let (x, y) = points[0];
+                let (px, py) = previous.expect("at least two points");
+                arc_len += ((x - px).powi(2) + (y - py).powi(2)).sqrt();
+                self.pending_path_points
+                    .push(GpuPathPoint { x, y, len: arc_len });
+            }
+
+            // A dash pattern is shared across paths through one flat buffer;
+            // this subpath only stores the slice it owns.
+            let dash_start = self.pending_path_dash.len() as f32;
+            let dash_len = dash.len() as f32;
+            self.pending_path_dash.extend_from_slice(&dash);
+
+            let stroke_color = config.stroke.rgba();
+            self.pending_path_styles.push(GpuPathStyle {
+                r: stroke_color[0],
+                g: stroke_color[1],
+                b: stroke_color[2],
+                a: stroke_color[3] * config.opacity,
+                thickness: config.stroke_width,
+                dash_start,
+                dash_len,
+                dash_offset: 0.0,
+            });
+
+            self.pending_path_args.push(GpuPathArgs {
+                start_point_idx,
+                style_idx,
+                _pad0: 0,
+                _pad1: 0,
+            });
+
+            self.batches.push((
+                DrawBatch::PathSimple {
+                    path_idx,
+                    point_count,
+                },
+                self.current_scissor,
+            ));
+        }
     }
 
-    /// Complex Path (Stencil-then-Cover universal concave polygon filler)
-    fn fill_path_complex(&mut self, config: PathConfig) {
-        if config.points.len() < 3 {
+    /// Complex Path (Stencil-then-Cover universal concave polygon filler).
+    ///
+    /// Every subpath contributes a triangle fan to the stencil pass. The
+    /// stencil inverts on every covered sample, so the cover pass fills the
+    /// even-odd interior: an outer ring plus its inner rings becomes a region
+    /// with holes. One cover quad over the combined bounding box paints the
+    /// result.
+    fn fill_path_complex(&mut self, config: &PathConfig) {
+        let rings: Vec<&[(Precision, Precision)]> = config
+            .subpaths
+            .iter()
+            .filter(|points| points.len() >= 3)
+            .map(Vec::as_slice)
+            .collect();
+        if rings.is_empty() {
             return;
         }
-
-        let point_count = config.points.len();
-        let base_vertex = self.pending_polygon_vertices.len() as u16;
 
         // ====================================================================
         // PASS 1: STENCIL (Triangle Fan with Odd-Even Winding)
         // ====================================================================
-        // Push all vertices of the complex polygon. Color is irrelevant as
-        // this pass disables color writes.
-        for &(x, y) in &config.points {
-            self.pending_polygon_vertices.push(PathVertex {
-                position: [x, y],
-                color: [0.0, 0.0, 0.0, 0.0],
-                is_fill: 1.0,
-            });
+        let mut stencil_index_count: u32 = 0;
+        let mut min_x = f32::MAX;
+        let mut max_x = f32::MIN;
+        let mut min_y = f32::MAX;
+        let mut max_y = f32::MIN;
+
+        for points in &rings {
+            let base_vertex = self.pending_polygon_vertices.len() as u16;
+
+            for &(x, y) in *points {
+                min_x = min_x.min(x);
+                max_x = max_x.max(x);
+                min_y = min_y.min(y);
+                max_y = max_y.max(y);
+                self.pending_polygon_vertices.push(PathVertex {
+                    position: [x, y],
+                    color: [0.0, 0.0, 0.0, 0.0],
+                    is_fill: 1.0,
+                });
+            }
+
+            for i in 1..points.len() - 1 {
+                self.pending_polygon_indices.extend([
+                    base_vertex,
+                    base_vertex + i as u16,
+                    base_vertex + (i + 1) as u16,
+                ]);
+                stencil_index_count += 3;
+            }
         }
 
-        // Generate indices using a Triangle Fan topology (anchor at the first vertex)
-        let mut stencil_indices = Vec::new();
-        for i in 1..point_count - 1 {
-            stencil_indices.extend([
-                base_vertex, // The first vertex, index 0
-                base_vertex + i as u16,
-                base_vertex + (i + 1) as u16,
-            ]);
-        }
-
-        let stencil_index_count = stencil_indices.len() as u32;
-        self.pending_polygon_indices.extend(stencil_indices);
         self.current_polygon_index_count += stencil_index_count;
-
-        // Dispatch to the dedicated Stencil pipeline batch
         self.push_batch(BatchType::PathComplexStencil, stencil_index_count);
 
         // ====================================================================
         // PASS 2: COVER (Bounding Box Fill)
         // ====================================================================
-        // Calculate the bounding box to minimize the GPU pixel fill area
-        let mut min_x = f32::MAX;
-        let mut max_x = f32::MIN;
-        let mut min_y = f32::MAX;
-        let mut max_y = f32::MIN;
-        for &(x, y) in &config.points {
-            if x < min_x {
-                min_x = x;
-            }
-            if x > max_x {
-                max_x = x;
-            }
-            if y < min_y {
-                min_y = y;
-            }
-            if y > max_y {
-                max_y = y;
-            }
-        }
-
         let fill = config.fill.rgba();
         let fill_color = [fill[0], fill[1], fill[2], fill[3] * config.opacity];
         let cover_base = self.pending_polygon_vertices.len() as u16;
 
-        // Generate a quad covering the bounding box
         let bb_points = [
             (min_x, min_y),
             (max_x, min_y),
@@ -1283,7 +1281,7 @@ impl WgpuBackend {
             });
         }
 
-        let cover_indices = vec![
+        let cover_indices = [
             cover_base,
             cover_base + 1,
             cover_base + 2,
@@ -1291,13 +1289,45 @@ impl WgpuBackend {
             cover_base + 2,
             cover_base + 3,
         ];
-
-        let cover_index_count = cover_indices.len() as u32;
         self.pending_polygon_indices.extend(cover_indices);
-        self.current_polygon_index_count += cover_index_count;
+        self.current_polygon_index_count += cover_indices.len() as u32;
+        self.push_batch(BatchType::PathComplexCover, cover_indices.len() as u32);
+    }
 
-        // Dispatch to the dedicated Cover pipeline batch (renders where stencil != 0)
-        self.push_batch(BatchType::PathComplexCover, cover_index_count);
+    /// Convex path fast fill: a single triangle fan with direct colour writes.
+    fn fill_path_convex(&mut self, config: &PathConfig) {
+        let Some(points) = config.subpaths.first() else {
+            return;
+        };
+        if points.len() < 3 || config.fill.rgba()[3] <= 0.0 {
+            return;
+        }
+
+        let fill = config.fill.rgba();
+        let color = [fill[0], fill[1], fill[2], fill[3] * config.opacity];
+        let base_vertex = self.pending_polygon_vertices.len() as u16;
+        let point_count = points.len();
+
+        for &(x, y) in points {
+            self.pending_polygon_vertices.push(PathVertex {
+                position: [x, y],
+                color,
+                is_fill: 1.0,
+            });
+        }
+
+        let mut indices = Vec::new();
+        for i in 1..point_count - 1 {
+            indices.extend([
+                base_vertex,
+                base_vertex + i as u16,
+                base_vertex + (i + 1) as u16,
+            ]);
+        }
+        let index_count = indices.len() as u32;
+        self.pending_polygon_indices.extend(indices);
+        self.current_polygon_index_count += index_count;
+        self.push_batch(BatchType::Polygon, index_count);
     }
 
     // ============================================================================
@@ -1702,105 +1732,7 @@ impl RenderBackend for WgpuBackend {
         self.push_batch(BatchType::Line, 1);
     }
 
-    /// Draws a fully enclosed polygon primitive by sequentially generating its interior fill mesh and boundary stroke.
-    fn draw_polygon(&mut self, config: PolygonConfig) {
-        // A valid polygon requires at least 3 vertices to form an enclosed area
-        if config.points.len() < 3 {
-            return;
-        }
-
-        // ====================================================================
-        // LAYER 1: Fill Phase - Tessellation via Triangle Fan
-        // ====================================================================
-        // Only process fill geometry if the alpha channel is greater than zero
-        if config.fill.rgba()[3] > 0.0 {
-            let fill = config.fill.rgba();
-            // Premultiply the layer's global opacity with the fill color's alpha channel
-            let color = [fill[0], fill[1], fill[2], fill[3] * config.opacity];
-
-            // Record the starting index in the vertex buffer to calculate local index offsets
-            let base_vertex = self.pending_polygon_vertices.len() as u16;
-            let point_count = config.points.len();
-
-            // Push polygon coordinates into the vertex buffer
-            for &(x, y) in &config.points {
-                self.pending_polygon_vertices.push(PathVertex {
-                    position: [x, y],
-                    color,
-                    is_fill: 1.0, // Flag indicating this vertex belongs to a fill mesh
-                });
-            }
-
-            // Generate Index Buffer using a Triangle Fan topology (suitable for convex polygons)
-            let mut indices = Vec::new();
-            for i in 1..point_count - 1 {
-                indices.extend([
-                    base_vertex,
-                    base_vertex + i as u16,
-                    base_vertex + (i + 1) as u16,
-                ]);
-            }
-
-            let index_count = indices.len() as u32;
-            self.pending_polygon_indices.extend(indices);
-            self.current_polygon_index_count += index_count;
-
-            // Dispatch a draw batch for the fill geometry
-            self.push_batch(BatchType::Polygon, index_count);
-        }
-
-        // ====================================================================
-        // LAYER 2: Stroke Phase & Auto-AA Fringe Generation
-        // ====================================================================
-        // Evaluate geometric rendering requirements based on style attributes
-        let has_stroke = config.stroke_width > 0.0 && config.stroke.rgba()[3] > 0.0;
-        let has_fill = config.fill.rgba()[3] > 0.0;
-
-        // An edge pass is required if a custom stroke is defined, or if a fill
-        // exists and needs an anti-aliasing perimeter to prevent stencil aliasing (jagged edges).
-        if has_stroke || has_fill {
-            let mut closed_points = config.points.clone();
-
-            // The underlying path extrusion pipeline processes inputs as open
-            // polylines. To render a proper closed polygon loop, we duplicate and append the
-            // first vertex to the end of the collection, forcing the final segment to tie back to the start.
-            if let Some(&first_pt) = config.points.first() {
-                closed_points.push(first_pt);
-            }
-
-            if has_stroke {
-                // Scenario A: Standard User-Defined Stroke
-                // Dispatches a dedicated wireframe mesh generation pass using the assigned stroke configuration.
-                self.stroke_path(PathConfig {
-                    points: closed_points,
-                    fill: crate::visual::color::SingleColor::none(), // Prevent redundant stencil operations
-                    stroke: config.stroke,
-                    stroke_width: config.stroke_width,
-                    opacity: config.opacity,
-                    dash: vec![], // Polygons implicitly utilize solid stroke patterns
-                    topology: PathTopology::Simple,
-                });
-            } else {
-                // Scenario B: Auto-AA Fringe (Automatic Edge Feathering)
-                // When a polygon has a solid fill but no outline, the standard binary stencil-then-cover
-                // rasterization leaves hard, jagged pixels.
-                //
-                // THE TRICK: We injected a ghost stroke with a physical width of 0.0, matching the fill color.
-                // Guided by the shader's internal 1.5px screen-space padding and SDF-driven alpha-stepping,
-                // this generates a sub-pixel anti-aliasing gradient that perfectly smooths out the raw mesh boundaries.
-                self.stroke_path(PathConfig {
-                    points: closed_points,
-                    fill: crate::visual::color::SingleColor::none(),
-                    stroke: config.fill, // Fallback to fill color for seamless edge integration
-                    stroke_width: 0.0, // Zero physical width; relies entirely on the shader's AA padding
-                    opacity: config.opacity,
-                    dash: vec![],
-                    topology: PathTopology::Simple,
-                });
-            }
-        }
-    }
-
+    /// Draws an axis-aligned rectangle filled with a linear gradient.
     fn draw_gradient_rect(&mut self, config: GradientRectConfig) {
         if config.stops.is_empty() {
             return;
@@ -1885,23 +1817,50 @@ impl RenderBackend for WgpuBackend {
 
     /// Routes the incoming vector path configuration by decomposing it into
     /// two highly optimized, complementary GPU execution phases.
+    /// Dispatches a path to the stroke, convex-fill or stencil-then-cover
+    /// pipeline according to its topology.
     fn draw_path(&mut self, config: PathConfig) {
-        // PHASE 1: Interior Geometry Rasterization (No Edges)
-        let has_fill = config.fill.rgba()[3] > 0.0 && config.opacity > 0.0;
-        if has_fill {
-            self.fill_path_complex(config.clone());
-        }
-
-        // PHASE 2: Boundary Wireframe Mesh Generation (No Fills)
+        let has_fill = config.is_closed() && config.fill.rgba()[3] > 0.0 && config.opacity > 0.0;
         let has_stroke = config.stroke_width > 0.0 && config.stroke.rgba()[3] > 0.0;
-        if has_stroke {
-            self.stroke_path(config);
-        } else if has_fill {
-            // Auto anti-aliasing fringe
-            let mut aa_config = config.clone();
-            aa_config.stroke = config.fill;
-            aa_config.stroke_width = 0.0; // Make the edge smooth while keeping the fill color
-            self.stroke_path(aa_config);
+
+        match config.topology {
+            PathTopology::Simple => {
+                if has_stroke {
+                    self.stroke_path(&config);
+                }
+            }
+            PathTopology::Convex if config.subpaths.len() == 1 => {
+                if has_fill {
+                    self.fill_path_convex(&config);
+                }
+                if has_stroke {
+                    self.stroke_path(&config);
+                } else if has_fill {
+                    // Auto anti-aliasing fringe: a zero-width stroke in the
+                    // fill colour relies on the shader's screen-space padding.
+                    let mut aa = config.clone();
+                    aa.stroke = config.fill;
+                    aa.stroke_width = 0.0;
+                    aa.dash = vec![];
+                    self.stroke_path(&aa);
+                }
+            }
+            PathTopology::Convex | PathTopology::Complex => {
+                // A multi-ring `Convex` path is not convex as a whole; the
+                // even-odd stencil path is the correct fallback.
+                if has_fill {
+                    self.fill_path_complex(&config);
+                }
+                if has_stroke {
+                    self.stroke_path(&config);
+                } else if has_fill {
+                    let mut aa = config.clone();
+                    aa.stroke = config.fill;
+                    aa.stroke_width = 0.0;
+                    aa.dash = vec![];
+                    self.stroke_path(&aa);
+                }
+            }
         }
     }
 

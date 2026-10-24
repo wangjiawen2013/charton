@@ -1,7 +1,7 @@
-<svg width="500" height="400" viewBox="0 0 500 400" xmlns="http://www.w3.org/2000/svg" class="charton" role="img" aria-roledescription="chart" aria-labelledby="charton-07540717-title">
-<title id="charton-07540717-title">Colored Bar Chart Example</title>
-<defs><clipPath id="charton-07540717-clip-0"><rect x="68.700" y="37.600" width="349.100" height="299.400" /></clipPath>
-<clipPath id="charton-07540717-clip-1"><rect x="417.800" y="0.000" width="82.200" height="400.000" /></clipPath>
+<svg width="500" height="400" viewBox="0 0 500 400" xmlns="http://www.w3.org/2000/svg" class="charton" role="img" aria-roledescription="chart" aria-labelledby="charton-f5f52717-title">
+<title id="charton-f5f52717-title">Colored Bar Chart Example</title>
+<defs><clipPath id="charton-f5f52717-clip-0"><rect x="68.700" y="37.600" width="349.100" height="299.400" /></clipPath>
+<clipPath id="charton-f5f52717-clip-1"><rect x="417.800" y="0.000" width="82.200" height="400.000" /></clipPath>
 </defs>
 <g class="charton-background">
 <rect x="0.000" y="0.000" width="500.000" height="400.000" fill="rgba(255,255,255,1.000)" stroke="none" stroke-width="0.000" fill-opacity="1.000" stroke-opacity="1.000" />
@@ -9,20 +9,20 @@
 <g class="charton-title">
 <text x="243.250" y="20.800" font-size="18.0" font-family="Inter, -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, 'PingFang SC', 'Microsoft YaHei', Ubuntu, Cantarell, 'Noto Sans', sans-serif" fill="rgba(51,51,51,1.000)" fill-opacity="1.000" text-anchor="middle" font-weight="bold" font-style="normal" dominant-baseline="middle" transform="rotate(0 243.250 20.800)">Colored Bar Chart Example</text>
 </g>
-<g class="charton-plot" clip-path="url(#charton-07540717-clip-0)">
+<g class="charton-plot" clip-path="url(#charton-f5f52717-clip-0)">
 <g class="charton-mark charton-mark-0 charton-mark-bar" data-layer="0" data-mark="bar">
-<path d="M 97.792 337.000 L 97.792 169.289 L 155.975 169.289 L 155.975 337.000 Z" fill="rgba(31,119,180,1.000)" fill-opacity="1.000" stroke="rgba(0,0,0,1.000)" stroke-width="1.000" stroke-opacity="1.000" stroke-linejoin="round" stroke-linecap="round" data-value="Jan" data-series="North" />
-<path d="M 97.792 169.289 L 97.792 129.004 L 155.975 129.004 L 155.975 169.289 Z" fill="rgba(255,127,14,1.000)" fill-opacity="1.000" stroke="rgba(0,0,0,1.000)" stroke-width="1.000" stroke-opacity="1.000" stroke-linejoin="round" stroke-linecap="round" data-value="Jan" data-series="South" />
-<path d="M 97.792 129.004 L 97.792 98.816 L 155.975 98.816 L 155.975 129.004 Z" fill="rgba(44,160,44,1.000)" fill-opacity="1.000" stroke="rgba(0,0,0,1.000)" stroke-width="1.000" stroke-opacity="1.000" stroke-linejoin="round" stroke-linecap="round" data-value="Jan" data-series="East" />
-<path d="M 97.792 98.816 L 97.792 51.857 L 155.975 51.857 L 155.975 98.816 Z" fill="rgba(214,39,40,1.000)" fill-opacity="1.000" stroke="rgba(0,0,0,1.000)" stroke-width="1.000" stroke-opacity="1.000" stroke-linejoin="round" stroke-linecap="round" data-value="Jan" data-series="West" />
-<path d="M 214.158 337.000 L 214.158 268.814 L 272.342 268.814 L 272.342 337.000 Z" fill="rgba(31,119,180,1.000)" fill-opacity="1.000" stroke="rgba(0,0,0,1.000)" stroke-width="1.000" stroke-opacity="1.000" stroke-linejoin="round" stroke-linecap="round" data-value="Feb" data-series="North" />
-<path d="M 214.158 268.814 L 214.158 188.230 L 272.342 188.230 L 272.342 268.814 Z" fill="rgba(255,127,14,1.000)" fill-opacity="1.000" stroke="rgba(0,0,0,1.000)" stroke-width="1.000" stroke-opacity="1.000" stroke-linejoin="round" stroke-linecap="round" data-value="Feb" data-series="South" />
-<path d="M 214.158 188.230 L 214.158 126.242 L 272.342 126.242 L 272.342 188.230 Z" fill="rgba(44,160,44,1.000)" fill-opacity="1.000" stroke="rgba(0,0,0,1.000)" stroke-width="1.000" stroke-opacity="1.000" stroke-linejoin="round" stroke-linecap="round" data-value="Feb" data-series="East" />
-<path d="M 214.158 126.242 L 214.158 51.857 L 272.342 51.857 L 272.342 126.242 Z" fill="rgba(214,39,40,1.000)" fill-opacity="1.000" stroke="rgba(0,0,0,1.000)" stroke-width="1.000" stroke-opacity="1.000" stroke-linejoin="round" stroke-linecap="round" data-value="Feb" data-series="West" />
-<path d="M 330.525 337.000 L 330.525 282.398 L 388.708 282.398 L 388.708 337.000 Z" fill="rgba(31,119,180,1.000)" fill-opacity="1.000" stroke="rgba(0,0,0,1.000)" stroke-width="1.000" stroke-opacity="1.000" stroke-linejoin="round" stroke-linecap="round" data-value="Mar" data-series="North" />
-<path d="M 330.525 282.398 L 330.525 197.462 L 388.708 197.462 L 388.708 282.398 Z" fill="rgba(255,127,14,1.000)" fill-opacity="1.000" stroke="rgba(0,0,0,1.000)" stroke-width="1.000" stroke-opacity="1.000" stroke-linejoin="round" stroke-linecap="round" data-value="Mar" data-series="South" />
-<path d="M 330.525 197.462 L 330.525 130.726 L 388.708 130.726 L 388.708 197.462 Z" fill="rgba(44,160,44,1.000)" fill-opacity="1.000" stroke="rgba(0,0,0,1.000)" stroke-width="1.000" stroke-opacity="1.000" stroke-linejoin="round" stroke-linecap="round" data-value="Mar" data-series="East" />
-<path d="M 330.525 130.726 L 330.525 51.857 L 388.708 51.857 L 388.708 130.726 Z" fill="rgba(214,39,40,1.000)" fill-opacity="1.000" stroke="rgba(0,0,0,1.000)" stroke-width="1.000" stroke-opacity="1.000" stroke-linejoin="round" stroke-linecap="round" data-value="Mar" data-series="West" />
+<path d="M 97.792 337.000 L 97.792 169.289 L 155.975 169.289 L 155.975 337.000 Z" fill="rgba(31,119,180,1.000)" fill-opacity="1.000" fill-rule="evenodd" stroke="rgba(0,0,0,1.000)" stroke-width="1.000" stroke-opacity="1.000" stroke-linejoin="round" stroke-linecap="round" data-value="Jan" data-series="North" />
+<path d="M 97.792 169.289 L 97.792 129.004 L 155.975 129.004 L 155.975 169.289 Z" fill="rgba(255,127,14,1.000)" fill-opacity="1.000" fill-rule="evenodd" stroke="rgba(0,0,0,1.000)" stroke-width="1.000" stroke-opacity="1.000" stroke-linejoin="round" stroke-linecap="round" data-value="Jan" data-series="South" />
+<path d="M 97.792 129.004 L 97.792 98.816 L 155.975 98.816 L 155.975 129.004 Z" fill="rgba(44,160,44,1.000)" fill-opacity="1.000" fill-rule="evenodd" stroke="rgba(0,0,0,1.000)" stroke-width="1.000" stroke-opacity="1.000" stroke-linejoin="round" stroke-linecap="round" data-value="Jan" data-series="East" />
+<path d="M 97.792 98.816 L 97.792 51.857 L 155.975 51.857 L 155.975 98.816 Z" fill="rgba(214,39,40,1.000)" fill-opacity="1.000" fill-rule="evenodd" stroke="rgba(0,0,0,1.000)" stroke-width="1.000" stroke-opacity="1.000" stroke-linejoin="round" stroke-linecap="round" data-value="Jan" data-series="West" />
+<path d="M 214.158 337.000 L 214.158 268.814 L 272.342 268.814 L 272.342 337.000 Z" fill="rgba(31,119,180,1.000)" fill-opacity="1.000" fill-rule="evenodd" stroke="rgba(0,0,0,1.000)" stroke-width="1.000" stroke-opacity="1.000" stroke-linejoin="round" stroke-linecap="round" data-value="Feb" data-series="North" />
+<path d="M 214.158 268.814 L 214.158 188.230 L 272.342 188.230 L 272.342 268.814 Z" fill="rgba(255,127,14,1.000)" fill-opacity="1.000" fill-rule="evenodd" stroke="rgba(0,0,0,1.000)" stroke-width="1.000" stroke-opacity="1.000" stroke-linejoin="round" stroke-linecap="round" data-value="Feb" data-series="South" />
+<path d="M 214.158 188.230 L 214.158 126.242 L 272.342 126.242 L 272.342 188.230 Z" fill="rgba(44,160,44,1.000)" fill-opacity="1.000" fill-rule="evenodd" stroke="rgba(0,0,0,1.000)" stroke-width="1.000" stroke-opacity="1.000" stroke-linejoin="round" stroke-linecap="round" data-value="Feb" data-series="East" />
+<path d="M 214.158 126.242 L 214.158 51.857 L 272.342 51.857 L 272.342 126.242 Z" fill="rgba(214,39,40,1.000)" fill-opacity="1.000" fill-rule="evenodd" stroke="rgba(0,0,0,1.000)" stroke-width="1.000" stroke-opacity="1.000" stroke-linejoin="round" stroke-linecap="round" data-value="Feb" data-series="West" />
+<path d="M 330.525 337.000 L 330.525 282.398 L 388.708 282.398 L 388.708 337.000 Z" fill="rgba(31,119,180,1.000)" fill-opacity="1.000" fill-rule="evenodd" stroke="rgba(0,0,0,1.000)" stroke-width="1.000" stroke-opacity="1.000" stroke-linejoin="round" stroke-linecap="round" data-value="Mar" data-series="North" />
+<path d="M 330.525 282.398 L 330.525 197.462 L 388.708 197.462 L 388.708 282.398 Z" fill="rgba(255,127,14,1.000)" fill-opacity="1.000" fill-rule="evenodd" stroke="rgba(0,0,0,1.000)" stroke-width="1.000" stroke-opacity="1.000" stroke-linejoin="round" stroke-linecap="round" data-value="Mar" data-series="South" />
+<path d="M 330.525 197.462 L 330.525 130.726 L 388.708 130.726 L 388.708 197.462 Z" fill="rgba(44,160,44,1.000)" fill-opacity="1.000" fill-rule="evenodd" stroke="rgba(0,0,0,1.000)" stroke-width="1.000" stroke-opacity="1.000" stroke-linejoin="round" stroke-linecap="round" data-value="Mar" data-series="East" />
+<path d="M 330.525 130.726 L 330.525 51.857 L 388.708 51.857 L 388.708 130.726 Z" fill="rgba(214,39,40,1.000)" fill-opacity="1.000" fill-rule="evenodd" stroke="rgba(0,0,0,1.000)" stroke-width="1.000" stroke-opacity="1.000" stroke-linejoin="round" stroke-linecap="round" data-value="Mar" data-series="West" />
 </g>
 </g>
 <g class="charton-axis charton-axis-x" data-axis="x">
@@ -67,7 +67,7 @@
 <text x="24.000" y="187.300" font-size="15.0" font-family="Inter, -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, 'PingFang SC', 'Microsoft YaHei', Ubuntu, Cantarell, 'Noto Sans', sans-serif" fill="rgba(51,51,51,1.000)" fill-opacity="1.000" text-anchor="middle" font-weight="bold" font-style="normal" dominant-baseline="middle" transform="rotate(-90 24.000 187.300)">revenue</text>
 </g>
 </g>
-<g class="charton-legend" data-series="region" clip-path="url(#charton-07540717-clip-1)">
+<g class="charton-legend" data-series="region" clip-path="url(#charton-f5f52717-clip-1)">
 <g class="charton-legend-title">
 <text x="432.800" y="43.600" font-size="13.2" font-family="Inter, -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, 'PingFang SC', 'Microsoft YaHei', Ubuntu, Cantarell, 'Noto Sans', sans-serif" fill="rgba(51,51,51,1.000)" fill-opacity="1.000" text-anchor="start" font-weight="bold" font-style="normal" dominant-baseline="central" transform="rotate(0 432.800 43.600)">region</text>
 </g>

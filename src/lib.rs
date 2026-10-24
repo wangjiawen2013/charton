@@ -112,8 +112,8 @@ pub mod prelude {
     pub use crate::facets::FacetSpec;
     pub use crate::mark::{
         area::MarkArea, bar::MarkBar, boxplot::MarkBoxplot, contour::MarkContour,
-        density::MarkDensity, density_2d::MarkDensity2D, errorbar::MarkErrorBar,
-        geo_path::MarkGeoPath, line::MarkLine, point::MarkPoint, rect::MarkRect, rule::MarkRule,
+        density::MarkDensity, density_2d::MarkDensity2D, errorbar::MarkErrorBar, line::MarkLine,
+        path::MarkPath, point::MarkPoint, polygon::MarkPolygon, rect::MarkRect, rule::MarkRule,
         text::MarkText, tick::MarkTick, violin::MarkViolin,
     };
     pub use crate::position::Position;

@@ -7,7 +7,7 @@ use crate::chart::Chart;
 use crate::core::context::PanelContext;
 use crate::core::layer::{MarkRenderer, RenderBackend};
 use crate::error::ChartonError;
-use crate::mark::geo_path::MarkGeoPath;
+use crate::mark::polygon::MarkPolygon;
 use crate::mark::violin::MarkViolin;
 
 impl MarkRenderer for Chart<MarkViolin> {
@@ -21,8 +21,7 @@ impl MarkRenderer for Chart<MarkViolin> {
             .as_ref()
             .ok_or_else(|| ChartonError::Mark("MarkViolin configuration is missing".to_string()))?;
 
-        let polygon = MarkGeoPath::new()
-            .with_closed(true)
+        let polygon = MarkPolygon::new()
             .with_fill(mark.color)
             .with_opacity(mark.opacity)
             .with_stroke(mark.stroke)
@@ -30,7 +29,7 @@ impl MarkRenderer for Chart<MarkViolin> {
 
         // The data and encoding already describe the polygon; only the mark
         // configuration has to be swapped for the shared renderer.
-        let as_polygon = Chart::<MarkGeoPath> {
+        let as_polygon = Chart::<MarkPolygon> {
             data: self.data.clone(),
             encoding: self.encoding.clone(),
             mark: Some(polygon),

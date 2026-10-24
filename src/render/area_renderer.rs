@@ -218,20 +218,19 @@ impl MarkRenderer for Chart<MarkArea> {
                 // routes to the WGPU stencil-then-cover pipeline; SVG/PNG render
                 // it as a standard closed vector path with anti-aliasing.
                 backend.draw_path(PathConfig {
-                    points: fill_pts,
                     fill: group_color,
                     stroke: SingleColor::none(),
                     stroke_width: 0.0,
                     opacity: mark_config.opacity as Precision,
                     dash: vec![],
                     topology: PathTopology::Complex,
+                    ..PathConfig::new(fill_pts)
                 });
 
                 // Layer 2: Top Boundary Path (Independent top stroke/polyline)
                 // Note: Stacked modes usually omit strokes to prevent edge artifacts in streamgraphs
                 if matches!(y_enc.stack, StackMode::None) {
                     backend.draw_path(PathConfig {
-                        points: stroke_pts,
                         fill: SingleColor::none(),
                         stroke: group_color,
                         stroke_width: mark_config.stroke_width as Precision,
@@ -239,9 +238,8 @@ impl MarkRenderer for Chart<MarkArea> {
                         // or explicitly defined by external styles.
                         opacity: 1.0,
                         dash: mark_config.dash.iter().map(|&d| d as Precision).collect(),
-                        // Explicitly providing the Simple topology ensures this routes
-                        // to the high-performance normal extrusion pipeline.
                         topology: PathTopology::Simple,
+                        ..PathConfig::new(stroke_pts)
                     });
                 }
             }
@@ -275,16 +273,16 @@ impl Chart<MarkArea> {
             let (px2, py2) = context.coord.transform(1.0, b_norm, &context.panel);
 
             backend.draw_path(PathConfig {
-                points: vec![
-                    (px1 as Precision, py1 as Precision),
-                    (px2 as Precision, py2 as Precision),
-                ],
                 fill: SingleColor::none(),
                 stroke: SingleColor::from("#888888"),
                 stroke_width: 1.0,
                 opacity: 0.5,
                 dash: vec![4.0, 4.0],
                 topology: PathTopology::Simple,
+                ..PathConfig::new(vec![
+                    (px1 as Precision, py1 as Precision),
+                    (px2 as Precision, py2 as Precision),
+                ])
             });
         }
     }

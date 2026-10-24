@@ -11,16 +11,31 @@ use crate::visual::color::SingleColor;
 use crate::visual::shape::PointShape;
 use std::sync::Arc;
 
-/// Topology classification to guide the WGPU backend in selecting the optimal rendering pipeline.
+/// Geometry hint for a [`PathConfig`].
+///
+/// The hint lets a backend choose the cheapest correct pipeline without
+/// inspecting the vertex data. It is also the contract for how subpaths are
+/// interpreted:
+///
+/// * [`Simple`](PathTopology::Simple): open polylines. Every subpath is
+///   stroked independently and nothing is closed or filled.
+/// * [`Convex`](PathTopology::Convex): a single closed, convex ring. Backends
+///   may use a triangle fan or another convex fast path.
+/// * [`Complex`](PathTopology::Complex): one or more closed rings filled with
+///   the **even-odd** rule. This is the form that supports concave shapes,
+///   self-intersections and holes: an outer ring and its inner rings are just
+///   separate subpaths of the same path, and the parity of their cover turns
+///   the interior ring into a hole.
 #[derive(Copy, Clone, Debug, PartialEq, Default)]
 pub enum PathTopology {
-    /// Simple point sequence (lines, curves) without fills or complex self-intersections.
-    /// WGPU backend will process this via pure GPU normal extrusion (Stroke only).
+    /// Open polylines, stroked only.
     #[default]
     Simple,
 
-    /// Complex closed geometry containing concave shapes, holes, islands, or overlapping paths (e.g., GIS maps).
-    /// WGPU backend will process this via Stencil-Then-Cover (STC) dual-pass hardware filling.
+    /// A single closed convex ring, filled.
+    Convex,
+
+    /// One or more closed rings, filled with the even-odd rule.
     Complex,
 }
 
@@ -71,47 +86,69 @@ pub struct LineConfig {
     pub dash: Vec<Precision>,
 }
 
-pub struct PolygonConfig {
-    pub points: Vec<(Precision, Precision)>,
+/// A vector path made of one or more independent subpaths.
+///
+/// A line has one open subpath; a polygon with holes has one closed subpath for
+/// the outer ring and one for each hole. All subpaths share the same paint and
+/// topology. Closed paths ([`PathTopology::Convex`] and
+/// [`PathTopology::Complex`]) are closed independently per subpath; when filled,
+/// they use the even-odd rule, so inner rings punch holes without relying on
+/// their winding direction.
+#[derive(Clone, Debug)]
+pub struct PathConfig {
+    /// Independent vertex sequences. Empty subpaths are ignored by backends.
+    pub subpaths: Vec<Vec<(Precision, Precision)>>,
     pub fill: SingleColor,
     pub stroke: SingleColor,
     pub stroke_width: Precision,
     pub opacity: Precision,
-}
-
-#[derive(Clone, Debug)]
-pub struct PathConfig {
-    pub points: Vec<(Precision, Precision)>,
-    pub fill: SingleColor, // For simple topology, it's useless
-    pub stroke: SingleColor,
-    pub stroke_width: Precision,
-    pub opacity: Precision, // For simple topology, it's useless
     pub dash: Vec<Precision>,
 
-    /// Lightweight structural hint to steer backend optimization path.
+    /// Lightweight structural hint to steer the backend's geometry pipeline.
     pub topology: PathTopology,
 }
 
 impl PathConfig {
-    /// Whether a *stroking* backend must append the first point to close the
-    /// loop.
+    /// A single-subpath path with neutral paint defaults.
+    pub fn new(points: Vec<(Precision, Precision)>) -> Self {
+        Self::from_subpaths(vec![points])
+    }
+
+    /// A path with one or more subpaths and neutral paint defaults.
+    pub const fn from_subpaths(subpaths: Vec<Vec<(Precision, Precision)>>) -> Self {
+        Self {
+            subpaths,
+            fill: SingleColor::none(),
+            stroke: SingleColor::none(),
+            stroke_width: 0.0,
+            opacity: 1.0,
+            dash: vec![],
+            topology: PathTopology::Simple,
+        }
+    }
+
+    /// Sets the topology hint.
+    pub const fn with_topology(mut self, topology: PathTopology) -> Self {
+        self.topology = topology;
+        self
+    }
+
+    /// Whether this path is a closed, filled region.
+    pub const fn is_closed(&self) -> bool {
+        matches!(self.topology, PathTopology::Convex | PathTopology::Complex)
+    }
+
+    /// Whether a stroking backend must append the first point of `points` to
+    /// close that particular subpath.
     ///
-    /// A [`PathTopology::Complex`] path is a closed region: the SVG, PDF and
-    /// raster backends close it with `Z` / `close()`. A backend that extrudes
-    /// one quad per consecutive pair of points (the WGPU path shader) receives
-    /// no such command, so without re-appending the first point its stroke
-    /// would silently drop the closing edge.
-    ///
-    /// Returns `false` for an open ([`PathTopology::Simple`]) path, for fewer
-    /// than two points, and for a sequence that already ends where it started.
-    ///
-    /// Only the WGPU backend needs this, so it reads as dead code without that
-    /// feature (the unit test still exercises it).
+    /// The SVG/PDF/raster backends close a path with `Z`/`close()`. The WGPU
+    /// stroke shader extrudes one quad per consecutive pair and never wraps, so
+    /// it must re-append the first point itself.
     #[cfg_attr(not(any(feature = "wgpu", test)), allow(dead_code))]
-    pub(crate) fn closes_stroke(&self) -> bool {
-        matches!(self.topology, PathTopology::Complex)
-            && self.points.len() >= 2
-            && self.points.first() != self.points.last()
+    pub(crate) fn stroke_closes(topology: PathTopology, points: &[(Precision, Precision)]) -> bool {
+        matches!(topology, PathTopology::Convex | PathTopology::Complex)
+            && points.len() >= 2
+            && points.first() != points.last()
     }
 
     /// The outline dash pattern, flattened for a GPU shader.
@@ -177,11 +214,13 @@ pub trait RenderBackend {
     /// Draws a rectangle with optional fill and stroke.
     fn draw_rect(&mut self, config: RectConfig);
 
-    /// Draws an open path (e.g., for lines or curves) with a stroke.
+    /// Draws a vector path.
+    ///
+    /// A path has one or more subpaths. Open paths ([`PathTopology::Simple`])
+    /// are stroked; closed paths ([`PathTopology::Convex`] and
+    /// [`PathTopology::Complex`]) are filled with the even-odd rule, so inner
+    /// subpaths become holes.
     fn draw_path(&mut self, config: PathConfig);
-
-    /// Draws a closed polygon with optional fill and stroke.
-    fn draw_polygon(&mut self, config: PolygonConfig);
 
     /// Renders text with specific alignment and weight.
     ///
@@ -404,14 +443,12 @@ mod tests {
 
     fn path(points: Vec<(Precision, Precision)>, topology: PathTopology) -> PathConfig {
         PathConfig {
-            points,
             fill: SingleColor::none(),
             stroke: SingleColor::new("black"),
             stroke_width: 1.0,
-            opacity: 1.0,
-            dash: vec![],
-            topology,
+            ..PathConfig::new(points)
         }
+        .with_topology(topology)
     }
 
     /// The GPU dash pattern follows the SVG rules: an odd pattern is repeated
@@ -437,18 +474,33 @@ mod tests {
         assert!(zero.normalized_dash().is_empty());
     }
 
-    /// A closed (`Complex`) path must have its first point re-appended for a
-    /// segment-extruding backend, an open path must not, and an already-closed
-    /// vertex loop must not get a duplicate.
+    /// A closed (`Complex` or `Convex`) path must have its first point
+    /// re-appended for a segment-extruding backend, an open path must not, and
+    /// an already-closed vertex loop must not get a duplicate.
     #[test]
-    fn complex_path_stroke_closes_the_loop() {
+    fn closed_path_stroke_closes_each_loop() {
         let open = vec![(0.0, 0.0), (1.0, 0.0), (0.5, 1.0)];
-        assert!(path(open.clone(), PathTopology::Complex).closes_stroke());
-        assert!(!path(open, PathTopology::Simple).closes_stroke());
+        assert!(PathConfig::stroke_closes(PathTopology::Complex, &open));
+        assert!(PathConfig::stroke_closes(PathTopology::Convex, &open));
+        assert!(!PathConfig::stroke_closes(PathTopology::Simple, &open));
 
         let closed = vec![(0.0, 0.0), (1.0, 0.0), (0.5, 1.0), (0.0, 0.0)];
-        assert!(!path(closed, PathTopology::Complex).closes_stroke());
+        assert!(!PathConfig::stroke_closes(PathTopology::Complex, &closed));
 
-        assert!(!path(vec![(0.0, 0.0)], PathTopology::Complex).closes_stroke());
+        assert!(!PathConfig::stroke_closes(
+            PathTopology::Complex,
+            &[(0.0, 0.0)]
+        ));
+
+        // Every ring is closed independently.
+        let mut config = PathConfig::from_subpaths(vec![
+            vec![(0.0, 0.0), (10.0, 0.0), (10.0, 10.0), (0.0, 0.0)],
+            vec![(2.0, 2.0), (4.0, 2.0), (4.0, 4.0)],
+        ]);
+        config.topology = PathTopology::Complex;
+        assert!(PathConfig::stroke_closes(
+            PathTopology::Complex,
+            &config.subpaths[1]
+        ));
     }
 }

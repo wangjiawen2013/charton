@@ -37,10 +37,10 @@ pub(crate) mod contour_renderer;
 pub(crate) mod density_2d_renderer;
 pub(crate) mod density_renderer;
 pub(crate) mod errorbar_renderer;
-pub(crate) mod geo_renderer;
 pub(crate) mod hist_renderer;
 pub(crate) mod legend_renderer;
 pub(crate) mod line_renderer;
+pub(crate) mod path_renderer;
 #[cfg(feature = "pdf")]
 /// PDF document assembly: page, tagging and structure tree.
 pub mod pdf;

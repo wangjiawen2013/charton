@@ -15,16 +15,16 @@ fn main() -> Result<(), Box<dyn Error>> {
 
     // Preview the first 10 vertices
     println!("\nFirst 10 vertices:");
-    let preview = ds.select(&["NAME", "_lon", "_lat", "POP_EST", "_path_id"])?;
+    let preview = ds.select(&["NAME", "_lon", "_lat", "POP_EST", "_path_id", "_ring_id"])?;
     println!("{:#?}", preview);
 
     // ==================== Draw the world map ====================
     println!("\nDrawing the world map...");
 
-    let geo_layer = Chart::build(ds)?.mark_geoshape()?.encode((
+    let geo_layer = Chart::build(ds)?.mark_polygon()?.encode((
         alt::x("_lon"),
         alt::y("_lat"),
-        alt::path_group("_path_id"),
+        alt::path_group("_path_id").with_subpath("_ring_id"),
         //alt::color("POP_EST")
     ))?;
 

@@ -32,7 +32,7 @@ fn main() -> Result<(), Box<dyn Error>> {
         .transform_band(BandTransform::new("sepal_length", "density"))?
         // 3. Fill and outline the closed shape.
         .mark_polygon()?
-        .configure_geoshape(|mark| {
+        .configure_polygon(|mark| {
             mark.with_fill("#7fb3d5")
                 .with_opacity(0.6)
                 .with_stroke("#2c3e50")
