@@ -9,10 +9,11 @@ stated in the README and in each release.
 ### Changed
 
 - **Axis labels are less dense and keep more space.** The automatic fit now
-  caps at ten ticks (was twelve), leaves one tick-font size between neighbouring
-  labels (was half), and thins crowded categorical labels instead of drawing
-  them on top of each other. `--tick-count` and explicit ticks still override
-  the fit.
+  caps at ten ticks (was twelve), leaves one tick-font size between labels on
+  the same line (was half), measures rotated labels as parallel text lines
+  instead of full-width boxes, and thins crowded categorical labels instead of
+  drawing them on top of each other. `--tick-count` and explicit ticks still
+  override the fit.
 
 ## [0.9.0] - 2026-10-24
 

@@ -90,12 +90,14 @@ By default (no `with_tick_count` on the theme) the rule has three steps:
 2. **Snap to the scale's ladder.** The budget is passed to the scale, which
    returns its own values (`1/2/5` steps, calendar steps, powers of ten).
    Because it rounds, the list can be slightly denser than requested.
-3. **Measure and back off.** The labels that were really produced are projected
-   along the axis, rotation included. Neighbours must keep at least one tick
-   font size (about two letters) between their boxes, so labels never read as
-   one continuous string. A continuous scale is asked for fewer ticks, which
-   moves it to its next coarser step; a categorical scale keeps every `n`th
-   category. The first list that fits wins.
+3. **Measure and back off.** The labels that were really produced are compared
+   as oriented text boxes. Labels on the same line keep at least one tick font
+   size (about two letters) between their boxes, so they never read as one
+   continuous string. Rotated labels sit on parallel lines instead: their long
+   dimension does not force axis spacing, and only the perpendicular clearance
+   between their ink bands matters. A continuous scale is asked for fewer ticks,
+   which moves it to its next coarser step; a categorical scale keeps every
+   `n`th category. The first list that fits wins.
 
 The count is therefore a *target*, not a promise. Short numbers pack an axis;
 long labels (dates, category names) thin it out; and the count does not grow

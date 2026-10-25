@@ -14,7 +14,14 @@ predate this file.
   panel with labels.
 - **Neighbouring tick labels keep one tick-font size of white space** (about
   two lowercase letters), up from half a font size. Long years, dates or
-  category names no longer read as one continuous string.
+  category names no longer read as one continuous string when they run along
+  the same line.
+- **Rotated labels are measured as parallel text lines, not axis-aligned
+  boxes.** A 45-degree date label used to need room for its full width along
+  the axis, so the candlestick example was thinned to every third day. Only the
+  perpendicular ink height decides whether rotated neighbours touch; the
+  candlestick now labels every day again while genuinely crowded rotations
+  still thin.
 - **Crowded categorical axes now thin their labels.** A discrete scale still
   returns one tick per category, but when the measured labels do not fit, every
   `n`th label is kept instead of drawing all of them on top of each other.
