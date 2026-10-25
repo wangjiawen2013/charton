@@ -4,6 +4,16 @@ All notable changes to `nu_plugin_charton` are documented here. The crate
 shares the `charton` version number, and the Nushell release it targets is
 stated in the README and in each release.
 
+## [Unreleased]
+
+### Changed
+
+- **Axis labels are less dense and keep more space.** The automatic fit now
+  caps at ten ticks (was twelve), leaves one tick-font size between neighbouring
+  labels (was half), and thins crowded categorical labels instead of drawing
+  them on top of each other. `--tick-count` and explicit ticks still override
+  the fit.
+
 ## [0.9.0] - 2026-10-24
 
 ### Added

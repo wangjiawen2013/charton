@@ -4,6 +4,21 @@ All notable changes to the `charton` library are documented here. The project
 follows [Semantic Versioning](https://semver.org/). Releases before 0.7.0
 predate this file.
 
+## [Unreleased]
+
+### Changed
+
+- **Automatic tick density is capped at ten instead of twelve.** Ten is the
+  upper end of mainstream defaults (D3's `ticks` asks for ten; Matplotlib's
+  auto locator tops out around nine), while twelve could still fill a wide
+  panel with labels.
+- **Neighbouring tick labels keep one tick-font size of white space** (about
+  two lowercase letters), up from half a font size. Long years, dates or
+  category names no longer read as one continuous string.
+- **Crowded categorical axes now thin their labels.** A discrete scale still
+  returns one tick per category, but when the measured labels do not fit, every
+  `n`th label is kept instead of drawing all of them on top of each other.
+
 ## [0.9.0] - 2026-10-24
 
 ### Breaking
