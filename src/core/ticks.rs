@@ -18,13 +18,18 @@
 //!    returns its own nice values (`1/2/5` steps, calendar steps, powers of
 //!    ten). Because it rounds, the list can be slightly denser than requested.
 //! 3. **Measure and back off.** The labels that were really produced are
-//!    projected along the axis, rotation included. If neighbours would touch,
-//!    the scale is asked for fewer ticks, which moves it to its next coarser
-//!    step. The first list that fits wins.
+//!    compared as oriented text boxes. Labels on the same line need
+//!    [`LABEL_GAP_IN_FONTS`] font sizes between them; rotated neighbours only
+//!    need their parallel text lines to clear each other, because the diagonal
+//!    offset already separates the glyphs. If a pair does not fit, a continuous
+//!    scale is asked for fewer ticks, which moves it to its next coarser step,
+//!    and a categorical scale keeps every `n`th category. The first list that
+//!    fits wins.
 //!
-//! If even the coarsest step the scale offers does not fit, only the two end
-//! labels are kept: the axis still reads as a range, and the resolver never
-//! invents an interval outside the scale's ladder.
+//! If even the coarsest continuous step (or the sparsest categorical subset)
+//! does not fit, only the two end labels are kept: the axis still reads as a
+//! range, and the resolver never invents an interval outside the scale's
+//! ladder.
 //!
 //! # Overrides
 //!
@@ -39,7 +44,7 @@
 //! because they change how much room a label needs but not whether it is the
 //! bottom or the left axis.
 
-use crate::core::utils::estimate_text_width;
+use crate::core::utils::{estimate_text_height, estimate_text_width};
 use crate::scale::{ExplicitTick, Scale, ScaleTrait, Tick};
 use crate::theme::Theme;
 
@@ -60,8 +65,10 @@ const MIN_SEARCH_TICKS: usize = 2;
 /// The most ticks the length budget ever asks for, however long the axis is.
 ///
 /// Without a cap, a 2000-pixel axis would ask for ~40 labels at the default
-/// font size, which is a wall of text rather than a scale.
-const MAX_HINT_TICKS: usize = 12;
+/// font size, which is a wall of text rather than a scale. Ten matches the
+/// upper end of mainstream defaults (D3's `ticks` asks for ten, Matplotlib's
+/// auto locator tops out around nine); twelve was a little too dense.
+const MAX_HINT_TICKS: usize = 10;
 
 /// Room one label wants along the axis, in multiples of the tick font size.
 ///
@@ -69,15 +76,28 @@ const MAX_HINT_TICKS: usize = 12;
 /// neither sparse nor cramped for both short numbers and rotated labels.
 const SPACING_IN_FONTS: f64 = 4.0;
 
-/// Breathing room between two labels, in multiples of the tick font size.
-const LABEL_GAP_IN_FONTS: f64 = 0.5;
+/// Gap between two labels that continue along the same text line, in multiples
+/// of the tick font size.
+///
+/// This is the horizontal-label case: one em is roughly two lowercase letters
+/// (at ~0.55em each), so neighbouring labels stay visibly separate instead of
+/// reading as one long string.
+const LABEL_GAP_IN_FONTS: f64 = 1.0;
+
+/// Gap between two parallel lines of rotated text, in multiples of the tick
+/// font size.
+///
+/// Rotated labels are not concatenated end to end: each sits on its own
+/// parallel line, and the diagonal offset already separates the glyphs. The
+/// line box is a full em, but the visible ink is smaller, so only this small
+/// clearance is needed between two ink bands.
+const LINE_GAP_IN_FONTS: f64 = 0.1;
 
 /// Which way the labels run, for measuring a label box against the axis.
 ///
-/// Placement is all this needs to know about geometry: a label is a rectangle,
-/// and the side of it that faces the next tick is its width along a horizontal
-/// axis and its height along a vertical one. Which physical side of the panel
-/// the axis sits on is a different question, owned by [`crate::core::axis`].
+/// Density decisions only need the axis vector: a horizontal axis advances in
+/// x, a vertical one in y. Which physical side of the panel the axis sits on is
+/// a different question, owned by [`crate::core::axis`].
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 pub(crate) enum AxisDirection {
     /// Left to right: the bottom axis of a standard chart, or an angular axis.
@@ -87,47 +107,104 @@ pub(crate) enum AxisDirection {
 }
 
 impl AxisDirection {
-    /// How much room one label takes up along the axis.
-    ///
-    /// Two neighbouring labels do not collide while their extents along the
-    /// axis fit between them. A rotated box keeps its size but turns: at 90
-    /// degrees its height, not its width, runs along a horizontal axis.
-    pub(crate) fn along(self, label: &LabelBox, angle_deg: f64) -> f64 {
-        let (sin, cos) = angle_deg.to_radians().sin_cos();
+    /// The unit vector the axis advances along, in screen space.
+    const fn unit(self) -> (f64, f64) {
         match self {
-            Self::Horizontal => label.width * cos.abs() + label.height * sin.abs(),
-            Self::Vertical => label.width * sin.abs() + label.height * cos.abs(),
+            Self::Horizontal => (1.0, 0.0),
+            Self::Vertical => (0.0, 1.0),
         }
     }
 
     /// The label's extent perpendicular to the axis.
     ///
-    /// This is the other side of the same rotated box, and it is what an axis
-    /// band has to reserve for the text.
+    /// This is the side of the rotated line box that an axis band has to
+    /// reserve for the text. It deliberately uses the full line height, not the
+    /// smaller ink height used for collision checks, so descenders are never
+    /// clipped.
     pub(crate) fn across(self, label: &LabelBox, angle_deg: f64) -> f64 {
         let (sin, cos) = angle_deg.to_radians().sin_cos();
         match self {
-            Self::Horizontal => label.width * sin.abs() + label.height * cos.abs(),
-            Self::Vertical => label.width * cos.abs() + label.height * sin.abs(),
+            Self::Horizontal => label.width * sin.abs() + label.line_height * cos.abs(),
+            Self::Vertical => label.width * cos.abs() + label.line_height * sin.abs(),
         }
     }
 }
 
-/// The bounding box of one rendered label.
+/// The box a rendered label occupies.
 #[derive(Clone, Copy, Debug)]
 pub(crate) struct LabelBox {
+    /// Advance width of the text.
     pub(crate) width: f64,
-    pub(crate) height: f64,
+    /// Full em line box, used when reserving axis depth.
+    pub(crate) line_height: f64,
+    /// Visible glyph height, used when checking rotated lines for collisions.
+    pub(crate) ink_height: f64,
 }
 
 /// Estimates the box a label occupies, without a backend to measure it.
 ///
-/// The height is the font size (an em), a little taller than the cap height.
-/// Every consumer rounds the same way, so an over-estimate only leaves air.
+/// The line height is the font size (an em), a little taller than the visible
+/// glyphs, so the axis band never clips a descender. The ink height is the
+/// smaller extent that actually decides whether two parallel lines of rotated
+/// text touch.
 pub(crate) fn label_box(text: &str, font_size: f64) -> LabelBox {
     LabelBox {
         width: estimate_text_width(text, font_size),
-        height: font_size,
+        line_height: font_size,
+        ink_height: estimate_text_height(text, font_size),
+    }
+}
+
+/// The geometry used to decide whether neighbouring labels collide.
+#[derive(Clone, Copy, Debug)]
+struct LabelFit {
+    direction: AxisDirection,
+    angle_deg: f64,
+    font_size: f64,
+}
+
+impl LabelFit {
+    /// Builds the collision geometry for one axis and label rotation.
+    const fn new(direction: AxisDirection, angle_deg: f64, font_size: f64) -> Self {
+        Self {
+            direction,
+            angle_deg,
+            font_size,
+        }
+    }
+
+    /// Whether every neighbouring pair is separated.
+    ///
+    /// Two labels fit when either their text runs end to end with enough gap
+    /// (the horizontal case) or their parallel baselines are far enough apart
+    /// (the rotated case). Testing both is what lets a 45-degree date label sit
+    /// closer along the axis than its own width without being thinned: its long
+    /// dimension is not what would hit the neighbour.
+    fn fits(&self, scale: &dyn ScaleTrait, ticks: &[Tick], available: f64) -> bool {
+        if ticks.len() <= 1 {
+            return true;
+        }
+
+        let (sin, cos) = self.angle_deg.to_radians().sin_cos();
+        let along_text = (cos, sin);
+        let across_text = (-sin, cos);
+        let (axis_x, axis_y) = self.direction.unit();
+        let same_line_gap = self.font_size * LABEL_GAP_IN_FONTS;
+        let line_gap = self.font_size * LINE_GAP_IN_FONTS;
+
+        ticks.windows(2).all(|pair| {
+            let distance = tick_gap(scale, &pair[0], &pair[1], available);
+            let (dx, dy) = (axis_x * distance, axis_y * distance);
+            let along = (dx * along_text.0 + dy * along_text.1).abs();
+            let across = (dx * across_text.0 + dy * across_text.1).abs();
+
+            let first = label_box(&pair[0].label, self.font_size);
+            let second = label_box(&pair[1].label, self.font_size);
+            let same_line_clear = along >= first.width.max(second.width) + same_line_gap;
+            let parallel_clear = across >= first.ink_height.max(second.ink_height) + line_gap;
+
+            same_line_clear || parallel_clear
+        })
     }
 }
 
@@ -175,14 +252,13 @@ pub(crate) fn resolve_ticks(
     }
 }
 
-/// Picks the densest tick list whose labels still fit side by side.
+/// Picks the densest tick list whose labels still fit.
 ///
 /// The search is greedy and exact, which is affordable because an axis has at
 /// most [`MAX_HINT_TICKS`] candidates: start at the length budget and step down
-/// one tick at a time until the list the scale returns leaves as much room
-/// between neighbours as the widest label needs. The rejected lists are never
-/// drawn, so grid lines and labels always agree; nothing is painted first and
-/// hidden afterwards.
+/// one tick at a time until every neighbouring pair clears the label geometry.
+/// The rejected lists are never drawn, so grid lines and labels always agree;
+/// nothing is painted first and hidden afterwards.
 fn auto_ticks(
     scale: &dyn ScaleTrait,
     available: f64,
@@ -192,15 +268,16 @@ fn auto_ticks(
 ) -> Vec<Tick> {
     let font_size = theme.tick_label_size.max(1.0);
     let densest = count_hint(available, font_size);
+    let layout = LabelFit::new(direction, angle_deg, font_size);
 
     // A categorical scale owns its tick list: one tick per category, no matter
-    // what count it is asked for. Measuring the categories is still useful (the
-    // axis band needs their width), so hand back what the scale has.
+    // what count it is asked for. When those labels do not fit, thin the list
+    // here rather than asking the scale for a different count it would ignore.
     if matches!(scale.scale_type(), Scale::Discrete) {
-        return scale.suggest_ticks(densest);
+        let ticks = scale.suggest_ticks(densest);
+        return fit_discrete(scale, ticks, available, layout);
     }
 
-    let gap = (font_size * LABEL_GAP_IN_FONTS).max(2.0);
     let mut crowded: Option<Vec<Tick>> = None;
 
     // Search the scale's step ladder from dense to coarse. The lower bound is
@@ -214,12 +291,10 @@ fn auto_ticks(
             return ticks;
         }
 
-        // What one label needs, measured on the list the scale really produced:
-        // `suggest_ticks` snaps the request to nice values, so the list can be
-        // denser than the request, and it is the list that has to fit.
-        let needed = labels_need(&ticks, direction, angle_deg, font_size) + gap;
-
-        if nearest_gap(scale, &ticks, available) >= needed {
+        // Measure the list the scale really produced: `suggest_ticks` snaps
+        // the request to nice values, so the list can be denser than the
+        // request, and it is the list that has to fit.
+        if layout.fits(scale, &ticks, available) {
             return ticks;
         }
 
@@ -234,6 +309,36 @@ fn auto_ticks(
     crowded.map(keep_ends).unwrap_or_default()
 }
 
+/// Keeps every `n`th label of a categorical axis until the labels fit.
+///
+/// A discrete scale always returns one tick per category, so the continuous
+/// back-off loop cannot make it coarser. Dropping categories outright would
+/// misrepresent the axis, but showing every category when the names are long
+/// turns the labels into one unreadable string. Keeping a regular subset is the
+/// categorical equivalent of moving to a coarser nice step.
+fn fit_discrete(
+    scale: &dyn ScaleTrait,
+    ticks: Vec<Tick>,
+    available: f64,
+    layout: LabelFit,
+) -> Vec<Tick> {
+    if ticks.len() <= 2 || layout.fits(scale, &ticks, available) {
+        return ticks;
+    }
+
+    // Every category gets a chance. A step is accepted as soon as the labels
+    // that survive it fit; the loop is cheap because each step visits only the
+    // labels it keeps, and an axis rarely needs a large step.
+    for step in 2..ticks.len() {
+        let thinned: Vec<Tick> = ticks.iter().step_by(step).cloned().collect();
+        if layout.fits(scale, &thinned, available) {
+            return thinned;
+        }
+    }
+
+    keep_ends(ticks)
+}
+
 /// Reduces a tick list to its two end labels.
 ///
 /// The last resort of the automatic mode. Both ends of the visible nice range
@@ -246,23 +351,19 @@ fn keep_ends(ticks: Vec<Tick>) -> Vec<Tick> {
     }
 }
 
-/// The room the widest label of `ticks` needs along the axis.
-fn labels_need(ticks: &[Tick], direction: AxisDirection, angle_deg: f64, font_size: f64) -> f64 {
-    ticks
-        .iter()
-        .map(|tick| direction.along(&label_box(&tick.label, font_size), angle_deg))
-        .fold(0.0, f64::max)
+/// The distance, in pixels, between two ticks on the axis.
+fn tick_gap(scale: &dyn ScaleTrait, first: &Tick, second: &Tick, available: f64) -> f64 {
+    let a = scale.normalize(first.value);
+    let b = scale.normalize(second.value);
+    (b - a).abs() * available
 }
 
 /// The smallest distance, in pixels, between any two neighbouring ticks.
+#[cfg(test)]
 fn nearest_gap(scale: &dyn ScaleTrait, ticks: &[Tick], available: f64) -> f64 {
     ticks
         .windows(2)
-        .map(|pair| {
-            let a = scale.normalize(pair[0].value);
-            let b = scale.normalize(pair[1].value);
-            (b - a).abs() * available
-        })
+        .map(|pair| tick_gap(scale, &pair[0], &pair[1], available))
         .fold(f64::INFINITY, f64::min)
 }
 
@@ -284,6 +385,19 @@ mod tests {
         .unwrap()
     }
 
+    fn discrete_scale(labels: &[String]) -> std::sync::Arc<dyn ScaleTrait> {
+        create_scale(
+            &Scale::Discrete,
+            ScaleDomain::Discrete(labels.to_vec()),
+            Expansion {
+                mult: (0.0, 0.0),
+                add: (0.5, 0.5),
+            },
+            None,
+        )
+        .unwrap()
+    }
+
     /// A vertical axis is limited by label *height*, so a tall panel with short
     /// numbers carries a dense but still readable scale.
     #[test]
@@ -299,17 +413,22 @@ mod tests {
             &theme,
         );
 
-        // 600 / (13 x 4) = 11.5, so the budget is 11. All labels are short, so
-        // the densest candidate should survive the fit check.
+        // 600 / (13 x 4) = 11.5, capped at ten. All labels are short, so the
+        // densest candidate should survive the fit check.
         assert!(
-            (9..=12).contains(&ticks.len()),
+            (MIN_HINT_TICKS..=MAX_HINT_TICKS + 1).contains(&ticks.len()),
             "expected a dense but readable y axis, got {} ticks",
             ticks.len()
         );
 
-        // The labels must not touch: they are one font size tall.
+        // Stacked y labels only need their ink bands to clear each other.
         let gap = nearest_gap(scale.as_ref(), &ticks, 600.0);
-        assert!(gap >= theme.tick_label_size * 1.5, "labels collide: {gap}");
+        let ink = ticks
+            .iter()
+            .map(|tick| estimate_text_height(&tick.label, theme.tick_label_size))
+            .fold(0.0, f64::max);
+        let air = ink + theme.tick_label_size * LINE_GAP_IN_FONTS;
+        assert!(gap >= air, "labels are too close: gap {gap}, need {air}");
     }
 
     /// Wide labels must reduce the count until the widest one fits between its
@@ -350,10 +469,76 @@ mod tests {
             .iter()
             .map(|t| estimate_text_width(&t.label, theme.tick_label_size))
             .fold(0.0, f64::max);
+        let air = theme.tick_label_size * LABEL_GAP_IN_FONTS;
         assert!(
-            gap + 0.001 >= widest,
-            "labels would overlap: gap {gap}, widest {widest}"
+            gap + 0.001 >= widest + air,
+            "labels are too close: gap {gap}, widest {widest}, air {air}"
         );
+    }
+
+    /// A categorical scale ignores the length budget, so crowded category names
+    /// used to be drawn on top of each other. It now keeps every `n`th label.
+    #[test]
+    fn crowded_category_labels_are_thinned_evenly() {
+        let theme = Theme::default();
+        let labels: Vec<String> = (0..20).map(|i| format!("category {i:02}")).collect();
+        let scale = discrete_scale(&labels);
+
+        let ticks = resolve_ticks(
+            scale.as_ref(),
+            None,
+            240.0,
+            AxisDirection::Horizontal,
+            0.0,
+            &theme,
+        );
+
+        assert!(
+            ticks.len() < labels.len(),
+            "the long category names should have been thinned"
+        );
+        assert!(ticks.len() >= 2, "an axis still needs labels");
+
+        let step = ticks[1].value - ticks[0].value;
+        assert!(step >= 2.0, "step should skip at least one category");
+        assert!(
+            ticks
+                .windows(2)
+                .all(|pair| pair[1].value - pair[0].value == step),
+            "the kept categories should be evenly spaced: {:?}",
+            ticks.iter().map(|tick| tick.value).collect::<Vec<_>>()
+        );
+
+        let gap = nearest_gap(scale.as_ref(), &ticks, 240.0);
+        let widest = ticks
+            .iter()
+            .map(|tick| estimate_text_width(&tick.label, theme.tick_label_size))
+            .fold(0.0, f64::max);
+        let air = theme.tick_label_size * LABEL_GAP_IN_FONTS;
+        assert!(
+            gap + 0.001 >= widest + air,
+            "kept labels are still too close: gap {gap}, widest {widest}, air {air}"
+        );
+    }
+
+    /// Short category labels are left alone; thinning only starts when the
+    /// measured labels need the room.
+    #[test]
+    fn readable_category_labels_are_not_dropped() {
+        let theme = Theme::default();
+        let labels: Vec<String> = ["A", "B", "C"].into_iter().map(String::from).collect();
+        let scale = discrete_scale(&labels);
+
+        let ticks = resolve_ticks(
+            scale.as_ref(),
+            None,
+            600.0,
+            AxisDirection::Horizontal,
+            0.0,
+            &theme,
+        );
+
+        assert_eq!(ticks.len(), labels.len());
     }
 
     /// A huge canvas must not turn into a wall of labels.
@@ -369,8 +554,10 @@ mod tests {
             0.0,
             &theme,
         );
+        // The scale may answer with one more tick than requested when it snaps
+        // to a nice step, but the budget itself stays capped.
         assert!(
-            ticks.len() <= MAX_HINT_TICKS * 2,
+            ticks.len() <= MAX_HINT_TICKS + 1,
             "capped count overshot: {}",
             ticks.len()
         );
@@ -496,13 +683,14 @@ mod tests {
             .map(|tick| estimate_text_width(&tick.label, theme.tick_label_size))
             .fold(0.0, f64::max);
         let gap = nearest_gap(wide.as_ref(), &ticks, 300.0);
+        let air = theme.tick_label_size * LABEL_GAP_IN_FONTS;
         assert!(
-            gap + 0.001 >= widest,
-            "the two end labels still collide: gap {gap}, widest {widest}"
+            gap + 0.001 >= widest + air,
+            "the two end labels still collide: gap {gap}, widest {widest}, air {air}"
         );
     }
 
-    /// A pinned count is not clamped to the automatic 3..12 window.
+    /// A pinned count is not clamped to the automatic 3..10 window.
     #[test]
     fn a_pinned_count_is_not_clamped() {
         let theme = Theme::default().with_tick_count(30);
@@ -518,6 +706,45 @@ mod tests {
             ticks.len() > MAX_HINT_TICKS,
             "a pinned count should exceed the automatic window, got {}",
             ticks.len()
+        );
+    }
+
+    /// Rotated labels are parallel lines, so their length does not decide the
+    /// axis spacing. At the candlestick's 16px tick distance, a 45-degree date
+    /// keeps every category instead of being thinned to every third one.
+    #[test]
+    fn diagonal_labels_use_line_spacing_not_label_width() {
+        let theme = Theme::default();
+        let labels: Vec<String> = (1..=22).map(|day| format!("07-{day:02}")).collect();
+        let scale = discrete_scale(&labels);
+
+        let flat = resolve_ticks(
+            scale.as_ref(),
+            None,
+            352.0,
+            AxisDirection::Horizontal,
+            0.0,
+            &theme,
+        );
+        let diagonal = resolve_ticks(
+            scale.as_ref(),
+            None,
+            352.0,
+            AxisDirection::Horizontal,
+            -45.0,
+            &theme,
+        );
+
+        assert_eq!(
+            diagonal.len(),
+            labels.len(),
+            "45-degree dates should keep every category"
+        );
+        assert!(
+            diagonal.len() > flat.len(),
+            "rotation should make room ({} vs {})",
+            diagonal.len(),
+            flat.len()
         );
     }
 

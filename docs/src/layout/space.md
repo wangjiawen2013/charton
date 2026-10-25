@@ -82,16 +82,22 @@ built, so layout and drawing always see the same list.
 
 By default (no `with_tick_count` on the theme) the rule has three steps:
 
-1. **Length budget.** One label per four tick-font sizes, clamped to 3..12. The
+1. **Length budget.** One label per four tick-font sizes, clamped to 3..10. The
    clamp is what keeps a large canvas from turning into a wall of labels: text
-   keeps its physical size, so past a point more labels only add clutter.
+   keeps its physical size, so past a point more labels only add clutter. Ten
+   is the upper end used by mainstream plotting libraries (D3 asks for ten;
+   Matplotlib's auto locator tops out around nine).
 2. **Snap to the scale's ladder.** The budget is passed to the scale, which
    returns its own values (`1/2/5` steps, calendar steps, powers of ten).
    Because it rounds, the list can be slightly denser than requested.
-3. **Measure and back off.** The labels that were really produced are projected
-   along the axis, rotation included. If two neighbours would touch, the scale
-   is asked for fewer ticks, which moves it to its next coarser step. The first
-   list that fits wins.
+3. **Measure and back off.** The labels that were really produced are compared
+   as oriented text boxes. Labels on the same line keep at least one tick font
+   size (about two letters) between their boxes, so they never read as one
+   continuous string. Rotated labels sit on parallel lines instead: their long
+   dimension does not force axis spacing, and only the perpendicular clearance
+   between their ink bands matters. A continuous scale is asked for fewer ticks,
+   which moves it to its next coarser step; a categorical scale keeps every
+   `n`th category. The first list that fits wins.
 
 The count is therefore a *target*, not a promise. Short numbers pack an axis;
 long labels (dates, category names) thin it out; and the count does not grow
@@ -100,9 +106,9 @@ that drops from nine labels to four stays complete.
 
 Two fallbacks keep the result honest:
 
-- If even the coarsest step does not fit — one label nearly as wide as the axis
-  — only the two ends are labelled. Both are real, nice-aligned values, and no
-  interval is invented.
+- If even the coarsest continuous step, or the sparsest categorical subset,
+  does not fit — one label nearly as wide as the axis — only the two ends are
+  labelled. Both are real values, and no interval is invented.
 - If that is still too sparse for the figure, the labels themselves need
   attention: rotate them (`with_x_tick_label_angle`), shorten them
   (`with_x_label_format` with compact notation or reduced precision), or pin
@@ -111,7 +117,7 @@ Two fallbacks keep the result honest:
 What overrides the automatic rule:
 
 - `Theme::with_tick_count(n)` pins a target for one figure. It is not clamped to
-  3..12 and does not run the fit pass, so the caller owns the density (and any
+  3..10 and does not run the fit pass, so the caller owns the density (and any
   overlap on a narrow panel). The scale still snaps to nice values.
 - `with_x_ticks([...])` / `with_y_ticks([...])` are a contract: every listed
   value is drawn. The band is measured from those labels, so they are never

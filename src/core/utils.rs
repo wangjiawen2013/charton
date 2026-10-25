@@ -36,6 +36,47 @@ pub(crate) fn estimate_text_width(text: &str, font_size: f64) -> f64 {
         * font_size
 }
 
+/// Estimates the visible glyph height of `text` drawn at `font_size` em.
+///
+/// This is the *ink* height, not the line box: it is what decides whether two
+/// parallel, rotated labels touch. Wide scripts fill their em, while Latin
+/// labels without descenders only reach the cap height. A label with a
+/// descender (`g`, `y`, parentheses, ...) keeps the extra room those glyphs
+/// need; everything else uses a cap-height estimate. The number is deliberately
+/// conservative: it is used for collision checks, not for reserving an axis
+/// band, which still uses the full em line box.
+pub(crate) fn estimate_text_height(text: &str, font_size: f64) -> f64 {
+    if text.chars().any(is_wide) {
+        font_size
+    } else if text.chars().any(is_descending) {
+        font_size * 0.95
+    } else {
+        font_size * 0.75
+    }
+}
+
+const fn is_descending(c: char) -> bool {
+    matches!(
+        c,
+        'g' | 'j'
+            | 'p'
+            | 'q'
+            | 'y'
+            | 'Q'
+            | ','
+            | ';'
+            | '('
+            | ')'
+            | '['
+            | ']'
+            | '{'
+            | '}'
+            | '/'
+            | '\\'
+            | '_'
+    )
+}
+
 /// Whether `c` is East Asian Wide or Fullwidth, i.e. advances about one em in
 /// the fonts that contain it.
 ///
@@ -705,7 +746,7 @@ const fn geometry_type_name(value: &GeometryValue) -> &'static str {
 
 #[cfg(test)]
 mod tests {
-    use super::estimate_text_width;
+    use super::{estimate_text_height, estimate_text_width};
 
     /// Wide scripts advance about one em per character, so a CJK label must be
     /// measured at least that wide; under-estimating it is what clipped Chinese
@@ -718,5 +759,17 @@ mod tests {
         assert!((estimate_text_width("（m²）", size) - 3.1 * size).abs() < 1e-9);
         // Latin keeps its narrower estimate.
         assert!(estimate_text_width("WWWW", size) < 4.0 * size);
+    }
+
+    /// Ink height follows the glyphs that are actually on the line: plain
+    /// dates stay at cap height, descenders add their tail, and wide scripts
+    /// fill the em.
+    #[test]
+    fn tall_glyphs_are_measured_by_their_ink() {
+        let size = 10.0;
+        assert!((estimate_text_height("07-01", size) - 7.5).abs() < 1e-9);
+        assert!((estimate_text_height("category", size) - 9.5).abs() < 1e-9);
+        assert!((estimate_text_height("销售额", size) - 10.0).abs() < 1e-9);
+        assert!(estimate_text_height("JULY", size) < estimate_text_height("July", size));
     }
 }

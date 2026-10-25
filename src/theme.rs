@@ -445,7 +445,7 @@ impl Theme {
     /// By default an axis fits as many readable ticks as the panel allows, so
     /// this is only needed to match a reference figure or to make an axis
     /// deliberately denser or sparser than the automatic rule would. The
-    /// request is deliberately not clamped to the automatic 3..12 window and
+    /// request is deliberately not clamped to the automatic 3..10 window and
     /// not overlap-checked: the scale snaps it to human-friendly values
     /// (`1, 2, 5, 10, ...`), so the axis may end up with a few more or fewer
     /// labels, and on a narrow panel they may overlap.
