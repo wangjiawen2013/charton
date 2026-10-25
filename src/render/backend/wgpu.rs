@@ -241,7 +241,10 @@ pub struct WgpuBackend {
     polygon_vertex_buffer: wgpu::Buffer,
     polygon_index_buffer: wgpu::Buffer,
     pending_polygon_vertices: Vec<PathVertex>,
-    pending_polygon_indices: Vec<u16>,
+    /// 32-bit indices: dense polygon layers (for example a per-pixel fractal)
+    /// can exceed the 65,535 vertices a `u16` index can address. Wrapping there
+    /// silently corrupts the geometry and leaves seams or wrong-coloured runs.
+    pending_polygon_indices: Vec<u32>,
     uploaded_polygon_index_count: u32,
 
     // Gradient rectangle resources
@@ -618,7 +621,7 @@ impl WgpuBackend {
         let line_buffer = Self::create_dummy_buffer::<GpuLine>(&device);
         let gradient_rect_buffer = Self::create_dummy_buffer::<GpuGradientRect>(&device);
         let dummy_polygon_vertices = Self::create_dummy_buffer::<PathVertex>(&device);
-        let dummy_polygon_indices = Self::create_dummy_buffer::<u16>(&device);
+        let dummy_polygon_indices = Self::create_dummy_buffer::<u32>(&device);
 
         // STENCIL MASK BUFFER FOR HETEROGENEOUS VECTOR FILLS
         let physical_width = (screen_width as f32 * scale_factor).round() as u32;
@@ -1232,7 +1235,7 @@ impl WgpuBackend {
         let mut max_y = f32::MIN;
 
         for points in &rings {
-            let base_vertex = self.pending_polygon_vertices.len() as u16;
+            let base_vertex = self.pending_polygon_vertices.len() as u32;
 
             for &(x, y) in *points {
                 min_x = min_x.min(x);
@@ -1249,8 +1252,8 @@ impl WgpuBackend {
             for i in 1..points.len() - 1 {
                 self.pending_polygon_indices.extend([
                     base_vertex,
-                    base_vertex + i as u16,
-                    base_vertex + (i + 1) as u16,
+                    base_vertex + i as u32,
+                    base_vertex + (i + 1) as u32,
                 ]);
                 stencil_index_count += 3;
             }
@@ -1264,7 +1267,7 @@ impl WgpuBackend {
         // ====================================================================
         let fill = config.fill.rgba();
         let fill_color = [fill[0], fill[1], fill[2], fill[3] * config.opacity];
-        let cover_base = self.pending_polygon_vertices.len() as u16;
+        let cover_base = self.pending_polygon_vertices.len() as u32;
 
         let bb_points = [
             (min_x, min_y),
@@ -1305,7 +1308,7 @@ impl WgpuBackend {
 
         let fill = config.fill.rgba();
         let color = [fill[0], fill[1], fill[2], fill[3] * config.opacity];
-        let base_vertex = self.pending_polygon_vertices.len() as u16;
+        let base_vertex = self.pending_polygon_vertices.len() as u32;
         let point_count = points.len();
 
         for &(x, y) in points {
@@ -1320,8 +1323,8 @@ impl WgpuBackend {
         for i in 1..point_count - 1 {
             indices.extend([
                 base_vertex,
-                base_vertex + i as u16,
-                base_vertex + (i + 1) as u16,
+                base_vertex + i as u32,
+                base_vertex + (i + 1) as u32,
             ]);
         }
         let index_count = indices.len() as u32;
@@ -1567,7 +1570,7 @@ impl WgpuBackend {
                         pass.set_vertex_buffer(0, self.polygon_vertex_buffer.slice(..));
                         pass.set_index_buffer(
                             self.polygon_index_buffer.slice(..),
-                            wgpu::IndexFormat::Uint16,
+                            wgpu::IndexFormat::Uint32,
                         );
                         pass.draw_indexed(*index_start..(*index_start + *index_count), 0, 0..1);
                     }
@@ -1592,7 +1595,7 @@ impl WgpuBackend {
                         pass.set_vertex_buffer(0, self.polygon_vertex_buffer.slice(..));
                         pass.set_index_buffer(
                             self.polygon_index_buffer.slice(..),
-                            wgpu::IndexFormat::Uint16,
+                            wgpu::IndexFormat::Uint32,
                         );
                         pass.set_stencil_reference(0); // Sets baseline comparison reference
                         pass.draw_indexed(*index_start..(*index_start + *index_count), 0, 0..1);
@@ -1606,7 +1609,7 @@ impl WgpuBackend {
                         pass.set_vertex_buffer(0, self.polygon_vertex_buffer.slice(..));
                         pass.set_index_buffer(
                             self.polygon_index_buffer.slice(..),
-                            wgpu::IndexFormat::Uint16,
+                            wgpu::IndexFormat::Uint32,
                         );
                         pass.set_stencil_reference(0);
                         pass.draw_indexed(*index_start..(*index_start + *index_count), 0, 0..1);

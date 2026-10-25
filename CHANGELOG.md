@@ -26,6 +26,14 @@ predate this file.
   returns one tick per category, but when the measured labels do not fit, every
   `n`th label is kept instead of drawing all of them on top of each other.
 
+### Fixed
+
+- **WGPU polygon batches use 32-bit indices.** Geometry with more than 65,535
+  vertices silently wrapped its 16-bit indices, so dense polygon layers
+  referenced the wrong vertices. The Mandelbrot example showed the effect as
+  white gaps and coloured fragments across what should be a solid black set;
+  it now fills continuously, matching the other backends and plotters.
+
 ## [0.9.0] - 2026-10-24
 
 ### Breaking
