@@ -263,10 +263,11 @@ use std::collections::{HashMap, HashSet};
 /// - mixed column orders across features
 /// - automatic column type inference for numeric, boolean, and string values
 /// - vertex-level duplication of feature properties for polygon/multipolygon data
-/// - automatic generation of helper columns: `_lon`, `_lat`, `_geometry_type`, `_part_id`, `_vertex_order`, and `_path_id`
+/// - automatic generation of helper columns: `_lon`, `_lat`, `_geometry_type`, `_part_id`, `_ring_id`, `_vertex_order`, and `_path_id`
 ///
 /// The returned Dataset is ready to be consumed by Charton charts, including
-/// `mark_geoshape()` with `alt::path_group("_path_id")`.
+/// `mark_polygon()` with `alt::path_group("_path_id")` and
+/// `CoordSystem::Geo`.
 ///
 /// # Errors
 ///
@@ -302,6 +303,7 @@ pub fn geojson_to_dataset(geojson_str: &str) -> Result<Dataset, ChartonError> {
     let mut lat_data: Vec<f64> = Vec::new();
     let mut geometry_type_data: Vec<String> = Vec::new();
     let mut part_id_data: Vec<u32> = Vec::new();
+    let mut ring_id_data: Vec<u32> = Vec::new();
     let mut vertex_order_data: Vec<u32> = Vec::new();
     let mut path_id_data: Vec<String> = Vec::new();
 
@@ -323,6 +325,7 @@ pub fn geojson_to_dataset(geojson_str: &str) -> Result<Dataset, ChartonError> {
                 &mut lat_data,
                 &mut geometry_type_data,
                 &mut part_id_data,
+                &mut ring_id_data,
                 &mut vertex_order_data,
                 &mut path_id_data,
             );
@@ -352,6 +355,13 @@ pub fn geojson_to_dataset(geojson_str: &str) -> Result<Dataset, ChartonError> {
     ds.add_column(
         "_part_id",
         part_id_data
+            .into_iter()
+            .map(|v| v as i64)
+            .collect::<Vec<_>>(),
+    )?;
+    ds.add_column(
+        "_ring_id",
+        ring_id_data
             .into_iter()
             .map(|v| v as i64)
             .collect::<Vec<_>>(),
@@ -498,6 +508,7 @@ fn extract_vertices_with_meta(
     lat_data: &mut Vec<f64>,
     geometry_type_data: &mut Vec<String>,
     part_id_data: &mut Vec<u32>,
+    ring_id_data: &mut Vec<u32>,
     vertex_order_data: &mut Vec<u32>,
     path_id_data: &mut Vec<String>,
 ) {
@@ -505,20 +516,22 @@ fn extract_vertices_with_meta(
 
     match &geometry.value {
         GeometryValue::Polygon { coordinates: rings } => {
-            if let Some(outer) = rings.first() {
-                for (order, point) in outer.iter().enumerate() {
+            for (ring_id, ring) in rings.iter().enumerate() {
+                for (order, point) in ring.iter().enumerate() {
                     push_vertex(
                         feature_tag,
                         lon_data,
                         lat_data,
                         geometry_type_data,
                         part_id_data,
+                        ring_id_data,
                         vertex_order_data,
                         path_id_data,
                         point[0],
                         point[1],
                         geom_type,
                         0,
+                        ring_id as u32,
                         order as u32,
                     );
                 }
@@ -528,20 +541,22 @@ fn extract_vertices_with_meta(
             coordinates: polygons,
         } => {
             for (part_id, polygon) in polygons.iter().enumerate() {
-                if let Some(outer) = polygon.first() {
-                    for (order, point) in outer.iter().enumerate() {
+                for (ring_id, ring) in polygon.iter().enumerate() {
+                    for (order, point) in ring.iter().enumerate() {
                         push_vertex(
                             feature_tag,
                             lon_data,
                             lat_data,
                             geometry_type_data,
                             part_id_data,
+                            ring_id_data,
                             vertex_order_data,
                             path_id_data,
                             point[0],
                             point[1],
                             geom_type,
                             part_id as u32,
+                            ring_id as u32,
                             order as u32,
                         );
                     }
@@ -555,11 +570,13 @@ fn extract_vertices_with_meta(
                 lat_data,
                 geometry_type_data,
                 part_id_data,
+                ring_id_data,
                 vertex_order_data,
                 path_id_data,
                 coordinates[0],
                 coordinates[1],
                 geom_type,
+                0,
                 0,
                 0,
             );
@@ -574,12 +591,14 @@ fn extract_vertices_with_meta(
                     lat_data,
                     geometry_type_data,
                     part_id_data,
+                    ring_id_data,
                     vertex_order_data,
                     path_id_data,
                     point[0],
                     point[1],
                     geom_type,
                     i as u32,
+                    0,
                     0,
                 );
             }
@@ -592,11 +611,13 @@ fn extract_vertices_with_meta(
                     lat_data,
                     geometry_type_data,
                     part_id_data,
+                    ring_id_data,
                     vertex_order_data,
                     path_id_data,
                     point[0],
                     point[1],
                     geom_type,
+                    0,
                     0,
                     order as u32,
                 );
@@ -611,12 +632,14 @@ fn extract_vertices_with_meta(
                         lat_data,
                         geometry_type_data,
                         part_id_data,
+                        ring_id_data,
                         vertex_order_data,
                         path_id_data,
                         point[0],
                         point[1],
                         geom_type,
                         part_id as u32,
+                        0,
                         order as u32,
                     );
                 }
@@ -631,6 +654,7 @@ fn extract_vertices_with_meta(
                     lat_data,
                     geometry_type_data,
                     part_id_data,
+                    ring_id_data,
                     vertex_order_data,
                     path_id_data,
                 );
@@ -647,18 +671,21 @@ fn push_vertex(
     lat_data: &mut Vec<f64>,
     geometry_type_data: &mut Vec<String>,
     part_id_data: &mut Vec<u32>,
+    ring_id_data: &mut Vec<u32>,
     vertex_order_data: &mut Vec<u32>,
     path_id_data: &mut Vec<String>,
     lon: f64,
     lat: f64,
     geom_type: &str,
     part_id: u32,
+    ring_id: u32,
     vertex_order: u32,
 ) {
     lon_data.push(lon);
     lat_data.push(lat);
     geometry_type_data.push(geom_type.to_string());
     part_id_data.push(part_id);
+    ring_id_data.push(ring_id);
     vertex_order_data.push(vertex_order);
     path_id_data.push(format!("{}#{}", feature_tag, part_id));
 }

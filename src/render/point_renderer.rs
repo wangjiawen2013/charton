@@ -3,7 +3,8 @@ use crate::TEMP_SUFFIX;
 use crate::chart::Chart;
 use crate::core::context::PanelContext;
 use crate::core::layer::{
-    CircleConfig, MarkRenderer, PointElementConfig, PolygonConfig, RectConfig, RenderBackend,
+    CircleConfig, MarkRenderer, PathConfig, PathTopology, PointElementConfig, RectConfig,
+    RenderBackend,
 };
 use crate::core::semantic::{Group, Role};
 use crate::core::utils::IntoParallelizable;
@@ -814,15 +815,27 @@ impl Chart<MarkPoint> {
                     self.calculate_polygon(x, y, size * scale_adj, sides, rotation)
                 };
 
-                backend.draw_polygon(PolygonConfig {
-                    points: points
-                        .iter()
-                        .map(|p| (p.0 as Precision, p.1 as Precision))
-                        .collect(),
+                // Star is concave; everything else routed here is a regular
+                // convex polygon. The topology hint keeps the convex shapes on
+                // the fast path while sending the star through even-odd fill.
+                let topology = if shape == PointShape::Star {
+                    PathTopology::Complex
+                } else {
+                    PathTopology::Convex
+                };
+                backend.draw_path(PathConfig {
+                    subpaths: vec![
+                        points
+                            .iter()
+                            .map(|p| (p.0 as Precision, p.1 as Precision))
+                            .collect(),
+                    ],
                     fill,
                     stroke,
                     stroke_width: stroke_width as Precision,
                     opacity: opacity as Precision,
+                    dash: vec![],
+                    topology,
                 });
             }
         }

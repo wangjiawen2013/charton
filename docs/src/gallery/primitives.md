@@ -72,18 +72,37 @@ only when you want more (or less) breathing room than the automatic fit.
 
 ## Choosing the geometry
 
-For anything that "connects the dots", the geometry differs by exactly two
-flags: *open or closed* and *sorted by x or in row order*.
+For the marks that turn rows into shapes, the geometry differs along three axes:
+how it is ordered, how it is grouped, and whether it is closed and filled.
 
-| Geometry | Order | Grouped by | Closed? | Filled? |
-|---|---|---|---|---|
-| `mark_line` | sorted by x | `color` | no | no |
-| `mark_path` | row order | `path_group` | no | no |
-| `mark_polygon` / `mark_geoshape` | row order | `path_group` | yes | yes |
+| Geometry | One row is | Connects rows? | Order | Grouped by | Closed? | Filled? |
+|---|---|---|---|---|---|---|
+| `mark_line` | a point on a series | yes | sorted by x | `color` | no | no |
+| `mark_path` | a vertex of a polyline | yes | **row order** | `path_group` (+ subpath) | no | no |
+| `mark_polygon` | a vertex of a ring | yes | **row order** | `path_group` (+ subpath) | **yes** | **even-odd** |
+| `mark_tick` | one short segment | **no** | — | — | — | — |
+| `mark_rect` | one axis-aligned cell | **no** | — | `color` (value) | cell | **yes** |
+
+A path group may contain several subpaths: `path_group(...).with_subpath(...)`
+separates an outer ring from its holes (or the parts of a multi-line). Closed
+paths use even-odd filling, so an inner ring is a real hole.
+
+Two families are at work:
+
+- **Connected sequences** (`mark_line`, `mark_path`, `mark_polygon`) turn each
+  row into a vertex and join the vertices. The questions are order, grouping and
+  closure.
+- **Per-row glyphs** (`mark_tick`, `mark_rect`) never join rows. `mark_tick` is a
+  fixed-pixel positional mark; `mark_rect` is an axis-aligned, binned value cell.
 
 So a contour (`mark_path`, open) and a violin (`mark_polygon`, closed) are the
-same geometry one flag apart. See
-[Connecting the dots](../grammar/marks.md#connecting-the-dots-line-path-and-polygon).
+open and closed forms of the same path geometry. A rug mark (`mark_tick`) and a
+heatmap cell (`mark_rect`) look like rectangles at the primitive layer, but they
+answer different data questions and are not interchangeable.
+
+See
+[Connecting the dots](../grammar/marks.md#connecting-the-dots-line-path-and-polygon)
+and [The five geometries side by side](../grammar/marks.md#the-five-geometries-side-by-side).
 
 ## When to stop composing
 
@@ -99,6 +118,7 @@ contour) can become a mark; a name that is a **metaphor for a whole picture**
 
 - [Transforms & Columns](../grammar/transforms.md) — the full column contract.
 - [Marks & Geometries](../grammar/marks.md) — the Tier-1 vocabulary
-  (`mark_point`, `mark_path`, `mark_polygon`, …).
+  (`mark_point`, `mark_line`, `mark_path`, `mark_polygon`, `mark_tick`,
+  `mark_rect`, …).
 - [Design Rules](../concepts/design_rules.md) — tiers, the thin-recipe rule, and
   when a new mark is justified.

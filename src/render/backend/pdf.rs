@@ -1,8 +1,7 @@
 use crate::Precision;
 use crate::core::font::{FontRequest, line_metrics, run_width, shape};
 use crate::core::layer::{
-    CircleConfig, GradientRectConfig, LineConfig, PathConfig, PathTopology, PolygonConfig,
-    RectConfig, RenderBackend, TextConfig,
+    CircleConfig, GradientRectConfig, LineConfig, PathConfig, RectConfig, RenderBackend, TextConfig,
 };
 use crate::core::semantic::{Group, Structure};
 use crate::error::ChartonError;
@@ -122,8 +121,8 @@ impl<'a, 'p> PdfBackend<'a, 'p> {
         )
     }
 
-    /// Builds a solid fill, or `None` when the color is "none".
-    fn fill(color: &SingleColor, opacity: Precision) -> Option<Fill> {
+    /// Builds a solid fill with the requested fill rule.
+    fn fill_with_rule(color: &SingleColor, opacity: Precision, rule: FillRule) -> Option<Fill> {
         if color.is_none() {
             return None;
         }
@@ -131,8 +130,33 @@ impl<'a, 'p> PdfBackend<'a, 'p> {
         Some(Fill {
             paint: Self::rgb(color).into(),
             opacity: Self::opacity(alpha),
-            rule: FillRule::NonZero,
+            rule,
         })
+    }
+
+    /// Builds a solid fill, or `None` when the color is "none".
+    fn fill(color: &SingleColor, opacity: Precision) -> Option<Fill> {
+        Self::fill_with_rule(color, opacity, FillRule::NonZero)
+    }
+
+    /// Builds one path from several independent subpaths.
+    fn path_from_subpaths(subpaths: &[Vec<(Precision, Precision)>], close: bool) -> Option<Path> {
+        let mut builder = PathBuilder::new();
+        let mut has_points = false;
+        for points in subpaths {
+            let Some(&(x, y)) = points.first() else {
+                continue;
+            };
+            has_points = true;
+            builder.move_to(x, y);
+            for &(x, y) in &points[1..] {
+                builder.line_to(x, y);
+            }
+            if close {
+                builder.close();
+            }
+        }
+        has_points.then(|| builder.finish()).flatten()
     }
 
     /// Builds a stroke, or `None` when the color is "none" or the width is zero.
@@ -371,12 +395,19 @@ impl RenderBackend for PdfBackend<'_, '_> {
     }
 
     fn draw_path(&mut self, config: PathConfig) {
-        if config.points.is_empty() || (config.fill.is_none() && config.stroke.is_none()) {
+        let closed = config.is_closed();
+        let has_fill = closed && !config.fill.is_none();
+        if config.subpaths.iter().all(|points| points.is_empty())
+            || (!has_fill && config.stroke.is_none())
+        {
             return;
         }
 
-        let closed = matches!(config.topology, PathTopology::Complex) || !config.fill.is_none();
-        let fill = Self::fill(&config.fill, config.opacity);
+        let fill = if has_fill {
+            Self::fill_with_rule(&config.fill, config.opacity, FillRule::EvenOdd)
+        } else {
+            None
+        };
         let stroke = Self::stroke(
             &config.stroke,
             config.stroke_width,
@@ -387,28 +418,7 @@ impl RenderBackend for PdfBackend<'_, '_> {
         );
 
         self.set_paint(fill, stroke);
-        if let Some(path) = Self::line_path(&config.points, closed) {
-            self.surface.draw_path(&path);
-        }
-    }
-
-    fn draw_polygon(&mut self, config: PolygonConfig) {
-        if config.points.is_empty() {
-            return;
-        }
-
-        let fill = Self::fill(&config.fill, config.opacity);
-        let stroke = Self::stroke(
-            &config.stroke,
-            config.stroke_width,
-            1.0,
-            LineCap::Butt,
-            LineJoin::Miter,
-            &[],
-        );
-
-        self.set_paint(fill, stroke);
-        if let Some(path) = Self::line_path(&config.points, true) {
+        if let Some(path) = Self::path_from_subpaths(&config.subpaths, closed) {
             self.surface.draw_path(&path);
         }
     }

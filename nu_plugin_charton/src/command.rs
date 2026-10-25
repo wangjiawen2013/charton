@@ -41,9 +41,9 @@ use charton::prelude::{
     AnyValue, BandScale, BandSide, BandTransform, BandwidthType, Chart, ColorMap, ColorPalette,
     ContourTransform, CoordSystem, Dataset, Density2DTransform, DensityTransform, Expansion,
     FacetSpec, IntoLayered, KernelType, LabelFormat, LayeredChart, MarkArea, MarkBar, MarkBoxplot,
-    MarkErrorBar, MarkGeoPath, MarkLine, MarkPoint, MarkRect, MarkRule, MarkText, MarkTick,
-    Position, QuantileBoxTransform, RowAccessor, Scale, ThemeMode, WindowFieldDef, WindowOnlyOp,
-    WindowTransform, alt, geojson_to_dataset,
+    MarkErrorBar, MarkLine, MarkPath, MarkPoint, MarkPolygon, MarkRect, MarkRule, MarkText,
+    MarkTick, Position, QuantileBoxTransform, RowAccessor, Scale, ThemeMode, WindowFieldDef,
+    WindowOnlyOp, WindowTransform, alt, geojson_to_dataset,
 };
 use nu_plugin::{DynamicCompletionCall, EngineInterface, EvaluatedCall, PluginCommand};
 use nu_protocol::{
@@ -86,7 +86,7 @@ pub const MARKS: &[(&str, &str)] = &[
     ("density", "density"),
     ("density-2d", "density_2d"),
     ("contour", "contour"),
-    // `mark_geoshape`, fed by a GeoJSON file.
+    // `mark_polygon` with `CoordSystem::Geo`, fed by a GeoJSON file.
     ("geo", "geo"),
 ];
 
@@ -1422,7 +1422,7 @@ fn style_rect(mut m: MarkRect, s: &Style) -> MarkRect {
     m
 }
 
-fn style_polygon(mut m: MarkGeoPath, s: &Style) -> MarkGeoPath {
+fn style_polygon(mut m: MarkPolygon, s: &Style) -> MarkPolygon {
     if let Some(c) = &s.color {
         m = m.with_fill(c.as_str());
     }
@@ -1434,6 +1434,28 @@ fn style_polygon(mut m: MarkGeoPath, s: &Style) -> MarkGeoPath {
     }
     if let Some(w) = s.stroke_width {
         m = m.with_stroke_width(w);
+    }
+    if let Some(d) = &s.dash {
+        m = m.with_dash(d.clone());
+    }
+    m
+}
+
+fn style_path(mut m: MarkPath, s: &Style) -> MarkPath {
+    if let Some(c) = &s.color {
+        m = m.with_stroke(c.as_str());
+    }
+    if let Some(o) = s.opacity {
+        m = m.with_opacity(o);
+    }
+    if let Some(c) = &s.stroke {
+        m = m.with_stroke(c.as_str());
+    }
+    if let Some(w) = s.stroke_width {
+        m = m.with_stroke_width(w);
+    }
+    if let Some(d) = &s.dash {
+        m = m.with_dash(d.clone());
     }
     m
 }
@@ -1617,7 +1639,7 @@ fn build_chart(
     let span = opts.span;
 
     // --- Geographic marks read from a GeoJSON file, not the pipeline. ---
-    if matches!(opts.primary.geom.as_str(), "geo" | "geoshape") {
+    if opts.primary.geom == "geo" {
         if !opts.layers.is_empty() {
             return Err(LabeledError::new("Layers are not supported for geo charts")
                 .with_label("remove `--layer` when using `charton geo`", span));
@@ -1632,16 +1654,20 @@ fn build_chart(
         let ds = geojson_to_dataset(&text).map_err(|e| chart_err(span, e))?;
         let c = Chart::build(ds)
             .map_err(|e| chart_err(span, e))?
-            .mark_geoshape()
+            .mark_polygon()
             .map_err(|e| chart_err(span, e))?;
         let c = match opts.primary.color.as_deref() {
             Some(col) => c.encode((
                 alt::x("_lon"),
                 alt::y("_lat"),
-                alt::path_group("_path_id"),
+                alt::path_group("_path_id").with_subpath("_ring_id"),
                 alt::color(col),
             )),
-            None => c.encode((alt::x("_lon"), alt::y("_lat"), alt::path_group("_path_id"))),
+            None => c.encode((
+                alt::x("_lon"),
+                alt::y("_lat"),
+                alt::path_group("_path_id").with_subpath("_ring_id"),
+            )),
         }
         .map_err(|e| chart_err(span, e))?;
         let layered: LayeredChart = c.into();
@@ -1878,7 +1904,7 @@ fn build_layer(
                 .map_err(|e| chart_err(span, e))?
                 .mark_polygon()
                 .map_err(|e| chart_err(span, e))?
-                .configure_geoshape(|m| style_polygon(m, style));
+                .configure_polygon(|m| style_polygon(m, style));
             let outline = match color {
                 Some(c) => outline.encode((
                     alt::x(BAND_X).with_category_labels(x),
@@ -2049,7 +2075,7 @@ fn build_layer(
             let c = contours
                 .mark_path()
                 .map_err(|e| chart_err(span, e))?
-                .configure_path(|m| style_polygon(m, style));
+                .configure_path(|m| style_path(m, style));
 
             // By default the lines are coloured by their level. A single-colour
             // contour is requested with `--stroke`, which drops the colour
@@ -2222,14 +2248,14 @@ fn build_primitive_layer(
             let c = chart
                 .mark_path()
                 .map_err(|e| chart_err(span, e))?
-                .configure_path(|m| style_polygon(m, style));
+                .configure_path(|m| style_path(m, style));
             encode_xy!(c).into()
         }
         "polygon" => {
             let c = chart
                 .mark_polygon()
                 .map_err(|e| chart_err(span, e))?
-                .configure_geoshape(|m| style_polygon(m, style));
+                .configure_polygon(|m| style_polygon(m, style));
             encode_xy!(c).into()
         }
         "bar" => {
@@ -3629,15 +3655,22 @@ mod tests {
     #[test]
     fn geo_reads_geojson_file() -> Result<(), ShellError> {
         let path = std::env::temp_dir().join("charton_test_geo.geojson");
+        // A square with a square hole: the CLI must keep both rings and feed
+        // them as one even-odd polygon.
         std::fs::write(
             &path,
-            r#"{"type":"FeatureCollection","features":[{"type":"Feature","properties":{"name":"A"},"geometry":{"type":"Polygon","coordinates":[[[0.0,0.0],[1.0,0.0],[1.0,1.0],[0.0,1.0],[0.0,0.0]]]}}]}"#,
+            r#"{"type":"FeatureCollection","features":[{"type":"Feature","properties":{"name":"A"},"geometry":{"type":"Polygon","coordinates":[[[0.0,0.0],[4.0,0.0],[4.0,4.0],[0.0,4.0],[0.0,0.0]],[[1.0,1.0],[1.0,3.0],[3.0,3.0],[3.0,1.0],[1.0,1.0]]]}}]}"#,
         )
         .unwrap();
         let arg = path.to_string_lossy().replace('\\', "/");
-        let out = run(&format!("charton geo --geojson '{arg}'"));
+        let out = run(&format!("charton geo --geojson '{arg}'"))?;
         let _ = std::fs::remove_file(&path);
-        assert!(out?.as_str()?.contains("<svg"));
+        let svg = out.as_str()?;
+        assert!(svg.contains("<svg"));
+        assert!(
+            svg.contains(r#"fill-rule="evenodd""#),
+            "the CLI must feed both rings as one even-odd polygon"
+        );
         Ok(())
     }
 

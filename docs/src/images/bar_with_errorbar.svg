@@ -1,10 +1,10 @@
 <svg width="500" height="400" viewBox="0 0 500 400" xmlns="http://www.w3.org/2000/svg" class="charton">
-<defs><clipPath id="charton-c73f65d4-clip-0"><rect x="57.650" y="10.000" width="417.350" height="327.000" /></clipPath>
+<defs><clipPath id="charton-6ea65d40-clip-0"><rect x="57.650" y="10.000" width="417.350" height="327.000" /></clipPath>
 </defs>
 <g class="charton-background">
 <rect x="0.000" y="0.000" width="500.000" height="400.000" fill="rgba(255,255,255,1.000)" stroke="none" stroke-width="0.000" fill-opacity="1.000" stroke-opacity="1.000" />
 </g>
-<g class="charton-plot" clip-path="url(#charton-c73f65d4-clip-0)">
+<g class="charton-plot" clip-path="url(#charton-6ea65d40-clip-0)">
 <g class="charton-mark charton-mark-0 charton-mark-errorbar" data-layer="0" data-mark="errorbar">
 <g class="charton-series">
 <line x1="109.819" y1="123.183" x2="109.819" y2="95.294" stroke="rgba(0,0,0,1.000)" stroke-width="1.000" stroke-opacity="1.000" />
@@ -22,10 +22,10 @@
 </g>
 </g>
 <g class="charton-mark charton-mark-1 charton-mark-bar" data-layer="1" data-mark="bar">
-<path d="M 83.734 337.000 L 83.734 109.239 L 135.903 109.239 L 135.903 337.000 Z" fill="rgba(70,130,180,1.000)" fill-opacity="1.000" stroke="rgba(0,0,0,1.000)" stroke-width="1.000" stroke-opacity="1.000" stroke-linejoin="round" stroke-linecap="round" data-value="a" />
-<path d="M 188.072 337.000 L 188.072 90.646 L 240.241 90.646 L 240.241 337.000 Z" fill="rgba(70,130,180,1.000)" fill-opacity="1.000" stroke="rgba(0,0,0,1.000)" stroke-width="1.000" stroke-opacity="1.000" stroke-linejoin="round" stroke-linecap="round" data-value="b" />
-<path d="M 292.409 337.000 L 292.409 81.350 L 344.578 81.350 L 344.578 337.000 Z" fill="rgba(70,130,180,1.000)" fill-opacity="1.000" stroke="rgba(0,0,0,1.000)" stroke-width="1.000" stroke-opacity="1.000" stroke-linejoin="round" stroke-linecap="round" data-value="c" />
-<path d="M 396.747 337.000 L 396.747 34.868 L 448.916 34.868 L 448.916 337.000 Z" fill="rgba(70,130,180,1.000)" fill-opacity="1.000" stroke="rgba(0,0,0,1.000)" stroke-width="1.000" stroke-opacity="1.000" stroke-linejoin="round" stroke-linecap="round" data-value="d" />
+<path d="M 83.734 337.000 L 83.734 109.239 L 135.903 109.239 L 135.903 337.000 Z" fill="rgba(70,130,180,1.000)" fill-opacity="1.000" fill-rule="evenodd" stroke="rgba(0,0,0,1.000)" stroke-width="1.000" stroke-opacity="1.000" stroke-linejoin="round" stroke-linecap="round" data-value="a" />
+<path d="M 188.072 337.000 L 188.072 90.646 L 240.241 90.646 L 240.241 337.000 Z" fill="rgba(70,130,180,1.000)" fill-opacity="1.000" fill-rule="evenodd" stroke="rgba(0,0,0,1.000)" stroke-width="1.000" stroke-opacity="1.000" stroke-linejoin="round" stroke-linecap="round" data-value="b" />
+<path d="M 292.409 337.000 L 292.409 81.350 L 344.578 81.350 L 344.578 337.000 Z" fill="rgba(70,130,180,1.000)" fill-opacity="1.000" fill-rule="evenodd" stroke="rgba(0,0,0,1.000)" stroke-width="1.000" stroke-opacity="1.000" stroke-linejoin="round" stroke-linecap="round" data-value="c" />
+<path d="M 396.747 337.000 L 396.747 34.868 L 448.916 34.868 L 448.916 337.000 Z" fill="rgba(70,130,180,1.000)" fill-opacity="1.000" fill-rule="evenodd" stroke="rgba(0,0,0,1.000)" stroke-width="1.000" stroke-opacity="1.000" stroke-linejoin="round" stroke-linecap="round" data-value="d" />
 </g>
 </g>
 <g class="charton-axis charton-axis-x" data-axis="x">

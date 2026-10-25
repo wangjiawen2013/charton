@@ -1,8 +1,7 @@
 use crate::Precision;
 use crate::core::font::{em_scale, line_metrics, run_width, shape};
 use crate::core::layer::{
-    CircleConfig, GradientRectConfig, LineConfig, PathConfig, PathTopology, PolygonConfig,
-    RectConfig, RenderBackend, TextConfig,
+    CircleConfig, GradientRectConfig, LineConfig, PathConfig, RectConfig, RenderBackend, TextConfig,
 };
 use crate::core::semantic::Group;
 use crate::error::ChartonError;
@@ -258,54 +257,47 @@ impl<'a> RenderBackend for RasterBackend<'a> {
     }
 
     fn draw_path(&mut self, config: PathConfig) {
-        // 1. Universal Early Exit: Abort only if there are no points or BOTH fill and stroke are missing.
-        if config.points.is_empty() || (config.fill.is_none() && config.stroke.is_none()) {
+        // A path may contain several rings; an empty document has nothing to do.
+        let closed = config.is_closed();
+        let has_fill = closed && !config.fill.is_none();
+        if config.subpaths.iter().all(|points| points.is_empty())
+            || (!has_fill && config.stroke.is_none())
+        {
             return;
         }
-
-        // 2. Build Path Geometry
         let mut pb = PathBuilder::new();
-        for (i, (px, py)) in config.points.iter().enumerate() {
-            if i == 0 {
-                pb.move_to(*px, *py);
-            } else {
-                pb.line_to(*px, *py);
+        for points in &config.subpaths {
+            if points.is_empty() {
+                continue;
+            }
+            for (i, (px, py)) in points.iter().enumerate() {
+                if i == 0 {
+                    pb.move_to(*px, *py);
+                } else {
+                    pb.line_to(*px, *py);
+                }
+            }
+            if closed {
+                pb.close();
             }
         }
 
-        // ====================================================================
-        // OPTIMIZATION 1: Auto Path Closure for Areas
-        // ====================================================================
-        // If the topology is Complex (e.g., an area chart) or it has a fill color,
-        // explicitly close the path in tiny-skia to ensure perfect fill rendering.
-        if matches!(config.topology, PathTopology::Complex) || !config.fill.is_none() {
-            pb.close();
-        }
-
         if let Some(path) = pb.finish() {
-            // ====================================================================
-            // OPTIMIZATION 2: Render Fill (Layer 1 equivalent)
-            // ====================================================================
-            if !config.fill.is_none()
-                && let Some(c) = self.to_skia_color(&config.fill, config.opacity)
-            {
+            // Closed regions use even-odd so an inner ring punches a hole.
+            if has_fill && let Some(c) = self.to_skia_color(&config.fill, config.opacity) {
                 let mut paint = Paint::default();
                 paint.set_color(c);
-                paint.anti_alias = true; // Crucial for eliminating hairline seams
+                paint.anti_alias = true;
 
-                // FillRule::Winding is the standard non-zero algorithm used by SVG
                 self.pixmap.fill_path(
                     &path,
                     &paint,
-                    FillRule::Winding,
+                    FillRule::EvenOdd,
                     self.transform,
                     self.clip_mask.as_ref(),
                 );
             }
 
-            // ====================================================================
-            // OPTIMIZATION 3: Render Stroke (Layer 2 equivalent)
-            // ====================================================================
             if !config.stroke.is_none()
                 && config.stroke_width > 0.0
                 && let Some(c) = self.to_skia_color(&config.stroke, config.opacity)
@@ -322,67 +314,9 @@ impl<'a> RenderBackend for RasterBackend<'a> {
                     ..Default::default()
                 };
 
-                // Handle Dash Array
                 if !config.dash.is_empty() {
                     stroke.dash = tiny_skia::StrokeDash::new(config.dash, 0.0);
                 }
-
-                self.pixmap.stroke_path(
-                    &path,
-                    &paint,
-                    &stroke,
-                    self.transform,
-                    self.clip_mask.as_ref(),
-                );
-            }
-        }
-    }
-
-    fn draw_polygon(&mut self, config: PolygonConfig) {
-        // 1. Early exit if no points, matching SVG logic
-        if config.points.is_empty() {
-            return;
-        }
-
-        // 2. Build Path
-        let mut pb = PathBuilder::new();
-        for (i, (px, py)) in config.points.iter().enumerate() {
-            if i == 0 {
-                pb.move_to(*px, *py);
-            } else {
-                pb.line_to(*px, *py);
-            }
-        }
-        // IMPORTANT: SVG polygon automatically closes the path
-        pb.close();
-
-        if let Some(path) = pb.finish() {
-            // 3. Render Fill: Use fill_opacity
-            if let Some(c) = self.to_skia_color(&config.fill, config.opacity) {
-                let mut paint = Paint::default();
-                paint.set_color(c);
-                paint.anti_alias = true;
-                self.pixmap.fill_path(
-                    &path,
-                    &paint,
-                    FillRule::Winding,
-                    self.transform,
-                    self.clip_mask.as_ref(),
-                );
-            }
-
-            // 4. Render Stroke: stroke-opacity is intentionally 1.0 to match SVG behavior
-            if let Some(c) = self.to_skia_color(&config.stroke, 1.0) {
-                let mut paint = Paint::default();
-                paint.set_color(c);
-                paint.anti_alias = true;
-
-                let stroke = Stroke {
-                    width: config.stroke_width,
-                    // Standard polygon strokes usually use Miter join
-                    line_join: LineJoin::Miter,
-                    ..Default::default()
-                };
 
                 self.pixmap.stroke_path(
                     &path,

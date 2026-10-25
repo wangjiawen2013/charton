@@ -30,10 +30,10 @@ each executed through the best pathway for its shape:
 
 | Chart element | Primitive | GPU / CPU pathway | Why |
 |---|---|---|---|
-| Scatter | `draw_circle`, `draw_polygon` | Instanced SDF (`PointData`), storage buffers | Zero CPU overhead; millions of markers at 60 FPS |
-| Line | `draw_line` (polyline) | WGSL thick-line shader (extrusion by `Vertex ID`) | On-chip extrusion; no CPU stroke/join math |
-| Area | `draw_path` (monotonic) | Linear triangulation / instanced ribbon strips | Trivial topology, no self-intersection |
-| Map / geo | `draw_path` (complex) | Ahead-of-time triangulation (`earcutr`) cache | Tessellate once at ingestion, stream index buffers |
+| Scatter | `draw_circle`, `draw_rect`, `draw_path` (`Convex` / `Complex`) | Instanced SDF, rect fast path, triangle fan, or STC for the star | Zero CPU overhead for the common markers; the concave star falls back to the correct stencil path |
+| Line | `draw_path` (`Simple`) | WGSL thick-line shader (extrusion by `Vertex ID`) | On-chip extrusion; no CPU stroke/join math |
+| Area | `draw_path` (`Complex` fill, `Simple` top stroke) | STC for the even-odd fill; vertex extrusion for the boundary | Concave areas and gaps use the same correct path primitive |
+| Map / geo | `draw_path` (`Complex`, multi-subpath) | STC with one stencil fan per ring | Outer ring and holes share one parity mask; no winding-order requirements |
 | Text | `draw_text` | Deferred ledger, composited on top | Target-native typography (see Pillar 3) |
 
 ## Pillar 1: Headless GPU initialization
@@ -159,8 +159,9 @@ For a *data visualization* engine we reject CPU tessellation:
   straight into VRAM.
 
 Only genuinely complex geometry — map boundaries with holes and islands — is
-triangulated ahead of time (`earcutr`) and cached, because that shape is not
-uniform.
+routed to stencil-then-cover: one triangle-fan stencil pass per ring, then a
+single cover pass. The parity of the rings gives holes without CPU
+triangulation or winding-order conventions.
 
 ## Conclusion
 

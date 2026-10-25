@@ -1,7 +1,7 @@
-<svg width="600" height="400" viewBox="0 0 600 400" xmlns="http://www.w3.org/2000/svg" class="charton" role="img" aria-roledescription="chart" aria-labelledby="charton-cab9f3ef-title">
-<title id="charton-cab9f3ef-title">Grouped Error Bars with Mean &amp; Std Dev</title>
-<defs><clipPath id="charton-cab9f3ef-clip-0"><rect x="81.600" y="37.600" width="418.600" height="299.400" /></clipPath>
-<clipPath id="charton-cab9f3ef-clip-1"><rect x="500.200" y="0.000" width="99.800" height="400.000" /></clipPath>
+<svg width="600" height="400" viewBox="0 0 600 400" xmlns="http://www.w3.org/2000/svg" class="charton" role="img" aria-roledescription="chart" aria-labelledby="charton-80de7943-title">
+<title id="charton-80de7943-title">Grouped Error Bars with Mean &amp; Std Dev</title>
+<defs><clipPath id="charton-80de7943-clip-0"><rect x="81.600" y="37.600" width="418.600" height="299.400" /></clipPath>
+<clipPath id="charton-80de7943-clip-1"><rect x="500.200" y="0.000" width="99.800" height="400.000" /></clipPath>
 </defs>
 <g class="charton-background">
 <rect x="0.000" y="0.000" width="600.000" height="400.000" fill="rgba(255,255,255,1.000)" stroke="none" stroke-width="0.000" fill-opacity="1.000" stroke-opacity="1.000" />
@@ -9,7 +9,7 @@
 <g class="charton-title">
 <text x="290.900" y="20.800" font-size="18.0" font-family="Inter, -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, 'PingFang SC', 'Microsoft YaHei', Ubuntu, Cantarell, 'Noto Sans', sans-serif" fill="rgba(51,51,51,1.000)" fill-opacity="1.000" text-anchor="middle" font-weight="bold" font-style="normal" dominant-baseline="middle" transform="rotate(0 290.900 20.800)">Grouped Error Bars with Mean &amp; Std Dev</text>
 </g>
-<g class="charton-plot" clip-path="url(#charton-cab9f3ef-clip-0)">
+<g class="charton-plot" clip-path="url(#charton-80de7943-clip-0)">
 <g class="charton-mark charton-mark-0 charton-mark-errorbar" data-layer="0" data-mark="errorbar">
 <line x1="118.809" y1="155.199" x2="118.809" y2="121.087" stroke="rgba(0,0,0,1.000)" stroke-width="1.000" stroke-opacity="1.000" />
 <line x1="115.809" y1="155.199" x2="121.809" y2="155.199" stroke="rgba(0,0,0,1.000)" stroke-width="1.000" stroke-opacity="1.000" />
@@ -37,15 +37,15 @@
 <line x1="459.991" y1="94.757" x2="465.991" y2="94.757" stroke="rgba(0,0,0,1.000)" stroke-width="1.000" stroke-opacity="1.000" />
 </g>
 <g class="charton-mark charton-mark-1 charton-mark-bar" data-layer="1" data-mark="bar">
-<path d="M 102.530 337.000 L 102.530 138.143 L 135.088 138.143 L 135.088 337.000 Z" fill="rgba(31,119,180,1.000)" fill-opacity="1.000" stroke="rgba(0,0,0,1.000)" stroke-width="1.000" stroke-opacity="1.000" stroke-linejoin="round" stroke-linecap="round" data-value="Adelie" data-series="MALE" />
-<path d="M 135.088 337.000 L 135.088 171.322 L 167.646 171.322 L 167.646 337.000 Z" fill="rgba(255,127,14,1.000)" fill-opacity="1.000" stroke="rgba(0,0,0,1.000)" stroke-width="1.000" stroke-opacity="1.000" stroke-linejoin="round" stroke-linecap="round" data-value="Adelie" data-series="FEMALE" />
-<path d="M 167.646 337.000 L 167.646 162.904 L 200.203 162.904 L 200.203 337.000 Z" fill="rgba(128,128,128,1.000)" fill-opacity="1.000" stroke="rgba(0,0,0,1.000)" stroke-width="1.000" stroke-opacity="1.000" stroke-linejoin="round" stroke-linecap="round" data-value="Adelie" data-series="NA" />
-<path d="M 242.063 337.000 L 242.063 143.283 L 274.621 143.283 L 274.621 337.000 Z" fill="rgba(31,119,180,1.000)" fill-opacity="1.000" stroke="rgba(0,0,0,1.000)" stroke-width="1.000" stroke-opacity="1.000" stroke-linejoin="round" stroke-linecap="round" data-value="Chinstrap" data-series="MALE" />
-<path d="M 274.621 337.000 L 274.621 163.534 L 307.179 163.534 L 307.179 337.000 Z" fill="rgba(255,127,14,1.000)" fill-opacity="1.000" stroke="rgba(0,0,0,1.000)" stroke-width="1.000" stroke-opacity="1.000" stroke-linejoin="round" stroke-linecap="round" data-value="Chinstrap" data-series="FEMALE" />
-<path d="M 307.179 337.000 L 307.179 337.000 L 339.737 337.000 L 339.737 337.000 Z" fill="rgba(128,128,128,1.000)" fill-opacity="1.000" stroke="rgba(0,0,0,1.000)" stroke-width="1.000" stroke-opacity="1.000" stroke-linejoin="round" stroke-linecap="round" data-value="Chinstrap" data-series="NA" />
-<path d="M 381.597 337.000 L 381.597 67.258 L 414.154 67.258 L 414.154 337.000 Z" fill="rgba(31,119,180,1.000)" fill-opacity="1.000" stroke="rgba(0,0,0,1.000)" stroke-width="1.000" stroke-opacity="1.000" stroke-linejoin="round" stroke-linecap="round" data-value="Gentoo" data-series="MALE" />
-<path d="M 414.154 337.000 L 414.154 106.852 L 446.712 106.852 L 446.712 337.000 Z" fill="rgba(255,127,14,1.000)" fill-opacity="1.000" stroke="rgba(0,0,0,1.000)" stroke-width="1.000" stroke-opacity="1.000" stroke-linejoin="round" stroke-linecap="round" data-value="Gentoo" data-series="FEMALE" />
-<path d="M 446.712 337.000 L 446.712 111.389 L 479.270 111.389 L 479.270 337.000 Z" fill="rgba(128,128,128,1.000)" fill-opacity="1.000" stroke="rgba(0,0,0,1.000)" stroke-width="1.000" stroke-opacity="1.000" stroke-linejoin="round" stroke-linecap="round" data-value="Gentoo" data-series="NA" />
+<path d="M 102.530 337.000 L 102.530 138.143 L 135.088 138.143 L 135.088 337.000 Z" fill="rgba(31,119,180,1.000)" fill-opacity="1.000" fill-rule="evenodd" stroke="rgba(0,0,0,1.000)" stroke-width="1.000" stroke-opacity="1.000" stroke-linejoin="round" stroke-linecap="round" data-value="Adelie" data-series="MALE" />
+<path d="M 135.088 337.000 L 135.088 171.322 L 167.646 171.322 L 167.646 337.000 Z" fill="rgba(255,127,14,1.000)" fill-opacity="1.000" fill-rule="evenodd" stroke="rgba(0,0,0,1.000)" stroke-width="1.000" stroke-opacity="1.000" stroke-linejoin="round" stroke-linecap="round" data-value="Adelie" data-series="FEMALE" />
+<path d="M 167.646 337.000 L 167.646 162.904 L 200.203 162.904 L 200.203 337.000 Z" fill="rgba(128,128,128,1.000)" fill-opacity="1.000" fill-rule="evenodd" stroke="rgba(0,0,0,1.000)" stroke-width="1.000" stroke-opacity="1.000" stroke-linejoin="round" stroke-linecap="round" data-value="Adelie" data-series="NA" />
+<path d="M 242.063 337.000 L 242.063 143.283 L 274.621 143.283 L 274.621 337.000 Z" fill="rgba(31,119,180,1.000)" fill-opacity="1.000" fill-rule="evenodd" stroke="rgba(0,0,0,1.000)" stroke-width="1.000" stroke-opacity="1.000" stroke-linejoin="round" stroke-linecap="round" data-value="Chinstrap" data-series="MALE" />
+<path d="M 274.621 337.000 L 274.621 163.534 L 307.179 163.534 L 307.179 337.000 Z" fill="rgba(255,127,14,1.000)" fill-opacity="1.000" fill-rule="evenodd" stroke="rgba(0,0,0,1.000)" stroke-width="1.000" stroke-opacity="1.000" stroke-linejoin="round" stroke-linecap="round" data-value="Chinstrap" data-series="FEMALE" />
+<path d="M 307.179 337.000 L 307.179 337.000 L 339.737 337.000 L 339.737 337.000 Z" fill="rgba(128,128,128,1.000)" fill-opacity="1.000" fill-rule="evenodd" stroke="rgba(0,0,0,1.000)" stroke-width="1.000" stroke-opacity="1.000" stroke-linejoin="round" stroke-linecap="round" data-value="Chinstrap" data-series="NA" />
+<path d="M 381.597 337.000 L 381.597 67.258 L 414.154 67.258 L 414.154 337.000 Z" fill="rgba(31,119,180,1.000)" fill-opacity="1.000" fill-rule="evenodd" stroke="rgba(0,0,0,1.000)" stroke-width="1.000" stroke-opacity="1.000" stroke-linejoin="round" stroke-linecap="round" data-value="Gentoo" data-series="MALE" />
+<path d="M 414.154 337.000 L 414.154 106.852 L 446.712 106.852 L 446.712 337.000 Z" fill="rgba(255,127,14,1.000)" fill-opacity="1.000" fill-rule="evenodd" stroke="rgba(0,0,0,1.000)" stroke-width="1.000" stroke-opacity="1.000" stroke-linejoin="round" stroke-linecap="round" data-value="Gentoo" data-series="FEMALE" />
+<path d="M 446.712 337.000 L 446.712 111.389 L 479.270 111.389 L 479.270 337.000 Z" fill="rgba(128,128,128,1.000)" fill-opacity="1.000" fill-rule="evenodd" stroke="rgba(0,0,0,1.000)" stroke-width="1.000" stroke-opacity="1.000" stroke-linejoin="round" stroke-linecap="round" data-value="Gentoo" data-series="NA" />
 </g>
 </g>
 <g class="charton-axis charton-axis-x" data-axis="x">
@@ -92,7 +92,7 @@
 <text x="26.500" y="187.300" font-size="15.0" font-family="Inter, -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, 'PingFang SC', 'Microsoft YaHei', Ubuntu, Cantarell, 'Noto Sans', sans-serif" fill="rgba(51,51,51,1.000)" fill-opacity="1.000" text-anchor="middle" font-weight="bold" font-style="normal" dominant-baseline="middle" transform="rotate(-90 26.500 187.300)">Body Mass (g)</text>
 </g>
 </g>
-<g class="charton-legend" data-series="Sex" clip-path="url(#charton-cab9f3ef-clip-1)">
+<g class="charton-legend" data-series="Sex" clip-path="url(#charton-80de7943-clip-1)">
 <g class="charton-legend-title">
 <text x="515.200" y="43.600" font-size="13.2" font-family="Inter, -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, 'PingFang SC', 'Microsoft YaHei', Ubuntu, Cantarell, 'Noto Sans', sans-serif" fill="rgba(51,51,51,1.000)" fill-opacity="1.000" text-anchor="start" font-weight="bold" font-style="normal" dominant-baseline="central" transform="rotate(0 515.200 43.600)">Sex</text>
 </g>

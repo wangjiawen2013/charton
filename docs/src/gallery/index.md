@@ -89,7 +89,7 @@ below it — and to the primitives it is built from.
 | Recipe | Also known as | Built from |
 | --- | --- | --- |
 | [Facet grid](faceting.md#grid-faceting-two-dimensions) | small multiples | `facet` |
-| [World map](geospatial.md#world-map) | choropleth | `mark_geoshape` + `CoordSystem::Geo` |
+| [World map](geospatial.md#world-map) | choropleth | `mark_polygon` + `CoordSystem::Geo` |
 
 ## Choosing a distribution view
 

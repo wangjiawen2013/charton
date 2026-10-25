@@ -65,7 +65,7 @@ fn main() -> Result<(), Box<dyn Error>> {
 
     let band = chart!(band_year, band_value, band_group)?
         .mark_polygon()?
-        .configure_geoshape(|mark| mark.with_fill("#dbeafe").with_stroke("none"))
+        .configure_polygon(|mark| mark.with_fill("#dbeafe").with_stroke("none"))
         .encode((
             alt::x("band_year"),
             alt::y("band_value"),

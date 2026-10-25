@@ -238,7 +238,6 @@ impl MarkRenderer for Chart<MarkBar> {
             let final_color = self.resolve_color_from_value(color_val, context, &mark_config.color);
 
             backend.draw_path(PathConfig {
-                points: pixel_points,
                 fill: final_color,
                 stroke: mark_config.stroke.unwrap_or(hints.default_bar_stroke),
                 stroke_width: mark_config
@@ -246,8 +245,9 @@ impl MarkRenderer for Chart<MarkBar> {
                     .unwrap_or(hints.default_bar_stroke_width)
                     as Precision,
                 opacity: mark_config.opacity as Precision,
-                dash: vec![],                    // Sold line by default
+                dash: vec![],                    // Solid line by default
                 topology: PathTopology::Complex, // Use Stencil-and-cover algorithm when using WGPU
+                ..PathConfig::new(pixel_points)
             });
 
             // E: Labels for Pie

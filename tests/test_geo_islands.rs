@@ -57,14 +57,14 @@ fn geo_islands_with_points_and_labels() -> Result<(), Box<dyn Error>> {
         .with_column("name", vec!["Haikou", "Taipei"])?;
 
     let geo_layer = Chart::build(ds)?
-        .mark_geoshape()?
+        .mark_polygon()?
         .encode((
             alt::x("lon"),
             alt::y("lat"),
             alt::path_group("region"),
             alt::color("population"),
         ))?
-        .configure_geoshape(|m| m.with_stroke("#333333").with_stroke_width(0.5));
+        .configure_polygon(|m| m.with_stroke("#333333").with_stroke_width(0.5));
 
     let point_layer = Chart::build(capitals.clone())?
         .mark_point()?

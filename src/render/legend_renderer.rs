@@ -4,8 +4,8 @@ use crate::core::context::PanelContext;
 use crate::core::flow::Direction;
 use crate::core::guide::{ColorBarGeometry, GuideKind, GuideSpec, LegendPosition};
 use crate::core::layer::{
-    CircleConfig, GradientRectConfig, LineConfig, PolygonConfig, RectConfig, RenderBackend,
-    TextConfig,
+    CircleConfig, GradientRectConfig, LineConfig, PathConfig, PathTopology, RectConfig,
+    RenderBackend, TextConfig,
 };
 use crate::core::layout::{GuideBlockLayout, LegendLayoutPlan};
 use crate::core::semantic::{Group, Role};
@@ -558,7 +558,7 @@ impl LegendRenderer {
                     opacity: 1.0,
                 });
             }
-            // For all other geometric shapes, we calculate vertices and use draw_polygon
+            // For all other geometric shapes, we calculate vertices and use draw_path
             _ => {
                 // Apply the same area-equalizing scale adjustments as in the data marks
                 let scale_adj = match shape {
@@ -582,12 +582,19 @@ impl LegendRenderer {
                 };
 
                 if !points.is_empty() {
-                    backend.draw_polygon(PolygonConfig {
-                        points,
+                    let topology = if *shape == PointShape::Star {
+                        PathTopology::Complex
+                    } else {
+                        PathTopology::Convex
+                    };
+                    backend.draw_path(PathConfig {
+                        subpaths: vec![points],
                         fill: *color,
                         stroke: SingleColor::new("none"),
                         stroke_width: 0.0,
                         opacity: 1.0,
+                        dash: vec![],
+                        topology,
                     });
                 } else {
                     // Final fallback to Circle if shape is undefined

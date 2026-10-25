@@ -110,7 +110,7 @@ declares only the flags it understands, so `help charton bar` and
 |---|---|
 | Primitives | `point` `line` `path` `polygon` `bar` `area` `rect` `rule` `text` `tick` |
 | Atoms | `hist` `boxplot` `violin` `errorbar` `density` `density-2d` `contour` |
-| Geo | `geo` (Charton's `mark_geoshape`, fed by a GeoJSON file) |
+| Geo | `geo` (`mark_polygon` with `CoordSystem::Geo`, fed by a GeoJSON file; interior rings stay as holes) |
 
 This is exactly Charton's public mark list. `beeswarm` is
 `point --layout beeswarm`, not a mark. A `--layer` record accepts short geom

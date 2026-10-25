@@ -5,10 +5,11 @@ pub mod contour_chart;
 pub mod density_2d_chart;
 pub mod density_chart;
 pub mod errorbar_chart;
-pub mod geo_chart;
 pub mod hist_chart;
 pub mod line_chart;
+pub mod path_chart;
 pub mod point_chart;
+pub mod polygon_chart;
 pub mod rect_chart;
 pub mod rule_chart;
 pub mod text_chart;
@@ -24,9 +25,9 @@ use crate::encode::{Channel, Encoding, IntoEncoding, y::StackMode};
 use crate::error::ChartonError;
 use crate::mark::{
     Mark, area::MarkArea, bar::MarkBar, boxplot::MarkBoxplot, contour::MarkContour,
-    density::MarkDensity, density_2d::MarkDensity2D, errorbar::MarkErrorBar, geo_path::MarkGeoPath,
-    histogram::MarkHist, line::MarkLine, no_mark::NoMark, point::MarkPoint, rect::MarkRect,
-    rule::MarkRule, text::MarkText, tick::MarkTick, violin::MarkViolin,
+    density::MarkDensity, density_2d::MarkDensity2D, errorbar::MarkErrorBar, histogram::MarkHist,
+    line::MarkLine, no_mark::NoMark, path::MarkPath, point::MarkPoint, polygon::MarkPolygon,
+    rect::MarkRect, rule::MarkRule, text::MarkText, tick::MarkTick, violin::MarkViolin,
 };
 use crate::scale::{Expansion, Scale, ScaleDomain};
 use ahash::AHashMap;
@@ -385,17 +386,25 @@ impl Chart<NoMark> {
         Ok(chart)
     }
 
-    /// Transitions the base chart into a Geographic Path chart.
+    /// Transitions the base chart into a polygon chart.
     ///
-    /// This is the closed, filled form — the geographic name of
-    /// [`Chart::mark_polygon`]. Rows sharing a `path_group` are connected in
-    /// row order, the loop is closed and the interior is filled. For an **open**
-    /// line use [`Chart::mark_path`].
-    pub fn mark_geoshape(self) -> Result<Chart<MarkGeoPath>, ChartonError> {
-        let chart = Chart::<MarkGeoPath> {
+    /// A polygon is defined by grouping rows with the same `path_group` value
+    /// and connecting them in order. The shape is **closed** (an extra edge
+    /// from the last point back to the first) and **filled**. This is the
+    /// geometry behind violin outlines, custom shapes, map regions and filled
+    /// contour bands.
+    ///
+    /// Its open counterpart is [`Chart::mark_path`]: same grouping, but it stops
+    /// at the last point and strokes instead of filling.
+    ///
+    /// Geographic maps use this mark with
+    /// [`CoordSystem::Geo`](crate::coordinate::CoordSystem); projection belongs
+    /// to the coordinate system, not to the mark.
+    pub fn mark_polygon(self) -> Result<Chart<MarkPolygon>, ChartonError> {
+        let chart = Chart::<MarkPolygon> {
             data: self.data,
             encoding: self.encoding,
-            mark: Some(MarkGeoPath::default()),
+            mark: Some(MarkPolygon::default()),
             source_data: self.source_data,
         };
 
@@ -406,22 +415,6 @@ impl Chart<NoMark> {
         Ok(chart)
     }
 
-    /// Transitions the base chart into a polygon chart.
-    ///
-    /// A polygon is defined by grouping rows with the same `path_group` value
-    /// and connecting them in order. The shape is then **closed** (an extra edge
-    /// from the last point back to the first) and **filled**. This is the
-    /// geometry behind violin outlines, custom shapes, region maps and filled
-    /// contour bands. It is the same renderer as [`Chart::mark_geoshape`], under
-    /// a domain-neutral name.
-    ///
-    /// Its open counterpart is [`Chart::mark_path`]: same grouping, but it stops
-    /// at the last point and strokes instead of filling. The difference is
-    /// exactly the `closed` flag.
-    pub fn mark_polygon(self) -> Result<Chart<MarkGeoPath>, ChartonError> {
-        self.mark_geoshape()
-    }
-
     /// Transitions the base chart into an **open** path (a polyline).
     ///
     /// Rows sharing a `path_group` are connected in **row order** — no sorting,
@@ -430,19 +423,12 @@ impl Chart<NoMark> {
     /// parallel coordinates.
     ///
     /// Compare [`Chart::mark_polygon`]: same grouping, but it joins the last
-    /// point back to the first and paints the interior. "Trajectory" and
-    /// "outline" differ by exactly that.
-    pub fn mark_path(self) -> Result<Chart<MarkGeoPath>, ChartonError> {
-        let chart = Chart::<MarkGeoPath> {
+    /// point back to the first and paints the interior.
+    pub fn mark_path(self) -> Result<Chart<MarkPath>, ChartonError> {
+        let chart = Chart::<MarkPath> {
             data: self.data,
             encoding: self.encoding,
-            mark: Some(
-                MarkGeoPath::new()
-                    .with_closed(false)
-                    .with_fill("none")
-                    .with_stroke("black")
-                    .with_stroke_width(1.0),
-            ),
+            mark: Some(MarkPath::default()),
             source_data: self.source_data,
         };
 
@@ -597,7 +583,7 @@ impl<T: Mark> Chart<T> {
     fn validate_mandatory_encodings(&self, mark_type: &str) -> Result<(), ChartonError> {
         match mark_type {
             "errorbar" | "bar" | "hist" | "line" | "point" | "area" | "boxplot" | "text"
-            | "rule" | "tick" | "geo_path" | "contour" => {
+            | "rule" | "tick" | "path" | "polygon" | "contour" => {
                 if self.encoding.x.is_none() || self.encoding.y.is_none() {
                     return Err(ChartonError::Encoding(format!(
                         "{} chart requires both x and y encodings",
@@ -827,8 +813,8 @@ impl<T: Mark> Chart<T> {
                     vec![Scale::Linear, Scale::Discrete, Scale::Temporal],
                 );
             }
-            "geo_path" | "violin" => {
-                // Geo paths: X and Y are continuous by default (longitude/latitude).
+            "path" | "polygon" | "violin" => {
+                // Paths and polygons: X and Y are continuous by default.
                 // X also accepts a discrete position axis so a polygon can carry
                 // integer categories (used by violin plots).
                 expected.insert(
@@ -992,12 +978,13 @@ impl<T: Mark> Chart<T> {
 
         // --- 2. HALF-STEP PADDING FOR DISCRETE AXES ---
         // Marks that place geometry around a category centre (bars, box plots,
-        // rects, violins) and the closed-path/polygon mark (`mark_polygon` is
-        // the `geo_path` mark) need half a category step on each side. The same
+        // rects, violins) and the path-family marks (open trajectories and
+        // closed polygons) need half a category step on each side. The same
         // padding is what the scale reuses when a mark reaches past the
         // category indices, so this default is also the automatic headroom a
         // ridgeline gets above its tallest ridge.
-        let needs_discrete_padding = ["bar", "boxplot", "rect", "geo_path", "violin"].contains(&mt);
+        let needs_discrete_padding =
+            ["bar", "boxplot", "rect", "path", "polygon", "violin"].contains(&mt);
         if needs_discrete_padding {
             if x_enc.scale_type == Some(Scale::Discrete) && x_enc.expansion.is_none() {
                 x_enc.expansion = Some(Expansion {

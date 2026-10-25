@@ -45,7 +45,7 @@ fn main() -> Result<(), Box<dyn Error>> {
                 .with_position(Position::dodge()),
         )?
         .mark_polygon()?
-        .configure_geoshape(|mark| mark.with_fill("white").with_stroke("black"))
+        .configure_polygon(|mark| mark.with_fill("white").with_stroke("black"))
         .encode((
             alt::x("x").with_category_labels("Sex"),
             alt::y("y"),

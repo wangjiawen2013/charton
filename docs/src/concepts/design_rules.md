@@ -64,7 +64,7 @@ marks (see §6).
   nothing about statistics.
 - **One geometry per shape**, with `stat = identity` unless a composite mark
   supplies a statistic (§7).
-- The four "connect the dots" geometries differ by exactly two flags:
+- The three path geometries differ by exactly three properties:
   *order* (sorted vs row order), *grouping* (`color` vs `path_group`), and
   *closed/filled*:
 
@@ -72,7 +72,14 @@ marks (see §6).
   |---|---|---|---|---|
   | `mark_line` | sorted by x | colour | no | no |
   | `mark_path` | row order | `path_group` | no | no |
-  | `mark_polygon` / `mark_geoshape` | row order | `path_group` | yes | yes |
+  | `mark_polygon` | row order | `path_group` | yes | yes |
+
+  These are the **connected-sequence** geometries. `mark_area` is the
+  baseline-filled variant of a series. `mark_tick` and `mark_rect` are per-row
+  glyphs and are not part of this table: a tick is a fixed-pixel positional
+  segment, and a rect is an axis-aligned, binned value cell. See
+  [The five geometries side by side](../grammar/marks.md#the-five-geometries-side-by-side)
+  for the full comparison.
 
 ## 5. The position rules (车道规则)
 
@@ -105,7 +112,7 @@ chart types.
 `stat = identity`: a row maps to a shape, and the row count is preserved.
 Position logic (stacking, dodging, jitter) is allowed; statistics are not.
 
-> `mark_point`, `mark_line`, `mark_path`, `mark_polygon` / `mark_geoshape`,
+> `mark_point`, `mark_line`, `mark_path`, `mark_polygon`,
 > `mark_bar`, `mark_area`, `mark_rect`, `mark_rule`, `mark_text`, `mark_tick`
 
 `mark_rect` is the heatmap primitive; it can bin/aggregate a value, which makes
@@ -244,7 +251,7 @@ after the encoding was rewritten to generated columns. This works for `X`, `Y`,
 
 | Tier | Marks |
 |---|---|
-| 1 | `point`, `line`, `path`, `polygon`, `geoshape`, `bar`, `area`, `rect`, `rule`, `text`, `tick` |
+| 1 | `point`, `line`, `path`, `polygon`, `bar`, `area`, `rect`, `rule`, `text`, `tick` |
 | 2 | `hist`, `boxplot`, `errorbar`, `violin`, `density`, `contour`, `density_2d` |
 | 3 | raincloud, ridge, streamgraph, lollipop, dumbbell, range, slope, bump, candlestick, waterfall, nightingale, rose, bullet, marimekko, … |
 

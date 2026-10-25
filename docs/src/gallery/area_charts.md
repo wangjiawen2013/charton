@@ -3,6 +3,12 @@
 An area fills the region between a line and its baseline. Adding a colour field
 stacks the series; changing the stack baseline yields the streamgraph.
 
+Use `mark_area` when the region is defined by a series and a baseline. Use
+`mark_polygon` when you have an explicit list of ring vertices (a band, a map,
+a violin outline); an area is ordered and baseline-oriented, while a polygon is
+arbitrary row-order geometry. Use `mark_line` when you only want the boundary,
+not the filled interior.
+
 ## Area chart
 
 <img src="../images/area.svg" width="500">

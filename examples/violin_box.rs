@@ -24,7 +24,7 @@ fn main() -> Result<(), Box<dyn Error>> {
             QuantileBoxTransform::new("Body Mass (g)").with_category("Species"),
         )?
         .mark_polygon()?
-        .configure_geoshape(|m| m.with_fill("white").with_stroke("black"))
+        .configure_polygon(|m| m.with_fill("white").with_stroke("black"))
         .encode((
             alt::x("x").with_category_labels("Species"),
             alt::y("y"),

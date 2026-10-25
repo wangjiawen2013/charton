@@ -460,3 +460,31 @@ fn a_legend_can_be_hidden_and_a_band_recoloured_by_css() -> Result<(), Box<dyn E
     }
     Ok(())
 }
+
+#[test]
+fn path_and_polygon_are_separate_marks() -> Result<(), Box<dyn Error>> {
+    let ds = Dataset::new()
+        .with_column("x", vec![0.0, 1.0, 2.0])?
+        .with_column("y", vec![0.0, 1.0, 0.0])?
+        .with_column("group", vec!["g"; 3])?;
+
+    let path = Chart::build(ds.clone())?
+        .mark_path()?
+        .configure_path(|m| m.with_stroke("#2563eb"))
+        .encode((alt::x("x"), alt::y("y"), alt::path_group("group")))?;
+    let svg = path.to_svg()?;
+    assert!(has_class(&svg, "charton-mark-path"));
+    assert!(svg.contains(r#"data-mark="path""#));
+    assert!(!svg.contains("geo_path"));
+
+    let polygon = Chart::build(ds)?
+        .mark_polygon()?
+        .configure_polygon(|m| m.with_fill("#dbeafe"))
+        .encode((alt::x("x"), alt::y("y"), alt::path_group("group")))?;
+    let svg = polygon.to_svg()?;
+    assert!(has_class(&svg, "charton-mark-polygon"));
+    assert!(svg.contains(r#"data-mark="polygon""#));
+    assert!(!svg.contains("geo_path"));
+
+    Ok(())
+}

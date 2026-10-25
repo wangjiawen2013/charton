@@ -27,6 +27,23 @@ predate this file.
 - **PDF output is tagged by default.** The picture is identical; the file now
   carries a structure tree. `PdfOptions::with_a11y(A11y::Off)` writes the plain
   document.
+- **Path and polygon are separate marks; the geo aliases are gone.**
+  `MarkGeoPath`, `mark_geoshape` and `configure_geoshape` were removed.
+  `mark_path` / `configure_path` draw open, stroked paths, while `mark_polygon`
+  / `configure_polygon` draw closed, filled polygons. They are distinct types,
+  so each mark has exactly one configure method. `mark_type()` now returns
+  `path` or `polygon` instead of `geo_path`, which also changes the SVG class
+  and `data-mark` attribute of those layers. Geographic maps use
+  `mark_polygon` with `CoordSystem::Geo`: projection belongs to the coordinate
+  system, not to the mark.
+- **`RenderBackend` has one vector-path primitive.**
+  `draw_polygon` and `PolygonConfig` were removed. `draw_path` now takes
+  `subpaths: Vec<Vec<(Precision, Precision)>>` and a
+  `PathTopology::{Simple, Convex, Complex}` hint. `Simple` paths are open and
+  stroked; `Convex` is a single closed convex ring; `Complex` is one or more
+  closed rings filled with the even-odd rule. Multiple rings therefore express
+  holes without a winding-order convention. Custom backends must implement the
+  new `draw_path` shape and drop `draw_polygon`.
 
 ### Added
 
@@ -45,6 +62,13 @@ predate this file.
 - **`SvgOptions` / `A11y`** (also in the prelude), and
   `IntoLayered::to_svg_with`. The default *picture* is unchanged: classes and
   attributes are inert markup until a stylesheet matches them.
+- **Multi-ring paths and real holes.** `PathConfig` carries independent
+  subpaths, and closed paths use the even-odd fill rule on SVG, raster, PDF and
+  WGPU. An outer ring plus its inner rings becomes one filled region with real
+  holes. `PathGroup::with_subpath()` selects the column that separates rings.
+- **GeoJSON keeps every ring.** `geojson_to_dataset` now emits `_ring_id` in
+  addition to `_path_id`, and no longer drops interior rings. Geographic maps
+  use `path_group("_path_id").with_subpath("_ring_id")`.
 - **Per-series and per-value identity.** Marks are grouped per series
   (`class="charton-series"` + `data-series="Ford"`) inside their layer, and the
   elements that stand for a single observation — each bar, each tick label —
@@ -116,6 +140,13 @@ predate this file.
 - **Axis titles sit exactly in the strip measured for them.** The x title
   ignored the tick-label padding, and the left title and tick labels carried
   their own magic offsets; both now come from the shared `AxisBand` geometry.
+- **GeoJSON interior rings are no longer discarded.** A polygon with holes used
+  to render as its solid outer ring. The dataset keeps every ring, and the
+  renderer sends them as subpaths of one even-odd path.
+- **The star point glyph no longer uses the convex fast path.** Its inner
+  vertices make it concave, so a direct triangle fan is not correct. It now uses
+  `PathTopology::Complex` (stencil/even-odd on WGPU, even-odd fill elsewhere);
+  regular polygons keep the convex fast path.
 - **Explicit tick labels are measured into the axis band.** `with_x_ticks` /
   `with_y_ticks` values were drawn but not measured, so a long explicit label
   could be clipped at the canvas edge.
