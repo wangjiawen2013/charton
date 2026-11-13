@@ -6,7 +6,7 @@ default-members = ["."]
 
 [package]
 name = "charton"
-version = "0.9.0"
+version = "0.9.1"
 edition = "2024"
 description = "Altair-style declarative plotting library for Rust. High-performance, Polars-friendly, with SVG/PNG/PDF export and Wasm support."
 license = "Apache-2.0"
@@ -82,3 +82,10 @@ pollster = { version = "0.4", optional = true }
 [target.'cfg(target_arch = "wasm32")'.dependencies]
 wasm-bindgen = "0.2"
 web-sys = { version = "0.3", features = ["CssStyleDeclaration", "HtmlCanvasElement", "CanvasRenderingContext2d"] }
+
+# --- Examples ---
+# The world map reads GeoJSON through the `geo` feature, so it is built only
+# when that feature is enabled. Other examples are auto-discovered.
+[[example]]
+name = "world_map"
+required-features = ["geo"]

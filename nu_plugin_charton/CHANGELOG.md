@@ -1,19 +1,40 @@
 # Changelog
 
-All notable changes to `nu_plugin_charton` are documented here. The crate
-shares the `charton` version number, and the Nushell release it targets is
-stated in the README and in each release.
+All notable changes to `nu_plugin_charton` are documented here. Each release
+names the Nushell release it targets and the `charton` library it draws with;
+neither is implied by the plugin's own version number. Releases are tagged
+`nu-plugin-charton-vX.Y.Z`.
 
-## [Unreleased]
+## [0.9.1] - 2026-11-13
+
+Targets **Nushell 0.117** and draws with **`charton` 0.9.1**.
 
 ### Changed
 
-- **Axis labels are less dense and keep more space.** The automatic fit now
-  caps at ten ticks (was twelve), leaves one tick-font size between labels on
-  the same line (was half), measures rotated labels as parallel text lines
-  instead of full-width boxes, and thins crowded categorical labels instead of
-  drawing them on top of each other. `--tick-count` and explicit ticks still
-  override the fit.
+- **The `nu-plugin`/`nu-protocol` pins move to `0.117`**, which is the release
+  line this version is built against. Nothing in the command surface changes.
+- **An iTerm2 frame carries only the parameters that change how the image is
+  shown**: `inline`, `width`/`height` in cells, and `preserveAspectRatio`. The
+  payload type is omitted (the protocol infers it from the magic number) and so
+  is the byte count, which the terminal reads from the payload itself. Optional
+  parameters that we do not need are optional parameters a terminal's parser
+  can get wrong.
+- **An inline chart is written as a frame: `CR + payload [+ rows] + CR`.** The
+  leading CR starts the chart at the left margin the cell budget sized it for and
+  keeps a long escape string away from the right edge, where a terminal could
+  wrap it mid-sequence. iTerm2 and Sixel already move the cursor below the image,
+  so they only need the closing CR. Kitty is sent with `C=1` and the frame
+  reserves the image's rows itself, because the protocol only promises the
+  cursor ends up *after* the image — ambiguous for an image narrower than the
+  terminal. A chart therefore takes exactly the rows it draws, with no blank line
+  before the prompt, and the frame goes out as a single write.
+
+### Fixed
+
+- **A failed write to the terminal is reported.** The escape sequence used to be
+  written with the result discarded, so a closed pipe or a rejected sequence
+  showed up as a silently blank chart; it now fails with the renderer's name and
+  the I/O error.
 
 ## [0.9.0] - 2026-10-24
 
@@ -279,10 +300,6 @@ stated in the README and in each release.
   angle for a rose / Nightingale chart. Previously every polar bar chart was a
   rose.
 
-[0.8.0]: https://github.com/wangjiawen2013/charton/releases/tag/v0.8.0
-
-[0.7.1]: https://github.com/wangjiawen2013/charton/releases/tag/v0.7.1
-
 ## [0.7.0]
 
 First public release. Targets Nushell 0.116.
@@ -313,7 +330,13 @@ First public release. Targets Nushell 0.116.
 - Configuration via `$env.config.plugins.charton`.
 - `charton-probe` diagnostic command behind an off-by-default `probe` feature.
 
-[0.7.0]: https://github.com/wangjiawen2013/charton/releases/tag/v0.7.0
+[0.9.1]: https://github.com/wangjiawen2013/charton/releases/tag/nu-plugin-charton-v0.9.1
+[0.9.0]: https://github.com/wangjiawen2013/charton/releases/tag/v0.9.0
+[0.8.5]: https://github.com/wangjiawen2013/charton/releases/tag/v0.8.5
+[0.8.4]: https://github.com/wangjiawen2013/charton/releases/tag/v0.8.4
 [0.8.3]: https://github.com/wangjiawen2013/charton/releases/tag/v0.8.3
 [0.8.2]: https://github.com/wangjiawen2013/charton/releases/tag/v0.8.2
 [0.8.1]: https://github.com/wangjiawen2013/charton/releases/tag/v0.8.1
+[0.8.0]: https://github.com/wangjiawen2013/charton/releases/tag/v0.8.0
+[0.7.1]: https://github.com/wangjiawen2013/charton/releases/tag/v0.7.1
+[0.7.0]: https://github.com/wangjiawen2013/charton/releases/tag/v0.7.0

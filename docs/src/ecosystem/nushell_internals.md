@@ -63,15 +63,45 @@ Set it once per terminal in config:
 $env.config.plugins.charton = { inline_style: kitty }
 ```
 
-Every frame ends on a clean line at column 0, so whatever follows — usually
-the shell prompt — starts below the chart at the left margin.
+### The frame contract
+
+Each renderer produces a *payload* — one OSC string, one DCS string, or a
+block of coloured cells — and the plugin wraps every payload in the same
+frame:
+
+```text
+iTerm2, Sixel, half-block   \r <payload> \r
+Kitty                       \r <payload> (\r\n × rows) \r
+```
+
+The leading CR starts the chart at the left margin, which is the column the
+cell budget that sized it assumes, and keeps a long escape string away from the
+right edge, where a terminal could wrap it mid-sequence. What follows the
+payload depends on what the protocol leaves behind:
+
+- **iTerm2 and Sixel** move the cursor below the image as part of displaying it,
+  and **half-block** art ends its last row with a newline, so nothing is needed
+  except that final CR to fix the column.
+- **Kitty** is sent with `C=1`, which tells the terminal not to move the cursor
+  at all. The protocol only promises the cursor ends up *after* the image, which
+  is ambiguous for an image narrower than the terminal, so the frame reserves
+  the image's rows itself and the result is the same on any conforming
+  terminal.
+
+Either way a chart occupies exactly the rows it draws, and the prompt — or the
+next command's output — starts below it at the left margin.
+
+The frame is written as a single buffer, and a failed write is reported as an
+error: a chart that never reached the terminal is a failure, not an empty
+result.
 
 ## 3. Pitfall: terminals cannot render SVG
 
 It is tempting to ask "why rasterize at all — can't we hand the terminal the
 SVG?" The answer is no. The image protocols are **raster-only**:
 
-- The iTerm2 protocol carries an encoded bitmap (`type=image/png`, `…/jpeg`).
+- The iTerm2 protocol carries an encoded bitmap (PNG or JPEG, which the
+  terminal identifies from the payload's magic number).
 - Kitty carries raw RGB/RGBA or PNG.
 - Sixel is, by definition, a bitmap format.
 - Half-blocks are colored Unicode cells.
@@ -210,24 +240,49 @@ Three consequences:
 
 1. **Only `nu-plugin-protocol`'s version is checked.** The plugin's own
    `version()` (what `plugin list` shows) is pure metadata — the plugin can
-   report `0.9.0` and still load under Nushell `0.116.0`.
+   report `0.9.1` and still load under Nushell `0.117.0`.
 2. **Patch versions are compatible.** For `0.x`, a caret requirement locks the
-   minor: `^0.116.0` means `>= 0.116.0, < 0.117.0`. So `0.116.1` and
-   `0.116.0` are compatible in either direction, which is exactly why the
-   dependency can be written `=0.116`.
-3. **Only a minor bump breaks.** `0.116.x` ↔ `0.117.x` is rejected. This is the
+   minor: `^0.117.0` means `>= 0.117.0, < 0.118.0`. So `0.117.1` and
+   `0.117.0` are compatible in either direction, which is exactly why the
+   dependency can be written `=0.117`.
+3. **Only a minor bump breaks.** `0.117.x` ↔ `0.118.x` is rejected. This is the
    real constraint the exact pin protects.
 
 | Engine | Plugin protocol | Compatible? |
 |---|---|---|
-| 0.116.0 | 0.116.0 | ✅ |
-| 0.116.0 | 0.116.1 | ✅ (`^0.116.0`) |
-| 0.116.0 | 0.117.0 | ❌ |
-| 0.116.0 | 0.0.0 | ❌ |
+| 0.117.0 | 0.117.0 | ✅ |
+| 0.117.0 | 0.117.1 | ✅ (`^0.117.0`) |
+| 0.117.0 | 0.118.0 | ❌ |
+| 0.117.0 | 0.0.0 | ❌ |
 
-## 6. The Nushell 0.116 plugin model
+### What the plugin's own version number means
 
-0.116 changed how plugins are managed, and two of the changes trip people up:
+`nu_plugin_charton`'s version is its own semver. It does not follow Nushell's
+version and it does not follow `charton`'s, because neither of those would carry
+useful information: the Nushell target is already pinned exactly in
+`Cargo.toml`, and the library it draws with is a caret requirement
+(`charton = "0.9.1"`, i.e. any `0.9.x` from 0.9.1 up), not a fixed pairing. The
+floor rises only when the plugin's behaviour depends on a library change, so the
+release note's "draws with `charton` X" is enforced rather than promised.
+
+That gives publishing a simple rule:
+
+| What changed | Release |
+|---|---|
+| the library only, still `0.9.x` | `charton` — plugin users get it from the caret range |
+| the library with a breaking change (`0.10`) | `charton`, then `nu_plugin_charton` with the raised requirement |
+| the plugin only (command, inline rendering, docs) | `nu_plugin_charton` alone |
+| the Nushell target moved | `nu_plugin_charton` alone |
+| the plugin needs a specific library fix | raise the `charton` floor and release `nu_plugin_charton` |
+
+When both move, the library is published first because the plugin depends on it.
+The number a user sees on `plugin list` therefore describes only the plugin; the
+README keeps the version → Nushell mapping.
+
+## 6. The plugin model Nushell introduced in 0.116
+
+Nushell 0.116 and later manage plugins the same way, in two steps that trip
+people up:
 
 - **Registration ≠ loading.** `plugin add` only writes the plugin registry
   (`$nu.plugin-path`); it does not put commands in scope. You must call
@@ -265,7 +320,7 @@ compiler points straight at the changed signature.
 | x-axis looks like two lines | fractional resample of a 1–2 px stroke | match the cell size, reach ≈1:1 |
 | Chart too small / huge | `cell_width`/`cell_height` wrong for the font | measure with `wezterm cli list`, set config |
 | `plugin add charton` → file not found | argument must be the executable, not the command | pass the full path to `nu_plugin_charton(.exe)` |
-| `plugin use` → plugin not found | 0.116 does not auto-load registered plugins | `plugin add` first, then `plugin use` in `config.nu` |
-| Protocol error after a version bump | plugin protocol minor differs from the engine | keep `nu-plugin*` on the engine's `0.116.x` line |
+| `plugin use` → plugin not found | registering a plugin does not load its commands | `plugin add` first, then `plugin use` in `config.nu` |
+| Protocol error after a version bump | plugin protocol minor differs from the engine | keep `nu-plugin*` on the engine's minor (`0.117.x`) |
 | Inline output corrupts a pipe | escape sequence written in stdio mode | inline is gated on `!is_using_stdio() && tty` |
-| Prompt indented after an inline chart | some image protocols leave the cursor at the image's right edge | every frame ends with a CRLF + backspace/CR cursor resync |
+| Prompt indented after an inline chart | an image protocol advanced the cursor to the image's edge | the frame CR returns to column 0 below the chart |
