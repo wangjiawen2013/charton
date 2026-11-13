@@ -1114,36 +1114,53 @@ pub(crate) fn run_chart(
         let bytes = render::to_png(&inline_chart)
             .map_err(|e| LabeledError::new("PNG rendering failed").with_label(e, span))?;
 
-        let art = match inline_style {
-            render::InlineStyle::Iterm2 => {
-                let (w, h) = render::png_dimensions(&bytes).map_err(|e| {
-                    LabeledError::new("Inline rendering failed").with_label(e, span)
-                })?;
-                let (c, r) = render::fit_cells_with_cell(w, h, max_cols, max_rows, cell_w, cell_h);
-                render::iterm2_image(&bytes, c, r)
-            }
-            render::InlineStyle::Kitty => {
-                let (w, h) = render::png_dimensions(&bytes).map_err(|e| {
-                    LabeledError::new("Inline rendering failed").with_label(e, span)
-                })?;
-                let (c, r) = render::fit_cells_with_cell(w, h, max_cols, max_rows, cell_w, cell_h);
-                render::kitty_image(&bytes, c, r)
-            }
-            render::InlineStyle::Sixel => {
-                render::sixel_image(&bytes, max_cols, max_rows, cell_w, cell_h)
-                    .map_err(|e| LabeledError::new("Inline rendering failed").with_label(e, span))?
-            }
-            render::InlineStyle::HalfBlock => render::png_to_halfblock(&bytes, max_cols, max_rows)
-                .map_err(|e| LabeledError::new("Inline rendering failed").with_label(e, span))?,
+        // Renders that fail share one phase and one span, so the error is
+        // built in one place instead of at every call site.
+        let inline_error =
+            |e: String| LabeledError::new("Inline rendering failed").with_label(e, span);
+
+        // The number of cells a bitmap protocol may draw into. iTerm2 and Kitty
+        // size the image in cells; Sixel and half-block fit the bitmap
+        // themselves.
+        let cell_budget = || -> Result<(usize, usize), LabeledError> {
+            let (w, h) = render::png_dimensions(&bytes).map_err(inline_error)?;
+            Ok(render::fit_cells_with_cell(
+                w, h, max_cols, max_rows, cell_w, cell_h,
+            ))
         };
 
-        let mut out = std::io::stdout();
-        let _ = out.write_all(art.as_bytes());
-        // Put the cursor at the start of the next line. The backspace clears
-        // any column that an image protocol left behind, so following output
-        // (usually the shell prompt) starts at the left margin.
-        let _ = out.write_all(b"\x08\r");
-        let _ = out.flush();
+        // Each renderer builds its own frame: the protocol bytes plus the cursor
+        // handling that protocol needs (see `render::Frame`).
+        let frame = match inline_style {
+            render::InlineStyle::Iterm2 => {
+                let (c, r) = cell_budget()?;
+                render::Frame::new(render::iterm2_image(&bytes, c, r))
+            }
+            render::InlineStyle::Kitty => {
+                let (c, r) = cell_budget()?;
+                // Kitty is asked to leave the cursor alone, so the frame
+                // reserves the rows the image covers.
+                render::Frame::advancing(render::kitty_image(&bytes, c, r), r)
+            }
+            render::InlineStyle::Sixel => render::Frame::new(
+                render::sixel_image(&bytes, max_cols, max_rows, cell_w, cell_h)
+                    .map_err(inline_error)?,
+            ),
+            render::InlineStyle::HalfBlock => render::Frame::new(
+                render::halfblock_image(&bytes, max_cols, max_rows).map_err(inline_error)?,
+            ),
+        };
+
+        let mut out = std::io::stdout().lock();
+        frame
+            .write_to(&mut out)
+            .and_then(|()| out.flush())
+            .map_err(|e| {
+                inline_error(format!(
+                    "could not write the {} chart to the terminal: {e}",
+                    inline_style.name()
+                ))
+            })?;
         return Ok(Value::nothing(span).into_pipeline_data());
     }
 

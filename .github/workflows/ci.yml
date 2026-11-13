@@ -67,6 +67,36 @@ jobs:
         # Again, focus only on the library and tests to save memory
         run: cargo clippy --lib --tests -- -D warnings
 
+  # The Nushell plugin is intentionally outside `default-members`, so none of
+  # the jobs above compile it. A Nushell minor release can change `nu-protocol`
+  # types, and only a build of the plugin reveals that, so the plugin is built
+  # and tested on its own here.
+  plugin:
+    name: Nushell plugin
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Set up Rust
+        uses: dtolnay/rust-toolchain@stable
+        with:
+          components: clippy
+
+      - name: Rust Cache
+        uses: Swatinem/rust-cache@v2
+        with:
+          key: nu-plugin
+
+      - name: Lint with Clippy
+        # `probe` is a dev-only feature (the `charton-probe` diagnostic), so it
+        # is linted here as well; it is not part of a normal build.
+        run: cargo clippy -p nu_plugin_charton --all-targets --features probe -- -D warnings
+
+      - name: Run tests
+        run: cargo test -p nu_plugin_charton
+
   # The raster (PNG) backend is only compiled behind `--features png`, so it is
   # invisible to the default-feature job above. Text rendering is inherently
   # platform dependent, which is why this runs on all three OSes. `macos-15` is

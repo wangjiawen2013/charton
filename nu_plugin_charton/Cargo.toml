@@ -1,6 +1,6 @@
 [package]
 name = "nu_plugin_charton"
-version = "0.9.0"
+version = "0.9.1"
 edition = "2024"
 license = "Apache-2.0"
 repository = "https://github.com/wangjiawen2013/charton"
@@ -12,18 +12,21 @@ keywords = ["nushell", "charts", "plotting", "cli", "visualization"]
 categories = ["command-line-utilities", "visualization"]
 
 [dependencies]
-# Path + version so the crate stays publishable; enable png for terminal raster.
-charton = { path = "..", version = "0.9.0", features = ["png", "geo"] }
-# Protocol version MUST match the installed Nushell (0.116).
-nu-plugin = "=0.116"
-nu-protocol = "=0.116"
+# Path + version so the crate stays publishable; the version is the floor this
+# plugin's rendering relies on, and the features give it PNG output plus GeoJSON.
+charton = { path = "..", version = "0.9.1", features = ["png", "geo"] }
+# The plugin protocol is versioned with Nushell and the engine rejects a
+# plugin built against a different minor, so both crates are pinned to the
+# release line this plugin targets.
+nu-plugin = "=0.117"
+nu-protocol = "=0.117"
 # Decode charton's PNG output for truecolor half-block terminal rendering.
 png = "0.18"
 # Base64 payloads for the iTerm2 / Kitty inline image protocols.
 base64 = "0.22"
 # Read the interactive terminal dimensions for auto-fitting inline charts.
 terminal_size = "0.4"
-
+# DEC Sixel encoder for terminals whose image protocol is sixel.
 icy_sixel = "0.7.0"
 
 [features]
@@ -32,4 +35,4 @@ icy_sixel = "0.7.0"
 probe = []
 
 [dev-dependencies]
-nu-plugin-test-support = "=0.116"
+nu-plugin-test-support = "=0.117"

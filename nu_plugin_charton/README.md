@@ -14,9 +14,9 @@ That one line reads the table, infers column types, builds the chart, and draws
 it in the terminal. The command is `charton`; the plugin is registered without
 the `nu_plugin_` prefix.
 
-> Compatibility: targets Nushell 0.116 and shares the `charton` version
-> number (both `0.9.x`), so one release covers the matching pair. See
-> [Compatibility](#compatibility).
+> Compatibility: targets Nushell 0.117. The plugin has its own version number;
+> the Nushell release it targets and the `charton` library it draws with are
+> stated per release. See [Compatibility](#compatibility).
 
 ## Install
 
@@ -545,10 +545,10 @@ The rationale (process model, resolution fitting, protocol versioning) is in
 
 ### Over SSH
 
-Terminal-brand environment variables are often not forwarded over SSH, and the
-plugin does not inspect them anyway. Set the protocol explicitly for the remote
-session. `CHARTON_INLINE_STYLE` overrides the config value, so it is handy for
-a single session:
+The plugin never inspects terminal environment variables, so nothing about your
+local terminal reaches a remote session: set the protocol for that machine
+explicitly. `CHARTON_INLINE_STYLE` overrides the config value, so it is handy
+for a single session:
 
 ```nu
 $env.CHARTON_INLINE_STYLE = "iterm2"
@@ -564,6 +564,7 @@ $env.config.plugins.charton = { inline_style: iterm2 }
 | Inline chart is garbled or does not appear | The chosen protocol is not supported by this terminal/version. Try another (`halfblock` always works), or update the terminal. |
 | Nothing inline, just an SVG string | stdout is not a TTY (piping / `nu -c`), or the plugin is in stdio mode. Use `-o` or `--raw`. |
 | Charts look soft or stretched | Tune `cell_width` / `cell_height`, or pass an explicit `--scale`. |
+| `plugin add` fails with `Broken pipe` | The binary was built for a different Nushell minor. Compare `(version).version` with the plugin release you installed, then rebuild or reinstall it. |
 | Command not found after a rebuild | Re-register (`plugin add <path>`) and restart, or `plugin rm charton` then add it again. |
 | `--interpolation` rejected by `charton bar` | Flags are per-mark. Use `charton line` (or check `help charton bar`). |
 
@@ -582,12 +583,23 @@ charton-probe | to md
 ## Compatibility
 
 `nu-plugin` / `nu-protocol` **must match the installed Nushell version**; this
-crate is pinned to `=0.116`, so it targets **Nushell 0.116**. After upgrading
-Nushell, install the matching plugin release (or rebuild) and re-run
+crate is pinned to `=0.117`, so it targets **Nushell 0.117**. After upgrading
+Nushell, install the plugin release that targets it (or rebuild) and re-run
 `plugin add`.
 
-`nu_plugin_charton` shares its version number with the `charton` library, so
-`charton 0.9.0` and `nu_plugin_charton 0.9.0` ship as a pair.
+| `nu_plugin_charton` | Nushell | `charton` floor |
+|---|---|---|
+| 0.9.1 | 0.117.x | 0.9.1 |
+| 0.9.0 | 0.116.x | 0.9.0 |
+
+The version number belongs to the plugin alone: it describes what changed in
+this crate, not which Nushell it targets and not which `charton` it ships with —
+the table above and each release note say those. A `charton` patch reaches new
+plugin installs on its own (the requirement is a caret range starting at the
+floor in that column), while a new `charton` minor such as `0.10` is breaking for
+`0.x` and needs a plugin release that raises it. How the two crates are released
+from here is spelled out in [Nushell Plugin
+Internals](https://wangjiawen2013.github.io/charton/ecosystem/nushell_internals.html#what-the-plugins-own-version-number-means).
 
 ## Uninstall
 
@@ -617,7 +629,10 @@ yourself if you no longer want it.
 
 This crate is a member of the `charton` workspace. `default-members = ["."]`, so
 a plain `cargo build` at the repo root builds only the core library and skips
-the heavy `nu-plugin` / `nu-protocol` tree.
+the heavy `nu-plugin` / `nu-protocol` tree. CI has a dedicated `Nushell plugin`
+job that lints (`--all-targets --features probe`) and tests this crate with `-p`,
+so the pinned Nushell line is exercised on every push instead of only at
+release time.
 
 ```sh
 cargo build -p nu_plugin_charton --release

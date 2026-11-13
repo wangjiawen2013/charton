@@ -7,6 +7,9 @@
 //! 3. **Sixel** (`ESC P…q`) — full bitmap.
 //! 4. **Truecolor half-blocks** (`▀`) — universal fallback, works everywhere.
 //!
+//! Each one produces the bytes for its own protocol; [`Frame`] adds the cursor
+//! handling that makes all four leave the screen in the same state.
+//!
 //! The renderer is chosen explicitly (`--inline-style`, `CHARTON_INLINE_STYLE`,
 //! or the `inline_style` config key). The default is the universal half-block
 //! renderer; the plugin never guesses from terminal-brand environment variables.
@@ -14,7 +17,7 @@
 use base64::Engine as _;
 use charton::prelude::LayeredChart;
 use icy_sixel::{BackgroundMode, PixelAspectRatio, SixelImage};
-use std::io::Cursor;
+use std::io::{Cursor, Write};
 
 /// Assumed terminal cell size in device pixels, used to pick a raster
 /// resolution that matches what the terminal can actually show. Modern
@@ -77,6 +80,17 @@ impl InlineStyle {
             other => Err(format!(
                 "unknown inline style '{other}'; expected halfblock, iterm2, kitty, or sixel"
             )),
+        }
+    }
+
+    /// The spelling `--inline-style` accepts, which is also the name used when
+    /// a renderer is reported in a message.
+    pub fn name(self) -> &'static str {
+        match self {
+            Self::HalfBlock => "halfblock",
+            Self::Iterm2 => "iterm2",
+            Self::Kitty => "kitty",
+            Self::Sixel => "sixel",
         }
     }
 }
@@ -151,29 +165,89 @@ pub fn fit_cells_with_cell(
     (cols.max(1), rows.max(1))
 }
 
-/// Line ending for every inline frame.
+/// An inline chart frame: a protocol payload plus the cursor framing that makes
+/// every renderer behave the same way on screen.
 ///
-/// An inline frame is a full chart — an image protocol or half-block art — and
-/// it ends with this so the chart is followed by a clean new line at column 0.
-/// The carriage return is explicit because a lone `\n` does not always return
-/// to the first column.
-const FRAME_END: &str = "\r\n";
-
-/// Encode the PNG as an iTerm2 inline image, sized to `cols` x `rows` cells.
-pub fn iterm2_image(png_bytes: &[u8], cols: usize, rows: usize) -> String {
-    let payload = base64::engine::general_purpose::STANDARD.encode(png_bytes);
-    let mut out = format!(
-        "\x1b]1337;File=inline=1;size={};width={};height={};preserveAspectRatio=1;type=image/png:{}\x07",
-        png_bytes.len(),
-        cols,
-        rows,
-        payload
-    );
-    out.push_str(FRAME_END);
-    out
+/// The frame starts at the left margin and ends at column 0 of the line below
+/// the chart, so the shell prompt — or the next command's output — always lands
+/// in the same place, whichever protocol drew the chart.
+pub struct Frame {
+    bytes: Vec<u8>,
 }
 
-/// Encode the PNG as a Kitty graphics protocol image, sized to `cols` x `rows`.
+impl Frame {
+    /// Wrap a payload that leaves the cursor below the chart when it ends:
+    /// iTerm2 and Sixel move it there as part of displaying the image, and
+    /// half-block art ends its last row with a newline. All that is left to do
+    /// is reset the column.
+    pub fn new(payload: String) -> Self {
+        Self::framed(payload, 0)
+    }
+
+    /// Wrap a payload that asks the terminal to leave the cursor where it is.
+    ///
+    /// The Kitty graphics protocol promises only that the cursor ends up
+    /// *after* the image, which is ambiguous for an image narrower than the
+    /// terminal. So the image is sent with `C=1` — do not move the cursor — and
+    /// the frame reserves the `rows` the image covers itself, putting the next
+    /// output exactly below the chart on every conforming terminal.
+    pub fn advancing(payload: String, rows: usize) -> Self {
+        Self::framed(payload, rows)
+    }
+
+    /// Lay the frame out as `CR payload (CR LF × rows) CR`.
+    ///
+    /// The leading CR moves to the left margin, which is the column the cell
+    /// budget that sized the image assumes, and keeps a long OSC/DCS string
+    /// from starting next to the right edge, where a terminal may wrap it in
+    /// the middle of the sequence. The closing CR fixes the column, so a chart
+    /// takes up exactly the rows it draws and never a blank line more.
+    fn framed(payload: String, rows: usize) -> Self {
+        let mut bytes = Vec::with_capacity(payload.len() + 2 + rows * 2);
+        bytes.push(b'\r');
+        bytes.extend_from_slice(payload.as_bytes());
+        for _ in 0..rows {
+            bytes.extend_from_slice(b"\r\n");
+        }
+        bytes.push(b'\r');
+        Self { bytes }
+    }
+
+    /// Write the frame as one buffer.
+    ///
+    /// The result is returned rather than discarded: a chart that never reached
+    /// the terminal — a closed pipe, a rejected escape sequence — is an I/O
+    /// failure for the caller to report, not an empty result.
+    pub fn write_to<W: Write>(&self, out: &mut W) -> std::io::Result<()> {
+        out.write_all(&self.bytes)
+    }
+}
+
+/// Encode the PNG as an iTerm2 inline image payload, sized to `cols` x `rows`
+/// cells.
+///
+/// The payload carries only the parameters that decide how the image is shown:
+/// `inline` (display it in place rather than offering to save it), `width` and
+/// `height` in cells, and `preserveAspectRatio`. The type is left out because
+/// the protocol infers it from the payload's magic number, which a PNG always
+/// has, and the byte count is left out because it is only a progress hint.
+/// Every optional parameter a payload omits is one less thing a terminal's
+/// parser can get wrong.
+pub fn iterm2_image(png_bytes: &[u8], cols: usize, rows: usize) -> String {
+    let payload = base64::engine::general_purpose::STANDARD.encode(png_bytes);
+    format!(
+        "\x1b]1337;File=inline=1;width={};height={};preserveAspectRatio=1:{}\x07",
+        cols, rows, payload
+    )
+}
+
+/// Encode the PNG as a Kitty graphics protocol payload, sized to `cols` x
+/// `rows` cells.
+///
+/// The image is transmitted with `C=1`, so the terminal leaves the cursor where
+/// it is and the caller reserves the image's rows instead (see
+/// [`Frame::advancing`]). `q=2` keeps the terminal from answering on the shell's
+/// input stream.
 pub fn kitty_image(png_bytes: &[u8], cols: usize, rows: usize) -> String {
     let payload = base64::engine::general_purpose::STANDARD.encode(png_bytes);
     let bytes = payload.as_bytes();
@@ -189,7 +263,7 @@ pub fn kitty_image(png_bytes: &[u8], cols: usize, rows: usize) -> String {
         let chunk = &payload[offset..end];
         if first {
             out.push_str(&format!(
-                "\x1b_Ga=T,f=100,q=2,m={more},c={cols},r={rows};{chunk}\x1b\\"
+                "\x1b_Ga=T,f=100,q=2,C=1,m={more},c={cols},r={rows};{chunk}\x1b\\"
             ));
             first = false;
         } else {
@@ -197,15 +271,14 @@ pub fn kitty_image(png_bytes: &[u8], cols: usize, rows: usize) -> String {
         }
         offset = end;
     }
-    out.push_str(FRAME_END);
     out
 }
 
 /// Encode the PNG as a DEC Sixel image fitted to the terminal cell grid.
 ///
-/// Sixel is a pixel protocol, so we downscale the bitmap to the target area
-/// first. Terminal cells are assumed to be a typical 8x16 device pixels; this
-/// is approximate, which is why Sixel is normally an explicit choice.
+/// Sixel is a pixel protocol, so the bitmap is downscaled to the pixel area the
+/// configured cell size gives the chart, and the background stays transparent so
+/// the terminal's own background shows through.
 pub fn sixel_image(
     png_bytes: &[u8],
     max_cols: usize,
@@ -230,8 +303,7 @@ pub fn sixel_image(
         .with_aspect_ratio(PixelAspectRatio::Square)
         .with_background_mode(BackgroundMode::Transparent);
 
-    let mut out = image.encode().map_err(|e| format!("sixel: {e}"))?;
-    out.push_str(FRAME_END);
+    let out = image.encode().map_err(|e| format!("sixel: {e}"))?;
     Ok(out)
 }
 
@@ -261,12 +333,14 @@ fn resize_nearest_rgba(src: &[u8], sw: usize, sh: usize, dw: usize, dh: usize) -
     out
 }
 
-/// Convert PNG bytes into ANSI truecolor half-block art.
+/// Encode the PNG as ANSI truecolor half-block art, one character per 1x2
+/// block of pixels.
 ///
 /// Each character cell carries two vertically stacked pixels via the upper
 /// half block `▀`: the foreground color is the top pixel and the background
-/// color is the bottom pixel.
-pub fn png_to_halfblock(
+/// color is the bottom pixel. Every row is reset and terminated with CRLF, so
+/// the art is a stack of independent lines that start and finish at column 0.
+pub fn halfblock_image(
     png_bytes: &[u8],
     max_cols: usize,
     max_rows: usize,
@@ -299,8 +373,7 @@ pub fn png_to_halfblock(
             push_u8(&mut out, bb);
             out.push_str("m\u{2580}");
         }
-        out.push_str("\x1b[0m");
-        out.push_str(FRAME_END);
+        out.push_str("\x1b[0m\r\n");
     }
     Ok(out)
 }
@@ -453,8 +526,8 @@ mod tests {
     }
 
     #[test]
-    fn halfblock_has_expected_shape() {
-        let art = png_to_halfblock(&tiny_png(), 80, 40).unwrap();
+    fn halfblock_payload_has_expected_shape() {
+        let art = halfblock_image(&tiny_png(), 80, 40).unwrap();
         assert!(art.contains('\u{2580}'));
         assert!(art.contains("\x1b[38;2;"));
         // Each row ends with CRLF so the next row (and prompt) starts at column 0.
@@ -495,11 +568,22 @@ mod tests {
     }
 
     #[test]
-    fn iterm2_frame_is_well_formed() {
+    fn iterm2_payload_is_well_formed() {
         let s = iterm2_image(b"abcdef", 10, 5);
-        assert!(s.starts_with("\x1b]1337;File=inline=1;size=6;width=10;height=5;"));
-        assert!(s.contains("preserveAspectRatio=1"));
-        assert!(s.ends_with("\r\n"));
+        assert!(
+            s.starts_with("\x1b]1337;File=inline=1;width=10;height=5;preserveAspectRatio=1:"),
+            "got {:?}",
+            &s[..s.find(':').unwrap_or(s.len())]
+        );
+        // Size and type are optional in the protocol, so they are not sent:
+        // the terminal reads the type from the payload and always knows the
+        // byte count from the payload it decodes.
+        assert!(!s.contains("size="), "byte count is a progress hint only");
+        assert!(
+            !s.contains("type="),
+            "type is inferred from the magic number"
+        );
+        assert!(s.ends_with('\x07'), "the OSC string ends with BEL");
     }
 
     #[test]
@@ -507,19 +591,91 @@ mod tests {
         // Force a payload longer than one chunk (4096 base64 chars).
         let big = vec![0u8; 8000];
         let s = kitty_image(&big, 20, 10);
-        assert!(s.starts_with("\x1b_Ga=T,f=100,q=2,m=1,c=20,r=10;"));
+        assert!(s.starts_with("\x1b_Ga=T,f=100,q=2,C=1,m=1,c=20,r=10;"));
         // First chunk is `more`, the final chunk must be `m=0`.
         assert!(s.contains("\x1b_Gm=1;"));
         assert!(s.contains("\x1b_Gm=0;"));
-        assert!(s.ends_with("\r\n"));
+        assert!(s.ends_with("\x1b\\"), "the last chunk ends with ST");
     }
 
     #[test]
-    fn sixel_frame_is_well_formed() {
+    fn sixel_payload_is_well_formed() {
         let s = sixel_image(&tiny_png(), 40, 20, 8, 16).unwrap();
         // DEC sixel DCS introducer and string terminator.
         assert!(s.starts_with("\u{1b}P"), "got {:?}", &s[..s.len().min(8)]);
-        assert!(s.trim_end().ends_with("\u{1b}\\"));
+        assert!(s.ends_with("\u{1b}\\"));
+    }
+
+    /// One frame per renderer, wrapped the way the command wraps them, so the
+    /// cursor contract is checked for every protocol rather than one by one.
+    fn all_frames() -> Vec<(&'static str, Frame)> {
+        vec![
+            ("iterm2", Frame::new(iterm2_image(b"abcdef", 10, 5))),
+            ("kitty", Frame::advancing(kitty_image(b"abcdef", 10, 5), 5)),
+            (
+                "sixel",
+                Frame::new(sixel_image(&tiny_png(), 40, 20, 8, 16).unwrap()),
+            ),
+            (
+                "halfblock",
+                Frame::new(halfblock_image(&tiny_png(), 40, 20).unwrap()),
+            ),
+        ]
+    }
+
+    #[test]
+    fn frames_start_and_end_at_the_left_margin() {
+        for (name, frame) in all_frames() {
+            let mut out = Vec::new();
+            frame.write_to(&mut out).unwrap();
+            assert_eq!(out.first(), Some(&b'\r'), "{name} starts at column 0");
+            assert_eq!(out.last(), Some(&b'\r'), "{name} ends at column 0");
+        }
+    }
+
+    #[test]
+    fn frames_carry_the_payload_unchanged() {
+        let payload = iterm2_image(b"abcdef", 10, 5);
+        let mut out = Vec::new();
+        Frame::new(payload.clone()).write_to(&mut out).unwrap();
+        assert_eq!(out, [&b"\r"[..], payload.as_bytes(), b"\r"].concat());
+    }
+
+    #[test]
+    fn a_frame_can_reserve_the_rows_it_draws() {
+        // Kitty is asked not to move the cursor, so the frame advances it by
+        // the image's rows and the next line starts below the chart.
+        let mut out = Vec::new();
+        Frame::advancing("payload".to_string(), 3)
+            .write_to(&mut out)
+            .unwrap();
+        assert_eq!(out, b"\rpayload\r\n\r\n\r\n\r");
+        // Zero rows adds nothing beyond the column resync.
+        let mut out = Vec::new();
+        Frame::advancing("payload".to_string(), 0)
+            .write_to(&mut out)
+            .unwrap();
+        assert_eq!(out, b"\rpayload\r");
+    }
+
+    #[test]
+    fn frames_report_write_failures() {
+        struct Closed;
+        impl Write for Closed {
+            fn write(&mut self, _: &[u8]) -> std::io::Result<usize> {
+                Err(std::io::Error::new(
+                    std::io::ErrorKind::BrokenPipe,
+                    "terminal went away",
+                ))
+            }
+            fn flush(&mut self) -> std::io::Result<()> {
+                Ok(())
+            }
+        }
+        let err = Frame::new("payload".to_string())
+            .write_to(&mut Closed)
+            .unwrap_err();
+        assert_eq!(err.kind(), std::io::ErrorKind::BrokenPipe);
     }
 
     #[test]
