@@ -540,6 +540,95 @@ fn build_glyph_path(
     pb.finish()
 }
 
+/// The raster export plan shared by every bitmap entry point.
+///
+/// The supersampling factor is fixed at 2x, or 1 when the requested density is
+/// already >= 2x or the intermediate buffer would be too big. The final output is
+/// `render_* / supersample` (integer division), which is exactly `with_size`
+/// times `scale_factor` for the common cases and within one pixel otherwise.
+#[derive(Clone, Copy, Debug)]
+pub(crate) struct RasterPlan {
+    /// Internal supersampling factor (1 or 2). The caller downsamples the
+    /// rendered buffer by this factor to reach the final output size.
+    pub(crate) supersample: u32,
+    /// Internal render buffer width in pixels (`logical * render_scale`).
+    pub(crate) render_width: u32,
+    /// Internal render buffer height in pixels.
+    pub(crate) render_height: u32,
+    /// Density the backend must draw at (`scale_factor * supersample`).
+    pub(crate) render_scale: f32,
+}
+
+impl RasterPlan {
+    /// Resolves the plan for a logical canvas size and pixel density.
+    pub(crate) fn new(width: u32, height: u32, scale_factor: f32) -> Self {
+        const SUPERSAMPLE: u32 = 2;
+        const SUPERSAMPLE_MAX_PIXELS: u64 = 16_000_000;
+
+        // Decide the factor from the *would-be* 2x buffer size, then derive the
+        // render size from the chosen density. Deriving it from the density
+        // (rather than from the output size times the factor) keeps the buffer
+        // exactly equal to `logical * render_scale`, which is what the WGPU
+        // backend computes for its scissor rect and NDC mapping.
+        let full_scale = scale_factor * SUPERSAMPLE as f32;
+        let full_pixels = (width as f32 * full_scale).round().max(1.0) as u64
+            * (height as f32 * full_scale).round().max(1.0) as u64;
+
+        let supersample = if scale_factor < 2.0 && full_pixels <= SUPERSAMPLE_MAX_PIXELS {
+            SUPERSAMPLE
+        } else {
+            1
+        };
+
+        let render_scale = scale_factor * supersample as f32;
+        let render_width = (width as f32 * render_scale).round().max(1.0) as u32;
+        let render_height = (height as f32 * render_scale).round().max(1.0) as u32;
+        RasterPlan {
+            supersample,
+            render_width,
+            render_height,
+            render_scale,
+        }
+    }
+}
+
+/// Renders a whole document into a pixel buffer: background, drawing, downsample.
+///
+/// This is the single implementation behind every bitmapped export. `draw` paints
+/// the body at the planned density, so a chart and a composition produce their
+/// pixels the very same way.
+pub(crate) fn render_document<F>(
+    plan: &RasterPlan,
+    background: SingleColor,
+    draw: F,
+) -> Result<Pixmap, ChartonError>
+where
+    F: FnOnce(&mut RasterBackend<'_>) -> Result<(), ChartonError>,
+{
+    let mut pixmap = Pixmap::new(plan.render_width, plan.render_height)
+        .ok_or_else(|| ChartonError::Render("Failed to allocate the pixel buffer".to_string()))?;
+
+    // Fill the whole buffer directly so no transparent sliver can survive a
+    // non-integer scale factor's sub-pixel rounding at the edges.
+    let [r, g, b, a] = background.rgba();
+    if let Some(color) = Color::from_rgba(r, g, b, a) {
+        pixmap.fill(color);
+    }
+
+    {
+        let mut backend = RasterBackend::new(&mut pixmap, plan.render_scale);
+        draw(&mut backend)?;
+    }
+
+    if plan.supersample > 1 {
+        downsample_premultiplied(&pixmap, plan.supersample).ok_or_else(|| {
+            ChartonError::Render("Failed to downsample supersampled buffer".to_string())
+        })
+    } else {
+        Ok(pixmap)
+    }
+}
+
 /// Box-downsamples a premultiplied RGBA pixmap by an integer factor.
 ///
 /// tiny-skia stores pixels premultiplied, so a straight per-channel average is

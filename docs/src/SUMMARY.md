@@ -34,7 +34,8 @@
 
 # Composition & Layout
 - [Layering Grammar](layout/layering.md)
-- [Multi-View: Faceting & Concatenation](layout/views.md)
+- [Multi-View: Faceting](layout/views.md)
+- [Composition: Several Views on One Page](layout/composition.md)
 - [Space Manager](layout/space.md)
 - [Guides: Axis & Legends](layout/guides.md)
 

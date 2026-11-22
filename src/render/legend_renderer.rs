@@ -240,18 +240,6 @@ impl LegendRenderer {
         };
         backend.draw_gradient_rect(gradient_rect_config);
 
-        let rect_config = RectConfig {
-            x: x as Precision,
-            y: y as Precision,
-            width: bar_w as Precision,
-            height: bar_h as Precision,
-            fill: SingleColor::new("none"),
-            stroke: theme.title_color,
-            stroke_width: 1.0,
-            opacity: 1.0,
-        };
-        backend.draw_rect(rect_config);
-
         if let Some(mapping) = spec.mappings.first() {
             for tick in spec.colorbar_ticks() {
                 let norm = mapping.scale_impl.normalize(tick.value);
@@ -320,6 +308,21 @@ impl LegendRenderer {
                 }
             }
         }
+
+        // The outline goes on last, so it stays whole. Ticks reach the two ends
+        // of the bar, where they would otherwise paint over the frame with their
+        // own colour and leave the box looking broken.
+        let rect_config = RectConfig {
+            x: x as Precision,
+            y: y as Precision,
+            width: bar_w as Precision,
+            height: bar_h as Precision,
+            fill: SingleColor::new("none"),
+            stroke: theme.title_color,
+            stroke_width: 1.0,
+            opacity: 1.0,
+        };
+        backend.draw_rect(rect_config);
 
         Ok(())
     }

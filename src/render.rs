@@ -40,6 +40,8 @@ pub(crate) mod errorbar_renderer;
 pub(crate) mod hist_renderer;
 pub(crate) mod legend_renderer;
 pub(crate) mod line_renderer;
+/// Moving a finished drawing to another position on the page.
+pub(crate) mod offset;
 pub(crate) mod path_renderer;
 #[cfg(feature = "pdf")]
 /// PDF document assembly: page, tagging and structure tree.

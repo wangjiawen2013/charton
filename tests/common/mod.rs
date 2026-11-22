@@ -170,3 +170,49 @@ pub fn drawing_only(svg: &str) -> String {
     out.push_str(rest);
     out
 }
+
+/// The bodies of every `<g>` whose class list contains `class`, in document
+/// order.
+///
+/// A composition draws one such scope per cell, so this is how a test tells the
+/// cells apart without knowing anything about the layout that placed them.
+pub fn groups_by_class<'a>(svg: &'a str, class: &str) -> Vec<&'a str> {
+    let marker = format!(" class=\"{class}\"");
+    let mut bodies = Vec::new();
+    let mut cursor = 0;
+
+    while let Some(found) = svg[cursor..].find(&marker) {
+        let attribute = cursor + found;
+        // The opening tag that owns the class attribute.
+        let open = svg[..attribute]
+            .rfind("<g")
+            .unwrap_or_else(|| panic!("{class} is not on a <g> element"));
+        let body_start = open + svg[open..].find('>').expect("unterminated open tag") + 1;
+
+        // Track nesting so the slice covers the whole subtree.
+        let mut depth = 1usize;
+        let mut index = body_start;
+        while index < svg.len() {
+            let rest = &svg[index..];
+            if rest.starts_with("</g>") {
+                depth -= 1;
+                if depth == 0 {
+                    bodies.push(&svg[body_start..index]);
+                    cursor = index + 4;
+                    break;
+                }
+                index += 4;
+            } else if rest.starts_with("<g") {
+                depth += 1;
+                index += 2;
+            } else {
+                index += rest.chars().next().map_or(1, char::len_utf8);
+            }
+        }
+        if depth != 0 {
+            panic!("unbalanced <g> around {class}");
+        }
+    }
+
+    bodies
+}

@@ -83,6 +83,13 @@ impl AxisKind {
 pub enum Role {
     /// The canvas fill behind everything else (decorative).
     Background,
+    /// One cell of a composition: the scope that holds a whole sub-view.
+    ///
+    /// A composition draws several independent charts on one canvas, so each
+    /// cell is a view-sized scope of its own rather than a part of a single
+    /// chart. It maps to no structure element: the tagging of a page with
+    /// several figures is the document's business, not a cell's.
+    View,
     /// The chart title.
     Title,
     /// The label inside a facet header strip.
@@ -128,6 +135,7 @@ impl Role {
     pub const fn class(self) -> &'static str {
         match self {
             Self::Background => "charton-background",
+            Self::View => "charton-view",
             Self::Title => "charton-title",
             Self::FacetLabel => "charton-facet-label",
             Self::Plot => "charton-plot",

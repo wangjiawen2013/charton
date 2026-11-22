@@ -91,6 +91,91 @@ pub trait IntoLayered: Into<LayeredChart> + Clone {
         lc
     }
 
+    /// Sets how much width this view takes when it is a cell of a composition.
+    ///
+    /// Outside a composition this is ignored: a standalone chart is sized by
+    /// [`with_size`](Self::with_size). Inside one, `TrackSize::Fixed(60.0)` pins a
+    /// 60px strip (a marginal histogram) and `TrackSize::Fill(1.0)` (the default)
+    /// takes a share of whatever is left over.
+    ///
+    /// ```rust,ignore
+    /// let top = hist.with_height(TrackSize::Fixed(60.0));
+    /// let right = hist.with_width(TrackSize::Fixed(60.0));
+    /// ```
+    fn with_width(self, size: impl Into<crate::composition::TrackSize>) -> LayeredChart {
+        let mut lc: LayeredChart = self.into();
+        lc.width_spec = Some(size.into());
+        lc
+    }
+
+    /// Sets how much height this view takes when it is a cell of a composition.
+    ///
+    /// See [`with_width`](Self::with_width); a standalone chart is unaffected.
+    fn with_height(self, size: impl Into<crate::composition::TrackSize>) -> LayeredChart {
+        let mut lc: LayeredChart = self.into();
+        lc.height_spec = Some(size.into());
+        lc
+    }
+
+    // --- View Chrome (what this view draws around its data) ---
+
+    /// Hides the x axis: no spine, ticks, labels or title, and no space reserved
+    /// for them.
+    ///
+    /// This is a property of the *view*, not of the mark, because it answers
+    /// "does this picture repeat a scale its neighbour already shows?" -- the
+    /// question every marginal strip asks. It is also what a shared-axis pair of
+    /// panels needs.
+    ///
+    /// Like the facet strategy's own switch, this names the **edge**: the x axis
+    /// is the bottom one. After [`coord_flip`](Self::coord_flip) the bottom edge
+    /// carries the y channel, so a flipped marginal (a histogram running
+    /// sideways) keeps its count axis with
+    /// [`with_show_y_axis(false)`](Self::with_show_y_axis), which hides the left
+    /// edge -- the binned variable that the main view already shows.
+    ///
+    /// ```rust,ignore
+    /// // A histogram strip above a scatter: the x scale is the scatter's.
+    /// let top = hist.with_show_x_axis(false).with_height(TrackSize::Fixed(60.0));
+    /// ```
+    fn with_show_x_axis(self, show: bool) -> LayeredChart {
+        let mut lc: LayeredChart = self.into();
+        lc.show_x_axis = Some(show);
+        lc
+    }
+
+    /// Hides the y axis (the left edge). See
+    /// [`with_show_x_axis`](Self::with_show_x_axis) for the flip caveat.
+    fn with_show_y_axis(self, show: bool) -> LayeredChart {
+        let mut lc: LayeredChart = self.into();
+        lc.show_y_axis = Some(show);
+        lc
+    }
+
+    /// Hides this view's own legend.
+    ///
+    /// The third of the three "view chrome" switches, next to
+    /// [`with_show_x_axis`](Self::with_show_x_axis) and
+    /// [`with_show_y_axis`](Self::with_show_y_axis), and it answers the same kind of
+    /// question: *does this picture repeat something a neighbour already says?* A
+    /// marginal strip drawn from the same colour scale as the view it annotates
+    /// says it twice, so it turns its own guide off — and a page that hoists a
+    /// legend ([`Composition::with_legend_position`](crate::composition::Composition::with_legend_position))
+    /// supplies it once at the edge instead.
+    ///
+    /// It is the same setting as `configure_theme(|t| t.with_show_legend(false))`,
+    /// spelled as a switch because that is what it is: a view either shows a legend
+    /// or it does not.
+    ///
+    /// ```rust,ignore
+    /// let top = hist.with_show_x_axis(false).with_show_legend(false);
+    /// ```
+    fn with_show_legend(self, show: bool) -> LayeredChart {
+        let mut lc: LayeredChart = self.into();
+        lc.theme = lc.theme.with_show_legend(show);
+        lc
+    }
+
     // --- Layout Margins ---
 
     fn with_top_margin(self, margin: f64) -> LayeredChart {
