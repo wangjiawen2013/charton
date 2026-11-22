@@ -84,6 +84,6 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
 ```
 
 ⚠️ Polars Version Compatibility Reference:
-- Polars 0.53+: Use the modern standard macro `load_polars_df!(df)?`.
+- Polars 0.53+ (including 0.54 and 0.55): Use the modern standard macro `load_polars_df!(df)?`.
 - Polars 0.44 - 0.52: Use the legacy support macro `load_polars_v44_52!(df)?`.
 - Polars < 0.44: Unsupported. Upgrading your upstream Polars dependency is highly recommended.

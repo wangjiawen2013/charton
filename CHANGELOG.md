@@ -89,6 +89,20 @@ predate this file.
 
 ### Fixed
 
+- **`load_polars_df!` works with Polars 0.54 and 0.55 again.** Polars removed the
+  `IntoIterator for &ChunkedArray` implementations in 0.54, so the macro now uses
+  `ChunkedArray::iter()`. Categorical/Enum columns are also dispatched on their
+  physical width (U8/U16/U32) instead of assuming `cat32()`, which Polars 0.53+
+  no longer guarantees. The conversion now builds a proper dictionary, so
+  `n_unique()` and `unique_values()` no longer report one entry per row.
+- **The Polars macros no longer turn most `Time` values into nulls.** Polars
+  stores `Time` as nanoseconds since midnight, but the macros passed that total
+  into `Time::from_hms_nano`'s sub-second slot, so every value at or after
+  `00:00:01` failed to convert. The total is now split into hours/minutes/seconds
+  and nanoseconds. `Duration` scaling also saturates instead of overflowing.
+- **`load_polars_df!` accepts `UInt8`, `UInt16`, and `Float16` columns.**
+  `UInt8`/`UInt16` are widened losslessly to Charton's `UInt32` vector and
+  `Float16` to `Float32` (the legacy macro also accepts `UInt8`/`UInt16`).
 - **A chart with no legend no longer reserves a legend strip.** The layout built
   the strip from `theme.legend_margin` whenever `show_legend` was on, even when
   there was no guide to draw in it, leaving a dead band the width of that margin
