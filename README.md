@@ -136,13 +136,13 @@ Chart::build(ds)? // Equivalent to chart!(ds)?
     .save("out.svg")?;
 ```
 
-**Compatibility Note**: Charton uses versioned macros to handle Polars' rapid API evolutions. Versions below 0.44 are no longer supported.
+**Compatibility Note**: Charton uses versioned macros to handle Polars' rapid API evolutions. Versions below 0.44 are no longer supported. The standard macro is tested against Polars 0.53, 0.54, and 0.55.
 
-|Polars Version       |Macro to Use              |Status              |
-|:--------------------|:-------------------------|:-------------------|
-|0.53+                |`load_polars_df!(df)?`    |Latest (Standard)   |
-|0.44 - 0.52          |`load_polars_v44_52!(df)?`|Legacy Support      |
-|< 0.44               |N/A                       |Unsupported         |
+| Polars Version           | Macro to Use               | Status            |
+|:-------------------------|:---------------------------|:------------------|
+| 0.53+ (incl. 0.54/0.55)  | `load_polars_df!(df)?`     | Latest (Standard) |
+| 0.44 - 0.52              | `load_polars_v44_52!(df)?` | Legacy Support    |
+| < 0.44                   | N/A                        | Unsupported       |
 
 ## Layered Grammar
 Inspired by the Grammar of Graphics (as seen in `ggplot2` and `Altair`), Charton replaces rigid templates with a modular, layer-based system. Visualizations are constructed by stacking atomic marks, offering infinite flexibility beyond fixed chart types.
