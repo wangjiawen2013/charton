@@ -28,6 +28,7 @@
 #![warn(clippy::missing_const_for_fn)]
 
 pub mod chart;
+pub mod composition;
 pub mod coordinate;
 pub mod core;
 pub mod datasets;
@@ -99,6 +100,9 @@ pub mod alt {
 pub mod prelude {
     pub use crate::alt;
     pub use crate::chart::Chart;
+    pub use crate::composition::{
+        Align, Composition, IntoViews, Marginals, Resolve, TrackSize, View,
+    };
     pub use crate::coordinate::CoordSystem;
     pub use crate::coordinate::geo::GeoProjection;
     pub use crate::core::composite::LayeredChart;

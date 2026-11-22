@@ -4,6 +4,104 @@ All notable changes to the `charton` library are documented here. The project
 follows [Semantic Versioning](https://semver.org/). Releases before 0.7.0
 predate this file.
 
+## [Unreleased]
+
+### Added
+
+- **View composition: several charts on one page.** `Composition` places
+  independent views on a grid of tracks — `Composition::grid(rows, columns)`, or
+  the `hconcat` / `vconcat` shorthands — sized with `with_column_width` /
+  `with_row_height` and filled with `with_cell(row, col, view)` /
+  `with_spanning_cell(..)`.
+  A track is either `TrackSize::fixed(px)` (exactly that many pixels) or
+  `TrackSize::fill(weight)` (a share of what is left), so a thin strip keeps its
+  size while the main view takes the rest. The gap between tracks is set with
+  `with_spacing` for both axes, or `with_column_spacing` / `with_row_spacing` for
+  one. A view can also ask for its own room
+  (`with_width` / `with_height`) and hide its axis furniture
+  (`with_show_x_axis` / `with_show_y_axis`).
+- **`Composition::marginal(main, Marginals::…)` — the marginal recipe, as one
+  call.** A grid whose strip tracks are `TrackSize::fixed`, whose cells align by
+  data rectangle (`Align::Each`), with the corners left empty — for any combination
+  of the four
+  edges (`with_top` / `with_bottom` / `with_left` / `with_right`, plus
+  `with_strip_size`). It decides the *layout* only: what each strip draws stays the
+  caller's decision, so a strip still hides its own shared axis and legend.
+  `examples/concat_marginal_scatter.rs` is now nine lines of layout instead of
+  fifteen, and `Marginals::new()` with no strips is a plain one-cell page.
+- **A nested composition aligns like a chart.** `View` is no longer an enum with a
+  "compositions cannot do this" arm in six places; it is one handle over a closed
+  two-impl trait — a finished chart or another page — so every cell is asked the
+  same questions: *where does your data land, what legend could you hand over, what
+  scale did you resolve, draw yourself*. A nested page answers from its **master
+  cell** (the largest), so `Align::Each` now crosses a nesting boundary: the
+  parent intersects and pins the inner page's master panel, the inner page re-solves
+  around it, and a scale resolved inside can be handed back out.
+  `examples/concat_marginal_nested.rs` is Vega-Lite's own shape for the marginal
+  figure — `vconcat[bar, hconcat[rect, bar]]` — which could not be aligned before.
+- **`hconcat` / `vconcat` take a tuple as well as a list**, so a row may mix charts
+  and pages: `Composition::vconcat((strip, inner_page))` (the `IntoViews` trait).
+- **`Align` lines views up by their data rectangle, not their canvas.**
+  `Align::None` (the default) places every cell by its canvas; `Align::Each` gives
+  each track one common data rectangle and `Align::All` gives the whole page one.
+  The three values are Vega-Lite's `bounds` + `align` collapsed into the pairs they
+  always come in — "flush bounds with no alignment" *is* `None`, so there is no
+  fourth state that silently does nothing. The cells that share a rectangle share
+  the scale in it (`with_resolve(Resolve::Shared)`, the default; `Independent` opts
+  out). That is what turns three ordinary charts into a scatter with marginal
+  histograms — no new mark, no new statistic.
+  `docs/src/layout/composition.md` documents the model, the track arithmetic and
+  the boundaries against faceting; `examples/concat_marginal_scatter.rs` and
+  `examples/concat_marginal_histograms.rs` draw the two reference figures (R's
+  `ggExtra::ggMarginal`, Vega-Lite's marginal histograms) on iris.
+- **Five runnable examples, one per usage**, each included and explained in the
+  book chapter: the marginal recipe as one call (`concat_marginal_scatter`), the same
+  layout as a plain grid (`concat_marginal_histograms`), the same figure nested
+  (`concat_marginal_nested`), the general dashboard with a spanning header
+  (`composition_dashboard`), two panels sharing one axis
+  (`composition_linked_panels`), and `Align::All` giving four different charts one
+  panel size (`composition_same_panels`).
+- **`with_legend_position(edge)` draws a cell's legend on a page edge.** A legend
+  belongs to the view that declares it, so by default it is drawn inside that
+  view's band — between two data rectangles when the view sits in the middle.
+  Hoisting reserves a page band instead, lines the legend up with the panel it
+  explains, and lets the cell grow into the room the legend gave up.
+  `with_legend_from(row, col)` names the cell it comes from, instead of leaving the
+  choice to the "largest cell that has a legend" rule; a nested page can hand its
+  legend up the same way.
+- `with_scale_factor(f)` on a composition, so a page exports raster output at the
+  same pixel density as a single chart instead of always at 1×.
+- **`with_show_legend(bool)` on a view**, next to `with_show_x_axis` /
+  `with_show_y_axis`: the third "view chrome" switch, and the one a marginal strip
+  needs. Same setting as `configure_theme(|t| t.with_show_legend(false))`, spelled
+  as the switch it is.
+- **A page's legend position is the page theme's legend position.** A page used to
+  carry its own copy, so `configure_theme(|t| t.with_legend_position(Left))` was a
+  silent no-op while `with_legend_position(Left)` worked. They are now one field:
+  either spelling hoists the legend, and `LegendPosition::None` (the page default)
+  means every cell keeps its own.
+- **A single-layer chart can be a cell directly.** `View` is `From<Chart<T>>` as well
+  as `From<LayeredChart>`, so `with_cell(0, 0, chart!(..)?.mark_point()?.encode(..)?)`
+  needs no `.into()`.
+- `Role::View`, the semantic scope around one composition cell.
+- `Theme` margins now also apply to a composition's page, so a page of charts and
+  a single chart share the same outer spacing.
+
+### Fixed
+
+- **A chart with no legend no longer reserves a legend strip.** The layout built
+  the strip from `theme.legend_margin` whenever `show_legend` was on, even when
+  there was no guide to draw in it, leaving a dead band the width of that margin
+  on the edge the legend would have used (15px by default). Legend-less charts get
+  that space back — most visible on a 60px marginal strip, which uses 25% more of
+  its cell.
+
+### Changed
+
+- The raster export plan and the pixel-buffer pipeline moved into the raster
+  backend (`RasterPlan`, `render_document`), so a composition and a single chart
+  cannot disagree about supersampling or background fill.
+
 ## [0.9.1] - 2026-11-13
 
 ### Changed

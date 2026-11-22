@@ -229,12 +229,19 @@ The result is that margins behave uniformly across single and faceted charts:
 `with_left_margin(0.0)` really does push a faceted grid to the canvas edge,
 exactly as it does for a single panel.
 
-## A Note on Concatenation
+## Concatenation
 
 This chapter covers the facet grid, where panels share one layout and one set of
-axis tracks. *Concatenation* -- placing whole, independent charts side by side
-without a shared grid -- is a separate, higher-level composition and is not part
-of the layout engine yet. Nothing here should be read as describing it.
+axis tracks. *Composition* -- placing whole, independent views on one page -- is a
+separate, higher-level feature with its own grid, sizing and alignment rules; it
+is described in [Composition: Several Views on One Page](composition.md). Nothing
+here should be read as describing it.
+
+The two meet at one boundary: a faceted chart may be a *cell* of a composition
+(it is drawn as one block and aligned as a whole), but the panels **inside** it
+never take part in composition alignment, and a composition can never be a
+facet's panel. Use a facet when the panels are the same picture over subsets of
+the rows, and a composition when they are different pictures.
 
 ## Summary
 

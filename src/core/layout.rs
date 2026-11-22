@@ -414,7 +414,23 @@ impl LayoutEngine {
     ) -> LayoutPlan {
         let reservations = Reservations::of(bands);
         let panel = Self::panel_from(content, &reservations, min_panel);
+        Self::arrange_from_panel(panel, content, bands, title_frame)
+    }
 
+    /// Places every band around a panel that is already known.
+    ///
+    /// This is the second half of [`LayoutEngine::arrange`], split out because a
+    /// view can arrive with its panel already decided: a cell of a composition
+    /// pins its panel so that neighbouring cells share one data rectangle (the
+    /// `bounds: flush` idea in Vega-Lite). Pinning only skips the "panel is what
+    /// the bands leave over" step; the bands are still stacked outwards from the
+    /// panel, so they can never cover it.
+    pub(crate) fn arrange_from_panel(
+        panel: Rect,
+        content: Rect,
+        bands: &Bands,
+        title_frame: TitleFrame,
+    ) -> LayoutPlan {
         let mut title = None;
         let mut legend = None;
 

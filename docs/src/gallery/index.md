@@ -30,6 +30,10 @@ below it — and to the primitives it is built from.
 | [Box plot](box_plot.md#box-plot) | box & whiskers | `mark_boxplot` |
 | [Histogram](histogram.md) | | `mark_hist` |
 | [Scatter](point_charts.md) | | `mark_point` + shape/size/color |
+| [Scatter with marginal histograms](../layout/composition.md#recipe-a-scatter-with-marginal-histograms) | `ggExtra::ggMarginal`, Vega-Lite marginal histograms | `Composition::marginal` + `mark_point` + `mark_hist` |
+| [Dashboard of several charts](../layout/composition.md#recipe-a-dashboard) | a page of subplots | `Composition::grid` + `with_spanning_cell` |
+| [Linked panels](../layout/composition.md#recipe-linked-panels) | `plt.subplots(sharex=True)` | `Composition::vconcat` + `Align::Each` |
+| [Four panels, one panel size](../layout/composition.md#recipe-four-panels-one-panel-size) | MATLAB `tiledlayout` | `Composition::grid` + `Align::All` |
 | [Beeswarm](point_charts.md#beeswarm) | swarm | `mark_point` + layout |
 | [Quasirandom](point_charts.md#quasirandom) | dot plot | `mark_point` + layout |
 | [Strip plot](tick_chart.md#strip-plot) | rug | `mark_tick` |

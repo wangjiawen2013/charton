@@ -53,22 +53,46 @@ fn reversed_domain(domain: ScaleDomain) -> Result<ScaleDomain, ChartonError> {
     }
 }
 
-struct ResolvedScene {
-    coord: Arc<dyn CoordinateTrait>,
-    panel: Rect,
+/// Where a view's parts land inside its own canvas.
+///
+/// The top of the chain: [`LayeredChart::resolve_scene`] produces it, and
+/// [`crate::composition`](crate::composition) reads it through the `View`
+/// abstraction instead of knowing what a chart is. Every field is part of that
+/// contract — a page is placed by `panel`, keeps clear of `title_rect`, and may
+/// draw `guides` itself.
+pub(crate) struct ResolvedScene {
+    pub(crate) coord: Arc<dyn CoordinateTrait>,
+    pub(crate) panel: Rect,
     /// The band the title is drawn in, when the chart has a title.
-    title_rect: Option<Rect>,
+    pub(crate) title_rect: Option<Rect>,
     /// The band the legend is drawn in, when the chart has a legend.
-    legend_rect: Option<Rect>,
-    aesthetics: GlobalAesthetics,
-    guides: Vec<GuideSpec>,
-    legend_plan: crate::core::layout::LegendLayoutPlan,
+    pub(crate) legend_rect: Option<Rect>,
+    pub(crate) aesthetics: GlobalAesthetics,
+    pub(crate) guides: Vec<GuideSpec>,
+    pub(crate) legend_plan: crate::core::layout::LegendLayoutPlan,
     /// Axis space measured for the panel.
     ///
     /// For a single chart this has already been taken out of `panel`, so it is
     /// only informational. For a faceted chart it has *not*: the facet grid owns
     /// the axes and receives these extents as per-column/row tracks.
-    axis_constraints: crate::core::layout::AxisLayoutConstraints,
+    pub(crate) axis_constraints: crate::core::layout::AxisLayoutConstraints,
+}
+
+/// Everything needed to draw one of a view's legends somewhere else.
+///
+/// A composition may pull a cell's legend out to the edge of the page, so that it
+/// does not sit between two data rectangles. The composition never re-derives
+/// what the legend says: it receives the resolved guides, the aesthetics they
+/// read, the coordinate system (for the legend's own symbols) and the panel the
+/// legend should line up with.
+pub(crate) struct LegendMaterial {
+    pub(crate) guides: Vec<GuideSpec>,
+    pub(crate) aesthetics: GlobalAesthetics,
+    pub(crate) coord: Arc<dyn CoordinateTrait>,
+    /// The data rectangle the legend accompanies, in the view's own canvas.
+    pub(crate) panel: Rect,
+    /// The stylesheet the legend was measured with (typography, palette).
+    pub(crate) theme: Theme,
 }
 
 /// `LayeredChart` is the central orchestrator of the visualization.
@@ -160,6 +184,29 @@ pub struct LayeredChart {
     /// Whether to swap the X and Y axes (common for horizontal bar charts).
     pub(crate) flipped: bool,
 
+    // --- View-Level Overrides (how this view participates in a composition) ---
+    //
+    // These describe the *view*, not the data: which axis furniture it draws and
+    // how much room it wants when it is placed next to other views. They live
+    // here (and not on a `Mark`) because a mark shapes data while these shape a
+    // page.
+    /// `Some(false)` suppresses the x axis (spine, ticks, labels, title) and
+    /// stops reserving room for it. `None` keeps the theme's behaviour.
+    pub(crate) show_x_axis: Option<bool>,
+    /// `Some(false)` suppresses the y axis, mirroring [`Self::show_x_axis`].
+    pub(crate) show_y_axis: Option<bool>,
+    /// Requested width when this view is a cell of a composition.
+    pub(crate) width_spec: Option<crate::composition::TrackSize>,
+    /// Requested height when this view is a cell of a composition.
+    pub(crate) height_spec: Option<crate::composition::TrackSize>,
+    /// A panel rectangle pinned by a composition (`bounds: flush`).
+    ///
+    /// When set, the layout stops solving "the panel is what the bands leave
+    /// over" and stacks the bands around this rectangle instead, so neighbouring
+    /// views can share one data rectangle even though their axis furniture
+    /// differs.
+    pub(crate) panel_override: Option<Rect>,
+
     // --- Polar Context Overrides ---
     // These override the defaults in `theme.polar_xxx` for specific chart needs.
     pub(crate) polar_start_angle: Option<f64>,
@@ -174,21 +221,6 @@ pub struct LayeredChart {
     pub(crate) scale_factor: f32,
 
     pub(crate) facet: Option<FacetSpec>,
-}
-
-/// Resolved geometry for a raster export, shared by every bitmap exporter so
-/// the CPU and GPU paths cannot drift apart. See [`LayeredChart::raster_plan`].
-#[cfg(feature = "png")]
-struct RasterPlan {
-    /// Internal supersampling factor (1 or 2). The caller downsamples the
-    /// rendered buffer by this factor to reach the final output size.
-    supersample: u32,
-    /// Internal render buffer width in pixels (`logical * render_scale`).
-    render_width: u32,
-    /// Internal render buffer height in pixels.
-    render_height: u32,
-    /// Density the backend must draw at (`scale_factor * supersample`).
-    render_scale: f32,
 }
 
 impl Default for LayeredChart {
@@ -245,6 +277,12 @@ impl LayeredChart {
             legend_format: None,
 
             flipped: false,
+
+            show_x_axis: None,
+            show_y_axis: None,
+            width_spec: None,
+            height_spec: None,
+            panel_override: None,
 
             polar_start_angle: None,
             polar_end_angle: None,
@@ -709,7 +747,13 @@ impl LayeredChart {
     /// 4. **Layout Measurement**: Calculates the physical pixel Rect for the plot panel.
     ///
     /// The output is the "Final Blueprint" required to begin the actual drawing phase.
-    fn resolve_scene(&self) -> Result<ResolvedScene, ChartonError> {
+    /// Resolves this view's scene: where its parts land, and what they say.
+    ///
+    /// The one place a chart decides its own geometry, shared by the renderer and
+    /// by the composition layer (which reads it through
+    /// [`ViewMetrics`](crate::composition::view::ViewMetrics)). Measuring and
+    /// drawing therefore cannot disagree.
+    pub(crate) fn resolve_scene(&self) -> Result<ResolvedScene, ChartonError> {
         // --- STEP 1: RESOLVE GLOBAL AESTHETIC MAPPINGS ---
         // We resolve non-positional encodings (Color, Shape, Size) across all layers.
 
@@ -850,7 +894,14 @@ impl LayeredChart {
         let border_plot_h = h - top_margin - bottom_margin;
 
         let direction = crate::core::flow::Direction::for_legend(self.theme.legend_position);
-        let wants_axes = self.theme.show_axes && self.layers.iter().any(|l| l.requires_axes());
+        // Who draws an axis, and therefore who reserves room for it? A view can
+        // switch one side off, and a hidden side reserves nothing -- that is what
+        // lets a marginal strip use its whole cell as the data rectangle.
+        let wants_x_axis = self.show_x_axis.unwrap_or(true);
+        let wants_y_axis = self.show_y_axis.unwrap_or(true);
+        let wants_axes = self.theme.show_axes
+            && self.layers.iter().any(|l| l.requires_axes())
+            && (wants_x_axis || wants_y_axis);
         // Who owns the axis space?
         //
         // A single chart owns it on the outer border: the panel is shrunk from
@@ -876,19 +927,33 @@ impl LayeredChart {
             // The panel as it stands with the bands measured so far. The axes
             // and the legend are measured against this rectangle, because
             // reserving space for them is exactly what the measuring is about.
-            let panel_guess = crate::core::layout::LayoutEngine::panel_from(
-                content,
-                &reservations,
-                self.theme.min_panel_size,
-            );
+            //
+            // A composition may have pinned the panel already (`bounds: flush`):
+            // the cell then keeps the data rectangle its neighbours share and
+            // only the bands around it are solved. The measurement below uses
+            // that same rectangle, so tick density matches the drawn panel.
+            let panel_guess = match self.panel_override {
+                Some(rect) => rect,
+                None => crate::core::layout::LayoutEngine::panel_from(
+                    content,
+                    &reservations,
+                    self.theme.min_panel_size,
+                ),
+            };
 
             let new_axis_box = if wants_axes {
-                crate::core::layout::LayoutEngine::calculate_axis_constraints(
+                let measured = crate::core::layout::LayoutEngine::calculate_axis_constraints(
                     &PanelContext::new(&chart_spec, final_coord.clone(), panel_guess),
                     &self.theme,
                     self.x_ticks.as_deref(),
                     self.y_ticks.as_deref(),
-                )
+                );
+                // A hidden axis reserves no depth. This is the only place that
+                // decides it, so the reserved band and the drawn axis agree.
+                crate::core::layout::AxisLayoutConstraints {
+                    bottom: if wants_x_axis { measured.bottom } else { 0.0 },
+                    left: if wants_y_axis { measured.left } else { 0.0 },
+                }
             } else {
                 crate::core::layout::AxisLayoutConstraints::default()
             };
@@ -911,10 +976,14 @@ impl LayeredChart {
                 crate::core::layout::LegendLayoutPlan::empty(self.theme.legend_position)
             };
 
+            // A chart that drew no guide has no legend strip: reserving its gap
+            // anyway would leave a dead band the width of `legend_margin` on the
+            // edge the legend would have used.
+            let has_legend = self.theme.show_legend && !new_plan.blocks.is_empty();
             let new_bands = crate::core::layout::LayoutEngine::build_bands(
                 &self.theme,
                 self.title.is_some(),
-                self.theme.show_legend,
+                has_legend,
                 self.theme.legend_position,
                 crate::core::layout::LayoutEngine::legend_thickness(&new_plan, w, h, &self.theme),
                 &new_axis_box,
@@ -939,12 +1008,24 @@ impl LayeredChart {
         // chart the axes are not bands at all: the panel spans the whole grid
         // and the facet layout carves the axis tracks out of it, so the measured
         // extents are forwarded as `FacetMetrics` instead.
-        let layout = crate::core::layout::LayoutEngine::arrange(
-            content,
-            &bands,
-            self.theme.title_frame,
-            self.theme.min_panel_size,
-        );
+        //
+        // A pinned panel skips the first half of that (the panel is given) and
+        // keeps the second (the bands stack outwards from it), so a cell can land
+        // on a shared data rectangle without giving up its own axis furniture.
+        let layout = match self.panel_override {
+            Some(panel) => crate::core::layout::LayoutEngine::arrange_from_panel(
+                panel,
+                content,
+                &bands,
+                self.theme.title_frame,
+            ),
+            None => crate::core::layout::LayoutEngine::arrange(
+                content,
+                &bands,
+                self.theme.title_frame,
+                self.theme.min_panel_size,
+            ),
+        };
 
         Ok(ResolvedScene {
             coord: final_coord,
@@ -956,6 +1037,29 @@ impl LayeredChart {
             legend_plan,
             axis_constraints: axis_box,
         })
+    }
+
+    /// This view prepared to be drawn inside a `width` × `height` cell.
+    ///
+    /// Two things change, and they are the only two a cell is allowed to impose:
+    ///
+    /// * **its size is the cell's.** A chart is normally protected by a minimum
+    ///   panel size, so that a cramped canvas still leaves readable axes. Inside a
+    ///   cell that floor is wrong: a 60px strip asked for 60px and must get 60px,
+    ///   not the 100px minimum a standalone chart enforces.
+    /// * **it keeps its own legend** unless the page draws it instead
+    ///   (`show_legend`), which is how a hoisted legend avoids being drawn twice.
+    ///
+    /// Everything else — scales, theme, marks — is untouched.
+    pub(crate) fn for_cell(&self, width: u32, height: u32, show_legend: bool) -> Self {
+        let mut sized = self.clone();
+        sized.width = width.max(1);
+        sized.height = height.max(1);
+        sized.theme = sized
+            .theme
+            .with_min_panel_size(1.0)
+            .with_show_legend(show_legend && self.theme.show_legend);
+        sized
     }
 
     /// Draws the chart title in the strip of space the layout set aside for it.
@@ -1081,7 +1185,11 @@ impl LayeredChart {
             .unwrap_or(FacetStrategy::Fixed);
         let free_x = matches!(strategy, FacetStrategy::Free | FacetStrategy::FreeX);
         let free_y = matches!(strategy, FacetStrategy::Free | FacetStrategy::FreeY);
-        let wants_axes = self.theme.show_axes && self.layers.iter().any(|l| l.requires_axes());
+        let wants_x_axis = self.show_x_axis.unwrap_or(true);
+        let wants_y_axis = self.show_y_axis.unwrap_or(true);
+        let wants_axes = self.theme.show_axes
+            && self.layers.iter().any(|l| l.requires_axes())
+            && (wants_x_axis || wants_y_axis);
 
         // Provisional layout with one shared axis size.
         let uniform_metrics = FacetMetrics {
@@ -1119,11 +1227,11 @@ impl LayeredChart {
                         self.x_ticks.as_deref(),
                         self.y_ticks.as_deref(),
                     );
-                    if p.info.show_y_axis {
+                    if p.info.show_y_axis && wants_y_axis {
                         per_column_left[p.info.col] =
                             per_column_left[p.info.col].max(measured.left);
                     }
-                    if p.info.show_x_axis {
+                    if p.info.show_x_axis && wants_x_axis {
                         per_row_bottom[p.info.row] =
                             per_row_bottom[p.info.row].max(measured.bottom);
                     }
@@ -1385,8 +1493,11 @@ impl LayeredChart {
                 self.x_ticks.as_deref(),
                 self.y_ticks.as_deref(),
                 crate::coordinate::AxisVisibility {
-                    show_x: panel.info.show_x_axis,
-                    show_y: panel.info.show_y_axis,
+                    // Two independent reasons to hide an axis meet here: the
+                    // facet strategy (one axis per column/row of a grid) and the
+                    // view's own switch (a marginal strip). Either one hides it.
+                    show_x: panel.info.show_x_axis && self.show_x_axis.unwrap_or(true),
+                    show_y: panel.info.show_y_axis && self.show_y_axis.unwrap_or(true),
                 },
             )?;
         }
@@ -1536,40 +1647,11 @@ impl LayeredChart {
 
     /// Resolves the raster export plan shared by all bitmap exporters.
     ///
-    /// The supersampling factor is fixed at 2x, or 1 when the requested density
-    /// is already >= 2x or the intermediate buffer would be too big. The final
-    /// output is `render_* / supersample` (integer division), which is exactly
-    /// `with_size` times `scale_factor` for the common cases and within one
-    /// pixel otherwise.
+    /// The rule itself lives in the raster backend, so a composition and a
+    /// single chart cannot disagree about it.
     #[cfg(feature = "png")]
-    fn raster_plan(&self) -> RasterPlan {
-        const SUPERSAMPLE: u32 = 2;
-        const SUPERSAMPLE_MAX_PIXELS: u64 = 16_000_000;
-
-        // Decide the factor from the *would-be* 2x buffer size, then derive the
-        // render size from the chosen density. Deriving it from the density
-        // (rather than from the output size times the factor) keeps the buffer
-        // exactly equal to `logical * render_scale`, which is what the WGPU
-        // backend computes for its scissor rect and NDC mapping.
-        let full_scale = self.scale_factor * SUPERSAMPLE as f32;
-        let full_pixels = (self.width as f32 * full_scale).round().max(1.0) as u64
-            * (self.height as f32 * full_scale).round().max(1.0) as u64;
-
-        let supersample = if self.scale_factor < 2.0 && full_pixels <= SUPERSAMPLE_MAX_PIXELS {
-            SUPERSAMPLE
-        } else {
-            1
-        };
-
-        let render_scale = self.scale_factor * supersample as f32;
-        let render_width = (self.width as f32 * render_scale).round().max(1.0) as u32;
-        let render_height = (self.height as f32 * render_scale).round().max(1.0) as u32;
-        RasterPlan {
-            supersample,
-            render_width,
-            render_height,
-            render_scale,
-        }
+    fn raster_plan(&self) -> crate::render::backend::raster::RasterPlan {
+        crate::render::backend::raster::RasterPlan::new(self.width, self.height, self.scale_factor)
     }
 
     /// Renders the chart into the off-screen pixel buffer at the configured
@@ -1581,49 +1663,16 @@ impl LayeredChart {
     /// encode/decode round trip. The buffer is exactly what `to_png` encodes.
     #[cfg(feature = "png")]
     pub(crate) fn render_pixmap(&self) -> Result<tiny_skia::Pixmap, ChartonError> {
-        // 1. Create a mutable clone for the stateful rendering phase.
-        // This ensures the training phase doesn't mutate the original chart instance.
+        // The chart is cloned so the stateful training phase (scale and
+        // aesthetic synchronisation) leaves the original recipe untouched.
         let mut chart_instance = self.clone();
-
-        // 2. Resolve the shared raster plan: supersampling factor, internal
-        //    render size and density.
         let plan = self.raster_plan();
 
-        // 3. Allocate the internal (supersampled) pixel buffer.
-        let mut pixmap =
-            tiny_skia::Pixmap::new(plan.render_width, plan.render_height).ok_or_else(|| {
-                ChartonError::Render(
-                    "Invalid chart dimensions or out of memory for Pixmap".to_string(),
-                )
-            })?;
-
-        // Fill the whole buffer directly so no transparent sliver can survive a
-        // non-integer scale factor's sub-pixel rounding at the edges.
-        let [br, bg, bb, ba] = self.theme.background_color.rgba();
-        if let Some(color) = tiny_skia::Color::from_rgba(br, bg, bb, ba) {
-            pixmap.fill(color);
-        }
-
-        // 4. Render the unified pipeline at the internal density. The backend
-        //    applies `render_scale` to every logical coordinate.
-        {
-            let mut backend =
-                crate::render::backend::raster::RasterBackend::new(&mut pixmap, plan.render_scale);
-            chart_instance.render(&mut backend)?;
-        }
-
-        // 5. Box-downsample back to the requested output size.
-        let pixmap = if plan.supersample > 1 {
-            crate::render::backend::raster::downsample_premultiplied(&pixmap, plan.supersample)
-                .ok_or_else(|| {
-                    ChartonError::Render("Failed to downsample supersampled buffer".to_string())
-                })?
-        } else {
-            pixmap
-        };
-
-        // 6. The buffer is complete; `to_png` encodes it.
-        Ok(pixmap)
+        crate::render::backend::raster::render_document(
+            &plan,
+            self.theme.background_color,
+            |backend| chart_instance.render(backend),
+        )
     }
 
     /// Generates and returns a PNG representation of the chart as a byte vector.

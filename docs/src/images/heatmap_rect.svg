@@ -1,11 +1,11 @@
 <svg width="500" height="400" viewBox="0 0 500 400" xmlns="http://www.w3.org/2000/svg" class="charton">
-<defs><clipPath id="charton-05334400-clip-0"><rect x="68.700" y="10.000" width="370.100" height="327.000" /></clipPath>
-<clipPath id="charton-05334400-clip-1"><rect x="438.800" y="0.000" width="61.200" height="400.000" /></clipPath>
-<linearGradient id="charton-05334400-grad-0" x1="0%" y1="0%" x2="0%" y2="100%" data-field="value"><stop offset="0.0%" stop-color="rgba(8,64,129,1.000)" /><stop offset="6.7%" stop-color="rgba(8,85,152,1.000)" /><stop offset="13.3%" stop-color="rgba(10,106,173,1.000)" /><stop offset="20.0%" stop-color="rgba(29,126,183,1.000)" /><stop offset="26.7%" stop-color="rgba(48,145,193,1.000)" /><stop offset="33.3%" stop-color="rgba(66,166,204,1.000)" /><stop offset="40.0%" stop-color="rgba(87,184,208,1.000)" /><stop offset="46.7%" stop-color="rgba(111,197,200,1.000)" /><stop offset="53.3%" stop-color="rgba(135,209,192,1.000)" /><stop offset="60.0%" stop-color="rgba(159,218,184,1.000)" /><stop offset="66.7%" stop-color="rgba(180,226,186,1.000)" /><stop offset="73.3%" stop-color="rgba(199,233,195,1.000)" /><stop offset="80.0%" stop-color="rgba(212,238,206,1.000)" /><stop offset="86.7%" stop-color="rgba(223,242,218,1.000)" /><stop offset="93.3%" stop-color="rgba(235,247,229,1.000)" /><stop offset="100.0%" stop-color="rgba(247,252,240,1.000)" /></linearGradient></defs>
+<defs><clipPath id="charton-29d95442-clip-0"><rect x="68.700" y="10.000" width="370.100" height="327.000" /></clipPath>
+<clipPath id="charton-29d95442-clip-1"><rect x="438.800" y="0.000" width="61.200" height="400.000" /></clipPath>
+<linearGradient id="charton-29d95442-grad-0" x1="0%" y1="0%" x2="0%" y2="100%" data-field="value"><stop offset="0.0%" stop-color="rgba(8,64,129,1.000)" /><stop offset="6.7%" stop-color="rgba(8,85,152,1.000)" /><stop offset="13.3%" stop-color="rgba(10,106,173,1.000)" /><stop offset="20.0%" stop-color="rgba(29,126,183,1.000)" /><stop offset="26.7%" stop-color="rgba(48,145,193,1.000)" /><stop offset="33.3%" stop-color="rgba(66,166,204,1.000)" /><stop offset="40.0%" stop-color="rgba(87,184,208,1.000)" /><stop offset="46.7%" stop-color="rgba(111,197,200,1.000)" /><stop offset="53.3%" stop-color="rgba(135,209,192,1.000)" /><stop offset="60.0%" stop-color="rgba(159,218,184,1.000)" /><stop offset="66.7%" stop-color="rgba(180,226,186,1.000)" /><stop offset="73.3%" stop-color="rgba(199,233,195,1.000)" /><stop offset="80.0%" stop-color="rgba(212,238,206,1.000)" /><stop offset="86.7%" stop-color="rgba(223,242,218,1.000)" /><stop offset="93.3%" stop-color="rgba(235,247,229,1.000)" /><stop offset="100.0%" stop-color="rgba(247,252,240,1.000)" /></linearGradient></defs>
 <g class="charton-background">
 <rect x="0.000" y="0.000" width="500.000" height="400.000" fill="rgba(255,255,255,1.000)" stroke="none" stroke-width="0.000" fill-opacity="1.000" stroke-opacity="1.000" />
 </g>
-<g class="charton-plot" clip-path="url(#charton-05334400-clip-0)">
+<g class="charton-plot" clip-path="url(#charton-29d95442-clip-0)">
 <g class="charton-mark charton-mark-0 charton-mark-rect" data-layer="0" data-mark="rect">
 <rect x="68.200" y="271.100" width="75.020" height="66.400" fill="rgba(234,247,228,1.000)" stroke="none" stroke-width="0.000" fill-opacity="1.000" stroke-opacity="1.000" />
 <rect x="68.200" y="205.700" width="75.020" height="66.400" fill="rgba(247,252,240,1.000)" stroke="none" stroke-width="0.000" fill-opacity="1.000" stroke-opacity="1.000" />
@@ -68,13 +68,12 @@
 <text x="24.000" y="173.500" font-size="15.0" font-family="Inter, -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, 'PingFang SC', 'Microsoft YaHei', Ubuntu, Cantarell, 'Noto Sans', sans-serif" fill="rgba(51,51,51,1.000)" fill-opacity="1.000" text-anchor="middle" font-weight="bold" font-style="normal" dominant-baseline="middle" transform="rotate(-90 24.000 173.500)">y</text>
 </g>
 </g>
-<g class="charton-legend" data-series="value" clip-path="url(#charton-05334400-clip-1)">
+<g class="charton-legend" data-series="value" clip-path="url(#charton-29d95442-clip-1)">
 <g class="charton-legend-title">
 <text x="453.800" y="16.000" font-size="13.2" font-family="Inter, -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, 'PingFang SC', 'Microsoft YaHei', Ubuntu, Cantarell, 'Noto Sans', sans-serif" fill="rgba(51,51,51,1.000)" fill-opacity="1.000" text-anchor="start" font-weight="bold" font-style="normal" dominant-baseline="central" transform="rotate(0 453.800 16.000)">value</text>
 </g>
 <g class="charton-colorbar">
-<rect x="453.800" y="30.200" width="15.000" height="200.000" fill="url(#charton-05334400-grad-0)" />
-<rect x="453.800" y="30.200" width="15.000" height="200.000" fill="none" stroke="rgba(51,51,51,1.000)" stroke-width="1.000" fill-opacity="1.000" stroke-opacity="1.000" />
+<rect x="453.800" y="30.200" width="15.000" height="200.000" fill="url(#charton-29d95442-grad-0)" />
 <line x1="453.800" y1="223.303" x2="456.800" y2="223.303" stroke="rgba(255,255,255,1.000)" stroke-width="1.000" stroke-opacity="1.000" />
 <line x1="465.800" y1="223.303" x2="468.800" y2="223.303" stroke="rgba(255,255,255,1.000)" stroke-width="1.000" stroke-opacity="1.000" />
 <text x="476.800" y="223.303" font-size="12.0" font-family="Inter, -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, 'PingFang SC', 'Microsoft YaHei', Ubuntu, Cantarell, 'Noto Sans', sans-serif" fill="rgba(51,51,51,1.000)" fill-opacity="1.000" text-anchor="start" font-weight="normal" font-style="normal" dominant-baseline="central" transform="rotate(0 476.800 223.303)">5</text>
@@ -93,6 +92,7 @@
 <line x1="453.800" y1="50.890" x2="456.800" y2="50.890" stroke="rgba(255,255,255,1.000)" stroke-width="1.000" stroke-opacity="1.000" />
 <line x1="465.800" y1="50.890" x2="468.800" y2="50.890" stroke="rgba(255,255,255,1.000)" stroke-width="1.000" stroke-opacity="1.000" />
 <text x="476.800" y="50.890" font-size="12.0" font-family="Inter, -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, 'PingFang SC', 'Microsoft YaHei', Ubuntu, Cantarell, 'Noto Sans', sans-serif" fill="rgba(51,51,51,1.000)" fill-opacity="1.000" text-anchor="start" font-weight="normal" font-style="normal" dominant-baseline="central" transform="rotate(0 476.800 50.890)">30</text>
+<rect x="453.800" y="30.200" width="15.000" height="200.000" fill="none" stroke="rgba(51,51,51,1.000)" stroke-width="1.000" fill-opacity="1.000" stroke-opacity="1.000" />
 </g>
 </g>
 </svg>
