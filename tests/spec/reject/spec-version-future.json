@@ -1,0 +1,6 @@
+{
+  "$schema": "https://charton.dev/schema/charton-v1.schema.json",
+  "data": { "url": "sales.csv" },
+  "mark": "line",
+  "encoding": { "x": { "field": "month" }, "y": { "field": "revenue" } }
+}

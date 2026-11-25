@@ -1,0 +1,9 @@
+{
+  "data": { "url": "sales.csv" },
+  "mark": "bar",
+  "encoding": {
+    "x": { "field": "month" },
+    "y": { "field": "revenue", "aggregate": "sum" },
+    "color": { "field": "region" }
+  }
+}

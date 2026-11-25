@@ -1,0 +1,1109 @@
+{
+  "$defs": {
+    "AggregateEntry": {
+      "additionalProperties": false,
+      "description": "`{\"aggregate\": [...], \"groupby\": [...]}`",
+      "properties": {
+        "aggregate": {
+          "description": "The measures to compute.",
+          "items": {
+            "$ref": "#/$defs/AggregateFieldSpec"
+          },
+          "type": "array"
+        },
+        "groupby": {
+          "description": "Columns that define a group. Empty means \"one group for the whole table\".",
+          "items": {
+            "type": "string"
+          },
+          "type": "array"
+        }
+      },
+      "required": [
+        "aggregate"
+      ],
+      "type": "object"
+    },
+    "AggregateFieldSpec": {
+      "additionalProperties": false,
+      "description": "One measure inside an `aggregate` entry.",
+      "properties": {
+        "as": {
+          "description": "Output column name.",
+          "type": "string"
+        },
+        "field": {
+          "description": "The column to read. Omitted only for `count`.",
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "op": {
+          "$ref": "#/$defs/AggregateSpec",
+          "description": "The operation."
+        }
+      },
+      "required": [
+        "op",
+        "as"
+      ],
+      "type": "object"
+    },
+    "AggregateSpec": {
+      "description": "Aggregate operators this subset implements.\n\nVega-Lite's `average` is accepted as an alias of `mean` because both are\ncommon in existing documents; the rest of Vega-Lite's operators are rejected\nas unsupported rather than guessed at.",
+      "oneOf": [
+        {
+          "const": "count",
+          "description": "Number of rows in the group.",
+          "type": "string"
+        },
+        {
+          "const": "mean",
+          "description": "Arithmetic mean.",
+          "type": "string"
+        },
+        {
+          "const": "average",
+          "description": "Alias of [`AggregateSpec::Mean`], as used by Vega-Lite.",
+          "type": "string"
+        },
+        {
+          "const": "sum",
+          "description": "Sum over the group.",
+          "type": "string"
+        },
+        {
+          "const": "median",
+          "description": "Middle value.",
+          "type": "string"
+        },
+        {
+          "const": "min",
+          "description": "Smallest value.",
+          "type": "string"
+        },
+        {
+          "const": "max",
+          "description": "Largest value.",
+          "type": "string"
+        }
+      ]
+    },
+    "BinEntry": {
+      "additionalProperties": false,
+      "description": "`{\"bin\": true, \"field\": \"x\", \"as\": [\"bin_x\", \"bin_x_end\"]}`",
+      "properties": {
+        "as": {
+          "description": "Names for the two output columns. Default to `bin_<field>` and\n`bin_<field>_end`.",
+          "items": {
+            "type": "string"
+          },
+          "maxItems": 2,
+          "minItems": 2,
+          "type": [
+            "array",
+            "null"
+          ]
+        },
+        "bin": {
+          "$ref": "#/$defs/BinSpec",
+          "description": "Bin resolution: `true` for the default, or `{\"maxbins\": n}`."
+        },
+        "field": {
+          "description": "The column to bin.",
+          "type": "string"
+        }
+      },
+      "required": [
+        "bin",
+        "field"
+      ],
+      "type": "object"
+    },
+    "BinParams": {
+      "additionalProperties": false,
+      "description": "Bin resolution.",
+      "properties": {
+        "maxbins": {
+          "description": "Upper bound on the number of bins.",
+          "format": "uint",
+          "minimum": 0,
+          "type": [
+            "integer",
+            "null"
+          ]
+        },
+        "step": {
+          "description": "Fixed bin width.",
+          "format": "double",
+          "type": [
+            "number",
+            "null"
+          ]
+        }
+      },
+      "type": "object"
+    },
+    "BinSpec": {
+      "anyOf": [
+        {
+          "description": "Bin with the default resolution.",
+          "type": "boolean"
+        },
+        {
+          "$ref": "#/$defs/BinParams",
+          "description": "Bin with explicit parameters."
+        }
+      ],
+      "description": "`bin: true` or `bin: {\"maxbins\": 20}`."
+    },
+    "ChartonExt": {
+      "additionalProperties": false,
+      "description": "Charton-only capabilities, in their own namespace.\n\nA document with a `charton` key is deliberately **not** valid Vega-Lite, so\nno other tool will silently misread it.",
+      "properties": {
+        "mark": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/ExtensionMark"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "description": "A mark that Vega-Lite has no name for."
+        },
+        "z": {
+          "description": "The scalar field a mark needs but no encoding channel carries.\n\nOnly `contour` uses it: iso-lines need a height, and `x`/`y` are already\nthe two grid axes. Required for `contour`, refused everywhere else.",
+          "type": [
+            "string",
+            "null"
+          ]
+        }
+      },
+      "type": "object"
+    },
+    "Data": {
+      "additionalProperties": false,
+      "description": "A data reference.\n\nExactly one of `url` and `values` must be present. `url` is a *path*, not a\nweb address: arbitrary URLs are rejected, and a relative path resolves\nagainst the spec file's directory, not the process's working directory.",
+      "properties": {
+        "url": {
+          "description": "Path to a CSV or NDJSON file, relative to the spec file.",
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "values": {
+          "description": "Inline rows, size-limited. Flat scalar cells only — nesting is not a\nshape a chart can encode, and allowing it invites reading it as a\nprogram.",
+          "items": {
+            "additionalProperties": {
+              "$ref": "#/$defs/InlineValue"
+            },
+            "type": "object"
+          },
+          "type": [
+            "array",
+            "null"
+          ]
+        }
+      },
+      "type": "object"
+    },
+    "DataType": {
+      "description": "Vega-Lite's declared field types.",
+      "oneOf": [
+        {
+          "const": "quantitative",
+          "description": "Continuous numeric.",
+          "type": "string"
+        },
+        {
+          "const": "nominal",
+          "description": "Unordered categorical.",
+          "type": "string"
+        },
+        {
+          "const": "ordinal",
+          "description": "Ordered categorical.",
+          "type": "string"
+        },
+        {
+          "const": "temporal",
+          "description": "Point in time.",
+          "type": "string"
+        }
+      ]
+    },
+    "DomainSpec": {
+      "anyOf": [
+        {
+          "description": "`[min, max]`",
+          "items": {
+            "format": "double",
+            "type": "number"
+          },
+          "maxItems": 2,
+          "minItems": 2,
+          "type": "array"
+        },
+        {
+          "description": "A category list, in tick order.",
+          "items": {
+            "type": "string"
+          },
+          "type": "array"
+        }
+      ],
+      "description": "An explicit domain."
+    },
+    "Encoding": {
+      "additionalProperties": false,
+      "description": "The encoding block: which data field feeds which visual channel.",
+      "properties": {
+        "color": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/FieldDef"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "description": "Colour."
+        },
+        "pathGroup": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/FieldDef"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "description": "Which line a row belongs to, when one line renderer draws many.\n\nA Charton extension channel: Vega-Lite expresses the same thing through\n`detail`/`order`, which this subset does not implement."
+        },
+        "shape": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/FieldDef"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "description": "Symbol shape."
+        },
+        "size": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/FieldDef"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "description": "Symbol area."
+        },
+        "text": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/FieldDef"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "description": "Label content, for the `text` mark."
+        },
+        "x": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/FieldDef"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "description": "Horizontal position."
+        },
+        "y": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/FieldDef"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "description": "Vertical position."
+        },
+        "y2": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/FieldDef"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "description": "The far end of a vertical span (`area`, `rule`, `errorbar`)."
+        }
+      },
+      "type": "object"
+    },
+    "ExtensionMark": {
+      "description": "Marks that exist only in Charton.",
+      "oneOf": [
+        {
+          "const": "polygon",
+          "description": "An arbitrary closed polygon from encoded vertices.",
+          "type": "string"
+        },
+        {
+          "const": "path",
+          "description": "An open path from encoded vertices.",
+          "type": "string"
+        },
+        {
+          "const": "violin",
+          "description": "A kernel density estimate plus its mirrored band.",
+          "type": "string"
+        },
+        {
+          "const": "density",
+          "description": "A one-dimensional kernel density estimate.",
+          "type": "string"
+        },
+        {
+          "const": "density_2d",
+          "description": "A two-dimensional density field.",
+          "type": "string"
+        },
+        {
+          "const": "contour",
+          "description": "Iso-lines of a two-dimensional density field.",
+          "type": "string"
+        },
+        {
+          "const": "beeswarm",
+          "description": "Points displaced to avoid overlap.",
+          "type": "string"
+        },
+        {
+          "const": "hist",
+          "description": "A histogram on a continuous position.",
+          "type": "string"
+        },
+        {
+          "const": "quantile_box",
+          "description": "The quantile box used by the composite `boxplot` mark, on its own.",
+          "type": "string"
+        }
+      ]
+    },
+    "FacetDef": {
+      "additionalProperties": false,
+      "description": "How a chart is split into panels.\n\nTwo layouts, both from Vega-Lite: `field` wraps into a grid, `row` + `column`\nmakes an explicit matrix. Anything else is refused rather than approximated.",
+      "properties": {
+        "column": {
+          "description": "Columns of the matrix.",
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "columns": {
+          "description": "Column count for the wrap layout.",
+          "format": "uint",
+          "minimum": 0,
+          "type": [
+            "integer",
+            "null"
+          ]
+        },
+        "field": {
+          "description": "Wrap panels by this field.",
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "row": {
+          "description": "Rows of the matrix.",
+          "type": [
+            "string",
+            "null"
+          ]
+        }
+      },
+      "type": "object"
+    },
+    "FieldDef": {
+      "additionalProperties": false,
+      "description": "One channel's field reference.",
+      "properties": {
+        "aggregate": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/AggregateSpec"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "description": "Summarise the field before encoding it."
+        },
+        "bin": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/BinSpec"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "description": "Bin the field before encoding it."
+        },
+        "field": {
+          "description": "Column name in the dataset.",
+          "type": "string"
+        },
+        "scale": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/ScaleDef"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "description": "Scale configuration for this channel."
+        },
+        "stack": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/StackSpec"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "description": "Stack this channel across the colour dimension."
+        },
+        "title": {
+          "description": "Axis or legend title, when it differs from the field name.",
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "type": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/DataType"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "description": "Optional declared type.\n\nNot required — Charton infers the type from the data, as Vega-Lite does.\nWhen written, it is enforced: a mismatch between the declaration and the\ndata is an `E_DATA_TYPE`. That way a spec can be pinned when it has to\nbe reproducible against data that may later change."
+        }
+      },
+      "required": [
+        "field"
+      ],
+      "type": "object"
+    },
+    "FilterEntry": {
+      "additionalProperties": false,
+      "description": "`{\"filter\": {...}}`",
+      "properties": {
+        "filter": {
+          "$ref": "#/$defs/FilterExpr",
+          "description": "The predicate."
+        }
+      },
+      "required": [
+        "filter"
+      ],
+      "type": "object"
+    },
+    "FilterExpr": {
+      "additionalProperties": false,
+      "description": "The predicate form of a `filter` transform.\n\nExactly one of `equal`, `range` and `oneOf` must be present. Kept as flat\noptional fields rather than a tagged enum so the JSON stays exactly as\nVega-Lite writes it.",
+      "properties": {
+        "equal": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/FilterValue"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "description": "Keep rows whose cell equals this value."
+        },
+        "field": {
+          "description": "Column to test.",
+          "type": "string"
+        },
+        "oneOf": {
+          "description": "Keep rows whose cell equals any of these values.",
+          "items": {
+            "$ref": "#/$defs/FilterValue"
+          },
+          "type": [
+            "array",
+            "null"
+          ]
+        },
+        "range": {
+          "description": "Keep rows whose cell falls inside `[min, max]`, inclusive.",
+          "items": {
+            "$ref": "#/$defs/FilterValue"
+          },
+          "maxItems": 2,
+          "minItems": 2,
+          "type": [
+            "array",
+            "null"
+          ]
+        }
+      },
+      "required": [
+        "field"
+      ],
+      "type": "object"
+    },
+    "FilterValue": {
+      "anyOf": [
+        {
+          "description": "A number.",
+          "format": "double",
+          "type": "number"
+        },
+        {
+          "description": "Text.",
+          "type": "string"
+        }
+      ],
+      "description": "A scalar a filter compares against: a number or a string."
+    },
+    "FoldEntry": {
+      "additionalProperties": false,
+      "description": "`{\"fold\": [\"a\", \"b\"], \"as\": [\"key\", \"value\"]}`",
+      "properties": {
+        "as": {
+          "description": "Names for the two output columns. Defaults to `[\"key\", \"value\"]`.",
+          "items": {
+            "type": "string"
+          },
+          "maxItems": 2,
+          "minItems": 2,
+          "type": [
+            "array",
+            "null"
+          ]
+        },
+        "fold": {
+          "description": "Columns to fold, in output order.",
+          "items": {
+            "type": "string"
+          },
+          "type": "array"
+        }
+      },
+      "required": [
+        "fold"
+      ],
+      "type": "object"
+    },
+    "InlineValue": {
+      "anyOf": [
+        {
+          "description": "JSON `null`, i.e. a missing value.",
+          "type": "null"
+        },
+        {
+          "description": "A boolean.",
+          "type": "boolean"
+        },
+        {
+          "description": "A number.",
+          "format": "double",
+          "type": "number"
+        },
+        {
+          "description": "A string, including ISO dates.",
+          "type": "string"
+        }
+      ],
+      "description": "A scalar cell of inline data."
+    },
+    "Mark": {
+      "anyOf": [
+        {
+          "$ref": "#/$defs/MarkType",
+          "description": "`\"mark\": \"line\"`"
+        },
+        {
+          "$ref": "#/$defs/MarkDef",
+          "description": "`\"mark\": {\"type\": \"line\", \"color\": \"#4c78a8\"}`"
+        }
+      ],
+      "description": "How a mark is written.\n\nBoth Vega-Lite spellings are accepted: the shorthand `\"mark\": \"line\"` and the\nobject form that can carry mark properties."
+    },
+    "MarkDef": {
+      "additionalProperties": false,
+      "description": "The object form of a mark.",
+      "properties": {
+        "color": {
+          "description": "Fixed fill/stroke colour, e.g. `\"#4c78a8\"` or `\"steelblue\"`.",
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "opacity": {
+          "description": "Fixed opacity in `0.0..=1.0`. A property here, not an encoding channel.",
+          "format": "double",
+          "type": [
+            "number",
+            "null"
+          ]
+        },
+        "size": {
+          "description": "Fixed mark size: radius for points, width for bars, stroke width for lines.",
+          "format": "double",
+          "type": [
+            "number",
+            "null"
+          ]
+        },
+        "type": {
+          "$ref": "#/$defs/MarkType",
+          "description": "Which mark to draw."
+        }
+      },
+      "required": [
+        "type"
+      ],
+      "type": "object"
+    },
+    "MarkType": {
+      "description": "Marks that share Vega-Lite's name and meaning.\n\nCharton-only marks are **not** listed here; they belong to\n[`ChartonExt::mark`], so a name can never be read two ways.",
+      "oneOf": [
+        {
+          "const": "point",
+          "description": "A scatter-plot symbol.",
+          "type": "string"
+        },
+        {
+          "const": "line",
+          "description": "A connected line through the rows in x order.",
+          "type": "string"
+        },
+        {
+          "const": "bar",
+          "description": "A bar from the baseline to the value.",
+          "type": "string"
+        },
+        {
+          "const": "area",
+          "description": "A filled area between the line and the baseline.",
+          "type": "string"
+        },
+        {
+          "const": "rect",
+          "description": "A rectangle covering a bin or a category cell.",
+          "type": "string"
+        },
+        {
+          "const": "rule",
+          "description": "A single line segment, horizontal or vertical.",
+          "type": "string"
+        },
+        {
+          "const": "text",
+          "description": "A text label at the encoded position.",
+          "type": "string"
+        },
+        {
+          "const": "tick",
+          "description": "A short tick at the encoded position.",
+          "type": "string"
+        },
+        {
+          "const": "boxplot",
+          "description": "A composite mark: quartile box plus whiskers.",
+          "type": "string"
+        },
+        {
+          "const": "errorbar",
+          "description": "A composite mark: a point estimate with its interval.",
+          "type": "string"
+        }
+      ]
+    },
+    "ScaleDef": {
+      "additionalProperties": false,
+      "description": "Scale configuration for one channel.",
+      "properties": {
+        "domain": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/DomainSpec"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "description": "Explicit domain, as two numbers or a list of categories."
+        },
+        "reverse": {
+          "description": "Flip the axis direction.",
+          "type": [
+            "boolean",
+            "null"
+          ]
+        },
+        "type": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/ScaleTypeSpec"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "description": "Which scale family to use."
+        },
+        "zero": {
+          "description": "Force the domain to include zero.",
+          "type": [
+            "boolean",
+            "null"
+          ]
+        }
+      },
+      "type": "object"
+    },
+    "ScaleTypeSpec": {
+      "description": "Scale types this subset implements.",
+      "oneOf": [
+        {
+          "const": "linear",
+          "description": "Continuous, linear.",
+          "type": "string"
+        },
+        {
+          "const": "log",
+          "description": "Continuous, logarithmic.",
+          "type": "string"
+        },
+        {
+          "const": "band",
+          "description": "Categorical, one band per category.",
+          "type": "string"
+        },
+        {
+          "const": "point",
+          "description": "Categorical, one point per category.",
+          "type": "string"
+        },
+        {
+          "const": "ordinal",
+          "description": "Ordered categorical.",
+          "type": "string"
+        },
+        {
+          "const": "time",
+          "description": "Time, in the local zone.",
+          "type": "string"
+        },
+        {
+          "const": "utc",
+          "description": "Time, in UTC.",
+          "type": "string"
+        }
+      ]
+    },
+    "StackKind": {
+      "description": "Named stacking modes.",
+      "oneOf": [
+        {
+          "const": "zero",
+          "description": "Stack from zero (the Vega-Lite default for bar and area).",
+          "type": "string"
+        },
+        {
+          "const": "normalize",
+          "description": "Scale each slice to sum to one.",
+          "type": "string"
+        },
+        {
+          "const": "center",
+          "description": "Centre the stack around the baseline.",
+          "type": "string"
+        },
+        {
+          "const": "none",
+          "description": "Do not stack.",
+          "type": "string"
+        }
+      ]
+    },
+    "StackSpec": {
+      "anyOf": [
+        {
+          "description": "`true` is `\"zero\"`, `false` is `\"none\"`, as in Vega-Lite.",
+          "type": "boolean"
+        },
+        {
+          "$ref": "#/$defs/StackKind",
+          "description": "The named modes."
+        }
+      ],
+      "description": "`stack: \"zero\" | \"normalize\" | \"center\" | \"none\" | true | false`."
+    },
+    "ThemeName": {
+      "description": "The built-in themes.\n\nA closed set, because a theme is a whole visual system rather than a pile of\ncolours; anything finer belongs in the Rust API's builder.",
+      "oneOf": [
+        {
+          "const": "light",
+          "description": "Dark ink on a white page.",
+          "type": "string"
+        },
+        {
+          "const": "dark",
+          "description": "Light ink on a dark page.",
+          "type": "string"
+        }
+      ]
+    },
+    "Transform": {
+      "anyOf": [
+        {
+          "$ref": "#/$defs/FilterEntry",
+          "description": "Keep only the rows a predicate accepts."
+        },
+        {
+          "$ref": "#/$defs/FoldEntry",
+          "description": "Turn columns into a name/value pair."
+        },
+        {
+          "$ref": "#/$defs/AggregateEntry",
+          "description": "Collapse rows into one per group."
+        },
+        {
+          "$ref": "#/$defs/BinEntry",
+          "description": "Write the edges of each row's bin as two columns."
+        },
+        {
+          "$ref": "#/$defs/WindowEntry",
+          "description": "Add a column computed from each row's position in its group."
+        }
+      ],
+      "description": "One entry of the `transform` array.\n\nA sum type, not a bag of optional fields: an entry is exactly one transform,\nand the type says so. Deserialisation is hand-written so that a transform\nCharton recognises but cannot run is reported as *unsupported* rather than as\nan unknown field — the two mean very different things to whoever is fixing\nthe document."
+    },
+    "WindowEntry": {
+      "additionalProperties": false,
+      "description": "`{\"window\": [...], \"groupby\": [...]}`",
+      "properties": {
+        "groupby": {
+          "description": "Columns that define a window. Empty means \"one window for the whole table\".",
+          "items": {
+            "type": "string"
+          },
+          "type": "array"
+        },
+        "window": {
+          "description": "The window functions to add, applied in order.",
+          "items": {
+            "$ref": "#/$defs/WindowFieldSpec"
+          },
+          "type": "array"
+        }
+      },
+      "required": [
+        "window"
+      ],
+      "type": "object"
+    },
+    "WindowFieldSpec": {
+      "additionalProperties": false,
+      "description": "One window function inside a `window` entry.",
+      "properties": {
+        "as": {
+          "description": "Output column name.",
+          "type": "string"
+        },
+        "field": {
+          "description": "The column the operation reads.",
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "op": {
+          "$ref": "#/$defs/WindowOpSpec",
+          "description": "The operation."
+        }
+      },
+      "required": [
+        "op",
+        "as"
+      ],
+      "type": "object"
+    },
+    "WindowOpSpec": {
+      "description": "Window operations.\n\nThe set mirrors the core's. Operations the core knows but has not implemented\nare listed so a document using one gets \"recognised, not implemented\" rather\nthan \"unknown operation\".",
+      "oneOf": [
+        {
+          "const": "rank",
+          "description": "Position in the group, ties share a rank and the next rank skips.",
+          "type": "string"
+        },
+        {
+          "const": "row_number",
+          "description": "One counter per row, in group order.",
+          "type": "string"
+        },
+        {
+          "const": "cume_dist",
+          "description": "Cumulative distribution: the ECDF step.",
+          "type": "string"
+        },
+        {
+          "const": "cumulative_sum",
+          "description": "Running total, accumulated in row order.",
+          "type": "string"
+        },
+        {
+          "const": "dense_rank",
+          "description": "Recognised; the core does not implement it yet.",
+          "type": "string"
+        },
+        {
+          "const": "percent_rank",
+          "description": "Recognised; the core does not implement it yet.",
+          "type": "string"
+        },
+        {
+          "const": "first_value",
+          "description": "Recognised; the core does not implement it yet.",
+          "type": "string"
+        },
+        {
+          "const": "last_value",
+          "description": "Recognised; the core does not implement it yet.",
+          "type": "string"
+        }
+      ]
+    }
+  },
+  "$id": "https://charton.dev/schema/charton-v0.schema.json",
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "additionalProperties": false,
+  "description": "A subset of the Vega-Lite v5 specification, interpreted by Charton. Fields outside this subset are errors, not silent no-ops. Charton's own marks live under the `charton` namespace.",
+  "properties": {
+    "$schema": {
+      "description": "Spec version carrier. Absent means \"the version this build supports\";\npresent and unknown is an error, never a silent reinterpretation.",
+      "type": [
+        "string",
+        "null"
+      ]
+    },
+    "charton": {
+      "anyOf": [
+        {
+          "$ref": "#/$defs/ChartonExt"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "description": "Charton extensions, always explicit and always namespaced."
+    },
+    "data": {
+      "anyOf": [
+        {
+          "$ref": "#/$defs/Data"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "description": "Where the rows come from.\n\nRequired on the document root; layers inherit it and must not repeat it.\nReading the rows is the caller's job — the core only ever sees an\nalready-normalised dataset."
+    },
+    "description": {
+      "description": "Accessible description, also written into the SVG's `<desc>`.",
+      "type": [
+        "string",
+        "null"
+      ]
+    },
+    "encoding": {
+      "$ref": "#/$defs/Encoding",
+      "default": {},
+      "description": "Which field goes where. Defaulted so `--emit-spec` can omit it."
+    },
+    "facet": {
+      "anyOf": [
+        {
+          "$ref": "#/$defs/FacetDef"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "description": "Split the chart into panels by a field."
+    },
+    "layer": {
+      "description": "Layers drawn on one set of axes.\n\nA document is either one mark or a list of layers, never both. Layers\ninherit `data`, `transform` and `encoding` from the root; a layer's own\nencoding wins channel by channel.",
+      "items": {
+        "$ref": "#"
+      },
+      "type": "array"
+    },
+    "mark": {
+      "anyOf": [
+        {
+          "$ref": "#/$defs/Mark"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "description": "What to draw, in Vega-Lite's vocabulary.\n\nOptional because Charton-only marks are written under\n[`ChartonExt::mark`] instead. Exactly one of the two must be present;\nwriting both is an error rather than a precedence rule nobody remembers."
+    },
+    "theme": {
+      "anyOf": [
+        {
+          "$ref": "#/$defs/ThemeName"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "description": "Built-in colour scheme."
+    },
+    "title": {
+      "description": "Human-readable chart title.",
+      "type": [
+        "string",
+        "null"
+      ]
+    },
+    "transform": {
+      "description": "Data transformations, applied in order before the mark draws.\n\nAn array because order is meaning: filtering before aggregating is not\nthe same chart as aggregating before filtering.",
+      "items": {
+        "$ref": "#/$defs/Transform"
+      },
+      "type": "array"
+    }
+  },
+  "title": "Charton Spec v0 (Vega-Lite v5 subset)",
+  "type": "object"
+}

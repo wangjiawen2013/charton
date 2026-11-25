@@ -1,0 +1,12 @@
+{
+  "data": { "values": [
+    { "month": "Jan", "amount": 1.0, "target": 2.0 },
+    { "month": "Feb", "amount": 3.0, "target": 2.0 },
+    { "month": "Mar", "amount": 2.0, "target": 2.0 }
+  ]},
+  "encoding": { "x": { "field": "month" } },
+  "layer": [
+    { "mark": "bar", "encoding": { "y": { "field": "amount" } } },
+    { "mark": "rule", "encoding": { "y": { "field": "target" } } }
+  ]
+}

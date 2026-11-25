@@ -1,0 +1,6 @@
+{
+  "data": { "url": "wide.csv" },
+  "transform": [{ "fold": [] }],
+  "mark": "bar",
+  "encoding": { "x": { "field": "key" }, "y": { "field": "value" } }
+}

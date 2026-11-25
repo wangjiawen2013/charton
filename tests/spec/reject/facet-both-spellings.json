@@ -1,0 +1,6 @@
+{
+  "data": { "url": "sales.csv" },
+  "facet": { "field": "region", "row": "month" },
+  "mark": "bar",
+  "encoding": { "x": { "field": "a" }, "y": { "field": "b" } }
+}

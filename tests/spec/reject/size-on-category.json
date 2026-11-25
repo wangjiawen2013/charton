@@ -1,0 +1,12 @@
+{
+  "data": { "values": [
+    { "cat": "a", "num": 1.0 },
+    { "cat": "b", "num": 3.0 }
+  ]},
+  "mark": "point",
+  "encoding": {
+    "x": { "field": "num" },
+    "y": { "field": "num" },
+    "size": { "field": "cat" }
+  }
+}

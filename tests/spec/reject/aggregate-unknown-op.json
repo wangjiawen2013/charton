@@ -1,0 +1,6 @@
+{
+  "data": { "url": "sales.csv" },
+  "transform": [{ "aggregate": [{ "op": "stdev", "field": "sales", "as": "sd" }] }],
+  "mark": "bar",
+  "encoding": { "x": { "field": "region" }, "y": { "field": "sd" } }
+}

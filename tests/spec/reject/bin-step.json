@@ -1,0 +1,6 @@
+{
+  "data": { "url": "sales.csv" },
+  "transform": [{ "bin": { "step": 5 }, "field": "amount" }],
+  "mark": "bar",
+  "encoding": { "x": { "field": "bin_amount" }, "y": { "field": "amount" } }
+}

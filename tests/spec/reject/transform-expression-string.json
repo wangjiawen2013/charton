@@ -1,0 +1,6 @@
+{
+  "data": { "values": [{ "value": 1.0 }] },
+  "transform": [{ "filter": "datum.value > 1" }],
+  "mark": "point",
+  "encoding": { "x": { "field": "value" }, "y": { "field": "value" } }
+}

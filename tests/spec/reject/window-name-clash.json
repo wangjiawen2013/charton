@@ -1,0 +1,9 @@
+{
+  "data": { "values": [
+    { "month": "Jan", "amount": 1.0 },
+    { "month": "Feb", "amount": 2.0 }
+  ]},
+  "transform": [{ "window": [{ "op": "cumulative_sum", "field": "amount", "as": "amount" }] }],
+  "mark": "line",
+  "encoding": { "x": { "field": "month" }, "y": { "field": "amount" } }
+}

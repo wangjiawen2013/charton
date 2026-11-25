@@ -1,0 +1,9 @@
+{
+  "data": { "url": "sales.csv" },
+  "transform": [{
+    "window": [{ "op": "rank", "field": "sales", "as": "r" }],
+    "sort": [{ "field": "sales", "order": "descending" }]
+  }],
+  "mark": "line",
+  "encoding": { "x": { "field": "month" }, "y": { "field": "r" } }
+}

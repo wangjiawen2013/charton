@@ -1,0 +1,10 @@
+{
+  "data": {
+    "values": [
+      { "month": "Jan", "revenue": 12.5 },
+      { "month": "Feb", "revenue": 15.0 }
+    ]
+  },
+  "mark": "point",
+  "encoding": { "x": { "field": "month" }, "y": { "field": "revenue" } }
+}

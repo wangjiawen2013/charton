@@ -1,0 +1,10 @@
+{
+  "data": {
+    "values": [
+      { "month": "Jan", "amount": 12.5 },
+      { "month": "Jan", "amount": 15.0 }
+    ]
+  },
+  "mark": "bar",
+  "encoding": { "x": { "field": "month" }, "y": { "field": "amount" } }
+}

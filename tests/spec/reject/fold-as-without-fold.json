@@ -1,0 +1,6 @@
+{
+  "data": { "url": "wide.csv" },
+  "transform": [{ "as": ["metric", "amount"] }],
+  "mark": "bar",
+  "encoding": { "x": { "field": "metric" }, "y": { "field": "amount" } }
+}

@@ -1,0 +1,13 @@
+{
+  "data": { "values": [
+    { "year": 2020, "north": 1.0, "south": 3.0 },
+    { "year": 2021, "north": 2.0, "south": 4.0 }
+  ]},
+  "transform": [{ "fold": ["north", "south"], "as": ["region", "amount"] }],
+  "mark": "line",
+  "encoding": {
+    "x": { "field": "year" },
+    "y": { "field": "amount" },
+    "color": { "field": "region" }
+  }
+}

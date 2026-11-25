@@ -1,0 +1,9 @@
+{
+  "data": { "values": [
+    { "region": "north", "sales": 1.0 },
+    { "region": "south", "sales": 2.0 }
+  ]},
+  "transform": [{ "aggregate": [{ "op": "sum", "field": "revenue", "as": "total" }], "groupby": ["region"] }],
+  "mark": "bar",
+  "encoding": { "x": { "field": "region" }, "y": { "field": "total" } }
+}

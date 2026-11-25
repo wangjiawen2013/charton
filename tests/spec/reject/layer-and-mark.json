@@ -1,0 +1,7 @@
+{
+  "data": { "url": "sales.csv" },
+  "mark": "bar",
+  "layer": [
+    { "mark": "line", "encoding": { "x": { "field": "a" }, "y": { "field": "b" } } }
+  ]
+}

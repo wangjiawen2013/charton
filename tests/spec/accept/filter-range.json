@@ -1,0 +1,6 @@
+{
+  "data": { "values": [{ "value": 1.0 }, { "value": 5.0 }, { "value": 9.0 }] },
+  "transform": [{ "filter": { "field": "value", "range": [2, 8] } }],
+  "mark": "point",
+  "encoding": { "x": { "field": "value" }, "y": { "field": "value" } }
+}

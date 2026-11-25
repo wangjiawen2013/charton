@@ -1,0 +1,6 @@
+{
+  "data": { "values": [{ "year": 2020, "north": 1.0, "south": 2.0 }] },
+  "transform": [{ "fold": ["north", "east"] }],
+  "mark": "line",
+  "encoding": { "x": { "field": "year" }, "y": { "field": "value" } }
+}

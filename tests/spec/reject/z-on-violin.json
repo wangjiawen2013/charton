@@ -1,0 +1,5 @@
+{
+  "data": { "url": "penguins.csv" },
+  "charton": { "mark": "violin", "z": "z" },
+  "encoding": { "x": { "field": "species" }, "y": { "field": "body_mass" } }
+}

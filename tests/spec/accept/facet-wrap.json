@@ -1,0 +1,11 @@
+{
+  "data": { "values": [
+    { "region": "north", "month": "Jan", "amount": 1.0 },
+    { "region": "north", "month": "Feb", "amount": 2.0 },
+    { "region": "south", "month": "Jan", "amount": 3.0 },
+    { "region": "south", "month": "Feb", "amount": 4.0 }
+  ]},
+  "facet": { "field": "region" },
+  "mark": "bar",
+  "encoding": { "x": { "field": "month" }, "y": { "field": "amount" } }
+}

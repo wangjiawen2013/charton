@@ -1,0 +1,5 @@
+{
+  "data": { "url": "grid.csv" },
+  "mark": "rect",
+  "encoding": { "x": { "field": "hour" }, "y": { "field": "day" } }
+}

@@ -24,9 +24,11 @@
 //! `docs/src/concepts/grammar_pipeline.md` for the full stat → position →
 //! geometry model.
 
+pub mod aggregate_transform;
 pub(crate) mod area_transform;
 pub(crate) mod band_transform;
 pub(crate) mod bar_transform;
+pub mod bin_transform;
 pub(crate) mod box_transform;
 pub(crate) mod boxplot_transform;
 pub(crate) mod calculate_transform;
@@ -37,6 +39,8 @@ pub(crate) mod density_2d_transform;
 pub(crate) mod density_mark_transform;
 pub(crate) mod density_transform;
 pub(crate) mod errorbar_transform;
+pub mod filter_transform;
+pub mod fold_transform;
 pub(crate) mod hist_transform;
 pub(crate) mod lane_layout;
 pub(crate) mod point_transform;

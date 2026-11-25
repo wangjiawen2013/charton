@@ -1,0 +1,6 @@
+{
+  "data": { "url": "a.csv" },
+  "transform": [{ "filter": { "field": "g", "equal": "a", "oneOf": ["b"] } }],
+  "mark": "point",
+  "encoding": { "x": { "field": "x" }, "y": { "field": "y" } }
+}

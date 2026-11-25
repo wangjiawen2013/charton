@@ -241,31 +241,55 @@ impl WindowTransform {
 }
 
 impl<T: Mark> Chart<T> {
-    /// Performs window transformations (Ranking, Row Numbers, or ECDF) on the chart data.
+    /// Performs a window transformation on the chart's rows.
     ///
-    /// This implementation follows the "Mainstream Strategy":
-    /// 1. **Order Persistence**: Uses `unique_values()` to maintain "First Appearance" order.
-    /// 2. **Null Handling**: Rows with Null/NaN inputs result in NaN outputs.
-    /// 3. **ECDF Soundness**: Filters out Nulls before calculation so they don't skew the distribution.
+    /// A thin wrapper: the work is done by [`WindowTransform::apply`], which the
+    /// spec layer calls directly. Keeping one implementation is what stops the
+    /// typed API and the JSON dialect from computing different ranks.
+    ///
+    /// # Errors
+    ///
+    /// Fails when a field does not exist or an operation is not implemented.
     pub fn transform_window(mut self, params: WindowTransform) -> Result<Self, ChartonError> {
-        let n = self.data.height();
-        if n == 0 {
-            return Ok(self);
+        self.data = params.apply(&self.data)?;
+        if let Some(source) = self.source_data.take() {
+            self.source_data = Some(params.apply(&source)?);
         }
+        Ok(self)
+    }
+}
 
-        let field_name = &params.window.field;
-        let output_name = &params.window.as_;
-        let target_col = self.data.column(field_name)?;
+impl WindowTransform {
+    /// Applies this window operation to a dataset, returning a new one.
+    ///
+    /// Strategy, unchanged from the typed path:
+    /// 1. **Order persistence** — groups keep first-appearance order.
+    /// 2. **Null handling** — a null input yields a null output.
+    /// 3. **ECDF soundness** — nulls are filtered before the distribution is
+    ///    computed so they cannot skew it.
+    ///
+    /// # Errors
+    ///
+    /// Fails when a field does not exist or an operation is not implemented.
+    pub fn apply(&self, data: &Dataset) -> Result<Dataset, ChartonError> {
+        let mut data = data.clone();
+        if data.height() == 0 {
+            return Ok(data);
+        }
+        let n = data.height();
+        let field_name = &self.window.field;
+        let output_name = &self.window.as_;
+        let target_col = data.column(field_name)?;
 
         // --- PHASE 1: GROUPING (with stable first-appearance order) ---
-        let group_columns: Vec<&ColumnVector> = params
+        let group_columns: Vec<&ColumnVector> = self
             .groupby
             .iter()
-            .map(|field| self.data.column(field))
+            .map(|field| data.column(field))
             .collect::<Result<Vec<_>, _>>()?;
 
         let mut groups: AHashMap<Vec<String>, Vec<usize>> = AHashMap::new();
-        let group_order: Vec<Vec<String>> = if params.groupby.is_empty() {
+        let group_order: Vec<Vec<String>> = if self.groupby.is_empty() {
             // No groupby: the whole table is a single window.
             groups.insert(Vec::new(), (0..n).collect());
             vec![Vec::new()]
@@ -287,10 +311,10 @@ impl<T: Mark> Chart<T> {
         };
 
         // --- PHASE 3: OPERATION MATCHING ---
-        match params.window.op {
+        match self.window.op {
             WindowOnlyOp::CumeDist => {
                 // ECDF generates a new Dataset (row count changes due to padding)
-                self.data = self.apply_ecdf_with_padding(groups, group_order, &params)?;
+                data = self.ecdf_with_padding(&data, groups, group_order)?;
             }
             WindowOnlyOp::CumulativeSum => {
                 // Same row count as the input; accumulate in row order per group.
@@ -306,7 +330,7 @@ impl<T: Mark> Chart<T> {
                         }
                     }
                 }
-                self.data.add_column(
+                data.add_column(
                     output_name,
                     ColumnVector::Float64 {
                         data: results,
@@ -348,7 +372,7 @@ impl<T: Mark> Chart<T> {
                             }
 
                             valid_count += 1;
-                            match params.window.op {
+                            match self.window.op {
                                 WindowOnlyOp::RowNumber => {
                                     results[idx] = valid_count as f64;
                                 }
@@ -368,7 +392,7 @@ impl<T: Mark> Chart<T> {
                     }
                 }
                 // Updated to Float64 variant with validity: None
-                self.data.add_column(
+                data.add_column(
                     output_name,
                     ColumnVector::Float64 {
                         data: results,
@@ -379,31 +403,31 @@ impl<T: Mark> Chart<T> {
             _ => {
                 return Err(ChartonError::Unimplemented(format!(
                     "Operation {:?} not implemented",
-                    params.window.op
+                    self.window.op
                 )));
             }
         }
 
-        Ok(self)
+        Ok(data)
     }
 
-    /// Internal helper to handle ECDF logic with Domain Expansion (Padding).
-    fn apply_ecdf_with_padding(
+    /// ECDF with domain expansion: a step curve needs a start and an end point.
+    fn ecdf_with_padding(
         &self,
+        data: &Dataset,
         mut groups: AHashMap<Vec<String>, Vec<usize>>,
         group_order: Vec<Vec<String>>,
-        params: &WindowTransform,
     ) -> Result<Dataset, ChartonError> {
-        let field_name = &params.window.field;
-        let output_name = &params.window.as_;
-        let target_col = self.data.column(field_name)?;
+        let field_name = &self.window.field;
+        let output_name = &self.window.as_;
+        let target_col = data.column(field_name)?;
 
         // --- STEP 1: CALCULATE GLOBAL BOUNDARIES ---
         let mut global_min = f64::MAX;
         let mut global_max = f64::MIN;
         let mut found_any = false;
 
-        for i in 0..self.data.height() {
+        for i in 0..data.height() {
             if let Some(v) = target_col.get(i).to_f64() {
                 if v < global_min {
                     global_min = v;
@@ -423,7 +447,7 @@ impl<T: Mark> Chart<T> {
         let mut expanded_x = Vec::new();
         let mut expanded_y = Vec::new();
         // One output column per groupby field.
-        let mut expanded_groups: Vec<Vec<String>> = vec![Vec::new(); params.groupby.len()];
+        let mut expanded_groups: Vec<Vec<String>> = vec![Vec::new(); self.groupby.len()];
 
         for group_key in group_order {
             if let Some(indices) = groups.remove(&group_key) {
@@ -454,7 +478,7 @@ impl<T: Mark> Chart<T> {
                 // A. Start Padding
                 expanded_x.push(global_min);
                 expanded_y.push(0.0);
-                if !params.groupby.is_empty() {
+                if !self.groupby.is_empty() {
                     push_group(&mut expanded_groups);
                 }
 
@@ -462,7 +486,7 @@ impl<T: Mark> Chart<T> {
                 for (i, &idx) in valid_indices.iter().enumerate() {
                     let x_val = target_col.get(idx).to_f64().unwrap();
                     let count = (i + 1) as f64;
-                    let y_val = if params.normalize {
+                    let y_val = if self.normalize {
                         count / group_size
                     } else {
                         count
@@ -470,15 +494,15 @@ impl<T: Mark> Chart<T> {
 
                     expanded_x.push(x_val);
                     expanded_y.push(y_val);
-                    if !params.groupby.is_empty() {
+                    if !self.groupby.is_empty() {
                         push_group(&mut expanded_groups);
                     }
                 }
 
                 // C. End Padding
                 expanded_x.push(global_max);
-                expanded_y.push(if params.normalize { 1.0 } else { group_size });
-                if !params.groupby.is_empty() {
+                expanded_y.push(if self.normalize { 1.0 } else { group_size });
+                if !self.groupby.is_empty() {
                     push_group(&mut expanded_groups);
                 }
             }
@@ -502,7 +526,7 @@ impl<T: Mark> Chart<T> {
             },
         )?;
 
-        for (field_index, g_name) in params.groupby.iter().enumerate() {
+        for (field_index, g_name) in self.groupby.iter().enumerate() {
             new_ds.add_column(
                 g_name,
                 ColumnVector::String {

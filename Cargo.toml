@@ -1,7 +1,8 @@
 [workspace]
-members = [".", "nu_plugin_charton"]
-# Only build the core charton crate by default; the Nushell plugin pulls in the
-# heavy nu-plugin/nu-protocol dependency tree and is built explicitly with -p.
+members = [".", "nu_plugin_charton", "charton-cli"]
+# Only build the core charton crate by default. The CLI and the Nushell plugin
+# are built and tested explicitly with `-p`, so a library change never waits on
+# their heavier dependency trees.
 default-members = ["."]
 
 [package]
@@ -29,7 +30,7 @@ exclude = [
 # the docs.rs builder, which would break the whole docs build. Add it here only
 # after a local `cargo doc --all-features` proves it builds in time.
 [package.metadata.docs.rs]
-features = ["png", "pdf", "geo", "arrow", "parallel"]
+features = ["png", "pdf", "geo", "arrow", "parallel", "spec"]
 
 [features]
 default = []
@@ -45,6 +46,12 @@ pdf = ["dep:krilla", "dep:ab_glyph", "dep:fontdb"]
 # Enables high-performance raster rendering (PNG, etc.)
 raster = ["dep:tiny-skia", "dep:ab_glyph", "dep:fontdb"]
 png = ["raster"] # png is an alias of raster
+
+# Enables the JSON chart spec (`charton::spec`): the Vega-Lite v5 *subset* that
+# the CLI, MCP and the playground speak. Off by default on purpose — Rust users
+# who build charts with types never pay for serde/schemars, exactly like the
+# `load_polars_df!` macro keeps polars out of the dependency graph.
+spec = ["dep:serde", "dep:serde_json", "dep:schemars", "dep:serde_path_to_error"]
 
 # Enables lightweight GPU-accelerated rendering for large datasets via wgpu.
 wgpu = ["dep:wgpu", "dep:bytemuck", "dep:pollster"]
@@ -73,6 +80,9 @@ arrow-schema = { version = "58.1", default-features = false, optional = true }
 arrow-select = { version = "58.1", default-features = false, optional = true }
 geojson = { version = "1.0.0", optional = true }
 serde_json = { version = "1.0", optional = true }
+serde = { version = "1.0", features = ["derive"], optional = true }
+schemars = { version = "1.2", optional = true }
+serde_path_to_error = { version = "0.1", optional = true }
 wgpu = { version = "29", optional = true }
 bytemuck = { version = "1.25", features = ["derive"], optional = true }
 pollster = { version = "0.4", optional = true }
@@ -89,3 +99,9 @@ web-sys = { version = "0.3", features = ["CssStyleDeclaration", "HtmlCanvasEleme
 [[example]]
 name = "world_map"
 required-features = ["geo"]
+
+[dev-dependencies]
+# The spec's schema test compares the generated JSON Schema against the committed
+# file, so both halves have to be callable from an integration test.
+serde_json = "1.0"
+schemars = "1.2"

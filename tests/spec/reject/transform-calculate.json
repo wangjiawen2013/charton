@@ -1,0 +1,6 @@
+{
+  "data": { "url": "a.csv" },
+  "transform": [{ "calculate": "datum.value * 2", "as": "doubled" }],
+  "mark": "point",
+  "encoding": { "x": { "field": "value" }, "y": { "field": "doubled" } }
+}

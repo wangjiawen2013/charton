@@ -1,0 +1,6 @@
+{
+  "data": { "url": "a.csv" },
+  "transform": [{ "frobnicate": true }],
+  "mark": "point",
+  "encoding": { "x": { "field": "x" }, "y": { "field": "y" } }
+}

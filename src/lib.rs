@@ -44,6 +44,14 @@ pub mod theme;
 pub mod transform;
 pub mod visual;
 
+/// The JSON chart spec: a Vega-Lite v5 **subset** that the CLI, MCP server and
+/// playground all speak.
+///
+/// Enabled by the `spec` feature. Rust users building charts with types do not
+/// need it and, with the feature off, never compile serde or schemars.
+#[cfg(feature = "spec")]
+pub mod spec;
+
 /// Minimal re-exports of the Apache Arrow building blocks used by the
 /// `arrow` feature.
 ///

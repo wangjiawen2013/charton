@@ -1,0 +1,5 @@
+{
+  "data": { "url": "series.csv" },
+  "mark": "rule",
+  "encoding": { "y": { "field": "threshold" } }
+}

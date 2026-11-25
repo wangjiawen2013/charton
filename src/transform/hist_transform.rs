@@ -3,6 +3,7 @@ use crate::chart::Chart;
 use crate::core::data::{ColumnVector, Dataset, MISSING_CATEGORY};
 use crate::error::ChartonError;
 use crate::mark::Mark;
+use crate::transform::bin_transform::BinEdges;
 use ahash::AHashMap;
 
 impl<T: Mark> Chart<T> {
@@ -27,18 +28,14 @@ impl<T: Mark> Chart<T> {
 
         // --- STEP 2: Calculate Binning Parameters ---
         let x_col = self.data.column(bin_field)?;
-        let (min_val, max_val) = x_col.min_max();
-        let n_bins = x_enc.bins.unwrap_or(10);
 
-        let bin_width = if n_bins > 1 {
-            (max_val - min_val) / (n_bins as f64)
-        } else {
-            1.0
-        };
+        // One binning convention for the whole engine; see `BinEdges`.
+        let edges = BinEdges::new(x_col, x_enc.bins.unwrap_or(10));
+        let n_bins = edges.map_or(0, |edges| edges.count());
 
         // Pre-calculate bin midpoints (Natural numeric order for X-axis)
         let bin_middles: Vec<f64> = (0..n_bins)
-            .map(|i| min_val + (i as f64 + 0.5) * bin_width)
+            .map(|index| edges.map_or(0.0, |edges| edges.center_of(index)))
             .collect();
 
         // --- STEP 3: Establish Deterministic Order for Color ---
@@ -58,8 +55,11 @@ impl<T: Mark> Chart<T> {
             if x_col.is_null(i) {
                 continue;
             }
-            let val = x_col.get(i).to_f64().unwrap_or(min_val);
-            let bin_idx = (((val - min_val) / bin_width).floor() as usize).min(n_bins - 1);
+            let Some(edges) = edges else {
+                break;
+            };
+            let value = x_col.get(i).to_f64().unwrap_or(edges.start_of(0));
+            let bin_idx = edges.index_of(value);
 
             // Colour is non-positional: a missing value is kept as the reserved
             // grey "NA" series rather than dropping a valid observation.

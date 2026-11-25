@@ -1,0 +1,11 @@
+{
+  "data": { "values": [
+    { "cat": "a", "num": 1.0 },
+    { "cat": "b", "num": 3.0 }
+  ]},
+  "mark": "line",
+  "encoding": {
+    "x": { "field": "cat", "scale": { "type": "log" } },
+    "y": { "field": "num" }
+  }
+}

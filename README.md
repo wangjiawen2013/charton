@@ -19,6 +19,8 @@ Charton is a high-performance Rust plotting library featuring a declarative API 
 
 > **Using Nushell?** Charton also ships as a Nushell plugin: `nu_plugin_charton` turns any pipeline table into a chart, inline or saved as SVG/PNG. Install and usage → [plugin README](nu_plugin_charton/README.md).
 
+> **Not writing Rust?** `charton` is also a single static binary: `charton plot sales.csv --mark line --x month --y revenue -o revenue.svg`. It reads CSV, TSV, NDJSON or stdin, and renders charts from a JSON spec (a Vega-Lite v5 subset) with `charton render chart.json -o report.pdf`. → [Command line guide](docs/src/getting_started/cli.md)
+
 <table>
     <tr>
         <td><img src="docs/src/images/grid_line.svg" alt="Grid Lines" /><p align="center">Grid Lines</p></td>

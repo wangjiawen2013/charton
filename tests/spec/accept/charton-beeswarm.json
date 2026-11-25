@@ -1,0 +1,7 @@
+{
+  "data": { "values": [
+    { "group": "a", "value": 1.0 }, { "group": "a", "value": 1.0 }, { "group": "b", "value": 2.0 }
+  ]},
+  "charton": { "mark": "beeswarm" },
+  "encoding": { "x": { "field": "group" }, "y": { "field": "value" } }
+}

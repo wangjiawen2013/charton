@@ -1,0 +1,6 @@
+{
+  "data": { "url": "sales.csv" },
+  "transform": [{ "window": [{ "op": "dense_rank", "field": "sales", "as": "dr" }] }],
+  "mark": "line",
+  "encoding": { "x": { "field": "month" }, "y": { "field": "dr" } }
+}

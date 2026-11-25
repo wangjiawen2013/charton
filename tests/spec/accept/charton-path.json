@@ -1,0 +1,8 @@
+{
+  "data": { "values": [
+    { "x": 1.0, "y": 1.0, "p": "a" }, { "x": 2.0, "y": 3.0, "p": "a" },
+    { "x": 1.0, "y": 2.0, "p": "b" }, { "x": 2.0, "y": 1.0, "p": "b" }
+  ]},
+  "charton": { "mark": "path" },
+  "encoding": { "x": { "field": "x" }, "y": { "field": "y" }, "pathGroup": { "field": "p" } }
+}

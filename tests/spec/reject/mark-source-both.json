@@ -1,0 +1,6 @@
+{
+  "data": { "url": "sales.csv" },
+  "mark": "area",
+  "charton": { "mark": "violin" },
+  "encoding": { "x": { "field": "month" }, "y": { "field": "revenue" } }
+}

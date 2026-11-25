@@ -1,0 +1,8 @@
+{
+  "data": { "values": [
+    { "group": "a", "value": 1.0 }, { "group": "b", "value": 2.0 }, { "group": "a", "value": 3.0 }
+  ]},
+  "transform": [{ "filter": { "field": "group", "equal": "a" } }],
+  "mark": "point",
+  "encoding": { "x": { "field": "value" }, "y": { "field": "value" } }
+}

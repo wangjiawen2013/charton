@@ -3,6 +3,7 @@ use crate::core::data::{ColumnVector, Dataset};
 use crate::error::ChartonError;
 use crate::mark::Mark;
 use crate::scale::Scale;
+use crate::transform::bin_transform::BinEdges;
 use ahash::{AHashMap, AHashSet};
 
 impl<T: Mark> Chart<T> {
@@ -42,22 +43,16 @@ impl<T: Mark> Chart<T> {
         let y_is_discrete = matches!(y_enc.scale_type.as_ref().unwrap(), Scale::Discrete);
 
         // --- STEP 3: Calculate Binning Parameters (Only for Continuous axes) ---
-        let x_bin_params = if !x_is_discrete {
-            let (min, max) = x_col.min_max();
-            let n = x_enc.bins.unwrap_or(10);
-            let width = if n > 1 { (max - min) / (n as f64) } else { 1.0 };
-            Some((min, n, width))
-        } else {
+        // One binning convention for the whole engine; see `BinEdges`.
+        let x_edges = if x_is_discrete {
             None
+        } else {
+            BinEdges::new(x_col, x_enc.bins.unwrap_or(10))
         };
-
-        let y_bin_params = if !y_is_discrete {
-            let (min, max) = y_col.min_max();
-            let n = y_enc.bins.unwrap_or(10);
-            let width = if n > 1 { (max - min) / (n as f64) } else { 1.0 };
-            Some((min, n, width))
-        } else {
+        let y_edges = if y_is_discrete {
             None
+        } else {
+            BinEdges::new(y_col, y_enc.bins.unwrap_or(10))
         };
 
         // --- STEP 4: Grouping Pass ---
@@ -73,11 +68,10 @@ impl<T: Mark> Chart<T> {
                 continue;
             }
             // Resolve X coordinate identifier
-            let x_key = match x_bin_params {
-                Some((min, n, width)) => {
-                    let v = x_col.get(i).to_f64().unwrap_or(min);
-                    let bin_idx = (((v - min) / width).floor() as usize).min(n - 1);
-                    (min + (bin_idx as f64 + 0.5) * width).to_string()
+            let x_key = match x_edges {
+                Some(edges) => {
+                    let value = x_col.get(i).to_f64().unwrap_or(edges.start_of(0));
+                    edges.center_of(edges.index_of(value)).to_string()
                 }
                 None => x_col
                     .get(i)
@@ -86,11 +80,10 @@ impl<T: Mark> Chart<T> {
             };
 
             // Resolve Y coordinate identifier
-            let y_key = match y_bin_params {
-                Some((min, n, width)) => {
-                    let v = y_col.get(i).to_f64().unwrap_or(min);
-                    let bin_idx = (((v - min) / width).floor() as usize).min(n - 1);
-                    (min + (bin_idx as f64 + 0.5) * width).to_string()
+            let y_key = match y_edges {
+                Some(edges) => {
+                    let value = y_col.get(i).to_f64().unwrap_or(edges.start_of(0));
+                    edges.center_of(edges.index_of(value)).to_string()
                 }
                 None => y_col
                     .get(i)
@@ -151,11 +144,11 @@ impl<T: Mark> Chart<T> {
 
         new_ds.add_column(
             &x_enc.field,
-            cast_vec(final_x, x_is_discrete, x_bin_params.is_some()),
+            cast_vec(final_x, x_is_discrete, x_edges.is_some()),
         )?;
         new_ds.add_column(
             &y_enc.field,
-            cast_vec(final_y, y_is_discrete, y_bin_params.is_some()),
+            cast_vec(final_y, y_is_discrete, y_edges.is_some()),
         )?;
 
         // The color column is always numeric (f64) after aggregation.

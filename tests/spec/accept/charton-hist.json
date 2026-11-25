@@ -1,0 +1,7 @@
+{
+  "data": { "values": [
+    { "value": 1.0 }, { "value": 2.0 }, { "value": 2.5 }, { "value": 3.0 }, { "value": 4.0 }
+  ]},
+  "charton": { "mark": "hist" },
+  "encoding": { "x": { "field": "value" } }
+}

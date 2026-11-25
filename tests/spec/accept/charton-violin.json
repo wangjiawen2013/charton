@@ -1,0 +1,8 @@
+{
+  "data": { "values": [
+    { "group": "a", "value": 1.0 }, { "group": "a", "value": 2.0 }, { "group": "a", "value": 3.0 },
+    { "group": "b", "value": 4.0 }, { "group": "b", "value": 5.0 }, { "group": "b", "value": 6.0 }
+  ]},
+  "charton": { "mark": "violin" },
+  "encoding": { "x": { "field": "group" }, "y": { "field": "value" } }
+}

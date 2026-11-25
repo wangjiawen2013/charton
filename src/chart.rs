@@ -870,26 +870,13 @@ impl<T: Mark> Chart<T> {
             "Y encoding is required for binned marks".to_string(),
         ))?;
 
-        // Helper closure to calculate bin count based on data semantics and unique value distribution.
+        // The default bin count is a property of binning itself, so it lives
+        // with the edges (`BinEdges::default_count`) rather than here. One rule,
+        // one place: the `bin` transform and these marks must agree.
         let calculate_bins = |field: &str| -> Result<usize, ChartonError> {
-            let series = self.data.column(field)?;
-            let unique_count = series.n_unique();
-
-            // Determine bins based on the semantic interpretation of the column data.
-            match series.semantic_type() {
-                SemanticType::Continuous | SemanticType::Temporal => {
-                    if unique_count <= 1 {
-                        Ok(1)
-                    } else {
-                        // Use the Square-root choice rule for automatic binning,
-                        // constrained between a reasonable range (5 to 50) for visualization.
-                        let suggested = (unique_count as f64).sqrt() as usize;
-                        Ok(suggested.clamp(5, 50))
-                    }
-                }
-                // For discrete data (categories), each unique value typically gets its own bin.
-                SemanticType::Discrete => Ok(unique_count),
-            }
+            Ok(crate::transform::bin_transform::BinEdges::default_count(
+                self.data.column(field)?,
+            ))
         };
 
         // --- RESOLVE X-AXIS BINS ---

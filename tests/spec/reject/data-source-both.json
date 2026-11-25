@@ -1,0 +1,5 @@
+{
+  "data": { "url": "sales.csv", "values": [{ "month": "Jan", "revenue": 3 }] },
+  "mark": "line",
+  "encoding": { "x": { "field": "month" }, "y": { "field": "revenue" } }
+}

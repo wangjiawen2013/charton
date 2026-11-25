@@ -1,0 +1,6 @@
+{
+  "data": { "url": "sales.csv" },
+  "layer": [
+    { "data": { "url": "other.csv" }, "mark": "bar", "encoding": { "x": { "field": "a" }, "y": { "field": "b" } } }
+  ]
+}

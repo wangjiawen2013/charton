@@ -1,0 +1,13 @@
+{
+  "data": { "values": [
+    { "hour": "00", "day": "Mon", "value": 3.0 },
+    { "hour": "01", "day": "Mon", "value": 5.0 },
+    { "hour": "00", "day": "Tue", "value": 2.0 }
+  ]},
+  "mark": "rect",
+  "encoding": {
+    "x": { "field": "hour" },
+    "y": { "field": "day" },
+    "color": { "field": "value" }
+  }
+}

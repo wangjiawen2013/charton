@@ -1,0 +1,6 @@
+{
+  "data": { "url": "sales.csv" },
+  "transform": [{ "aggregate": [{ "op": "sum", "as": "total" }], "groupby": ["region"] }],
+  "mark": "bar",
+  "encoding": { "x": { "field": "region" }, "y": { "field": "total" } }
+}

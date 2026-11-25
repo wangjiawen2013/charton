@@ -58,14 +58,55 @@ jobs:
         # avoiding the heavy linking of examples.
         run: cargo build --lib --verbose
 
+      - name: Check examples and docs snippets still compile
+        # `cargo test` below deliberately skips examples (linking them all is
+        # memory-hungry), which means an API change can rot the 76 examples for
+        # weeks without anyone noticing. `check` catches that without linking.
+        run: cargo check --examples --verbose
+
       - name: Run tests
-        # Adding --lib only runs unit tests inside src/. 
-        # If you have a tests/ folder, use --tests instead of --examples.
+        # Adding --lib only runs unit tests inside src/.
+        # `--tests` also runs the integration tests, including the public-API
+        # baseline check and the schema drift check, so contract changes cannot
+        # land without a diff.
         run: cargo test --lib --tests --verbose
+
+      - name: Test the JSON spec layer
+        # `spec` is an opt-in feature, so its tests are invisible to the step
+        # above. The schema test is the drift guard: it fails when the committed
+        # schema and the Rust types disagree.
+        run: cargo test --features spec --test spec_parse --test spec_schema --verbose
+
 
       - name: Lint with Clippy
         # Again, focus only on the library and tests to save memory
         run: cargo clippy --lib --tests -- -D warnings
+
+  cli:
+    name: CLI
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Set up Rust
+        uses: dtolnay/rust-toolchain@stable
+        with:
+          components: clippy
+
+      - name: Rust Cache
+        uses: Swatinem/rust-cache@v2
+        with:
+          key: charton-cli
+
+      - name: Lint
+        run: cargo clippy -p charton-cli --all-targets -- -D warnings
+
+      - name: Test
+        # These drive the real binary: exit codes, stdout/stderr, and the
+        # "emitted spec renders to the same image" invariant.
+        run: cargo test -p charton-cli
 
   # The Nushell plugin is intentionally outside `default-members`, so none of
   # the jobs above compile it. A Nushell minor release can change `nu-protocol`

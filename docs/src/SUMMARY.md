@@ -3,6 +3,8 @@
 # Getting Started
 - [Installation](getting_started/installation.md)
 - [Quick Start](getting_started/quick_start.md)
+- [The Command Line](getting_started/cli.md)
+- [Agents (MCP)](getting_started/mcp.md)
 - [Interactive Notebooks](getting_started/notebooks.md)
 
 # Concepts & Philosophy
@@ -72,6 +74,10 @@
 - [Economist-Style Highlights](case_studies/economist_style.md)
 - [Lorenz Attractor](case_studies/lorenz_attractor.md)
 - [System Monitor (egui Dashboard)](case_studies/system_monitor.md)
+
+# The JSON Spec
+- [Writing a chart document](spec/index.md)
+- [Field reference: the lowering map](spec/lowering-map.md)
 
 # Exporting & Embedding
 - [Semantic Output: CSS, Accessibility & Tagging](export/semantic_output.md)

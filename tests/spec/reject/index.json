@@ -1,0 +1,371 @@
+[
+  {
+    "file": "json-syntax.json",
+    "code": "E_JSON_SYNTAX",
+    "at": "",
+    "why": "not JSON at all"
+  },
+  {
+    "file": "unknown-field.json",
+    "code": "E_UNKNOWN_FIELD",
+    "at": "/encodng",
+    "why": "misspelled top-level key"
+  },
+  {
+    "file": "unknown-channel.json",
+    "code": "E_UNKNOWN_CHANNEL",
+    "at": "/encoding/opacity",
+    "why": "opacity is a mark property, not a channel"
+  },
+  {
+    "file": "unknown-mark.json",
+    "code": "E_UNKNOWN_MARK",
+    "at": "/mark",
+    "why": "near miss, must suggest `line`"
+  },
+  {
+    "file": "charton-mark-in-mark.json",
+    "code": "E_UNKNOWN_MARK",
+    "at": "/mark",
+    "why": "Charton-only marks may not use the Vega-Lite key"
+  },
+  {
+    "file": "unknown-extension-mark.json",
+    "code": "E_UNKNOWN_MARK",
+    "at": "/charton/mark",
+    "why": "near miss inside the extension namespace"
+  },
+  {
+    "file": "unknown-aggregate.json",
+    "code": "E_UNKNOWN_AGGREGATE",
+    "at": "/encoding/y/aggregate",
+    "why": "operator outside the subset"
+  },
+  {
+    "file": "unknown-scale.json",
+    "code": "E_UNKNOWN_SCALE",
+    "at": "/encoding/x/scale/type",
+    "why": "valid Vega-Lite scale we do not implement"
+  },
+  {
+    "file": "type-mismatch.json",
+    "code": "E_TYPE_MISMATCH",
+    "at": "/encoding/x/field",
+    "why": "field must be a string"
+  },
+  {
+    "file": "missing-field.json",
+    "code": "E_MISSING_FIELD",
+    "at": "/mark",
+    "why": "object mark without `type`"
+  },
+  {
+    "file": "mark-source-none.json",
+    "code": "E_MARK_SOURCE",
+    "at": "/mark",
+    "why": "no mark at all"
+  },
+  {
+    "file": "mark-source-both.json",
+    "code": "E_MARK_SOURCE",
+    "at": "/mark",
+    "why": "two competing marks"
+  },
+  {
+    "file": "spec-version-vega.json",
+    "code": "E_SPEC_VERSION",
+    "at": "/$schema",
+    "why": "Vega-Lite's URL describes more than we implement"
+  },
+  {
+    "file": "spec-version-future.json",
+    "code": "E_SPEC_VERSION",
+    "at": "/$schema",
+    "why": "unknown spec version"
+  },
+  {
+    "file": "data-source-both.json",
+    "code": "E_DATA_SOURCE",
+    "at": "/data",
+    "why": "url and values together",
+    "stage": "data"
+  },
+  {
+    "file": "data-source-remote.json",
+    "code": "E_DATA_SOURCE",
+    "at": "/data/url",
+    "why": "remote URLs are not read",
+    "stage": "data"
+  },
+  {
+    "file": "missing-channel.json",
+    "code": "E_MISSING_FIELD",
+    "at": "/encoding",
+    "why": "bar needs y"
+  },
+  {
+    "file": "mark-channel.json",
+    "code": "E_MARK_CHANNEL",
+    "at": "/encoding/text",
+    "why": "bar cannot render text"
+  },
+  {
+    "file": "unsupported-aggregate-bin.json",
+    "code": "E_UNSUPPORTED_FIELD",
+    "at": "/encoding/y",
+    "why": "aggregate+bin needs two passes"
+  },
+  {
+    "file": "data-field-missing.json",
+    "code": "E_DATA_FIELD",
+    "at": "/encoding/y/field",
+    "why": "column does not exist; the expected list is the actual columns",
+    "stage": "data"
+  },
+  {
+    "file": "data-type-mismatch.json",
+    "code": "E_DATA_TYPE",
+    "at": "/encoding/y/type",
+    "why": "declared quantitative over a text column",
+    "stage": "data"
+  },
+  {
+    "file": "data-shape-duplicate.json",
+    "code": "E_DATA_SHAPE",
+    "at": "/encoding/y/aggregate",
+    "why": "bar would sum repeated x rows instead of drawing one mark per row",
+    "stage": "data"
+  },
+  {
+    "file": "aggregate-on-x.json",
+    "code": "E_UNSUPPORTED_FIELD",
+    "at": "/encoding/x/aggregate",
+    "why": "core X has no aggregate; only y and colour do"
+  },
+  {
+    "file": "bin-on-bar.json",
+    "code": "E_UNSUPPORTED_FIELD",
+    "at": "/encoding/x/bin",
+    "why": "only rect and hist bin; bar reads exact values"
+  },
+  {
+    "file": "domain-on-band.json",
+    "code": "E_TYPE_MISMATCH",
+    "at": "/encoding/x/scale/domain",
+    "why": "two numbers cannot describe a categorical scale"
+  },
+  {
+    "file": "size-on-category.json",
+    "code": "E_DATA_TYPE",
+    "at": "/encoding/size/field",
+    "why": "size is a magnitude, not a category",
+    "stage": "data"
+  },
+  {
+    "file": "shape-on-measure.json",
+    "code": "E_DATA_TYPE",
+    "at": "/encoding/shape/field",
+    "why": "shape needs a finite set of categories",
+    "stage": "data"
+  },
+  {
+    "file": "log-on-category.json",
+    "code": "E_DATA_TYPE",
+    "at": "/encoding/x/scale/type",
+    "why": "a log scale cannot read a categorical column",
+    "stage": "data"
+  },
+  {
+    "file": "rect-without-color.json",
+    "code": "E_MISSING_FIELD",
+    "at": "/encoding",
+    "why": "the core refuses a rect without a colour value"
+  },
+  {
+    "file": "rule-without-x.json",
+    "code": "E_MISSING_FIELD",
+    "at": "/encoding",
+    "why": "the core refuses a rule without both positions"
+  },
+  {
+    "file": "charton-mark-not-implemented.json",
+    "code": "E_UNSUPPORTED_FIELD",
+    "at": "/charton/mark",
+    "why": "quantile_box is in the dialect but has no lowering"
+  },
+  {
+    "file": "transform-expression-string.json",
+    "code": "E_UNSUPPORTED_EXPRESSION",
+    "at": "/transform/0",
+    "why": "a filter is data, not code"
+  },
+  {
+    "file": "transform-calculate.json",
+    "code": "E_UNSUPPORTED_EXPRESSION",
+    "at": "/transform/0",
+    "why": "calculate would mean running a program from a document"
+  },
+  {
+    "file": "transform-unknown.json",
+    "code": "E_UNKNOWN_FIELD",
+    "at": "/transform/0",
+    "why": "not a transform at all"
+  },
+  {
+    "file": "filter-two-conditions.json",
+    "code": "E_TYPE_MISMATCH",
+    "at": "/transform/0/filter",
+    "why": "exactly one condition per filter"
+  },
+  {
+    "file": "filter-no-condition.json",
+    "code": "E_MISSING_FIELD",
+    "at": "/transform/0/filter",
+    "why": "a filter without a condition"
+  },
+  {
+    "file": "contour-without-z.json",
+    "code": "E_MISSING_FIELD",
+    "at": "/charton/z",
+    "why": "contour needs the surface height"
+  },
+  {
+    "file": "z-on-violin.json",
+    "code": "E_UNKNOWN_FIELD",
+    "at": "/charton/z",
+    "why": "only contour reads a scalar field"
+  },
+  {
+    "file": "filter-missing-field.json",
+    "code": "E_DATA_FIELD",
+    "at": "/transform/0/filter/field",
+    "why": "the filtered column must exist",
+    "stage": "data"
+  },
+  {
+    "file": "fold-missing-column.json",
+    "code": "E_DATA_FIELD",
+    "at": "/transform/0/fold/1",
+    "why": "folded column does not exist; the pointer names the entry",
+    "stage": "data"
+  },
+  {
+    "file": "fold-name-clash.json",
+    "code": "E_NAME_CLASH",
+    "at": "/transform/0/fold",
+    "why": "default `value` would overwrite a real column",
+    "stage": "data"
+  },
+  {
+    "file": "fold-empty.json",
+    "code": "E_MISSING_FIELD",
+    "at": "/transform/0/fold",
+    "why": "nothing to fold"
+  },
+  {
+    "file": "fold-as-without-fold.json",
+    "code": "E_UNKNOWN_FIELD",
+    "at": "/transform/0",
+    "why": "`as` only names fold outputs"
+  },
+  {
+    "file": "fold-duplicate.json",
+    "code": "E_TYPE_MISMATCH",
+    "at": "/transform/0/fold",
+    "why": "a column listed twice"
+  },
+  {
+    "file": "aggregate-empty.json",
+    "code": "E_MISSING_FIELD",
+    "at": "/transform/0/aggregate",
+    "why": "an aggregate with no measures"
+  },
+  {
+    "file": "aggregate-missing-field.json",
+    "code": "E_MISSING_FIELD",
+    "at": "/transform/0/aggregate/0/field",
+    "why": "only count may omit the field"
+  },
+  {
+    "file": "aggregate-unknown-op.json",
+    "code": "E_UNKNOWN_OPERATOR",
+    "at": "/transform/0/aggregate/0/op",
+    "why": "`stdev` is a Vega-Lite operator Charton does not implement"
+  },
+  {
+    "file": "aggregate-name-clash.json",
+    "code": "E_NAME_CLASH",
+    "at": "/transform/0/aggregate/0/as",
+    "why": "a measure may not shadow a group column"
+  },
+  {
+    "file": "window-unimplemented-op.json",
+    "code": "E_UNSUPPORTED_FIELD",
+    "at": "/transform/0/window/0/op",
+    "why": "recognised op, core does not implement it"
+  },
+  {
+    "file": "window-sort.json",
+    "code": "E_UNSUPPORTED_FIELD",
+    "at": "/transform/0",
+    "why": "window order cannot be chosen yet"
+  },
+  {
+    "file": "aggregate-missing-column.json",
+    "code": "E_DATA_FIELD",
+    "at": "/transform/0/aggregate/0/field",
+    "why": "the measured column must exist",
+    "stage": "data"
+  },
+  {
+    "file": "window-name-clash.json",
+    "code": "E_NAME_CLASH",
+    "at": "/transform/0/window/0/as",
+    "why": "a window output may not overwrite a column",
+    "stage": "data"
+  },
+  {
+    "file": "layer-with-data.json",
+    "code": "E_UNSUPPORTED_FIELD",
+    "at": "/layer/0/data",
+    "why": "layers inherit the root data"
+  },
+  {
+    "file": "layer-and-mark.json",
+    "code": "E_MARK_SOURCE",
+    "at": "/mark",
+    "why": "one mark or layers, not both"
+  },
+  {
+    "file": "layer-nested.json",
+    "code": "E_UNSUPPORTED_FIELD",
+    "at": "/layer/0/layer",
+    "why": "layers do not nest"
+  },
+  {
+    "file": "facet-both-spellings.json",
+    "code": "E_TYPE_MISMATCH",
+    "at": "/facet",
+    "why": "wrap and grid are different layouts"
+  },
+  {
+    "file": "facet-missing-field.json",
+    "code": "E_DATA_FIELD",
+    "at": "/facet/field",
+    "why": "the facet field must exist",
+    "stage": "data"
+  },
+  {
+    "file": "bin-on-category.json",
+    "code": "E_DATA_TYPE",
+    "at": "/transform/0/field",
+    "why": "binning needs a continuous field",
+    "stage": "data"
+  },
+  {
+    "file": "bin-step.json",
+    "code": "E_UNSUPPORTED_FIELD",
+    "at": "/transform/0/bin/step",
+    "why": "only maxbins is supported"
+  }
+]

@@ -1,0 +1,6 @@
+{
+  "data": { "values": [{ "month": "Jan", "amount": 1.0 }] },
+  "facet": { "field": "region" },
+  "mark": "bar",
+  "encoding": { "x": { "field": "month" }, "y": { "field": "amount" } }
+}

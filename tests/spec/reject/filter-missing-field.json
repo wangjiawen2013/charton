@@ -1,0 +1,6 @@
+{
+  "data": { "values": [{ "group": "a", "value": 1.0 }] },
+  "transform": [{ "filter": { "field": "region", "equal": "north" } }],
+  "mark": "point",
+  "encoding": { "x": { "field": "value" }, "y": { "field": "value" } }
+}

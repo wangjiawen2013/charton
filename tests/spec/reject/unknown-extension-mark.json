@@ -1,0 +1,5 @@
+{
+  "data": { "url": "sales.csv" },
+  "charton": { "mark": "violinn" },
+  "encoding": { "x": { "field": "group" } }
+}

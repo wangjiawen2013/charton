@@ -1,0 +1,6 @@
+{
+  "$schema": "https://vega.github.io/schema/vega-lite/v5.json",
+  "data": { "url": "sales.csv" },
+  "mark": "line",
+  "encoding": { "x": { "field": "month" }, "y": { "field": "revenue" } }
+}

@@ -1,0 +1,13 @@
+{
+  "data": { "values": [
+    { "region": "north", "sales": 1.0 },
+    { "region": "south", "sales": 2.0 },
+    { "region": "north", "sales": 3.0 }
+  ]},
+  "transform": [{
+    "aggregate": [{ "op": "mean", "field": "sales", "as": "avg" }],
+    "groupby": ["region"]
+  }],
+  "mark": "bar",
+  "encoding": { "x": { "field": "region" }, "y": { "field": "avg" } }
+}

@@ -1,0 +1,13 @@
+{
+  "data": {
+    "values": [
+      { "month": "Jan", "amount": 12.5 },
+      { "month": "Feb", "amount": 15.0 }
+    ]
+  },
+  "mark": "line",
+  "encoding": {
+    "x": { "field": "month" },
+    "y": { "field": "month", "type": "quantitative" }
+  }
+}

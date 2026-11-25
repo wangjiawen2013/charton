@@ -1,0 +1,5 @@
+{
+  "data": { "url": "penguins.csv" },
+  "charton": { "mark": "quantile_box" },
+  "encoding": { "x": { "field": "body_mass" } }
+}
