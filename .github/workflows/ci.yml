@@ -73,9 +73,15 @@ jobs:
 
       - name: Test the JSON spec layer
         # `spec` is an opt-in feature, so its tests are invisible to the step
-        # above. The schema test is the drift guard: it fails when the committed
-        # schema and the Rust types disagree.
-        run: cargo test --features spec --test spec_parse --test spec_schema --verbose
+        # above. `spec_parse` and `spec_schema` cover the types and the drift
+        # guard (the committed schema must match the Rust types); `spec_corpus`
+        # walks the 20 accept / 59 reject documents, and `spec_lower` proves a
+        # document and the typed API render identical bytes. Without the last
+        # two, the corpus that defines the dialect boundary would never run.
+        run: >
+          cargo test --features spec
+          --test spec_parse --test spec_schema
+          --test spec_corpus --test spec_lower --verbose
 
 
       - name: Lint with Clippy

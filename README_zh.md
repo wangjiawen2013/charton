@@ -19,6 +19,8 @@ Charton 是一款高性能 Rust 绘图库，其声明式 API 灵感源自 [Altai
 
 > **使用 Nushell？** Charton 也提供 Nushell 插件：`nu_plugin_charton` 可以把任意管道表格画成图表，终端内联显示或保存为 SVG/PNG。安装与用法见[插件 README](nu_plugin_charton/README.md)。
 
+> **不写 Rust？** `charton` 也可以是一个独立的命令行程序：`charton plot sales.csv --mark line --x month --y revenue -o revenue.svg`。它读取 CSV、TSV、NDJSON 或 stdin，也能渲染 JSON 图表文档（Vega-Lite v5 的子集）：`charton render chart.json -o report.pdf`。详见[命令行指南](docs/src/getting_started/cli.md)。
+
 <table>
     <tr>
         <td><img src="docs/src/images/grid_line.svg" alt="Grid Lines" /><p align="center">Grid Lines</p></td>

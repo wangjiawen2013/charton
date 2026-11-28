@@ -9,8 +9,9 @@ binary: no Node, no Python, no container.
 cargo install --path charton-cli      # from a checkout
 ```
 
-Prebuilt binaries for linux-x86_64, macos-x86_64, macos-aarch64 and
-windows-x86_64 are attached to each release.
+Prebuilt binaries are not published yet, so a checkout is the supported install
+path for now. The release pipeline will attach builds for linux-x86_64,
+macos-x86_64, macos-aarch64 and windows-x86_64.
 
 ## Sixty seconds
 

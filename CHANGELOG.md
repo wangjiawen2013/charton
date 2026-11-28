@@ -86,6 +86,39 @@ predate this file.
 - `Role::View`, the semantic scope around one composition cell.
 - `Theme` margins now also apply to a composition's page, so a page of charts and
   a single chart share the same outer spacing.
+- **A JSON chart document — a Vega-Lite v5 subset (`spec` feature).** A chart can
+  now be written as data instead of Rust: `data` (inline values or a local path),
+  `mark`, `encoding` (`x`, `y`, `y2`, `color`, `size`, `shape`, `text`,
+  `pathGroup`), `transform` (`filter`, `fold`, `aggregate`, `bin`, `window`),
+  `layer`, `facet`, plus `title` / `description` / `theme`. Validation runs
+  entirely before lowering and reports stable codes with a JSON Pointer to the
+  original document, a message and a hint; the dialect is a *subset*, so an
+  unsupported field is an error, never a silent no-op. `charton::spec::schema()`
+  emits the JSON Schema, and `tests/spec/{accept,reject}` keep the boundary
+  (20 documents that must render, 59 that must be refused at an exact pointer).
+  The field-by-field lossless / lossy / rejected table is
+  `docs/src/spec/lowering-map.md`.
+- **Four pure data transforms and one binning implementation.** `Filter`, `Fold`,
+  `Aggregate`, `Bin` and `WindowTransform` are `Dataset -> Dataset` functions the
+  typed `Chart` API and the spec layer share. `BinEdges` is now the only place
+  that computes histogram edges, so `hist`, `rect` and the `bin` transform can no
+  longer drift apart.
+- **`charton-cli`, a command line and an MCP server.** The `charton` binary turns
+  a CSV/TSV/NDJSON/stdin table into a chart (`plot`), renders a document
+  (`render`), checks one without drawing (`validate`, with `--json` diagnostics
+  and exit code 4), and prints the dialect's JSON Schema (`schema`). `plot` is
+  sugar over `render`: its flags build the same `Spec` and take the same
+  validation + lowering path, so `--emit-spec` exports *the* chart, and
+  `render(emit-spec(plot(...)))` is byte-identical to `plot(...)`. `charton mcp`
+  exposes `get_schema`, `profile_data`, `list_marks`, `list_themes`,
+  `validate_spec`, `render_spec` and `export_spec` over JSON-RPC, confined to
+  `--root` (paths are canonicalised first), read-only unless `--allow-write`, with
+  size limits, no network and no expressions.
+- **Contract guards for the new surface.** `tests/api_baseline.rs` records the
+  public items in `docs/api-baseline.txt`; `tests/spec_schema.rs` fails when the
+  committed `schema/charton-v0.schema.json` drifts from the Rust types; the
+  negative corpus asserts that every diagnostic code is reachable and carries a
+  pointer.
 
 ### Fixed
 
