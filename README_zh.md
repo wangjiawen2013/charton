@@ -78,7 +78,7 @@ Charton 是一个高性能绘图引擎，把图形语法（Grammar of Graphics�
 | 使用方式 | 适合场景 | 安装 |
 | --- | --- | --- |
 | Rust 库 | Rust 开发者 | `cargo add charton` |
-| 命令行 | Shell 脚本与自动化 | `cargo install charton-cli` |
+| 命令行 | Shell 与自动化 | `cargo install charton-cli` |
 | Nushell 插件 | Nushell 管道绘图 | `cargo install nu_plugin_charton` |
 | MCP 服务 | AI Agent | `cargo install charton-cli` |
 

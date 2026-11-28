@@ -78,7 +78,7 @@ Choose how you want to use Charton:
 | Interface | Best for | Install |
 | --- | --- | --- |
 | Rust library | Rust developers | `cargo add charton` |
-| Command line | Shell scripts and automation | `cargo install charton-cli` |
+| Command line | Shell and automation | `cargo install charton-cli` |
 | Nushell plugin | Nushell pipeline charts | `cargo install nu_plugin_charton` |
 | MCP server | AI agents | `cargo install charton-cli` |
 
