@@ -112,7 +112,7 @@ predate this file.
   `render(emit-spec(plot(...)))` is byte-identical to `plot(...)`. `charton mcp`
   exposes `get_schema`, `profile_data`, `list_marks`, `list_themes`,
   `validate_spec`, `render_spec` and `export_spec` over JSON-RPC, confined to
-  `--root` (paths are canonicalised first), read-only unless `--allow-write`, with
+  `--data-dir` (paths are canonicalised first), read-only unless `--allow-write`, with
   size limits, no network and no expressions.
 - **Contract guards for the new surface.** `tests/api_baseline.rs` records the
   public items in `docs/api-baseline.txt`; `tests/spec_schema.rs` fails when the

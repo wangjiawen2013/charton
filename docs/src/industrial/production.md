@@ -14,7 +14,7 @@ charton render chart.json -o report.pdf
 
 The JSON report is the product: commit it, or fail the step on exit code 4.
 Diagnostics go to stderr and only the artifact goes to stdout, so `-o -` pipes
-into another process. `charton schema` writes the dialect's JSON Schema for an
+into another process. `charton schema` writes the document format's JSON Schema for an
 editor, a code generator or a contract test.
 
 ## What is deterministic

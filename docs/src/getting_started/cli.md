@@ -66,7 +66,7 @@ The short version:
 
 - Input is CSV, TSV, NDJSON or stdin. Column typing is per column, not per cell;
   date strings stay categorical.
-- A document's `data.url` is a local path, resolved against the spec file's
+- A document's `data.url` is a local path, resolved against the document's
   directory. Remote URLs are refused.
 - Output is chosen by extension: `.svg`, `.png`, `.pdf`. No `-o` writes
   `chart.svg`; `-o -` writes an SVG to stdout; `--force` overwrites.

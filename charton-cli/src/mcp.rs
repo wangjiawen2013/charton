@@ -5,7 +5,7 @@
 //! it may touch is decided by whoever started the server.
 //!
 //! ```text
-//! charton mcp [--root DIR] [--allow-write]
+//! charton mcp [--data-dir DIR] [--allow-write]
 //! ```
 //!
 //! See [`tools`] for the verbs and [`server`] for the transport.

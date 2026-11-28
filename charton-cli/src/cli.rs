@@ -2,8 +2,9 @@
 //!
 //! Four commands, deliberately: `plot` for the common case, `render` for a
 //! document, `validate` to check one, `schema` for editors and agents. Adding a
-//! flag for every core capability is how a CLI turns into a second dialect — a
-//! complex chart is written as a spec, not as a hundred switches.
+//! flag for every core capability is how a CLI turns into a second, worse
+//! interface — a complex chart is written as a document, not as a hundred
+//! switches.
 
 use std::path::PathBuf;
 
@@ -159,9 +160,9 @@ pub struct ValidateArgs {
 pub struct McpArgs {
     /// Directory the tools may read from. Nothing outside it is reachable.
     #[arg(long, value_name = "DIR", default_value = ".")]
-    pub root: PathBuf,
+    pub data_dir: PathBuf,
 
-    /// Allow `export_spec` to write files inside the root.
+    /// Allow `export_spec` to write files inside the data directory.
     #[arg(long)]
     pub allow_write: bool,
 }

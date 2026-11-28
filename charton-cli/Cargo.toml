@@ -5,7 +5,7 @@ edition = "2024"
 license = "Apache-2.0"
 repository = "https://github.com/wangjiawen2013/charton"
 homepage = "https://wangjiawen2013.github.io/charton"
-description = "Command-line interface for charton: a CSV to a chart in one command"
+description = "Command-line interface for charton: turn a table into a chart in one command"
 readme = "README.md"
 keywords = ["charts", "plotting", "cli", "visualization", "csv"]
 categories = ["command-line-utilities", "visualization"]
@@ -15,7 +15,7 @@ name = "charton"
 path = "src/main.rs"
 
 [dependencies]
-# `spec` turns the JSON dialect on; PNG and PDF make `-o report.pdf` work.
+# `spec` turns JSON chart documents on; PNG and PDF make `-o report.pdf` work.
 # The CLI is a separate crate so these never reach a library user's build.
 charton = { path = "..", version = "0.9.1", features = ["spec", "png", "pdf"] }
 base64 = "0.22"

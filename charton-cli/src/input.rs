@@ -103,7 +103,7 @@ pub fn read_text(path: &Path) -> Result<String, CliError> {
         .map_err(|error| CliError::data(format!("cannot read {}: {error}", path.display())))
 }
 
-/// Resolve a spec's `data.url` against the spec file's directory.
+/// Resolve a document's `data.url` against the document file's directory.
 ///
 /// The rule is fixed: relative paths are relative to the *document*, not to the
 /// process's working directory, so a spec means the same thing wherever it is

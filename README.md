@@ -118,21 +118,20 @@ Register the plugin once with `plugin add`, then load it with `plugin use charto
 
 ### MCP server
 
-```sh
-charton mcp --root ./data
-```
-
-An agent then calls `render_spec`:
+Point your MCP client at a data directory:
 
 ```json
-{"method": "tools/call", "params": {"name": "render_spec", "arguments": {
-  "spec": {"data": {"url": "points.csv"}, "mark": "point",
-           "encoding": {"x": {"field": "x"}, "y": {"field": "y"}}}}}}
+{
+  "mcpServers": {
+    "charton": {
+      "command": "charton",
+      "args": ["mcp", "--data-dir", "/home/you/data"]
+    }
+  }
+}
 ```
 
-Seven tools let an agent profile data, write a chart document, validate it, and render it — without running generated code. → [CLI README](charton-cli/README.md)
-
-The CLI, the Nushell plugin, and the MCP server all use the same JSON chart document — a Vega-Lite v5 subset described in the [chart document guide](docs/src/spec/index.md).
+Once connected, the agent has seven tools to profile the data, write a chart document, validate it, and render it — without running generated code. Add `--allow-write` if it should also save documents. → [CLI README](charton-cli/README.md)
 
 ## The Rust library
 
@@ -156,6 +155,7 @@ charton = { version = "0.9", features = ["arrow"] }        # Apache Arrow Record
 ```
 
 ### From macros to production API
+
 While the `chart!` macro is a convenient syntactic sugar for rapid prototyping and simple scripts, the underlying `Chart::build` API is recommended for production environments where explicit data handling is required.
 
 #### 1. Professional Build API
@@ -203,6 +203,7 @@ Chart::build(ds)? // Equivalent to chart!(ds)?
 | < 0.44                   | N/A                        | Unsupported       |
 
 ## Layered Grammar
+
 Inspired by the Grammar of Graphics (as seen in `ggplot2` and `Altair`), Charton replaces rigid templates with a modular, layer-based system. Visualizations are constructed by stacking atomic marks, offering infinite flexibility beyond fixed chart types.
 
 ```rust
@@ -220,11 +221,13 @@ line.and(point).save("layered.svg")?;
 ```
 
 ## Faceting Support
+
 Now supporting multi-panel faceting (`wrap` and `grid` layouts), enabling you to easily split and compare complex datasets across coordinated subplots.
 
 <p align="center"> <img src="docs/src/images/facet_grid.svg" alt="Facet Grid"> </p>
 
 ## Desktop GUI Integration
+
 Charton can render directly into native desktop applications with GPU acceleration. Below is a real-time system telemetry dashboard built with Charton and egui, demonstrating live CPU, memory, swap, and network monitoring with per-core load distribution:
 
 <p align="center"> <img src="assets/monitor.png" alt="Charton gui Dashboard"> </p>
@@ -232,6 +235,7 @@ Charton can render directly into native desktop applications with GPU accelerati
 Charton offers two integration paths for GUI applications: `render_to_surface` for zero-copy GPU rendering in a 60 FPS loop, or the standalone `WgpuRenderer` when you need to avoid wgpu version conflicts between crates.
 
 ## WebAssembly and Frontend
+
 Charton supports WebAssembly and modern web frontends. Below is an interactive demo that simulates a 50,000-point Lorenz Attractor at 60 FPS, demonstrating how WebAssembly enables high-performance, real-time data visualization in the browser.
 
 <p align="center"> <img src="assets/lorenz.gif" alt="Charton Wasm demo"> </p>
@@ -239,16 +243,20 @@ Charton supports WebAssembly and modern web frontends. Below is an interactive d
 The SVG it returns is a semantic document: elements carry role classes (`charton-axis`, `charton-mark`, `charton-legend`, …) and identity attributes, so a page stylesheet can restyle a chart — dark mode, brand colors, print — without re-rendering it, and screen readers get the chart's title and description instead of a stream of tick numbers. Exported PDFs carry the equivalent structure as tags. See [Semantic Output](https://wangjiawen2013.github.io/charton/export/semantic_output.html).
 
 ## Interactive Notebooks (Jupyter)
+
 Charton integrates with evcxr_jupyter for interactive data exploration. Replacing `.save()` with `.show()` renders SVGs directly within notebook cells:
 
 ![evcxr jupyter](assets/evcxr_jupyter.png)
 
 ## True Layer Synchronization
+
 Stop fighting with fragile, hard-coded patches. Charton treats scaling as a **Single Source of Truth**, making it possible to combine heterogeneous data sources into one plot while maintaining total mathematical consistency across every mark and axis.
+
 ![Comparison](assets/comparison.png)
 *This figure demonstrates semantic synchronization in Charton. Point samples and bar backgrounds from different data sources are anchored to a unified scale, ensuring absolute color and spatial consistency.*
 
 ## Publish Quality
+
 Designed for precision, Charton provides pixel-perfect control over complex marks. Whether it is a multi-layered ErrorBar for biomedical research or a high-density scatter plot for finance, Charton delivers the aesthetic rigor required by top-tier journals.
 
 <table>
@@ -261,6 +269,7 @@ Designed for precision, Charton provides pixel-perfect control over complex mark
 *A reproduction of Figure 1A from the 2021 NEJM landmark study on once-weekly semaglutide for weight management, implemented using Charton.*
 
 ## Documentation
+
 Please go to the [Charton Docs](https://wangjiawen2013.github.io/charton) for full documentation.
 
 ## Other Rust plotting libraries
@@ -270,6 +279,7 @@ Please go to the [Charton Docs](https://wangjiawen2013.github.io/charton) for fu
 [charts-rs](https://github.com/vicanso/charts-rs): An ECharts-inspired Rust charting library with multiple chart types, built-in themes, SVG animations, and multi-format export—tailored for dashboards and web-style visualizations rather than scientific plotting.
 
 ## License
+
 Charton is licensed under the Apache License 2.0.
 
 ## AI Declaration

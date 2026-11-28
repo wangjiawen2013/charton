@@ -82,7 +82,7 @@ Charton 是一个高性能绘图引擎，把图形语法（Grammar of Graphics�
 | Nushell 插件 | Nushell 管道绘图 | `cargo install nu_plugin_charton` |
 | MCP 服务 | AI Agent | `cargo install charton-cli` |
 
-下面用一张简单的散点图示例各使用方式的用法。
+下面用一张简单的散点图演示每种方式怎么用。
 
 ### Rust 库
 
@@ -118,21 +118,20 @@ open points.csv | charton point -x x -y y -o scatter.svg
 
 ### MCP 服务
 
-```sh
-charton mcp --root ./data
-```
-
-Agent 随后调用 `render_spec`：
+在 MCP 客户端里指向一个数据目录：
 
 ```json
-{"method": "tools/call", "params": {"name": "render_spec", "arguments": {
-  "spec": {"data": {"url": "points.csv"}, "mark": "point",
-           "encoding": {"x": {"field": "x"}, "y": {"field": "y"}}}}}}
+{
+  "mcpServers": {
+    "charton": {
+      "command": "charton",
+      "args": ["mcp", "--data-dir", "/home/you/data"]
+    }
+  }
+}
 ```
 
-七个工具让 Agent 分析数据、写图表文档、校验并渲染——全程不运行生成的代码。→ [CLI README](charton-cli/README.md)
-
-CLI、Nushell 插件和 MCP 服务使用同一种 JSON 图表文档——Vega-Lite v5 的子集，见[图表文档指南](docs/src/spec/index.md)。
+连接后，Agent 可以用七个工具分析数据、写图表文档、校验并渲染——全程不运行生成的代码。如果要让它保存文档，加上 `--allow-write`。→ [CLI README](charton-cli/README.md)
 
 ## Rust 库详解
 
@@ -156,6 +155,7 @@ charton = { version = "0.9", features = ["arrow"] }        # Apache Arrow Record
 ```
 
 ### 从宏到生产级 API
+
 虽然 `chart!` 宏在快速原型设计和书写简单脚本时非常方便，但在需要显式处理数据的生产环境中，建议使用底层的 `Chart::build` API。
 
 #### 1. 专业构建 API
@@ -203,7 +203,8 @@ Chart::build(ds)? // 等价于 chart!(ds)?
 | < 0.44                  | N/A                         | 不支持        |
 
 ## 分层语法
-受图形语法（如 `ggplot2` 和 `Altair`）影响，Charton 用模块化的图层系统取代了固定模板。通过组合原子标记（Marks）能构建出丰富的图表类型，极大的提高了作图灵活性。
+
+受图形语法（如 `ggplot2` 和 `Altair`）影响，Charton 用模块化的图层系统取代了固定模板。通过组合原子标记（Marks）能构建出丰富的图表类型，极大地提高了作图灵活性。
 
 ```rust
 // 创建独立图层
@@ -220,11 +221,13 @@ line.and(point).save("layered.svg")?;
 ```
 
 ## 分面作图
-现已支持多面板分面（包含`wrap`和`grid`布局），可将复杂数据集拆分到多个联动的子图中，进行直观的对比分析。
+
+现已支持多面板分面（包含 `wrap` 和 `grid` 布局），可将复杂数据集拆分到多个联动的子图中，进行直观的对比分析。
 
 <p align="center"> <img src="docs/src/images/facet_grid.svg" alt="Facet Grid"> </p>
 
 ## 桌面 GUI 集成
+
 Charton 可以借助 GPU 加速，直接渲染到原生桌面应用中。下图是一个使用 Charton 和 egui 构建的实时系统遥测仪表板，展示了实时 CPU、内存、Swap 和网络监控，以及每个核心的负载分布：
 
 <p align="center"> <img src="assets/monitor.png" alt="Charton gui 仪表板"> </p>
@@ -232,25 +235,29 @@ Charton 可以借助 GPU 加速，直接渲染到原生桌面应用中。下图�
 Charton 为 GUI 应用提供了两种集成路径：`render_to_surface` 用于 60 FPS 循环中的零拷贝 GPU 渲染，或者独立的 `WgpuRenderer`，用于规避 crate 之间 wgpu 版本冲突。
 
 ## WebAssembly 与前端
-Charton 支持 WebAssembly 及现代 Web 前端开发。下面这个示例展示了一个支持实时交互的 50,000 点 Lorenz 吸引子 3D 动力学系统，利用 WASM 技术在浏览器中实现 60 FPS 的超流畅渲染。
+
+Charton 支持 WebAssembly 及现代 Web 前端开发。下面这个示例模拟了一个 50,000 点的 Lorenz 吸引子，以 60 FPS 展示 WebAssembly 如何在浏览器中实现高性能、实时数据可视化。
 
 <p align="center"> <img src="assets/lorenz.gif" alt="Charton Wasm demo"> </p>
 
 其返回的 SVG 是一份语义化文档：元素带有角色 class（`charton-axis`、`charton-mark`、`charton-legend` 等）与身份属性，因此页面样式表可以在不重新渲染的前提下重绘图表——深色模式、品牌色、打印样式；屏幕阅读器读到的则是图表标题与描述，而不是一串刻度数字。导出的 PDF 也带有等价的标签结构。详见[语义化输出](https://wangjiawen2013.github.io/charton/export/semantic_output.html)。
 
-## 交互式作图 (Jupyter)
-Charton 与 evcxr_jupyter 集成，支持交互式数据探索。将 `.save()` 替换为 `.show()` 即可直接在 jupyter notebook 单元格中显示 SVG：
+## 交互式 Notebook（Jupyter）
+
+Charton 与 evcxr_jupyter 集成，支持交互式数据探索。将 `.save()` 替换为 `.show()` 即可直接在 Jupyter Notebook 单元格中显示 SVG：
 
 ![evcxr jupyter](assets/evcxr_jupyter.png)
 
-## 原生图层同步
-Charton 基于**单一事实来源**处理标度映射，能组合不同来源的数据，并保持所有图表元素与坐标轴的逻辑一致性。
+## 真正的图层同步
+
+无需再和脆弱、硬编码的补丁较劲。Charton 将标度映射视为**单一事实来源**，因此可以把来源不同的数据组合到一张图中，同时保持每个标记和坐标轴在数学上完全一致。
 
 ![Comparison](assets/comparison.png)
 
 *该图展示了 Charton 中的语义同步。来自不同数据源的点集与条形图被锚定在统一的标度体系下，确保了数据与色彩、空间位置映射关系的精准对齐。*
 
 ## 出版级质量
+
 Charton 作图精准，提供对复杂标记的像素级控制。无论是用于生物医学研究的多层误差线（ErrorBar），还是用于金融领域的高密度散点图，Charton 都能提供顶尖期刊所需的审美严谨性。
 
 <table>
@@ -263,6 +270,7 @@ Charton 作图精准，提供对复杂标记的像素级控制。无论是用于
 *使用 Charton 复现了 2021 年新英格兰医学杂志上发表的使用减肥药司美格鲁肽进行体重管理的研究论文中的图 1A。*
 
 ## 文档
+
 请访问 [Charton Docs](https://wangjiawen2013.github.io/charton) 查看完整文档。
 
 ## 其他 Rust 绘图库
@@ -272,6 +280,7 @@ Charton 作图精准，提供对复杂标记的像素级控制。无论是用于
 [charts-rs](https://github.com/vicanso/charts-rs)： ECharts 风格的 Rust 图表库，支持多种图表类型、内置主题、SVG 动画和多格式导出——更适合仪表盘和 Web 风格可视化，而非科学绘图。
 
 ## License
+
 Charton 基于 Apache License 2.0 许可证开源。
 
 ## AI 使用声明

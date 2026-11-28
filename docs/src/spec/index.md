@@ -17,7 +17,8 @@ its data, the mark to draw and which column goes where:
 }
 ```
 
-Render it with `charton render chart.json -o report.pdf`.
+Render it with `charton render chart.json -o report.pdf`. The CLI, the Nushell
+plugin, and the MCP server all use this document format.
 
 Documents exist for three reasons: they can be **saved** next to the data they
 describe, **reviewed** like any other source file, and **generated** — by a
@@ -38,7 +39,7 @@ is wrong before anything is drawn.
 
 Every field is checked. An unsupported key is an error, never a silent no-op.
 The full per-field reference — what each field becomes in the engine, and where
-it is refused — is [the lowering map](lowering-map.md).
+it is refused — is [the field reference](lowering-map.md).
 
 ## How a document is processed
 
@@ -106,7 +107,7 @@ derived value, compute it upstream and put the column in the data.
 
 ## Elsewhere
 
-- [The lowering map](lowering-map.md) — every field, and what it becomes.
+- [Field reference](lowering-map.md) — every field, and what it becomes.
 - [The command line](../getting_started/cli.md) — `plot`, `render`, `validate`,
   `schema`, and `--emit-spec`.
 - [Agents (MCP)](../getting_started/mcp.md) — the same checks, served as tools.

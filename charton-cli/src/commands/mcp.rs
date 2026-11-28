@@ -12,8 +12,8 @@ use crate::sandbox::Sandbox;
 ///
 /// # Errors
 ///
-/// Fails when the root is not a directory, or when the transport fails.
+/// Fails when the data directory is not a directory, or when the transport fails.
 pub fn run(args: McpArgs) -> Result<(), CliError> {
-    let sandbox = Sandbox::new(&args.root, args.allow_write)?;
+    let sandbox = Sandbox::new(&args.data_dir, args.allow_write)?;
     mcp::serve(sandbox)
 }

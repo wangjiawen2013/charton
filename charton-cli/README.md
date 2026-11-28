@@ -10,12 +10,18 @@ use.
 ## Install
 
 ```sh
-cargo install --path charton-cli      # from a checkout
+cargo install charton-cli
 ```
 
-Prebuilt binaries are not published yet; building from a checkout is the
-supported path for now. The crate is a workspace member, so
-`cargo build -p charton-cli --release` also works.
+From a checkout:
+
+```sh
+cargo install --path charton-cli
+```
+
+Prebuilt binaries are not published yet; both commands build from source. The
+crate is a workspace member, so `cargo build -p charton-cli --release` also
+works.
 
 ## Sixty seconds
 
@@ -145,10 +151,10 @@ same schema the `$schema` URL names.
 ### `mcp` — agents
 
 ```sh
-charton mcp --root ./data
+charton mcp --data-dir ./data
 ```
 
-A stdio [MCP](https://modelcontextprotocol.io) server. `--root` is the only
+A stdio [MCP](https://modelcontextprotocol.io) server. `--data-dir` is the only
 directory the tools may read; `--allow-write` lets `export_spec` write inside it.
 The complete tool and protocol reference is below. Add it to a client like any
 other local server:
@@ -158,7 +164,7 @@ other local server:
   "mcpServers": {
     "charton": {
       "command": "charton",
-      "args": ["mcp", "--root", "/absolute/path/to/data"]
+      "args": ["mcp", "--data-dir", "/home/you/data"]
     }
   }
 }
@@ -242,9 +248,10 @@ Stdout is the transport: nothing else is ever written there. Logs go to stderr.
 | `render_spec` | `spec`, `format?` | SVG as text, or PNG as an image block. Problems replace the chart. |
 | `export_spec` | `spec`, `path`, `overwrite?` | Writes the validated document. Needs `--allow-write`. |
 
-`spec` is either the document itself (a JSON object) or a path inside the root.
-`data` is a path inside the root. In the server, every path — including a spec's
-own `data.url` — is resolved against `--root`, not against the document file.
+`spec` is either the document itself (a JSON object) or a path inside the data
+directory. `data` is a path inside the data directory. In the server, every path
+— including a spec's own `data.url` — is resolved against `--data-dir`, not
+against the document file.
 
 `profile_data` defaults to 5 sample rows (max 50). `render_spec` accepts `svg`
 (default) or `png`; a PNG comes back as a base64 `image` content block.
@@ -269,7 +276,7 @@ text block. JSON-RPC errors are reserved for protocol mistakes (`-32700` parse,
 
 ### Safety
 
-- **One root.** Every path is resolved against `--root` before the check;
+- **One data directory.** Every path is resolved against `--data-dir` before the check;
   `../` and symlinks cannot climb out.
 - **Read-only by default.** `export_spec` refuses unless the server was started
   with `--allow-write`, and never creates directories.

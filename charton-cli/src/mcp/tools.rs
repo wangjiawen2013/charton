@@ -100,7 +100,7 @@ pub fn find(name: &str) -> Option<&'static Tool> {
 static TOOLS: &[Tool] = &[
     Tool {
         name: "get_schema",
-        description: "The JSON Schema of the chart dialect. Read this before writing a spec: \
+        description: "The JSON Schema of the chart document format. Read this before writing a document: \
                       it is the authoritative list of fields, marks and channels for this build.",
         schema: empty_schema,
         call: get_schema,
@@ -109,7 +109,7 @@ static TOOLS: &[Tool] = &[
         name: "profile_data",
         description: "Summarise a table: its columns, their types, missing counts, ranges or \
                       distinct values, and a sample of rows. Use it to learn the column names \
-                      before writing a spec.",
+                      before writing a chart document.",
         schema: profile_schema,
         call: profile,
     },
@@ -122,13 +122,13 @@ static TOOLS: &[Tool] = &[
     },
     Tool {
         name: "list_themes",
-        description: "The built-in themes a spec may name in its `theme` field.",
+        description: "The built-in themes a chart document may name in its `theme` field.",
         schema: empty_schema,
         call: list_themes,
     },
     Tool {
         name: "validate_spec",
-        description: "Check a chart spec. With `data`, the check also covers whether the fields \
+        description: "Check a chart document. With `data`, the check also covers whether the fields \
                       exist and whether their values can serve the channel. Returns every problem \
                       with a stable code, a JSON Pointer and a hint.",
         schema: validate_schema,
@@ -136,14 +136,14 @@ static TOOLS: &[Tool] = &[
     },
     Tool {
         name: "render_spec",
-        description: "Render a chart spec to SVG (returned as text) or PNG (returned as an \
-                      image). The spec is validated first; problems are returned instead of a chart.",
+        description: "Render a chart document to SVG (returned as text) or PNG (returned as an \
+                      image). The document is validated first; problems are returned instead of a chart.",
         schema: render_schema,
         call: render_spec,
     },
     Tool {
         name: "export_spec",
-        description: "Write a spec to a file inside the allowed root. Disabled unless the server \
+        description: "Write a chart document to a file inside the data directory. Disabled unless the server \
                       was started with --allow-write.",
         schema: export_schema,
         call: export_spec,
@@ -161,7 +161,7 @@ fn empty_schema() -> Value {
 #[derive(Debug, Deserialize, JsonSchema)]
 #[serde(deny_unknown_fields)]
 struct ProfileArgs {
-    /// Path to a CSV, TSV or NDJSON file inside the allowed root.
+    /// Path to a CSV, TSV or NDJSON file inside the data directory.
     path: String,
     /// How many sample rows to include. Defaults to 5.
     #[serde(default)]
@@ -175,7 +175,7 @@ fn profile_schema() -> Value {
 #[derive(Debug, Deserialize, JsonSchema)]
 #[serde(deny_unknown_fields)]
 struct ValidateArgs {
-    /// The spec: either the document itself, or a path to one inside the root.
+    /// The spec: either the document itself, or a path to one inside the data directory.
     spec: Value,
     /// Optional path to the rows, to check field names and types too.
     #[serde(default)]
@@ -189,7 +189,7 @@ fn validate_schema() -> Value {
 #[derive(Debug, Deserialize, JsonSchema)]
 #[serde(deny_unknown_fields)]
 struct RenderArgs {
-    /// The spec: either the document itself, or a path to one inside the root.
+    /// The spec: either the document itself, or a path to one inside the data directory.
     spec: Value,
     /// `svg` (default) or `png`.
     #[serde(default)]
@@ -203,9 +203,9 @@ fn render_schema() -> Value {
 #[derive(Debug, Deserialize, JsonSchema)]
 #[serde(deny_unknown_fields)]
 struct ExportArgs {
-    /// The spec: either the document itself, or a path to one inside the root.
+    /// The spec: either the document itself, or a path to one inside the data directory.
     spec: Value,
-    /// Where to write it, inside the allowed root.
+    /// Where to write it, inside the data directory.
     path: String,
     /// Replace an existing file.
     #[serde(default)]
@@ -395,7 +395,7 @@ where
         .map_err(|error| Outcome::failed(format!("bad arguments: {error}")))
 }
 
-/// A spec, given either inline or as a path inside the root.
+/// A spec, given either inline or as a path inside the data directory.
 fn spec_from(value: &Value, sandbox: &Sandbox) -> Result<Spec, Outcome> {
     match value {
         Value::String(path) => {

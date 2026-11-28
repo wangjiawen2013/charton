@@ -55,7 +55,7 @@ impl Server {
     fn start(scratch: &Scratch, extra: &[&str]) -> Self {
         let mut child = Command::new(env!("CARGO_BIN_EXE_charton"))
             .arg("mcp")
-            .arg("--root")
+            .arg("--data-dir")
             .arg(&scratch.path)
             .args(extra)
             .stdin(Stdio::piped())
@@ -410,7 +410,7 @@ fn a_spec_that_cannot_render_returns_its_diagnostics_instead_of_a_chart() {
 // ---------------------------------------------------------------------------
 
 #[test]
-fn a_path_outside_the_root_is_refused() {
+fn a_path_outside_the_data_dir_is_refused() {
     let scratch = Scratch::new("escape");
     scratch.write("sales.csv", SALES);
     let mut server = Server::start(&scratch, &[]);
@@ -420,7 +420,7 @@ fn a_path_outside_the_root_is_refused() {
         assert!(is_error(&response), "`{path}` must be refused: {response}");
         let text = content_0(&response)["text"].as_str().expect("text");
         assert!(
-            text.contains("allowed root") || text.contains("cannot read"),
+            text.contains("data directory") || text.contains("cannot read"),
             "unexpected message: {text}"
         );
     }
@@ -430,7 +430,7 @@ fn a_path_outside_the_root_is_refused() {
 }
 
 #[test]
-fn a_spec_cannot_read_data_outside_the_root() {
+fn a_spec_cannot_read_data_outside_the_data_dir() {
     let scratch = Scratch::new("escape-spec");
     let mut server = Server::start(&scratch, &[]);
 
