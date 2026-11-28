@@ -281,10 +281,10 @@ text block. JSON-RPC errors are reserved for protocol mistakes (`-32700` parse,
 
 The README is the reference. The book explains the design:
 
-- [The command line](https://github.com/wangjiawen2013/charton/blob/main/docs/src/getting_started/cli.md) — why the CLI is four commands and how the build path works.
-- [Agents (MCP)](https://github.com/wangjiawen2013/charton/blob/main/docs/src/getting_started/mcp.md) — the loop, the error model, the sandbox.
-- [Writing a chart document](https://github.com/wangjiawen2013/charton/blob/main/docs/src/spec/index.md) — the dialect.
-- [Field reference (lowering map)](https://github.com/wangjiawen2013/charton/blob/main/docs/src/spec/lowering-map.md) — every field.
+- [The command line](../docs/src/getting_started/cli.md) — why the CLI is four commands and how the build path works.
+- [Agents (MCP)](../docs/src/getting_started/mcp.md) — the loop, the error model, the sandbox.
+- [Writing a chart document](../docs/src/spec/index.md) — the dialect.
+- [Field reference (lowering map)](../docs/src/spec/lowering-map.md) — every field.
 
 ## License
 

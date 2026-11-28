@@ -1,7 +1,9 @@
 [English](./README.md) | [简体中文](./README_zh.md)
 
-# Charton - A versatile plotting library for Rust
-**Altair-style declarative plotting for Rust. High-performance, Polars-friendly, and Wasm-ready.**
+# Charton
+
+**A declarative plotting engine for Rust, the shell, and AI agents.**
+
 > *"Really nice project. ... This works perfectly as an ecosystem."*
 > — [**Ritchie Vink**](https://github.com/pola-rs/polars/issues/25941), Creator of Polars
 
@@ -15,11 +17,60 @@
   <i>standard blocks — limitless charts</i>
 </p>
 
-Charton is a high-performance Rust plotting library featuring a declarative API inspired by [Altair](https://altair-viz.github.io/). It provides [Polars](https://github.com/pola-rs/polars) support for fast data processing. Integrated with evcxr_jupyter, it enables seamless interactive data exploration in notebooks.
+Charton is a plotting engine built around a declarative grammar of graphics. The same chart can be written as Rust code, a CLI command, a Nushell pipeline, a JSON document, or an MCP tool call — one validator, one build path, one renderer.
 
-> **Using Nushell?** Charton also ships as a Nushell plugin: `nu_plugin_charton` turns any pipeline table into a chart, inline or saved as SVG/PNG. Install and usage → [plugin README](nu_plugin_charton/README.md).
+Its API is inspired by [Altair](https://altair-viz.github.io/) and the grammar of graphics, with [Polars](https://github.com/pola-rs/polars) for fast data processing. It also runs in Jupyter through evcxr_jupyter, in the browser through WebAssembly, and on the GPU through wgpu.
 
-> **Not writing Rust?** `charton` is also a single static binary: `charton plot sales.csv --mark line --x month --y revenue -o revenue.svg`. It reads CSV, TSV, NDJSON or stdin, and renders charts from a JSON spec (a Vega-Lite v5 subset) with `charton render chart.json -o report.pdf`. → [Command line guide](docs/src/getting_started/cli.md)
+## One chart, four ways
+
+The same simple scatter plot, from the same six-row [`points.csv`](assets/points.csv), through four different entry points:
+
+<p align="center">
+  <img src="assets/one-chart-four-ways.svg" alt="A simple scatter plot of six x/y points" width="500" />
+</p>
+
+**Rust library**
+
+```rust
+// df: the Polars DataFrame loaded from points.csv
+Chart::build(load_polars_df!(df)?)?
+    .mark_point()?
+    .encode((alt::x("x"), alt::y("y")))?
+    .save("scatter.svg")?;
+```
+
+**Command line**
+
+```sh
+charton plot points.csv --mark point --x x --y y -o scatter.svg
+```
+
+**Nushell**
+
+```nu
+open points.csv | charton point -x x -y y -o scatter.svg
+```
+
+**MCP (for agents)**
+
+```json
+{"method": "tools/call", "params": {"name": "render_spec", "arguments": {
+  "spec": {"data": {"url": "points.csv"}, "mark": "point",
+           "encoding": {"x": {"field": "x"}, "y": {"field": "y"}}}}}}
+```
+
+All four paths share the same validator, the same lowering, and the same renderer.
+
+## Entry points
+
+Charton is one engine with several front doors. They all share the same chart model, validator, and renderer.
+
+- **Rust library** — `charton`, the engine. A declarative `Chart` API with Polars/Arrow input, SVG/PNG/PDF export, Wasm, and GPU backends. → [Quick start](#quick-start) · [API docs](https://docs.rs/charton)
+- **Command line** — `charton-cli`, a single static binary with `plot`, `render`, `validate`, and `schema`. No Rust toolchain, Node, or Python needed. → [CLI README](charton-cli/README.md)
+- **Nushell plugin** — `nu_plugin_charton`. Turn any pipeline table into a chart, inline in the terminal or saved as SVG/PNG. → [Plugin README](nu_plugin_charton/README.md)
+- **MCP server** — `charton mcp`, shipped in the CLI binary. Seven tools let an agent profile data, write a spec, validate it, and render it — without running generated code. → [MCP reference](charton-cli/README.md#the-mcp-server) · [Design chapter](docs/src/getting_started/mcp.md)
+
+The CLI, the Nushell plugin, and the MCP server all speak the same JSON chart document — a Vega-Lite v5 subset described in the [spec guide](docs/src/spec/index.md).
 
 <table>
     <tr>
@@ -72,6 +123,9 @@ Charton is a high-performance Rust plotting library featuring a declarative API 
 </table>
 
 ## Installation
+
+### Rust library
+
 Add to `Cargo.toml`:
 
 ```toml
@@ -86,6 +140,30 @@ charton = { version = "0.9", features = ["geo"] }          # Enable geospatial c
 charton = { version = "0.9", features = ["spec"] }         # JSON chart documents (the dialect the CLI/MCP speak)
 charton = { version = "0.9", features = ["arrow"] }        # Apache Arrow RecordBatch ingestion
 ```
+
+### Command line
+
+```sh
+cargo install charton-cli
+```
+
+### Nushell plugin
+
+```sh
+cargo install nu_plugin_charton
+```
+
+Then register it once with `plugin add` and load it with `plugin use charton`. See the [plugin README](nu_plugin_charton/README.md) for paths and platform notes.
+
+### MCP server
+
+The MCP server is part of the CLI binary:
+
+```sh
+charton mcp --root ./data
+```
+
+See the [MCP reference](charton-cli/README.md#the-mcp-server) for the seven tools and the protocol.
 
 ## Quick Start
 Charton provides a high-level, declarative API. Standard visualizations can be generated using a concise one-liner syntax:
@@ -209,15 +287,7 @@ Designed for precision, Charton provides pixel-perfect control over complex mark
 ## Documentation
 Please go to the [Charton Docs](https://wangjiawen2013.github.io/charton) for full documentation.
 
-## Entry points
-
-- **Rust library** — `charton`, the engine in this repository.
-- **`charton-cli`** — `plot`, `render`, `validate`, `schema`, and the `mcp`
-  server. See the [CLI README](charton-cli/README.md).
-- **`nu_plugin_charton`** — the same engine inside a Nushell pipeline, inline or
-  as SVG/PNG. See the [plugin README](nu_plugin_charton/README.md).
-
-Other Rust plotting libraries worth knowing about:
+## Other Rust plotting libraries
 
 [kuva](https://github.com/Psy-Fer/kuva): A scientific plotting library in Rust. 64 plot types, SVG output, optional PNG/PDF backends, and a CLI binary that renders plots directly from the shell.
 

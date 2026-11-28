@@ -1,7 +1,9 @@
 [English](./README.md) | [简体中文](./README_zh.md)
 
-# Charton - 一个多功能的 Rust 绘图库
-**Rust 版 Altair 风格声明式绘图。高性能、Polars 友好、且兼容 Wasm。**
+# Charton
+
+**一个面向 Rust、Shell 与 AI Agent 的声明式绘图引擎。**
+
 > *“非常棒的项目。... 作为一个生态系统运行得非常完美。”*
 > — [**Ritchie Vink**](https://github.com/pola-rs/polars/issues/25941), Polars 创始人
 
@@ -15,11 +17,60 @@
   <i>标准组件 — 无限图表</i>
 </p>
 
-Charton 是一款高性能 Rust 绘图库，其声明式 API 灵感源自 [Altair](https://altair-viz.github.io/)。它支持 [Polars](https://github.com/pola-rs/polars) 数据框来快速处理数据。通过与 evcxr_jupyter 集成，还可以在 Notebook 中实现交互式数据探索。
+Charton 是一个基于声明式图形语法的绘图引擎。同一张图，可以用 Rust 代码、CLI 命令、Nushell 管道、JSON 图表文档或 MCP 工具调用来写——同一个校验器、同一条构建路径、同一个渲染器。
 
-> **使用 Nushell？** Charton 也提供 Nushell 插件：`nu_plugin_charton` 可以把任意管道表格画成图表，终端内联显示或保存为 SVG/PNG。安装与用法见[插件 README](nu_plugin_charton/README.md)。
+它的 API 灵感来自 [Altair](https://altair-viz.github.io/) 与图形语法（Grammar of Graphics），并用 [Polars](https://github.com/pola-rs/polars) 做快速数据处理。它也能通过 evcxr_jupyter 在 Notebook 中运行，通过 WebAssembly 在浏览器中运行，并通过 wgpu 在 GPU 上渲染。
 
-> **不写 Rust？** `charton` 也可以是一个独立的命令行程序：`charton plot sales.csv --mark line --x month --y revenue -o revenue.svg`。它读取 CSV、TSV、NDJSON 或 stdin，也能渲染 JSON 图表文档（Vega-Lite v5 的子集）：`charton render chart.json -o report.pdf`。详见[命令行指南](docs/src/getting_started/cli.md)。
+## 同一张图，四种写法
+
+同一份六行的 [`points.csv`](assets/points.csv)，同一个简单散点图，四种入口：
+
+<p align="center">
+  <img src="assets/one-chart-four-ways.svg" alt="六个 x/y 数据点的简单散点图" width="500" />
+</p>
+
+**Rust 库**
+
+```rust
+// df: 从 points.csv 读取的 Polars DataFrame（含 x、y 两列）
+Chart::build(load_polars_df!(df)?)?
+    .mark_point()?
+    .encode((alt::x("x"), alt::y("y")))?
+    .save("scatter.svg")?;
+```
+
+**命令行**
+
+```sh
+charton plot points.csv --mark point --x x --y y -o scatter.svg
+```
+
+**Nushell**
+
+```nu
+open points.csv | charton point -x x -y y -o scatter.svg
+```
+
+**MCP（面向 Agent）**
+
+```json
+{"method": "tools/call", "params": {"name": "render_spec", "arguments": {
+  "spec": {"data": {"url": "points.csv"}, "mark": "point",
+           "encoding": {"x": {"field": "x"}, "y": {"field": "y"}}}}}}
+```
+
+四种方式共享同一个校验器、同一条 lower 路径和同一个渲染器。
+
+## 入口
+
+Charton 是一个引擎、多个入口。它们共享同一套图表模型、校验器和渲染器。
+
+- **Rust 库** — `charton`，引擎本体。声明式 `Chart` API，支持 Polars/Arrow 输入、SVG/PNG/PDF 导出、Wasm 和 GPU 后端。→ [快速上手](#快速上手) · [API 文档](https://docs.rs/charton)
+- **命令行** — `charton-cli`，单个静态二进制，提供 `plot`、`render`、`validate` 和 `schema`。不需要 Rust 工具链、Node 或 Python。→ [CLI README](charton-cli/README.md)
+- **Nushell 插件** — `nu_plugin_charton`。把任意管道表格画成图表，终端内联显示或保存为 SVG/PNG。→ [插件 README](nu_plugin_charton/README.md)
+- **MCP 服务** — `charton mcp`，包含在 CLI 二进制中。七个工具让 Agent 分析数据、写图表文档、校验并渲染——全程不运行生成的代码。→ [MCP 参考](charton-cli/README.md#the-mcp-server) · [设计章节](docs/src/getting_started/mcp.md)
+
+CLI、Nushell 插件和 MCP 服务使用同一种 JSON 图表文档——Vega-Lite v5 的子集，见[图表文档指南](docs/src/spec/index.md)。
 
 <table>
     <tr>
@@ -72,6 +123,9 @@ Charton 是一款高性能 Rust 绘图库，其声明式 API 灵感源自 [Altai
 </table>
 
 ## 安装
+
+### Rust 库
+
 在 `Cargo.toml` 中添加：
 
 ```toml
@@ -86,6 +140,30 @@ charton = { version = "0.9", features = ["geo"] }          # 地理坐标支持
 charton = { version = "0.9", features = ["spec"] }         # JSON 图表文档（CLI/MCP 使用的方言）
 charton = { version = "0.9", features = ["arrow"] }        # Apache Arrow RecordBatch 数据接入
 ```
+
+### 命令行
+
+```sh
+cargo install charton-cli
+```
+
+### Nushell 插件
+
+```sh
+cargo install nu_plugin_charton
+```
+
+然后用 `plugin add` 注册一次，再用 `plugin use charton` 加载。路径与平台说明见[插件 README](nu_plugin_charton/README.md)。
+
+### MCP 服务
+
+MCP 服务包含在 CLI 二进制中：
+
+```sh
+charton mcp --root ./data
+```
+
+七个工具与协议详见 [MCP 参考](charton-cli/README.md#the-mcp-server)。
 
 ## 快速上手
 Charton 提供了高级声明式 API。通过一行代码就可以实现可视化：
@@ -211,15 +289,7 @@ Charton 作图精准，提供对复杂标记的像素级控制。无论是用于
 ## 文档
 请访问 [Charton Docs](https://wangjiawen2013.github.io/charton) 查看完整文档。
 
-## 入口
-
-- **Rust 库** — 本仓库中的引擎 `charton`。
-- **`charton-cli`** — `plot`、`render`、`validate`、`schema` 以及 `mcp`
-  服务。见 [CLI README](charton-cli/README.md)。
-- **`nu_plugin_charton`** — 在 Nushell 管道中直接使用同一引擎，终端内联显示或保存为
-  SVG/PNG。见[插件 README](nu_plugin_charton/README.md)。
-
-其他值得了解的 Rust 绘图库：
+## 其他 Rust 绘图库
 
 [kuva](https://github.com/Psy-Fer/kuva)：一个 Rust 科学绘图库。支持多种图表类型，SVG 输出，可选的 PNG/PDF 后端，以及一个可直接在终端中渲染绘图的 CLI 工具。
 
