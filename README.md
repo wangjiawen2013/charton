@@ -73,17 +73,16 @@ Its API is inspired by [Altair](https://altair-viz.github.io/) and the grammar o
 
 ## Quick start
 
-The same scatter plot, from the same six-row [`points.csv`](assets/points.csv), four ways. Every path shares the same validator, lowering, and renderer.
+Four ways to draw the same scatter plot from the same six-row [`points.csv`](assets/points.csv). Every path shares the same validator, lowering, and renderer.
 
-<p align="center">
-  <img src="assets/one-chart-four-ways.svg" alt="A simple scatter plot of six x/y points" width="420" />
-</p>
+| Surface | Install |
+| --- | --- |
+| Rust library | `cargo add charton` |
+| Command line | `cargo install charton-cli` |
+| Nushell plugin | `cargo install nu_plugin_charton` |
+| MCP server | included in `charton-cli` |
 
 ### Rust library
-
-```sh
-cargo add charton
-```
 
 ```rust
 use charton::prelude::*;
@@ -102,7 +101,6 @@ The `chart!` macro is the shortest path. For production pipelines, use `Chart::b
 ### Command line
 
 ```sh
-cargo install charton-cli
 charton plot points.csv --mark point --x x --y y -o scatter.svg
 ```
 
@@ -110,27 +108,19 @@ A single static binary with `plot`, `render`, `validate`, and `schema`. It reads
 
 ### Nushell plugin
 
-```sh
-cargo install nu_plugin_charton
-```
-
 ```nu
 open points.csv | charton point -x x -y y -o scatter.svg
 ```
 
-Register it once with `plugin add`, then load it with `plugin use charton`. → [Plugin README](nu_plugin_charton/README.md)
-
-<p align="center">
-  <img src="nu_plugin_charton/assets/nushell-demo.gif" alt="A Nushell pipeline drawing a bubble chart inline in the terminal" width="640" />
-</p>
+Register the plugin once with `plugin add`, then load it with `plugin use charton`. → [Plugin README](nu_plugin_charton/README.md)
 
 ### MCP server
-
-MCP ships inside the CLI binary:
 
 ```sh
 charton mcp --root ./data
 ```
+
+An agent then calls `render_spec`:
 
 ```json
 {"method": "tools/call", "params": {"name": "render_spec", "arguments": {

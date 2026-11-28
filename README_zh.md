@@ -73,17 +73,16 @@ Charton 是一个基于声明式图形语法的绘图引擎。同一张图，可
 
 ## 快速上手
 
-同一份六行的 [`points.csv`](assets/points.csv)，同一张散点图，四种入口。每条路径都共享同一个校验器、同一条 lower 路径和同一个渲染器。
+四种入口，画同一份六行 [`points.csv`](assets/points.csv) 的同一个散点图。每条路径都共享同一个校验器、同一条 lower 路径和同一个渲染器。
 
-<p align="center">
-  <img src="assets/one-chart-four-ways.svg" alt="六个 x/y 数据点的简单散点图" width="420" />
-</p>
+| 入口 | 安装 |
+| --- | --- |
+| Rust 库 | `cargo add charton` |
+| 命令行 | `cargo install charton-cli` |
+| Nushell 插件 | `cargo install nu_plugin_charton` |
+| MCP 服务 | 包含在 `charton-cli` 中 |
 
 ### Rust 库
-
-```sh
-cargo add charton
-```
 
 ```rust
 use charton::prelude::*;
@@ -102,7 +101,6 @@ chart!(x, y)?
 ### 命令行
 
 ```sh
-cargo install charton-cli
 charton plot points.csv --mark point --x x --y y -o scatter.svg
 ```
 
@@ -110,27 +108,19 @@ charton plot points.csv --mark point --x x --y y -o scatter.svg
 
 ### Nushell 插件
 
-```sh
-cargo install nu_plugin_charton
-```
-
 ```nu
 open points.csv | charton point -x x -y y -o scatter.svg
 ```
 
 用 `plugin add` 注册一次，再用 `plugin use charton` 加载。→ [插件 README](nu_plugin_charton/README.md)
 
-<p align="center">
-  <img src="nu_plugin_charton/assets/nushell-demo.gif" alt="Nushell 管道在终端内联绘制气泡图" width="640" />
-</p>
-
 ### MCP 服务
-
-MCP 包含在 CLI 二进制中：
 
 ```sh
 charton mcp --root ./data
 ```
+
+Agent 随后调用 `render_spec`：
 
 ```json
 {"method": "tools/call", "params": {"name": "render_spec", "arguments": {
