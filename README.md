@@ -73,7 +73,7 @@ Its API is inspired by [Altair](https://altair-viz.github.io/) and the grammar o
 
 ## Quick start
 
-Four ways to draw the same scatter plot from the same six-row [`points.csv`](assets/points.csv). Every path shares the same validator, lowering, and renderer.
+Install the surface you need:
 
 | Surface | Install |
 | --- | --- |
@@ -81,6 +81,8 @@ Four ways to draw the same scatter plot from the same six-row [`points.csv`](ass
 | Command line | `cargo install charton-cli` |
 | Nushell plugin | `cargo install nu_plugin_charton` |
 | MCP server | included in `charton-cli` |
+
+The examples below draw a simple scatter plot to show each entry point in use. All four paths share the same validator, lowering, and renderer.
 
 ### Rust library
 
@@ -96,7 +98,7 @@ chart!(x, y)?
     .save("scatter.svg")?;
 ```
 
-The `chart!` macro is the shortest path. For production pipelines, use `Chart::build` with a `Dataset` or a Polars `DataFrame` — see [From macros to production API](#from-macros-to-production-api). → [API docs](https://docs.rs/charton)
+The `chart!` macro is the shortest path. For production pipelines, use `Chart::build` with a `Dataset` or a Polars `DataFrame`.
 
 ### Command line
 

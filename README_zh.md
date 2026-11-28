@@ -73,7 +73,7 @@ Charton 是一个基于声明式图形语法的绘图引擎。同一张图，可
 
 ## 快速上手
 
-四种入口，画同一份六行 [`points.csv`](assets/points.csv) 的同一个散点图。每条路径都共享同一个校验器、同一条 lower 路径和同一个渲染器。
+按需安装你要用的入口：
 
 | 入口 | 安装 |
 | --- | --- |
@@ -81,6 +81,8 @@ Charton 是一个基于声明式图形语法的绘图引擎。同一张图，可
 | 命令行 | `cargo install charton-cli` |
 | Nushell 插件 | `cargo install nu_plugin_charton` |
 | MCP 服务 | 包含在 `charton-cli` 中 |
+
+下面用一张简单的散点图示例各入口的用法。四条路径共享同一个校验器、同一条 lower 路径和同一个渲染器。
 
 ### Rust 库
 
@@ -96,7 +98,7 @@ chart!(x, y)?
     .save("scatter.svg")?;
 ```
 
-这是适合快速脚本的一行式宏。生产环境用 `Chart::build` 配合 `Dataset` 或 Polars `DataFrame`，见[从宏到生产级 API](#从宏到生产级-api)。→ [API 文档](https://docs.rs/charton)
+这是适合快速脚本的一行式宏。生产环境用 `Chart::build` 配合 `Dataset` 或 Polars `DataFrame`。
 
 ### 命令行
 
