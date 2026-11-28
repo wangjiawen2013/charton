@@ -61,16 +61,9 @@ open points.csv | charton point -x x -y y -o scatter.svg
 
 All four paths share the same validator, the same lowering, and the same renderer.
 
-## Entry points
+## Gallery
 
-Charton is one engine with several front doors. They all share the same chart model, validator, and renderer.
-
-- **Rust library** — `charton`, the engine. A declarative `Chart` API with Polars/Arrow input, SVG/PNG/PDF export, Wasm, and GPU backends. → [Quick start](#quick-start) · [API docs](https://docs.rs/charton)
-- **Command line** — `charton-cli`, a single static binary with `plot`, `render`, `validate`, and `schema`. No Rust toolchain, Node, or Python needed. → [CLI README](charton-cli/README.md)
-- **Nushell plugin** — `nu_plugin_charton`. Turn any pipeline table into a chart, inline in the terminal or saved as SVG/PNG. → [Plugin README](nu_plugin_charton/README.md)
-- **MCP server** — `charton mcp`, shipped in the CLI binary. Seven tools let an agent profile data, write a spec, validate it, and render it — without running generated code. → [MCP reference](charton-cli/README.md#the-mcp-server) · [Design chapter](docs/src/getting_started/mcp.md)
-
-The CLI, the Nushell plugin, and the MCP server all speak the same JSON chart document — a Vega-Lite v5 subset described in the [spec guide](docs/src/spec/index.md).
+A selection of what Charton draws. Every image is a real render; the code behind them lives in the [recipe gallery](docs/src/gallery/index.md).
 
 <table>
     <tr>
@@ -121,6 +114,23 @@ The CLI, the Nushell plugin, and the MCP server all speak the same JSON chart do
         <td><img src="docs/src/images/sierpinski.png" alt="Sierpinski" /><p align="center">Sierpinski</p></td>
     </tr>
 </table>
+
+## Entry points
+
+Charton is one engine with several front doors. They all share the same chart model, validator, and renderer.
+
+- **Rust library** — `charton`, the engine. A declarative `Chart` API with Polars/Arrow input, SVG/PNG/PDF export, Wasm, and GPU backends. → [Quick start](#quick-start) · [API docs](https://docs.rs/charton)
+- **Command line** — `charton-cli`, a single static binary with `plot`, `render`, `validate`, and `schema`. No Rust toolchain, Node, or Python needed. → [CLI README](charton-cli/README.md)
+- **Nushell plugin** — `nu_plugin_charton`. Turn any pipeline table into a chart, inline in the terminal or saved as SVG/PNG. → [Plugin README](nu_plugin_charton/README.md)
+- **MCP server** — `charton mcp`, shipped in the CLI binary. Seven tools let an agent profile data, write a spec, validate it, and render it — without running generated code. → [MCP reference](charton-cli/README.md#the-mcp-server) · [Design chapter](docs/src/getting_started/mcp.md)
+
+The CLI, the Nushell plugin, and the MCP server all speak the same JSON chart document — a Vega-Lite v5 subset described in the [spec guide](docs/src/spec/index.md).
+
+<p align="center">
+  <img src="nu_plugin_charton/assets/nushell-demo.gif" alt="A Nushell pipeline drawing a bubble chart inline in the terminal" width="720" />
+</p>
+
+*The Nushell plugin, drawing inline in the terminal.*
 
 ## Installation
 

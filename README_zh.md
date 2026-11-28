@@ -61,16 +61,9 @@ open points.csv | charton point -x x -y y -o scatter.svg
 
 四种方式共享同一个校验器、同一条 lower 路径和同一个渲染器。
 
-## 入口
+## 图表画廊
 
-Charton 是一个引擎、多个入口。它们共享同一套图表模型、校验器和渲染器。
-
-- **Rust 库** — `charton`，引擎本体。声明式 `Chart` API，支持 Polars/Arrow 输入、SVG/PNG/PDF 导出、Wasm 和 GPU 后端。→ [快速上手](#快速上手) · [API 文档](https://docs.rs/charton)
-- **命令行** — `charton-cli`，单个静态二进制，提供 `plot`、`render`、`validate` 和 `schema`。不需要 Rust 工具链、Node 或 Python。→ [CLI README](charton-cli/README.md)
-- **Nushell 插件** — `nu_plugin_charton`。把任意管道表格画成图表，终端内联显示或保存为 SVG/PNG。→ [插件 README](nu_plugin_charton/README.md)
-- **MCP 服务** — `charton mcp`，包含在 CLI 二进制中。七个工具让 Agent 分析数据、写图表文档、校验并渲染——全程不运行生成的代码。→ [MCP 参考](charton-cli/README.md#the-mcp-server) · [设计章节](docs/src/getting_started/mcp.md)
-
-CLI、Nushell 插件和 MCP 服务使用同一种 JSON 图表文档——Vega-Lite v5 的子集，见[图表文档指南](docs/src/spec/index.md)。
+Charton 能画什么？下面每张图都是真实渲染结果，代码见[图表配方库](docs/src/gallery/index.md)。
 
 <table>
     <tr>
@@ -121,6 +114,23 @@ CLI、Nushell 插件和 MCP 服务使用同一种 JSON 图表文档——Vega-Li
         <td><img src="docs/src/images/sierpinski.png" alt="Sierpinski" /><p align="center">Sierpinski</p></td>
     </tr>
 </table>
+
+## 入口
+
+Charton 是一个引擎、多个入口。它们共享同一套图表模型、校验器和渲染器。
+
+- **Rust 库** — `charton`，引擎本体。声明式 `Chart` API，支持 Polars/Arrow 输入、SVG/PNG/PDF 导出、Wasm 和 GPU 后端。→ [快速上手](#快速上手) · [API 文档](https://docs.rs/charton)
+- **命令行** — `charton-cli`，单个静态二进制，提供 `plot`、`render`、`validate` 和 `schema`。不需要 Rust 工具链、Node 或 Python。→ [CLI README](charton-cli/README.md)
+- **Nushell 插件** — `nu_plugin_charton`。把任意管道表格画成图表，终端内联显示或保存为 SVG/PNG。→ [插件 README](nu_plugin_charton/README.md)
+- **MCP 服务** — `charton mcp`，包含在 CLI 二进制中。七个工具让 Agent 分析数据、写图表文档、校验并渲染——全程不运行生成的代码。→ [MCP 参考](charton-cli/README.md#the-mcp-server) · [设计章节](docs/src/getting_started/mcp.md)
+
+CLI、Nushell 插件和 MCP 服务使用同一种 JSON 图表文档——Vega-Lite v5 的子集，见[图表文档指南](docs/src/spec/index.md)。
+
+<p align="center">
+  <img src="nu_plugin_charton/assets/nushell-demo.gif" alt="Nushell 管道在终端内联绘制气泡图" width="720" />
+</p>
+
+*Nushell 插件，在终端内联绘图。*
 
 ## 安装
 
