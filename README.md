@@ -21,50 +21,6 @@ Charton is a plotting engine built around a declarative grammar of graphics. The
 
 Its API is inspired by [Altair](https://altair-viz.github.io/) and the grammar of graphics, with [Polars](https://github.com/pola-rs/polars) for fast data processing. It also runs in Jupyter through evcxr_jupyter, in the browser through WebAssembly, and on the GPU through wgpu.
 
-## One chart, four ways
-
-The same simple scatter plot, from the same six-row [`points.csv`](assets/points.csv), through four different entry points:
-
-<p align="center">
-  <img src="assets/one-chart-four-ways.svg" alt="A simple scatter plot of six x/y points" width="500" />
-</p>
-
-**Rust library**
-
-```rust
-// df: the Polars DataFrame loaded from points.csv
-Chart::build(load_polars_df!(df)?)?
-    .mark_point()?
-    .encode((alt::x("x"), alt::y("y")))?
-    .save("scatter.svg")?;
-```
-
-**Command line**
-
-```sh
-charton plot points.csv --mark point --x x --y y -o scatter.svg
-```
-
-**Nushell**
-
-```nu
-open points.csv | charton point -x x -y y -o scatter.svg
-```
-
-**MCP (for agents)**
-
-```json
-{"method": "tools/call", "params": {"name": "render_spec", "arguments": {
-  "spec": {"data": {"url": "points.csv"}, "mark": "point",
-           "encoding": {"x": {"field": "x"}, "y": {"field": "y"}}}}}}
-```
-
-All four paths share the same validator, the same lowering, and the same renderer.
-
-## Gallery
-
-A selection of what Charton draws. Every image is a real render; the code behind them lives in the [recipe gallery](docs/src/gallery/index.md).
-
 <table>
     <tr>
         <td><img src="docs/src/images/grid_line.svg" alt="Grid Lines" /><p align="center">Grid Lines</p></td>
@@ -115,28 +71,84 @@ A selection of what Charton draws. Every image is a real render; the code behind
     </tr>
 </table>
 
-## Entry points
+## Quick start
 
-Charton is one engine with several front doors. They all share the same chart model, validator, and renderer.
-
-- **Rust library** — `charton`, the engine. A declarative `Chart` API with Polars/Arrow input, SVG/PNG/PDF export, Wasm, and GPU backends. → [Quick start](#quick-start) · [API docs](https://docs.rs/charton)
-- **Command line** — `charton-cli`, a single static binary with `plot`, `render`, `validate`, and `schema`. No Rust toolchain, Node, or Python needed. → [CLI README](charton-cli/README.md)
-- **Nushell plugin** — `nu_plugin_charton`. Turn any pipeline table into a chart, inline in the terminal or saved as SVG/PNG. → [Plugin README](nu_plugin_charton/README.md)
-- **MCP server** — `charton mcp`, shipped in the CLI binary. Seven tools let an agent profile data, write a spec, validate it, and render it — without running generated code. → [MCP reference](charton-cli/README.md#the-mcp-server) · [Design chapter](docs/src/getting_started/mcp.md)
-
-The CLI, the Nushell plugin, and the MCP server all speak the same JSON chart document — a Vega-Lite v5 subset described in the [spec guide](docs/src/spec/index.md).
+The same scatter plot, from the same six-row [`points.csv`](assets/points.csv), four ways. Every path shares the same validator, lowering, and renderer.
 
 <p align="center">
-  <img src="nu_plugin_charton/assets/nushell-demo.gif" alt="A Nushell pipeline drawing a bubble chart inline in the terminal" width="720" />
+  <img src="assets/one-chart-four-ways.svg" alt="A simple scatter plot of six x/y points" width="420" />
 </p>
-
-*The Nushell plugin, drawing inline in the terminal.*
-
-## Installation
 
 ### Rust library
 
-Add to `Cargo.toml`:
+```sh
+cargo add charton
+```
+
+```rust
+use charton::prelude::*;
+
+let x = vec![1.0, 2.0, 3.0, 4.0, 5.0, 6.0];
+let y = vec![2.1, 3.2, 3.8, 5.1, 5.9, 7.2];
+
+chart!(x, y)?
+    .mark_point()?
+    .encode((alt::x("x"), alt::y("y")))?
+    .save("scatter.svg")?;
+```
+
+The `chart!` macro is the shortest path. For production pipelines, use `Chart::build` with a `Dataset` or a Polars `DataFrame` — see [From macros to production API](#from-macros-to-production-api). → [API docs](https://docs.rs/charton)
+
+### Command line
+
+```sh
+cargo install charton-cli
+charton plot points.csv --mark point --x x --y y -o scatter.svg
+```
+
+A single static binary with `plot`, `render`, `validate`, and `schema`. It reads CSV, TSV, NDJSON, or stdin — no Rust toolchain, Node, or Python. → [CLI README](charton-cli/README.md)
+
+### Nushell plugin
+
+```sh
+cargo install nu_plugin_charton
+```
+
+```nu
+open points.csv | charton point -x x -y y -o scatter.svg
+```
+
+Register it once with `plugin add`, then load it with `plugin use charton`. → [Plugin README](nu_plugin_charton/README.md)
+
+<p align="center">
+  <img src="nu_plugin_charton/assets/nushell-demo.gif" alt="A Nushell pipeline drawing a bubble chart inline in the terminal" width="640" />
+</p>
+
+### MCP server
+
+MCP ships inside the CLI binary:
+
+```sh
+charton mcp --root ./data
+```
+
+```json
+{"method": "tools/call", "params": {"name": "render_spec", "arguments": {
+  "spec": {"data": {"url": "points.csv"}, "mark": "point",
+           "encoding": {"x": {"field": "x"}, "y": {"field": "y"}}}}}}
+```
+
+Seven tools let an agent profile data, write a spec, validate it, and render it — without running generated code. → [MCP reference](charton-cli/README.md#the-mcp-server) · [Design chapter](docs/src/getting_started/mcp.md)
+
+The CLI, the Nushell plugin, and the MCP server all speak the same JSON chart document — a Vega-Lite v5 subset described in the [spec guide](docs/src/spec/index.md).
+
+## The Rust library
+
+The quick start above shows the smallest possible chart. The rest of this section covers the Rust API in more depth.
+
+### Feature flags
+
+Enable only what you need:
 
 ```toml
 [dependencies]
@@ -151,72 +163,34 @@ charton = { version = "0.9", features = ["spec"] }         # JSON chart document
 charton = { version = "0.9", features = ["arrow"] }        # Apache Arrow RecordBatch ingestion
 ```
 
-### Command line
-
-```sh
-cargo install charton-cli
-```
-
-### Nushell plugin
-
-```sh
-cargo install nu_plugin_charton
-```
-
-Then register it once with `plugin add` and load it with `plugin use charton`. See the [plugin README](nu_plugin_charton/README.md) for paths and platform notes.
-
-### MCP server
-
-The MCP server is part of the CLI binary:
-
-```sh
-charton mcp --root ./data
-```
-
-See the [MCP reference](charton-cli/README.md#the-mcp-server) for the seven tools and the protocol.
-
-## Quick Start
-Charton provides a high-level, declarative API. Standard visualizations can be generated using a concise one-liner syntax:
-
-```rust
-use charton::prelude::*;
-
-// Data: Physical measurements (Height vs. Weight)
-let height = vec![160.0, 165.0, 170.0, 175.0, 180.0];
-let weight = vec![55.0, 62.0, 68.0, 75.0, 82.0];
-
-// One-liner plotting
-chart!(height, weight)?.mark_point()?.encode((alt::x("height"), alt::y("weight")))?.save("out.svg")?;
-```
-
-## From Macros to Production API
+### From macros to production API
 While the `chart!` macro is a convenient syntactic sugar for rapid prototyping and simple scripts, the underlying `Chart::build` API is recommended for production environments where explicit data handling is required.
 
-### 1. Professional Build API
+#### 1. Professional Build API
 For complex applications, use `Chart::build` to gain full control over the `Dataset` lifecycle.
 
 ```rust
 let ds = Dataset::new()
-    .with_column("height", height)?
-    .with_column("weight", weight)?;
+    .with_column("x", x)?
+    .with_column("y", y)?;
 
 Chart::build(ds)? // Equivalent to chart!(ds)?
     .mark_point()?
-    .encode((alt::x("height"), alt::y("weight")))?
-    .save("out.svg")?;
+    .encode((alt::x("x"), alt::y("y")))?
+    .save("scatter.svg")?;
 ```
 
 > **Tip**: Use `add_column` instead if you need to add columns dynamically within loops or conditional logic.
 
-### 2. Polars Integration
+#### 2. Polars Integration
 For Polars users, Charton provides the `load_polars_df!` macro to seamlessly convert a `DataFrame` into a Charton-ready `Dataset`.
 
 ```rust
 use polars::prelude::*;
 
 let df = df![
-    "height" => vec![160.0, 165.0, 170.0, 175.0, 180.0],
-    "weight" => vec![55.0, 62.0, 68.0, 75.0, 82.0]
+    "x" => vec![1.0, 2.0, 3.0, 4.0, 5.0, 6.0],
+    "y" => vec![2.1, 3.2, 3.8, 5.1, 5.9, 7.2]
 ]?;
 
 // Efficiently convert Polars DataFrame to Charton Dataset
@@ -224,8 +198,8 @@ let ds = load_polars_df!(df)?;
 
 Chart::build(ds)? // Equivalent to chart!(ds)?
     .mark_point()?
-    .encode((alt::x("height"), alt::y("weight")))?
-    .save("out.svg")?;
+    .encode((alt::x("x"), alt::y("y")))?
+    .save("scatter.svg")?;
 ```
 
 **Compatibility Note**: Charton uses versioned macros to handle Polars' rapid API evolutions. Versions below 0.44 are no longer supported. The standard macro is tested against Polars 0.53, 0.54, and 0.55.
@@ -241,13 +215,13 @@ Inspired by the Grammar of Graphics (as seen in `ggplot2` and `Altair`), Charton
 
 ```rust
 // Create individual layers
-let line = chart!(height, weight)?
+let line = chart!(x, y)?
     .mark_line()?
-    .encode((alt::x("height"), alt::y("weight")))?;
+    .encode((alt::x("x"), alt::y("y")))?;
 
-let point = chart!(height, weight)?
+let point = chart!(x, y)?
     .mark_point()?
-    .encode((alt::x("height"), alt::y("weight")))?;
+    .encode((alt::x("x"), alt::y("y")))?;
 
 // Combine into a composite chart
 line.and(point).save("layered.svg")?;

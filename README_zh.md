@@ -21,50 +21,6 @@ Charton 是一个基于声明式图形语法的绘图引擎。同一张图，可
 
 它的 API 灵感来自 [Altair](https://altair-viz.github.io/) 与图形语法（Grammar of Graphics），并用 [Polars](https://github.com/pola-rs/polars) 做快速数据处理。它也能通过 evcxr_jupyter 在 Notebook 中运行，通过 WebAssembly 在浏览器中运行，并通过 wgpu 在 GPU 上渲染。
 
-## 同一张图，四种写法
-
-同一份六行的 [`points.csv`](assets/points.csv)，同一个简单散点图，四种入口：
-
-<p align="center">
-  <img src="assets/one-chart-four-ways.svg" alt="六个 x/y 数据点的简单散点图" width="500" />
-</p>
-
-**Rust 库**
-
-```rust
-// df: 从 points.csv 读取的 Polars DataFrame（含 x、y 两列）
-Chart::build(load_polars_df!(df)?)?
-    .mark_point()?
-    .encode((alt::x("x"), alt::y("y")))?
-    .save("scatter.svg")?;
-```
-
-**命令行**
-
-```sh
-charton plot points.csv --mark point --x x --y y -o scatter.svg
-```
-
-**Nushell**
-
-```nu
-open points.csv | charton point -x x -y y -o scatter.svg
-```
-
-**MCP（面向 Agent）**
-
-```json
-{"method": "tools/call", "params": {"name": "render_spec", "arguments": {
-  "spec": {"data": {"url": "points.csv"}, "mark": "point",
-           "encoding": {"x": {"field": "x"}, "y": {"field": "y"}}}}}}
-```
-
-四种方式共享同一个校验器、同一条 lower 路径和同一个渲染器。
-
-## 图表画廊
-
-Charton 能画什么？下面每张图都是真实渲染结果，代码见[图表配方库](docs/src/gallery/index.md)。
-
 <table>
     <tr>
         <td><img src="docs/src/images/grid_line.svg" alt="Grid Lines" /><p align="center">Grid Lines</p></td>
@@ -115,28 +71,84 @@ Charton 能画什么？下面每张图都是真实渲染结果，代码见[图�
     </tr>
 </table>
 
-## 入口
+## 快速上手
 
-Charton 是一个引擎、多个入口。它们共享同一套图表模型、校验器和渲染器。
-
-- **Rust 库** — `charton`，引擎本体。声明式 `Chart` API，支持 Polars/Arrow 输入、SVG/PNG/PDF 导出、Wasm 和 GPU 后端。→ [快速上手](#快速上手) · [API 文档](https://docs.rs/charton)
-- **命令行** — `charton-cli`，单个静态二进制，提供 `plot`、`render`、`validate` 和 `schema`。不需要 Rust 工具链、Node 或 Python。→ [CLI README](charton-cli/README.md)
-- **Nushell 插件** — `nu_plugin_charton`。把任意管道表格画成图表，终端内联显示或保存为 SVG/PNG。→ [插件 README](nu_plugin_charton/README.md)
-- **MCP 服务** — `charton mcp`，包含在 CLI 二进制中。七个工具让 Agent 分析数据、写图表文档、校验并渲染——全程不运行生成的代码。→ [MCP 参考](charton-cli/README.md#the-mcp-server) · [设计章节](docs/src/getting_started/mcp.md)
-
-CLI、Nushell 插件和 MCP 服务使用同一种 JSON 图表文档——Vega-Lite v5 的子集，见[图表文档指南](docs/src/spec/index.md)。
+同一份六行的 [`points.csv`](assets/points.csv)，同一张散点图，四种入口。每条路径都共享同一个校验器、同一条 lower 路径和同一个渲染器。
 
 <p align="center">
-  <img src="nu_plugin_charton/assets/nushell-demo.gif" alt="Nushell 管道在终端内联绘制气泡图" width="720" />
+  <img src="assets/one-chart-four-ways.svg" alt="六个 x/y 数据点的简单散点图" width="420" />
 </p>
-
-*Nushell 插件，在终端内联绘图。*
-
-## 安装
 
 ### Rust 库
 
-在 `Cargo.toml` 中添加：
+```sh
+cargo add charton
+```
+
+```rust
+use charton::prelude::*;
+
+let x = vec![1.0, 2.0, 3.0, 4.0, 5.0, 6.0];
+let y = vec![2.1, 3.2, 3.8, 5.1, 5.9, 7.2];
+
+chart!(x, y)?
+    .mark_point()?
+    .encode((alt::x("x"), alt::y("y")))?
+    .save("scatter.svg")?;
+```
+
+这是适合快速脚本的一行式宏。生产环境用 `Chart::build` 配合 `Dataset` 或 Polars `DataFrame`，见[从宏到生产级 API](#从宏到生产级-api)。→ [API 文档](https://docs.rs/charton)
+
+### 命令行
+
+```sh
+cargo install charton-cli
+charton plot points.csv --mark point --x x --y y -o scatter.svg
+```
+
+单个静态二进制，提供 `plot`、`render`、`validate` 和 `schema`，可读取 CSV、TSV、NDJSON 或 stdin，不需要 Rust 工具链、Node 或 Python。→ [CLI README](charton-cli/README.md)
+
+### Nushell 插件
+
+```sh
+cargo install nu_plugin_charton
+```
+
+```nu
+open points.csv | charton point -x x -y y -o scatter.svg
+```
+
+用 `plugin add` 注册一次，再用 `plugin use charton` 加载。→ [插件 README](nu_plugin_charton/README.md)
+
+<p align="center">
+  <img src="nu_plugin_charton/assets/nushell-demo.gif" alt="Nushell 管道在终端内联绘制气泡图" width="640" />
+</p>
+
+### MCP 服务
+
+MCP 包含在 CLI 二进制中：
+
+```sh
+charton mcp --root ./data
+```
+
+```json
+{"method": "tools/call", "params": {"name": "render_spec", "arguments": {
+  "spec": {"data": {"url": "points.csv"}, "mark": "point",
+           "encoding": {"x": {"field": "x"}, "y": {"field": "y"}}}}}}
+```
+
+七个工具让 Agent 分析数据、写图表文档、校验并渲染——全程不运行生成的代码。→ [MCP 参考](charton-cli/README.md#the-mcp-server) · [设计章节](docs/src/getting_started/mcp.md)
+
+CLI、Nushell 插件和 MCP 服务使用同一种 JSON 图表文档——Vega-Lite v5 的子集，见[图表文档指南](docs/src/spec/index.md)。
+
+## Rust 库详解
+
+快速上手展示的是最小示例。下面介绍 Rust API 的更多细节。
+
+### 功能开关
+
+按需开启：
 
 ```toml
 [dependencies]
@@ -151,72 +163,34 @@ charton = { version = "0.9", features = ["spec"] }         # JSON 图表文档�
 charton = { version = "0.9", features = ["arrow"] }        # Apache Arrow RecordBatch 数据接入
 ```
 
-### 命令行
-
-```sh
-cargo install charton-cli
-```
-
-### Nushell 插件
-
-```sh
-cargo install nu_plugin_charton
-```
-
-然后用 `plugin add` 注册一次，再用 `plugin use charton` 加载。路径与平台说明见[插件 README](nu_plugin_charton/README.md)。
-
-### MCP 服务
-
-MCP 服务包含在 CLI 二进制中：
-
-```sh
-charton mcp --root ./data
-```
-
-七个工具与协议详见 [MCP 参考](charton-cli/README.md#the-mcp-server)。
-
-## 快速上手
-Charton 提供了高级声明式 API。通过一行代码就可以实现可视化：
-
-```rust
-use charton::prelude::*;
-
-// 数据：身体指标（身高 vs. 体重）
-let height = vec![160.0, 165.0, 170.0, 175.0, 180.0];
-let weight = vec![55.0, 62.0, 68.0, 75.0, 82.0];
-
-// 一行代码绘图
-chart!(height, weight)?.mark_point()?.encode((alt::x("height"), alt::y("weight")))?.save("out.svg")?;
-```
-
-## 从宏到生产级 API
+### 从宏到生产级 API
 虽然 `chart!` 宏在快速原型设计和书写简单脚本时非常方便，但在需要显式处理数据的生产环境中，建议使用底层的 `Chart::build` API。
 
-### 1. 专业构建 API
+#### 1. 专业构建 API
 对于复杂的应用程序，使用 `Chart::build` 可以完全控制 `Dataset` 的生命周期。
 
 ```rust
 let ds = Dataset::new()
-    .with_column("height", height)?
-    .with_column("weight", weight)?;
+    .with_column("x", x)?
+    .with_column("y", y)?;
 
 Chart::build(ds)? // 等价于 chart!(ds)?
     .mark_point()?
-    .encode((alt::x("height"), alt::y("weight")))?
-    .save("out.svg")?;
+    .encode((alt::x("x"), alt::y("y")))?
+    .save("scatter.svg")?;
 ```
 
 > **提示**：如果需要在循环或条件逻辑中动态添加列，请使用 `add_column`。
 
-### 2. Polars 集成
+#### 2. Polars 集成
 针对 Polars 用户，Charton 提供了 `load_polars_df!` 宏，可将 `DataFrame` 转换为 Charton 内部专用的 `Dataset`。
 
 ```rust
 use polars::prelude::*;
 
 let df = df![
-    "height" => vec![160.0, 165.0, 170.0, 175.0, 180.0],
-    "weight" => vec![55.0, 62.0, 68.0, 75.0, 82.0]
+    "x" => vec![1.0, 2.0, 3.0, 4.0, 5.0, 6.0],
+    "y" => vec![2.1, 3.2, 3.8, 5.1, 5.9, 7.2]
 ]?;
 
 // 将 Polars DataFrame 转换为 Charton Dataset
@@ -224,8 +198,8 @@ let ds = load_polars_df!(df)?;
 
 Chart::build(ds)? // 等价于 chart!(ds)?
     .mark_point()?
-    .encode((alt::x("height"), alt::y("weight")))?
-    .save("out.svg")?;
+    .encode((alt::x("x"), alt::y("y")))?
+    .save("scatter.svg")?;
 ```
 
 **兼容性说明**: 由于 Polars API 变化频繁，Charton 使用带版本标记的宏来处理兼容性。不再支持 0.44 以下的版本。标准宏已针对 Polars 0.53、0.54 和 0.55 进行测试。
@@ -241,13 +215,13 @@ Chart::build(ds)? // 等价于 chart!(ds)?
 
 ```rust
 // 创建独立图层
-let line = chart!(height, weight)?
+let line = chart!(x, y)?
     .mark_line()?
-    .encode((alt::x("height"), alt::y("weight")))?;
+    .encode((alt::x("x"), alt::y("y")))?;
 
-let point = chart!(height, weight)?
+let point = chart!(x, y)?
     .mark_point()?
-    .encode((alt::x("height"), alt::y("weight")))?;
+    .encode((alt::x("x"), alt::y("y")))?;
 
 // 组合成复合图表
 line.and(point).save("layered.svg")?;
