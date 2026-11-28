@@ -13,15 +13,7 @@ use.
 cargo install charton-cli
 ```
 
-From a checkout:
-
-```sh
-cargo install --path charton-cli
-```
-
-Prebuilt binaries are not published yet; both commands build from source. The
-crate is a workspace member, so `cargo build -p charton-cli --release` also
-works.
+This installs the `charton` binary.
 
 ## Sixty seconds
 
