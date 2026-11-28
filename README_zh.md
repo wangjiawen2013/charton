@@ -77,10 +77,10 @@ Charton 是一个高性能绘图引擎，把图形语法（Grammar of Graphics�
 
 | 使用方式 | 适合场景 | 安装 |
 | --- | --- | --- |
-| Rust 库 | 在 Rust 应用、服务、Notebook 和 Wasm 中绘图 | `cargo add charton` |
-| 命令行 | 在 Shell 或 CI 中把 CSV/TSV/NDJSON 转成 SVG/PNG/PDF | `cargo install charton-cli` |
-| Nushell 插件 | 把管道表格画成图表，终端内联显示或保存 | `cargo install nu_plugin_charton` |
-| MCP 服务 | 让 Agent 分析数据、写图表文档并渲染 | `cargo install charton-cli` |
+| Rust 库 | Rust 开发者 | `cargo add charton` |
+| 命令行 | Shell 脚本与自动化 | `cargo install charton-cli` |
+| Nushell 插件 | Nushell 管道绘图 | `cargo install nu_plugin_charton` |
+| MCP 服务 | AI Agent | `cargo install charton-cli` |
 
 下面用一张简单的散点图示例各使用方式的用法。
 

@@ -77,10 +77,10 @@ Choose how you want to use Charton:
 
 | Interface | Best for | Install |
 | --- | --- | --- |
-| Rust library | Charts inside Rust apps, services, notebooks, and Wasm | `cargo add charton` |
-| Command line | CSV/TSV/NDJSON to SVG/PNG/PDF from a shell or CI | `cargo install charton-cli` |
-| Nushell plugin | Pipeline tables as charts, inline or saved | `cargo install nu_plugin_charton` |
-| MCP server | Agents that profile data, write chart documents, and render them | `cargo install charton-cli` |
+| Rust library | Rust developers | `cargo add charton` |
+| Command line | Shell scripts and automation | `cargo install charton-cli` |
+| Nushell plugin | Nushell pipeline charts | `cargo install nu_plugin_charton` |
+| MCP server | AI agents | `cargo install charton-cli` |
 
 The examples below draw a simple scatter plot to show each interface in use.
 
