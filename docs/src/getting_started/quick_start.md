@@ -1,9 +1,10 @@
 # Quick Start
 
-> Not writing Rust? There are two other ways in: `charton plot` turns a CSV into
-> a chart from the command line, and `charton render` draws one from a
-> [chart document](../spec/index.md). Both are covered in
-> [The Command Line](cli.md).
+> Not writing Rust? There are three other ways in: `charton plot` turns a CSV
+> into a chart from the command line, `charton render` draws one from a
+> [chart document](../spec/index.md), and the
+> [Nushell plugin](../ecosystem/nushell.md) turns a pipeline table into a chart.
+> The command line and the document are covered in [The Command Line](cli.md).
 
 Charton’s API design mirrors the declarative philosophy of the Grammar of Graphics. To balance rapid prototyping flexibility with production-grade engineering rigor, Charton offers a dual-API paradigm: a fluid, concise `chart!` macro syntax and a deterministic, explicitly managed `Chart::build` Builder API.
 

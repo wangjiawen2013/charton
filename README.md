@@ -83,6 +83,8 @@ charton = { version = "0.9", features = ["wgpu", "png"] }  # Local Desktop with 
 charton = { version = "0.9", features = ["wgpu"] }         # Web Browsers (WebAssembly/Wasm target)
 charton = { version = "0.9", features = ["parallel"] }     # Multi-threaded data processing (Rayon)
 charton = { version = "0.9", features = ["geo"] }          # Enable geospatial coordinate support
+charton = { version = "0.9", features = ["spec"] }         # JSON chart documents (the dialect the CLI/MCP speak)
+charton = { version = "0.9", features = ["arrow"] }        # Apache Arrow RecordBatch ingestion
 ```
 
 ## Quick Start
@@ -207,10 +209,13 @@ Designed for precision, Charton provides pixel-perfect control over complex mark
 ## Documentation
 Please go to the [Charton Docs](https://wangjiawen2013.github.io/charton) for full documentation.
 
-## Ecosystem
+## Entry points
 
-Charton ships a first-party [Nushell plugin](nu_plugin_charton/README.md) that
-turns pipeline tables into charts, inline or as SVG/PNG.
+- **Rust library** — `charton`, the engine in this repository.
+- **`charton-cli`** — `plot`, `render`, `validate`, `schema`, and the `mcp`
+  server. See the [CLI README](charton-cli/README.md).
+- **`nu_plugin_charton`** — the same engine inside a Nushell pipeline, inline or
+  as SVG/PNG. See the [plugin README](nu_plugin_charton/README.md).
 
 Other Rust plotting libraries worth knowing about:
 

@@ -20,7 +20,7 @@ impl Plugin for ChartonPlugin {
     fn commands(&self) -> Vec<Box<dyn PluginCommand<Plugin = Self>>> {
         #[allow(unused_mut)]
         let mut commands: Vec<Box<dyn PluginCommand<Plugin = Self>>> =
-            vec![Box::new(command::Charton)];
+            vec![Box::new(command::Charton), Box::new(command::RenderCommand)];
         commands.extend(
             command::MARKS
                 .iter()

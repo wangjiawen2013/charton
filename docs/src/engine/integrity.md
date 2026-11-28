@@ -126,4 +126,4 @@ a column containing nulls stays validity-aware. See
 - [Compute & Transformation](compute.md) — the arithmetic primitives.
 - [The Dataset Struct](dataset_core.md) — the schema and row-count invariant.
 - [Design Rules](../concepts/design_rules.md) — the statistic contract.
-- [Safety & Error Registry](../industrial/safety.md) — handling errors in an application.
+- [Errors & Diagnostics](../industrial/safety.md) — handling errors in an application.

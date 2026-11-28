@@ -12,7 +12,7 @@ Create a fresh cell inside your Jupyter Notebook using the Rust (evcxr) kernel, 
 
 ```rust
 :dep charton = { version = "0.9" }
-:dep polars = { version = "0.53", features = ["lazy"] }
+:dep polars = { version = "0.55", features = ["lazy"] }
 
 use charton::prelude::*;
 use polars::prelude::*;

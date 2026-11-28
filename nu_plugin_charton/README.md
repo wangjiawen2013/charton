@@ -356,6 +356,39 @@ Because a transform is just a record, the same pieces recombine into new charts
 
 ---
 
+## Documents — a chart you can save, review and replay
+
+Everything above is a flag recipe. The same chart can be written as a JSON
+document — a Vega-Lite v5 subset — and `charton render` draws it:
+
+```nu
+# The document carries its rows inline (`open` parses the JSON for you).
+open chart.json | charton render
+
+# A path names the document; the pipeline is then the data.
+open sales.csv | charton render chart.json -o report.svg
+```
+
+A document is the unit the CLI and the MCP server also speak, so it is what you
+save in a repository, review in a diff, and let an agent edit. The grammar
+(marks, encodings, transforms, layers, facets) lives in the document; the entry
+point decides the canvas (`--width`, `--height`, `--scale`, `--font-scale`) and
+how the result leaves the process (`-o`, `--raw`, inline), exactly like a mark
+command.
+
+Two boundaries keep this one dialect rather than two:
+
+- **A piped table replaces the document's `data`.** That is how a document stays
+  free of data and is replayed against any table.
+- **A document read from the pipeline cannot reference files.** Its `data.url`
+  is not resolved, because the plugin has no document directory to anchor it to,
+  and reading files is the shell's job. Inline the rows, or pipe the table.
+
+`charton render --help` lists the output flags, and the CLI's `charton schema`
+prints the JSON Schema an editor or an agent can use.
+
+---
+
 ## Flag reference
 
 ### Encodings
@@ -449,6 +482,8 @@ An unknown key or a wrong value type is an error, so a typo does not silently
 fall back to the default.
 
 ### Output and inline rendering
+
+These flags are shared by every mark command and by `charton render`.
 
 | Flag | Meaning |
 |---|---|
@@ -583,9 +618,9 @@ charton-probe | to md
 ## Compatibility
 
 `nu-plugin` / `nu-protocol` **must match the installed Nushell version**; this
-crate is pinned to `=0.117`, so it targets **Nushell 0.117**. After upgrading
-Nushell, install the plugin release that targets it (or rebuild) and re-run
-`plugin add`.
+crate stays on the `0.117` line, so it targets **Nushell 0.117.x**. After
+upgrading Nushell across a minor (or rebuilding), install the plugin release
+that targets it and re-run `plugin add`.
 
 | `nu_plugin_charton` | Nushell | `charton` floor |
 |---|---|---|

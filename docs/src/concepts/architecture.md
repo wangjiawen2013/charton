@@ -1,10 +1,25 @@
 # System Architecture
 
-Charton’s architecture is designed around the principle of Separation of Concerns. To transform a high-level user specification into a physical image, the system utilizes a four-layer pipeline: Input, Core, Render, and Output.
+Charton’s architecture is designed around the principle of Separation of Concerns. The library is the engine; the command line, the MCP server and the Nushell plugin are adapters around it.
+
+## Entry points, one engine
+
+| Entry point | What you write | Where the rows come from |
+|---|---|---|
+| Rust API | `Chart::build` or `chart!` | your `Dataset` |
+| `charton` CLI | flags, or a JSON document | CSV/TSV/NDJSON/stdin, or the document's `data.url` |
+| `charton mcp` | a JSON document over JSON-RPC | a sandboxed `data.url` |
+| `charton` (Nushell) | flags, or a JSON document | the pipeline table |
+
+The document is a Vega-Lite v5 **subset**. Charton reads it, validates it against
+the rows, and lowers it to the same `LayeredChart` the Rust API builds. It does
+not emit Vega-Lite. The dialect is described in
+[Writing a chart document](../spec/index.md) and the per-field contract in
+[the lowering map](../spec/lowering-map.md).
+
+The rest of this page describes the engine those entry points share.
 
 ## The Four-Layer Architecture
-
-The following diagram illustrates the flow of information through the system:
 
 ### I. The Input Layer (Data Ingestion)
 
@@ -33,7 +48,7 @@ The final layer translates geometric instructions into a specific file format or
 
 * Vector Output: Generates SVG or PDF files for infinite scalability and web integration.
 * Raster Output: Renders high-performance PNG images (via `tiny-skia`) for reports and dashboards.
-* GPU Output: The `wgpu` backend draws geometry directly on the GPU for interactive and large-dataset workloads. Charton does not emit Vega/Vega-Lite specifications.
+* GPU Output: The `wgpu` backend draws geometry directly on the GPU for interactive and large-dataset workloads.
 
 ## The Visualization Lifecycle
 

@@ -243,10 +243,11 @@ Three consequences:
    report `0.9.1` and still load under Nushell `0.117.0`.
 2. **Patch versions are compatible.** For `0.x`, a caret requirement locks the
    minor: `^0.117.0` means `>= 0.117.0, < 0.118.0`. So `0.117.1` and
-   `0.117.0` are compatible in either direction, which is exactly why the
-   dependency can be written `=0.117`.
+   `0.117.0` are compatible in either direction. The dependency therefore names
+   the line (`0.117`, a caret requirement) rather than one exact patch: a patch
+   release of the same line is accepted, and `cargo update` can pick it up.
 3. **Only a minor bump breaks.** `0.117.x` ↔ `0.118.x` is rejected. This is the
-   real constraint the exact pin protects.
+   real constraint the line requirement protects.
 
 | Engine | Plugin protocol | Compatible? |
 |---|---|---|

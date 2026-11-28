@@ -1,52 +1,69 @@
-# Publication-Ready Themes
+# Themes
 
-In enterprise-grade data analysis and professional publishing workflows, visual consistency is non-negotiable. Graphs produced by different teams or across different project cycles must strictly adhere to a unified visual identity. Manual adjustments of font sizes, line widths, and padding for every single plot are not only inefficient but also highly prone to error.
-
-Charton addresses this requirement through a fully decoupled, semantic Theme System. By separating data-driven graphic specifications from non-data aesthetics, this system enables the automated enforcement of standardized visual guidelines, ensuring that every chart—from internal dashboards to formal reports—maintains a professional and cohesive appearance.
-
-## Architectural Foundation of Themes
-
-As defined in `theme.rs`, a `Theme` is an immutable, comprehensive configuration container. Unlike traditional plotting libraries that might hard-code layout margins or text properties within geometric renderers, Charton’s architecture treats styles as externalized constants.
-
-These themes are injected into the rendering pipeline through `PanelContext`, allowing the same data layer to be styled differently simply by swapping the theme reference. The system governs three critical stylistic dimensions:
-
-- Global Canvas & Spatial Margins: Controlled by parameters such as `top_margin`, `right_margin`, `bottom_margin`, and `left_margin`. These define the protective buffers around the canvas, ensuring that legends, titles, and axis elements do not bleed into the boundaries of the export surface.
-- Typographic Hierarchy: The system utilizes a font-stack strategy, governing specific layers—from `title_size` to `tick_label_size` and `legend_label_size`. This ensures clear, readable visual hierarchy across different output resolutions. The stack syntax, per-glyph fallback and error behaviour are covered in [Fonts & Text Rendering](../concepts/fonts.md).
-- Visual Anchor Metrics: Geometric constraints such as `axis_width`, `tick_length`, `legend_block_gap`, and `legend_marker_text_gap`. By formalizing these metrics, the library maintains consistent layout density across varying chart complexities.
+A theme is a value, not a global. The same data and encodings can be drawn with
+the light preset, the dark preset, or a theme you build, and the layout is
+measured against the theme's own font sizes.
 
 ```rust
-// Global theme injection ensures visual uniformity across all chart components.
-let styled_chart = Chart::new(df)
-    .mark_point()
-    .encode((x("dosage"), y("efficacy")))
-    .theme(Theme::corporate_standard()); // Enforces pre-defined visual guidelines
+use charton::prelude::*;
+
+let chart = chart!(height, weight)?
+    .mark_point()?
+    .encode((alt::x("height"), alt::y("weight")))?
+    .with_theme(
+        Theme::dark()
+            .with_font_scale(1.2)
+            .with_palette(ColorPalette::Tab10)
+            .with_show_legend(false),
+    );
 ```
 
-## Layout-Safe Dynamic Adjustments
+`Theme::light()` and `Theme::dark()` are the two presets. `LayeredChart::with_theme`
+replaces the theme; `configure_theme(|theme| …)` edits the current one, which is
+the safer choice when a chart already carries a preset:
 
-A primary challenge with static themes is that a layout ruleset might function perfectly for a simple scatter plot but fail in a dense, multi-panel (faceted) grid. Charton’s layout engine treats theme metrics as elastic constraints rather than fixed pixel values:
+```rust
+let chart = chart.configure_theme(|theme| {
+    theme
+        .with_background_color("#fafafa")
+        .with_tick_count(6)
+});
+```
 
-- The Axis Reserve Buffer: Defined in `theme.rs` as `axis_reserve_buffer`, this creates a defensive boundary around the plotting panel. When text labels rotate (via `x_tick_label_angle`), the layout engine dynamically calculates the required space based on the rotated bounding box, preventing text truncation or boundary collisions.
-- Panel Defense Ratio: To prevent oversized legends or long categorical labels from shrinking the core visualization area to a sliver, the system enforces a `panel_defense_ratio` (defaulting to 0.2). This rule guarantees that no matter how many guide blocks are added to the outer regions, the central plotting area retains a significant percentage of the available canvas real estate.
+## What a theme controls
 
-## Perceptually Uniform Palette Integration
+| Group | Examples |
+|---|---|
+| Canvas and spacing | `with_top_margin`, `with_bottom_margin`, `with_left_margin`, `with_right_margin` |
+| Type | `with_title_size`, `with_label_size`, `with_tick_label_size`, `with_font_scale`, `with_*_family`, `with_*_color` |
+| Axes | `with_axis_width`, `with_tick_length`, `with_tick_count`, `with_x_tick_label_angle`, `with_grid`, `with_grid_color` |
+| Legend | `with_show_legend`, `with_legend_position`, `with_legend_*_size`, `with_legend_margin` |
+| Colour | `with_palette`, `with_color_map` |
+| Layout guardrails | `with_min_panel_size`, `with_panel_defense_ratio`, `with_axis_reserve_buffer` |
 
-Professional styling requires safeguarding the mathematical fidelity of continuous data. The theme engine integrates high-fidelity continuous mapping engines that prevent the artifacts common in naive RGB interpolation.
+`with_font_scale` multiplies every text size **and** the spacing around it. It is
+the right knob for a dense panel or a terminal-sized chart; changing individual
+sizes one by one breaks the measured layout.
 
-By utilizing predefined `ColorMap` strategies (such as Viridis or Magma), the theme ensures that data magnitude changes correspond linearly to human visual perception. This eliminates "false clustering"—a common visual bias in standard palettes—and ensures that every pixel accurately reflects the underlying data distribution.
+## Layout is measured, not guessed
 
-## See Also
+The space manager reserves room for guides before it gives the panel what is
+left. Two theme values keep that honest:
 
-A theme is baked into the output at render time. When the *same* chart has to be
-presented in several contexts — a dark page, a print stylesheet, a tenant's brand
-colours — the presentation belongs in the host page's CSS instead, addressing the
-exported document's semantic classes. [Semantic Output: CSS, Accessibility &
-Tagging](../export/semantic_output.md) covers that division of labour, including
-the one rule a theme cannot replace: layout is measured with the theme's font
-sizes, so large typographic changes still belong in `Theme::with_font_scale`.
+- `axis_reserve_buffer` is the margin the layout keeps around the plotting panel
+  for ticks and labels.
+- `panel_defense_ratio` is the minimum share of the canvas the panel keeps. A
+  legend or a long category list cannot shrink the data region to a sliver.
 
-## Key Takeaways
+Rotated labels are measured as parallel text lines, so `with_x_tick_label_angle`
+recomputes the space it needs instead of clipping.
 
-- Complete Separation of Concerns: Data encodings (via `Chart<T>`) define what is visualized, while the `Theme` architecture dictates how it is physically presented.
-- Stateless Rendering: Renderers do not maintain internal style states; they query theme constants via `PanelContext`, ensuring that visual updates are immediate and globally consistent.
-- Defensive Layout Guardrails: Mechanisms like `panel_defense_ratio` and `axis_reserve_buffer` ensure that chart structural integrity is maintained automatically, even under complex or crowded layout conditions.
+## Theme or stylesheet?
+
+A theme is baked into the output at render time. When the *same* chart has to
+appear on a dark page, in print, or in a tenant's brand colours, put that styling
+in the host page's CSS, addressing the exported document's semantic classes
+(see [Semantic Output: CSS, Accessibility & Tagging](../export/semantic_output.md)).
+
+One rule a stylesheet cannot replace: layout is measured with the theme's font
+sizes, so a large typographic change still belongs in `Theme::with_font_scale`.

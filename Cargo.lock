@@ -2417,6 +2417,7 @@ dependencies = [
  "nu-plugin-test-support",
  "nu-protocol",
  "png",
+ "serde_json",
  "terminal_size",
 ]
 

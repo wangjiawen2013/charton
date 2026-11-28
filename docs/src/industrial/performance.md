@@ -1,50 +1,63 @@
-# Industrial Mastery
+# Performance & Scaling
 
-## Performance & Scaling
+Charton is built to keep the hot path cache-friendly: columnar storage, cheap
+grouping, one binning implementation, and statistics that do not rescale with the
+number of raw rows.
 
-When a visualization library transitions from an academic prototype to an industrial-grade production tool, the primary bottleneck shifts from architectural expressiveness to raw computational performance. In enterprise environments, charts are routinely required to process millions of observation rows, compute complex statistical overlays in real time, and render under tight latency budgets. 
+## Columnar storage
 
-Charton achieves sub-millisecond execution speeds on large-scale datasets by optimizing three distinct layers: hardware-friendly data ingestion, high-performance associative hashing, and streamlined geometric compilation.
+A `Dataset` is a set of named `ColumnVector`s. Each vector is a contiguous,
+`Arc`-backed array of one physical type (`Float64`, `Int32`, `String`, …), so a
+column can be shared by several charts or facet panels without copying.
 
-### Columnar Ingestion via Polars-Aligned Memory
+There is no per-row object and no JSON round-trip between ingestion and drawing.
+`take_rows` and facet snapshots share the underlying buffers.
 
-Naive visualization tools often store data as rows of object instances, which introduces severe memory fragmentation and continuous pointer chasing. Charton eliminates this overhead by strictly enforcing a contiguous columnar memory layout.
+## Grouping and binning
 
-As defined in the core data structures, a dataset is broken down into independent vectors of strongly typed primitives (`ColumnVector` variants such as `Float64`, `Int32`, or `String`). 
+Categorical work — box plots, KDE groups, faceted panels, discrete scales — uses
+`ahash` (`AHashMap` / `AHashSet`) instead of the standard hasher. Grouping is the
+common cost in statistical marks, and a non-cryptographic hasher is the right
+trade for a local plotting process.
 
-* **Polars Optimization**: This layout mirrors the memory alignment used by the `Polars` DataFrame engine. Ingestion converts a Polars/Arrow source into these contiguous buffers in a single pass — values are copied, but there is no per-row pointer indirection and no JSON round-trip.
-* **Cache Locality**: By structuring data as contiguous primitive arrays (e.g., `Vec<f64>`), the CPU can efficiently pre-fetch values into its L1/L2 caches during axis scaling and coordinate transformations, maximizing hardware throughput.
+Histogram edges have one implementation, `BinEdges`, shared by `hist`, `rect` and
+the `bin` transform. A pre-binned chart and a mark that bins internally therefore
+land on the same edges instead of drifting by half a bin.
 
-### High-Performance Hashing with `ahash`
+## Statistics on a grid
 
-Statistical marks—such as Box Plots and Kernel Density Estimations (KDE)—require the engine to group, bin, and partition continuous data rows based on categorical channels (like `Color` or `X` slots) before any drawing occurs. In standard implementations, these associative lookups represent a critical performance sink.
+Kernel density (1-D and 2-D) and contouring evaluate on a grid rather than on
+every pair of points. That changes the cost from quadratic in the row count to
+linear in the rows and the grid, which is what makes a violin of a large table
+practical. The grid is generated from the data's own bounds.
 
-To solve this, Charton replaces Rust’s standard, cryptographically secure `SipHasher` with **`ahash`** (`AHashMap` and `AHashSet`) inside its core transform pipelines (`transform_boxplot_data` and `transform_density_data`).
+## Facets
 
-$$\text{Throughput Gain} = \frac{\text{AHashMap Latency}}{\text{Standard Std Hash Latency}} \approx 3\times \text{ to } 5\times \text{ Acceleration}$$
+Faceting re-executes a layer on a row subset per panel, using the same pure
+transform functions as the root. Panels share the underlying column buffers, so
+adding a facet multiplies the drawn geometry but not the stored data.
 
-Because visualization tasks operate within a controlled local context and do not require protection against Denial-of-Service (DoS) algorithmic attacks, `ahash` leverages customized hardware instructions (like AES-NI) to generate non-cryptographic hashes at a fraction of the CPU cycles. This ensures that grouping thousands of categorical intersections completes in microseconds.
+## Parallelism
 
-### Gap-Filling and Dense Categorical Alignment
+With the `parallel` feature, the row-heavy paths (geometry, binning, aggregation)
+fan out over Rayon and collect back into a stable order. The output is identical
+to the serial path; only wall-clock time changes.
 
-When compiling complex multi-series statistical layouts (such as dodged box plots or stacked histograms), missing categories in certain sub-groups can break layout calculations, leading to uneven alignment grids.
+```toml
+charton = { version = "0.9", features = ["parallel"] }
+```
 
-Charton’s statistical transformers optimize this on-the-fly during the transformation step:
-1. **Categorical Matrix Scanning**: The transformer uses an `AHashMap` to compile the global cartesian product of all available categorical keys.
-2. **Deterministic Gap Insertion**: If a specific category combination lacks data points, the transformer automatically injects standard tracking boundaries or explicit `f64::NAN` rows.
-3. **Downstream Predictability**: This dense padding guarantees that the layout engine receives perfectly balanced arrays, allowing visual positions to be calculated in single-pass vector operations without nested runtime checks.
+## Animation
 
-### Continuous Value Bound Sampling
+`Dataset::update_column_f64(name, &[f64])` overwrites a column in place when the
+length is unchanged. A live chart can reuse its dataset across frames instead of
+rebuilding it — the zero-allocation loop the GPU backends are designed around.
 
-For computationally heavy transformations like Kernel Density Estimation (KDE), evaluating the probability density at every single raw coordinate across millions of rows is redundant and slow. Charton optimizes the transformation pipeline by isolating boundary evaluations:
+## Where to look when it is slow
 
-* **Grid Sample Generation**: The system scans the continuous target column to establish the true minimum and maximum global boundaries.
-* **Fixed Linear Interpolation**: It then projects a fixed, customizable grid (e.g., 512 discrete sampling steps) between these boundaries.
-* **Vectorized KDE Execution**: The underlying kernel functions (Normal, Epanechnikov, or Uniform) are evaluated exclusively against these synthesized grid points, turning an $O(N^2)$ point-cloud computation into an $O(N \cdot \text{Grid})$ linear operational pass.
-
----
-
-## Key Takeaways
-* **Columnar Layouts**: Mirroring Arrow/Polars memory structures minimizes transformation copies and maximizes CPU cache locality.
-* **Ahash Acceleration**: Relying on hardware-accelerated hashing makes grouping and categorizing thousands of data series practically free.
-* **Fixed Grid Transformations**: Decoupling raw rows from evaluation steps prevents complex statistics (like KDE) from scaling exponentially with data size.
+1. Is the table being rebuilt every frame? Reuse the `Dataset` and update columns.
+2. Is a per-row object or a JSON round-trip in the ingestion path? Feed a
+   `Dataset`, Polars or Arrow directly.
+3. Is the backend the cost? SVG writes every element; `png`/`wgpu` batch instead.
+4. Is a statistical mark rescaling every panel? Facet panels re-run the statistic;
+   `parallel` helps when the panels are independent.

@@ -63,29 +63,30 @@ rules described in [The Dataset Struct](../engine/dataset_core.md).
 
 ## Quick start
 
-### Install
-
 ```sh
 cargo install --path nu_plugin_charton --locked
 ```
 
-Add the plugin to Nushell's registry:
-
 ```nu
 plugin add '~/.cargo/bin/nu_plugin_charton.exe'   # Windows: full path is most reliable
-```
-
-Then load its commands in the current session:
-
-```nu
 plugin use charton
 ```
 
 `plugin use` is a parser keyword, so the two lines must be separate inputs, not
 one script.
 
-The full, platform-specific walk-through (including uninstall) is in the
-[plugin README](https://github.com/wangjiawen2013/charton/blob/main/nu_plugin_charton/README.md#install).
+```nu
+# inline
+open data.csv | charton bar -x region -y revenue
+
+# save by extension
+open data.csv | charton line -x date -y value -o revenue.svg
+```
+
+The full command surface — every mark, `--layer`, `--transform`, the flag
+reference, config keys, inline protocols, troubleshooting and compatibility — is
+the [plugin README](https://github.com/wangjiawen2013/charton/blob/main/nu_plugin_charton/README.md).
+This chapter is the design behind it.
 
 > **First chart looks blurry?** Nothing is wrong. With no `inline_style`
 > configured the plugin uses the universal `halfblock` renderer, which works on
@@ -93,102 +94,50 @@ The full, platform-specific walk-through (including uninstall) is in the
 > `$env.config.plugins.charton` (`iterm2`, `kitty`, or `sixel`) for sharp
 > bitmap output.
 
-### Everyday use
-
-```nu
-# inline
-ls | charton bar -x name -y size
-
-# export by extension: SVG is a vector, PNG is a raster.
-# Exported SVG carries semantic classes and, with -t/--description, an
-# accessible name, so a page stylesheet or a screen reader can use it.
-open data.csv | charton line -x date -y value -t Revenue \
-    --description 'Revenue grows steadily from 2019 to 2023.' -o chart.svg
-open data.csv | charton point -x group -y score --layout beeswarm -o chart.png
-
-# violin: the density outline (`examples/violin.rs`); -c dodges one per group
-open data.csv | charton violin -x category -y score -c group -o violin.svg
-
-# contour: iso-lines of a regular x/y/z grid; --z is the value column
-open grid.csv | charton contour -x x -y y --z z -o contour.svg
-
-# group by a column with a color channel, then overlay a second mark
-open data.csv | charton line -x t -y v -c series --layer point
-
-# recipes are compositions, not marks: --transform runs Charton's public
-# transforms in order and the mark draws the columns they emit
-# ridgeline = density + one-sided band + polygon
-let ridge = [
-    {op: density, field: score, as: [value, density], group-by: [category]}
-    {op: band, value: value, width: density, center: category, side: right,
-     scale: per-group, overlap: 2.5, band-width: 1.0, as: [x, y, pg]}
-]
-open assets/data.csv
-| charton polygon -x x -y y --path-group pg -c category --flip \
-    --opacity 0.85 --stroke '#2c3e50' --stroke-width 1.0 --transform $ridge -o ridge.svg
-# ECDF = the CumeDist window transform + a step line
-let ecdf = {op: window, field: score, kind: cume-dist, as: ecdf, group-by: [group]}
-open assets/data.csv
-| charton line -x score -y ecdf -c group --interpolation step --transform $ecdf -o ecdf.svg
-# candlestick = a low--high rule + a floating bar
-let body = {geom: bar, y: open, y2: close}
-open assets/ohlc.csv
-| charton rule -x date -y low --y2 high -c direction --layer $body --x-angle -45 -o candles.svg
-# dumbbell = a rule with a dot at each end
-let ends = [{geom: point, y: y2011}, {geom: point, y: y2021}]
-open assets/dumbbell.csv
-| charton rule -x country -y y2011 --y2 y2021 --flip --layer $ends -o dumbbell.svg
-# range = a single rule; slope = a line with its points
-open assets/range.csv | charton rule -x month -y low --y2 high --flip -o range.svg
-open assets/slope.csv | charton line -x period -y rate -c country --layer point -o slope.svg
-
-# geographic choropleth from GeoJSON
-charton geo --geojson world.geojson -c POP_EST -o world.png
-```
-
 The plugin is built around four levels, from "just draw my rows" to writing a
 full recipe: **marks** (geometry primitives and statistical atoms),
 **composition** (`--layer`), **transforms** (`--transform`), and both together.
-The README's [four-level guide](https://github.com/wangjiawen2013/charton/blob/main/nu_plugin_charton/README.md#the-four-levels)
-walks through them.
-
-The mark subcommands cover every Charton mark (`charton point`, `charton line`,
-`charton path`, `charton polygon`, `charton area`, `charton bar`,
-`charton boxplot`, `charton violin`, `charton errorbar`, `charton rule`,
-`charton tick`, `charton text`, `charton rect`, `charton hist`,
-`charton density`, `charton density-2d`, `charton contour`, `charton geo`).
 Chart types that Charton builds from primitives — ridgeline, ECDF, candlestick,
-dumbbell, range, slope, bump, waterfall, raincloud, violin-with-box — are
-**not** commands: you write them with `--transform` and `--layer`, exactly as
-the [cookbook](../gallery/primitives.md) shows. The `--transform` vocabulary is
-closed: `density`, `density-2d`, `contour`, `band`, `quantile-box`, `window`,
-`calculate`. A transform record says what to run (`op`), which columns to read
-(`field`, `x`, `y`, ...), and what to call the new columns (`as`).
-[Writing Transforms](nushell_transforms.md) explains every key, lists the
-options, and builds the recipes step by step.
+raincloud, violin-with-box — are not commands: they are recipes written with
+`--transform` and `--layer`. The vocabulary is closed, so a new chart type needs
+no plugin change. [Writing Transforms](nushell_transforms.md) is the full
+catalogue and the worked recipes.
+
+## Chart documents
+
+Every example above is a flag recipe. The same chart can also be a JSON
+document — the Vega-Lite v5 subset described in
+[Writing a chart document](../spec/index.md) — which `charton render` draws:
+
+```nu
+# The document carries its rows inline; `open` parses the JSON.
+open chart.json | charton render
+
+# A path names the document, and the pipeline supplies its rows.
+open sales.csv | charton render chart.json -o report.svg
+```
+
+The document owns the grammar; the entry point owns the canvas and delivery, so
+`--width`, `--height`, `--scale`, `--font-scale`, `-o`, `--raw` and the inline
+flags behave exactly as they do on a mark command. Two boundaries keep the
+dialect single:
+
+- **A piped table replaces the document's `data`**, so one document can be
+  replayed against a different table without editing it.
+- **A document read from the pipeline does not resolve `data.url`.** The plugin
+  has no document directory to anchor a relative path to, and reading files is
+  the shell's job: inline the rows, or pipe the table.
+
+Because it is the same dialect as the CLI and the MCP server, a document is what
+you commit, review in a diff, and hand to an agent — and the CLI's
+`charton schema` prints its JSON Schema.
 
 ## Configuration
 
-Defaults live in `$env.config.plugins.charton`. Command-line flags win over
-config, and config wins over built-in defaults:
-
-```nu
-$env.config.plugins.charton = {
-    width: 1000
-    height: 700
-    scale: 1.0                     # output pixels = width × scale
-    cell_width: 9                  # terminal cell size in device px
-    cell_height: 20                # (tune if inline charts look soft)
-    inline_style: kitty            # halfblock (default) | iterm2 | kitty | sixel
-    grid: true
-    palette: tab10
-    legend: bottom
-    x_angle: -45
-    background: "#ffffff"
-}
-```
-
-`inline_style` tells the plugin which image protocol your terminal supports;
-set it once per terminal. The default `halfblock` works everywhere.
-`cell_width`/`cell_height` are the other non-obvious knob; both are explained
-in [Nushell Plugin Internals](nushell_internals.md).
+Defaults live in `$env.config.plugins.charton`; flags win over config, and
+config wins over built-in defaults. `CHARTON_INLINE_STYLE` sits between the
+flag and config for the inline renderer. The
+[plugin README](https://github.com/wangjiawen2013/charton/blob/main/nu_plugin_charton/README.md#configuration)
+lists every key, its default, and the one knob that is deliberately not a key
+(tick density). [Nushell Plugin Internals](nushell_internals.md) explains the
+cell-size settings.

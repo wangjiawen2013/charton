@@ -83,6 +83,8 @@ charton = { version = "0.9", features = ["wgpu", "png"] }  # 本地桌面端（G
 charton = { version = "0.9", features = ["wgpu"] }         # 网页浏览器（WebAssembly/Wasm 目标平台）
 charton = { version = "0.9", features = ["parallel"] }     # 多线程数据处理（基于 Rayon）
 charton = { version = "0.9", features = ["geo"] }          # 地理坐标支持
+charton = { version = "0.9", features = ["spec"] }         # JSON 图表文档（CLI/MCP 使用的方言）
+charton = { version = "0.9", features = ["arrow"] }        # Apache Arrow RecordBatch 数据接入
 ```
 
 ## 快速上手
@@ -209,9 +211,13 @@ Charton 作图精准，提供对复杂标记的像素级控制。无论是用于
 ## 文档
 请访问 [Charton Docs](https://wangjiawen2013.github.io/charton) 查看完整文档。
 
-## 生态系统
+## 入口
 
-Charton 提供官方的 [Nushell 插件](nu_plugin_charton/README.md)，可以把管道表格画成图表，终端内联显示或保存为 SVG/PNG。
+- **Rust 库** — 本仓库中的引擎 `charton`。
+- **`charton-cli`** — `plot`、`render`、`validate`、`schema` 以及 `mcp`
+  服务。见 [CLI README](charton-cli/README.md)。
+- **`nu_plugin_charton`** — 在 Nushell 管道中直接使用同一引擎，终端内联显示或保存为
+  SVG/PNG。见[插件 README](nu_plugin_charton/README.md)。
 
 其他值得了解的 Rust 绘图库：
 

@@ -149,6 +149,15 @@ predate this file.
   backend (`RasterPlan`, `render_document`), so a composition and a single chart
   cannot disagree about supersampling or background fill.
 
+### Documentation
+
+- **The book leads with the entry points.** Installation, the command line, MCP,
+  the JSON dialect and the Nushell plugin now come before the engine internals;
+  the installation page lists the real feature set (`spec`, `png`, `pdf`,
+  `wgpu`, `geo`, `arrow`, `parallel`), and the error, theme, performance and
+  production pages describe the current API instead of the pre-spec one. The CLI,
+  MCP and plugin guides share one description of the dialect and its exit codes.
+
 ## [0.9.1] - 2026-11-13
 
 ### Changed

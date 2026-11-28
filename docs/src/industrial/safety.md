@@ -1,44 +1,82 @@
-# Safety & Error Registry
+# Errors & Diagnostics
 
-In high-performance visualization systems, the most costly errors are not rendering failures, but "logical mapping errors"—such as attempting to map continuous data to a discrete aesthetic channel, or misapplying coordinate scaling logic. Charton’s architecture is built on the philosophy of "Fail-Fast at Compile-Time" and "Structured Diagnostics."
+Charton fails where the caller can act on it. There are three scopes, and each
+has one shape.
 
-## Type-Safe Grammar and Validation
+## The Rust API: `ChartonError`
 
-Charton’s core architecture enforces the legitimacy of its "Grammar of Graphics" at compile time, preventing developers from constructing invalid visual encodings.
+Every library operation returns `Result<_, ChartonError>`. A chart that cannot be
+built is an error — never a panic, never a half-drawn figure.
 
-- Generic Type Guards: Utilizing the state-machine pattern within `Chart<T>`, Charton locks down operational logic via Rust's type system. For instance, statistical transformations like `transform_boxplot_data` are only accessible to specific mark types. Any attempt to apply unsupported operations triggers a compile-time error.
-- Channel-Scale Alignment: During the chart specification phase, the system validates the consistency between `Channel` (e.g., Color, X, Y) and the requested `Scale`. By checking that the target data field matches the scale's domain, the system eliminates runtime "undefined mapping" risks.
+| Variant | What it means |
+|---|---|
+| `Data` | The rows are malformed: inconsistent lengths, an empty dataset, a column that is not the type the mark needs. |
+| `Mark` | The mark cannot be configured that way. |
+| `Encoding` | The channel and field combination is not valid. |
+| `Scale` | The requested domain or scale type cannot be built from the data. |
+| `Render` | Geometry or a backend failed while drawing. |
+| `Font` | A font stack names no installed family. |
+| `Io` | Reading or writing failed. |
+| `Fmt` | A formatting operation failed. |
+| `ExecutablePath` | The running executable's path could not be resolved. |
+| `Unimplemented` | A recognised request this build does not implement. |
+| `Internal` | A bug in Charton. |
 
-## Structured Error Registry
-To ensure developers can rapidly diagnose complex visual issues, Charton replaces ambiguous error messages with a structured `ChartonError` enum. This registry centralizes the management of potential logical conflicts:
+There is no warning channel. A chart either builds or it returns the error that
+explains why; a missing font is a `Font` error, not a silently smaller picture.
 
-```rust
-pub enum ChartonError {
-    /// Error related to data handling or processing.
-    #[error("Data error: {0}")]
-    Data(String),
-    /// Error related to mark definitions or configurations.
-    #[error("Mark error: {0}")]
-    Mark(String),
-    /// Error related to encoding specifications.
-    #[error("Encoding error: {0}")]
-    Encoding(String),
+## The document layer: `SpecError`
+
+A chart document is checked before it is lowered. One problem is one object:
+
+```json
+{
+  "code": "E_UNKNOWN_MARK",
+  "at": "/mark",
+  "message": "Unknown mark `linee`",
+  "hint": "Did you mean `line`?",
+  "expected": ["point", "line", "bar", "area"]
 }
 ```
 
-Every error variant carries contextual metadata:
+- `code` is stable. `E_UNKNOWN_*` means the word is wrong, `E_UNSUPPORTED_*`
+  means it is valid Vega-Lite that Charton does not implement, and `E_DATA_*`
+  means the document is fine and the rows are not.
+- `at` is a JSON Pointer into the original document, so an editor or an agent can
+  jump to the node instead of searching for it.
+- `hint` and `expected` say what to try next.
 
-- Context-Aware Diagnostics: When the `LayoutEngine` calculates legend dimensions, if a `panel_defense_ratio` violation occurs, the registry returns a detailed report containing the current `Rect` state. This clearly identifies exactly which legend block caused the spatial overflow.
-- Recoverable Diagnostics: For non-fatal data issues (e.g., outliers slightly beyond the domain), the system supports "Soft Warning" modes. These warnings are logged in the registry, allowing the chart to perform automatic clipping instead of crashing.
+`charton validate --json` and the MCP server return one envelope for success and
+failure (`ok`, `errors`), so a caller parses one shape. The full list of codes and
+their guarantees is in [Writing a chart document](../spec/index.md#when-it-is-wrong).
 
-## Semantic Validation Pipeline
-Before any `Chart` object proceeds to the render phase, it must pass through a Semantic Validation stage—a defensive "wall" designed to ensure structural integrity:
+Two invariants keep the layer honest:
 
-- Dimensional Validity: The system scans all `Encoding` mappings. If a `MarkPoint` is detected alongside incompatible `StackMode` parameters (usually reserved for `MarkArea` or `MarkBar`), the validator triggers a semantic error before expensive rendering begins.
-- Coordinate Scale Consistency: The system verifies that the coordinate system logic (e.g., `Polar` vs. `Cartesian2D`) matches the data's scale domains, preventing logical errors like using negative radial values in a polar chart.
-- CI/CD Integration: These error diagnostics can be serialized into JSON format. This allows for automated "Snapshot Testing" in CI/CD pipelines, where error-message hashes are compared to ensure that exception-handling mechanisms remain stable across library updates.
+1. **Validation runs before lowering.** A document that validates renders. If
+   lowering still fails, the diagnostic is `E_INTERNAL` and the bug is in the
+   validator, not in the document.
+2. **The pointer is the original document's.** Diagnostics are attached while the
+   document is read, not reconstructed after lowering.
 
-## Key Takeaways
-- Compile-Time Safety: Leveraging Rust's strong type system, we intercept incorrect mapping logic during development rather than in the production runtime.
-- Structured Diagnostics: The error registry carries geometric context (panel sizes, coordinate parameters), significantly reducing the time required to debug complex layouts.
-- Semantic Integrity: The validation pipeline acts as a protective layer, ensuring that all generated charts adhere to the mathematical and geometric logic of the "Grammar of Graphics."
+## The command line: exit codes
+
+| Code | Meaning |
+|---|---|
+| 0 | Success |
+| 1 | A bug in Charton |
+| 2 | The command line was wrong |
+| 3 | The data could not be read or parsed |
+| 4 | The document is invalid, or disagrees with the data |
+| 5 | Building, rendering or writing failed |
+
+Diagnostics go to stderr; only the requested artifact goes to stdout. That is
+what makes `-o -` pipe cleanly and what keeps `validate --json` parseable.
+
+## What keeps the boundaries honest
+
+- The negative corpus (`tests/spec/reject/`) requires every diagnostic code to be
+  reachable and every rejection to carry the expected pointer.
+- `tests/spec_lower.rs` renders a document and the equivalent typed-API chart and
+  requires identical bytes, so the two error/lowering paths cannot drift.
+- The CLI and MCP integration tests drive the real binary: exit codes, stdout vs
+  stderr, and the sandbox refusals.

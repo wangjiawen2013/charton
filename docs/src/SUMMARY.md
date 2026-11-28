@@ -7,6 +7,15 @@
 - [Agents (MCP)](getting_started/mcp.md)
 - [Interactive Notebooks](getting_started/notebooks.md)
 
+# The JSON Spec
+- [Writing a chart document](spec/index.md)
+- [Field reference: the lowering map](spec/lowering-map.md)
+
+# The Nushell Plugin
+- [The Nushell Plugin](ecosystem/nushell.md)
+- [Writing Transforms in the Nushell Plugin](ecosystem/nushell_transforms.md)
+- [Nushell Plugin Internals](ecosystem/nushell_internals.md)
+
 # Concepts & Philosophy
 - [The Charton Mental Model](concepts/mental_model.md)
 - [The Layer Pipeline](concepts/grammar_pipeline.md)
@@ -41,11 +50,11 @@
 - [Space Manager](layout/space.md)
 - [Guides: Axis & Legends](layout/guides.md)
 
-# Industrial Mastery
+# Production
 - [Performance & Scaling](industrial/performance.md)
-- [Publication-Ready Themes](industrial/themes.md)
-- [Safety & Error Registry](industrial/safety.md)
-- [Production Integration](industrial/production.md)
+- [Themes](industrial/themes.md)
+- [Errors & Diagnostics](industrial/safety.md)
+- [CI & Deployment](industrial/production.md)
 
 # Cookbook
 - [Recipe Index](gallery/index.md)
@@ -75,10 +84,6 @@
 - [Lorenz Attractor](case_studies/lorenz_attractor.md)
 - [System Monitor (egui Dashboard)](case_studies/system_monitor.md)
 
-# The JSON Spec
-- [Writing a chart document](spec/index.md)
-- [Field reference: the lowering map](spec/lowering-map.md)
-
 # Exporting & Embedding
 - [Semantic Output: CSS, Accessibility & Tagging](export/semantic_output.md)
 
@@ -92,8 +97,3 @@
 - [Integrating with Winit & WGPU](gui/winit.md)
 - [Integrating with Bevy](gui/bevy.md)
 - [Integrating with egui](gui/egui.md)
-
-# Ecosystem & Integrations
-- [The Nushell Plugin](ecosystem/nushell.md)
-- [Writing Transforms in the Nushell Plugin](ecosystem/nushell_transforms.md)
-- [Nushell Plugin Internals](ecosystem/nushell_internals.md)

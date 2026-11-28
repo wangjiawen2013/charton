@@ -3,81 +3,45 @@
 `charton` turns a table into a chart without a Rust toolchain. It is one static
 binary: no Node, no Python, no container.
 
-## Install
+The **complete reference** — every flag, the mark list, input/output rules, the
+MCP tools and the raw protocol — is the
+[CLI README](https://github.com/wangjiawen2013/charton/blob/main/charton-cli/README.md).
+This chapter is the design behind it: why there are four commands, how a chart
+is built, and what the exit codes promise.
 
-```bash
-cargo install --path charton-cli      # from a checkout
+## Four commands, on purpose
+
+```text
+charton plot [INPUT] ...        a table and a few flags
+charton render <SPEC> ...       a chart document
+charton validate <SPEC> ...     check before you draw
+charton schema                  the dialect, for editors and agents
+charton mcp                     the agent server
 ```
 
-Prebuilt binaries are not published yet, so a checkout is the supported install
-path for now. The release pipeline will attach builds for linux-x86_64,
-macos-x86_64, macos-aarch64 and windows-x86_64.
+`plot` is the short path. It exposes only the common encodings (`--x`, `--y`,
+`--y2`, `--color`, `--size`, `--shape`, `--text`, `--path-group`, `--z`) and
+deliberately has no `--transform`, `--layer` or `--facet`. A flag for every core
+capability is how a command line turns into a second, worse dialect.
 
-## Sixty seconds
+When a chart outgrows the flags, it becomes a document. `render` takes that
+document, and `validate` checks it without drawing. `schema` is the same dialect
+as a JSON Schema, for an editor or an agent.
 
-```bash
-charton plot sales.csv --mark line --x month --y revenue -o revenue.svg
+## One build path
+
+`plot` does not have its own renderer. Its flags build the `Spec` a person would
+have written, and that spec goes through the same validation and lowering as
+`render`:
+
+```text
+plot flags ──► Spec ──┐
+                      ├──► validate ──► lower ──► SVG/PNG/PDF
+chart.json ──► Spec ──┘
 ```
 
-`charton plot --help` lists the flags. They cover the common cases on purpose:
-when a chart needs more than a handful of flags, it should be a document, not a
-longer command line.
-
-## The four commands
-
-### `plot` — a table and a few flags
-
-```bash
-charton plot sales.csv --mark bar --x region --y revenue --color segment -o bars.svg
-cat sales.csv | charton plot - --mark point --x revenue --y margin -o - > dots.svg
-```
-
-### `render` — a chart document
-
-```bash
-charton render chart.json -o report.pdf
-```
-
-A document is a subset of Vega-Lite v5; [Writing a chart document](../spec/index.md)
-describes its parts, and the [lowering map](../spec/lowering-map.md) the exact
-field reference. `charton schema` prints the JSON Schema to teach your editor —
-or an agent — what is allowed.
-
-### `validate` — check before you draw
-
-```bash
-charton validate chart.json
-charton validate chart.json --data sales.csv --json
-```
-
-The JSON report is the product, so it goes to **stdout**; the human version goes
-to stderr. Every problem has a stable code, a JSON Pointer to the offending node,
-a sentence, and usually a hint:
-
-```json
-{
-  "ok": false,
-  "errors": [
-    {
-      "code": "E_UNKNOWN_MARK",
-      "at": "/mark",
-      "message": "Unknown mark `linee`",
-      "hint": "Did you mean `line`?",
-      "expected": ["point", "line", "bar", "area"]
-    }
-  ]
-}
-```
-
-### `schema` — the dialect, for tools
-
-```bash
-charton schema > charton.schema.json
-```
-
-## From a command line to a document
-
-`plot --emit-spec` writes the chart you just drew as a spec:
+That is why `--emit-spec` is meaningful: the document **is** the chart that was
+drawn, not a description of a parallel code path.
 
 ```bash
 charton plot sales.csv --mark bar --x month --y revenue --emit-spec chart.json -o a.svg
@@ -85,29 +49,30 @@ charton render chart.json -o b.svg
 cmp a.svg b.svg        # identical
 ```
 
-That equality is not a coincidence and not a promise: both commands take the
-same build path, so the document *is* the chart. Edit `chart.json` to reach
-everything the flags do not cover — aggregation, binning, layers, facets.
-
-With stdin input the spec records `"url": "-"`, so it replays through a pipe:
+It is also why a document emitted from stdin records `"url": "-"` and replays
+through a pipe:
 
 ```bash
 cat sales.csv | charton plot - --x month --y revenue --emit-spec chart.json -o a.svg
 cat sales.csv | charton render chart.json -o b.svg
 ```
 
-## Input
+The rule behind both: **one meaning, one build path**. The CLI is not a second
+semantics system beside the library.
 
-| Source | How |
-|---|---|
-| CSV (`.csv`) | First row is the header. A column is numeric only when every cell parses as a number. |
-| TSV (`.tsv`) | Same, tab-separated. |
-| NDJSON (`.ndjson`, `.jsonl`) | One JSON object per line; scalars only. |
-| stdin | Omit the file, or pass `-`. The format is sniffed: `{` means NDJSON. |
+## Input and output
 
-A spec's `data.url` is a **path, not a URL**, and it resolves against the spec
-file's directory — so a document means the same thing wherever you run it.
-Remote URLs are refused: download the data first.
+The short version:
+
+- Input is CSV, TSV, NDJSON or stdin. Column typing is per column, not per cell;
+  date strings stay categorical.
+- A document's `data.url` is a local path, resolved against the spec file's
+  directory. Remote URLs are refused.
+- Output is chosen by extension: `.svg`, `.png`, `.pdf`. No `-o` writes
+  `chart.svg`; `-o -` writes an SVG to stdout; `--force` overwrites.
+- Diagnostics go to stderr, artifacts to stdout. `-o -` pipes cleanly.
+
+The full tables are in the [CLI README](https://github.com/wangjiawen2013/charton/blob/main/charton-cli/README.md#input).
 
 ## Exit codes
 
@@ -117,16 +82,15 @@ Remote URLs are refused: download the data first.
 | 1 | A bug in Charton (the message says so, and asks for a report) |
 | 2 | The command line was wrong |
 | 3 | The data could not be read or parsed |
-| 4 | The spec is invalid, or disagrees with the data |
+| 4 | The document is invalid, or disagrees with the data |
 | 5 | Building, rendering or writing failed |
 
-Diagnostics go to stderr. Nothing but the requested image, report or schema ever
-lands on stdout, so `-o -` pipes cleanly.
+Exit code 4 is a linter outcome, not a crash: `validate --json` prints the
+report on stdout and leaves the exit code to the caller.
 
 ## What it deliberately does not do
 
-- No flag per core capability. Complex charts are documents; a hundred switches
-  is how a command line turns into a second, worse dialect.
-- No `profile`, `init` or `examples` subcommands yet. They wait for a real
-  request.
-- No expression evaluation, ever. A spec is data, not a program.
+- No flag per core capability. Complex charts are documents.
+- No expression evaluation, ever. A document is data, not a program.
+- No `profile`, `init` or `examples` subcommands yet; `profile_data` exists as an
+  MCP tool.

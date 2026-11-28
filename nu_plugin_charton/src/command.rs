@@ -4,12 +4,24 @@
 //! draws it inline in the terminal, saves it (`-o chart.svg`), or hands the
 //! image back to the pipeline (`--raw`).
 //!
+//! A chart can be described two ways, and both end in the same [`deliver`]:
+//! a mark subcommand reads flags against the pipeline table, while
+//! `charton render` reads the JSON chart document that the CLI and the MCP
+//! server also speak. The document fixes the grammar (marks, encodings,
+//! transforms, layers, facets); the entry point fixes the canvas and how the
+//! result leaves the process.
+//!
 //! # Commands
 //!
 //! Every mark is its own subcommand — `charton point`, `charton bar`,
 //! `charton density`, ... — registered from [`MARKS`]. A subcommand declares
 //! only the flags it understands, so `charton <TAB>` and `help charton bar`
 //! stay focused. `charton` itself is a parent that lists the marks.
+//!
+//! `charton render` is the document path. It accepts the document as a path
+//! (`charton render chart.json`) or from the pipeline (`open chart.json |
+//! charton render`), and takes its data from the pipeline table when one is
+//! present, otherwise from the document's inline `data.values`.
 //!
 //! The API follows Charton's grammar of graphics, in widening levels:
 //! - **a mark** (`-x` / `-y` and friends) draws the rows;
@@ -21,10 +33,14 @@
 //!
 //! # Layout
 //!
-//! The file is organised in two halves:
-//! - the **command layer** (top): one [`MarkCommand`] per mark, its signature
-//!   ([`base_signature`] plus [`mark_signature`]), flag completions, and
-//!   [`run_chart`], which reads the flags into a [`LayerOpts`];
+//! The file is organised in three layers:
+//! - the **command layer** (top): one [`MarkCommand`] per mark and
+//!   [`RenderCommand`] for documents, their signatures ([`base_signature`]
+//!   plus [`mark_signature`]), flag completions, and [`run_chart`] /
+//!   [`run_render`], which turn a command line into a chart;
+//! - the **delivery layer**: [`DeliveryOptions`] resolves the output flags once
+//!   and [`deliver`] sends the finished chart inline, to a file, or back to the
+//!   pipeline;
 //! - the **build engine** (below): [`build_chart`] ingests the pipeline table
 //!   and calls [`build_layer`] per layer, and [`finish`] applies the chart-wide
 //!   options (title, theme, facets, coordinates, size).
@@ -34,7 +50,7 @@
 //! which walks the [`TransformSpec`] chain and then draws a Tier-1 mark.
 
 use std::io::{IsTerminal, Write};
-use std::path::Path;
+use std::path::{Path, PathBuf};
 
 use charton::error::ChartonError;
 use charton::prelude::{
@@ -45,6 +61,7 @@ use charton::prelude::{
     MarkTick, Position, QuantileBoxTransform, RowAccessor, Scale, ThemeMode, WindowFieldDef,
     WindowOnlyOp, WindowTransform, alt, geojson_to_dataset,
 };
+use charton::spec::{self as chart_spec, SpecError};
 use nu_plugin::{DynamicCompletionCall, EngineInterface, EvaluatedCall, PluginCommand};
 use nu_protocol::{
     DynamicSuggestion, Example, IntoPipelineData, LabeledError, PipelineData, Record, Signature,
@@ -116,9 +133,10 @@ impl PluginCommand for Charton {
     }
 
     fn extra_description(&self) -> &str {
-        "charton is a family of mark subcommands. Call one with the encoding it \
-         needs, for example `charton bar -x category -y value`. \
-         `help commands | where name =~ '^charton'` lists every mark."
+        "charton is a family of mark subcommands, plus `charton render` for a \
+         JSON chart document. Call a mark with the encoding it needs, for \
+         example `charton bar -x category -y value`. \
+         `help commands | where name =~ '^charton'` lists every command."
     }
 
     fn run(
@@ -131,7 +149,8 @@ impl PluginCommand for Charton {
         let names: Vec<&str> = MARKS.iter().map(|(name, _)| *name).collect();
         Ok(Value::string(
             format!(
-                "charton: choose a mark, e.g. `charton bar`. Marks: {}",
+                "charton: choose a mark, e.g. `charton bar`, or draw a document with \
+                 `charton render`. Marks: {}",
                 names.join(", ")
             ),
             call.head,
@@ -204,6 +223,132 @@ impl PluginCommand for MarkCommand {
     ) -> Result<PipelineData, LabeledError> {
         run_chart(self.mark, _plugin, engine, call, input)
     }
+}
+
+/// `charton render` — draw a chart document instead of a flag recipe.
+///
+/// The command shares the mark commands' delivery surface (`-o`, `--raw`,
+/// `--png`, `--inline-style`, ...) but not their grammar flags: every visual
+/// choice comes from the document, so the same file renders the same chart in
+/// the CLI, the MCP server and here.
+pub struct RenderCommand;
+
+impl PluginCommand for RenderCommand {
+    type Plugin = ChartonPlugin;
+
+    fn name(&self) -> &str {
+        "charton render"
+    }
+
+    fn description(&self) -> &str {
+        "Render a JSON chart document (a Vega-Lite v5 subset)"
+    }
+
+    fn signature(&self) -> Signature {
+        render_signature()
+    }
+
+    fn search_terms(&self) -> Vec<&str> {
+        vec!["plot", "chart", "spec", "json", "document", "svg", "png"]
+    }
+
+    fn extra_description(&self) -> &str {
+        "The document is the dialect `charton schema` describes. Pass it as a \
+         path, or pipe it. When a path is given the pipeline is the data table; \
+         without one the document carries its data inline. A document read from \
+         the pipeline cannot reference files: pipe the table instead."
+    }
+
+    fn examples(&self) -> Vec<Example<'_>> {
+        vec![
+            Example {
+                example: "open chart.json | charton render",
+                description: "Draw a document that carries its rows inline",
+                result: None,
+            },
+            Example {
+                example: "open sales.csv | charton render chart.json -o report.svg",
+                description: "Draw a document against a pipeline table",
+                result: None,
+            },
+        ]
+    }
+
+    fn run(
+        &self,
+        _plugin: &ChartonPlugin,
+        engine: &EngineInterface,
+        call: &EvaluatedCall,
+        input: PipelineData,
+    ) -> Result<PipelineData, LabeledError> {
+        run_render(engine, call, input)
+    }
+}
+
+/// The flags `charton render` shares with every chart command.
+///
+/// A document owns the grammar, so this signature has no encodings, marks or
+/// themes — only where the result goes and how the terminal should show it.
+fn render_signature() -> Signature {
+    Signature::build("charton render")
+        .optional(
+            "spec",
+            SyntaxShape::String,
+            "Chart document to draw: a path; omit it to read the document from the pipeline",
+        )
+        .named(
+            "output",
+            SyntaxShape::String,
+            "Save the chart to a file (.svg or .png)",
+            Some('o'),
+        )
+        .named(
+            "width",
+            SyntaxShape::Int,
+            "Pixel width of the rendered chart",
+            None,
+        )
+        .named(
+            "height",
+            SyntaxShape::Int,
+            "Pixel height of the rendered chart",
+            None,
+        )
+        .named(
+            "scale",
+            SyntaxShape::Number,
+            "Raster pixel scale factor (default 1.0; >1 gives a higher-density asset)",
+            None,
+        )
+        .named(
+            "font-scale",
+            SyntaxShape::Number,
+            "Scale chart text and its surrounding spacing; default 1.5",
+            None,
+        )
+        .switch(
+            "raw",
+            "Return the raw image data (SVG string, or PNG with --png) instead of drawing inline",
+            None,
+        )
+        .switch("png", "With --raw, return PNG bytes instead of SVG", None)
+        .switch(
+            "no-inline",
+            "Do not draw inline even if the terminal supports it",
+            None,
+        )
+        .switch(
+            "force-inline",
+            "Draw inline even when stdout is not detected as a terminal (testing/override)",
+            None,
+        )
+        .named(
+            "inline-style",
+            SyntaxShape::String,
+            "Inline renderer: halfblock | iterm2 | kitty | sixel (default halfblock)",
+            None,
+        )
+        .input_output_type(Type::Any, Type::Any)
 }
 
 /// A one-line description for a mark, shown by `help charton <mark>`.
@@ -748,7 +893,6 @@ pub(crate) fn run_chart(
     let path_group: Option<String> = call.get_flag("path-group")?;
     let transforms = parse_transforms(call.get_flag::<Value>("transform")?, span)?;
     let geojson: Option<String> = call.get_flag("geojson")?;
-    let output: Option<String> = call.get_flag("output")?;
     let title: Option<String> = call.get_flag("title")?;
     let description: Option<String> = call.get_flag("description")?;
     let x_label: Option<String> = call.get_flag("x-label")?;
@@ -867,49 +1011,8 @@ pub(crate) fn run_chart(
     };
     let density_cumulative = call.has_flag("cumulative")?;
     let density_counts = call.has_flag("counts")?;
-    let raw = call.has_flag("raw")?;
-    let want_png = call.has_flag("png")?;
-    let no_inline = call.has_flag("no-inline")?;
-    let force_inline = call.has_flag("force-inline")?;
+    let delivery = DeliveryOptions::from_call(call, &cfg, span)?;
 
-    // Precedence: flag > plugin config > default.
-    let width = call
-        .get_flag::<i64>("width")?
-        .map(|v| v.max(16) as u32)
-        .or(cfg.width)
-        .unwrap_or(800);
-    let height = call
-        .get_flag::<i64>("height")?
-        .map(|v| v.max(16) as u32)
-        .or(cfg.height)
-        .unwrap_or(600);
-    let scale_flag = call.get_flag::<f64>("scale")?;
-    // Remember whether the user chose a scale: inline fitting only kicks in
-    // when the resolution was left to us.
-    let scale_explicit = scale_flag.is_some() || cfg.scale.is_some();
-    // `None` means "leave charton's default in place", so the plugin tracks the
-    // library (`scale_factor` defaults to 1.0, i.e. the PNG is exactly the
-    // configured `width × height`). An explicit flag/config value overrides it.
-    let scale = scale_flag
-        .map(|v| v as f32)
-        .or(cfg.scale)
-        .filter(|s| *s > 0.0);
-    // Every chart font is multiplied by this. Inline charts are fitted into
-    // the terminal, so charton's base sizes come out small; 1.5 reads like the
-    // shell's own text. Flag > config > default.
-    let font_scale = call
-        .get_flag::<f64>("font-scale")?
-        .or(cfg.font_scale)
-        .filter(|s| *s > 0.0)
-        .unwrap_or(DEFAULT_FONT_SCALE);
-    let cell_w = cfg
-        .cell_width
-        .map(|v| v as usize)
-        .unwrap_or(render::DEFAULT_CELL_W);
-    let cell_h = cfg
-        .cell_height
-        .map(|v| v as usize)
-        .unwrap_or(render::DEFAULT_CELL_H);
     let palette = match &cfg.palette {
         Some(p) => Some(
             config::to_color_palette(p)
@@ -917,18 +1020,6 @@ pub(crate) fn run_chart(
         ),
         None => None,
     };
-
-    // Precedence: flag > generic env override > config > universal default.
-    // There is deliberately no terminal-brand detection: protocol support is
-    // not discoverable portably, so choose it once per terminal in config.
-    let inline_style = render::InlineStyle::parse(
-        &call
-            .get_flag::<String>("inline-style")?
-            .or_else(|| std::env::var("CHARTON_INLINE_STYLE").ok())
-            .or_else(|| cfg.inline_style.clone())
-            .unwrap_or_else(|| "halfblock".to_string()),
-    )
-    .map_err(|e| LabeledError::new("Invalid inline style").with_label(e, span))?;
 
     // Faceting: --facet-wrap, or --facet-row + --facet-col.
     let facet_strategy = call
@@ -1057,35 +1148,122 @@ pub(crate) fn run_chart(
         y_ticks,
         tick_count,
         theme,
-        width,
-        height,
-        scale,
-        font_scale,
+        width: delivery.width,
+        height: delivery.height,
+        scale: delivery.scale,
+        font_scale: delivery.font_scale,
         span,
     };
     let chart = build_chart(&values, &opts, engine)?;
+    deliver(chart, &delivery, engine, span)
+}
 
-    // 4. Decide how to deliver the result.
-    let can_inline = !raw
-        && !no_inline
+/// Delivery choices resolved from a command line and the plugin config.
+///
+/// Every command that ends in a chart uses this one resolution: flag first,
+/// then the plugin config, then the default. `charton render` and the mark
+/// commands therefore put the same canvas, density and inline protocol behind
+/// the same flags; only the source of the chart differs.
+struct DeliveryOptions {
+    output: Option<String>,
+    raw: bool,
+    png: bool,
+    no_inline: bool,
+    force_inline: bool,
+    inline_style: render::InlineStyle,
+    scale: Option<f32>,
+    /// Whether the caller chose a scale. Terminal fitting only applies when the
+    /// resolution was left to the plugin.
+    scale_explicit: bool,
+    width: u32,
+    height: u32,
+    font_scale: f64,
+    cell_w: usize,
+    cell_h: usize,
+}
+
+impl DeliveryOptions {
+    fn from_call(call: &EvaluatedCall, cfg: &Config, span: Span) -> Result<Self, LabeledError> {
+        let scale_flag = call.get_flag::<f64>("scale")?;
+        // There is deliberately no terminal-brand detection: protocol support
+        // is not discoverable portably, so choose it once per terminal in
+        // config. The flag and the environment override it for one command.
+        let inline_style = render::InlineStyle::parse(
+            &call
+                .get_flag::<String>("inline-style")?
+                .or_else(|| std::env::var("CHARTON_INLINE_STYLE").ok())
+                .or_else(|| cfg.inline_style.clone())
+                .unwrap_or_else(|| "halfblock".to_string()),
+        )
+        .map_err(|e| LabeledError::new("Invalid inline style").with_label(e, span))?;
+
+        Ok(Self {
+            output: call.get_flag("output")?,
+            raw: call.has_flag("raw")?,
+            png: call.has_flag("png")?,
+            no_inline: call.has_flag("no-inline")?,
+            force_inline: call.has_flag("force-inline")?,
+            inline_style,
+            // `None` keeps charton's default (1.0: the PNG is exactly
+            // `width × height`). A non-positive value is treated as absent.
+            scale: scale_flag
+                .map(|v| v as f32)
+                .or(cfg.scale)
+                .filter(|s| *s > 0.0),
+            scale_explicit: scale_flag.is_some() || cfg.scale.is_some(),
+            width: call
+                .get_flag::<i64>("width")?
+                .map(|v| v.max(16) as u32)
+                .or(cfg.width)
+                .unwrap_or(800),
+            height: call
+                .get_flag::<i64>("height")?
+                .map(|v| v.max(16) as u32)
+                .or(cfg.height)
+                .unwrap_or(600),
+            // Inline charts are fitted into the terminal, so charton's base
+            // sizes come out small; 1.5 reads like the shell's own text.
+            font_scale: call
+                .get_flag::<f64>("font-scale")?
+                .or(cfg.font_scale)
+                .filter(|s| *s > 0.0)
+                .unwrap_or(DEFAULT_FONT_SCALE),
+            cell_w: cfg
+                .cell_width
+                .map(|v| v as usize)
+                .unwrap_or(render::DEFAULT_CELL_W),
+            cell_h: cfg
+                .cell_height
+                .map(|v| v as usize)
+                .unwrap_or(render::DEFAULT_CELL_H),
+        })
+    }
+}
+
+/// Send a finished chart where the command asked for it.
+///
+/// `charton render` and the mark commands share this tail, so an inline chart,
+/// a saved file and a `--raw` value can never diverge between a document and a
+/// flag recipe. `-o` saves a copy first and may still draw inline; `--raw`
+/// always returns data and never touches the terminal.
+fn deliver(
+    chart: LayeredChart,
+    opts: &DeliveryOptions,
+    engine: &EngineInterface,
+    span: Span,
+) -> Result<PipelineData, LabeledError> {
+    let can_inline = !opts.raw
+        && !opts.no_inline
         && !engine.is_using_stdio()
-        && (std::io::stdout().is_terminal() || force_inline);
+        && (std::io::stdout().is_terminal() || opts.force_inline);
 
-    // 4a. Save to file if requested (works alongside inline display).
-    //     Plugins run with their executable's directory as the process CWD,
-    //     so relative paths must be resolved against the shell context.
-    if let Some(path) = &output {
-        let requested = Path::new(path);
-        let resolved = if requested.is_absolute() {
-            requested.to_path_buf()
-        } else {
-            Path::new(&engine.get_current_dir()?).join(requested)
-        };
-        write_output(&chart, &resolved, span)?;
+    // Save a copy first, so `-o` works whether or not the terminal also shows
+    // the chart. Plugins run with their executable's directory as the process
+    // CWD, so relative paths resolve against the shell context.
+    if let Some(path) = opts.output.as_deref() {
+        write_output(&chart, &resolve_path(engine, path)?, span)?;
     }
 
-    // 4b. Inline terminal rendering. Only safe when stdout is the terminal
-    //     (local-socket mode); never in stdio mode.
     if can_inline {
         let (cols, rows) = terminal_size::terminal_size()
             .map(|(w, h)| (w.0 as usize, h.0 as usize))
@@ -1093,20 +1271,26 @@ pub(crate) fn run_chart(
         let max_cols = cols.saturating_sub(1).max(20);
         let max_rows = rows.saturating_sub(2).max(6);
 
-        // Protocols that hand a bitmap to the terminal (iTerm2, Kitty,
-        // Sixel) look best when the raster already matches the terminal's
-        // pixel area: the terminal then scales little or not at all, which
-        // keeps text crisp and strokes even. Half-blocks are downsampled by
-        // us per cell, so they keep the full-resolution raster.
-        let terminal_sized = !scale_explicit
+        // Bitmap protocols look best when the raster already matches the
+        // terminal's pixel area: the terminal then scales little or not at all,
+        // which keeps text crisp and strokes even. Half-blocks are downsampled
+        // by us per cell, so they keep the full-resolution raster.
+        let terminal_sized = !opts.scale_explicit
             && matches!(
-                inline_style,
+                opts.inline_style,
                 render::InlineStyle::Iterm2
                     | render::InlineStyle::Kitty
                     | render::InlineStyle::Sixel
             );
         let inline_chart = if terminal_sized {
-            let fitted = render::inline_scale(width, height, max_cols, max_rows, cell_w, cell_h);
+            let fitted = render::inline_scale(
+                opts.width,
+                opts.height,
+                max_cols,
+                max_rows,
+                opts.cell_w,
+                opts.cell_h,
+            );
             chart.clone().with_scale_factor(fitted)
         } else {
             chart.clone()
@@ -1114,8 +1298,8 @@ pub(crate) fn run_chart(
         let bytes = render::to_png(&inline_chart)
             .map_err(|e| LabeledError::new("PNG rendering failed").with_label(e, span))?;
 
-        // Renders that fail share one phase and one span, so the error is
-        // built in one place instead of at every call site.
+        // Renders that fail share one phase and one span, so the error is built
+        // in one place instead of at every call site.
         let inline_error =
             |e: String| LabeledError::new("Inline rendering failed").with_label(e, span);
 
@@ -1125,13 +1309,18 @@ pub(crate) fn run_chart(
         let cell_budget = || -> Result<(usize, usize), LabeledError> {
             let (w, h) = render::png_dimensions(&bytes).map_err(inline_error)?;
             Ok(render::fit_cells_with_cell(
-                w, h, max_cols, max_rows, cell_w, cell_h,
+                w,
+                h,
+                max_cols,
+                max_rows,
+                opts.cell_w,
+                opts.cell_h,
             ))
         };
 
-        // Each renderer builds its own frame: the protocol bytes plus the cursor
-        // handling that protocol needs (see `render::Frame`).
-        let frame = match inline_style {
+        // Each renderer builds its own frame: the protocol bytes plus the
+        // cursor handling that protocol needs (see `render::Frame`).
+        let frame = match opts.inline_style {
             render::InlineStyle::Iterm2 => {
                 let (c, r) = cell_budget()?;
                 render::Frame::new(render::iterm2_image(&bytes, c, r))
@@ -1143,7 +1332,7 @@ pub(crate) fn run_chart(
                 render::Frame::advancing(render::kitty_image(&bytes, c, r), r)
             }
             render::InlineStyle::Sixel => render::Frame::new(
-                render::sixel_image(&bytes, max_cols, max_rows, cell_w, cell_h)
+                render::sixel_image(&bytes, max_cols, max_rows, opts.cell_w, opts.cell_h)
                     .map_err(inline_error)?,
             ),
             render::InlineStyle::HalfBlock => render::Frame::new(
@@ -1158,15 +1347,14 @@ pub(crate) fn run_chart(
             .map_err(|e| {
                 inline_error(format!(
                     "could not write the {} chart to the terminal: {e}",
-                    inline_style.name()
+                    opts.inline_style.name()
                 ))
             })?;
         return Ok(Value::nothing(span).into_pipeline_data());
     }
 
-    // 4c. Raw data for further piping.
-    if raw {
-        if want_png {
+    if opts.raw {
+        if opts.png {
             let bytes = render::to_png(&chart)
                 .map_err(|e| LabeledError::new("PNG rendering failed").with_label(e, span))?;
             return Ok(Value::binary(bytes, span).into_pipeline_data());
@@ -1176,14 +1364,214 @@ pub(crate) fn run_chart(
         return Ok(Value::string(svg, span).into_pipeline_data());
     }
 
-    // 4d. Saved already? return nothing, else hand back SVG text.
-    if output.is_some() {
+    // Saved already? Return nothing; otherwise hand the SVG back as text.
+    if opts.output.is_some() {
         Ok(Value::nothing(span).into_pipeline_data())
     } else {
         let svg = render::to_svg(&chart)
             .map_err(|e| LabeledError::new("SVG rendering failed").with_label(e, span))?;
         Ok(Value::string(svg, span).into_pipeline_data())
     }
+}
+
+/// `charton render`: a document plus optional pipeline data into a chart.
+///
+/// The document may come from a path argument or from the pipeline. When a
+/// path is given the pipeline is the table; when the document itself arrives
+/// through the pipeline, its rows must be inline — the plugin has no document
+/// directory to resolve `data.url` against, and reading files is the shell's
+/// job (`open sales.csv | charton render chart.json`).
+fn run_render(
+    engine: &EngineInterface,
+    call: &EvaluatedCall,
+    input: PipelineData,
+) -> Result<PipelineData, LabeledError> {
+    let span = call.head;
+    let cfg = Config::load(engine)
+        .map_err(|e| LabeledError::new("Invalid charton config").with_label(e, span))?;
+    let delivery = DeliveryOptions::from_call(call, &cfg, span)?;
+
+    let values: Vec<Value> = input.into_iter().collect();
+    let (mut document, table) = match call.opt::<String>(0)? {
+        Some(path) => {
+            let path = resolve_path(engine, &path)?;
+            let text = std::fs::read_to_string(&path).map_err(|e| {
+                LabeledError::new("Cannot read the chart document")
+                    .with_label(format!("{}: {e}", path.display()), span)
+            })?;
+            (parse_json(&text, span)?, Some(values))
+        }
+        None => (document_from_pipeline(&values, engine, span)?, None),
+    };
+    let table = table.filter(|values| !values.is_empty());
+
+    // A piped table is the data source: it replaces whatever `data` the
+    // document names. The dialect still requires a root source, so the document
+    // records `url: "-"` — the same caller-supplied convention the CLI uses for
+    // stdin — and the rows below come from the table.
+    if table.is_some()
+        && let Some(object) = document.as_object_mut()
+    {
+        object.insert("data".to_owned(), serde_json::json!({ "url": "-" }));
+    }
+
+    let spec = chart_spec::from_value(&document).map_err(|errors| {
+        LabeledError::new("The chart document is invalid").with_label(diagnostics(&errors), span)
+    })?;
+
+    let data = match table {
+        Some(values) => Table::from_values(&values, span)?.to_dataset()?,
+        _ => chart_spec::inline_dataset_of(&spec)
+            .map_err(|e| {
+                LabeledError::new("The document's inline data is invalid")
+                    .with_label(e.to_string(), span)
+            })?
+            .ok_or_else(|| {
+                let label = if spec
+                    .data
+                    .as_ref()
+                    .and_then(|data| data.url.as_deref())
+                    .is_some()
+                {
+                    "the plugin draws tables from the pipeline, not from `data.url`: `open sales.csv | charton render chart.json`"
+                } else {
+                    "inline `data.values`, or pipe the table: `open sales.csv | charton render chart.json`"
+                };
+                LabeledError::new("The document has no rows to draw").with_label(label, span)
+            })?,
+    };
+
+    let errors = chart_spec::validate_with_data(&spec, &data);
+    if !errors.is_empty() {
+        return Err(LabeledError::new("The chart document has problems")
+            .with_label(diagnostics(&errors), span));
+    }
+    let chart = chart_spec::lower(&spec, data).map_err(|errors| {
+        LabeledError::new("The chart could not be built").with_label(diagnostics(&errors), span)
+    })?;
+
+    // The document owns the grammar; the entry point owns the canvas. Apply the
+    // plugin's size, density and font scale exactly as a mark command does, so
+    // an inline document is as legible as an inline flag chart.
+    let mut chart = chart.with_size(delivery.width, delivery.height);
+    if let Some(scale) = delivery.scale {
+        chart = chart.with_scale_factor(scale);
+    }
+    if (delivery.font_scale - 1.0).abs() > f64::EPSILON {
+        chart = chart.configure_theme(|theme| theme.with_font_scale(delivery.font_scale));
+    }
+
+    deliver(chart, &delivery, engine, span)
+}
+
+/// Read the document the pipeline carries.
+///
+/// `open chart.json` yields a record and `open --raw chart.json` a string, so
+/// both are accepted, as is a bare path. A table is data, not a document.
+fn document_from_pipeline(
+    values: &[Value],
+    engine: &EngineInterface,
+    span: Span,
+) -> Result<serde_json::Value, LabeledError> {
+    let [value] = values else {
+        return Err(LabeledError::new("No chart document").with_label(
+            "pass a document path (`charton render chart.json`), or pipe one (`open chart.json | charton render`)",
+            span,
+        ));
+    };
+    match value {
+        Value::Record { .. } => value_to_json(value).map_err(|kind| {
+            LabeledError::new("The document holds a value JSON cannot express")
+                .with_label(format!("{kind} is not part of the chart dialect"), span)
+        }),
+        Value::String { val, .. } => {
+            if val.trim_start().starts_with('{') {
+                parse_json(val, span)
+            } else {
+                let path = resolve_path(engine, val)?;
+                let text = std::fs::read_to_string(&path).map_err(|e| {
+                    LabeledError::new("Cannot read the chart document")
+                        .with_label(format!("{}: {e}", path.display()), span)
+                })?;
+                parse_json(&text, span)
+            }
+        }
+        other => Err(LabeledError::new("No chart document").with_label(
+            format!(
+                "found a {}, not a document; a table is the data, so pass the document too",
+                other.get_type()
+            ),
+            span,
+        )),
+    }
+}
+
+/// Turn the values a JSON document is made of into their JSON form.
+fn value_to_json(value: &Value) -> Result<serde_json::Value, String> {
+    use serde_json::Value as Json;
+    Ok(match value {
+        Value::Nothing { .. } => Json::Null,
+        Value::Bool { val, .. } => Json::Bool(*val),
+        Value::Int { val, .. } => Json::Number((*val).into()),
+        Value::Float { val, .. } => serde_json::Number::from_f64(*val)
+            .map(Json::Number)
+            .unwrap_or(Json::Null),
+        Value::String { val, .. } => Json::String(val.clone()),
+        Value::List { vals, .. } => Json::Array(
+            vals.iter()
+                .map(value_to_json)
+                .collect::<Result<Vec<_>, _>>()?,
+        ),
+        Value::Record { val, .. } => {
+            let mut map = serde_json::Map::with_capacity(val.len());
+            for (key, item) in val.iter() {
+                map.insert(key.clone(), value_to_json(item)?);
+            }
+            Json::Object(map)
+        }
+        other => return Err(other.get_type().to_string()),
+    })
+}
+
+fn parse_json(text: &str, span: Span) -> Result<serde_json::Value, LabeledError> {
+    serde_json::from_str(text).map_err(|e| {
+        LabeledError::new("The chart document is not valid JSON").with_label(e.to_string(), span)
+    })
+}
+
+/// One actionable line per diagnostic: pointer, code, message, fix.
+fn diagnostics(errors: &[SpecError]) -> String {
+    errors
+        .iter()
+        .map(|error| {
+            let mut line = if error.at.is_empty() {
+                format!("{}: {}", error.code, error.message)
+            } else {
+                format!("{}: {}: {}", error.at, error.code, error.message)
+            };
+            if let Some(hint) = &error.hint {
+                line.push_str(&format!(" ({hint})"));
+            }
+            if !error.expected.is_empty() {
+                line.push_str(&format!(" expected: {}", error.expected.join(", ")));
+            }
+            line
+        })
+        .collect::<Vec<_>>()
+        .join("\n")
+}
+
+/// Resolve a path against the shell's current directory.
+///
+/// Plugins run with their executable's directory as the process CWD, so every
+/// path a user types has to be anchored to the shell context instead.
+fn resolve_path(engine: &EngineInterface, path: &str) -> Result<PathBuf, LabeledError> {
+    let requested = Path::new(path);
+    Ok(if requested.is_absolute() {
+        requested.to_path_buf()
+    } else {
+        Path::new(&engine.get_current_dir()?).join(requested)
+    })
 }
 
 /// One chart layer: the mark to draw and the columns that feed it.
@@ -4455,5 +4843,89 @@ mod tests {
         let suggestions = complete_arg(ArgType::Flag(std::borrow::Cow::Borrowed("interpolation")))
             .expect("interpolation should complete");
         assert!(suggestions.iter().any(|s| s.value == "step"));
+    }
+
+    /// A document that arrives through the pipeline is the chart; its inline
+    /// rows are the data. `open chart.json | charton render` is this value.
+    #[test]
+    fn render_draws_a_document_from_the_pipeline() -> Result<(), ShellError> {
+        let document = Value::test_record(record! {
+            "mark" => Value::test_string("bar"),
+            "data" => Value::test_record(record! {
+                "values" => Value::test_list(vec![
+                    Value::test_record(record! {
+                        "region" => Value::test_string("north"),
+                        "sales" => Value::test_float(1.0),
+                    }),
+                    Value::test_record(record! {
+                        "region" => Value::test_string("south"),
+                        "sales" => Value::test_float(2.0),
+                    }),
+                ]),
+            }),
+            "encoding" => Value::test_record(record! {
+                "x" => Value::test_record(record! { "field" => Value::test_string("region") }),
+                "y" => Value::test_record(record! { "field" => Value::test_string("sales") }),
+            }),
+        });
+        let out = run_on(document, "charton render")?;
+        assert!(out.as_str()?.trim_start().starts_with("<svg"));
+        Ok(())
+    }
+
+    /// A path names the document and the pipeline is then the table, so a
+    /// document can stay free of data and be replayed against any table.
+    #[test]
+    fn render_draws_a_document_against_a_pipeline_table() -> Result<(), ShellError> {
+        let path = std::env::temp_dir().join("charton_test_render_table.json");
+        std::fs::write(
+            &path,
+            r#"{
+                "mark": "point",
+                "encoding": {
+                    "x": { "field": "species" },
+                    "y": { "field": "petal_length" }
+                }
+            }"#,
+        )
+        .expect("the document is written");
+        let arg = path.to_string_lossy().replace('\\', "/");
+        let out = run_on(table(), &format!("charton render '{arg}'"))?;
+        let _ = std::fs::remove_file(&path);
+        assert!(out.as_str()?.trim_start().starts_with("<svg"));
+        Ok(())
+    }
+
+    /// A rejected document carries the same pointer-and-code diagnosis the CLI
+    /// prints, so an agent can fix the node instead of guessing.
+    #[test]
+    fn render_reports_a_problem_with_its_pointer() {
+        let document = Value::test_record(record! {
+            "marks" => Value::test_string("bar"),
+        });
+        let err = run_on(document, "charton render").unwrap_err();
+        let msg = format!("{err:?}");
+        assert!(msg.contains("/marks"), "{msg}");
+        assert!(msg.contains("E_UNKNOWN_FIELD"), "{msg}");
+    }
+
+    /// The plugin does not read files for a document; a `data.url`-only
+    /// document has to be given its table through the pipeline.
+    #[test]
+    fn render_explains_a_document_without_rows() {
+        let document = Value::test_record(record! {
+            "mark" => Value::test_string("bar"),
+            "data" => Value::test_record(record! {
+                "url" => Value::test_string("sales.csv"),
+            }),
+            "encoding" => Value::test_record(record! {
+                "x" => Value::test_record(record! { "field" => Value::test_string("region") }),
+                "y" => Value::test_record(record! { "field" => Value::test_string("sales") }),
+            }),
+        });
+        let err = run_on(document, "charton render").unwrap_err();
+        let msg = format!("{err:?}");
+        assert!(msg.contains("has no rows"), "{msg}");
+        assert!(msg.contains("open sales.csv"), "{msg}");
     }
 }

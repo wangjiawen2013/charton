@@ -1,34 +1,34 @@
-
 # Installation
 
-Charton is built with a modular, pay-for-what-you-use architecture. By leveraging Cargo features, you can finely tune your compilation to match your production constraints—whether you are deploying to a resource-constrained WebAssembly environment, building high-throughput multi-threaded backends, or bridging to existing Python data science pipelines.
-
-## Adding Charton to Your Project
-
-To get started with the standard, single-threaded configuration, add Charton to your `Cargo.toml`:
+Charton is one engine with opt-in backends. The default build draws SVG and
+nothing else; every other feature adds a dependency only when you ask for it.
 
 ```toml
 [dependencies]
 charton = "0.9"
 ```
 
-## Tailoring with Cargo Features
+`use charton::prelude::*;` brings the `chart!` macro, `Chart::build`, the marks,
+encodings and the export traits into scope.
 
-For production deployments, we strongly recommend enabling specific features to unlock advanced performance and backend rendering capabilities:
+## Cargo features
+
+| Feature | Adds | Reach for it when |
+|---|---|---|
+| `spec` | The JSON chart document: types, validation, lowering, `schema()` (`serde`, `schemars`) | You read or write a `.json` chart; the CLI and MCP server are built on this. |
+| `png` (alias `raster`) | The `tiny-skia` raster backend and `.save("out.png")` | You need a bitmap for a report, a dashboard or a terminal. |
+| `pdf` | The `krilla` document backend, `.save("out.pdf")`, tagged PDF | The figure has to survive print or a journal's accessibility check. |
+| `parallel` | Rayon-backed data processing | The table is large enough that serial geometry is the bottleneck. |
+| `wgpu` | The GPU renderer (`WgpuRenderer`, `render_to_surface`) | You are integrating with winit, Bevy or egui, or animating a live chart. |
+| `geo` | GeoJSON ingestion and the geographic coordinate system | You draw a map from a `.geojson` file. |
+| `arrow` | Apache Arrow `RecordBatch` ingestion (`from_arrow`, `from_record_batches`) | Your data already arrives as Arrow (Parquet, a database, Arrow Flight). |
+
+Features compose:
 
 ```toml
-[dependencies]
-# Example 1: Enable multi-threaded data processing for massive Polars DataFrames
-charton = { version = "0.9", features = ["parallel"] }
-
-# Example 2: Enable native image and document encoders for direct file exports
 charton = { version = "0.9", features = ["png", "pdf"] }
 ```
 
-## Feature Flag Matrix
-
-| Feature Flag | Core Mechanism & Dependencies | Target Use Case |
-| :--- | :--- | :--- |
-| `parallel` | Activates Rayon-backed parallel computation for scale arbitration and geometry derivation. | Processing high-density data, such as financial market depth charts or massive scatter plots. |
-| `png` | Pulls in native PNG encoding backends, activating the `.save("out.png")` API. | Automated server-side report generation and automated dashboard asset caching. |
-| `pdf` | Integrates a vector PDF document renderer, activating the `.save("out.pdf")` API. | Generating publication-quality vector figures compliant with top-tier scientific journals (e.g., NEJM). |
+The CLI, the MCP server and the Nushell plugin are separate entry points, not
+features of the library. See [The command line](cli.md) and the
+[Nushell plugin](../ecosystem/nushell.md).

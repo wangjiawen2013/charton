@@ -1,41 +1,59 @@
-# Production Integration
+# CI & Deployment
 
-For a visualization library to succeed in an industrial ecosystem, it must extend beyond local rendering. It must integrate seamlessly into CI/CD pipelines, support automated regression testing, and provide deterministic output across various deployment environments—whether that is a cloud-native microservice, a WASM-powered browser interface, or a static report generation tool.
+Charton is headless by default: it writes an SVG and needs no display. The same
+engine is behind the CLI, so a report job can be a shell step instead of a Rust
+service.
 
-## Automated Regression & Snapshot Testing
+## A report job
 
-Visual libraries are notoriously difficult to test because the "correct" output is often subjective. Charton addresses this by implementing a Snapshot-Based Testing architecture.
+```bash
+charton validate chart.json --data sales.csv --json    # exit 4 on problems
+charton render chart.json -o report.svg
+charton render chart.json -o report.pdf
+```
 
-- Binary Snapshotting: Since Charton generates SVGs or binary image buffers through defined backends, we can serialize the output of a chart specification into a reference file. During CI, the library renders the chart and compares the output byte-by-byte (or via fuzzy perceptual hashing) against the golden master.
-- Deterministic Configuration: By forcing all layouts to rely on the `Theme` and `Coordinate` systems, we eliminate non-determinism caused by OS-specific font rendering or system-level float rounding, ensuring that a chart generated on a developer’s machine matches the production CI build exactly.
+The JSON report is the product: commit it, or fail the step on exit code 4.
+Diagnostics go to stderr and only the artifact goes to stdout, so `-o -` pipes
+into another process. `charton schema` writes the dialect's JSON Schema for an
+editor, a code generator or a contract test.
 
-## CI/CD Pipeline Integration
+## What is deterministic
 
-Charton is engineered to be a "headless" citizen of the cloud. The core rendering pipeline and the `SvgBackend` / `RasterBackend` / `PdfBackend` / `WgpuBackend` implementations are optimized for containerized environments:
+SVG output is text and byte-stable: the same document and rows produce the same
+bytes. The spec corpus and the CLI tests depend on that, and the library's
+`tests/spec_lower.rs` uses it to prove a document and the typed API are one path.
 
-- Minimal Footprint: By utilizing high-performance columnar data layouts, Charton ensures that memory overhead remains flat even when processing datasets that would crash standard plotting tools. This makes it ideal for running in restricted-resource container environments (e.g., AWS Lambda, K8s sidecars).
-- Feature Flagging: Output formats (PNG, PDF, etc.) are gated behind `Cargo` features (`png`/`raster`, `pdf`, `wgpu`, `geo`, `arrow`, `parallel`). This allows production builds to prune unnecessary dependencies, drastically reducing the binary size and attack surface in production environments.
+Raster text is **not** platform-independent. Glyph metrics come from the fonts the
+host provides, so the CI matrix runs the raster tests on Linux, macOS and Windows
+and the Chinese-text example on all three. Compare SVGs across machines; compare
+PNGs only inside one pinned image.
 
-## Deployment Strategies
+## Keep the build small
 
-When deploying Charton-powered services, we recommend two distinct patterns depending on the load:
+The default feature set has no rasterizer, no PDF encoder and no GPU backend:
 
-| Deployment Pattern | Use Case | Implementation Strategy |
-| :--- | :--- | :--- |
-| **Edge Rendering (WASM)** | Interactive UI / Dashboards | Compile the core library to WASM for client-side rendering, minimizing server load. |
-| **Headless Batch Service** | Automated Report Generation | Use a containerized Rust service to consume IPC data, render to SVG/PNG, and pipe to S3. |
+```toml
+charton = { version = "0.9" }                              # SVG only
+charton = { version = "0.9", features = ["png"] }          # + CPU raster
+charton = { version = "0.9", features = ["pdf"] }          # + tagged PDF
+```
 
-## Semantic Validation in CI
+Build the backend in the image that uses it. A validation-only job needs no
+renderer at all; a report job needs `png`/`pdf`; a desktop or WASM build adds
+`wgpu`. The full matrix is in [Installation](../getting_started/installation.md).
 
-The `Semantic Validation` pipeline described in our Error Registry is essential for production stability. Before a deployment is cleared:
+## The guards that make a change reviewable
 
-- Schema Check: CI runners parse the user-provided ChartSpec and perform a static analysis to ensure all channels (X, Y, Color) are bound to valid data types.
-- Bounds Audit: The pipeline evaluates the dataset range against the ScaleDomain. If the system detects potential data overflow or empty domains before rendering, the build fails immediately, preventing "blank chart" incidents in the production dashboard.
+The repository already runs the checks a downstream project would write:
 
-## Key Takeaways
+| Guard | Where |
+|---|---|
+| Public API surface | `tests/api_baseline.rs` vs `docs/api-baseline.txt` |
+| Dialect schema | `tests/spec_schema.rs` vs `schema/charton-v0.schema.json` |
+| Accept / reject corpus | `tests/spec_corpus.rs` vs `tests/spec/{accept,reject}/` |
+| Document == typed API bytes | `tests/spec_lower.rs` |
+| CLI and MCP behaviour | `charton-cli/tests/{cli,mcp}.rs` |
 
-Deterministic Outputs: Leverage snapshot testing to ensure that cross-environment chart generation yields identical visual results.
-
-Resource Optimization: Use feature-gated builds and columnar data handling to ensure high-throughput rendering within containerized cloud environments.
-
-Headless Capability: Design services for headless batch processing by treating the rendering engine as a pure, stateless function that transforms `Dataset` + `Theme` into a serialized visual artifact.
+Adopting the same idea in your own repository is enough: render a reference SVG
+per report, compare bytes, and run `charton validate` on every document before it
+is rendered.

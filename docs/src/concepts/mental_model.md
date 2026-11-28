@@ -6,12 +6,16 @@ This chapter introduces the design philosophy of Charton. Understanding the "Men
 Charton is built on the Grammar of Graphics. In traditional imperative plotting libraries, you manually calculate coordinates and "draw" shapes on a canvas. In Charton, you provide a Specification that describes the relationship between data and visual properties.
 
 ```rust
-Chart::build(&df)?
-    .mark_point()           // Geometric Mark: Point
+use charton::prelude::*;
+
+let ds = load_polars_df!(df)?;
+
+Chart::build(ds)?
+    .mark_point()              // Geometric Mark: Point
     .encode((
-        x("weight"),        // Position Encoding: Map "weight" to X-axis
-        y("horsepower"),    // Position Encoding: Map "horsepower" to Y-axis
-        color("origin"),    // Visual Encoding: Map "origin" to Color
+        alt::x("weight"),      // Position Encoding: Map "weight" to X-axis
+        alt::y("horsepower"),  // Position Encoding: Map "horsepower" to Y-axis
+        alt::color("origin"),  // Visual Encoding: Map "origin" to Color
     ))?
 ```
 

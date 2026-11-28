@@ -5,6 +5,20 @@ names the Nushell release it targets and the `charton` library it draws with;
 neither is implied by the plugin's own version number. Releases are tagged
 `nu-plugin-charton-vX.Y.Z`.
 
+## [Unreleased]
+
+### Added
+
+- **`charton render` draws a JSON chart document.** The document is the same
+  Vega-Lite v5 subset the CLI writes and the MCP server validates, so a chart
+  can be committed, reviewed in a diff, and replayed instead of retyped as
+  flags. Pass it as a path (`open sales.csv | charton render chart.json`) or
+  pipe it (`open chart.json | charton render`). A piped table replaces the
+  document's `data`; a document read from the pipeline keeps its rows inline.
+  The command shares the mark commands' delivery flags (`-o`, `--raw`, `--png`,
+  `--width`, `--height`, `--scale`, `--font-scale`, `--inline-style`), so both
+  descriptions of a chart end in one delivery path.
+
 ## [0.9.1] - 2026-11-13
 
 Targets **Nushell 0.117** and draws with **`charton` 0.9.1**.

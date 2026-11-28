@@ -110,3 +110,5 @@ derived value, compute it upstream and put the column in the data.
 - [The command line](../getting_started/cli.md) — `plot`, `render`, `validate`,
   `schema`, and `--emit-spec`.
 - [Agents (MCP)](../getting_started/mcp.md) — the same checks, served as tools.
+- [The Nushell plugin](../ecosystem/nushell.md#chart-documents) — `charton render`
+  draws the same document inside a pipeline.

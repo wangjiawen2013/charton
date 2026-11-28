@@ -25,18 +25,23 @@ Two invariants hold at all times, and both are tested:
 
 | Spec | Core | State |
 |---|---|---|
-| `title` | `LayeredChart::with_title` | Lossless |
-| `description` | `LayeredChart::with_description` | Lossless |
 | `$schema` | version gate only | Lossless |
+| `data` | resolved by the entry point; rows reach the core as a `Dataset` | Lossless — see [`data`](#data) |
+| `mark`, `charton.mark` | `mark_*` | Lossless — see [`mark`](#mark) |
+| `encoding` | `alt::*` / `encode` | Lossless — see [`encoding`](#encoding) |
+| `transform` | `transform_*` | Lossless — see [`transform`](#transform) |
+| `layer` | each layer becomes a `Chart`, combined with `.and()` | Lossless for one level — see [`layer`](#layer) |
+| `facet` | `FacetSpec` | Lossless — see [`facet`](#facet) |
+| `title`, `description` | `LayeredChart::with_title` / `with_description` | Lossless |
 | `theme` | `LayeredChart::with_theme` (`light`, `dark`) | Lossless |
-| `transform`, `facet`, `theme` | — | **Error** (`E_UNKNOWN_FIELD`): not in this version of the dialect. Adding them is a spec-version bump, not an extension. |
+| anything else | — | **Error** (`E_UNKNOWN_FIELD`) |
 
 ## `data`
 
 | Spec | Core | State |
 |---|---|---|
 | `values` | `spec::inline_dataset` | Lossless, with limits: 10 000 rows, 200 000 cells. Column types are inferred per column: all numbers → continuous, all booleans → categorical, anything else → text. A single text cell makes the whole column text — the only choice that never drops a value. **Date strings are not sniffed**; they stay categorical. |
-| `url` | resolved by the entry point | Lossless. The core never reads a file: the CLI, the MCP server and the playground each apply their own sandbox. |
+| `url` | resolved by the entry point | Lossless. The core never reads a file: the CLI and the MCP server apply their own sandbox. |
 | a URL with a scheme (`https://…`) | — | **Error** (`E_DATA_SOURCE`). |
 | both `url` and `values`, or neither | — | **Error** (`E_DATA_SOURCE`). |
 
@@ -57,7 +62,7 @@ Two invariants hold at all times, and both are tested:
 | `violin`, `density`, `density_2d`, `contour`, `hist` | `mark_violin`, `mark_density`, `mark_density_2d`, `mark_contour(z)`, `mark_hist` | Lossless. Same statistics the Rust API uses. |
 | `polygon`, `path` | `mark_polygon`, `mark_path` | Lossless. `pathGroup` selects which rows form one shape. |
 | `beeswarm` | `mark_point` + `PointLayout::Beeswarm` | Lossless: a swarm is a placement strategy, not a mark. |
-| `quantile_box` | — | **Error** (`E_UNSUPPORTED_FIELD`): the dialect knows the name, this build does not draw it. The list lives in `LOWERED_EXTENSION_MARKS` in `src/spec/lower.rs`, next to the dispatch, so the two cannot drift. |
+| `quantile_box` | — | **Error** (`E_UNSUPPORTED_FIELD`): the dialect knows the name, this build does not draw it. The list lives in `SUPPORTED_EXTENSION_MARKS` in `src/spec/lower.rs`, next to the dispatch, so the two cannot drift. |
 
 `hist` writes its own count column to `y`, so `y` may be omitted. If it is
 present it must name a real column, and the mark replaces it with the count.

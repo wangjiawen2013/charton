@@ -13,15 +13,19 @@ categories = ["command-line-utilities", "visualization"]
 
 [dependencies]
 # Path + version so the crate stays publishable; the version is the floor this
-# plugin's rendering relies on, and the features give it PNG output plus GeoJSON.
-charton = { path = "..", version = "0.9.1", features = ["png", "geo"] }
+# plugin's rendering relies on. `png` gives it raster output, `geo` its map
+# layer, and `spec` lets `charton render` speak the JSON chart document.
+charton = { path = "..", version = "0.9.1", features = ["png", "geo", "spec"] }
 # The plugin protocol is versioned with Nushell and the engine rejects a
-# plugin built against a different minor, so both crates are pinned to the
-# release line this plugin targets.
-nu-plugin = "=0.117"
-nu-protocol = "=0.117"
+# plugin built against a different minor, so both crates stay on the `0.117`
+# line: patches of that line are protocol-compatible, the next minor is not.
+nu-plugin = "0.117"
+nu-protocol = "0.117"
 # Decode charton's PNG output for truecolor half-block terminal rendering.
 png = "0.18"
+# Convert the document a pipeline carries (`open chart.json` is a record) into
+# the JSON value the spec parser reads.
+serde_json = "1"
 # Base64 payloads for the iTerm2 / Kitty inline image protocols.
 base64 = "0.22"
 # Read the interactive terminal dimensions for auto-fitting inline charts.
@@ -35,4 +39,4 @@ icy_sixel = "0.7.0"
 probe = []
 
 [dev-dependencies]
-nu-plugin-test-support = "=0.117"
+nu-plugin-test-support = "0.117"
