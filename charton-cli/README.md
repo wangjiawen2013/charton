@@ -5,7 +5,7 @@ A table in, a chart out — no Rust toolchain, no Node, no Python.
 `charton` is the command-line front end of the [charton](https://github.com/wangjiawen2013/charton)
 engine. It reads CSV, TSV, NDJSON or stdin, and it renders the same JSON chart
 document (a Vega-Lite v5 subset) that the MCP server and the Nushell plugin
-speak.
+use.
 
 ## Install
 
@@ -83,14 +83,14 @@ when a chart needs more than a handful of flags, write a document.
 charton render chart.json -o report.pdf
 ```
 
-`render` validates the document, lowers it, and writes the image. The dialect is
-described in [Writing a chart document](https://github.com/wangjiawen2013/charton/blob/main/docs/src/spec/index.md)
-and the exact fields in [the lowering map](https://github.com/wangjiawen2013/charton/blob/main/docs/src/spec/lowering-map.md).
+`render` validates the document and writes the image. The document format is
+described in [Writing a chart document](../docs/src/spec/index.md)
+and the exact fields in [the field reference](../docs/src/spec/lowering-map.md).
 
 The document names its data:
 
 - inline `data.values`, or
-- `data.url`, a **local path** resolved against the spec file's directory (with
+- `data.url`, a **local path** resolved against the document's directory (with
   a fallback to the current directory). A URL with a scheme is refused.
 - `url: "-"` means stdin, so a document emitted from a pipe replays through a
   pipe.
@@ -132,7 +132,7 @@ and usually a hint. Exit code **4** means "the document has problems", which is 
 normal linter outcome. `--data` adds the second tier: field names, value types,
 and row-shape checks.
 
-### `schema` — the dialect, for tools
+### `schema` — the document format, for tools
 
 ```sh
 charton schema > charton.schema.json
@@ -174,7 +174,7 @@ charton render chart.json -o b.svg
 cmp a.svg b.svg        # identical
 ```
 
-Both commands take the same build path, so the document *is* the chart. Edit
+Both commands build the chart the same way, so the document *is* the chart. Edit
 `chart.json` to reach everything the flags do not cover — transforms, layers,
 facets, scales.
 
@@ -200,15 +200,15 @@ Column typing is per column, not per cell: one word makes the whole column text,
 so an `id` column is never split into numbers and nulls. Date strings are not
 sniffed; they stay categorical.
 
-A document's `data.url` is a path, not a URL, and it resolves against the spec
-file's directory. Remote URLs are refused.
+A document's `data.url` is a path, not a URL, and it resolves against the
+document's directory. Remote URLs are refused.
 
 ## Output
 
-| Extension | Backend |
+| Extension | Output |
 |---|---|
 | `.svg` | Vector, always available. |
-| `.png` | CPU raster (`tiny-skia`). |
+| `.png` | CPU-rendered raster image. |
 | `.pdf` | Tagged vector document. |
 
 - No `-o` writes `chart.svg`.
@@ -234,17 +234,17 @@ Stdout is the transport: nothing else is ever written there. Logs go to stderr.
 
 | Tool | Arguments | Returns |
 |---|---|---|
-| `get_schema` | — | The dialect's JSON Schema, as text. |
+| `get_schema` | — | The document format's JSON Schema, as text. |
 | `profile_data` | `path`, `sample_rows?` | Columns, types, missing counts, ranges or distinct values, a sample. |
 | `list_marks` | — | Every mark, its namespace, support, and required/refused channels. |
 | `list_themes` | — | The themes `theme` accepts. |
-| `validate_spec` | `spec`, `data?` | The same `{ "ok", "errors" }` envelope as `validate --json`. |
+| `validate_spec` | `spec`, `data?` | The same `{ "ok", "errors" }` result as `validate --json`. |
 | `render_spec` | `spec`, `format?` | SVG as text, or PNG as an image block. Problems replace the chart. |
-| `export_spec` | `spec`, `path`, `overwrite?` | Writes the canonical document. Needs `--allow-write`. |
+| `export_spec` | `spec`, `path`, `overwrite?` | Writes the validated document. Needs `--allow-write`. |
 
 `spec` is either the document itself (a JSON object) or a path inside the root.
 `data` is a path inside the root. In the server, every path — including a spec's
-own `data.url` — is resolved against `--root`, not against the spec file.
+own `data.url` — is resolved against `--root`, not against the document file.
 
 `profile_data` defaults to 5 sample rows (max 50). `render_spec` accepts `svg`
 (default) or `png`; a PNG comes back as a base64 `image` content block.
@@ -269,8 +269,8 @@ text block. JSON-RPC errors are reserved for protocol mistakes (`-32700` parse,
 
 ### Safety
 
-- **One root.** Every path is joined to `--root` and canonicalised before the
-  check; `../` and symlinks cannot climb out.
+- **One root.** Every path is resolved against `--root` before the check;
+  `../` and symlinks cannot climb out.
 - **Read-only by default.** `export_spec` refuses unless the server was started
   with `--allow-write`, and never creates directories.
 - **Limits.** 64 MiB per input file, 32 MiB per output.
@@ -279,12 +279,12 @@ text block. JSON-RPC errors are reserved for protocol mistakes (`-32700` parse,
 
 ## Documentation
 
-The README is the reference. The book explains the design:
+The README is the reference. The book goes deeper:
 
-- [The command line](../docs/src/getting_started/cli.md) — why the CLI is four commands and how the build path works.
-- [Agents (MCP)](../docs/src/getting_started/mcp.md) — the loop, the error model, the sandbox.
-- [Writing a chart document](../docs/src/spec/index.md) — the dialect.
-- [Field reference (lowering map)](../docs/src/spec/lowering-map.md) — every field.
+- [The command line](../docs/src/getting_started/cli.md) — why the CLI is four commands and how a chart is built.
+- [Agents (MCP)](../docs/src/getting_started/mcp.md) — how the agent loop works, error handling, and the sandbox.
+- [Writing a chart document](../docs/src/spec/index.md) — the document format.
+- [Field reference](../docs/src/spec/lowering-map.md) — every field.
 
 ## License
 

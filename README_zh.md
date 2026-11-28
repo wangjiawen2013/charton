@@ -17,9 +17,9 @@
   <i>标准组件 — 无限图表</i>
 </p>
 
-Charton 是一个基于声明式图形语法的绘图引擎。同一张图，可以用 Rust 代码、CLI 命令、Nushell 管道、JSON 图表文档或 MCP 工具调用来写——同一个校验器、同一条构建路径、同一个渲染器。
+Charton 是一个高性能绘图引擎，把图形语法（Grammar of Graphics）带到了 Rust、Shell 与 AI Agent 中。你可以用 Rust 代码、JSON 文档、CLI 命令、Nushell 管道或 MCP 工具调用来描述一张图，并输出为 SVG、PNG 或 PDF。每个入口共享同一套图表模型、比例尺和样式，因此同一张图无论用哪种方式构建，结果都一致。
 
-它的 API 灵感来自 [Altair](https://altair-viz.github.io/) 与图形语法（Grammar of Graphics），并用 [Polars](https://github.com/pola-rs/polars) 做快速数据处理。它也能通过 evcxr_jupyter 在 Notebook 中运行，通过 WebAssembly 在浏览器中运行，并通过 wgpu 在 GPU 上渲染。
+它的 API 灵感来自 [Altair](https://altair-viz.github.io/)，并用 [Polars](https://github.com/pola-rs/polars) 做快速数据处理。它也能通过 evcxr_jupyter 在 Notebook 中运行，通过 WebAssembly 在浏览器中运行，并通过 wgpu 在 GPU 上渲染。
 
 <table>
     <tr>
@@ -73,16 +73,16 @@ Charton 是一个基于声明式图形语法的绘图引擎。同一张图，可
 
 ## 快速上手
 
-按需安装你要用的入口：
+选择你的使用方式：
 
-| 入口 | 安装 |
-| --- | --- |
-| Rust 库 | `cargo add charton` |
-| 命令行 | `cargo install charton-cli` |
-| Nushell 插件 | `cargo install nu_plugin_charton` |
-| MCP 服务 | 包含在 `charton-cli` 中 |
+| 使用方式 | 适合场景 | 安装 |
+| --- | --- | --- |
+| Rust 库 | 在 Rust 应用、服务、Notebook 和 Wasm 中绘图 | `cargo add charton` |
+| 命令行 | 在 Shell 或 CI 中把 CSV/TSV/NDJSON 转成 SVG/PNG/PDF | `cargo install charton-cli` |
+| Nushell 插件 | 把管道表格画成图表，终端内联显示或保存 | `cargo install nu_plugin_charton` |
+| MCP 服务 | 让 Agent 分析数据、写图表文档并渲染 | `cargo install charton-cli` |
 
-下面用一张简单的散点图示例各入口的用法。四条路径共享同一个校验器、同一条 lower 路径和同一个渲染器。
+下面用一张简单的散点图示例各使用方式的用法。
 
 ### Rust 库
 
@@ -130,7 +130,7 @@ Agent 随后调用 `render_spec`：
            "encoding": {"x": {"field": "x"}, "y": {"field": "y"}}}}}}
 ```
 
-七个工具让 Agent 分析数据、写图表文档、校验并渲染——全程不运行生成的代码。→ [MCP 参考](charton-cli/README.md#the-mcp-server) · [设计章节](docs/src/getting_started/mcp.md)
+七个工具让 Agent 分析数据、写图表文档、校验并渲染——全程不运行生成的代码。→ [CLI README](charton-cli/README.md)
 
 CLI、Nushell 插件和 MCP 服务使用同一种 JSON 图表文档——Vega-Lite v5 的子集，见[图表文档指南](docs/src/spec/index.md)。
 
@@ -145,13 +145,13 @@ CLI、Nushell 插件和 MCP 服务使用同一种 JSON 图表文档——Vega-Li
 ```toml
 [dependencies]
 charton = "0.9"                                            # 标准版 (单线程 + SVG 导出)
-charton = { version = "0.9", features = ["png"] }          # 纯后端光栅化渲染（仅 CPU 模式）
+charton = { version = "0.9", features = ["png"] }          # 仅 CPU 的 PNG 导出（无需 GPU）
 charton = { version = "0.9", features = ["pdf"] }          # PDF 格式图表导出
 charton = { version = "0.9", features = ["wgpu", "png"] }  # 本地桌面端（GPU 加速 + PNG 导出）
 charton = { version = "0.9", features = ["wgpu"] }         # 网页浏览器（WebAssembly/Wasm 目标平台）
 charton = { version = "0.9", features = ["parallel"] }     # 多线程数据处理（基于 Rayon）
 charton = { version = "0.9", features = ["geo"] }          # 地理坐标支持
-charton = { version = "0.9", features = ["spec"] }         # JSON 图表文档（CLI/MCP 使用的方言）
+charton = { version = "0.9", features = ["spec"] }         # JSON 图表文档（CLI/MCP 使用的格式）
 charton = { version = "0.9", features = ["arrow"] }        # Apache Arrow RecordBatch 数据接入
 ```
 
@@ -225,11 +225,11 @@ line.and(point).save("layered.svg")?;
 <p align="center"> <img src="docs/src/images/facet_grid.svg" alt="Facet Grid"> </p>
 
 ## 桌面 GUI 集成
-Charton 可以通过其 GPU 加速后端直接渲染到原生桌面应用中。下图是一个使用 Charton 和 egui 构建的实时系统遥测仪表板，展示了实时 CPU、内存、Swap 和网络监控，以及每个核心的负载分布：
+Charton 可以借助 GPU 加速，直接渲染到原生桌面应用中。下图是一个使用 Charton 和 egui 构建的实时系统遥测仪表板，展示了实时 CPU、内存、Swap 和网络监控，以及每个核心的负载分布：
 
 <p align="center"> <img src="assets/monitor.png" alt="Charton gui 仪表板"> </p>
 
-Charton 为 GUI 应用提供了两种集成路径：`render_to_surface` 用于零拷贝 GPU 渲染（适合 wgpu 版本一致时的 60 FPS 游戏循环），或者独立的 `WgpuRenderer`，它管理自己的 wgpu 实例并返回像素缓冲区——速度稍慢，但不受 crate 之间 wgpu 版本冲突的影响。
+Charton 为 GUI 应用提供了两种集成路径：`render_to_surface` 用于 60 FPS 循环中的零拷贝 GPU 渲染，或者独立的 `WgpuRenderer`，用于规避 crate 之间 wgpu 版本冲突。
 
 ## WebAssembly 与前端
 Charton 支持 WebAssembly 及现代 Web 前端开发。下面这个示例展示了一个支持实时交互的 50,000 点 Lorenz 吸引子 3D 动力学系统，利用 WASM 技术在浏览器中实现 60 FPS 的超流畅渲染。

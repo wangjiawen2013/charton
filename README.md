@@ -17,9 +17,9 @@
   <i>standard blocks — limitless charts</i>
 </p>
 
-Charton is a plotting engine built around a declarative grammar of graphics. The same chart can be written as Rust code, a CLI command, a Nushell pipeline, a JSON document, or an MCP tool call — one validator, one build path, one renderer.
+Charton is a high-performance plotting engine that brings a grammar of graphics to Rust, the shell, and AI agents. Describe a chart in Rust code, as a JSON document, from the command line, in a Nushell pipeline, or through an MCP tool call — and render it to SVG, PNG, or PDF. Every interface shares the same chart model, scales, and styling, so a chart looks the same no matter where you build it.
 
-Its API is inspired by [Altair](https://altair-viz.github.io/) and the grammar of graphics, with [Polars](https://github.com/pola-rs/polars) for fast data processing. It also runs in Jupyter through evcxr_jupyter, in the browser through WebAssembly, and on the GPU through wgpu.
+Its API is inspired by [Altair](https://altair-viz.github.io/), with [Polars](https://github.com/pola-rs/polars) for fast data processing. It also runs in Jupyter through evcxr_jupyter, in the browser through WebAssembly, and on the GPU through wgpu.
 
 <table>
     <tr>
@@ -73,16 +73,16 @@ Its API is inspired by [Altair](https://altair-viz.github.io/) and the grammar o
 
 ## Quick start
 
-Install the surface you need:
+Choose how you want to use Charton:
 
-| Surface | Install |
-| --- | --- |
-| Rust library | `cargo add charton` |
-| Command line | `cargo install charton-cli` |
-| Nushell plugin | `cargo install nu_plugin_charton` |
-| MCP server | included in `charton-cli` |
+| Interface | Best for | Install |
+| --- | --- | --- |
+| Rust library | Charts inside Rust apps, services, notebooks, and Wasm | `cargo add charton` |
+| Command line | CSV/TSV/NDJSON to SVG/PNG/PDF from a shell or CI | `cargo install charton-cli` |
+| Nushell plugin | Pipeline tables as charts, inline or saved | `cargo install nu_plugin_charton` |
+| MCP server | Agents that profile data, write chart documents, and render them | `cargo install charton-cli` |
 
-The examples below draw a simple scatter plot to show each entry point in use. All four paths share the same validator, lowering, and renderer.
+The examples below draw a simple scatter plot to show each interface in use.
 
 ### Rust library
 
@@ -130,9 +130,9 @@ An agent then calls `render_spec`:
            "encoding": {"x": {"field": "x"}, "y": {"field": "y"}}}}}}
 ```
 
-Seven tools let an agent profile data, write a spec, validate it, and render it — without running generated code. → [MCP reference](charton-cli/README.md#the-mcp-server) · [Design chapter](docs/src/getting_started/mcp.md)
+Seven tools let an agent profile data, write a chart document, validate it, and render it — without running generated code. → [CLI README](charton-cli/README.md)
 
-The CLI, the Nushell plugin, and the MCP server all speak the same JSON chart document — a Vega-Lite v5 subset described in the [spec guide](docs/src/spec/index.md).
+The CLI, the Nushell plugin, and the MCP server all use the same JSON chart document — a Vega-Lite v5 subset described in the [chart document guide](docs/src/spec/index.md).
 
 ## The Rust library
 
@@ -145,13 +145,13 @@ Enable only what you need:
 ```toml
 [dependencies]
 charton = "0.9"                                            # Standard (Single-threaded + SVG export)
-charton = { version = "0.9", features = ["png"] }          # Pure Headless Raster Renderer (CPU only)
+charton = { version = "0.9", features = ["png"] }          # PNG export on the CPU (no GPU required)
 charton = { version = "0.9", features = ["pdf"] }          # Export charts to PDF format
 charton = { version = "0.9", features = ["wgpu", "png"] }  # Local Desktop with GPU acceleration + PNG export
 charton = { version = "0.9", features = ["wgpu"] }         # Web Browsers (WebAssembly/Wasm target)
 charton = { version = "0.9", features = ["parallel"] }     # Multi-threaded data processing (Rayon)
 charton = { version = "0.9", features = ["geo"] }          # Enable geospatial coordinate support
-charton = { version = "0.9", features = ["spec"] }         # JSON chart documents (the dialect the CLI/MCP speak)
+charton = { version = "0.9", features = ["spec"] }         # JSON chart documents (the format used by the CLI/MCP)
 charton = { version = "0.9", features = ["arrow"] }        # Apache Arrow RecordBatch ingestion
 ```
 
@@ -225,14 +225,14 @@ Now supporting multi-panel faceting (`wrap` and `grid` layouts), enabling you to
 <p align="center"> <img src="docs/src/images/facet_grid.svg" alt="Facet Grid"> </p>
 
 ## Desktop GUI Integration
-Charton can render directly into native desktop applications via its GPU-accelerated backend. Below is a real-time system telemetry dashboard built with Charton and egui, demonstrating live CPU, memory, swap, and network monitoring with per-core load distribution:
+Charton can render directly into native desktop applications with GPU acceleration. Below is a real-time system telemetry dashboard built with Charton and egui, demonstrating live CPU, memory, swap, and network monitoring with per-core load distribution:
 
 <p align="center"> <img src="assets/monitor.png" alt="Charton gui Dashboard"> </p>
 
-Charton offers two integration paths for GUI applications: `render_to_surface` for zero-copy GPU rendering (ideal for 60 FPS game loops where wgpu versions align), or the standalone `WgpuRenderer` that manages its own wgpu instance and returns a pixel buffer — slightly slower but immune to wgpu version conflicts between crates.
+Charton offers two integration paths for GUI applications: `render_to_surface` for zero-copy GPU rendering in a 60 FPS loop, or the standalone `WgpuRenderer` when you need to avoid wgpu version conflicts between crates.
 
 ## WebAssembly and Frontend
-Charton supports WebAssembly and modern web frontend. Below is an interactive demo simulates a 50,000-point Lorenz Attractor at 60 FPS, demonstrating how WebAssembly enables high-performance, real-time data visualization in the browser.
+Charton supports WebAssembly and modern web frontends. Below is an interactive demo that simulates a 50,000-point Lorenz Attractor at 60 FPS, demonstrating how WebAssembly enables high-performance, real-time data visualization in the browser.
 
 <p align="center"> <img src="assets/lorenz.gif" alt="Charton Wasm demo"> </p>
 
